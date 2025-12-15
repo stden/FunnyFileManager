@@ -364,9 +364,9 @@ fn ui(f: &mut Frame, app: &mut App) {
 
 fn render_panel(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bool) {
     let border_style = if is_active {
-        Style::default().fg(Color::Cyan)
+        Style::default().fg(Color::Yellow)
     } else {
-        Style::default().fg(Color::DarkGray)
+        Style::default().fg(Color::Cyan)
     };
 
     let title = format!(" {} ", panel.path.display());
@@ -389,13 +389,13 @@ fn render_panel(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bool) {
                     format!("{:<width$}", entry.name, width = NAME_FIELD_WIDTH),
                     if entry.is_dir {
                         Style::default()
-                            .fg(Color::Yellow)
+                            .fg(Color::White)
                             .add_modifier(Modifier::BOLD)
                     } else {
-                        Style::default()
+                        Style::default().fg(Color::Cyan)
                     },
                 ),
-                Span::styled(size_str, Style::default().fg(Color::Gray)),
+                Span::styled(size_str, Style::default().fg(Color::LightCyan)),
             ]);
 
             ListItem::new(line)
@@ -407,23 +407,26 @@ fn render_panel(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bool) {
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(border_style)
-                .title(title),
+                .style(Style::default().bg(Color::Blue))
+                .title(title)
+                .title_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
         )
         .highlight_style(
             Style::default()
-                .bg(Color::DarkGray)
+                .bg(Color::Cyan)
+                .fg(Color::Black)
                 .add_modifier(Modifier::BOLD),
         )
-        .highlight_symbol("▶ ");
+        .highlight_symbol("» ");
 
     f.render_stateful_widget(list, area, &mut panel.state);
 }
 
 fn render_header(f: &mut Frame, area: Rect) {
-    let paragraph = Paragraph::new("Midnight Commander style | Tab: Switch panels | F1 for help")
+    let paragraph = Paragraph::new("Far Manager style | Tab: Switch panels | F1 for help")
         .style(
             Style::default()
-                .fg(Color::White)
+                .fg(Color::Yellow)
                 .bg(Color::Blue)
                 .add_modifier(Modifier::BOLD),
         );
@@ -453,8 +456,8 @@ fn render_status(f: &mut Frame, app: &App, area: Rect) {
     );
 
     let paragraph = Paragraph::new(help_text)
-        .style(Style::default().bg(Color::Rgb(0, 0, 80)).fg(Color::White))
-        .block(Block::default().borders(Borders::ALL));
+        .style(Style::default().bg(Color::Cyan).fg(Color::Black))
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan)));
 
     f.render_widget(paragraph, area);
 }
@@ -473,20 +476,27 @@ fn render_command_bar(f: &mut Frame, area: Rect) {
 
     let spans: Vec<Span> = keys
         .iter()
-        .map(|(key, label)| {
-            Span::styled(
-                format!(" {} {} ", key, label),
-                Style::default()
-                    .bg(Color::Rgb(0, 0, 80))
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            )
+        .flat_map(|(key, label)| {
+            vec![
+                Span::styled(
+                    format!(" {} ", key),
+                    Style::default()
+                        .bg(Color::Black)
+                        .fg(Color::White),
+                ),
+                Span::styled(
+                    format!("{} ", label),
+                    Style::default()
+                        .bg(Color::Cyan)
+                        .fg(Color::Black),
+                ),
+            ]
         })
         .collect();
 
     let paragraph = Paragraph::new(Line::from(spans))
-        .style(Style::default().bg(Color::Rgb(0, 0, 80)).fg(Color::White))
-        .block(Block::default().borders(Borders::ALL));
+        .style(Style::default().bg(Color::Cyan).fg(Color::Black))
+        .block(Block::default().borders(Borders::NONE));
 
     f.render_widget(paragraph, area);
 }
@@ -516,11 +526,11 @@ fn render_overlays(f: &mut Frame, app: &mut App) {
             .title(" Help ")
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Yellow))
-            .style(Style::default().bg(Color::Black));
+            .style(Style::default().bg(Color::Blue));
 
         let paragraph = Paragraph::new(content)
             .block(block)
-            .style(Style::default().fg(Color::White));
+            .style(Style::default().fg(Color::Cyan));
 
         f.render_widget(paragraph, area);
     }
@@ -531,8 +541,8 @@ fn render_overlays(f: &mut Frame, app: &mut App) {
         let block = Block::default()
             .title(format!(" View: {} (Esc to close) ", viewer.title))
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan))
-            .style(Style::default().bg(Color::Black));
+            .border_style(Style::default().fg(Color::Yellow))
+            .style(Style::default().bg(Color::Blue));
 
         let paragraph = Paragraph::new(
             viewer
@@ -543,7 +553,7 @@ fn render_overlays(f: &mut Frame, app: &mut App) {
         )
         .scroll((viewer.scroll, 0))
         .block(block)
-        .style(Style::default().fg(Color::White));
+        .style(Style::default().fg(Color::Cyan));
 
         f.render_widget(paragraph, area);
     }
