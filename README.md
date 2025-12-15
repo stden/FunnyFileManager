@@ -1,0 +1,2 @@
+# FunnyFileManager
+Far in Rust
