@@ -2786,12 +2786,26 @@ mod tests {
     fn test_run_app_all_keys() -> io::Result<()> {
         use crossterm::event::{KeyEvent, KeyModifiers};
         
+        let temp_dir = TempDir::new()?;
+        File::create(temp_dir.path().join("file.txt"))?;
+        
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        let app = App::new()?;
+        let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
+        
+        // Ensure we have a file selected for view operations
+        app.get_active_panel().load_entries()?;
+        for (i, entry) in app.get_active_panel().entries.iter().enumerate() {
+            if entry.name == "file.txt" {
+                app.get_active_panel().state.select(Some(i));
+                break;
+            }
+        }
+        
+        std::env::set_var("TEST_MODE", "1");
         
         // Create a sequence of events to test all key handlers
-        let mut events = vec![
+        let events = vec![
             Event::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty())),
             Event::Key(KeyEvent::new(KeyCode::Up, KeyModifiers::empty())),
             Event::Key(KeyEvent::new(KeyCode::Enter, KeyModifiers::empty())),
@@ -2799,7 +2813,9 @@ mod tests {
             Event::Key(KeyEvent::new(KeyCode::Left, KeyModifiers::empty())),
             Event::Key(KeyEvent::new(KeyCode::Right, KeyModifiers::empty())),
             Event::Key(KeyEvent::new(KeyCode::F(1), KeyModifiers::empty())),
+            Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty())), // Close help
             Event::Key(KeyEvent::new(KeyCode::F(3), KeyModifiers::empty())),
+            Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::empty())), // Close viewer
             Event::Key(KeyEvent::new(KeyCode::F(4), KeyModifiers::empty())),
             Event::Key(KeyEvent::new(KeyCode::F(5), KeyModifiers::empty())),
             Event::Key(KeyEvent::new(KeyCode::F(6), KeyModifiers::empty())),
@@ -2808,13 +2824,19 @@ mod tests {
             Event::Key(KeyEvent::new(KeyCode::Char('x'), KeyModifiers::empty())), // Unknown key
             Event::Key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::empty())), // Quit
         ];
-        events.reverse(); // So we can pop from the end
         
-        let mut event_iter = events.into_iter().rev();
+        let mut event_index = 0;
         let result = run_app_with_event_reader(&mut terminal, app, || {
-            event_iter.next().ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+            if event_index < events.len() {
+                let event = events[event_index].clone();
+                event_index += 1;
+                Ok(event)
+            } else {
+                Err(io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+            }
         });
         
+        std::env::remove_var("TEST_MODE");
         assert!(result.is_ok());
         Ok(())
     }
@@ -3078,6 +3100,15 @@ mod tests {
     }
 
     #[test]
+    fn test_simulate_cross_filesystem_move() {
+        let result = simulate_cross_filesystem_move();
+        #[cfg(windows)]
+        assert!(result);
+        #[cfg(not(windows))]
+        assert!(!result);
+    }
+
+    #[test]
     fn test_all_key_code_branches() -> io::Result<()> {
         use crossterm::event::{KeyEvent, KeyModifiers};
         
@@ -3087,12 +3118,21 @@ mod tests {
         
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        let app = App::new_with_path(temp_dir.path().to_path_buf())?;
+        let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
+        
+        // Ensure we have a file selected for F3/F4 operations
+        app.get_active_panel().load_entries()?;
+        for (i, entry) in app.get_active_panel().entries.iter().enumerate() {
+            if entry.name == "file.txt" {
+                app.get_active_panel().state.select(Some(i));
+                break;
+            }
+        }
         
         std::env::set_var("TEST_MODE", "1");
         
         // Create events that test every branch in the match statement
-        let mut events = vec![
+        let events = vec![
             // Navigation
             Event::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty())),
             Event::Key(KeyEvent::new(KeyCode::Up, KeyModifiers::empty())),
@@ -3118,15 +3158,85 @@ mod tests {
             // Quit
             Event::Key(KeyEvent::new(KeyCode::F(10), KeyModifiers::empty())),
         ];
-        events.reverse();
         
-        let mut event_iter = events.into_iter().rev();
+        let mut event_index = 0;
         let result = run_app_with_event_reader(&mut terminal, app, || {
-            event_iter.next().ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+            if event_index < events.len() {
+                let event = events[event_index].clone();
+                event_index += 1;
+                Ok(event)
+            } else {
+                Err(io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+            }
         });
         
         std::env::remove_var("TEST_MODE");
         assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_main_function_signature() {
+        // Test that main function has correct signature
+        let _: fn() -> Result<(), Box<dyn Error>> = main;
+    }
+
+    #[test]
+    fn test_get_panels() -> io::Result<()> {
+        let mut app = App::new()?;
+        
+        // Test that get_active_panel returns left panel initially
+        app.active_panel = PanelSide::Left;
+        let left_path = app.left_panel.path.clone();
+        let active_path = app.get_active_panel().path.clone();
+        assert_eq!(active_path, left_path);
+        
+        // Test that get_inactive_panel returns right panel when left is active
+        let right_path = app.right_panel.path.clone();
+        let inactive_path = app.get_inactive_panel().path.clone();
+        assert_eq!(inactive_path, right_path);
+        
+        // Switch panels and test again
+        app.active_panel = PanelSide::Right;
+        let active_path = app.get_active_panel().path.clone();
+        assert_eq!(active_path, right_path);
+        let inactive_path = app.get_inactive_panel().path.clone();
+        assert_eq!(inactive_path, left_path);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_move_special_cases() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let source_dir = temp_dir.path().join("source");
+        let target_dir = temp_dir.path().join("target");
+        fs::create_dir(&source_dir)?;
+        fs::create_dir(&target_dir)?;
+        
+        // Create a file with special characters
+        let special_file = source_dir.join("test file.txt");
+        File::create(&special_file)?;
+        
+        let mut app = App::new_with_path(source_dir.clone())?;
+        app.right_panel = Panel::new(target_dir.clone())?;
+        
+        // Select the special file
+        app.left_panel.load_entries()?;
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test file.txt" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+        
+        // Move the file
+        handle_move(&mut app)?;
+        
+        // Verify the file was moved
+        assert!(!special_file.exists());
+        assert!(target_dir.join("test file.txt").exists());
+        
         Ok(())
     }
 }
