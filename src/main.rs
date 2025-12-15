@@ -42,7 +42,9 @@ impl Panel {
             state: ListState::default(),
         };
         panel.load_entries()?;
-        panel.state.select(Some(0));
+        if !panel.entries.is_empty() {
+            panel.state.select(Some(0));
+        }
         Ok(panel)
     }
 
@@ -131,7 +133,9 @@ impl Panel {
                         self.path = self.path.join(&entry.name);
                     }
                     self.load_entries()?;
-                    self.state.select(Some(0));
+                    if !self.entries.is_empty() {
+                        self.state.select(Some(0));
+                    }
                 }
             }
         }
