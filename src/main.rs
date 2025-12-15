@@ -363,8 +363,11 @@ fn ui(f: &mut Frame, app: &mut App) {
 }
 
 fn render_panel(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bool) {
+    // Far Manager classic dark blue background
+    let panel_bg = Color::Rgb(0, 0, 128);
+
     let border_style = if is_active {
-        Style::default().fg(Color::Yellow)
+        Style::default().fg(Color::Cyan)
     } else {
         Style::default().fg(Color::Cyan)
     };
@@ -407,9 +410,9 @@ fn render_panel(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bool) {
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(border_style)
-                .style(Style::default().bg(Color::Blue))
+                .style(Style::default().bg(panel_bg))
                 .title(title)
-                .title_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                .title_style(Style::default().fg(Color::White).bg(Color::Cyan)),
         )
         .highlight_style(
             Style::default()
@@ -423,11 +426,12 @@ fn render_panel(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bool) {
 }
 
 fn render_header(f: &mut Frame, area: Rect) {
+    let panel_bg = Color::Rgb(0, 0, 128);
     let paragraph = Paragraph::new("Far Manager style | Tab: Switch panels | F1 for help")
         .style(
             Style::default()
-                .fg(Color::Yellow)
-                .bg(Color::Blue)
+                .fg(Color::Cyan)
+                .bg(panel_bg)
                 .add_modifier(Modifier::BOLD),
         );
     f.render_widget(paragraph, area);
@@ -455,9 +459,10 @@ fn render_status(f: &mut Frame, app: &App, area: Rect) {
         selected_info, app.status_message
     );
 
+    let panel_bg = Color::Rgb(0, 0, 128);
     let paragraph = Paragraph::new(help_text)
-        .style(Style::default().bg(Color::Cyan).fg(Color::Black))
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan)));
+        .style(Style::default().bg(panel_bg).fg(Color::Cyan))
+        .block(Block::default().borders(Borders::NONE));
 
     f.render_widget(paragraph, area);
 }
@@ -505,7 +510,7 @@ fn render_overlays(f: &mut Frame, app: &mut App) {
     if app.show_help {
         let area = centered_rect(80, 80, f.size());
         let help_lines = vec![
-            "Midnight Commander style navigation:",
+            "Far Manager style navigation:",
             "F1: Toggle this help window",
             "F3: View selected file (read-only)",
             "F4: Edit selected file with $EDITOR or nano",
