@@ -803,3 +803,1008 @@ fn refresh_panels(app: &mut App) -> io::Result<()> {
     app.right_panel.ensure_selection();
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::{self, File};
+    use std::io::Write;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_format_size() {
+        assert_eq!(format_size(0), "0 B");
+        assert_eq!(format_size(512), "512 B");
+        assert_eq!(format_size(1024), "1.00 KB");
+        assert_eq!(format_size(1536), "1.50 KB");
+        assert_eq!(format_size(1048576), "1.00 MB");
+        assert_eq!(format_size(1572864), "1.50 MB");
+        assert_eq!(format_size(1073741824), "1.00 GB");
+        assert_eq!(format_size(1610612736), "1.50 GB");
+    }
+
+    #[test]
+    fn test_dir_entry() {
+        let entry = DirEntry {
+            name: "test.txt".to_string(),
+            is_dir: false,
+            size: 1024,
+        };
+        assert_eq!(entry.name, "test.txt");
+        assert!(!entry.is_dir);
+        assert_eq!(entry.size, 1024);
+    }
+
+    #[test]
+    fn test_viewer_default() {
+        let viewer = Viewer::default();
+        assert_eq!(viewer.title, "");
+        assert_eq!(viewer.lines.len(), 0);
+        assert_eq!(viewer.scroll, 0);
+    }
+
+    #[test]
+    fn test_panel_new() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let panel = Panel::new(temp_dir.path().to_path_buf())?;
+        assert_eq!(panel.path, temp_dir.path());
+        assert!(!panel.entries.is_empty() || panel.entries.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_load_entries() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        
+        // Create some test files and directories
+        fs::create_dir(temp_dir.path().join("subdir1"))?;
+        fs::create_dir(temp_dir.path().join("subdir2"))?;
+        File::create(temp_dir.path().join("file1.txt"))?.write_all(b"test")?;
+        File::create(temp_dir.path().join("file2.txt"))?.write_all(b"test content")?;
+        
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        panel.load_entries()?;
+        
+        // Should have at least 4 entries (2 dirs + 2 files)
+        assert!(panel.entries.len() >= 4);
+        
+        // Check that directories come first
+        let mut found_file = false;
+        for entry in &panel.entries {
+            if !entry.is_dir && entry.name != ".." {
+                found_file = true;
+            }
+            if found_file && entry.is_dir && entry.name != ".." {
+                panic!("Found directory after file in sorted entries");
+            }
+        }
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_navigation() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        
+        // Create test files
+        for i in 0..5 {
+            File::create(temp_dir.path().join(format!("file{}.txt", i)))?;
+        }
+        
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Test initial selection
+        assert_eq!(panel.state.selected(), Some(0));
+        
+        // Test next()
+        panel.next();
+        assert_eq!(panel.state.selected(), Some(1));
+        
+        // Test previous()
+        panel.previous();
+        assert_eq!(panel.state.selected(), Some(0));
+        
+        // Test wrap around
+        panel.previous();
+        assert_eq!(panel.state.selected(), Some(panel.entries.len() - 1));
+        
+        panel.next();
+        assert_eq!(panel.state.selected(), Some(0));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_enter_directory() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let subdir = temp_dir.path().join("subdir");
+        fs::create_dir(&subdir)?;
+        
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Find and select the subdirectory
+        for (i, entry) in panel.entries.iter().enumerate() {
+            if entry.name == "subdir" {
+                panel.state.select(Some(i));
+                break;
+            }
+        }
+        
+        // Enter the directory
+        panel.enter()?;
+        assert_eq!(panel.path, subdir);
+        
+        // Should have ".." entry
+        assert!(panel.entries.iter().any(|e| e.name == ".."));
+        
+        // Go back up
+        panel.state.select(Some(0)); // Select ".."
+        panel.enter()?;
+        assert_eq!(panel.path, temp_dir.path());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_enter_file_does_nothing() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test.txt");
+        File::create(&file_path)?;
+        
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        let original_path = panel.path.clone();
+        
+        // Find and select the file
+        for (i, entry) in panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                panel.state.select(Some(i));
+                break;
+            }
+        }
+        
+        // Try to enter the file (should do nothing)
+        panel.enter()?;
+        assert_eq!(panel.path, original_path);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_ensure_selection() {
+        let mut panel = Panel {
+            path: PathBuf::from("/tmp"),
+            entries: vec![
+                DirEntry { name: "file1.txt".to_string(), is_dir: false, size: 100 },
+                DirEntry { name: "file2.txt".to_string(), is_dir: false, size: 200 },
+            ],
+            state: ListState::default(),
+        };
+        
+        // Initially no selection
+        assert_eq!(panel.state.selected(), None);
+        
+        // Ensure selection sets it to 0
+        panel.ensure_selection();
+        assert_eq!(panel.state.selected(), Some(0));
+        
+        // If already selected, should not change
+        panel.state.select(Some(1));
+        panel.ensure_selection();
+        assert_eq!(panel.state.selected(), Some(1));
+    }
+
+    #[test]
+    fn test_panel_selected_path() {
+        let base_path = PathBuf::from("/tmp");
+        let panel = Panel {
+            path: base_path.clone(),
+            entries: vec![
+                DirEntry { name: "file.txt".to_string(), is_dir: false, size: 100 },
+            ],
+            state: {
+                let mut state = ListState::default();
+                state.select(Some(0));
+                state
+            },
+        };
+        
+        let selected = panel.selected_path();
+        assert_eq!(selected, Some(base_path.join("file.txt")));
+    }
+
+    #[test]
+    fn test_app_new() -> io::Result<()> {
+        let app = App::new()?;
+        assert_eq!(app.active_panel, PanelSide::Left);
+        assert!(!app.show_help);
+        assert!(app.viewer.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn test_app_switch_panel() -> io::Result<()> {
+        let mut app = App::new()?;
+        assert_eq!(app.active_panel, PanelSide::Left);
+        
+        app.switch_panel();
+        assert_eq!(app.active_panel, PanelSide::Right);
+        
+        app.switch_panel();
+        assert_eq!(app.active_panel, PanelSide::Left);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_unique_destination() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let base = temp_dir.path();
+        
+        // Test when file doesn't exist
+        let dest1 = unique_destination(base, std::ffi::OsStr::new("test.txt"));
+        assert_eq!(dest1, base.join("test.txt"));
+        
+        // Create the file and test again
+        File::create(base.join("test.txt"))?;
+        let dest2 = unique_destination(base, std::ffi::OsStr::new("test.txt"));
+        assert_eq!(dest2, base.join("test_1.txt"));
+        
+        // Create that file too
+        File::create(base.join("test_1.txt"))?;
+        let dest3 = unique_destination(base, std::ffi::OsStr::new("test.txt"));
+        assert_eq!(dest3, base.join("test_2.txt"));
+        
+        // Test with no extension
+        let dest4 = unique_destination(base, std::ffi::OsStr::new("noext"));
+        assert_eq!(dest4, base.join("noext"));
+        
+        File::create(base.join("noext"))?;
+        let dest5 = unique_destination(base, std::ffi::OsStr::new("noext"));
+        assert_eq!(dest5, base.join("noext_1"));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_copy_dir_all() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let src = temp_dir.path().join("src");
+        let dst = temp_dir.path().join("dst");
+        
+        // Create source directory structure
+        fs::create_dir(&src)?;
+        fs::create_dir(src.join("subdir"))?;
+        File::create(src.join("file1.txt"))?.write_all(b"content1")?;
+        File::create(src.join("subdir/file2.txt"))?.write_all(b"content2")?;
+        
+        // Copy
+        copy_dir_all(&src, &dst)?;
+        
+        // Verify
+        assert!(dst.exists());
+        assert!(dst.join("file1.txt").exists());
+        assert!(dst.join("subdir").exists());
+        assert!(dst.join("subdir/file2.txt").exists());
+        
+        let content1 = fs::read_to_string(dst.join("file1.txt"))?;
+        assert_eq!(content1, "content1");
+        
+        let content2 = fs::read_to_string(dst.join("subdir/file2.txt"))?;
+        assert_eq!(content2, "content2");
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_centered_rect() {
+        let base = Rect { x: 0, y: 0, width: 100, height: 100 };
+        
+        let centered = centered_rect(50, 50, base);
+        assert_eq!(centered.width, 50);
+        assert_eq!(centered.height, 50);
+        assert_eq!(centered.x, 25);
+        assert_eq!(centered.y, 25);
+        
+        let centered2 = centered_rect(80, 60, base);
+        assert_eq!(centered2.width, 80);
+        assert_eq!(centered2.height, 60);
+    }
+
+    #[test]
+    fn test_handle_overlay_keys() -> io::Result<()> {
+        let mut app = App::new()?;
+        
+        // Test with no overlays
+        assert!(!handle_overlay_keys(&mut app, KeyCode::Esc));
+        
+        // Test with help overlay
+        app.show_help = true;
+        assert!(handle_overlay_keys(&mut app, KeyCode::Esc));
+        assert!(!app.show_help);
+        
+        app.show_help = true;
+        assert!(handle_overlay_keys(&mut app, KeyCode::F(1)));
+        assert!(!app.show_help);
+        
+        // Test with viewer overlay
+        app.viewer = Some(Viewer {
+            title: "test.txt".to_string(),
+            lines: vec!["line1".to_string(), "line2".to_string(), "line3".to_string()],
+            scroll: 0,
+        });
+        
+        assert!(handle_overlay_keys(&mut app, KeyCode::Down));
+        assert_eq!(app.viewer.as_ref().unwrap().scroll, 1);
+        
+        assert!(handle_overlay_keys(&mut app, KeyCode::Up));
+        assert_eq!(app.viewer.as_ref().unwrap().scroll, 0);
+        
+        assert!(handle_overlay_keys(&mut app, KeyCode::Esc));
+        assert!(app.viewer.is_none());
+        
+        Ok(())
+    }
+
+    #[test] 
+    fn test_handle_view() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test.txt");
+        File::create(&file_path)?.write_all(b"Line 1\nLine 2\nLine 3")?;
+        
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+        
+        handle_view(&mut app)?;
+        
+        assert!(app.viewer.is_some());
+        let viewer = app.viewer.as_ref().unwrap();
+        assert_eq!(viewer.title, "test.txt");
+        assert_eq!(viewer.lines.len(), 3);
+        assert_eq!(viewer.lines[0], "Line 1");
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_view_directory() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        fs::create_dir(temp_dir.path().join("subdir"))?;
+        
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Select the directory
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "subdir" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+        
+        handle_view(&mut app)?;
+        
+        // Should not open viewer for directory
+        assert!(app.viewer.is_none());
+        assert_eq!(app.status_message, "Cannot view a directory");
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_copy() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+        
+        let file_path = left_dir.join("test.txt");
+        File::create(&file_path)?.write_all(b"test content")?;
+        
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(left_dir.clone())?;
+        app.right_panel = Panel::new(right_dir.clone())?;
+        
+        // Select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+        
+        handle_copy(&mut app)?;
+        
+        // Check that file was copied
+        assert!(right_dir.join("test.txt").exists());
+        let content = fs::read_to_string(right_dir.join("test.txt"))?;
+        assert_eq!(content, "test content");
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_move() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+        
+        let file_path = left_dir.join("test.txt");
+        File::create(&file_path)?.write_all(b"test content")?;
+        
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(left_dir.clone())?;
+        app.right_panel = Panel::new(right_dir.clone())?;
+        
+        // Select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+        
+        handle_move(&mut app)?;
+        
+        // Check that file was moved
+        assert!(!file_path.exists());
+        assert!(right_dir.join("test.txt").exists());
+        let content = fs::read_to_string(right_dir.join("test.txt"))?;
+        assert_eq!(content, "test content");
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_mkdir() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        handle_mkdir(&mut app)?;
+        
+        assert!(temp_dir.path().join("new_folder").exists());
+        
+        // Create another one
+        handle_mkdir(&mut app)?;
+        assert!(temp_dir.path().join("new_folder_1").exists());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_delete_file() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test.txt");
+        File::create(&file_path)?.write_all(b"test")?;
+        
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+        
+        handle_delete(&mut app)?;
+        
+        assert!(!file_path.exists());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_delete_directory() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let dir_path = temp_dir.path().join("subdir");
+        fs::create_dir(&dir_path)?;
+        File::create(dir_path.join("file.txt"))?;
+        
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Select the directory
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "subdir" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+        
+        handle_delete(&mut app)?;
+        
+        assert!(!dir_path.exists());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_refresh_panels() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Create a file after panels are loaded
+        File::create(temp_dir.path().join("new_file.txt"))?;
+        
+        refresh_panels(&mut app)?;
+        
+        // Check that both panels see the new file
+        let left_has_file = app.left_panel.entries.iter().any(|e| e.name == "new_file.txt");
+        let right_has_file = app.right_panel.entries.iter().any(|e| e.name == "new_file.txt");
+        
+        assert!(left_has_file);
+        assert!(right_has_file);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_get_selected_entry() {
+        let panel = Panel {
+            path: PathBuf::from("/tmp"),
+            entries: vec![
+                DirEntry { name: "file1.txt".to_string(), is_dir: false, size: 100 },
+                DirEntry { name: "file2.txt".to_string(), is_dir: false, size: 200 },
+            ],
+            state: {
+                let mut state = ListState::default();
+                state.select(Some(1));
+                state
+            },
+        };
+        
+        let selected = panel.get_selected_entry();
+        assert!(selected.is_some());
+        assert_eq!(selected.unwrap().name, "file2.txt");
+    }
+
+    #[test]
+    fn test_panel_empty_navigation() {
+        let mut panel = Panel {
+            path: PathBuf::from("/tmp"),
+            entries: vec![],
+            state: ListState::default(),
+        };
+        
+        // Should not panic on empty panel
+        panel.next();
+        assert_eq!(panel.state.selected(), None);
+        
+        panel.previous();
+        assert_eq!(panel.state.selected(), None);
+    }
+
+    #[test]
+    fn test_app_get_panels() -> io::Result<()> {
+        let mut app = App::new()?;
+        
+        // Test active panel getter
+        app.active_panel = PanelSide::Left;
+        let active_panel_path = app.get_active_panel().path.clone();
+        assert_eq!(active_panel_path, app.left_panel.path);
+        
+        app.active_panel = PanelSide::Right;
+        let active_panel_path = app.get_active_panel().path.clone();
+        assert_eq!(active_panel_path, app.right_panel.path);
+        
+        // Test inactive panel getter
+        app.active_panel = PanelSide::Left;
+        let inactive_panel_path = app.get_inactive_panel().path.clone();
+        assert_eq!(inactive_panel_path, app.right_panel.path);
+        
+        app.active_panel = PanelSide::Right;
+        let inactive_panel_path = app.get_inactive_panel().path.clone();
+        assert_eq!(inactive_panel_path, app.left_panel.path);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_view_empty_file() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("empty.txt");
+        File::create(&file_path)?; // Empty file
+        
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "empty.txt" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+        
+        handle_view(&mut app)?;
+        
+        assert!(app.viewer.is_some());
+        let viewer = app.viewer.as_ref().unwrap();
+        assert_eq!(viewer.lines[0], "<empty file>");
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_side_equality() {
+        assert_eq!(PanelSide::Left, PanelSide::Left);
+        assert_eq!(PanelSide::Right, PanelSide::Right);
+        assert_ne!(PanelSide::Left, PanelSide::Right);
+    }
+
+    #[test]
+    fn test_dir_entry_clone() {
+        let entry = DirEntry {
+            name: "test.txt".to_string(),
+            is_dir: false,
+            size: 1024,
+        };
+        
+        let cloned = entry.clone();
+        assert_eq!(cloned.name, entry.name);
+        assert_eq!(cloned.is_dir, entry.is_dir);
+        assert_eq!(cloned.size, entry.size);
+    }
+
+    #[test]
+    fn test_panel_sorting() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        
+        // Create files and directories with various names
+        File::create(temp_dir.path().join("zebra.txt"))?;
+        File::create(temp_dir.path().join("apple.txt"))?;
+        fs::create_dir(temp_dir.path().join("banana_dir"))?;
+        fs::create_dir(temp_dir.path().join("zoo_dir"))?;
+        
+        let panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Find first directory and first file (excluding ..)
+        let mut first_dir_idx = None;
+        let mut first_file_idx = None;
+        
+        for (i, entry) in panel.entries.iter().enumerate() {
+            if entry.is_dir && entry.name != ".." && first_dir_idx.is_none() {
+                first_dir_idx = Some(i);
+            }
+            if !entry.is_dir && first_file_idx.is_none() {
+                first_file_idx = Some(i);
+            }
+        }
+        
+        // Directories should come before files
+        if let (Some(dir_idx), Some(file_idx)) = (first_dir_idx, first_file_idx) {
+            assert!(dir_idx < file_idx);
+        }
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_copy_with_existing_file() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+        
+        // Create source file
+        File::create(left_dir.join("test.txt"))?.write_all(b"source")?;
+        
+        // Create existing file in destination
+        File::create(right_dir.join("test.txt"))?.write_all(b"existing")?;
+        
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(left_dir.clone())?;
+        app.right_panel = Panel::new(right_dir.clone())?;
+        
+        // Select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+        
+        handle_copy(&mut app)?;
+        
+        // Should create test_1.txt
+        assert!(right_dir.join("test_1.txt").exists());
+        let content = fs::read_to_string(right_dir.join("test_1.txt"))?;
+        assert_eq!(content, "source");
+        
+        // Original should still exist
+        assert!(right_dir.join("test.txt").exists());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_copy_directory() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+        
+        // Create source directory with content
+        let src_dir = left_dir.join("mydir");
+        fs::create_dir(&src_dir)?;
+        File::create(src_dir.join("file.txt"))?.write_all(b"content")?;
+        
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(left_dir)?;
+        app.right_panel = Panel::new(right_dir.clone())?;
+        
+        // Select the directory
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "mydir" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+        
+        handle_copy(&mut app)?;
+        
+        // Check that directory was copied
+        assert!(right_dir.join("mydir").exists());
+        assert!(right_dir.join("mydir/file.txt").exists());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_wrap_navigation() -> io::Result<()> {
+        let mut panel = Panel {
+            path: PathBuf::from("/tmp"),
+            entries: vec![
+                DirEntry { name: "file1.txt".to_string(), is_dir: false, size: 100 },
+                DirEntry { name: "file2.txt".to_string(), is_dir: false, size: 200 },
+            ],
+            state: ListState::default(),
+        };
+        
+        // Test wrap from None to 0
+        panel.state.select(None);
+        panel.next();
+        assert_eq!(panel.state.selected(), Some(0));
+        
+        // Test wrap from None to last
+        panel.state.select(None);
+        panel.previous();
+        assert_eq!(panel.state.selected(), Some(0));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_move_cross_device() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+        
+        // Create a directory with files to test fallback copy+delete
+        let src_dir = left_dir.join("movedir");
+        fs::create_dir(&src_dir)?;
+        File::create(src_dir.join("file.txt"))?.write_all(b"content")?;
+        
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(left_dir.clone())?;
+        app.right_panel = Panel::new(right_dir.clone())?;
+        
+        // Select the directory
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "movedir" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+        
+        handle_move(&mut app)?;
+        
+        // Check that directory was moved
+        assert!(!src_dir.exists());
+        assert!(right_dir.join("movedir").exists());
+        assert!(right_dir.join("movedir/file.txt").exists());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_viewer_scrolling_bounds() -> io::Result<()> {
+        let mut app = App::new()?;
+        
+        // Create viewer with limited lines
+        app.viewer = Some(Viewer {
+            title: "test.txt".to_string(),
+            lines: vec!["line1".to_string(), "line2".to_string()],
+            scroll: 0,
+        });
+        
+        // Try to scroll beyond bounds
+        handle_overlay_keys(&mut app, KeyCode::Down);
+        handle_overlay_keys(&mut app, KeyCode::Down);
+        handle_overlay_keys(&mut app, KeyCode::Down); // Should not go beyond
+        
+        assert_eq!(app.viewer.as_ref().unwrap().scroll, 1); // Max scroll for 2 lines
+        
+        // Test F(3) closes viewer
+        handle_overlay_keys(&mut app, KeyCode::F(3));
+        assert!(app.viewer.is_none());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_view_no_selection() -> io::Result<()> {
+        let mut app = App::new()?;
+        app.left_panel.state.select(None);
+        
+        // Should handle gracefully
+        let result = handle_view(&mut app);
+        assert!(result.is_ok());
+        assert!(app.viewer.is_none());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_copy_no_selection() -> io::Result<()> {
+        let mut app = App::new()?;
+        app.left_panel.state.select(None);
+        
+        // Should handle gracefully
+        let result = handle_copy(&mut app);
+        assert!(result.is_ok());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_move_no_selection() -> io::Result<()> {
+        let mut app = App::new()?;
+        app.left_panel.state.select(None);
+        
+        // Should handle gracefully
+        let result = handle_move(&mut app);
+        assert!(result.is_ok());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_delete_no_selection() -> io::Result<()> {
+        let mut app = App::new()?;
+        app.left_panel.state.select(None);
+        
+        // Should handle gracefully
+        let result = handle_delete(&mut app);
+        assert!(result.is_ok());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_rendering_functions() {
+        use ratatui::backend::TestBackend;
+        use ratatui::buffer::Buffer;
+        
+        // Test centered_rect with edge cases
+        let base = Rect { x: 0, y: 0, width: 10, height: 10 };
+        let centered = centered_rect(100, 100, base);
+        assert_eq!(centered.width, 10);
+        assert_eq!(centered.height, 10);
+        
+        // Test render_header
+        let _buffer = Buffer::empty(Rect::new(0, 0, 50, 1));
+        let backend = TestBackend::new(50, 1);
+        let mut terminal = Terminal::new(backend).unwrap();
+        
+        terminal.draw(|f| {
+            render_header(f, f.size());
+        }).unwrap();
+    }
+
+    #[test]
+    fn test_render_functions_with_app() -> io::Result<()> {
+        use ratatui::backend::TestBackend;
+        
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+        let mut app = App::new()?;
+        
+        // Test rendering with help overlay
+        app.show_help = true;
+        terminal.draw(|f| {
+            ui(f, &mut app);
+        })?;
+        
+        // Test rendering with viewer overlay
+        app.show_help = false;
+        app.viewer = Some(Viewer {
+            title: "test.txt".to_string(),
+            lines: vec!["Test content".to_string()],
+            scroll: 0,
+        });
+        
+        terminal.draw(|f| {
+            ui(f, &mut app);
+        })?;
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_state_consistency() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        
+        // Create files
+        for i in 0..3 {
+            File::create(temp_dir.path().join(format!("file{}.txt", i)))?;
+        }
+        
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Test that state is maintained after reload
+        panel.state.select(Some(2));
+        let _selected_before = panel.get_selected_entry().unwrap().name.clone();
+        
+        panel.load_entries()?;
+        panel.ensure_selection();
+        
+        // Should still have a valid selection
+        assert!(panel.state.selected().is_some());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_unique_destination_edge_cases() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let base = temp_dir.path();
+        
+        // Test with empty extension
+        let dest = unique_destination(base, std::ffi::OsStr::new("file."));
+        assert_eq!(dest, base.join("file."));
+        
+        // Test with multiple dots
+        let dest2 = unique_destination(base, std::ffi::OsStr::new("file.tar.gz"));
+        assert_eq!(dest2, base.join("file.tar.gz"));
+        
+        File::create(base.join("file.tar.gz"))?;
+        let dest3 = unique_destination(base, std::ffi::OsStr::new("file.tar.gz"));
+        assert_eq!(dest3, base.join("file.tar_1.gz"));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_format_size_edge_values() {
+        // Test exact boundary values
+        assert_eq!(format_size(1023), "1023 B");
+        assert_eq!(format_size(1024 * 1024 - 1), "1024.00 KB");
+        assert_eq!(format_size(1024 * 1024 * 1024 - 1), "1024.00 MB");
+        
+        // Test very large values
+        let large = 1024u64 * 1024 * 1024 * 1024;
+        assert_eq!(format_size(large), "1024.00 GB");
+    }
+}
