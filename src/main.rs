@@ -3230,4 +3230,388 @@ mod tests {
         
         Ok(())
     }
+
+    #[test]
+    fn test_render_panel_all_branches() {
+        use ratatui::{buffer::Buffer, layout::Rect};
+        
+        let mut panel = Panel {
+            path: PathBuf::from("/test"),
+            entries: vec![
+                DirEntry {
+                    name: "file1.txt".to_string(),
+                    path: PathBuf::from("/test/file1.txt"),
+                    is_dir: false,
+                    is_file: true,
+                    file_size: Some(1024),
+                },
+                DirEntry {
+                    name: "dir1".to_string(),
+                    path: PathBuf::from("/test/dir1"),
+                    is_dir: true,
+                    is_file: false,
+                    file_size: None,
+                },
+                DirEntry {
+                    name: "link1".to_string(),
+                    path: PathBuf::from("/test/link1"),
+                    is_dir: false,
+                    is_file: false,
+                    file_size: None,
+                },
+            ],
+            filtered_indices: vec![0, 1, 2],
+            state: ListState::default(),
+            filter_mode: false,
+            filter_query: String::new(),
+        };
+        
+        panel.state.select(Some(1));
+        
+        let area = Rect::new(0, 0, 80, 24);
+        let mut buffer = Buffer::empty(area);
+        let mut frame = Frame::new(area.clone(), None);
+        
+        // Test active panel
+        render_panel(&mut frame, &mut panel, area, true);
+        
+        // Test inactive panel
+        render_panel(&mut frame, &mut panel, area, false);
+        
+        // Test with filter mode
+        panel.filter_mode = true;
+        panel.filter_query = "test".to_string();
+        render_panel(&mut frame, &mut panel, area, true);
+    }
+
+    #[test]
+    fn test_render_overlays_all_types() -> io::Result<()> {
+        let mut app = App::new()?;
+        let area = Rect::new(0, 0, 80, 24);
+        let mut buffer = Buffer::empty(area);
+        let mut frame = Frame::new(area.clone(), None);
+        
+        // Test help overlay
+        app.show_help = true;
+        render_overlays(&mut frame, &mut app);
+        
+        // Test viewer overlay
+        app.show_help = false;
+        app.viewer = Some(Viewer {
+            content: vec!["Line 1".to_string(), "Line 2".to_string()],
+            scroll: 0,
+            file_name: "test.txt".to_string(),
+        });
+        render_overlays(&mut frame, &mut app);
+        
+        // Test with empty viewer content
+        app.viewer = Some(Viewer {
+            content: vec![],
+            scroll: 0,
+            file_name: "empty.txt".to_string(),
+        });
+        render_overlays(&mut frame, &mut app);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_header_coverage() {
+        let area = Rect::new(0, 0, 80, 3);
+        let mut buffer = Buffer::empty(area);
+        let mut frame = Frame::new(area.clone(), None);
+        
+        render_header(&mut frame, area);
+    }
+
+    #[test]
+    fn test_render_command_bar_coverage() {
+        let area = Rect::new(0, 0, 80, 1);
+        let mut buffer = Buffer::empty(area);
+        let mut frame = Frame::new(area.clone(), None);
+        
+        render_command_bar(&mut frame, area);
+    }
+
+    #[test]
+    fn test_handle_edit_error_paths() -> io::Result<()> {
+        let mut app = App::new()?;
+        let backend = MockBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+        
+        // Test with no selection
+        app.left_panel.state.select(None);
+        let result = handle_edit(&mut terminal, &mut app);
+        assert!(result.is_ok());
+        assert!(app.status_message.contains("No file selected"));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_copy_dir_all_error_paths() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        
+        // Test copying non-existent directory
+        let src = temp_dir.path().join("nonexistent");
+        let dst = temp_dir.path().join("dest");
+        
+        let result = copy_dir_all(&src, &dst);
+        assert!(result.is_err());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_mkdir_edge_cases() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Test creating directory with empty name
+        app.mkdir_dialog = Some(InputDialog {
+            prompt: "New folder:".to_string(),
+            input: String::new(),
+            cursor_position: 0,
+        });
+        
+        let result = handle_mkdir(&mut app);
+        assert!(result.is_ok());
+        assert!(app.status_message.contains("cancelled"));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_delete_error_cases() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Create a test file
+        let test_file = temp_dir.path().join("test.txt");
+        File::create(&test_file)?;
+        
+        // Refresh panel to see the file
+        app.left_panel.load_entries()?;
+        
+        // Select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+        
+        // Delete the file manually to simulate error
+        fs::remove_file(&test_file)?;
+        
+        // Try to delete already deleted file
+        let result = handle_delete(&mut app);
+        assert!(result.is_err() || app.status_message.contains("Error"));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_viewer_edge_cases() {
+        let mut viewer = Viewer {
+            content: vec!["Line 1".to_string()],
+            scroll: 0,
+            file_name: "test.txt".to_string(),
+        };
+        
+        // Test scrolling bounds
+        viewer.scroll_down(10);
+        assert_eq!(viewer.scroll, 0);
+        
+        viewer.content = vec!["Line 1".to_string(); 100];
+        viewer.scroll_down(10);
+        assert_eq!(viewer.scroll, 10);
+        
+        viewer.scroll_up(5);
+        assert_eq!(viewer.scroll, 5);
+        
+        viewer.scroll_up(10);
+        assert_eq!(viewer.scroll, 0);
+    }
+
+    #[test]
+    fn test_panel_filter_edge_cases() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Add test entries
+        panel.entries = vec![
+            DirEntry {
+                name: "test.txt".to_string(),
+                path: temp_dir.path().join("test.txt"),
+                is_dir: false,
+                is_file: true,
+                file_size: Some(100),
+            },
+            DirEntry {
+                name: "example.rs".to_string(),
+                path: temp_dir.path().join("example.rs"),
+                is_dir: false,
+                is_file: true,
+                file_size: Some(200),
+            },
+        ];
+        
+        // Test filter with no matches
+        panel.set_filter("xyz");
+        assert_eq!(panel.filtered_indices.len(), 0);
+        
+        // Test filter with partial match
+        panel.set_filter("test");
+        assert_eq!(panel.filtered_indices.len(), 1);
+        
+        // Test clear filter
+        panel.set_filter("");
+        assert_eq!(panel.filtered_indices.len(), 2);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_run_app_error_propagation() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+        
+        let error_flag = Arc::new(AtomicBool::new(false));
+        let error_flag_clone = error_flag.clone();
+        
+        let event_reader = move || -> io::Result<Event> {
+            if error_flag_clone.load(Ordering::SeqCst) {
+                Err(io::Error::new(io::ErrorKind::Other, "Test error"))
+            } else {
+                error_flag_clone.store(true, Ordering::SeqCst);
+                Ok(Event::Key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::empty())))
+            }
+        };
+        
+        let backend = MockBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let app = App::new().unwrap();
+        
+        let result = run_app_with_event_reader(&mut terminal, app, event_reader);
+        assert!(result.is_ok()); // Should exit gracefully on 'q'
+    }
+
+    #[test]
+    fn test_ui_with_mkdir_dialog() -> io::Result<()> {
+        let mut app = App::new()?;
+        app.mkdir_dialog = Some(InputDialog {
+            prompt: "New folder:".to_string(),
+            input: "test_folder".to_string(),
+            cursor_position: 4,
+        });
+        
+        let area = Rect::new(0, 0, 80, 24);
+        let mut buffer = Buffer::empty(area);
+        let mut frame = Frame::new(area.clone(), None);
+        
+        ui(&mut frame, &mut app);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_input_dialog_edge_cases() {
+        let mut dialog = InputDialog {
+            prompt: "Test:".to_string(),
+            input: "hello".to_string(),
+            cursor_position: 2,
+        };
+        
+        // Test cursor movement
+        dialog.move_cursor_right();
+        assert_eq!(dialog.cursor_position, 3);
+        
+        dialog.move_cursor_right();
+        dialog.move_cursor_right();
+        dialog.move_cursor_right(); // Beyond end
+        assert_eq!(dialog.cursor_position, 5);
+        
+        dialog.move_cursor_left();
+        assert_eq!(dialog.cursor_position, 4);
+        
+        // Move to beginning
+        while dialog.cursor_position > 0 {
+            dialog.move_cursor_left();
+        }
+        dialog.move_cursor_left(); // Already at start
+        assert_eq!(dialog.cursor_position, 0);
+        
+        // Test character insertion
+        dialog.insert_char('X');
+        assert_eq!(dialog.input, "Xhello");
+        assert_eq!(dialog.cursor_position, 1);
+        
+        // Test backspace
+        dialog.backspace();
+        assert_eq!(dialog.input, "hello");
+        assert_eq!(dialog.cursor_position, 0);
+        
+        // Test backspace at beginning (no effect)
+        dialog.backspace();
+        assert_eq!(dialog.input, "hello");
+        assert_eq!(dialog.cursor_position, 0);
+    }
+
+    #[test]
+    fn test_handle_overlay_keys_all_branches() -> io::Result<()> {
+        let mut app = App::new()?;
+        
+        // Test Esc key with help
+        app.show_help = true;
+        assert!(handle_overlay_keys(&mut app, KeyCode::Esc));
+        assert!(!app.show_help);
+        
+        // Test Esc key with viewer
+        app.viewer = Some(Viewer {
+            content: vec!["test".to_string()],
+            scroll: 0,
+            file_name: "test.txt".to_string(),
+        });
+        assert!(handle_overlay_keys(&mut app, KeyCode::Esc));
+        assert!(app.viewer.is_none());
+        
+        // Test Esc key with mkdir dialog
+        app.mkdir_dialog = Some(InputDialog {
+            prompt: "Test:".to_string(),
+            input: String::new(),
+            cursor_position: 0,
+        });
+        assert!(handle_overlay_keys(&mut app, KeyCode::Esc));
+        assert!(app.mkdir_dialog.is_none());
+        
+        // Test no overlay active
+        assert!(!handle_overlay_keys(&mut app, KeyCode::Esc));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_special_entries() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let panel_path = temp_dir.path().join("subdir");
+        fs::create_dir(&panel_path)?;
+        
+        let mut panel = Panel::new(panel_path)?;
+        
+        // Should have .. entry
+        assert!(panel.entries.iter().any(|e| e.name == ".."));
+        
+        // Test entering parent directory
+        let parent_index = panel.entries.iter().position(|e| e.name == "..").unwrap();
+        panel.state.select(Some(parent_index));
+        panel.enter()?;
+        
+        // Should now be in temp_dir
+        assert_eq!(panel.path, temp_dir.path());
+        
+        Ok(())
+    }
 }
