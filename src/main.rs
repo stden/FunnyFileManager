@@ -18,6 +18,8 @@ use std::{
     path::PathBuf,
 };
 
+const NAME_FIELD_WIDTH: usize = 30;
+
 #[derive(Debug)]
 struct Panel {
     path: PathBuf,
@@ -84,6 +86,9 @@ impl Panel {
     }
 
     fn next(&mut self) {
+        if self.entries.is_empty() {
+            return;
+        }
         let i = match self.state.selected() {
             Some(i) => {
                 if i >= self.entries.len() - 1 {
@@ -98,6 +103,9 @@ impl Panel {
     }
 
     fn previous(&mut self) {
+        if self.entries.is_empty() {
+            return;
+        }
         let i = match self.state.selected() {
             Some(i) => {
                 if i == 0 {
@@ -280,7 +288,7 @@ fn render_panel(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bool) {
                 Span::raw(icon),
                 Span::raw(" "),
                 Span::styled(
-                    format!("{:<30}", entry.name),
+                    format!("{:<width$}", entry.name, width = NAME_FIELD_WIDTH),
                     if entry.is_dir {
                         Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
                     } else {
