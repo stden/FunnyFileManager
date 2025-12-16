@@ -18,6 +18,9 @@
 Thumbs.db
 
 x.cmd
+<<<<<<< HEAD
 
 # Downloaded upstream reference docs (keep out of git history)
 /docs/upstream/
+=======
+>>>>>>> f9d0f92007f0e4002230bb0927ee3d5eec755cb8
