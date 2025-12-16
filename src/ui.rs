@@ -189,7 +189,7 @@ fn render_command_bar(f: &mut Frame, area: Rect) {
 
 fn render_overlays(f: &mut Frame, app: &mut App) {
     if app.show_help {
-        let area = centered_rect(80, 80, f.area());
+        let area = centered_rect(80, 80, f.size());
         let help_lines = vec![
             "Far Manager style navigation:",
             "F1: Toggle this help window",
@@ -222,7 +222,7 @@ fn render_overlays(f: &mut Frame, app: &mut App) {
     }
 
     if let Some(viewer) = app.viewer.as_ref() {
-        let area = centered_rect(90, 90, f.area());
+        let area = centered_rect(90, 90, f.size());
 
         let block = Block::default()
             .title(format!(" View: {} (Esc to close) ", viewer.title))

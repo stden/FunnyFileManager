@@ -602,4 +602,309 @@ mod tests {
             })
         }
     }
+
+    #[test]
+    fn test_handle_view_directory() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        fs::create_dir(temp_dir.path().join("subdir"))?;
+
+        let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
+
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "subdir" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        handle_view(&mut app)?;
+
+        assert!(app.viewer.is_none());
+        assert_eq!(app.status_message, "Cannot view a directory");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_view_empty_file() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        File::create(temp_dir.path().join("empty.txt"))?;
+
+        let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
+
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "empty.txt" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        handle_view(&mut app)?;
+
+        assert!(app.viewer.is_some());
+        let viewer = app.viewer.as_ref().unwrap();
+        assert_eq!(viewer.lines[0], "<empty file>");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_view_no_selection() -> io::Result<()> {
+        let mut app = App::new()?;
+        app.left_panel.state.select(None);
+
+        handle_view(&mut app)?;
+        assert!(app.viewer.is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_copy_no_selection() -> io::Result<()> {
+        let mut app = App::new()?;
+        app.left_panel.state.select(None);
+
+        let result = handle_copy(&mut app);
+        assert!(result.is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_move_no_selection() -> io::Result<()> {
+        let mut app = App::new()?;
+        app.left_panel.state.select(None);
+
+        let result = handle_move(&mut app);
+        assert!(result.is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_delete_no_selection() -> io::Result<()> {
+        let mut app = App::new()?;
+        app.left_panel.state.select(None);
+
+        let result = handle_delete(&mut app);
+        assert!(result.is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_copy_directory() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+
+        let src_dir = left_dir.join("mydir");
+        fs::create_dir(&src_dir)?;
+        File::create(src_dir.join("file.txt"))?.write_all(b"content")?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(left_dir)?;
+        app.right_panel = Panel::new(right_dir.clone())?;
+
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "mydir" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        handle_copy(&mut app)?;
+
+        assert!(right_dir.join("mydir").exists());
+        assert!(right_dir.join("mydir/file.txt").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_move_directory() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+
+        let src_dir = left_dir.join("movedir");
+        fs::create_dir(&src_dir)?;
+        File::create(src_dir.join("file.txt"))?.write_all(b"content")?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(left_dir.clone())?;
+        app.right_panel = Panel::new(right_dir.clone())?;
+
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "movedir" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        handle_move(&mut app)?;
+
+        assert!(!src_dir.exists());
+        assert!(right_dir.join("movedir").exists());
+        assert!(right_dir.join("movedir/file.txt").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_empty_navigation() {
+        let mut panel = Panel {
+            path: PathBuf::from("/tmp"),
+            entries: vec![],
+            state: ListState::default(),
+        };
+
+        panel.next();
+        assert_eq!(panel.state.selected(), None);
+
+        panel.previous();
+        assert_eq!(panel.state.selected(), None);
+    }
+
+    #[test]
+    fn test_panel_get_selected_entry_none() {
+        let panel = Panel {
+            path: PathBuf::from("/tmp"),
+            entries: vec![],
+            state: ListState::default(),
+        };
+
+        assert!(panel.get_selected_entry().is_none());
+        assert!(panel.selected_path().is_none());
+    }
+
+    #[test]
+    fn test_panel_ensure_selection_empty() {
+        let mut panel = Panel {
+            path: PathBuf::from("/tmp"),
+            entries: vec![],
+            state: ListState::default(),
+        };
+
+        panel.ensure_selection();
+        assert_eq!(panel.state.selected(), None);
+    }
+
+    #[test]
+    fn test_panel_enter_file_does_nothing() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        File::create(temp_dir.path().join("test.txt"))?;
+
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        let original_path = panel.path.clone();
+
+        for (i, entry) in panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        panel.enter()?;
+        assert_eq!(panel.path, original_path);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_unique_destination_no_extension() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let base = temp_dir.path();
+
+        File::create(base.join("noext"))?;
+        let dest = unique_destination(base, std::ffi::OsStr::new("noext"));
+        assert_eq!(dest, base.join("noext_1"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_app_get_panels() -> io::Result<()> {
+        let mut app = App::new()?;
+
+        app.active_panel = PanelSide::Left;
+        let _ = app.get_active_panel();
+        let _ = app.get_inactive_panel();
+
+        app.active_panel = PanelSide::Right;
+        let _ = app.get_active_panel();
+        let _ = app.get_inactive_panel();
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_viewer_scrolling() -> io::Result<()> {
+        let mut app = App::new()?;
+
+        app.viewer = Some(Viewer {
+            title: "test.txt".to_string(),
+            lines: vec![
+                "line1".to_string(),
+                "line2".to_string(),
+                "line3".to_string(),
+                "line4".to_string(),
+            ],
+            scroll: 0,
+        });
+
+        // Scroll down multiple times
+        handle_overlay_keys(&mut app, KeyCode::Down);
+        handle_overlay_keys(&mut app, KeyCode::Down);
+        assert_eq!(app.viewer.as_ref().unwrap().scroll, 2);
+
+        // Close with Enter
+        handle_overlay_keys(&mut app, KeyCode::Enter);
+        assert!(app.viewer.is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_help_toggle_with_f1() -> io::Result<()> {
+        let mut app = App::new()?;
+
+        app.show_help = true;
+        handle_overlay_keys(&mut app, KeyCode::F(1));
+        assert!(!app.show_help);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_dir_entry_clone() {
+        let entry = DirEntry {
+            name: "test.txt".to_string(),
+            is_dir: false,
+            size: 1024,
+        };
+
+        let cloned = entry.clone();
+        assert_eq!(cloned.name, entry.name);
+        assert_eq!(cloned.is_dir, entry.is_dir);
+        assert_eq!(cloned.size, entry.size);
+    }
+
+    #[test]
+    fn test_panel_side_copy() {
+        let side = PanelSide::Left;
+        let copied = side;
+        assert_eq!(copied, PanelSide::Left);
+    }
+
+    #[test]
+    fn test_format_size_boundaries() {
+        assert_eq!(format_size(1023), "1023 B");
+        assert_eq!(format_size(1024 * 1024 - 1), "1024.00 KB");
+        assert_eq!(format_size(1024 * 1024 * 1024 - 1), "1024.00 MB");
+    }
 }
