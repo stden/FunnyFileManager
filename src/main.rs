@@ -907,4 +907,146 @@ mod tests {
         assert_eq!(format_size(1024 * 1024 - 1), "1024.00 KB");
         assert_eq!(format_size(1024 * 1024 * 1024 - 1), "1024.00 MB");
     }
+
+    #[test]
+    fn test_panel_navigation_from_none() {
+        let mut panel = Panel {
+            path: PathBuf::from("/tmp"),
+            entries: vec![
+                DirEntry { name: "file1.txt".to_string(), is_dir: false, size: 100 },
+                DirEntry { name: "file2.txt".to_string(), is_dir: false, size: 200 },
+            ],
+            state: ListState::default(),
+        };
+
+        // Test next() from None
+        panel.state.select(None);
+        panel.next();
+        assert_eq!(panel.state.selected(), Some(0));
+
+        // Test previous() from None
+        panel.state.select(None);
+        panel.previous();
+        assert_eq!(panel.state.selected(), Some(0));
+    }
+
+    #[test]
+    fn test_panel_ensure_selection_with_entries() {
+        let mut panel = Panel {
+            path: PathBuf::from("/tmp"),
+            entries: vec![
+                DirEntry { name: "file.txt".to_string(), is_dir: false, size: 100 },
+            ],
+            state: ListState::default(),
+        };
+
+        panel.state.select(None);
+        panel.ensure_selection();
+        assert_eq!(panel.state.selected(), Some(0));
+    }
+
+    #[test]
+    fn test_render_with_right_panel_active() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        File::create(temp_dir.path().join("file.txt"))?.write_all(b"content")?;
+
+        let backend = ratatui::backend::TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+        let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
+
+        // Set right panel active with file selected
+        app.active_panel = PanelSide::Right;
+        for (i, entry) in app.right_panel.entries.iter().enumerate() {
+            if entry.name == "file.txt" {
+                app.right_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        terminal.draw(|f| {
+            ui(f, &mut app);
+        })?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_with_no_selection() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+
+        let backend = ratatui::backend::TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+        let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
+
+        app.left_panel.state.select(None);
+
+        terminal.draw(|f| {
+            ui(f, &mut app);
+        })?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_overlay_unhandled_key() -> io::Result<()> {
+        let mut app = App::new()?;
+
+        app.viewer = Some(Viewer {
+            title: "test.txt".to_string(),
+            lines: vec!["line".to_string()],
+            scroll: 0,
+        });
+
+        // Unhandled key should still return true (consumed by overlay)
+        let result = handle_overlay_keys(&mut app, KeyCode::Char('x'));
+        assert!(result);
+        assert!(app.viewer.is_some()); // Viewer still open
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_viewer_close_with_f3() -> io::Result<()> {
+        let mut app = App::new()?;
+
+        app.viewer = Some(Viewer {
+            title: "test.txt".to_string(),
+            lines: vec!["line".to_string()],
+            scroll: 0,
+        });
+
+        handle_overlay_keys(&mut app, KeyCode::F(3));
+        assert!(app.viewer.is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sorting_files_before_dirs() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+
+        // Create files first, then directories
+        File::create(temp_dir.path().join("aaa_file.txt"))?;
+        fs::create_dir(temp_dir.path().join("zzz_dir"))?;
+
+        let panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        // Find positions
+        let mut dir_pos = None;
+        let mut file_pos = None;
+
+        for (i, entry) in panel.entries.iter().enumerate() {
+            if entry.name == "zzz_dir" {
+                dir_pos = Some(i);
+            }
+            if entry.name == "aaa_file.txt" {
+                file_pos = Some(i);
+            }
+        }
+
+        // Directory should come before file even though alphabetically after
+        assert!(dir_pos.unwrap() < file_pos.unwrap());
+
+        Ok(())
+    }
 }
