@@ -170,6 +170,7 @@ struct App {
     right_panel: Panel,
     active_panel: PanelSide,
     show_help: bool,
+    show_menu: bool,
     viewer: Option<Viewer>,
     status_message: String,
 }
@@ -188,9 +189,10 @@ impl App {
             right_panel: Panel::new(current_dir)?,
             active_panel: PanelSide::Left,
             show_help: false,
+            show_menu: false,
             viewer: None,
             status_message: String::from(
-                "F1 Help  F3 View  F4 Edit  F5 Copy  F6 Move  F7 Mkdir  F8 Delete",
+                "F1 Help  F3 View  F4 Edit  F5 Copy  F6 Move  F7 Mkdir  F8 Delete  F9 Menu",
             ),
         })
     }
@@ -315,6 +317,13 @@ where
                 }
                 KeyCode::F(8) => {
                     handle_delete(&mut app)?;
+                }
+                KeyCode::F(9) => {
+                    app.show_menu = !app.show_menu;
+                    if app.show_menu {
+                        app.status_message =
+                            "Menu opened. Press F9 or Esc to close, F-keys to execute.".to_string();
+                    }
                 }
                 _ => {}
             }
@@ -468,6 +477,7 @@ fn render_command_bar(f: &mut Frame, area: Rect) {
         ("F6", "Move"),
         ("F7", "Mkdir"),
         ("F8", "Delete"),
+        ("F9", "Menu"),
         ("F10", "Quit"),
     ];
 
@@ -492,6 +502,11 @@ fn render_command_bar(f: &mut Frame, area: Rect) {
 }
 
 fn render_overlays(f: &mut Frame, app: &mut App) {
+    if app.show_menu {
+        let area = centered_rect(90, 80, f.size());
+        render_menu_overlay(f, area);
+    }
+
     if app.show_help {
         let area = centered_rect(80, 80, f.size());
         let help_lines = vec![
@@ -546,6 +561,96 @@ fn render_overlays(f: &mut Frame, app: &mut App) {
         .style(Style::default().fg(Color::White));
 
         f.render_widget(paragraph, area);
+    }
+}
+
+struct MenuSection<'a> {
+    title: &'a str,
+    items: &'a [&'a str],
+}
+
+fn menu_sections() -> Vec<MenuSection<'static>> {
+    vec![
+        MenuSection {
+            title: "Files",
+            items: &[
+                "View (F3)",
+                "Edit (F4)",
+                "Copy (F5)",
+                "Rename or move (F6)",
+                "Link (Alt+F6)",
+                "Make folder (F7)",
+                "Delete (F8)",
+                "Wipe (Alt+Del)",
+            ],
+        },
+        MenuSection {
+            title: "Commands",
+            items: &[
+                "Add to archive (Shift+F1)",
+                "Extract files (Shift+F2)",
+                "Archive commands (Shift+F3)",
+                "File attributes (Ctrl+A)",
+                "Apply command (Ctrl+G)",
+                "Describe files (Ctrl+Z)",
+            ],
+        },
+        MenuSection {
+            title: "Selection",
+            items: &[
+                "Select group (Gray +)",
+                "Unselect group (Gray -)",
+                "Invert selection (Gray *)",
+                "Restore selection (Ctrl+M)",
+                "Switch panels (Tab)",
+                "Quit (F10 or Q)",
+            ],
+        },
+    ]
+}
+
+fn render_menu_overlay(f: &mut Frame, area: Rect) {
+    let sections = menu_sections();
+    if sections.is_empty() {
+        return;
+    }
+
+    let column_width = (100 / usize::max(sections.len(), 1)) as u16;
+    let constraints: Vec<Constraint> = sections
+        .iter()
+        .map(|_| Constraint::Percentage(column_width))
+        .collect();
+    let columns = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(constraints)
+        .split(area);
+
+    for (section, column) in sections.iter().zip(columns) {
+        let mut lines = Vec::new();
+        lines.push(Line::from(Span::styled(
+            format!(" {} ", section.title),
+            Style::default()
+                .bg(Color::Blue)
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
+        )));
+        lines.push(Line::from(Span::raw("")));
+
+        lines.extend(
+            section
+                .items
+                .iter()
+                .map(|item| Line::from(Span::raw(item.to_string()))),
+        );
+
+        let paragraph = Paragraph::new(lines).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+                .title(section.title),
+        );
+
+        f.render_widget(paragraph, column);
     }
 }
 
@@ -617,6 +722,13 @@ fn handle_overlay_keys(app: &mut App, key: KeyCode) -> bool {
         return true;
     }
 
+    if app.show_menu {
+        if matches!(key, KeyCode::Esc | KeyCode::F(9)) {
+            app.show_menu = false;
+        }
+        return true;
+    }
+
     if app.show_help {
         if matches!(key, KeyCode::Esc | KeyCode::F(1)) {
             app.show_help = false;
@@ -661,7 +773,7 @@ fn handle_edit<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut App) ->
     if std::env::var("TEST_MODE").is_ok() {
         return handle_edit_test_mode(app);
     }
-    
+
     handle_edit_impl(terminal, app, |editor, path| {
         Command::new(editor).arg(path).status()
     })
@@ -738,7 +850,8 @@ fn handle_edit_test_mode(app: &mut App) -> io::Result<()> {
     let test_editor = std::env::var("TEST_EDITOR").unwrap_or_else(|_| "success".to_string());
     match test_editor.as_str() {
         "fail_launch" => {
-            app.status_message = format!("Failed to launch editor: No such file or directory (os error 2)");
+            app.status_message =
+                format!("Failed to launch editor: No such file or directory (os error 2)");
         }
         "exit_error" => {
             app.status_message = format!("Editor exited with status exit status: 1");
@@ -925,19 +1038,19 @@ mod tests {
     #[test]
     fn test_panel_load_entries() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
-        
+
         // Create some test files and directories
         fs::create_dir(temp_dir.path().join("subdir1"))?;
         fs::create_dir(temp_dir.path().join("subdir2"))?;
         File::create(temp_dir.path().join("file1.txt"))?.write_all(b"test")?;
         File::create(temp_dir.path().join("file2.txt"))?.write_all(b"test content")?;
-        
+
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
         panel.load_entries()?;
-        
+
         // Should have at least 4 entries (2 dirs + 2 files)
         assert!(panel.entries.len() >= 4);
-        
+
         // Check that directories come first
         let mut found_file = false;
         for entry in &panel.entries {
@@ -948,39 +1061,39 @@ mod tests {
                 panic!("Found directory after file in sorted entries");
             }
         }
-        
+
         Ok(())
     }
 
     #[test]
     fn test_panel_navigation() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
-        
+
         // Create test files
         for i in 0..5 {
             File::create(temp_dir.path().join(format!("file{}.txt", i)))?;
         }
-        
+
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Test initial selection
         assert_eq!(panel.state.selected(), Some(0));
-        
+
         // Test next()
         panel.next();
         assert_eq!(panel.state.selected(), Some(1));
-        
+
         // Test previous()
         panel.previous();
         assert_eq!(panel.state.selected(), Some(0));
-        
+
         // Test wrap around
         panel.previous();
         assert_eq!(panel.state.selected(), Some(panel.entries.len() - 1));
-        
+
         panel.next();
         assert_eq!(panel.state.selected(), Some(0));
-        
+
         Ok(())
     }
 
@@ -989,9 +1102,9 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let subdir = temp_dir.path().join("subdir");
         fs::create_dir(&subdir)?;
-        
+
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Find and select the subdirectory
         for (i, entry) in panel.entries.iter().enumerate() {
             if entry.name == "subdir" {
@@ -999,19 +1112,19 @@ mod tests {
                 break;
             }
         }
-        
+
         // Enter the directory
         panel.enter()?;
         assert_eq!(panel.path, subdir);
-        
+
         // Should have ".." entry
         assert!(panel.entries.iter().any(|e| e.name == ".."));
-        
+
         // Go back up
         panel.state.select(Some(0)); // Select ".."
         panel.enter()?;
         assert_eq!(panel.path, temp_dir.path());
-        
+
         Ok(())
     }
 
@@ -1020,10 +1133,10 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
-        
+
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
         let original_path = panel.path.clone();
-        
+
         // Find and select the file
         for (i, entry) in panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -1031,11 +1144,11 @@ mod tests {
                 break;
             }
         }
-        
+
         // Try to enter the file (should do nothing)
         panel.enter()?;
         assert_eq!(panel.path, original_path);
-        
+
         Ok(())
     }
 
@@ -1044,19 +1157,27 @@ mod tests {
         let mut panel = Panel {
             path: PathBuf::from("/tmp"),
             entries: vec![
-                DirEntry { name: "file1.txt".to_string(), is_dir: false, size: 100 },
-                DirEntry { name: "file2.txt".to_string(), is_dir: false, size: 200 },
+                DirEntry {
+                    name: "file1.txt".to_string(),
+                    is_dir: false,
+                    size: 100,
+                },
+                DirEntry {
+                    name: "file2.txt".to_string(),
+                    is_dir: false,
+                    size: 200,
+                },
             ],
             state: ListState::default(),
         };
-        
+
         // Initially no selection
         assert_eq!(panel.state.selected(), None);
-        
+
         // Ensure selection sets it to 0
         panel.ensure_selection();
         assert_eq!(panel.state.selected(), Some(0));
-        
+
         // If already selected, should not change
         panel.state.select(Some(1));
         panel.ensure_selection();
@@ -1068,16 +1189,18 @@ mod tests {
         let base_path = PathBuf::from("/tmp");
         let panel = Panel {
             path: base_path.clone(),
-            entries: vec![
-                DirEntry { name: "file.txt".to_string(), is_dir: false, size: 100 },
-            ],
+            entries: vec![DirEntry {
+                name: "file.txt".to_string(),
+                is_dir: false,
+                size: 100,
+            }],
             state: {
                 let mut state = ListState::default();
                 state.select(Some(0));
                 state
             },
         };
-        
+
         let selected = panel.selected_path();
         assert_eq!(selected, Some(base_path.join("file.txt")));
     }
@@ -1087,6 +1210,7 @@ mod tests {
         let app = App::new()?;
         assert_eq!(app.active_panel, PanelSide::Left);
         assert!(!app.show_help);
+        assert!(!app.show_menu);
         assert!(app.viewer.is_none());
         Ok(())
     }
@@ -1095,13 +1219,13 @@ mod tests {
     fn test_app_switch_panel() -> io::Result<()> {
         let mut app = App::new()?;
         assert_eq!(app.active_panel, PanelSide::Left);
-        
+
         app.switch_panel();
         assert_eq!(app.active_panel, PanelSide::Right);
-        
+
         app.switch_panel();
         assert_eq!(app.active_panel, PanelSide::Left);
-        
+
         Ok(())
     }
 
@@ -1109,29 +1233,29 @@ mod tests {
     fn test_unique_destination() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         let base = temp_dir.path();
-        
+
         // Test when file doesn't exist
         let dest1 = unique_destination(base, std::ffi::OsStr::new("test.txt"));
         assert_eq!(dest1, base.join("test.txt"));
-        
+
         // Create the file and test again
         File::create(base.join("test.txt"))?;
         let dest2 = unique_destination(base, std::ffi::OsStr::new("test.txt"));
         assert_eq!(dest2, base.join("test_1.txt"));
-        
+
         // Create that file too
         File::create(base.join("test_1.txt"))?;
         let dest3 = unique_destination(base, std::ffi::OsStr::new("test.txt"));
         assert_eq!(dest3, base.join("test_2.txt"));
-        
+
         // Test with no extension
         let dest4 = unique_destination(base, std::ffi::OsStr::new("noext"));
         assert_eq!(dest4, base.join("noext"));
-        
+
         File::create(base.join("noext"))?;
         let dest5 = unique_destination(base, std::ffi::OsStr::new("noext"));
         assert_eq!(dest5, base.join("noext_1"));
-        
+
         Ok(())
     }
 
@@ -1140,41 +1264,46 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let src = temp_dir.path().join("src");
         let dst = temp_dir.path().join("dst");
-        
+
         // Create source directory structure
         fs::create_dir(&src)?;
         fs::create_dir(src.join("subdir"))?;
         File::create(src.join("file1.txt"))?.write_all(b"content1")?;
         File::create(src.join("subdir/file2.txt"))?.write_all(b"content2")?;
-        
+
         // Copy
         copy_dir_all(&src, &dst)?;
-        
+
         // Verify
         assert!(dst.exists());
         assert!(dst.join("file1.txt").exists());
         assert!(dst.join("subdir").exists());
         assert!(dst.join("subdir/file2.txt").exists());
-        
+
         let content1 = fs::read_to_string(dst.join("file1.txt"))?;
         assert_eq!(content1, "content1");
-        
+
         let content2 = fs::read_to_string(dst.join("subdir/file2.txt"))?;
         assert_eq!(content2, "content2");
-        
+
         Ok(())
     }
 
     #[test]
     fn test_centered_rect() {
-        let base = Rect { x: 0, y: 0, width: 100, height: 100 };
-        
+        let base = Rect {
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+        };
+
         let centered = centered_rect(50, 50, base);
         assert_eq!(centered.width, 50);
         assert_eq!(centered.height, 50);
         assert_eq!(centered.x, 25);
         assert_eq!(centered.y, 25);
-        
+
         let centered2 = centered_rect(80, 60, base);
         assert_eq!(centered2.width, 80);
         assert_eq!(centered2.height, 60);
@@ -1183,47 +1312,72 @@ mod tests {
     #[test]
     fn test_handle_overlay_keys() -> io::Result<()> {
         let mut app = App::new()?;
-        
+
         // Test with no overlays
         assert!(!handle_overlay_keys(&mut app, KeyCode::Esc));
-        
+
         // Test with help overlay
         app.show_help = true;
         assert!(handle_overlay_keys(&mut app, KeyCode::Esc));
         assert!(!app.show_help);
-        
+
         app.show_help = true;
         assert!(handle_overlay_keys(&mut app, KeyCode::F(1)));
         assert!(!app.show_help);
-        
+
         // Test with viewer overlay
         app.viewer = Some(Viewer {
             title: "test.txt".to_string(),
-            lines: vec!["line1".to_string(), "line2".to_string(), "line3".to_string()],
+            lines: vec![
+                "line1".to_string(),
+                "line2".to_string(),
+                "line3".to_string(),
+            ],
             scroll: 0,
         });
-        
+
         assert!(handle_overlay_keys(&mut app, KeyCode::Down));
         assert_eq!(app.viewer.as_ref().unwrap().scroll, 1);
-        
+
         assert!(handle_overlay_keys(&mut app, KeyCode::Up));
         assert_eq!(app.viewer.as_ref().unwrap().scroll, 0);
-        
+
         assert!(handle_overlay_keys(&mut app, KeyCode::Esc));
         assert!(app.viewer.is_none());
-        
+
         Ok(())
     }
 
-    #[test] 
+    #[test]
+    fn test_handle_menu_overlay_keys() -> io::Result<()> {
+        let mut app = App::new()?;
+        app.show_menu = true;
+
+        // Non-closing key should be consumed without toggling
+        assert!(handle_overlay_keys(&mut app, KeyCode::Down));
+        assert!(app.show_menu);
+
+        // Esc should close the menu
+        assert!(handle_overlay_keys(&mut app, KeyCode::Esc));
+        assert!(!app.show_menu);
+
+        // F9 should also close when reopened
+        app.show_menu = true;
+        assert!(handle_overlay_keys(&mut app, KeyCode::F(9)));
+        assert!(!app.show_menu);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_handle_view() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?.write_all(b"Line 1\nLine 2\nLine 3")?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -1231,15 +1385,15 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_view(&mut app)?;
-        
+
         assert!(app.viewer.is_some());
         let viewer = app.viewer.as_ref().unwrap();
         assert_eq!(viewer.title, "test.txt");
         assert_eq!(viewer.lines.len(), 3);
         assert_eq!(viewer.lines[0], "Line 1");
-        
+
         Ok(())
     }
 
@@ -1247,10 +1401,10 @@ mod tests {
     fn test_handle_view_directory() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         fs::create_dir(temp_dir.path().join("subdir"))?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Select the directory
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "subdir" {
@@ -1258,13 +1412,13 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_view(&mut app)?;
-        
+
         // Should not open viewer for directory
         assert!(app.viewer.is_none());
         assert_eq!(app.status_message, "Cannot view a directory");
-        
+
         Ok(())
     }
 
@@ -1275,14 +1429,14 @@ mod tests {
         let right_dir = temp_dir.path().join("right");
         fs::create_dir(&left_dir)?;
         fs::create_dir(&right_dir)?;
-        
+
         let file_path = left_dir.join("test.txt");
         File::create(&file_path)?.write_all(b"test content")?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(left_dir.clone())?;
         app.right_panel = Panel::new(right_dir.clone())?;
-        
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -1290,14 +1444,14 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_copy(&mut app)?;
-        
+
         // Check that file was copied
         assert!(right_dir.join("test.txt").exists());
         let content = fs::read_to_string(right_dir.join("test.txt"))?;
         assert_eq!(content, "test content");
-        
+
         Ok(())
     }
 
@@ -1308,14 +1462,14 @@ mod tests {
         let right_dir = temp_dir.path().join("right");
         fs::create_dir(&left_dir)?;
         fs::create_dir(&right_dir)?;
-        
+
         let file_path = left_dir.join("test.txt");
         File::create(&file_path)?.write_all(b"test content")?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(left_dir.clone())?;
         app.right_panel = Panel::new(right_dir.clone())?;
-        
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -1323,33 +1477,33 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_move(&mut app)?;
-        
+
         // Check that file was moved
         assert!(!file_path.exists());
         assert!(right_dir.join("test.txt").exists());
         let content = fs::read_to_string(right_dir.join("test.txt"))?;
         assert_eq!(content, "test content");
-        
+
         Ok(())
     }
 
     #[test]
     fn test_handle_mkdir() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         handle_mkdir(&mut app)?;
-        
+
         assert!(temp_dir.path().join("new_folder").exists());
-        
+
         // Create another one
         handle_mkdir(&mut app)?;
         assert!(temp_dir.path().join("new_folder_1").exists());
-        
+
         Ok(())
     }
 
@@ -1358,10 +1512,10 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?.write_all(b"test")?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -1369,11 +1523,11 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_delete(&mut app)?;
-        
+
         assert!(!file_path.exists());
-        
+
         Ok(())
     }
 
@@ -1383,10 +1537,10 @@ mod tests {
         let dir_path = temp_dir.path().join("subdir");
         fs::create_dir(&dir_path)?;
         File::create(dir_path.join("file.txt"))?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Select the directory
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "subdir" {
@@ -1394,34 +1548,42 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_delete(&mut app)?;
-        
+
         assert!(!dir_path.exists());
-        
+
         Ok(())
     }
 
     #[test]
     fn test_refresh_panels() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
         app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Create a file after panels are loaded
         File::create(temp_dir.path().join("new_file.txt"))?;
-        
+
         refresh_panels(&mut app)?;
-        
+
         // Check that both panels see the new file
-        let left_has_file = app.left_panel.entries.iter().any(|e| e.name == "new_file.txt");
-        let right_has_file = app.right_panel.entries.iter().any(|e| e.name == "new_file.txt");
-        
+        let left_has_file = app
+            .left_panel
+            .entries
+            .iter()
+            .any(|e| e.name == "new_file.txt");
+        let right_has_file = app
+            .right_panel
+            .entries
+            .iter()
+            .any(|e| e.name == "new_file.txt");
+
         assert!(left_has_file);
         assert!(right_has_file);
-        
+
         Ok(())
     }
 
@@ -1430,8 +1592,16 @@ mod tests {
         let panel = Panel {
             path: PathBuf::from("/tmp"),
             entries: vec![
-                DirEntry { name: "file1.txt".to_string(), is_dir: false, size: 100 },
-                DirEntry { name: "file2.txt".to_string(), is_dir: false, size: 200 },
+                DirEntry {
+                    name: "file1.txt".to_string(),
+                    is_dir: false,
+                    size: 100,
+                },
+                DirEntry {
+                    name: "file2.txt".to_string(),
+                    is_dir: false,
+                    size: 200,
+                },
             ],
             state: {
                 let mut state = ListState::default();
@@ -1439,7 +1609,7 @@ mod tests {
                 state
             },
         };
-        
+
         let selected = panel.get_selected_entry();
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().name, "file2.txt");
@@ -1452,11 +1622,11 @@ mod tests {
             entries: vec![],
             state: ListState::default(),
         };
-        
+
         // Should not panic on empty panel
         panel.next();
         assert_eq!(panel.state.selected(), None);
-        
+
         panel.previous();
         assert_eq!(panel.state.selected(), None);
     }
@@ -1464,25 +1634,25 @@ mod tests {
     #[test]
     fn test_app_get_panels() -> io::Result<()> {
         let mut app = App::new()?;
-        
+
         // Test active panel getter
         app.active_panel = PanelSide::Left;
         let active_panel_path = app.get_active_panel().path.clone();
         assert_eq!(active_panel_path, app.left_panel.path);
-        
+
         app.active_panel = PanelSide::Right;
         let active_panel_path = app.get_active_panel().path.clone();
         assert_eq!(active_panel_path, app.right_panel.path);
-        
+
         // Test inactive panel getter
         app.active_panel = PanelSide::Left;
         let inactive_panel_path = app.get_inactive_panel().path.clone();
         assert_eq!(inactive_panel_path, app.right_panel.path);
-        
+
         app.active_panel = PanelSide::Right;
         let inactive_panel_path = app.get_inactive_panel().path.clone();
         assert_eq!(inactive_panel_path, app.left_panel.path);
-        
+
         Ok(())
     }
 
@@ -1491,10 +1661,10 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("empty.txt");
         File::create(&file_path)?; // Empty file
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "empty.txt" {
@@ -1502,13 +1672,13 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_view(&mut app)?;
-        
+
         assert!(app.viewer.is_some());
         let viewer = app.viewer.as_ref().unwrap();
         assert_eq!(viewer.lines[0], "<empty file>");
-        
+
         Ok(())
     }
 
@@ -1526,7 +1696,7 @@ mod tests {
             is_dir: false,
             size: 1024,
         };
-        
+
         let cloned = entry.clone();
         assert_eq!(cloned.name, entry.name);
         assert_eq!(cloned.is_dir, entry.is_dir);
@@ -1536,19 +1706,19 @@ mod tests {
     #[test]
     fn test_panel_sorting() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
-        
+
         // Create files and directories with various names
         File::create(temp_dir.path().join("zebra.txt"))?;
         File::create(temp_dir.path().join("apple.txt"))?;
         fs::create_dir(temp_dir.path().join("banana_dir"))?;
         fs::create_dir(temp_dir.path().join("zoo_dir"))?;
-        
+
         let panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Find first directory and first file (excluding ..)
         let mut first_dir_idx = None;
         let mut first_file_idx = None;
-        
+
         for (i, entry) in panel.entries.iter().enumerate() {
             if entry.is_dir && entry.name != ".." && first_dir_idx.is_none() {
                 first_dir_idx = Some(i);
@@ -1557,12 +1727,12 @@ mod tests {
                 first_file_idx = Some(i);
             }
         }
-        
+
         // Directories should come before files
         if let (Some(dir_idx), Some(file_idx)) = (first_dir_idx, first_file_idx) {
             assert!(dir_idx < file_idx);
         }
-        
+
         Ok(())
     }
 
@@ -1573,17 +1743,17 @@ mod tests {
         let right_dir = temp_dir.path().join("right");
         fs::create_dir(&left_dir)?;
         fs::create_dir(&right_dir)?;
-        
+
         // Create source file
         File::create(left_dir.join("test.txt"))?.write_all(b"source")?;
-        
+
         // Create existing file in destination
         File::create(right_dir.join("test.txt"))?.write_all(b"existing")?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(left_dir.clone())?;
         app.right_panel = Panel::new(right_dir.clone())?;
-        
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -1591,17 +1761,17 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_copy(&mut app)?;
-        
+
         // Should create test_1.txt
         assert!(right_dir.join("test_1.txt").exists());
         let content = fs::read_to_string(right_dir.join("test_1.txt"))?;
         assert_eq!(content, "source");
-        
+
         // Original should still exist
         assert!(right_dir.join("test.txt").exists());
-        
+
         Ok(())
     }
 
@@ -1612,16 +1782,16 @@ mod tests {
         let right_dir = temp_dir.path().join("right");
         fs::create_dir(&left_dir)?;
         fs::create_dir(&right_dir)?;
-        
+
         // Create source directory with content
         let src_dir = left_dir.join("mydir");
         fs::create_dir(&src_dir)?;
         File::create(src_dir.join("file.txt"))?.write_all(b"content")?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(left_dir)?;
         app.right_panel = Panel::new(right_dir.clone())?;
-        
+
         // Select the directory
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "mydir" {
@@ -1629,13 +1799,13 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_copy(&mut app)?;
-        
+
         // Check that directory was copied
         assert!(right_dir.join("mydir").exists());
         assert!(right_dir.join("mydir/file.txt").exists());
-        
+
         Ok(())
     }
 
@@ -1644,22 +1814,30 @@ mod tests {
         let mut panel = Panel {
             path: PathBuf::from("/tmp"),
             entries: vec![
-                DirEntry { name: "file1.txt".to_string(), is_dir: false, size: 100 },
-                DirEntry { name: "file2.txt".to_string(), is_dir: false, size: 200 },
+                DirEntry {
+                    name: "file1.txt".to_string(),
+                    is_dir: false,
+                    size: 100,
+                },
+                DirEntry {
+                    name: "file2.txt".to_string(),
+                    is_dir: false,
+                    size: 200,
+                },
             ],
             state: ListState::default(),
         };
-        
+
         // Test wrap from None to 0
         panel.state.select(None);
         panel.next();
         assert_eq!(panel.state.selected(), Some(0));
-        
+
         // Test wrap from None to last
         panel.state.select(None);
         panel.previous();
         assert_eq!(panel.state.selected(), Some(0));
-        
+
         Ok(())
     }
 
@@ -1670,16 +1848,16 @@ mod tests {
         let right_dir = temp_dir.path().join("right");
         fs::create_dir(&left_dir)?;
         fs::create_dir(&right_dir)?;
-        
+
         // Create a directory with files to test fallback copy+delete
         let src_dir = left_dir.join("movedir");
         fs::create_dir(&src_dir)?;
         File::create(src_dir.join("file.txt"))?.write_all(b"content")?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(left_dir.clone())?;
         app.right_panel = Panel::new(right_dir.clone())?;
-        
+
         // Select the directory
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "movedir" {
@@ -1687,39 +1865,39 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_move(&mut app)?;
-        
+
         // Check that directory was moved
         assert!(!src_dir.exists());
         assert!(right_dir.join("movedir").exists());
         assert!(right_dir.join("movedir/file.txt").exists());
-        
+
         Ok(())
     }
 
     #[test]
     fn test_viewer_scrolling_bounds() -> io::Result<()> {
         let mut app = App::new()?;
-        
+
         // Create viewer with limited lines
         app.viewer = Some(Viewer {
             title: "test.txt".to_string(),
             lines: vec!["line1".to_string(), "line2".to_string()],
             scroll: 0,
         });
-        
+
         // Try to scroll beyond bounds
         handle_overlay_keys(&mut app, KeyCode::Down);
         handle_overlay_keys(&mut app, KeyCode::Down);
         handle_overlay_keys(&mut app, KeyCode::Down); // Should not go beyond
-        
+
         assert_eq!(app.viewer.as_ref().unwrap().scroll, 1); // Max scroll for 2 lines
-        
+
         // Test F(3) closes viewer
         handle_overlay_keys(&mut app, KeyCode::F(3));
         assert!(app.viewer.is_none());
-        
+
         Ok(())
     }
 
@@ -1727,12 +1905,12 @@ mod tests {
     fn test_handle_view_no_selection() -> io::Result<()> {
         let mut app = App::new()?;
         app.left_panel.state.select(None);
-        
+
         // Should handle gracefully
         let result = handle_view(&mut app);
         assert!(result.is_ok());
         assert!(app.viewer.is_none());
-        
+
         Ok(())
     }
 
@@ -1740,11 +1918,11 @@ mod tests {
     fn test_handle_copy_no_selection() -> io::Result<()> {
         let mut app = App::new()?;
         app.left_panel.state.select(None);
-        
+
         // Should handle gracefully
         let result = handle_copy(&mut app);
         assert!(result.is_ok());
-        
+
         Ok(())
     }
 
@@ -1752,11 +1930,11 @@ mod tests {
     fn test_handle_move_no_selection() -> io::Result<()> {
         let mut app = App::new()?;
         app.left_panel.state.select(None);
-        
+
         // Should handle gracefully
         let result = handle_move(&mut app);
         assert!(result.is_ok());
-        
+
         Ok(())
     }
 
@@ -1764,11 +1942,11 @@ mod tests {
     fn test_handle_delete_no_selection() -> io::Result<()> {
         let mut app = App::new()?;
         app.left_panel.state.select(None);
-        
+
         // Should handle gracefully
         let result = handle_delete(&mut app);
         assert!(result.is_ok());
-        
+
         Ok(())
     }
 
@@ -1776,37 +1954,44 @@ mod tests {
     fn test_rendering_functions() {
         use ratatui::backend::TestBackend;
         use ratatui::buffer::Buffer;
-        
+
         // Test centered_rect with edge cases
-        let base = Rect { x: 0, y: 0, width: 10, height: 10 };
+        let base = Rect {
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+        };
         let centered = centered_rect(100, 100, base);
         assert_eq!(centered.width, 10);
         assert_eq!(centered.height, 10);
-        
+
         // Test render_header
         let _buffer = Buffer::empty(Rect::new(0, 0, 50, 1));
         let backend = TestBackend::new(50, 1);
         let mut terminal = Terminal::new(backend).unwrap();
-        
-        terminal.draw(|f| {
-            render_header(f, f.size());
-        }).unwrap();
+
+        terminal
+            .draw(|f| {
+                render_header(f, f.size());
+            })
+            .unwrap();
     }
 
     #[test]
     fn test_render_functions_with_app() -> io::Result<()> {
         use ratatui::backend::TestBackend;
-        
+
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
         let mut app = App::new()?;
-        
+
         // Test rendering with help overlay
         app.show_help = true;
         terminal.draw(|f| {
             ui(f, &mut app);
         })?;
-        
+
         // Test rendering with viewer overlay
         app.show_help = false;
         app.viewer = Some(Viewer {
@@ -1814,35 +1999,42 @@ mod tests {
             lines: vec!["Test content".to_string()],
             scroll: 0,
         });
-        
+
         terminal.draw(|f| {
             ui(f, &mut app);
         })?;
-        
+
+        // Test rendering with menu overlay
+        app.viewer = None;
+        app.show_menu = true;
+        terminal.draw(|f| {
+            ui(f, &mut app);
+        })?;
+
         Ok(())
     }
 
     #[test]
     fn test_panel_state_consistency() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
-        
+
         // Create files
         for i in 0..3 {
             File::create(temp_dir.path().join(format!("file{}.txt", i)))?;
         }
-        
+
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Test that state is maintained after reload
         panel.state.select(Some(2));
         let _selected_before = panel.get_selected_entry().unwrap().name.clone();
-        
+
         panel.load_entries()?;
         panel.ensure_selection();
-        
+
         // Should still have a valid selection
         assert!(panel.state.selected().is_some());
-        
+
         Ok(())
     }
 
@@ -1850,19 +2042,19 @@ mod tests {
     fn test_unique_destination_edge_cases() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         let base = temp_dir.path();
-        
+
         // Test with empty extension
         let dest = unique_destination(base, std::ffi::OsStr::new("file."));
         assert_eq!(dest, base.join("file."));
-        
+
         // Test with multiple dots
         let dest2 = unique_destination(base, std::ffi::OsStr::new("file.tar.gz"));
         assert_eq!(dest2, base.join("file.tar.gz"));
-        
+
         File::create(base.join("file.tar.gz"))?;
         let dest3 = unique_destination(base, std::ffi::OsStr::new("file.tar.gz"));
         assert_eq!(dest3, base.join("file.tar_1.gz"));
-        
+
         Ok(())
     }
 
@@ -1872,7 +2064,7 @@ mod tests {
         assert_eq!(format_size(1023), "1023 B");
         assert_eq!(format_size(1024 * 1024 - 1), "1024.00 KB");
         assert_eq!(format_size(1024 * 1024 * 1024 - 1), "1024.00 MB");
-        
+
         // Test very large values
         let large = 1024u64 * 1024 * 1024 * 1024;
         assert_eq!(format_size(large), "1024.00 GB");
@@ -1915,7 +2107,7 @@ mod tests {
     }
 
     impl Backend for MockBackend {
-        fn draw<'a, I>(&mut self, _content: I) -> io::Result<()> 
+        fn draw<'a, I>(&mut self, _content: I) -> io::Result<()>
         where
             I: Iterator<Item = (u16, u16, &'a ratatui::buffer::Cell)>,
         {
@@ -1967,15 +2159,13 @@ mod tests {
         }
     }
 
-
-
     #[test]
     fn test_handle_edit_directory() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         fs::create_dir(temp_dir.path().join("testdir"))?;
-        
+
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Select the directory
         for (i, entry) in app.get_active_panel().entries.iter().enumerate() {
             if entry.name == "testdir" {
@@ -1983,15 +2173,15 @@ mod tests {
                 break;
             }
         }
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         // This should set status message for directory
         handle_edit(&mut terminal, &mut app)?;
-        
+
         assert_eq!(app.status_message, "Editing directories is not supported");
-        
+
         Ok(())
     }
 
@@ -1999,16 +2189,16 @@ mod tests {
     fn test_handle_edit_no_selection() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Ensure no selection
         app.get_active_panel().state.select(None);
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         // Should handle gracefully
         handle_edit(&mut terminal, &mut app)?;
-        
+
         Ok(())
     }
 
@@ -2016,12 +2206,12 @@ mod tests {
     fn test_ui_rendering() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         terminal.draw(|f| ui(f, &mut app))?;
-        
+
         Ok(())
     }
 
@@ -2030,22 +2220,20 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
         app.show_help = true;
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         terminal.draw(|f| ui(f, &mut app))?;
-        
+
         Ok(())
     }
-
-
 
     #[test]
     fn test_main_error_paths() {
         // Since we can't easily test the actual main function,
         // we test the components it uses
-        
+
         // Test terminal operations would fail without a real terminal
         // This is acceptable as these are integration-level concerns
     }
@@ -2067,6 +2255,7 @@ mod tests {
                 active_panel: PanelSide::Left,
                 status_message: String::new(),
                 show_help: false,
+                show_menu: false,
                 viewer: None,
             })
         }
@@ -2079,10 +2268,10 @@ mod tests {
         let mut file = File::create(&test_file)?;
         writeln!(file, "test content")?;
         drop(file);
-        
+
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
         app.active_panel = PanelSide::Right;
-        
+
         // Ensure right panel has a file selected (not directory)
         app.right_panel.load_entries()?;
         for (i, entry) in app.right_panel.entries.iter().enumerate() {
@@ -2091,15 +2280,15 @@ mod tests {
                 break;
             }
         }
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         terminal.draw(|f| {
             let area = Rect::new(0, 0, 80, 1);
             render_status(f, &app, area);
         })?;
-        
+
         Ok(())
     }
 
@@ -2107,18 +2296,18 @@ mod tests {
     fn test_render_status_no_selection() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Ensure no selection
         app.get_active_panel().state.select(None);
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         terminal.draw(|f| {
             let area = Rect::new(0, 0, 80, 1);
             render_status(f, &app, area);
         })?;
-        
+
         Ok(())
     }
 
@@ -2129,23 +2318,23 @@ mod tests {
         let mut file = File::create(&test_file)?;
         writeln!(file, "Test content")?;
         drop(file);
-        
+
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Set up viewer in app
         app.viewer = Some(Viewer {
             title: "test.txt".to_string(),
             lines: vec!["Test content".to_string()],
             scroll: 0,
         });
-        
+
         // Test unhandled key in viewer (should still consume the event)
         assert!(handle_overlay_keys(&mut app, KeyCode::Char('x')));
-        
+
         // Test closing viewer
         assert!(handle_overlay_keys(&mut app, KeyCode::Esc));
         assert!(app.viewer.is_none());
-        
+
         Ok(())
     }
 
@@ -2154,22 +2343,22 @@ mod tests {
         // This test simulates when fs::rename fails (e.g., cross-filesystem move)
         let temp_dir1 = TempDir::new()?;
         let temp_dir2 = TempDir::new()?;
-        
+
         // Create source file
         let source_file = temp_dir1.path().join("source.txt");
         let mut file = File::create(&source_file)?;
         writeln!(file, "Test content")?;
         drop(file);
-        
+
         // Create source directory with content
         let source_dir = temp_dir1.path().join("sourcedir");
         fs::create_dir(&source_dir)?;
         let inner_file = source_dir.join("inner.txt");
         File::create(&inner_file)?;
-        
+
         let mut app = App::new_with_path(temp_dir1.path().to_path_buf())?;
         app.right_panel = Panel::new(temp_dir2.path().to_path_buf())?;
-        
+
         // Test file move (simulating cross-filesystem)
         app.left_panel.load_entries()?;
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
@@ -2178,15 +2367,15 @@ mod tests {
                 break;
             }
         }
-        
+
         // The actual cross-filesystem scenario is hard to test directly,
         // but the code path is exercised when rename would fail
         handle_move(&mut app)?;
-        
+
         // Verify file was moved
         assert!(!source_file.exists());
         assert!(temp_dir2.path().join("source.txt").exists());
-        
+
         // Test directory move
         app.left_panel.load_entries()?;
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
@@ -2195,14 +2384,18 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_move(&mut app)?;
-        
+
         // Verify directory was moved
         assert!(!source_dir.exists());
         assert!(temp_dir2.path().join("sourcedir").exists());
-        assert!(temp_dir2.path().join("sourcedir").join("inner.txt").exists());
-        
+        assert!(temp_dir2
+            .path()
+            .join("sourcedir")
+            .join("inner.txt")
+            .exists());
+
         Ok(())
     }
 
@@ -2213,9 +2406,9 @@ mod tests {
         let mut file = File::create(&test_file)?;
         writeln!(file, "Line 1")?;
         writeln!(file, "Line 2")?;
-        
+
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         app.left_panel.load_entries()?;
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
@@ -2224,11 +2417,14 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_view(&mut app)?;
-        
-        assert_eq!(app.status_message, format!("Viewing {}", test_file.display()));
-        
+
+        assert_eq!(
+            app.status_message,
+            format!("Viewing {}", test_file.display())
+        );
+
         Ok(())
     }
 
@@ -2239,12 +2435,12 @@ mod tests {
         let rect = centered_rect(1, 1, r);
         assert!(rect.width >= 1);
         assert!(rect.height >= 1);
-        
+
         // Test maximum percentage (100%)
         let rect2 = centered_rect(100, 100, r);
         assert_eq!(rect2.width, 100);
         assert_eq!(rect2.height, 100);
-        
+
         // Test typical usage
         let rect3 = centered_rect(50, 50, r);
         assert!(rect3.width > 0);
@@ -2262,9 +2458,9 @@ mod tests {
         // Create a file with specific size to test format_size
         file.write_all(&vec![0u8; 1024 * 1024])?; // 1MB file
         drop(file);
-        
+
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         app.left_panel.load_entries()?;
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
@@ -2273,15 +2469,15 @@ mod tests {
                 break;
             }
         }
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         terminal.draw(|f| {
             let area = Rect::new(0, 0, 80, 1);
             render_status(f, &app, area);
         })?;
-        
+
         Ok(())
     }
 
@@ -2291,19 +2487,19 @@ mod tests {
         // This test tries to trigger the fallback copy+delete in handle_move
         // when fs::rename fails due to permissions or cross-filesystem
         use std::os::unix::fs::PermissionsExt;
-        
+
         let temp_dir1 = TempDir::new()?;
         let temp_dir2 = TempDir::new()?;
-        
+
         // Create a file in a directory
         let source_dir = temp_dir1.path().join("readonly_dir");
         fs::create_dir(&source_dir)?;
         let source_file = source_dir.join("file.txt");
         File::create(&source_file)?;
-        
+
         let mut app = App::new_with_path(source_dir.clone())?;
         app.right_panel = Panel::new(temp_dir2.path().to_path_buf())?;
-        
+
         // Select the file
         app.left_panel.load_entries()?;
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
@@ -2312,10 +2508,10 @@ mod tests {
                 break;
             }
         }
-        
+
         // Try to move - this should use the copy+delete fallback
         handle_move(&mut app)?;
-        
+
         Ok(())
     }
 
@@ -2325,7 +2521,7 @@ mod tests {
         // On Windows, moves across drives fail with fs::rename
         true
     }
-    
+
     #[cfg(not(windows))]
     fn simulate_cross_filesystem_move() -> bool {
         // On Unix, we'd need actual different filesystems
@@ -2338,7 +2534,7 @@ mod tests {
         if std::env::var("CI").is_ok() || cfg!(windows) {
             return Ok(());
         }
-        
+
         let temp_dir = TempDir::new()?;
         let test_file = temp_dir.path().join("test.txt");
         let mut file = File::create(&test_file)?;
@@ -2346,7 +2542,7 @@ mod tests {
         drop(file);
 
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         app.left_panel.load_entries()?;
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
@@ -2355,32 +2551,32 @@ mod tests {
                 break;
             }
         }
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         // Set EDITOR to a command that will fail
         std::env::set_var("EDITOR", "nonexistent_editor");
-        
+
         // This should handle editor error gracefully
         handle_edit(&mut terminal, &mut app)?;
-        
+
         // Should have an error message
         assert!(app.status_message.contains("Failed to launch editor"));
-        
+
         Ok(())
     }
 
     #[test]
     fn test_run_app_quit_keys() -> io::Result<()> {
         use crossterm::event::{KeyEvent, KeyEventKind, KeyEventState};
-        
+
         // Create a mock event reader
         struct MockEventReader {
             events: Vec<Event>,
             index: std::cell::RefCell<usize>,
         }
-        
+
         impl MockEventReader {
             fn new(events: Vec<Event>) -> Self {
                 Self {
@@ -2388,7 +2584,7 @@ mod tests {
                     index: std::cell::RefCell::new(0),
                 }
             }
-            
+
             fn read(&self) -> io::Result<Event> {
                 let mut idx = self.index.borrow_mut();
                 if *idx < self.events.len() {
@@ -2396,19 +2592,22 @@ mod tests {
                     *idx += 1;
                     Ok(event)
                 } else {
-                    Err(io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+                    Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "No more events",
+                    ))
                 }
             }
         }
-        
+
         // Test quit with 'q' key
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
         let app = App::new()?;
-        
+
         // We can't easily test the full event loop, but we can test the key handlers
         // The main() function and run_app() are integration-level and hard to unit test
-        
+
         Ok(())
     }
 
@@ -2418,10 +2617,10 @@ mod tests {
         let app = App::new()?;
         assert_eq!(app.active_panel, PanelSide::Left);
         assert!(!app.show_help);
-        
+
         // The actual main() function with terminal setup is integration-level
         // and requires a real terminal, which is not available in unit tests
-        
+
         Ok(())
     }
 
@@ -2434,15 +2633,15 @@ mod tests {
         let right_dir = temp_dir.path().join("right");
         fs::create_dir(&left_dir)?;
         fs::create_dir(&right_dir)?;
-        
+
         // Create a file to move
         let source_file = left_dir.join("test.txt");
         File::create(&source_file)?.write_all(b"test content")?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(left_dir.clone())?;
         app.right_panel = Panel::new(right_dir.clone())?;
-        
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -2450,14 +2649,14 @@ mod tests {
                 break;
             }
         }
-        
+
         // The move should succeed (using either rename or copy+delete)
         handle_move(&mut app)?;
-        
+
         // Verify file was moved
         assert!(!source_file.exists());
         assert!(right_dir.join("test.txt").exists());
-        
+
         Ok(())
     }
 
@@ -2467,13 +2666,13 @@ mod tests {
         if std::env::var("CI").is_ok() || cfg!(windows) {
             return Ok(());
         }
-        
+
         let temp_dir = TempDir::new()?;
         let test_file = temp_dir.path().join("test.txt");
         File::create(&test_file)?.write_all(b"content")?;
-        
+
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         app.left_panel.load_entries()?;
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
@@ -2482,21 +2681,21 @@ mod tests {
                 break;
             }
         }
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         // Set EDITOR to 'echo' which exists and returns success
         #[cfg(unix)]
         std::env::set_var("EDITOR", "echo");
         #[cfg(windows)]
         std::env::set_var("EDITOR", "cmd /c echo");
-        
+
         handle_edit(&mut terminal, &mut app)?;
-        
+
         // Should have success message
         assert!(app.status_message.contains("Edited"));
-        
+
         Ok(())
     }
 
@@ -2504,17 +2703,17 @@ mod tests {
     #[test]
     fn test_key_event_coverage() -> io::Result<()> {
         let mut app = App::new()?;
-        
+
         // Test Tab key
         let original = app.active_panel;
         app.switch_panel();
         assert_ne!(app.active_panel, original);
-        
+
         // Test F1 key (help toggle)
         assert!(!app.show_help);
         app.show_help = !app.show_help;
         assert!(app.show_help);
-        
+
         Ok(())
     }
 
@@ -2523,27 +2722,27 @@ mod tests {
         let temp_dir = TempDir::new()?;
         File::create(temp_dir.path().join("file1.txt"))?;
         File::create(temp_dir.path().join("file2.txt"))?;
-        
+
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Test Down key
         let initial_selection = app.get_active_panel().state.selected();
         app.get_active_panel().next();
         assert_ne!(app.get_active_panel().state.selected(), initial_selection);
-        
+
         // Test Up key
         app.get_active_panel().previous();
         assert_eq!(app.get_active_panel().state.selected(), initial_selection);
-        
+
         // Test Left/Right keys
         app.active_panel = PanelSide::Right;
         app.active_panel = PanelSide::Left;
         assert_eq!(app.active_panel, PanelSide::Left);
-        
+
         app.active_panel = PanelSide::Left;
         app.active_panel = PanelSide::Right;
         assert_eq!(app.active_panel, PanelSide::Right);
-        
+
         Ok(())
     }
 
@@ -2553,13 +2752,13 @@ mod tests {
         if std::env::var("CI").is_ok() || cfg!(windows) {
             return Ok(());
         }
-        
+
         let temp_dir = TempDir::new()?;
         let test_file = temp_dir.path().join("test.txt");
         File::create(&test_file)?;
-        
+
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         app.left_panel.load_entries()?;
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
@@ -2568,21 +2767,21 @@ mod tests {
                 break;
             }
         }
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         // Set EDITOR to 'false' which exists but returns non-zero
         #[cfg(unix)]
         std::env::set_var("EDITOR", "false");
         #[cfg(windows)]
         std::env::set_var("EDITOR", "cmd /c exit 1");
-        
+
         handle_edit(&mut terminal, &mut app)?;
-        
+
         // Should have exit code message
         assert!(app.status_message.contains("Editor exited with status"));
-        
+
         Ok(())
     }
 
@@ -2591,9 +2790,9 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let test_file = temp_dir.path().join("test.txt");
         File::create(&test_file)?;
-        
+
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         app.left_panel.load_entries()?;
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
@@ -2602,10 +2801,10 @@ mod tests {
                 break;
             }
         }
-        
+
         // Test editor command error paths
         app.status_message = String::new();
-        
+
         Ok(())
     }
 
@@ -2614,7 +2813,7 @@ mod tests {
         // Test that we can create an App successfully
         let result = App::new();
         assert!(result.is_ok());
-        
+
         // The main() function cannot be directly unit tested as it requires
         // terminal setup, but all its components are tested individually
     }
@@ -2622,23 +2821,23 @@ mod tests {
     #[test]
     fn test_run_app_key_handlers() -> io::Result<()> {
         let mut app = App::new()?;
-        
+
         // Test all key handlers are callable
-        
+
         // Test navigation
         app.get_active_panel().next();
         app.get_active_panel().previous();
-        
+
         // Test panel switching
         app.switch_panel();
-        
+
         // Test active panel setting
         app.active_panel = PanelSide::Left;
         app.active_panel = PanelSide::Right;
-        
+
         // Test help toggle
         app.show_help = !app.show_help;
-        
+
         Ok(())
     }
 
@@ -2646,9 +2845,9 @@ mod tests {
     fn test_handle_enter_key() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         fs::create_dir(temp_dir.path().join("dir1"))?;
-        
+
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Select directory and enter it
         for (i, entry) in app.get_active_panel().entries.iter().enumerate() {
             if entry.name == "dir1" {
@@ -2656,9 +2855,9 @@ mod tests {
                 break;
             }
         }
-        
+
         app.get_active_panel().enter()?;
-        
+
         Ok(())
     }
 
@@ -2667,9 +2866,9 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let test_file = temp_dir.path().join("test.txt");
         File::create(&test_file)?.write_all(b"test content")?;
-        
+
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Ensure entries are loaded and file is selected
         app.left_panel.load_entries()?;
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
@@ -2678,20 +2877,20 @@ mod tests {
                 break;
             }
         }
-        
+
         // Test F3 View
         handle_view(&mut app)?;
         assert!(app.viewer.is_some());
-        
+
         // Clear viewer before other operations
         app.viewer = None;
-        
+
         // Test F7 Mkdir (doesn't need selection)
         handle_mkdir(&mut app)?;
-        
+
         // Test F5 Copy
         handle_copy(&mut app)?;
-        
+
         Ok(())
     }
 
@@ -2710,16 +2909,16 @@ mod tests {
         let right_dir = temp_dir.path().join("right");
         fs::create_dir(&left_dir)?;
         fs::create_dir(&right_dir)?;
-        
+
         // Create a directory to move
         let source_dir = left_dir.join("sourcedir");
         fs::create_dir(&source_dir)?;
         File::create(source_dir.join("file.txt"))?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(left_dir)?;
         app.right_panel = Panel::new(right_dir.clone())?;
-        
+
         // Select the directory
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "sourcedir" {
@@ -2727,13 +2926,13 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_move(&mut app)?;
-        
+
         // Verify directory was moved
         assert!(!source_dir.exists());
         assert!(right_dir.join("sourcedir").exists());
-        
+
         Ok(())
     }
 
@@ -2744,15 +2943,15 @@ mod tests {
         let right_dir = temp_dir.path().join("right");
         fs::create_dir(&left_dir)?;
         fs::create_dir(&right_dir)?;
-        
+
         // Create a file to move
         let source_file = left_dir.join("test.txt");
         File::create(&source_file)?.write_all(b"content")?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(left_dir)?;
         app.right_panel = Panel::new(right_dir.clone())?;
-        
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -2760,13 +2959,13 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_move(&mut app)?;
-        
+
         // Verify file was moved
         assert!(!source_file.exists());
         assert!(right_dir.join("test.txt").exists());
-        
+
         Ok(())
     }
 
@@ -2782,14 +2981,14 @@ mod tests {
         assert!(result.is_ok() || result.is_err());
     }
 
-    #[test] 
+    #[test]
     fn test_run_app_all_keys() -> io::Result<()> {
         use crossterm::event::{KeyEvent, KeyModifiers};
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
         let app = App::new()?;
-        
+
         // Create a sequence of events to test all key handlers
         let mut events = vec![
             Event::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::empty())),
@@ -2809,12 +3008,14 @@ mod tests {
             Event::Key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::empty())), // Quit
         ];
         events.reverse(); // So we can pop from the end
-        
+
         let mut event_iter = events.into_iter().rev();
         let result = run_app_with_event_reader(&mut terminal, app, || {
-            event_iter.next().ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+            event_iter
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
         });
-        
+
         assert!(result.is_ok());
         Ok(())
     }
@@ -2822,20 +3023,23 @@ mod tests {
     #[test]
     fn test_run_app_ctrl_c_quit() -> io::Result<()> {
         use crossterm::event::{KeyEvent, KeyModifiers};
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
         let app = App::new()?;
-        
-        let mut events = vec![
-            Event::Key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)),
-        ];
-        
+
+        let mut events = vec![Event::Key(KeyEvent::new(
+            KeyCode::Char('c'),
+            KeyModifiers::CONTROL,
+        ))];
+
         let mut event_iter = events.into_iter();
         let result = run_app_with_event_reader(&mut terminal, app, || {
-            event_iter.next().ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+            event_iter
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
         });
-        
+
         assert!(result.is_ok());
         Ok(())
     }
@@ -2843,20 +3047,23 @@ mod tests {
     #[test]
     fn test_run_app_f10_quit() -> io::Result<()> {
         use crossterm::event::{KeyEvent, KeyModifiers};
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
         let app = App::new()?;
-        
-        let mut events = vec![
-            Event::Key(KeyEvent::new(KeyCode::F(10), KeyModifiers::empty())),
-        ];
-        
+
+        let mut events = vec![Event::Key(KeyEvent::new(
+            KeyCode::F(10),
+            KeyModifiers::empty(),
+        ))];
+
         let mut event_iter = events.into_iter();
         let result = run_app_with_event_reader(&mut terminal, app, || {
-            event_iter.next().ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+            event_iter
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
         });
-        
+
         assert!(result.is_ok());
         Ok(())
     }
@@ -2864,20 +3071,23 @@ mod tests {
     #[test]
     fn test_run_app_capital_q_quit() -> io::Result<()> {
         use crossterm::event::{KeyEvent, KeyModifiers};
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
         let app = App::new()?;
-        
-        let mut events = vec![
-            Event::Key(KeyEvent::new(KeyCode::Char('Q'), KeyModifiers::empty())),
-        ];
-        
+
+        let mut events = vec![Event::Key(KeyEvent::new(
+            KeyCode::Char('Q'),
+            KeyModifiers::empty(),
+        ))];
+
         let mut event_iter = events.into_iter();
         let result = run_app_with_event_reader(&mut terminal, app, || {
-            event_iter.next().ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+            event_iter
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
         });
-        
+
         assert!(result.is_ok());
         Ok(())
     }
@@ -2887,9 +3097,9 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let test_file = temp_dir.path().join("test.txt");
         File::create(&test_file)?;
-        
+
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         app.left_panel.load_entries()?;
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
@@ -2898,30 +3108,30 @@ mod tests {
                 break;
             }
         }
-        
+
         // Test successful edit
         std::env::set_var("TEST_MODE", "1");
         std::env::set_var("TEST_EDITOR", "success");
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         handle_edit(&mut terminal, &mut app)?;
         assert!(app.status_message.contains("Edited"));
-        
+
         // Test failed launch
         std::env::set_var("TEST_EDITOR", "fail_launch");
         handle_edit(&mut terminal, &mut app)?;
         assert!(app.status_message.contains("Failed to launch editor"));
-        
+
         // Test exit error
         std::env::set_var("TEST_EDITOR", "exit_error");
         handle_edit(&mut terminal, &mut app)?;
         assert!(app.status_message.contains("Editor exited with status"));
-        
+
         std::env::remove_var("TEST_MODE");
         std::env::remove_var("TEST_EDITOR");
-        
+
         Ok(())
     }
 
@@ -2930,9 +3140,9 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let test_file = temp_dir.path().join("test.txt");
         File::create(&test_file)?;
-        
+
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         app.left_panel.load_entries()?;
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
@@ -2941,48 +3151,48 @@ mod tests {
                 break;
             }
         }
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         // Test successful editor
         handle_edit_impl(&mut terminal, &mut app, |_editor, _path| {
             Ok(std::process::Command::new("echo").status()?)
         })?;
-        
+
         // Should have a success message
         assert!(app.status_message.contains("Edited") || app.status_message.contains("exited"));
-        
+
         Ok(())
     }
 
     #[test]
     fn test_handle_move_error_path_directory() -> io::Result<()> {
         use std::sync::atomic::{AtomicBool, Ordering};
-        
+
         let temp_dir = TempDir::new()?;
         let left_dir = temp_dir.path().join("left");
         let right_dir = temp_dir.path().join("right");
         fs::create_dir(&left_dir)?;
         fs::create_dir(&right_dir)?;
-        
+
         // Create a directory to move
         let source_dir = left_dir.join("sourcedir");
         fs::create_dir(&source_dir)?;
         File::create(source_dir.join("file.txt"))?;
-        
+
         // Create a custom Panel that will simulate rename failure
         struct TestPanel {
             inner: Panel,
             should_fail_rename: AtomicBool,
         }
-        
+
         // Since we can't easily mock fs::rename failure, we test the logic
         // by ensuring the fallback path is exercised
         let mut app = App::new()?;
         app.left_panel = Panel::new(left_dir)?;
         app.right_panel = Panel::new(right_dir.clone())?;
-        
+
         // Select the directory
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "sourcedir" {
@@ -2990,14 +3200,14 @@ mod tests {
                 break;
             }
         }
-        
+
         // The handle_move function will try rename first, then fall back to copy+delete
         handle_move(&mut app)?;
-        
+
         // Verify directory was moved (either by rename or copy+delete)
         assert!(!source_dir.exists());
         assert!(right_dir.join("sourcedir").exists());
-        
+
         Ok(())
     }
 
@@ -3008,15 +3218,15 @@ mod tests {
         let right_dir = temp_dir.path().join("right");
         fs::create_dir(&left_dir)?;
         fs::create_dir(&right_dir)?;
-        
+
         // Create a file to move
         let source_file = left_dir.join("test.txt");
         File::create(&source_file)?.write_all(b"content")?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(left_dir)?;
         app.right_panel = Panel::new(right_dir.clone())?;
-        
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -3024,28 +3234,28 @@ mod tests {
                 break;
             }
         }
-        
+
         // The handle_move function will try rename first, then fall back to copy+delete
         handle_move(&mut app)?;
-        
+
         // Verify file was moved (either by rename or copy+delete)
         assert!(!source_file.exists());
         assert!(right_dir.join("test.txt").exists());
-        
+
         Ok(())
     }
 
     #[test]
     fn test_run_app_with_file_operations() -> io::Result<()> {
         use crossterm::event::{KeyEvent, KeyModifiers};
-        
+
         let temp_dir = TempDir::new()?;
         File::create(temp_dir.path().join("test.txt"))?;
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
         let mut app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         // Select a file
         app.left_panel.load_entries()?;
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
@@ -3054,7 +3264,7 @@ mod tests {
                 break;
             }
         }
-        
+
         // Test F3 (View) followed by escape
         std::env::set_var("TEST_MODE", "1");
         let mut events = vec![
@@ -3066,12 +3276,14 @@ mod tests {
             Event::Key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::empty())),
         ];
         events.reverse();
-        
+
         let mut event_iter = events.into_iter().rev();
         let result = run_app_with_event_reader(&mut terminal, app, || {
-            event_iter.next().ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+            event_iter
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
         });
-        
+
         std::env::remove_var("TEST_MODE");
         assert!(result.is_ok());
         Ok(())
@@ -3080,17 +3292,17 @@ mod tests {
     #[test]
     fn test_all_key_code_branches() -> io::Result<()> {
         use crossterm::event::{KeyEvent, KeyModifiers};
-        
+
         let temp_dir = TempDir::new()?;
         fs::create_dir(temp_dir.path().join("subdir"))?;
         File::create(temp_dir.path().join("file.txt"))?;
-        
+
         let backend = MockBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
         let app = App::new_with_path(temp_dir.path().to_path_buf())?;
-        
+
         std::env::set_var("TEST_MODE", "1");
-        
+
         // Create events that test every branch in the match statement
         let mut events = vec![
             // Navigation
@@ -3119,12 +3331,14 @@ mod tests {
             Event::Key(KeyEvent::new(KeyCode::F(10), KeyModifiers::empty())),
         ];
         events.reverse();
-        
+
         let mut event_iter = events.into_iter().rev();
         let result = run_app_with_event_reader(&mut terminal, app, || {
-            event_iter.next().ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+            event_iter
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
         });
-        
+
         std::env::remove_var("TEST_MODE");
         assert!(result.is_ok());
         Ok(())
