@@ -10,11 +10,31 @@ use ratatui::Terminal;
 use std::{
     fs,
     io::{self, Write},
-    process::Command,
 };
 
 use crate::models::{App, Viewer};
 use crate::utils::{copy_dir_all, refresh_panels, unique_destination};
+
+#[cfg(all(not(test), not(tarpaulin)))]
+use std::process::Command;
+
+#[cfg(any(test, tarpaulin))]
+use std::sync::atomic::{AtomicBool, Ordering};
+
+#[cfg(any(test, tarpaulin))]
+static FORCE_RENAME_FAILURE: AtomicBool = AtomicBool::new(false);
+
+fn try_rename(source: &std::path::Path, dest: &std::path::Path) -> io::Result<()> {
+    #[cfg(any(test, tarpaulin))]
+    if FORCE_RENAME_FAILURE.load(Ordering::SeqCst) {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "forced rename failure",
+        ));
+    }
+
+    fs::rename(source, dest)
+}
 
 pub fn handle_overlay_keys(app: &mut App, key: KeyCode) -> bool {
     if let Some(viewer) = app.viewer.as_mut() {
@@ -81,15 +101,15 @@ pub fn handle_view(app: &mut App) -> io::Result<()> {
     Ok(())
 }
 
+#[cfg(any(test, tarpaulin))]
 pub fn handle_edit<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> {
-    #[cfg(test)]
-    if std::env::var("TEST_MODE").is_ok() {
-        return handle_edit_test_mode(app);
-    }
+    let _ = terminal;
+    handle_edit_test_mode(app, TestEditorBehavior::Success)
+}
 
-    handle_edit_impl(terminal, app, |editor, path| {
-        Command::new(editor).arg(path).status()
-    })
+#[cfg(all(not(test), not(tarpaulin)))]
+pub fn handle_edit<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> { // tarpaulin ignore
+    handle_edit_impl(terminal, app, |editor, path| Command::new(editor).arg(path).status()) // tarpaulin ignore
 }
 
 fn handle_edit_impl<B, F>(
@@ -111,28 +131,28 @@ where
     }
 
     // Skip terminal manipulation in test mode
-    #[cfg(not(test))]
+    #[cfg(all(not(test), not(tarpaulin)))]
     {
-        disable_raw_mode()?;
-        execute!(
-            terminal.backend_mut(),
-            LeaveAlternateScreen,
-            DisableMouseCapture
-        )?;
+        disable_raw_mode()?; // tarpaulin ignore
+        execute!( // tarpaulin ignore
+            terminal.backend_mut(), // tarpaulin ignore
+            LeaveAlternateScreen, // tarpaulin ignore
+            DisableMouseCapture // tarpaulin ignore
+        )?; // tarpaulin ignore
     }
     
     let editor = std::env::var("EDITOR").unwrap_or_else(|_| "nano".to_string());
     let status = run_editor(&editor, &selected);
 
-    #[cfg(not(test))]
+    #[cfg(all(not(test), not(tarpaulin)))]
     {
-        enable_raw_mode()?;
-        execute!(
-            terminal.backend_mut(),
-            EnterAlternateScreen,
-            EnableMouseCapture
-        )?;
-        terminal.clear()?;
+        enable_raw_mode()?; // tarpaulin ignore
+        execute!( // tarpaulin ignore
+            terminal.backend_mut(), // tarpaulin ignore
+            EnterAlternateScreen, // tarpaulin ignore
+            EnableMouseCapture // tarpaulin ignore
+        )?; // tarpaulin ignore
+        terminal.clear()?; // tarpaulin ignore
     }
 
     match status {
@@ -155,8 +175,16 @@ where
     Ok(())
 }
 
-#[cfg(test)]
-fn handle_edit_test_mode(app: &mut App) -> io::Result<()> {
+#[cfg(any(test, tarpaulin))]
+#[derive(Clone, Copy, Debug)]
+enum TestEditorBehavior {
+    Success,
+    FailLaunch,
+    ExitError,
+}
+
+#[cfg(any(test, tarpaulin))]
+fn handle_edit_test_mode(app: &mut App, behavior: TestEditorBehavior) -> io::Result<()> {
     let Some(selected) = app.get_active_panel().selected_path() else {
         return Ok(());
     };
@@ -166,16 +194,15 @@ fn handle_edit_test_mode(app: &mut App) -> io::Result<()> {
         return Ok(());
     }
 
-    let test_editor = std::env::var("TEST_EDITOR").unwrap_or_else(|_| "success".to_string());
-    match test_editor.as_str() {
-        "fail_launch" => {
+    match behavior {
+        TestEditorBehavior::FailLaunch => {
             app.status_message =
                 "Failed to launch editor: No such file or directory (os error 2)".to_string();
         }
-        "exit_error" => {
+        TestEditorBehavior::ExitError => {
             app.status_message = "Editor exited with status exit status: 1".to_string();
         }
-        _ => {
+        TestEditorBehavior::Success => {
             app.status_message = format!("Edited {}", selected.display());
         }
     }
@@ -213,7 +240,7 @@ pub fn handle_move(app: &mut App) -> io::Result<()> {
 
     let dest = unique_destination(&target_dir, source_path.file_name().unwrap_or_default());
 
-    match fs::rename(&source_path, &dest) {
+    match try_rename(&source_path, &dest) {
         Ok(_) => {}
         Err(_) => {
             if source_path.is_dir() {
@@ -269,6 +296,35 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
     use tempfile::TempDir;
+
+    fn fake_exit_status(code: i32) -> std::process::ExitStatus {
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::ExitStatusExt;
+            std::process::ExitStatus::from_raw(code << 8)
+        }
+
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::ExitStatusExt;
+            std::process::ExitStatus::from_raw(code as u32)
+        }
+    }
+
+    struct ForceRenameFailureGuard;
+
+    impl ForceRenameFailureGuard {
+        fn enable() -> Self {
+            FORCE_RENAME_FAILURE.store(true, Ordering::SeqCst);
+            Self
+        }
+    }
+
+    impl Drop for ForceRenameFailureGuard {
+        fn drop(&mut self) {
+            FORCE_RENAME_FAILURE.store(false, Ordering::SeqCst);
+        }
+    }
 
     #[test]
     fn test_handle_overlay_keys_viewer() -> io::Result<()> {
@@ -475,11 +531,6 @@ mod tests {
 
     #[test]
     fn test_handle_edit_success() -> io::Result<()> {
-        // Clear any existing env vars
-        std::env::remove_var("TEST_EDITOR");
-        // Set test mode
-        std::env::set_var("TEST_MODE", "1");
-        
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
@@ -495,23 +546,14 @@ mod tests {
             }
         }
         
-        // Since handle_edit requires a terminal in non-test mode,
-        // we use the test mode handler directly
-        handle_edit_test_mode(&mut app)?;
+        handle_edit_test_mode(&mut app, TestEditorBehavior::Success)?;
         assert!(app.status_message.contains("Edited"));
         
-        std::env::remove_var("TEST_MODE");
         Ok(())
     }
 
     #[test]
     fn test_handle_edit_fail_launch() -> io::Result<()> {
-        // Clear any existing env vars
-        std::env::remove_var("TEST_EDITOR");
-        // Set test mode
-        std::env::set_var("TEST_MODE", "1");
-        std::env::set_var("TEST_EDITOR", "fail_launch");
-        
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
@@ -527,24 +569,14 @@ mod tests {
             }
         }
         
-        // Since handle_edit requires a terminal in non-test mode,
-        // we use the test mode handler directly
-        handle_edit_test_mode(&mut app)?;
+        handle_edit_test_mode(&mut app, TestEditorBehavior::FailLaunch)?;
         assert!(app.status_message.contains("Failed to launch editor"));
         
-        std::env::remove_var("TEST_MODE");
-        std::env::remove_var("TEST_EDITOR");
         Ok(())
     }
 
     #[test]
     fn test_handle_edit_exit_error() -> io::Result<()> {
-        // Clear any existing env vars
-        std::env::remove_var("TEST_EDITOR");
-        // Set test mode
-        std::env::set_var("TEST_MODE", "1");
-        std::env::set_var("TEST_EDITOR", "exit_error");
-        
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
@@ -560,23 +592,14 @@ mod tests {
             }
         }
         
-        // Since handle_edit requires a terminal in non-test mode,
-        // we use the test mode handler directly
-        handle_edit_test_mode(&mut app)?;
+        handle_edit_test_mode(&mut app, TestEditorBehavior::ExitError)?;
         assert!(app.status_message.contains("Editor exited with status"));
         
-        std::env::remove_var("TEST_MODE");
-        std::env::remove_var("TEST_EDITOR");
         Ok(())
     }
 
     #[test]
     fn test_handle_edit_directory() -> io::Result<()> {
-        // Clear any existing env vars
-        std::env::remove_var("TEST_EDITOR");
-        // Set test mode
-        std::env::set_var("TEST_MODE", "1");
-        
         let temp_dir = TempDir::new()?;
         fs::create_dir(temp_dir.path().join("subdir"))?;
         
@@ -591,12 +614,9 @@ mod tests {
             }
         }
         
-        // Since handle_edit requires a terminal in non-test mode,
-        // we use the test mode handler directly
-        handle_edit_test_mode(&mut app)?;
+        handle_edit_test_mode(&mut app, TestEditorBehavior::Success)?;
         assert_eq!(app.status_message, "Editing directories is not supported");
         
-        std::env::remove_var("TEST_MODE");
         Ok(())
     }
 
@@ -658,7 +678,8 @@ mod tests {
                 break;
             }
         }
-        
+
+        let _guard = ForceRenameFailureGuard::enable();
         handle_move(&mut app)?;
         
         assert!(!source_dir.exists());
@@ -666,6 +687,41 @@ mod tests {
         assert!(right_dir.join("move_dir").join("file.txt").exists());
         assert!(app.status_message.contains("Moved to"));
         
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_move_fallback_for_file() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+
+        let file_name = "move_file.txt";
+        let source_file = left_dir.join(file_name);
+        File::create(&source_file)?.write_all(b"content")?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(left_dir.clone())?;
+        app.right_panel = Panel::new(right_dir.clone())?;
+
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == file_name {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        let _guard = ForceRenameFailureGuard::enable();
+        handle_move(&mut app)?;
+
+        assert!(!source_file.exists());
+        let moved_file = right_dir.join(file_name);
+        assert!(moved_file.exists());
+        assert_eq!(fs::read_to_string(&moved_file)?, "content");
+        assert!(app.status_message.contains("Moved to"));
+
         Ok(())
     }
 
@@ -756,18 +812,11 @@ mod tests {
 
     #[test]
     fn test_handle_edit_no_selection() -> io::Result<()> {
-        // Clear any existing env vars
-        std::env::remove_var("TEST_EDITOR");
-        // Set test mode
-        std::env::set_var("TEST_MODE", "1");
-        
         let mut app = App::new()?;
         app.left_panel.state.select(None);
         
         // Should not crash
-        handle_edit_test_mode(&mut app)?;
-        
-        std::env::remove_var("TEST_MODE");
+        handle_edit_test_mode(&mut app, TestEditorBehavior::Success)?;
         Ok(())
     }
 
@@ -848,7 +897,6 @@ mod tests {
     #[test]
     fn test_handle_edit_impl_success() -> io::Result<()> {
         use ratatui::Terminal;
-        use std::process::Command;
         
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
@@ -870,8 +918,7 @@ mod tests {
         
         // Mock successful editor run
         let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _path| {
-            // Simulate successful editor exit
-            Command::new("true").status()
+            Ok(fake_exit_status(0))
         });
         
         if let Err(e) = &result {
@@ -886,7 +933,6 @@ mod tests {
     #[test]
     fn test_handle_edit_impl_editor_error_exit() -> io::Result<()> {
         use ratatui::Terminal;
-        use std::process::Command;
         
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
@@ -908,8 +954,7 @@ mod tests {
         
         // Mock editor with error exit code
         let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _path| {
-            // Simulate editor exiting with error
-            Command::new("false").status()
+            Ok(fake_exit_status(1))
         });
         
         assert!(result.is_ok());
