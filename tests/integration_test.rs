@@ -1,9 +1,8 @@
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
-    terminal::{disable_raw_mode, enable_raw_mode},
+    event::{Event, KeyCode, KeyEvent, KeyModifiers},
 };
 use ratatui::{backend::TestBackend, Terminal};
-use std::{io, sync::mpsc, thread, time::Duration};
+use std::{io, sync::mpsc, time::Duration};
 
 // Integration tests for main() and run_app()
 // These test the actual terminal interaction which is hard to unit test

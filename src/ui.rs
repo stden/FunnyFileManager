@@ -270,3 +270,163 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         )
         .split(popup_layout[1])[1]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{App, DirEntry};
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+
+    #[test]
+    fn test_ui_render_with_right_panel_active() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        
+        let mut app = App::new().unwrap();
+        app.active_panel = PanelSide::Right;
+        
+        terminal.draw(|f| {
+            ui(f, &mut app);
+        }).unwrap();
+    }
+
+    #[test]
+    fn test_ui_render_status_with_file_selection() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        
+        let mut app = App::new().unwrap();
+        
+        // Add a file to the panel
+        app.left_panel.entries.push(DirEntry {
+            name: "test.txt".to_string(),
+            is_dir: false,
+            size: 1024,
+        });
+        app.left_panel.state.select(Some(app.left_panel.entries.len() - 1));
+        
+        terminal.draw(|f| {
+            ui(f, &mut app);
+        }).unwrap();
+    }
+
+    #[test]
+    fn test_ui_render_status_no_selection() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        
+        let mut app = App::new().unwrap();
+        
+        // Clear panel selection
+        app.left_panel.state.select(None);
+        
+        terminal.draw(|f| {
+            ui(f, &mut app);
+        }).unwrap();
+    }
+
+    #[test]
+    fn test_ui_render_with_help_overlay() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        
+        let mut app = App::new().unwrap();
+        app.show_help = true;
+        
+        terminal.draw(|f| {
+            ui(f, &mut app);
+        }).unwrap();
+    }
+
+    #[test]
+    fn test_ui_render_with_viewer_overlay() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        
+        let mut app = App::new().unwrap();
+        app.viewer = Some(crate::models::Viewer {
+            title: "test.txt".to_string(),
+            lines: vec!["Line 1".to_string(), "Line 2".to_string()],
+            scroll: 0,
+        });
+        
+        terminal.draw(|f| {
+            ui(f, &mut app);
+        }).unwrap();
+    }
+
+    #[test]
+    fn test_render_status_right_panel_active_with_file() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        
+        let mut app = App::new().unwrap();
+        app.active_panel = PanelSide::Right;
+        
+        // Add a file to the right panel
+        app.right_panel.entries.push(DirEntry {
+            name: "document.pdf".to_string(),
+            is_dir: false,
+            size: 2048576, // 2MB
+        });
+        app.right_panel.state.select(Some(app.right_panel.entries.len() - 1));
+        
+        terminal.draw(|f| {
+            ui(f, &mut app);
+        }).unwrap();
+    }
+
+    #[test]
+    fn test_render_panel_with_various_entries() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        
+        let mut app = App::new().unwrap();
+        
+        // Add various types of entries
+        app.left_panel.entries.clear();
+        app.left_panel.entries.push(DirEntry {
+            name: "..".to_string(),
+            is_dir: true,
+            size: 0,
+        });
+        app.left_panel.entries.push(DirEntry {
+            name: "documents".to_string(),
+            is_dir: true,
+            size: 0,
+        });
+        app.left_panel.entries.push(DirEntry {
+            name: "image.jpg".to_string(),
+            is_dir: false,
+            size: 1536000, // ~1.5MB
+        });
+        
+        terminal.draw(|f| {
+            ui(f, &mut app);
+        }).unwrap();
+    }
+
+    #[test]
+    fn test_centered_rect_various_sizes() {
+        let base = Rect {
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+        };
+        
+        // Test different percentages
+        let rect1 = centered_rect(80, 60, base);
+        assert_eq!(rect1.width, 80);
+        assert_eq!(rect1.height, 60);
+        
+        let rect2 = centered_rect(100, 100, base);
+        assert_eq!(rect2.width, 100);
+        assert_eq!(rect2.height, 100);
+        
+        let rect3 = centered_rect(10, 10, base);
+        assert_eq!(rect3.width, 10);
+        assert_eq!(rect3.height, 10);
+    }
+}

@@ -12,14 +12,14 @@ pub struct DirEntry {
     pub size: u64,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Viewer {
     pub title: String,
     pub lines: Vec<String>,
     pub scroll: u16,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Panel {
     pub path: PathBuf,
     pub entries: Vec<DirEntry>,
@@ -152,6 +152,7 @@ pub enum PanelSide {
     Right,
 }
 
+#[derive(Clone)]
 pub struct App {
     pub left_panel: Panel,
     pub right_panel: Panel,
@@ -615,6 +616,40 @@ mod tests {
                 PanelSide::Right => assert_eq!(after, PanelSide::Left),
             }
         }
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_next_with_none_selected() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        File::create(temp_dir.path().join("test.txt"))?;
+        
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Clear the selection
+        panel.state.select(None);
+        
+        // Next should select the first item
+        panel.next();
+        assert_eq!(panel.state.selected(), Some(0));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_previous_with_none_selected() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        File::create(temp_dir.path().join("test.txt"))?;
+        
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Clear the selection
+        panel.state.select(None);
+        
+        // Previous should select the first item
+        panel.previous();
+        assert_eq!(panel.state.selected(), Some(0));
         
         Ok(())
     }
