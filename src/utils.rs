@@ -12,14 +12,20 @@ pub fn format_size(size: u64) -> String {
     const GB: u64 = MB * 1024;
 
     if size >= GB {
-        format!("{:.2} GB", size as f64 / GB as f64)
-    } else if size >= MB {
-        format!("{:.2} MB", size as f64 / MB as f64)
-    } else if size >= KB {
-        format!("{:.2} KB", size as f64 / KB as f64)
-    } else {
-        format!("{} B", size)
+        return format!("{:.2} GB", size as f64 / GB as f64);
     }
+
+    if size >= MB {
+        return format!("{:.2} MB", size as f64 / MB as f64);
+    }
+
+    if size >= KB {
+        return format!("{:.2} KB", size as f64 / KB as f64);
+    }
+
+    let mut bytes = size.to_string();
+    bytes.push_str(" B");
+    bytes
 }
 
 pub fn unique_destination(base: &Path, file_name: &std::ffi::OsStr) -> PathBuf {
