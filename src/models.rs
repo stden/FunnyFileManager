@@ -1,6 +1,7 @@
 use ratatui::widgets::ListState;
 use std::{
     cmp::Ordering,
+    collections::BTreeSet,
     fs, io,
     path::PathBuf,
 };
@@ -10,6 +11,37 @@ pub struct DirEntry {
     pub name: String,
     pub is_dir: bool,
     pub size: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SortMode {
+    Name,
+    Extension,
+    Size,
+}
+
+impl Default for SortMode {
+    fn default() -> Self {
+        SortMode::Name
+    }
+}
+
+impl SortMode {
+    pub fn next(self) -> Self {
+        match self {
+            SortMode::Name => SortMode::Extension,
+            SortMode::Extension => SortMode::Size,
+            SortMode::Size => SortMode::Name,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            SortMode::Name => "Name",
+            SortMode::Extension => "Ext",
+            SortMode::Size => "Size",
+        }
+    }
 }
 
 #[derive(Default, Clone)]
@@ -24,6 +56,8 @@ pub struct Panel {
     pub path: PathBuf,
     pub entries: Vec<DirEntry>,
     pub state: ListState,
+    pub marked: BTreeSet<String>,
+    pub sort_mode: SortMode,
 }
 
 impl Panel {
@@ -32,6 +66,8 @@ impl Panel {
             path,
             entries: Vec::new(),
             state: ListState::default(),
+            marked: BTreeSet::new(),
+            sort_mode: SortMode::default(),
         };
         panel.load_entries()?;
         if !panel.entries.is_empty() {
@@ -41,6 +77,8 @@ impl Panel {
     }
 
     pub fn load_entries(&mut self) -> io::Result<()> {
+        let selected_name = self.get_selected_entry().map(|entry| entry.name.clone());
+
         self.entries.clear();
 
         if self.path.parent().is_some() {
@@ -65,13 +103,56 @@ impl Panel {
             })
             .collect();
 
+        let sort_mode = self.sort_mode;
         entries.sort_by(|a, b| match (a.is_dir, b.is_dir) {
             (true, false) => Ordering::Less,
             (false, true) => Ordering::Greater,
-            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+            _ => match sort_mode {
+                SortMode::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+                SortMode::Extension => {
+                    let a_ext = std::path::Path::new(&a.name)
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .unwrap_or("")
+                        .to_lowercase();
+                    let b_ext = std::path::Path::new(&b.name)
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .unwrap_or("")
+                        .to_lowercase();
+                    a_ext
+                        .cmp(&b_ext)
+                        .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+                }
+                SortMode::Size => b
+                    .size
+                    .cmp(&a.size)
+                    .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase())),
+            },
         });
 
         self.entries.extend(entries);
+
+        let valid_names: BTreeSet<String> = self
+            .entries
+            .iter()
+            .filter(|entry| entry.name != "..")
+            .map(|entry| entry.name.clone())
+            .collect();
+        self.marked.retain(|name| valid_names.contains(name));
+
+        if let Some(selected_name) = selected_name {
+            if let Some(index) = self.entries.iter().position(|entry| entry.name == selected_name) {
+                self.state.select(Some(index));
+            } else if self.entries.is_empty() {
+                self.state.select(None);
+            } else {
+                self.state.select(Some(0));
+            }
+        } else if self.entries.is_empty() {
+            self.state.select(None);
+        }
+
         Ok(())
     }
 
@@ -120,6 +201,7 @@ impl Panel {
                     } else {
                         self.path = self.path.join(&entry.name);
                     }
+                    self.marked.clear();
                     self.load_entries()?;
                     if !self.entries.is_empty() {
                         self.state.select(Some(0));
@@ -141,8 +223,56 @@ impl Panel {
     }
 
     pub fn selected_path(&self) -> Option<PathBuf> {
+        self.get_selected_entry().and_then(|entry| {
+            if entry.name == ".." {
+                None
+            } else {
+                Some(self.path.join(&entry.name))
+            }
+        })
+    }
+
+    pub fn toggle_mark_selected(&mut self) -> bool {
+        let Some(selected_name) = self.get_selected_entry().map(|entry| entry.name.clone()) else {
+            return false;
+        };
+
+        if selected_name == ".." {
+            return false;
+        }
+
+        if self.marked.contains(&selected_name) {
+            self.marked.remove(&selected_name);
+        } else {
+            self.marked.insert(selected_name);
+        }
+
+        true
+    }
+
+    pub fn clear_marks(&mut self) {
+        self.marked.clear();
+    }
+
+    pub fn action_entry_names(&self) -> Vec<String> {
+        if !self.marked.is_empty() {
+            return self.marked.iter().cloned().collect();
+        }
+
         self.get_selected_entry()
-            .map(|entry| self.path.join(&entry.name))
+            .and_then(|entry| {
+                if entry.name == ".." {
+                    None
+                } else {
+                    Some(entry.name.clone())
+                }
+            })
+            .into_iter()
+            .collect()
+    }
+
+    pub fn cycle_sort_mode(&mut self) {
+        self.sort_mode = self.sort_mode.next();
     }
 }
 
@@ -159,6 +289,11 @@ pub struct App {
     pub active_panel: PanelSide,
     pub show_help: bool,
     pub viewer: Option<Viewer>,
+    pub search: Option<String>,
+    pub command_line: Option<String>,
+    pub show_bookmarks: bool,
+    pub bookmarks: Vec<Option<PathBuf>>,
+    pub should_quit: bool,
     pub status_message: String,
 }
 
@@ -171,6 +306,11 @@ impl App {
             active_panel: PanelSide::Left,
             show_help: false,
             viewer: None,
+            search: None,
+            command_line: None,
+            show_bookmarks: false,
+            bookmarks: vec![None; 10],
+            should_quit: false,
             status_message: String::from(
                 "F1 Help  F3 View  F4 Edit  F5 Copy  F6 Move  F7 Mkdir  F8 Delete",
             ),
@@ -378,6 +518,8 @@ mod tests {
             path: PathBuf::new(),
             entries: Vec::new(),
             state: ListState::default(),
+            marked: BTreeSet::new(),
+            sort_mode: SortMode::default(),
         };
         
         // Navigation should not crash on empty panel
@@ -484,6 +626,8 @@ mod tests {
             path: PathBuf::new(),
             entries: Vec::new(),
             state: ListState::default(),
+            marked: BTreeSet::new(),
+            sort_mode: SortMode::default(),
         };
         
         // Should not set selection on empty panel
@@ -539,6 +683,11 @@ mod tests {
         assert_eq!(app.active_panel, PanelSide::Left);
         assert!(!app.show_help);
         assert!(app.viewer.is_none());
+        assert!(app.search.is_none());
+        assert!(app.command_line.is_none());
+        assert!(!app.show_bookmarks);
+        assert_eq!(app.bookmarks.len(), 10);
+        assert!(!app.should_quit);
         assert_eq!(
             app.status_message,
             "F1 Help  F3 View  F4 Edit  F5 Copy  F6 Move  F7 Mkdir  F8 Delete"

@@ -1,4 +1,4 @@
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 #[cfg(not(test))]
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -10,9 +10,10 @@ use ratatui::Terminal;
 use std::{
     fs,
     io::{self, Write},
+    path::PathBuf,
 };
 
-use crate::models::{App, Viewer};
+use crate::models::{App, SortMode, Viewer};
 use crate::utils::{copy_dir_all, refresh_panels, unique_destination};
 
 #[cfg(all(not(test), not(tarpaulin)))]
@@ -36,9 +37,12 @@ fn try_rename(source: &std::path::Path, dest: &std::path::Path) -> io::Result<()
     fs::rename(source, dest)
 }
 
-pub fn handle_overlay_keys(app: &mut App, key: KeyCode) -> bool {
+pub fn handle_overlay_keys(app: &mut App, key: KeyEvent) -> bool {
+    let code = key.code;
+    let modifiers = key.modifiers;
+
     if let Some(viewer) = app.viewer.as_mut() {
-        match key {
+        match code {
             KeyCode::Esc | KeyCode::F(3) | KeyCode::Enter => {
                 app.viewer = None;
             }
@@ -63,13 +67,299 @@ pub fn handle_overlay_keys(app: &mut App, key: KeyCode) -> bool {
     }
 
     if app.show_help {
-        if matches!(key, KeyCode::Esc | KeyCode::F(1)) {
+        if matches!(code, KeyCode::Esc | KeyCode::F(1)) {
             app.show_help = false;
         }
         return true;
     }
 
+    if let Some(query) = app.search.as_mut() {
+        match code {
+            KeyCode::Esc => {
+                app.search = None;
+            }
+            KeyCode::Enter => {
+                let query_trimmed = query.trim().to_string();
+                if !query_trimmed.is_empty() {
+                    let found = jump_to_match(app.get_active_panel(), &query_trimmed);
+                    if found {
+                        app.status_message = format!("Found: {}", query_trimmed);
+                    } else {
+                        app.status_message = format!("Not found: {}", query_trimmed);
+                    }
+                }
+                app.search = None;
+            }
+            KeyCode::Backspace => {
+                query.pop();
+                let query_trimmed = query.trim().to_string();
+                if !query_trimmed.is_empty() {
+                    jump_to_match(app.get_active_panel(), &query_trimmed);
+                }
+            }
+            KeyCode::Char(ch)
+                if !modifiers.contains(KeyModifiers::CONTROL)
+                    && !modifiers.contains(KeyModifiers::ALT) =>
+            {
+                query.push(ch);
+                let query_trimmed = query.trim().to_string();
+                if !query_trimmed.is_empty() {
+                    jump_to_match(app.get_active_panel(), &query_trimmed);
+                }
+            }
+            _ => {}
+        }
+        return true;
+    }
+
+    if app.show_bookmarks {
+        match code {
+            KeyCode::Esc | KeyCode::F(2) => {
+                app.show_bookmarks = false;
+            }
+            KeyCode::Char(ch) if ch.is_ascii_digit() => {
+                let index = (ch as u8 - b'0') as usize;
+                if index >= app.bookmarks.len() {
+                    app.status_message = format!("Invalid bookmark slot {}", index);
+                    return true;
+                }
+
+                if modifiers.contains(KeyModifiers::CONTROL) {
+                    let path = app.get_active_panel().path.clone();
+                    app.bookmarks[index] = Some(path.clone());
+                    app.status_message = format!("Bookmark {} set to {}", index, path.display());
+                } else if let Some(path) = app.bookmarks[index].clone() {
+                    let panel = app.get_active_panel();
+                    panel.path = path.clone();
+                    panel.clear_marks();
+                    match panel.load_entries() {
+                        Ok(()) => {
+                            panel.ensure_selection();
+                            app.status_message = format!("Opened bookmark {}: {}", index, path.display());
+                            app.show_bookmarks = false;
+                        }
+                        Err(err) => {
+                            app.status_message =
+                                format!("Failed to open bookmark {}: {}", index, err);
+                        }
+                    }
+                } else {
+                    app.status_message = format!("Bookmark {} is empty", index);
+                }
+            }
+            _ => {}
+        }
+        return true;
+    }
+
+    if let Some(input) = app.command_line.as_mut() {
+        match code {
+            KeyCode::Esc => {
+                app.command_line = None;
+            }
+            KeyCode::Enter => {
+                let command = input.trim().to_string();
+                app.command_line = None;
+                if command.is_empty() {
+                    return true;
+                }
+
+                if let Err(err) = execute_command(app, &command) {
+                    app.status_message = format!("Command failed: {}", err);
+                }
+            }
+            KeyCode::Backspace => {
+                input.pop();
+            }
+            KeyCode::Char(ch)
+                if !modifiers.contains(KeyModifiers::CONTROL)
+                    && !modifiers.contains(KeyModifiers::ALT) =>
+            {
+                input.push(ch);
+            }
+            _ => {}
+        }
+        return true;
+    }
+
     false
+}
+
+fn jump_to_match(panel: &mut crate::models::Panel, query: &str) -> bool {
+    let query = query.to_lowercase();
+    for (index, entry) in panel.entries.iter().enumerate() {
+        if entry.name == ".." {
+            continue;
+        }
+        if entry.name.to_lowercase().contains(&query) {
+            panel.state.select(Some(index));
+            return true;
+        }
+    }
+
+    false
+}
+
+fn execute_command(app: &mut App, command: &str) -> io::Result<()> {
+    let mut parts = command.split_whitespace();
+    let Some(cmd) = parts.next() else {
+        return Ok(());
+    };
+
+    match cmd {
+        "cd" => {
+            let Some(path_arg) = parts.next() else {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "cd requires a path"));
+            };
+
+            let requested = PathBuf::from(path_arg);
+            let new_path = if requested.is_absolute() {
+                requested
+            } else {
+                app.get_active_panel().path.join(requested)
+            };
+
+            if !new_path.is_dir() {
+                return Err(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    format!("not a directory: {}", new_path.display()),
+                ));
+            }
+
+            let panel = app.get_active_panel();
+            panel.path = new_path.clone();
+            panel.clear_marks();
+            panel.load_entries()?;
+            panel.ensure_selection();
+            app.status_message = format!("Opened {}", new_path.display());
+            Ok(())
+        }
+        "pwd" => {
+            let path = app.get_active_panel().path.clone();
+            app.status_message = path.display().to_string();
+            Ok(())
+        }
+        "sort" => {
+            let mode = parts.next().unwrap_or("name");
+            let sort_mode = match mode {
+                "name" => SortMode::Name,
+                "ext" | "extension" => SortMode::Extension,
+                "size" => SortMode::Size,
+                _ => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "sort expects: name|ext|size",
+                    ));
+                }
+            };
+
+            let panel = app.get_active_panel();
+            panel.sort_mode = sort_mode;
+            panel.load_entries()?;
+            panel.ensure_selection();
+            app.status_message = format!("Sort: {}", panel.sort_mode.label());
+            Ok(())
+        }
+        "bookmark" => {
+            let Some(sub) = parts.next() else {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "bookmark expects: set|go <0-9>",
+                ));
+            };
+            let Some(slot_str) = parts.next() else {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "bookmark expects a slot 0-9",
+                ));
+            };
+
+            let slot: usize = slot_str.parse().map_err(|_| {
+                io::Error::new(io::ErrorKind::InvalidInput, "bookmark slot must be 0-9")
+            })?;
+            if slot >= app.bookmarks.len() {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "bookmark slot must be 0-9",
+                ));
+            }
+
+            match sub {
+                "set" => {
+                    let path = app.get_active_panel().path.clone();
+                    app.bookmarks[slot] = Some(path.clone());
+                    app.status_message = format!("Bookmark {} set to {}", slot, path.display());
+                    Ok(())
+                }
+                "go" => {
+                    let Some(path) = app.bookmarks[slot].clone() else {
+                        return Err(io::Error::new(
+                            io::ErrorKind::NotFound,
+                            format!("bookmark {} is empty", slot),
+                        ));
+                    };
+                    let panel = app.get_active_panel();
+                    panel.path = path.clone();
+                    panel.clear_marks();
+                    panel.load_entries()?;
+                    panel.ensure_selection();
+                    app.status_message = format!("Opened bookmark {}: {}", slot, path.display());
+                    Ok(())
+                }
+                _ => Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "bookmark expects: set|go <0-9>",
+                )),
+            }
+        }
+        "mark" => {
+            let Some(sub) = parts.next() else {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "mark expects: all",
+                ));
+            };
+
+            match sub {
+                "all" => {
+                    let names: Vec<String> = app
+                        .get_active_panel()
+                        .entries
+                        .iter()
+                        .filter(|entry| entry.name != "..")
+                        .map(|entry| entry.name.clone())
+                        .collect();
+                    let panel = app.get_active_panel();
+                    for name in names {
+                        panel.marked.insert(name);
+                    }
+                    app.status_message = format!("Marked {} items", panel.marked.len());
+                    Ok(())
+                }
+                _ => Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "mark expects: all",
+                )),
+            }
+        }
+        "unmark" => {
+            app.get_active_panel().clear_marks();
+            app.status_message = "Unmarked all".to_string();
+            Ok(())
+        }
+        "help" => {
+            app.show_help = true;
+            Ok(())
+        }
+        "quit" | "exit" => {
+            app.should_quit = true;
+            Ok(())
+        }
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("unknown command: {}", cmd),
+        )),
+    }
 }
 
 pub fn handle_view(app: &mut App) -> io::Result<()> {

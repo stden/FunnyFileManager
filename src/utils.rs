@@ -241,6 +241,11 @@ mod tests {
             status_message: String::new(),
             show_help: false,
             viewer: None,
+            search: None,
+            command_line: None,
+            show_bookmarks: false,
+            bookmarks: vec![None; 10],
+            should_quit: false,
         };
         
         // Add new files after app creation
@@ -280,6 +285,11 @@ mod tests {
             status_message: String::new(),
             show_help: false,
             viewer: None,
+            search: None,
+            command_line: None,
+            show_bookmarks: false,
+            bookmarks: vec![None; 10],
+            should_quit: false,
         };
         
         // Set selection to second file
