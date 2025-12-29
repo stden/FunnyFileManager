@@ -1,6 +1,4 @@
-use crossterm::{
-    event::{Event, KeyCode, KeyEvent, KeyModifiers},
-};
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{backend::TestBackend, Terminal};
 use std::{io, sync::mpsc, time::Duration};
 
@@ -35,13 +33,16 @@ fn test_quit_keys() {
         simulate_key_event(KeyCode::F(10), KeyModifiers::empty()),
         simulate_key_event(KeyCode::Char('c'), KeyModifiers::CONTROL),
     ];
-    
+
     for event in quit_events {
         match event {
             Event::Key(key) => {
                 assert!(
-                    matches!(key.code, KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::F(10))
-                        || (key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL))
+                    matches!(
+                        key.code,
+                        KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::F(10)
+                    ) || (key.code == KeyCode::Char('c')
+                        && key.modifiers.contains(KeyModifiers::CONTROL))
                 );
             }
             _ => panic!("Expected key event"),
@@ -60,13 +61,18 @@ fn test_navigation_keys() {
         simulate_key_event(KeyCode::Left, KeyModifiers::empty()),
         simulate_key_event(KeyCode::Right, KeyModifiers::empty()),
     ];
-    
+
     for event in nav_events {
         match event {
             Event::Key(key) => {
                 assert!(matches!(
                     key.code,
-                    KeyCode::Down | KeyCode::Up | KeyCode::Enter | KeyCode::Tab | KeyCode::Left | KeyCode::Right
+                    KeyCode::Down
+                        | KeyCode::Up
+                        | KeyCode::Enter
+                        | KeyCode::Tab
+                        | KeyCode::Left
+                        | KeyCode::Right
                 ));
             }
             _ => panic!("Expected key event"),
@@ -87,7 +93,7 @@ fn test_function_keys() {
         KeyCode::F(8),  // Delete
         KeyCode::F(10), // Quit
     ];
-    
+
     for key in function_keys {
         let event = simulate_key_event(key, KeyModifiers::empty());
         match event {
@@ -104,12 +110,12 @@ fn test_function_keys() {
 fn test_terminal_operations() -> io::Result<()> {
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend)?;
-    
+
     // Test that we can create and manipulate the terminal
     terminal.clear()?;
     terminal.hide_cursor()?;
     terminal.show_cursor()?;
-    
+
     Ok(())
 }
 
@@ -118,14 +124,14 @@ fn test_terminal_operations() -> io::Result<()> {
 fn test_event_loop_structure() {
     // Create a channel to simulate events
     let (tx, rx) = mpsc::channel();
-    
+
     // Send a quit event
     tx.send(Event::Key(KeyEvent::new(
         KeyCode::Char('q'),
         KeyModifiers::empty(),
     )))
     .unwrap();
-    
+
     // Verify we can receive the event
     let event = rx.recv_timeout(Duration::from_millis(100)).unwrap();
     match event {

@@ -1,23 +1,8 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-#[cfg(not(test))]
-use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
-use ratatui::backend::Backend;
-use ratatui::Terminal;
-use std::{
-    fs,
-    io::{self, Write},
-    path::PathBuf,
-};
+use std::{fs, io, path::PathBuf};
 
 use crate::models::{App, SortMode, Viewer};
 use crate::utils::{copy_dir_all, refresh_panels, unique_destination};
-
-#[cfg(all(not(test), not(tarpaulin)))]
-use std::process::Command;
 
 #[cfg(any(test, tarpaulin))]
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -135,7 +120,8 @@ pub fn handle_overlay_keys(app: &mut App, key: KeyEvent) -> bool {
                     match panel.load_entries() {
                         Ok(()) => {
                             panel.ensure_selection();
-                            app.status_message = format!("Opened bookmark {}: {}", index, path.display());
+                            app.status_message =
+                                format!("Opened bookmark {}: {}", index, path.display());
                             app.show_bookmarks = false;
                         }
                         Err(err) => {
@@ -209,7 +195,10 @@ fn execute_command(app: &mut App, command: &str) -> io::Result<()> {
     match cmd {
         "cd" => {
             let Some(path_arg) = parts.next() else {
-                return Err(io::Error::new(io::ErrorKind::InvalidInput, "cd requires a path"));
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "cd requires a path",
+                ));
             };
 
             let requested = PathBuf::from(path_arg);
@@ -391,119 +380,6 @@ pub fn handle_view(app: &mut App) -> io::Result<()> {
     Ok(())
 }
 
-#[cfg(any(test, tarpaulin))]
-pub fn handle_edit<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> {
-    let _ = terminal;
-    handle_edit_test_mode(app, TestEditorBehavior::Success)
-}
-
-#[cfg(all(not(test), not(tarpaulin)))]
-pub fn handle_edit<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> { // tarpaulin ignore
-    handle_edit_impl(terminal, app, |editor, path| Command::new(editor).arg(path).status()) // tarpaulin ignore
-}
-
-fn handle_edit_impl<B, F>(
-    #[allow(unused_variables)] terminal: &mut Terminal<B>,
-    app: &mut App,
-    run_editor: F,
-) -> io::Result<()>
-where
-    B: Backend + Write,
-    F: FnOnce(&str, &std::path::Path) -> io::Result<std::process::ExitStatus>,
-{
-    let Some(selected) = app.get_active_panel().selected_path() else {
-        return Ok(());
-    };
-
-    if selected.is_dir() {
-        app.status_message = "Editing directories is not supported".to_string();
-        return Ok(());
-    }
-
-    // Skip terminal manipulation in test mode
-    #[cfg(all(not(test), not(tarpaulin)))]
-    {
-        disable_raw_mode()?; // tarpaulin ignore
-        execute!( // tarpaulin ignore
-            terminal.backend_mut(), // tarpaulin ignore
-            LeaveAlternateScreen, // tarpaulin ignore
-            DisableMouseCapture // tarpaulin ignore
-        )?; // tarpaulin ignore
-    }
-    
-    let editor = std::env::var("EDITOR").unwrap_or_else(|_| "nano".to_string());
-    let status = run_editor(&editor, &selected);
-
-    #[cfg(all(not(test), not(tarpaulin)))]
-    {
-        enable_raw_mode()?; // tarpaulin ignore
-        execute!( // tarpaulin ignore
-            terminal.backend_mut(), // tarpaulin ignore
-            EnterAlternateScreen, // tarpaulin ignore
-            EnableMouseCapture // tarpaulin ignore
-        )?; // tarpaulin ignore
-        terminal.clear()?; // tarpaulin ignore
-    }
-
-    match status {
-        Ok(code) => {
-            if code.success() {
-                app.status_message = format!("Edited {}", selected.display());
-            } else {
-                app.status_message = format!("Editor exited with status {}", code);
-            }
-        }
-        Err(err) => {
-            app.status_message = format!("Failed to launch editor: {}", err);
-        }
-    }
-
-    app.left_panel.load_entries()?;
-    app.left_panel.ensure_selection();
-    app.right_panel.load_entries()?;
-    app.right_panel.ensure_selection();
-    Ok(())
-}
-
-#[cfg(any(test, tarpaulin))]
-#[derive(Clone, Copy, Debug)]
-enum TestEditorBehavior {
-    Success,
-    FailLaunch,
-    ExitError,
-}
-
-#[cfg(any(test, tarpaulin))]
-fn handle_edit_test_mode(app: &mut App, behavior: TestEditorBehavior) -> io::Result<()> {
-    let Some(selected) = app.get_active_panel().selected_path() else {
-        return Ok(());
-    };
-
-    if selected.is_dir() {
-        app.status_message = "Editing directories is not supported".to_string();
-        return Ok(());
-    }
-
-    match behavior {
-        TestEditorBehavior::FailLaunch => {
-            app.status_message =
-                "Failed to launch editor: No such file or directory (os error 2)".to_string();
-        }
-        TestEditorBehavior::ExitError => {
-            app.status_message = "Editor exited with status exit status: 1".to_string();
-        }
-        TestEditorBehavior::Success => {
-            app.status_message = format!("Edited {}", selected.display());
-        }
-    }
-
-    app.left_panel.load_entries()?;
-    app.left_panel.ensure_selection();
-    app.right_panel.load_entries()?;
-    app.right_panel.ensure_selection();
-    Ok(())
-}
-
 pub fn handle_copy(app: &mut App) -> io::Result<()> {
     let Some(source_path) = app.get_active_panel().selected_path() else {
         return Ok(());
@@ -582,7 +458,8 @@ pub fn handle_delete(app: &mut App) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{App, Panel, Viewer};
+    use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
+    use crate::models::{App, Panel, SortMode, Viewer};
     use std::fs::File;
     use std::io::Write;
     use tempfile::TempDir;
@@ -616,10 +493,18 @@ mod tests {
         }
     }
 
+    fn key_event(code: KeyCode) -> KeyEvent {
+        KeyEvent::new(code, KeyModifiers::empty())
+    }
+
+    fn key_event_with_mods(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
+        KeyEvent::new(code, modifiers)
+    }
+
     #[test]
     fn test_handle_overlay_keys_viewer() -> io::Result<()> {
         let mut app = App::new()?;
-        
+
         // Create a viewer with multiple lines
         app.viewer = Some(Viewer {
             title: "test.txt".to_string(),
@@ -632,69 +517,69 @@ mod tests {
             ],
             scroll: 0,
         });
-        
+
         // Test scrolling down
-        assert!(handle_overlay_keys(&mut app, KeyCode::Down));
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Down)));
         assert_eq!(app.viewer.as_ref().unwrap().scroll, 1);
-        
+
         // Test scrolling up
-        assert!(handle_overlay_keys(&mut app, KeyCode::Up));
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Up)));
         assert_eq!(app.viewer.as_ref().unwrap().scroll, 0);
-        
+
         // Test scrolling up at top (should stay at 0)
-        assert!(handle_overlay_keys(&mut app, KeyCode::Up));
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Up)));
         assert_eq!(app.viewer.as_ref().unwrap().scroll, 0);
-        
+
         // Test closing viewer with Esc
-        assert!(handle_overlay_keys(&mut app, KeyCode::Esc));
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Esc)));
         assert!(app.viewer.is_none());
-        
+
         Ok(())
     }
 
     #[test]
     fn test_handle_overlay_keys_viewer_close_variations() -> io::Result<()> {
         let mut app = App::new()?;
-        
+
         // Test closing with F3
         app.viewer = Some(Viewer {
             title: "test.txt".to_string(),
             lines: vec!["Line 1".to_string()],
             scroll: 0,
         });
-        assert!(handle_overlay_keys(&mut app, KeyCode::F(3)));
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::F(3))));
         assert!(app.viewer.is_none());
-        
+
         // Test closing with Enter
         app.viewer = Some(Viewer {
             title: "test.txt".to_string(),
             lines: vec!["Line 1".to_string()],
             scroll: 0,
         });
-        assert!(handle_overlay_keys(&mut app, KeyCode::Enter));
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
         assert!(app.viewer.is_none());
-        
+
         Ok(())
     }
 
     #[test]
     fn test_handle_overlay_keys_viewer_max_scroll() -> io::Result<()> {
         let mut app = App::new()?;
-        
+
         // Create a viewer with limited lines
         app.viewer = Some(Viewer {
             title: "test.txt".to_string(),
             lines: vec!["Line 1".to_string(), "Line 2".to_string()],
             scroll: 0,
         });
-        
+
         // Try to scroll beyond available lines
         for _ in 0..10 {
-            handle_overlay_keys(&mut app, KeyCode::Down);
+            handle_overlay_keys(&mut app, key_event(KeyCode::Down));
         }
         // Should stop at maximum scroll position
         assert!(app.viewer.as_ref().unwrap().scroll <= 1);
-        
+
         Ok(())
     }
 
@@ -702,28 +587,28 @@ mod tests {
     fn test_handle_overlay_keys_help() -> io::Result<()> {
         let mut app = App::new()?;
         app.show_help = true;
-        
+
         // Test closing help with Esc
-        assert!(handle_overlay_keys(&mut app, KeyCode::Esc));
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Esc)));
         assert!(!app.show_help);
-        
+
         app.show_help = true;
         // Test closing help with F1
-        assert!(handle_overlay_keys(&mut app, KeyCode::F(1)));
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::F(1))));
         assert!(!app.show_help);
-        
+
         Ok(())
     }
 
     #[test]
     fn test_handle_overlay_keys_no_overlay() -> io::Result<()> {
         let mut app = App::new()?;
-        
+
         // No viewer or help shown - should return false
-        assert!(!handle_overlay_keys(&mut app, KeyCode::Down));
-        assert!(!handle_overlay_keys(&mut app, KeyCode::Up));
-        assert!(!handle_overlay_keys(&mut app, KeyCode::Esc));
-        
+        assert!(!handle_overlay_keys(&mut app, key_event(KeyCode::Down)));
+        assert!(!handle_overlay_keys(&mut app, key_event(KeyCode::Up)));
+        assert!(!handle_overlay_keys(&mut app, key_event(KeyCode::Esc)));
+
         Ok(())
     }
 
@@ -732,10 +617,12 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?.write_all(b"Line 1\nLine 2\nLine 3")?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -743,16 +630,16 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_view(&mut app)?;
-        
+
         assert!(app.viewer.is_some());
         let viewer = app.viewer.as_ref().unwrap();
         assert_eq!(viewer.title, "test.txt");
         assert_eq!(viewer.lines.len(), 3);
         assert_eq!(viewer.lines[0], "Line 1");
         assert!(app.status_message.contains("Viewing"));
-        
+
         Ok(())
     }
 
@@ -761,10 +648,12 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("empty.txt");
         File::create(&file_path)?; // Empty file
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "empty.txt" {
@@ -772,14 +661,14 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_view(&mut app)?;
-        
+
         assert!(app.viewer.is_some());
         let viewer = app.viewer.as_ref().unwrap();
         assert_eq!(viewer.lines.len(), 1);
         assert_eq!(viewer.lines[0], "<empty file>");
-        
+
         Ok(())
     }
 
@@ -787,10 +676,12 @@ mod tests {
     fn test_handle_view_directory() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         fs::create_dir(temp_dir.path().join("subdir"))?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+
         // Select the directory
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "subdir" {
@@ -798,12 +689,12 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_view(&mut app)?;
-        
+
         assert!(app.viewer.is_none());
         assert_eq!(app.status_message, "Cannot view a directory");
-        
+
         Ok(())
     }
 
@@ -811,11 +702,11 @@ mod tests {
     fn test_handle_view_no_selection() -> io::Result<()> {
         let mut app = App::new()?;
         app.left_panel.state.select(None);
-        
+
         // Should not crash
         handle_view(&mut app)?;
         assert!(app.viewer.is_none());
-        
+
         Ok(())
     }
 
@@ -824,10 +715,10 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -835,10 +726,10 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_edit_test_mode(&mut app, TestEditorBehavior::Success)?;
         assert!(app.status_message.contains("Edited"));
-        
+
         Ok(())
     }
 
@@ -847,10 +738,10 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -858,10 +749,10 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_edit_test_mode(&mut app, TestEditorBehavior::FailLaunch)?;
         assert!(app.status_message.contains("Failed to launch editor"));
-        
+
         Ok(())
     }
 
@@ -870,10 +761,10 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -881,10 +772,10 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_edit_test_mode(&mut app, TestEditorBehavior::ExitError)?;
         assert!(app.status_message.contains("Editor exited with status"));
-        
+
         Ok(())
     }
 
@@ -892,10 +783,10 @@ mod tests {
     fn test_handle_edit_directory() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         fs::create_dir(temp_dir.path().join("subdir"))?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Select the directory
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "subdir" {
@@ -903,10 +794,10 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_edit_test_mode(&mut app, TestEditorBehavior::Success)?;
         assert_eq!(app.status_message, "Editing directories is not supported");
-        
+
         Ok(())
     }
 
@@ -917,16 +808,16 @@ mod tests {
         let right_dir = temp_dir.path().join("right");
         fs::create_dir(&left_dir)?;
         fs::create_dir(&right_dir)?;
-        
+
         // Create a directory with contents
         let source_dir = left_dir.join("source_dir");
         fs::create_dir(&source_dir)?;
         File::create(source_dir.join("file.txt"))?.write_all(b"content")?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(left_dir)?;
         app.right_panel = Panel::new(right_dir.clone())?;
-        
+
         // Select the directory
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "source_dir" {
@@ -934,13 +825,13 @@ mod tests {
                 break;
             }
         }
-        
+
         handle_copy(&mut app)?;
-        
+
         assert!(right_dir.join("source_dir").exists());
         assert!(right_dir.join("source_dir").join("file.txt").exists());
         assert!(app.status_message.contains("Copied to"));
-        
+
         Ok(())
     }
 
@@ -951,16 +842,16 @@ mod tests {
         let right_dir = temp_dir.path().join("right");
         fs::create_dir(&left_dir)?;
         fs::create_dir(&right_dir)?;
-        
+
         // Create a directory to move
         let source_dir = left_dir.join("move_dir");
         fs::create_dir(&source_dir)?;
         File::create(source_dir.join("file.txt"))?.write_all(b"content")?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(left_dir.clone())?;
         app.right_panel = Panel::new(right_dir.clone())?;
-        
+
         // Select the directory
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "move_dir" {
@@ -971,12 +862,12 @@ mod tests {
 
         let _guard = ForceRenameFailureGuard::enable();
         handle_move(&mut app)?;
-        
+
         assert!(!source_dir.exists());
         assert!(right_dir.join("move_dir").exists());
         assert!(right_dir.join("move_dir").join("file.txt").exists());
         assert!(app.status_message.contains("Moved to"));
-        
+
         Ok(())
     }
 
@@ -1018,22 +909,23 @@ mod tests {
     #[test]
     fn test_handle_mkdir_multiple() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+
         // Create first directory
         handle_mkdir(&mut app)?;
         assert!(temp_dir.path().join("new_folder").exists());
-        
+
         // Create second directory (should be numbered)
         handle_mkdir(&mut app)?;
         assert!(temp_dir.path().join("new_folder_1").exists());
-        
+
         // Create third directory
         handle_mkdir(&mut app)?;
         assert!(temp_dir.path().join("new_folder_2").exists());
-        
+
         Ok(())
     }
 
@@ -1041,10 +933,58 @@ mod tests {
     fn test_handle_delete_no_selection() -> io::Result<()> {
         let mut app = App::new()?;
         app.left_panel.state.select(None);
-        
+
         // Should not crash
         handle_delete(&mut app)?;
-        
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_delete_file() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("delete.txt");
+        File::create(&file_path)?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "delete.txt" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        handle_delete(&mut app)?;
+
+        assert!(!file_path.exists());
+        assert!(app.status_message.contains("Deleted"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_delete_directory() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let dir_path = temp_dir.path().join("delete_dir");
+        fs::create_dir(&dir_path)?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "delete_dir" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        handle_delete(&mut app)?;
+
+        assert!(!dir_path.exists());
+        assert!(app.status_message.contains("Deleted"));
+
         Ok(())
     }
 
@@ -1052,10 +992,10 @@ mod tests {
     fn test_handle_copy_no_selection() -> io::Result<()> {
         let mut app = App::new()?;
         app.left_panel.state.select(None);
-        
+
         // Should not crash
         handle_copy(&mut app)?;
-        
+
         Ok(())
     }
 
@@ -1063,10 +1003,10 @@ mod tests {
     fn test_handle_move_no_selection() -> io::Result<()> {
         let mut app = App::new()?;
         app.left_panel.state.select(None);
-        
+
         // Should not crash
         handle_move(&mut app)?;
-        
+
         Ok(())
     }
 
@@ -1078,12 +1018,12 @@ mod tests {
             lines: vec!["Line 1".to_string()],
             scroll: 0,
         });
-        
+
         // Test with a key that doesn't do anything in viewer
-        assert!(handle_overlay_keys(&mut app, KeyCode::Char('a')));
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('a'))));
         // Viewer should still be active
         assert!(app.viewer.is_some());
-        
+
         Ok(())
     }
 
@@ -1091,12 +1031,12 @@ mod tests {
     fn test_handle_overlay_keys_help_other_key() -> io::Result<()> {
         let mut app = App::new()?;
         app.show_help = true;
-        
+
         // Test with a key that doesn't close help
-        assert!(handle_overlay_keys(&mut app, KeyCode::Down));
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Down)));
         // Help should still be shown
         assert!(app.show_help);
-        
+
         Ok(())
     }
 
@@ -1104,7 +1044,7 @@ mod tests {
     fn test_handle_edit_no_selection() -> io::Result<()> {
         let mut app = App::new()?;
         app.left_panel.state.select(None);
-        
+
         // Should not crash
         handle_edit_test_mode(&mut app, TestEditorBehavior::Success)?;
         Ok(())
@@ -1187,17 +1127,17 @@ mod tests {
     #[test]
     fn test_handle_edit_impl_success() -> io::Result<()> {
         use ratatui::Terminal;
-        
+
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -1205,35 +1145,35 @@ mod tests {
                 break;
             }
         }
-        
+
         // Mock successful editor run
         let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _path| {
             Ok(fake_exit_status(0))
         });
-        
+
         if let Err(e) = &result {
             panic!("handle_edit_impl failed with error: {:?}", e);
         }
         assert!(result.is_ok());
         assert!(app.status_message.contains("Edited"));
-        
+
         Ok(())
     }
 
     #[test]
     fn test_handle_edit_impl_editor_error_exit() -> io::Result<()> {
         use ratatui::Terminal;
-        
+
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -1241,32 +1181,32 @@ mod tests {
                 break;
             }
         }
-        
+
         // Mock editor with error exit code
         let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _path| {
             Ok(fake_exit_status(1))
         });
-        
+
         assert!(result.is_ok());
         assert!(app.status_message.contains("Editor exited with status"));
-        
+
         Ok(())
     }
 
     #[test]
     fn test_handle_edit_impl_launch_failure() -> io::Result<()> {
         use ratatui::Terminal;
-        
+
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Select the file
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -1274,51 +1214,51 @@ mod tests {
                 break;
             }
         }
-        
+
         // Mock editor launch failure
         let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _path| {
             Err(io::Error::new(io::ErrorKind::NotFound, "Editor not found"))
         });
-        
+
         assert!(result.is_ok());
         assert!(app.status_message.contains("Failed to launch editor"));
-        
+
         Ok(())
     }
 
     #[test]
     fn test_handle_edit_impl_no_selection() -> io::Result<()> {
         use ratatui::Terminal;
-        
+
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         let mut app = App::new()?;
         app.left_panel.state.select(None);
-        
+
         // Should return Ok without doing anything
         let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _path| {
             panic!("Editor should not be called when no file is selected");
         });
-        
+
         assert!(result.is_ok());
-        
+
         Ok(())
     }
 
     #[test]
     fn test_handle_edit_impl_directory() -> io::Result<()> {
         use ratatui::Terminal;
-        
+
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
-        
+
         let temp_dir = TempDir::new()?;
         fs::create_dir(temp_dir.path().join("subdir"))?;
-        
+
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Select the directory
         for (i, entry) in app.left_panel.entries.iter().enumerate() {
             if entry.name == "subdir" {
@@ -1326,15 +1266,218 @@ mod tests {
                 break;
             }
         }
-        
+
         // Should return Ok without launching editor
         let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _path| {
             panic!("Editor should not be called for directories");
         });
-        
+
         assert!(result.is_ok());
         assert_eq!(app.status_message, "Editing directories is not supported");
-        
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_overlay_keys_search() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        File::create(temp_dir.path().join("alpha.txt"))?;
+        File::create(temp_dir.path().join("beta.txt"))?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.search = Some(String::new());
+
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('b'))));
+        let beta_index = app
+            .left_panel
+            .entries
+            .iter()
+            .position(|entry| entry.name == "beta.txt")
+            .unwrap();
+        assert_eq!(app.left_panel.state.selected(), Some(beta_index));
+
+        assert!(handle_overlay_keys(
+            &mut app,
+            key_event_with_mods(KeyCode::Char('x'), KeyModifiers::CONTROL)
+        ));
+        assert_eq!(app.search.as_deref(), Some("b"));
+
+        app.search = Some("ab".to_string());
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Backspace)));
+        assert_eq!(app.search.as_deref(), Some("a"));
+
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+        assert!(app.search.is_none());
+        assert!(app.status_message.contains("Found: a"));
+
+        app.search = Some("zzz".to_string());
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+        assert!(app.search.is_none());
+        assert!(app.status_message.contains("Not found: zzz"));
+
+        app.search = Some("alpha".to_string());
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Esc)));
+        assert!(app.search.is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_overlay_keys_bookmarks() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let bookmark_dir = temp_dir.path().join("bookmark");
+        fs::create_dir(&bookmark_dir)?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        app.show_bookmarks = true;
+        app.bookmarks = vec![None; 1];
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('9'))));
+        assert!(app.status_message.contains("Invalid bookmark slot"));
+        assert!(app.show_bookmarks);
+
+        app.bookmarks = vec![None; 10];
+        app.show_bookmarks = true;
+        assert!(handle_overlay_keys(
+            &mut app,
+            key_event_with_mods(KeyCode::Char('1'), KeyModifiers::CONTROL)
+        ));
+        assert!(app.bookmarks[1].is_some());
+
+        app.show_bookmarks = true;
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('2'))));
+        assert!(app.status_message.contains("Bookmark 2 is empty"));
+
+        app.bookmarks[3] = Some(bookmark_dir.clone());
+        app.show_bookmarks = true;
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('3'))));
+        assert!(!app.show_bookmarks);
+        assert_eq!(app.get_active_panel().path, bookmark_dir);
+
+        app.bookmarks[4] = Some(temp_dir.path().join("missing"));
+        app.show_bookmarks = true;
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('4'))));
+        assert!(app.status_message.contains("Failed to open bookmark"));
+
+        app.show_bookmarks = true;
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('x'))));
+        assert!(app.show_bookmarks);
+
+        app.show_bookmarks = true;
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Esc)));
+        assert!(!app.show_bookmarks);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_overlay_keys_command_line() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        app.command_line = Some(String::new());
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('p'))));
+        assert_eq!(app.command_line.as_deref(), Some("p"));
+
+        assert!(handle_overlay_keys(
+            &mut app,
+            key_event_with_mods(KeyCode::Char('x'), KeyModifiers::ALT)
+        ));
+        assert_eq!(app.command_line.as_deref(), Some("p"));
+
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Backspace)));
+        assert_eq!(app.command_line.as_deref(), Some(""));
+
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+        assert!(app.command_line.is_none());
+
+        app.command_line = Some("pwd".to_string());
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+        assert_eq!(app.status_message, temp_dir.path().display().to_string());
+
+        app.command_line = Some("unknown".to_string());
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+        assert!(app.status_message.contains("Command failed"));
+
+        app.command_line = Some("quit".to_string());
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+        assert!(app.should_quit);
+
+        app.should_quit = false;
+        app.command_line = Some("pwd".to_string());
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Esc)));
+        assert!(app.command_line.is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_execute_command_branches() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let subdir = temp_dir.path().join("subdir");
+        let bookmark_dir = temp_dir.path().join("bookmark");
+        fs::create_dir(&subdir)?;
+        fs::create_dir(&bookmark_dir)?;
+        fs::write(temp_dir.path().join("file.txt"), b"data")?;
+        fs::write(subdir.join("nested.txt"), b"nested")?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.active_panel = crate::models::PanelSide::Left;
+
+        assert!(execute_command(&mut app, "").is_ok());
+        assert!(execute_command(&mut app, "cd").is_err());
+        assert!(execute_command(&mut app, "cd file.txt").is_err());
+
+        execute_command(&mut app, "cd subdir")?;
+        assert!(app.get_active_panel().path.ends_with("subdir"));
+        assert!(app.status_message.contains("Opened"));
+
+        let root_path = temp_dir
+            .path()
+            .ancestors()
+            .last()
+            .unwrap_or(temp_dir.path());
+        execute_command(&mut app, &format!("cd {}", root_path.display()))?;
+        assert_eq!(app.get_active_panel().path, root_path);
+
+        execute_command(&mut app, "sort name")?;
+        assert_eq!(app.get_active_panel().sort_mode, SortMode::Name);
+        execute_command(&mut app, "sort ext")?;
+        assert_eq!(app.get_active_panel().sort_mode, SortMode::Extension);
+        execute_command(&mut app, "sort size")?;
+        assert_eq!(app.get_active_panel().sort_mode, SortMode::Size);
+        assert!(execute_command(&mut app, "sort bogus").is_err());
+
+        assert!(execute_command(&mut app, "mark").is_err());
+        execute_command(&mut app, "mark all")?;
+        assert!(!app.get_active_panel().marked.is_empty());
+        execute_command(&mut app, "unmark")?;
+        assert!(app.get_active_panel().marked.is_empty());
+        assert!(execute_command(&mut app, "mark nope").is_err());
+
+        execute_command(&mut app, "help")?;
+        assert!(app.show_help);
+
+        assert!(execute_command(&mut app, "bookmark").is_err());
+        assert!(execute_command(&mut app, "bookmark set").is_err());
+        assert!(execute_command(&mut app, "bookmark set a").is_err());
+        assert!(execute_command(&mut app, "bookmark set 99").is_err());
+        assert!(execute_command(&mut app, "bookmark foo 1").is_err());
+
+        execute_command(&mut app, "bookmark set 0")?;
+        assert!(app.bookmarks[0].is_some());
+        assert!(execute_command(&mut app, "bookmark go 1").is_err());
+
+        app.bookmarks[0] = Some(bookmark_dir.clone());
+        execute_command(&mut app, "bookmark go 0")?;
+        assert_eq!(app.get_active_panel().path, bookmark_dir);
+
         Ok(())
     }
 }

@@ -1,6 +1,5 @@
 use std::{
-    fs,
-    io,
+    fs, io,
     path::{Path, PathBuf},
 };
 
@@ -76,10 +75,10 @@ pub fn refresh_panels(app: &mut App) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::{App, Panel, PanelSide};
     use std::fs::File;
     use std::io::Write;
     use tempfile::TempDir;
-    use crate::models::{App, Panel, PanelSide};
 
     #[test]
     fn test_format_size_bytes() {
@@ -176,7 +175,7 @@ mod tests {
         assert!(dst.exists());
         assert!(dst.join("file1.txt").exists());
         assert!(dst.join("file2.txt").exists());
-        
+
         let content1 = fs::read_to_string(dst.join("file1.txt"))?;
         assert_eq!(content1, "content1");
 
@@ -193,7 +192,7 @@ mod tests {
         fs::create_dir(src.join("subdir1"))?;
         fs::create_dir(src.join("subdir1").join("subsubdir"))?;
         fs::create_dir(src.join("subdir2"))?;
-        
+
         File::create(src.join("root.txt"))?.write_all(b"root")?;
         File::create(src.join("subdir1").join("file1.txt"))?.write_all(b"sub1")?;
         File::create(src.join("subdir1").join("subsubdir").join("deep.txt"))?.write_all(b"deep")?;
@@ -204,7 +203,11 @@ mod tests {
         assert!(dst.exists());
         assert!(dst.join("root.txt").exists());
         assert!(dst.join("subdir1").join("file1.txt").exists());
-        assert!(dst.join("subdir1").join("subsubdir").join("deep.txt").exists());
+        assert!(dst
+            .join("subdir1")
+            .join("subsubdir")
+            .join("deep.txt")
+            .exists());
         assert!(dst.join("subdir2").join("file2.txt").exists());
 
         Ok(())
@@ -230,10 +233,10 @@ mod tests {
     #[test]
     fn test_refresh_panels() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
-        
+
         // Create initial files
         File::create(temp_dir.path().join("initial.txt"))?;
-        
+
         let mut app = App {
             left_panel: Panel::new(temp_dir.path().to_path_buf())?,
             right_panel: Panel::new(temp_dir.path().to_path_buf())?,
@@ -247,37 +250,45 @@ mod tests {
             bookmarks: vec![None; 10],
             should_quit: false,
         };
-        
+
         // Add new files after app creation
         File::create(temp_dir.path().join("new_file.txt"))?;
         fs::create_dir(temp_dir.path().join("new_dir"))?;
-        
+
         // Refresh panels
         refresh_panels(&mut app)?;
-        
+
         // Check both panels contain the new entries
-        let left_has_new_file = app.left_panel.entries.iter().any(|e| e.name == "new_file.txt");
+        let left_has_new_file = app
+            .left_panel
+            .entries
+            .iter()
+            .any(|e| e.name == "new_file.txt");
         let left_has_new_dir = app.left_panel.entries.iter().any(|e| e.name == "new_dir");
-        let right_has_new_file = app.right_panel.entries.iter().any(|e| e.name == "new_file.txt");
+        let right_has_new_file = app
+            .right_panel
+            .entries
+            .iter()
+            .any(|e| e.name == "new_file.txt");
         let right_has_new_dir = app.right_panel.entries.iter().any(|e| e.name == "new_dir");
-        
+
         assert!(left_has_new_file);
         assert!(left_has_new_dir);
         assert!(right_has_new_file);
         assert!(right_has_new_dir);
-        
+
         Ok(())
     }
 
     #[test]
     fn test_refresh_panels_maintains_selection() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
-        
+
         // Create files
         File::create(temp_dir.path().join("a.txt"))?;
         File::create(temp_dir.path().join("b.txt"))?;
         File::create(temp_dir.path().join("c.txt"))?;
-        
+
         let mut app = App {
             left_panel: Panel::new(temp_dir.path().to_path_buf())?,
             right_panel: Panel::new(temp_dir.path().to_path_buf())?,
@@ -291,18 +302,18 @@ mod tests {
             bookmarks: vec![None; 10],
             should_quit: false,
         };
-        
+
         // Set selection to second file
         app.left_panel.state.select(Some(2));
         app.right_panel.state.select(Some(1));
-        
+
         // Refresh panels
         refresh_panels(&mut app)?;
-        
+
         // Check selections are maintained
         assert!(app.left_panel.state.selected().is_some());
         assert!(app.right_panel.state.selected().is_some());
-        
+
         Ok(())
     }
 }

@@ -1,10 +1,5 @@
 use ratatui::widgets::ListState;
-use std::{
-    cmp::Ordering,
-    collections::BTreeSet,
-    fs, io,
-    path::PathBuf,
-};
+use std::{cmp::Ordering, collections::BTreeSet, fs, io, path::PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct DirEntry {
@@ -27,6 +22,7 @@ impl Default for SortMode {
 }
 
 impl SortMode {
+    #[allow(dead_code)]
     pub fn next(self) -> Self {
         match self {
             SortMode::Name => SortMode::Extension,
@@ -141,8 +137,18 @@ impl Panel {
             .collect();
         self.marked.retain(|name| valid_names.contains(name));
 
+        self.select_after_reload(selected_name);
+
+        Ok(())
+    }
+
+    fn select_after_reload(&mut self, selected_name: Option<String>) {
         if let Some(selected_name) = selected_name {
-            if let Some(index) = self.entries.iter().position(|entry| entry.name == selected_name) {
+            if let Some(index) = self
+                .entries
+                .iter()
+                .position(|entry| entry.name == selected_name)
+            {
                 self.state.select(Some(index));
             } else if self.entries.is_empty() {
                 self.state.select(None);
@@ -152,8 +158,6 @@ impl Panel {
         } else if self.entries.is_empty() {
             self.state.select(None);
         }
-
-        Ok(())
     }
 
     pub fn next(&mut self) {
@@ -232,6 +236,7 @@ impl Panel {
         })
     }
 
+    #[allow(dead_code)]
     pub fn toggle_mark_selected(&mut self) -> bool {
         let Some(selected_name) = self.get_selected_entry().map(|entry| entry.name.clone()) else {
             return false;
@@ -254,6 +259,7 @@ impl Panel {
         self.marked.clear();
     }
 
+    #[allow(dead_code)]
     pub fn action_entry_names(&self) -> Vec<String> {
         if !self.marked.is_empty() {
             return self.marked.iter().cloned().collect();
@@ -271,6 +277,7 @@ impl Panel {
             .collect()
     }
 
+    #[allow(dead_code)]
     pub fn cycle_sort_mode(&mut self) {
         self.sort_mode = self.sort_mode.next();
     }
@@ -346,6 +353,15 @@ mod tests {
     use std::io::Write;
     use tempfile::TempDir;
 
+    fn file_names(panel: &Panel) -> Vec<String> {
+        panel
+            .entries
+            .iter()
+            .filter(|entry| !entry.is_dir && entry.name != "..")
+            .map(|entry| entry.name.clone())
+            .collect()
+    }
+
     #[test]
     fn test_dir_entry_creation() {
         let entry = DirEntry {
@@ -353,7 +369,7 @@ mod tests {
             is_dir: false,
             size: 1024,
         };
-        
+
         assert_eq!(entry.name, "test.txt");
         assert!(!entry.is_dir);
         assert_eq!(entry.size, 1024);
@@ -366,7 +382,7 @@ mod tests {
             is_dir: false,
             size: 1024,
         };
-        
+
         let cloned = entry.clone();
         assert_eq!(cloned.name, entry.name);
         assert_eq!(cloned.is_dir, entry.is_dir);
@@ -388,7 +404,7 @@ mod tests {
             lines: vec!["Line 1".to_string(), "Line 2".to_string()],
             scroll: 5,
         };
-        
+
         assert_eq!(viewer.title, "test.txt");
         assert_eq!(viewer.lines.len(), 2);
         assert_eq!(viewer.scroll, 5);
@@ -398,11 +414,18 @@ mod tests {
     fn test_panel_new() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         let panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         assert_eq!(panel.path, temp_dir.path());
         assert!(!panel.entries.is_empty() || panel.entries.is_empty()); // May have .. entry or be empty
-        assert_eq!(panel.state.selected(), if panel.entries.is_empty() { None } else { Some(0) });
-        
+        assert_eq!(
+            panel.state.selected(),
+            if panel.entries.is_empty() {
+                None
+            } else {
+                Some(0)
+            }
+        );
+
         Ok(())
     }
 
@@ -410,30 +433,56 @@ mod tests {
     fn test_panel_load_entries_empty_dir() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         panel.load_entries()?;
-        
+
         // Should have parent directory entry if not at root
         if temp_dir.path().parent().is_some() {
             assert!(panel.entries.iter().any(|e| e.name == ".."));
         }
-        
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_select_after_reload_empty_entries_with_selected_name() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        panel.entries.clear();
+        panel.state.select(Some(0));
+        panel.select_after_reload(Some("missing.txt".to_string()));
+
+        assert_eq!(panel.state.selected(), None);
+        Ok(())
+    }
+
+    #[test]
+    fn test_select_after_reload_empty_entries_without_selected_name() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        panel.entries.clear();
+        panel.state.select(Some(0));
+        panel.select_after_reload(None);
+
+        assert_eq!(panel.state.selected(), None);
         Ok(())
     }
 
     #[test]
     fn test_panel_load_entries_with_files() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
-        
+
         // Create test files and directories
         fs::create_dir(temp_dir.path().join("dir1"))?;
         fs::create_dir(temp_dir.path().join("dir2"))?;
         File::create(temp_dir.path().join("file1.txt"))?.write_all(b"test")?;
         File::create(temp_dir.path().join("file2.txt"))?.write_all(b"test")?;
-        
+
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
         panel.load_entries()?;
-        
+
         // Check entries are sorted (directories first, then files)
         let mut found_file = false;
         for entry in &panel.entries {
@@ -447,68 +496,74 @@ mod tests {
                 }
             }
         }
-        
+
         // Verify we have the expected entries
         assert!(panel.entries.len() >= 5); // .. + 2 dirs + 2 files
         assert!(panel.entries.iter().any(|e| e.name == "dir1" && e.is_dir));
         assert!(panel.entries.iter().any(|e| e.name == "dir2" && e.is_dir));
-        assert!(panel.entries.iter().any(|e| e.name == "file1.txt" && !e.is_dir));
-        assert!(panel.entries.iter().any(|e| e.name == "file2.txt" && !e.is_dir));
-        
+        assert!(panel
+            .entries
+            .iter()
+            .any(|e| e.name == "file1.txt" && !e.is_dir));
+        assert!(panel
+            .entries
+            .iter()
+            .any(|e| e.name == "file2.txt" && !e.is_dir));
+
         Ok(())
     }
 
     #[test]
     fn test_panel_navigation_next() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
-        
+
         // Create multiple files
         for i in 0..5 {
             File::create(temp_dir.path().join(format!("file{}.txt", i)))?;
         }
-        
+
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Test next navigation
         assert_eq!(panel.state.selected(), Some(0));
-        
+
         panel.next();
         assert_eq!(panel.state.selected(), Some(1));
-        
+
         panel.next();
         assert_eq!(panel.state.selected(), Some(2));
-        
+
         // Navigate to last item
         while panel.state.selected() != Some(panel.entries.len() - 1) {
             panel.next();
         }
-        
+
         // Next should wrap to first
         panel.next();
         assert_eq!(panel.state.selected(), Some(0));
-        
+
         Ok(())
     }
 
     #[test]
     fn test_panel_navigation_previous() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
-        
+
         // Create multiple files
         for i in 0..5 {
             File::create(temp_dir.path().join(format!("file{}.txt", i)))?;
         }
-        
+
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Test previous navigation from first item (should wrap to last)
         panel.previous();
         assert_eq!(panel.state.selected(), Some(panel.entries.len() - 1));
-        
+
         // Navigate back
         panel.previous();
         assert_eq!(panel.state.selected(), Some(panel.entries.len() - 2));
-        
+
         Ok(())
     }
 
@@ -521,11 +576,11 @@ mod tests {
             marked: BTreeSet::new(),
             sort_mode: SortMode::default(),
         };
-        
+
         // Navigation should not crash on empty panel
         panel.next();
         assert_eq!(panel.state.selected(), None);
-        
+
         panel.previous();
         assert_eq!(panel.state.selected(), None);
     }
@@ -535,9 +590,9 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let subdir = temp_dir.path().join("subdir");
         fs::create_dir(&subdir)?;
-        
+
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Find and select the subdirectory
         for (i, entry) in panel.entries.iter().enumerate() {
             if entry.name == "subdir" {
@@ -545,19 +600,19 @@ mod tests {
                 break;
             }
         }
-        
+
         // Enter the directory
         panel.enter()?;
         assert_eq!(panel.path, subdir);
-        
+
         // Should have .. entry
         assert!(panel.entries.iter().any(|e| e.name == ".."));
-        
+
         // Go back to parent
         panel.state.select(Some(0)); // Select ..
         panel.enter()?;
         assert_eq!(panel.path, temp_dir.path());
-        
+
         Ok(())
     }
 
@@ -565,10 +620,10 @@ mod tests {
     fn test_panel_enter_file() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         File::create(temp_dir.path().join("test.txt"))?;
-        
+
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
         let original_path = panel.path.clone();
-        
+
         // Find and select the file
         for (i, entry) in panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -576,11 +631,11 @@ mod tests {
                 break;
             }
         }
-        
+
         // Entering a file should not change the path
         panel.enter()?;
         assert_eq!(panel.path, original_path);
-        
+
         Ok(())
     }
 
@@ -588,17 +643,17 @@ mod tests {
     fn test_panel_get_selected_entry() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         File::create(temp_dir.path().join("test.txt"))?;
-        
+
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Should have an entry selected by default
         let entry = panel.get_selected_entry();
         assert!(entry.is_some());
-        
+
         // Clear selection
         panel.state.select(None);
         assert!(panel.get_selected_entry().is_none());
-        
+
         Ok(())
     }
 
@@ -606,17 +661,17 @@ mod tests {
     fn test_panel_ensure_selection() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         File::create(temp_dir.path().join("test.txt"))?;
-        
+
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Clear selection
         panel.state.select(None);
         assert!(panel.state.selected().is_none());
-        
+
         // Ensure selection should set it to 0
         panel.ensure_selection();
         assert_eq!(panel.state.selected(), Some(0));
-        
+
         Ok(())
     }
 
@@ -629,7 +684,7 @@ mod tests {
             marked: BTreeSet::new(),
             sort_mode: SortMode::default(),
         };
-        
+
         // Should not set selection on empty panel
         panel.ensure_selection();
         assert!(panel.state.selected().is_none());
@@ -639,9 +694,9 @@ mod tests {
     fn test_panel_selected_path() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         File::create(temp_dir.path().join("test.txt"))?;
-        
+
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Find and select the file
         for (i, entry) in panel.entries.iter().enumerate() {
             if entry.name == "test.txt" {
@@ -649,15 +704,15 @@ mod tests {
                 break;
             }
         }
-        
+
         let selected_path = panel.selected_path();
         assert!(selected_path.is_some());
         assert_eq!(selected_path.unwrap(), temp_dir.path().join("test.txt"));
-        
+
         // Clear selection
         panel.state.select(None);
         assert!(panel.selected_path().is_none());
-        
+
         Ok(())
     }
 
@@ -679,7 +734,7 @@ mod tests {
     #[test]
     fn test_app_new() -> io::Result<()> {
         let app = App::new()?;
-        
+
         assert_eq!(app.active_panel, PanelSide::Left);
         assert!(!app.show_help);
         assert!(app.viewer.is_none());
@@ -692,80 +747,80 @@ mod tests {
             app.status_message,
             "F1 Help  F3 View  F4 Edit  F5 Copy  F6 Move  F7 Mkdir  F8 Delete"
         );
-        
+
         // Both panels should be in the current directory
         assert_eq!(app.left_panel.path, app.right_panel.path);
-        
+
         Ok(())
     }
 
     #[test]
     fn test_app_get_active_panel() -> io::Result<()> {
         let mut app = App::new()?;
-        
+
         // Initially active panel is left
         let left_path = app.left_panel.path.clone();
         let active_path = app.get_active_panel().path.clone();
         assert_eq!(active_path, left_path);
-        
+
         // Switch to right panel
         app.active_panel = PanelSide::Right;
         let right_path = app.right_panel.path.clone();
         let active_path = app.get_active_panel().path.clone();
         assert_eq!(active_path, right_path);
-        
+
         Ok(())
     }
 
     #[test]
     fn test_app_get_inactive_panel() -> io::Result<()> {
         let mut app = App::new()?;
-        
+
         // Initially active panel is left, so inactive is right
         let right_path = app.right_panel.path.clone();
         let inactive_path = app.get_inactive_panel().path.clone();
         assert_eq!(inactive_path, right_path);
-        
+
         // Switch to right panel
         app.active_panel = PanelSide::Right;
         let left_path = app.left_panel.path.clone();
         let inactive_path = app.get_inactive_panel().path.clone();
         assert_eq!(inactive_path, left_path);
-        
+
         Ok(())
     }
 
     #[test]
     fn test_app_switch_panel() -> io::Result<()> {
         let mut app = App::new()?;
-        
+
         assert_eq!(app.active_panel, PanelSide::Left);
-        
+
         app.switch_panel();
         assert_eq!(app.active_panel, PanelSide::Right);
-        
+
         app.switch_panel();
         assert_eq!(app.active_panel, PanelSide::Left);
-        
+
         Ok(())
     }
 
     #[test]
     fn test_app_switch_panel_multiple_times() -> io::Result<()> {
         let mut app = App::new()?;
-        
+
         // Switch multiple times and ensure it alternates correctly
         for _ in 0..10 {
             let before = app.active_panel;
             app.switch_panel();
             let after = app.active_panel;
-            
+
             match before {
                 PanelSide::Left => assert_eq!(after, PanelSide::Right),
                 PanelSide::Right => assert_eq!(after, PanelSide::Left),
             }
         }
-        
+
         Ok(())
     }
 
@@ -773,16 +828,16 @@ mod tests {
     fn test_panel_next_with_none_selected() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         File::create(temp_dir.path().join("test.txt"))?;
-        
+
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Clear the selection
         panel.state.select(None);
-        
+
         // Next should select the first item
         panel.next();
         assert_eq!(panel.state.selected(), Some(0));
-        
+
         Ok(())
     }
 
@@ -790,16 +845,119 @@ mod tests {
     fn test_panel_previous_with_none_selected() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         File::create(temp_dir.path().join("test.txt"))?;
-        
+
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
-        
+
         // Clear the selection
         panel.state.select(None);
-        
+
         // Previous should select the first item
         panel.previous();
         assert_eq!(panel.state.selected(), Some(0));
-        
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sort_mode_next_and_label() {
+        assert_eq!(SortMode::Name.label(), "Name");
+        assert_eq!(SortMode::Extension.label(), "Ext");
+        assert_eq!(SortMode::Size.label(), "Size");
+
+        assert_eq!(SortMode::Name.next(), SortMode::Extension);
+        assert_eq!(SortMode::Extension.next(), SortMode::Size);
+        assert_eq!(SortMode::Size.next(), SortMode::Name);
+    }
+
+    #[test]
+    fn test_panel_cycle_sort_mode() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        assert_eq!(panel.sort_mode, SortMode::Name);
+        panel.cycle_sort_mode();
+        assert_eq!(panel.sort_mode, SortMode::Extension);
+        panel.cycle_sort_mode();
+        assert_eq!(panel.sort_mode, SortMode::Size);
+        panel.cycle_sort_mode();
+        assert_eq!(panel.sort_mode, SortMode::Name);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_marking_and_action_names() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        File::create(temp_dir.path().join("alpha.txt"))?;
+        File::create(temp_dir.path().join("beta.txt"))?;
+
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        let alpha_index = panel
+            .entries
+            .iter()
+            .position(|entry| entry.name == "alpha.txt")
+            .expect("alpha.txt entry");
+        panel.state.select(Some(alpha_index));
+
+        assert!(panel.toggle_mark_selected());
+        assert!(panel.marked.contains("alpha.txt"));
+        assert_eq!(file_names(&panel), vec!["alpha.txt", "beta.txt"]);
+
+        let mut action_names = panel.action_entry_names();
+        action_names.sort();
+        assert_eq!(action_names, vec!["alpha.txt"]);
+
+        assert!(panel.toggle_mark_selected());
+        assert!(panel.marked.is_empty());
+        assert_eq!(panel.action_entry_names(), vec!["alpha.txt"]);
+
+        let beta_index = panel
+            .entries
+            .iter()
+            .position(|entry| entry.name == "beta.txt")
+            .expect("beta.txt entry");
+        panel.state.select(Some(beta_index));
+        assert!(panel.toggle_mark_selected());
+        assert!(panel.marked.contains("beta.txt"));
+
+        std::fs::remove_file(temp_dir.path().join("beta.txt"))?;
+        panel.load_entries()?;
+        assert!(!panel.marked.contains("beta.txt"));
+
+        panel.state.select(None);
+        assert!(!panel.toggle_mark_selected());
+
+        let parent_index = panel
+            .entries
+            .iter()
+            .position(|entry| entry.name == "..")
+            .expect("parent entry");
+        panel.state.select(Some(parent_index));
+        assert!(!panel.toggle_mark_selected());
+        assert!(panel.action_entry_names().is_empty());
+        assert!(panel.selected_path().is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_load_entries_sort_modes() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        std::fs::create_dir(temp_dir.path().join("dir"))?;
+        File::create(temp_dir.path().join("b.txt"))?.write_all(b"1")?;
+        File::create(temp_dir.path().join("a.rs"))?.write_all(b"1234")?;
+        File::create(temp_dir.path().join("c"))?.write_all(b"12")?;
+
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        panel.sort_mode = SortMode::Extension;
+        panel.load_entries()?;
+        assert_eq!(file_names(&panel), vec!["c", "a.rs", "b.txt"]);
+
+        panel.sort_mode = SortMode::Size;
+        panel.load_entries()?;
+        assert_eq!(file_names(&panel), vec!["a.rs", "c", "b.txt"]);
+
         Ok(())
     }
 }

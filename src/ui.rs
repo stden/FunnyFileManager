@@ -111,13 +111,12 @@ fn render_panel(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bool) {
 }
 
 fn render_header(f: &mut Frame, area: Rect) {
-    let paragraph = Paragraph::new("Far Manager style | Tab: Switch panels | F1 for help")
-        .style(
-            Style::default()
-                .fg(Color::Cyan)
-                .bg(FAR_BLUE)
-                .add_modifier(Modifier::BOLD),
-        );
+    let paragraph = Paragraph::new("Far Manager style | Tab: Switch panels | F1 for help").style(
+        Style::default()
+            .fg(Color::Cyan)
+            .bg(FAR_BLUE)
+            .add_modifier(Modifier::BOLD),
+    );
     f.render_widget(paragraph, area);
 }
 
@@ -282,108 +281,124 @@ mod tests {
     fn test_ui_render_with_right_panel_active() {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        
+
         let mut app = App::new().unwrap();
         app.active_panel = PanelSide::Right;
-        
-        terminal.draw(|f| {
-            ui(f, &mut app);
-        }).unwrap();
+
+        terminal
+            .draw(|f| {
+                ui(f, &mut app);
+            })
+            .unwrap();
     }
 
     #[test]
     fn test_ui_render_status_with_file_selection() {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        
+
         let mut app = App::new().unwrap();
-        
+
         // Add a file to the panel
         app.left_panel.entries.push(DirEntry {
             name: "test.txt".to_string(),
             is_dir: false,
             size: 1024,
         });
-        app.left_panel.state.select(Some(app.left_panel.entries.len() - 1));
-        
-        terminal.draw(|f| {
-            ui(f, &mut app);
-        }).unwrap();
+        app.left_panel
+            .state
+            .select(Some(app.left_panel.entries.len() - 1));
+
+        terminal
+            .draw(|f| {
+                ui(f, &mut app);
+            })
+            .unwrap();
     }
 
     #[test]
     fn test_ui_render_status_no_selection() {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        
+
         let mut app = App::new().unwrap();
-        
+
         // Clear panel selection
         app.left_panel.state.select(None);
-        
-        terminal.draw(|f| {
-            ui(f, &mut app);
-        }).unwrap();
+
+        terminal
+            .draw(|f| {
+                ui(f, &mut app);
+            })
+            .unwrap();
     }
 
     #[test]
     fn test_ui_render_with_help_overlay() {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        
+
         let mut app = App::new().unwrap();
         app.show_help = true;
-        
-        terminal.draw(|f| {
-            ui(f, &mut app);
-        }).unwrap();
+
+        terminal
+            .draw(|f| {
+                ui(f, &mut app);
+            })
+            .unwrap();
     }
 
     #[test]
     fn test_ui_render_with_viewer_overlay() {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        
+
         let mut app = App::new().unwrap();
         app.viewer = Some(crate::models::Viewer {
             title: "test.txt".to_string(),
             lines: vec!["Line 1".to_string(), "Line 2".to_string()],
             scroll: 0,
         });
-        
-        terminal.draw(|f| {
-            ui(f, &mut app);
-        }).unwrap();
+
+        terminal
+            .draw(|f| {
+                ui(f, &mut app);
+            })
+            .unwrap();
     }
 
     #[test]
     fn test_render_status_right_panel_active_with_file() {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        
+
         let mut app = App::new().unwrap();
         app.active_panel = PanelSide::Right;
-        
+
         // Add a file to the right panel
         app.right_panel.entries.push(DirEntry {
             name: "document.pdf".to_string(),
             is_dir: false,
             size: 2048576, // 2MB
         });
-        app.right_panel.state.select(Some(app.right_panel.entries.len() - 1));
-        
-        terminal.draw(|f| {
-            ui(f, &mut app);
-        }).unwrap();
+        app.right_panel
+            .state
+            .select(Some(app.right_panel.entries.len() - 1));
+
+        terminal
+            .draw(|f| {
+                ui(f, &mut app);
+            })
+            .unwrap();
     }
 
     #[test]
     fn test_render_panel_with_various_entries() {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        
+
         let mut app = App::new().unwrap();
-        
+
         // Add various types of entries
         app.left_panel.entries.clear();
         app.left_panel.entries.push(DirEntry {
@@ -401,10 +416,12 @@ mod tests {
             is_dir: false,
             size: 1536000, // ~1.5MB
         });
-        
-        terminal.draw(|f| {
-            ui(f, &mut app);
-        }).unwrap();
+
+        terminal
+            .draw(|f| {
+                ui(f, &mut app);
+            })
+            .unwrap();
     }
 
     #[test]
@@ -415,16 +432,16 @@ mod tests {
             width: 100,
             height: 100,
         };
-        
+
         // Test different percentages
         let rect1 = centered_rect(80, 60, base);
         assert_eq!(rect1.width, 80);
         assert_eq!(rect1.height, 60);
-        
+
         let rect2 = centered_rect(100, 100, base);
         assert_eq!(rect2.width, 100);
         assert_eq!(rect2.height, 100);
-        
+
         let rect3 = centered_rect(10, 10, base);
         assert_eq!(rect3.width, 10);
         assert_eq!(rect3.height, 10);
