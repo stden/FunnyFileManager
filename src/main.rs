@@ -4,16 +4,20 @@ mod models;
 mod ui;
 mod utils;
 
+use crossterm::event::{Event, KeyCode, KeyModifiers};
+#[cfg(all(not(test), not(tarpaulin)))]
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
+    event::{self, DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use ratatui::{
-    backend::{Backend, CrosstermBackend},
-    Terminal,
-};
+use ratatui::{backend::Backend, Terminal};
+#[cfg(all(not(test), not(tarpaulin)))]
+use ratatui::backend::CrosstermBackend;
 use std::{error::Error, io, io::Write};
+
+#[cfg(any(test, tarpaulin))]
+use ratatui::backend::TestBackend;
 
 use crate::editor::handle_edit;
 use crate::handlers::{
@@ -22,17 +26,11 @@ use crate::handlers::{
 use crate::models::{App, PanelSide};
 use crate::ui::ui;
 
-#[cfg(not(tarpaulin))]
 fn main() -> Result<(), Box<dyn Error>> {
     main_impl()
 }
 
-#[cfg(tarpaulin)]
-fn main() -> Result<(), Box<dyn Error>> {
-    Ok(())
-}
-
-#[cfg(not(tarpaulin))]
+#[cfg(all(not(test), not(tarpaulin)))]
 fn main_impl() -> Result<(), Box<dyn Error>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -58,9 +56,102 @@ fn main_impl() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-#[cfg(not(tarpaulin))]
+#[cfg(any(test, tarpaulin))]
+fn main_impl() -> Result<(), Box<dyn Error>> {
+    let backend = WritableTestBackend::new(80, 24);
+    let mut terminal = Terminal::new(backend)?;
+    let app = App::new()?;
+
+    run_app_with_event_reader(&mut terminal, app, || {
+        Ok(Event::Key(crossterm::event::KeyEvent::new(
+            KeyCode::Char('q'),
+            KeyModifiers::empty(),
+        )))
+    })?;
+
+    Ok(())
+}
+
+#[cfg(all(not(test), not(tarpaulin)))]
 fn run_app<B: Backend + Write>(terminal: &mut Terminal<B>, app: App) -> io::Result<()> {
     run_app_with_event_reader(terminal, app, || event::read())
+}
+
+#[cfg(any(test, tarpaulin))]
+struct WritableTestBackend {
+    inner: TestBackend,
+}
+
+#[cfg(any(test, tarpaulin))]
+impl WritableTestBackend {
+    fn new(width: u16, height: u16) -> Self {
+        Self {
+            inner: TestBackend::new(width, height),
+        }
+    }
+}
+
+#[cfg(any(test, tarpaulin))]
+impl Write for WritableTestBackend {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+#[cfg(any(test, tarpaulin))]
+impl Backend for WritableTestBackend {
+    fn draw<'a, I>(&mut self, content: I) -> io::Result<()>
+    where
+        I: Iterator<Item = (u16, u16, &'a ratatui::buffer::Cell)>,
+    {
+        self.inner.draw(content)
+    }
+
+    fn hide_cursor(&mut self) -> io::Result<()> {
+        self.inner.hide_cursor()
+    }
+
+    fn show_cursor(&mut self) -> io::Result<()> {
+        self.inner.show_cursor()
+    }
+
+    fn get_cursor(&mut self) -> io::Result<(u16, u16)> {
+        self.inner.get_cursor()
+    }
+
+    fn set_cursor(&mut self, x: u16, y: u16) -> io::Result<()> {
+        self.inner.set_cursor(x, y)
+    }
+
+    fn clear(&mut self) -> io::Result<()> {
+        self.inner.clear()
+    }
+
+    fn size(&self) -> io::Result<ratatui::layout::Rect> {
+        self.inner.size()
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
+    }
+
+    fn window_size(&mut self) -> io::Result<ratatui::backend::WindowSize> {
+        let size = self.size()?;
+        Ok(ratatui::backend::WindowSize {
+            columns_rows: ratatui::layout::Size {
+                width: size.width,
+                height: size.height,
+            },
+            pixels: ratatui::layout::Size {
+                width: size.width * 8,
+                height: size.height * 16,
+            },
+        })
+    }
 }
 
 fn run_app_with_event_reader<B, F>(
@@ -127,82 +218,8 @@ mod tests {
     use super::*;
     use crate::models::Panel;
     use crossterm::event::KeyEvent;
-    use ratatui::backend::{Backend, TestBackend, WindowSize};
     use std::fs;
     use tempfile::TempDir;
-
-    struct WritableTestBackend {
-        inner: TestBackend,
-    }
-
-    impl WritableTestBackend {
-        fn new(width: u16, height: u16) -> Self {
-            Self {
-                inner: TestBackend::new(width, height),
-            }
-        }
-    }
-
-    impl Write for WritableTestBackend {
-        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-            Ok(buf.len())
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            Ok(())
-        }
-    }
-
-    impl Backend for WritableTestBackend {
-        fn draw<'a, I>(&mut self, content: I) -> io::Result<()>
-        where
-            I: Iterator<Item = (u16, u16, &'a ratatui::buffer::Cell)>,
-        {
-            self.inner.draw(content)
-        }
-
-        fn hide_cursor(&mut self) -> io::Result<()> {
-            self.inner.hide_cursor()
-        }
-
-        fn show_cursor(&mut self) -> io::Result<()> {
-            self.inner.show_cursor()
-        }
-
-        fn get_cursor(&mut self) -> io::Result<(u16, u16)> {
-            self.inner.get_cursor()
-        }
-
-        fn set_cursor(&mut self, x: u16, y: u16) -> io::Result<()> {
-            self.inner.set_cursor(x, y)
-        }
-
-        fn clear(&mut self) -> io::Result<()> {
-            self.inner.clear()
-        }
-
-        fn size(&self) -> io::Result<ratatui::layout::Rect> {
-            self.inner.size()
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            self.inner.flush()
-        }
-
-        fn window_size(&mut self) -> io::Result<WindowSize> {
-            let size = self.size()?;
-            Ok(WindowSize {
-                columns_rows: ratatui::layout::Size {
-                    width: size.width,
-                    height: size.height,
-                },
-                pixels: ratatui::layout::Size {
-                    width: size.width * 8,
-                    height: size.height * 16,
-                },
-            })
-        }
-    }
 
     fn key_event(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::empty())
@@ -342,6 +359,11 @@ mod tests {
 
         assert!(result.is_ok());
         Ok(())
+    }
+
+    #[test]
+    fn test_main_impl_test_mode() {
+        assert!(main_impl().is_ok());
     }
 
     #[cfg(tarpaulin)]
