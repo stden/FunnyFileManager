@@ -5,7 +5,7 @@ mod ui;
 mod utils;
 
 use crossterm::event::{Event, KeyCode, KeyModifiers};
-#[cfg(all(not(test), not(tarpaulin)))]
+#[cfg(not(test))]
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture},
     execute,
@@ -72,9 +72,21 @@ fn main_impl() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-#[cfg(all(not(test), not(tarpaulin)))]
 fn run_app<B: Backend + Write>(terminal: &mut Terminal<B>, app: App) -> io::Result<()> {
-    run_app_with_event_reader(terminal, app, || event::read())
+    #[cfg(test)]
+    fn default_event_reader() -> io::Result<Event> {
+        Ok(Event::Key(crossterm::event::KeyEvent::new(
+            KeyCode::Char('q'),
+            KeyModifiers::empty(),
+        )))
+    }
+    
+    #[cfg(not(test))]
+    fn default_event_reader() -> io::Result<Event> {
+        event::read()
+    }
+    
+    run_app_with_event_reader(terminal, app, default_event_reader)
 }
 
 #[cfg(any(test, tarpaulin))]
@@ -450,5 +462,20 @@ mod tests {
     fn test_main_function_coverage() {
         let result = main();
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_run_app_coverage() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        let backend = WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        // This test covers the run_app function wrapper
+        run_app(&mut terminal, app)?;
+        Ok(())
     }
 }
