@@ -371,4 +371,84 @@ mod tests {
     fn test_tarpaulin_main_stub() {
         assert!(super::main().is_ok());
     }
+
+    #[test]
+    fn test_writable_test_backend_write() -> io::Result<()> {
+        let mut backend = WritableTestBackend::new(80, 24);
+        let data = b"test data";
+        let written = backend.write(data)?;
+        assert_eq!(written, data.len());
+        Ok(())
+    }
+
+    #[test]
+    fn test_writable_test_backend_flush() -> io::Result<()> {
+        let mut backend = WritableTestBackend::new(80, 24);
+        Write::flush(&mut backend)?;
+        Backend::flush(&mut backend)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_writable_test_backend_cursor_operations() -> io::Result<()> {
+        let mut backend = WritableTestBackend::new(80, 24);
+        
+        let (x, y) = backend.get_cursor()?;
+        assert_eq!((x, y), (0, 0));
+        
+        backend.set_cursor(10, 5)?;
+        let (x, y) = backend.get_cursor()?;
+        assert_eq!((x, y), (10, 5));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_writable_test_backend_clear() -> io::Result<()> {
+        let mut backend = WritableTestBackend::new(80, 24);
+        backend.clear()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_writable_test_backend_window_size() -> io::Result<()> {
+        let mut backend = WritableTestBackend::new(80, 24);
+        let window_size = backend.window_size()?;
+        
+        assert_eq!(window_size.columns_rows.width, 80);
+        assert_eq!(window_size.columns_rows.height, 24);
+        assert_eq!(window_size.pixels.width, 80 * 8);
+        assert_eq!(window_size.pixels.height, 24 * 16);
+        
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn test_run_app_full_coverage() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        let backend = WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let mut events = vec![Event::Key(key_event(KeyCode::F(10)))].into_iter();
+        
+        run_app_with_event_reader(&mut terminal, app, || {
+            events
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+        })?;
+
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn test_main_function_coverage() {
+        let result = main();
+        assert!(result.is_ok());
+    }
 }
