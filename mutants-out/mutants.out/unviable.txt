@@ -1,2 +1,0 @@
-src/main.rs:18:9: replace event::read -> std::io::Result<Event> with Ok(Default::default())
-src/main.rs:152:9: replace <impl Backend for WritableTestBackend>::window_size -> io::Result<ratatui::backend::WindowSize> with Ok(Default::default())
