@@ -1,0 +1,2910 @@
+{
+  "outcomes": [
+    {
+      "scenario": "Baseline",
+      "summary": "Success",
+      "log_path": "log/baseline.log",
+      "diff_path": null,
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 25.0413729,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.3656056,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "event::read",
+            "return_type": "-> std::io::Result<Event>",
+            "span": {
+              "start": {
+                "line": 17,
+                "column": 5
+              },
+              "end": {
+                "line": 22,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 18,
+              "column": 9
+            },
+            "end": {
+              "line": 21,
+              "column": 12
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/src__main.rs_line_18_col_9.log",
+      "diff_path": "diff/src__main.rs_line_18_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 4.4167734,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "main",
+            "return_type": "-> Result<(), Box<dyn Error>>",
+            "span": {
+              "start": {
+                "line": 39,
+                "column": 1
+              },
+              "end": {
+                "line": 41,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 40,
+              "column": 5
+            },
+            "end": {
+              "line": 40,
+              "column": 16
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_40_col_5.log",
+      "diff_path": "diff/src__main.rs_line_40_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 5.6378711,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.5492132,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "main_impl",
+            "return_type": "-> Result<(), Box<dyn Error>>",
+            "span": {
+              "start": {
+                "line": 43,
+                "column": 1
+              },
+              "end": {
+                "line": 67,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 45,
+              "column": 5
+            },
+            "end": {
+              "line": 66,
+              "column": 11
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_45_col_5.log",
+      "diff_path": "diff/src__main.rs_line_45_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 33.0428216,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.7487483,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Write for WritableTestBackend>::write",
+            "return_type": "-> io::Result<usize>",
+            "span": {
+              "start": {
+                "line": 105,
+                "column": 5
+              },
+              "end": {
+                "line": 107,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 106,
+              "column": 9
+            },
+            "end": {
+              "line": 106,
+              "column": 22
+            }
+          },
+          "replacement": "Ok(1)",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__main.rs_line_106_col_9_001.log",
+      "diff_path": "diff/src__main.rs_line_106_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 8.486279,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.5292192,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::draw",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 116,
+                "column": 5
+              },
+              "end": {
+                "line": 121,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 120,
+              "column": 9
+            },
+            "end": {
+              "line": 120,
+              "column": 33
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_120_col_9.log",
+      "diff_path": "diff/src__main.rs_line_120_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.07092,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.047323,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::hide_cursor",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 123,
+                "column": 5
+              },
+              "end": {
+                "line": 125,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 124,
+              "column": 9
+            },
+            "end": {
+              "line": 124,
+              "column": 33
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_124_col_9.log",
+      "diff_path": "diff/src__main.rs_line_124_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.8785885,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.3416628,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Write for WritableTestBackend>::write",
+            "return_type": "-> io::Result<usize>",
+            "span": {
+              "start": {
+                "line": 105,
+                "column": 5
+              },
+              "end": {
+                "line": 107,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 106,
+              "column": 9
+            },
+            "end": {
+              "line": 106,
+              "column": 22
+            }
+          },
+          "replacement": "Ok(0)",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__main.rs_line_106_col_9.log",
+      "diff_path": "diff/src__main.rs_line_106_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 73.8426503,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.3313418,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::show_cursor",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 127,
+                "column": 5
+              },
+              "end": {
+                "line": 129,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 128,
+              "column": 9
+            },
+            "end": {
+              "line": 128,
+              "column": 33
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_128_col_9.log",
+      "diff_path": "diff/src__main.rs_line_128_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 8.2229376,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.3047343,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 85,
+                "column": 1
+              },
+              "end": {
+                "line": 87,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 86,
+              "column": 5
+            },
+            "end": {
+              "line": 86,
+              "column": 63
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_86_col_5.log",
+      "diff_path": "diff/src__main.rs_line_86_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 75.1666061,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.8653227,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "main_impl",
+            "return_type": "-> Result<(), Box<dyn Error>>",
+            "span": {
+              "start": {
+                "line": 69,
+                "column": 1
+              },
+              "end": {
+                "line": 83,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 71,
+              "column": 5
+            },
+            "end": {
+              "line": 82,
+              "column": 11
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_71_col_5.log",
+      "diff_path": "diff/src__main.rs_line_71_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 76.0686293,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.556661,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::get_cursor",
+            "return_type": "-> io::Result<(u16, u16)>",
+            "span": {
+              "start": {
+                "line": 131,
+                "column": 5
+              },
+              "end": {
+                "line": 133,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 132,
+              "column": 9
+            },
+            "end": {
+              "line": 132,
+              "column": 32
+            }
+          },
+          "replacement": "Ok((0, 0))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__main.rs_line_132_col_9.log",
+      "diff_path": "diff/src__main.rs_line_132_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 4.8784779,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.5838423,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::get_cursor",
+            "return_type": "-> io::Result<(u16, u16)>",
+            "span": {
+              "start": {
+                "line": 131,
+                "column": 5
+              },
+              "end": {
+                "line": 133,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 132,
+              "column": 9
+            },
+            "end": {
+              "line": 132,
+              "column": 32
+            }
+          },
+          "replacement": "Ok((0, 1))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__main.rs_line_132_col_9_001.log",
+      "diff_path": "diff/src__main.rs_line_132_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 5.8154582,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.1158749,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::get_cursor",
+            "return_type": "-> io::Result<(u16, u16)>",
+            "span": {
+              "start": {
+                "line": 131,
+                "column": 5
+              },
+              "end": {
+                "line": 133,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 132,
+              "column": 9
+            },
+            "end": {
+              "line": 132,
+              "column": 32
+            }
+          },
+          "replacement": "Ok((1, 1))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__main.rs_line_132_col_9_003.log",
+      "diff_path": "diff/src__main.rs_line_132_col_9_003.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.5650984999999995,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.8472838999999999,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::get_cursor",
+            "return_type": "-> io::Result<(u16, u16)>",
+            "span": {
+              "start": {
+                "line": 131,
+                "column": 5
+              },
+              "end": {
+                "line": 133,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 132,
+              "column": 9
+            },
+            "end": {
+              "line": 132,
+              "column": 32
+            }
+          },
+          "replacement": "Ok((1, 0))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__main.rs_line_132_col_9_002.log",
+      "diff_path": "diff/src__main.rs_line_132_col_9_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 7.6557399,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.2908112,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::set_cursor",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 135,
+                "column": 5
+              },
+              "end": {
+                "line": 137,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 136,
+              "column": 9
+            },
+            "end": {
+              "line": 136,
+              "column": 36
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__main.rs_line_136_col_9.log",
+      "diff_path": "diff/src__main.rs_line_136_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 5.1294119,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.0607683,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::clear",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 139,
+                "column": 5
+              },
+              "end": {
+                "line": 141,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 140,
+              "column": 9
+            },
+            "end": {
+              "line": 140,
+              "column": 27
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_140_col_9.log",
+      "diff_path": "diff/src__main.rs_line_140_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.7858443,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.4935482,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::size",
+            "return_type": "-> io::Result<ratatui::layout::Rect>",
+            "span": {
+              "start": {
+                "line": 143,
+                "column": 5
+              },
+              "end": {
+                "line": 145,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 144,
+              "column": 9
+            },
+            "end": {
+              "line": 144,
+              "column": 26
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__main.rs_line_144_col_9.log",
+      "diff_path": "diff/src__main.rs_line_144_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.2359216,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.2903142,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::window_size",
+            "return_type": "-> io::Result<ratatui::backend::WindowSize>",
+            "span": {
+              "start": {
+                "line": 151,
+                "column": 5
+              },
+              "end": {
+                "line": 163,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 152,
+              "column": 9
+            },
+            "end": {
+              "line": 162,
+              "column": 11
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/src__main.rs_line_152_col_9.log",
+      "diff_path": "diff/src__main.rs_line_152_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 3.6520163,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::flush",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 147,
+                "column": 5
+              },
+              "end": {
+                "line": 149,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 148,
+              "column": 9
+            },
+            "end": {
+              "line": 148,
+              "column": 27
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_148_col_9.log",
+      "diff_path": "diff/src__main.rs_line_148_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 5.5322953,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.2998618,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::window_size",
+            "return_type": "-> io::Result<ratatui::backend::WindowSize>",
+            "span": {
+              "start": {
+                "line": 151,
+                "column": 5
+              },
+              "end": {
+                "line": 163,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 159,
+              "column": 35
+            },
+            "end": {
+              "line": 159,
+              "column": 36
+            }
+          },
+          "replacement": "+",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__main.rs_line_159_col_35.log",
+      "diff_path": "diff/src__main.rs_line_159_col_35.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 3.7461067999999997,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.9989829000000001,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::window_size",
+            "return_type": "-> io::Result<ratatui::backend::WindowSize>",
+            "span": {
+              "start": {
+                "line": 151,
+                "column": 5
+              },
+              "end": {
+                "line": 163,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 159,
+              "column": 35
+            },
+            "end": {
+              "line": 159,
+              "column": 36
+            }
+          },
+          "replacement": "/",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__main.rs_line_159_col_35_001.log",
+      "diff_path": "diff/src__main.rs_line_159_col_35_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 4.6598202,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.547774,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::window_size",
+            "return_type": "-> io::Result<ratatui::backend::WindowSize>",
+            "span": {
+              "start": {
+                "line": 151,
+                "column": 5
+              },
+              "end": {
+                "line": 163,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 160,
+              "column": 37
+            },
+            "end": {
+              "line": 160,
+              "column": 38
+            }
+          },
+          "replacement": "+",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__main.rs_line_160_col_37.log",
+      "diff_path": "diff/src__main.rs_line_160_col_37.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 4.9600106,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.6892886,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "<impl Backend for WritableTestBackend>::window_size",
+            "return_type": "-> io::Result<ratatui::backend::WindowSize>",
+            "span": {
+              "start": {
+                "line": 151,
+                "column": 5
+              },
+              "end": {
+                "line": 163,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 160,
+              "column": 37
+            },
+            "end": {
+              "line": 160,
+              "column": 38
+            }
+          },
+          "replacement": "/",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__main.rs_line_160_col_37_001.log",
+      "diff_path": "diff/src__main.rs_line_160_col_37_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 4.9150523,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.789046,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 175,
+              "column": 5
+            },
+            "end": {
+              "line": 222,
+              "column": 11
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_175_col_5.log",
+      "diff_path": "diff/src__main.rs_line_175_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 5.8487448,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.6170103,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 175,
+              "column": 11
+            },
+            "end": {
+              "line": 175,
+              "column": 12
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__main.rs_line_175_col_11.log",
+      "diff_path": "diff/src__main.rs_line_175_col_11.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 5.9502395,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.9509298,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 192,
+              "column": 17
+            },
+            "end": {
+              "line": 194,
+              "column": 18
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_192_col_17.log",
+      "diff_path": "diff/src__main.rs_line_192_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.5307432,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.1426518,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 198,
+              "column": 17
+            },
+            "end": {
+              "line": 198,
+              "column": 67
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_198_col_17.log",
+      "diff_path": "diff/src__main.rs_line_198_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 4.816789,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.9443818,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 195,
+              "column": 17
+            },
+            "end": {
+              "line": 197,
+              "column": 18
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_195_col_17.log",
+      "diff_path": "diff/src__main.rs_line_195_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.6423917,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.7449516,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 199,
+              "column": 17
+            },
+            "end": {
+              "line": 201,
+              "column": 18
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_199_col_17.log",
+      "diff_path": "diff/src__main.rs_line_199_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 5.121051,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.6907923999999999,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 202,
+              "column": 17
+            },
+            "end": {
+              "line": 204,
+              "column": 18
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_202_col_17.log",
+      "diff_path": "diff/src__main.rs_line_202_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 5.4218094,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.0528816,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 205,
+              "column": 17
+            },
+            "end": {
+              "line": 207,
+              "column": 18
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_205_col_17.log",
+      "diff_path": "diff/src__main.rs_line_205_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 5.3837538,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.9928075,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 208,
+              "column": 17
+            },
+            "end": {
+              "line": 210,
+              "column": 18
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_208_col_17.log",
+      "diff_path": "diff/src__main.rs_line_208_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 5.2313959,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.9487369,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 188,
+              "column": 17
+            },
+            "end": {
+              "line": 188,
+              "column": 91
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/src__main.rs_line_188_col_17.log",
+      "diff_path": "diff/src__main.rs_line_188_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.7781063,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 20.0619143,
+          "process_status": "Timeout",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 211,
+              "column": 17
+            },
+            "end": {
+              "line": 211,
+              "column": 57
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_211_col_17.log",
+      "diff_path": "diff/src__main.rs_line_211_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.3714495,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.0685112,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 213,
+              "column": 17
+            },
+            "end": {
+              "line": 213,
+              "column": 57
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_213_col_17.log",
+      "diff_path": "diff/src__main.rs_line_213_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.3596171,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.1627556,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 212,
+              "column": 17
+            },
+            "end": {
+              "line": 212,
+              "column": 67
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_212_col_17.log",
+      "diff_path": "diff/src__main.rs_line_212_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.6915176,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.1870594,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 214,
+              "column": 17
+            },
+            "end": {
+              "line": 214,
+              "column": 57
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_214_col_17.log",
+      "diff_path": "diff/src__main.rs_line_214_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.6712289,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.7766169,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 215,
+              "column": 17
+            },
+            "end": {
+              "line": 215,
+              "column": 58
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_215_col_17.log",
+      "diff_path": "diff/src__main.rs_line_215_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.6612417,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.7264258,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 216,
+              "column": 17
+            },
+            "end": {
+              "line": 216,
+              "column": 59
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_216_col_17.log",
+      "diff_path": "diff/src__main.rs_line_216_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 7.0338924,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.2690199,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 189,
+              "column": 39
+            },
+            "end": {
+              "line": 189,
+              "column": 84
+            }
+          },
+          "replacement": "true",
+          "genre": "MatchArmGuard"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_189_col_39.log",
+      "diff_path": "diff/src__main.rs_line_189_col_39.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 7.6884973,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.9097724,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 189,
+              "column": 39
+            },
+            "end": {
+              "line": 189,
+              "column": 84
+            }
+          },
+          "replacement": "false",
+          "genre": "MatchArmGuard"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__main.rs_line_189_col_39_001.log",
+      "diff_path": "diff/src__main.rs_line_189_col_39_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.1212557,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.1605324,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/main.rs",
+          "function": {
+            "function_name": "run_app_with_event_reader",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 166,
+                "column": 1
+              },
+              "end": {
+                "line": 223,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 209,
+              "column": 37
+            },
+            "end": {
+              "line": 209,
+              "column": 38
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__main.rs_line_209_col_37.log",
+      "diff_path": "diff/src__main.rs_line_209_col_37.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.4071318,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.7531243,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/editor.rs",
+          "function": {
+            "function_name": "handle_edit",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 16,
+                "column": 1
+              },
+              "end": {
+                "line": 23,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 21,
+              "column": 5
+            },
+            "end": {
+              "line": 22,
+              "column": 60
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__editor.rs_line_21_col_5.log",
+      "diff_path": "diff/src__editor.rs_line_21_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 7.1976127,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.6439519,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/editor.rs",
+          "function": {
+            "function_name": "handle_edit",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 25,
+                "column": 1
+              },
+              "end": {
+                "line": 33,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 30,
+              "column": 5
+            },
+            "end": {
+              "line": 32,
+              "column": 7
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__editor.rs_line_30_col_5.log",
+      "diff_path": "diff/src__editor.rs_line_30_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 7.0402796,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.4871669,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/editor.rs",
+          "function": {
+            "function_name": "handle_edit_impl",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 35,
+                "column": 1
+              },
+              "end": {
+                "line": 96,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 44,
+              "column": 5
+            },
+            "end": {
+              "line": 95,
+              "column": 11
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__editor.rs_line_44_col_5.log",
+      "diff_path": "diff/src__editor.rs_line_44_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 7.4177194,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.574356,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "package": "funny-file-manager",
+          "file": "src/editor.rs",
+          "function": {
+            "function_name": "handle_edit_test_mode",
+            "return_type": "-> io::Result<()>",
+            "span": {
+              "start": {
+                "line": 106,
+                "column": 1
+              },
+              "end": {
+                "line": 135,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 108,
+              "column": 5
+            },
+            "end": {
+              "line": 134,
+              "column": 11
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__editor.rs_line_108_col_5.log",
+      "diff_path": "diff/src__editor.rs_line_108_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.6995684,
+          "process_status": "Success",
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.9731275999999998,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
+            "test",
+            "--verbose",
+            "--package=funny-file-manager@0.1.0"
+          ]
+        }
+      ]
+    }
+  ],
+  "total_mutants": 46,
+  "missed": 27,
+  "caught": 16,
+  "timeout": 1,
+  "unviable": 2,
+  "success": 0,
+  "start_time": "2025-12-31T06:27:33.9806145Z",
+  "end_time": null,
+  "cargo_mutants_version": "26.0.0"
+}

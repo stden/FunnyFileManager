@@ -1,0 +1,16 @@
+src/utils.rs:9:5: replace format_size -> String with String::new()
+src/utils.rs:9:5: replace format_size -> String with "xyzzy".into()
+src/utils.rs:10:24: replace * with + in format_size
+src/utils.rs:10:24: replace * with / in format_size
+src/utils.rs:11:24: replace * with + in format_size
+src/utils.rs:11:24: replace * with / in format_size
+src/utils.rs:13:13: replace >= with < in format_size
+src/utils.rs:17:13: replace >= with < in format_size
+src/utils.rs:21:13: replace >= with < in format_size
+src/utils.rs:31:5: replace unique_destination -> PathBuf with Default::default()
+src/utils.rs:41:26: replace match guard !ext.is_empty() with true in unique_destination
+src/utils.rs:41:26: replace match guard !ext.is_empty() with false in unique_destination
+src/utils.rs:41:26: delete ! in unique_destination
+src/utils.rs:45:17: replace += with -= in unique_destination
+src/utils.rs:51:5: replace copy_dir_all -> io::Result<()> with Ok(())
+src/utils.rs:68:5: replace refresh_panels -> io::Result<()> with Ok(())

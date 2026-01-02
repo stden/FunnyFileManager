@@ -1,0 +1,21 @@
+--- src/utils.rs
++++ delete ! in unique_destination
+@@ -33,17 +33,17 @@
+         .file_stem()
+         .and_then(|s| s.to_str())
+         .unwrap_or("");
+     let extension = Path::new(file_name).extension().and_then(|e| e.to_str());
+ 
+     let mut counter = 1;
+     while dest.exists() {
+         let new_name = match extension {
+-            Some(ext) if !ext.is_empty() => format!("{}_{}.{}", stem, counter, ext),
++            Some(ext) if  /* ~ changed by cargo-mutants ~ */ext.is_empty() => format!("{}_{}.{}", stem, counter, ext),
+             _ => format!("{}_{}", stem, counter),
+         };
+         dest = base.join(new_name);
+         counter += 1;
+     }
+     dest
+ }
+ 

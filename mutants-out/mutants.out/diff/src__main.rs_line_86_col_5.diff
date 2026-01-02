@@ -1,0 +1,21 @@
+--- src/main.rs
++++ replace run_app -> io::Result<()> with Ok(())
+@@ -78,17 +78,17 @@
+             KeyModifiers::empty(),
+         )))
+     })?;
+ 
+     Ok(())
+ }
+ 
+ fn run_app<B: Backend + Write>(terminal: &mut Terminal<B>, app: App) -> io::Result<()> {
+-    run_app_with_event_reader(terminal, app, || event::read())
++    Ok(()) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ #[cfg(any(test, tarpaulin))]
+ struct WritableTestBackend {
+     inner: TestBackend,
+ }
+ 
+ #[cfg(any(test, tarpaulin))]

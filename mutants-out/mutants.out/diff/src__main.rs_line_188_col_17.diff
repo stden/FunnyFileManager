@@ -1,0 +1,21 @@
+--- src/main.rs
++++ delete match arm KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::F(10) in run_app_with_event_reader
+@@ -180,17 +180,17 @@
+             if handle_overlay_keys(&mut app, key) {
+                 if app.should_quit {
+                     return Ok(());
+                 }
+                 continue;
+             }
+ 
+             match key.code {
+-                KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::F(10) => return Ok(()),
++                 /* ~ changed by cargo-mutants ~ */
+                 KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                     return Ok(())
+                 }
+                 KeyCode::Down => {
+                     app.get_active_panel().next();
+                 }
+                 KeyCode::Up => {
+                     app.get_active_panel().previous();

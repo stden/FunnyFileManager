@@ -1,0 +1,22 @@
+--- src/editor.rs
++++ replace handle_edit -> io::Result<()> with Ok(())
+@@ -13,18 +13,17 @@
+ 
+ use crate::models::App;
+ 
+ #[cfg(any(test, tarpaulin))]
+ pub fn handle_edit<B: Backend + Write>(
+     terminal: &mut Terminal<B>,
+     app: &mut App,
+ ) -> io::Result<()> {
+-    let _ = terminal;
+-    handle_edit_test_mode(app, TestEditorBehavior::Success)
++    Ok(()) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ #[cfg(all(not(test), not(tarpaulin)))]
+ pub fn handle_edit<B: Backend + Write>(
+     terminal: &mut Terminal<B>,
+     app: &mut App,
+ ) -> io::Result<()> {
+     handle_edit_impl(terminal, app, |editor, path| {

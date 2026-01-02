@@ -1,0 +1,21 @@
+--- src/main.rs
++++ replace <impl Backend for WritableTestBackend>::draw -> io::Result<()> with Ok(())
+@@ -112,17 +112,17 @@
+ }
+ 
+ #[cfg(any(test, tarpaulin))]
+ impl Backend for WritableTestBackend {
+     fn draw<'a, I>(&mut self, content: I) -> io::Result<()>
+     where
+         I: Iterator<Item = (u16, u16, &'a ratatui::buffer::Cell)>,
+     {
+-        self.inner.draw(content)
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn hide_cursor(&mut self) -> io::Result<()> {
+         self.inner.hide_cursor()
+     }
+ 
+     fn show_cursor(&mut self) -> io::Result<()> {
+         self.inner.show_cursor()

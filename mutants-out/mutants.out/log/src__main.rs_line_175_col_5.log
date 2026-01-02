@@ -1,0 +1,974 @@
+
+*** src/main.rs:175:5: replace run_app_with_event_reader -> io::Result<()> with Ok(())
+
+*** mutation diff:
+--- src/main.rs
++++ replace run_app_with_event_reader -> io::Result<()> with Ok(())
+@@ -167,64 +167,17 @@
+     terminal: &mut Terminal<B>,
+     mut app: App,
+     mut read_event: F,
+ ) -> io::Result<()>
+ where
+     B: Backend + Write,
+     F: FnMut() -> io::Result<Event>,
+ {
+-    while !app.should_quit {
+-        terminal.draw(|f| ui(f, &mut app))?;
+-
+-        let event = read_event()?;
+-        if let Event::Key(key) = event {
+-            if handle_overlay_keys(&mut app, key) {
+-                if app.should_quit {
+-                    return Ok(());
+-                }
+-                continue;
+-            }
+-
+-            match key.code {
+-                KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::F(10) => return Ok(()),
+-                KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+-                    return Ok(())
+-                }
+-                KeyCode::Down => {
+-                    app.get_active_panel().next();
+-                }
+-                KeyCode::Up => {
+-                    app.get_active_panel().previous();
+-                }
+-                KeyCode::Enter => app.get_active_panel().enter()?,
+-                KeyCode::Tab => {
+-                    app.switch_panel();
+-                }
+-                KeyCode::Left => {
+-                    app.active_panel = PanelSide::Left;
+-                }
+-                KeyCode::Right => {
+-                    app.active_panel = PanelSide::Right;
+-                }
+-                KeyCode::F(1) => {
+-                    app.show_help = !app.show_help;
+-                }
+-                KeyCode::F(3) => handle_view(&mut app)?,
+-                KeyCode::F(4) => handle_edit(terminal, &mut app)?,
+-                KeyCode::F(5) => handle_copy(&mut app)?,
+-                KeyCode::F(6) => handle_move(&mut app)?,
+-                KeyCode::F(7) => handle_mkdir(&mut app)?,
+-                KeyCode::F(8) => handle_delete(&mut app)?,
+-                _ => {}
+-            }
+-        }
+-    }
+-
+-    Ok(())
++    Ok(()) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use crate::models::Panel;
+     use crossterm::event::KeyEvent;
+     use std::fs;
+
+
+*** C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe test --no-run --verbose --package=funny-file-manager@0.1.0
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+       Fresh unicode-ident v1.0.22
+       Fresh cfg-if v1.0.4
+       Fresh windows-link v0.2.1
+       Fresh either v1.15.0
+       Fresh smallvec v1.15.1
+       Fresh scopeguard v1.2.0
+       Fresh foldhash v0.1.5
+       Fresh equivalent v1.0.2
+       Fresh heck v0.5.0
+       Fresh allocator-api2 v0.2.21
+       Fresh unicode-segmentation v1.12.0
+       Fresh unicode-width v0.1.14
+       Fresh itoa v1.0.15
+       Fresh static_assertions v1.1.0
+       Fresh ryu v1.0.20
+       Fresh bitflags v2.10.0
+       Fresh cassowary v0.3.0
+       Fresh once_cell v1.21.3
+       Fresh proc-macro2 v1.0.103
+       Fresh lock_api v0.4.14
+       Fresh hashbrown v0.15.5
+       Fresh itertools v0.13.0
+       Fresh itertools v0.12.1
+       Fresh windows-sys v0.61.2
+       Fresh fastrand v2.3.0
+       Fresh rustversion v1.0.22
+       Fresh quote v1.0.42
+       Fresh winapi v0.3.9
+       Fresh parking_lot_core v0.9.12
+       Fresh lru v0.12.5
+       Fresh paste v1.0.15
+       Fresh unicode-truncate v1.1.0
+       Fresh getrandom v0.3.4
+       Fresh syn v2.0.111
+       Fresh parking_lot v0.12.5
+       Fresh castaway v0.2.4
+       Fresh crossterm_winapi v0.9.1
+       Fresh tempfile v3.23.0
+       Fresh strum_macros v0.26.4
+       Fresh stability v0.2.1
+       Fresh compact_str v0.7.1
+       Fresh crossterm v0.27.0
+       Fresh strum v0.26.3
+       Fresh ratatui v0.26.3
+       Dirty funny-file-manager v0.1.0 (C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp): the file `src\main.rs` has changed (13411636197.622574200s, 5s after last build at 13411636192.153388800s)
+   Compiling funny-file-manager v0.1.0 (C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp)
+     Running `C:\ProgramData\Rust\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin\rustc.exe --crate-name ffm --edition=2021 'src\main.rs' --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --warn=unexpected_cfgs --check-cfg 'cfg(tarpaulin)' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("test-helpers"))' -C metadata=307104c70996bd1a -C extra-filename=-3d13faf49e40bc82 --out-dir 'C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps' -C 'incremental=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\incremental' -L 'dependency=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps' --extern 'crossterm=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\libcrossterm-4218ed1821fa1220.rlib' --extern 'ratatui=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\libratatui-2b6c53840b1a7dea.rlib' --extern 'tempfile=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\libtempfile-a35ee4c4e5b5452e.rlib'`
+     Running `C:\ProgramData\Rust\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin\rustc.exe --crate-name ffm --edition=2021 'src\main.rs' --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --warn=unexpected_cfgs --check-cfg 'cfg(tarpaulin)' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("test-helpers"))' -C metadata=cb464bb3045e193e --out-dir 'C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps' -C 'incremental=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\incremental' -L 'dependency=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps' --extern 'crossterm=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\libcrossterm-4218ed1821fa1220.rlib' --extern 'ratatui=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\libratatui-2b6c53840b1a7dea.rlib'`
+warning: unused imports: `KeyCode` and `KeyModifiers`
+ --> src\main.rs:7:31
+  |
+7 | use crossterm::event::{Event, KeyCode, KeyModifiers};
+  |                               ^^^^^^^  ^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `crate::editor::handle_edit`
+  --> src\main.rs:32:5
+   |
+32 | use crate::editor::handle_edit;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `handle_copy`, `handle_delete`, `handle_mkdir`, `handle_move`, `handle_overlay_keys`, and `handle_view`
+  --> src\main.rs:34:5
+   |
+34 |     handle_copy, handle_delete, handle_mkdir, handle_move, handle_overlay_keys, handle_view,
+   |     ^^^^^^^^^^^  ^^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^
+
+warning: unused import: `PanelSide`
+  --> src\main.rs:36:26
+   |
+36 | use crate::models::{App, PanelSide};
+   |                          ^^^^^^^^^
+
+warning: unused import: `crate::ui::ui`
+  --> src\main.rs:37:5
+   |
+37 | use crate::ui::ui;
+   |     ^^^^^^^^^^^^^
+
+warning: variable does not need to be mutable
+   --> src\main.rs:168:5
+    |
+168 |     mut app: App,
+    |     ----^^^
+    |     |
+    |     help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> src\main.rs:169:5
+    |
+169 |     mut read_event: F,
+    |     ----^^^^^^^^^^
+    |     |
+    |     help: remove this `mut`
+
+warning: unused variable: `terminal`
+   --> src\main.rs:167:5
+    |
+167 |     terminal: &mut Terminal<B>,
+    |     ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_terminal`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `app`
+   --> src\main.rs:168:5
+    |
+168 |     mut app: App,
+    |     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_app`
+
+warning: unused variable: `read_event`
+   --> src\main.rs:169:5
+    |
+169 |     mut read_event: F,
+    |     ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_read_event`
+
+warning: function `handle_edit` is never used
+  --> src\editor.rs:26:8
+   |
+26 | pub fn handle_edit<B: Backend + Write>(
+   |        ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `handle_edit_impl` is never used
+  --> src\editor.rs:35:15
+   |
+35 | pub(crate) fn handle_edit_impl<B, F>(
+   |               ^^^^^^^^^^^^^^^^
+
+warning: function `try_rename` is never used
+  --> src\handlers.rs:13:4
+   |
+13 | fn try_rename(source: &std::path::Path, dest: &std::path::Path) -> io::Result<()> {
+   |    ^^^^^^^^^^
+
+warning: function `handle_overlay_keys` is never used
+  --> src\handlers.rs:25:8
+   |
+25 | pub fn handle_overlay_keys(app: &mut App, key: KeyEvent) -> bool {
+   |        ^^^^^^^^^^^^^^^^^^^
+
+warning: function `jump_to_match` is never used
+   --> src\handlers.rs:174:4
+    |
+174 | fn jump_to_match(panel: &mut crate::models::Panel, query: &str) -> bool {
+    |    ^^^^^^^^^^^^^
+
+warning: function `execute_command` is never used
+   --> src\handlers.rs:189:4
+    |
+189 | fn execute_command(app: &mut App, command: &str) -> io::Result<()> {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `handle_view` is never used
+   --> src\handlers.rs:354:8
+    |
+354 | pub fn handle_view(app: &mut App) -> io::Result<()> {
+    |        ^^^^^^^^^^^
+
+warning: function `handle_copy` is never used
+   --> src\handlers.rs:383:8
+    |
+383 | pub fn handle_copy(app: &mut App) -> io::Result<()> {
+    |        ^^^^^^^^^^^
+
+warning: function `handle_move` is never used
+   --> src\handlers.rs:401:8
+    |
+401 | pub fn handle_move(app: &mut App) -> io::Result<()> {
+    |        ^^^^^^^^^^^
+
+warning: function `handle_mkdir` is never used
+   --> src\handlers.rs:427:8
+    |
+427 | pub fn handle_mkdir(app: &mut App) -> io::Result<()> {
+    |        ^^^^^^^^^^^^
+
+warning: function `handle_delete` is never used
+   --> src\handlers.rs:442:8
+    |
+442 | pub fn handle_delete(app: &mut App) -> io::Result<()> {
+    |        ^^^^^^^^^^^^^
+
+warning: method `label` is never used
+  --> src\models.rs:34:12
+   |
+24 | impl SortMode {
+   | ------------- method in this implementation
+...
+34 |     pub fn label(self) -> &'static str {
+   |            ^^^^^
+
+warning: fields `title`, `lines`, and `scroll` are never read
+  --> src\models.rs:45:9
+   |
+44 | pub struct Viewer {
+   |            ------ fields in this struct
+45 |     pub title: String,
+   |         ^^^^^
+46 |     pub lines: Vec<String>,
+   |         ^^^^^
+47 |     pub scroll: u16,
+   |         ^^^^^^
+   |
+   = note: `Viewer` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: methods `next`, `previous`, `enter`, `ensure_selection`, `selected_path`, and `clear_marks` are never used
+   --> src\models.rs:163:12
+    |
+ 59 | impl Panel {
+    | ---------- methods in this implementation
+...
+163 |     pub fn next(&mut self) {
+    |            ^^^^
+...
+180 |     pub fn previous(&mut self) {
+    |            ^^^^^^^^
+...
+197 |     pub fn enter(&mut self) -> io::Result<()> {
+    |            ^^^^^
+...
+223 |     pub fn ensure_selection(&mut self) {
+    |            ^^^^^^^^^^^^^^^^
+...
+229 |     pub fn selected_path(&self) -> Option<PathBuf> {
+    |            ^^^^^^^^^^^^^
+...
+258 |     pub fn clear_marks(&mut self) {
+    |            ^^^^^^^^^^^
+
+warning: variant `Right` is never constructed
+   --> src\models.rs:289:5
+    |
+287 | pub enum PanelSide {
+    |          --------- variant in this enum
+288 |     Left,
+289 |     Right,
+    |     ^^^^^
+    |
+    = note: `PanelSide` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: multiple fields are never read
+   --> src\models.rs:294:9
+    |
+293 | pub struct App {
+    |            --- fields in this struct
+294 |     pub left_panel: Panel,
+    |         ^^^^^^^^^^
+295 |     pub right_panel: Panel,
+    |         ^^^^^^^^^^^
+296 |     pub active_panel: PanelSide,
+    |         ^^^^^^^^^^^^
+297 |     pub show_help: bool,
+    |         ^^^^^^^^^
+298 |     pub viewer: Option<Viewer>,
+    |         ^^^^^^
+299 |     pub search: Option<String>,
+    |         ^^^^^^
+300 |     pub command_line: Option<String>,
+    |         ^^^^^^^^^^^^
+301 |     pub show_bookmarks: bool,
+    |         ^^^^^^^^^^^^^^
+302 |     pub bookmarks: Vec<Option<PathBuf>>,
+    |         ^^^^^^^^^
+303 |     pub should_quit: bool,
+    |         ^^^^^^^^^^^
+304 |     pub status_message: String,
+    |         ^^^^^^^^^^^^^^
+    |
+    = note: `App` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: methods `get_active_panel`, `get_inactive_panel`, and `switch_panel` are never used
+   --> src\models.rs:327:12
+    |
+307 | impl App {
+    | -------- methods in this implementation
+...
+327 |     pub fn get_active_panel(&mut self) -> &mut Panel {
+    |            ^^^^^^^^^^^^^^^^
+...
+334 |     pub fn get_inactive_panel(&mut self) -> &mut Panel {
+    |            ^^^^^^^^^^^^^^^^^^
+...
+341 |     pub fn switch_panel(&mut self) {
+    |            ^^^^^^^^^^^^
+
+warning: constant `NAME_FIELD_WIDTH` is never used
+  --> src\ui.rs:12:11
+   |
+12 | pub const NAME_FIELD_WIDTH: usize = 30;
+   |           ^^^^^^^^^^^^^^^^
+
+warning: constant `FAR_BLUE` is never used
+  --> src\ui.rs:14:7
+   |
+14 | const FAR_BLUE: Color = Color::Rgb(0, 0, 128);
+   |       ^^^^^^^^
+
+warning: function `ui` is never used
+  --> src\ui.rs:16:8
+   |
+16 | pub fn ui(f: &mut Frame, app: &mut App) {
+   |        ^^
+
+warning: function `render_panel` is never used
+  --> src\ui.rs:53:4
+   |
+53 | fn render_panel(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bool) {
+   |    ^^^^^^^^^^^^
+
+warning: function `render_header` is never used
+   --> src\ui.rs:113:4
+    |
+113 | fn render_header(f: &mut Frame, area: Rect) {
+    |    ^^^^^^^^^^^^^
+
+warning: function `render_status` is never used
+   --> src\ui.rs:123:4
+    |
+123 | fn render_status(f: &mut Frame, app: &App, area: Rect) {
+    |    ^^^^^^^^^^^^^
+
+warning: function `render_command_bar` is never used
+   --> src\ui.rs:152:4
+    |
+152 | fn render_command_bar(f: &mut Frame, area: Rect) {
+    |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `render_overlays` is never used
+   --> src\ui.rs:189:4
+    |
+189 | fn render_overlays(f: &mut Frame, app: &mut App) {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `centered_rect` is never used
+   --> src\ui.rs:247:8
+    |
+247 | pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    |        ^^^^^^^^^^^^^
+
+warning: function `format_size` is never used
+ --> src\utils.rs:8:8
+  |
+8 | pub fn format_size(size: u64) -> String {
+  |        ^^^^^^^^^^^
+
+warning: function `unique_destination` is never used
+  --> src\utils.rs:30:8
+   |
+30 | pub fn unique_destination(base: &Path, file_name: &std::ffi::OsStr) -> PathBuf {
+   |        ^^^^^^^^^^^^^^^^^^
+
+warning: function `copy_dir_all` is never used
+  --> src\utils.rs:50:8
+   |
+50 | pub fn copy_dir_all(src: &Path, dst: &Path) -> io::Result<()> {
+   |        ^^^^^^^^^^^^
+
+warning: function `refresh_panels` is never used
+  --> src\utils.rs:67:8
+   |
+67 | pub fn refresh_panels(app: &mut App) -> io::Result<()> {
+   |        ^^^^^^^^^^^^^^
+
+warning: unused import: `crate::editor::handle_edit`
+  --> src\main.rs:32:5
+   |
+32 | use crate::editor::handle_edit;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `handle_edit` is never used
+  --> src\editor.rs:17:8
+   |
+17 | pub fn handle_edit<B: Backend + Write>(
+   |        ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `funny-file-manager` (bin "ffm") generated 40 warnings (run `cargo fix --bin "ffm" -p funny-file-manager` to apply 10 suggestions)
+warning: `funny-file-manager` (bin "ffm" test) generated 9 warnings (7 duplicates) (run `cargo fix --bin "ffm" -p funny-file-manager --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.66s
+  Executable `C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\ffm-3d13faf49e40bc82.exe`
+  Executable `C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\integration_test-dd27c23f4b1dcf49.exe`
+
+*** result: Success
+
+*** C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe test --verbose --package=funny-file-manager@0.1.0
+       Fresh cfg-if v1.0.4
+       Fresh unicode-ident v1.0.22
+       Fresh windows-link v0.2.1
+       Fresh smallvec v1.15.1
+       Fresh either v1.15.0
+       Fresh scopeguard v1.2.0
+       Fresh foldhash v0.1.5
+       Fresh allocator-api2 v0.2.21
+       Fresh equivalent v1.0.2
+       Fresh heck v0.5.0
+       Fresh unicode-segmentation v1.12.0
+       Fresh bitflags v2.10.0
+       Fresh unicode-width v0.1.14
+       Fresh ryu v1.0.20
+       Fresh itoa v1.0.15
+       Fresh static_assertions v1.1.0
+       Fresh proc-macro2 v1.0.103
+       Fresh lock_api v0.4.14
+       Fresh itertools v0.13.0
+       Fresh hashbrown v0.15.5
+       Fresh itertools v0.12.1
+       Fresh cassowary v0.3.0
+       Fresh windows-sys v0.61.2
+       Fresh fastrand v2.3.0
+       Fresh once_cell v1.21.3
+       Fresh rustversion v1.0.22
+       Fresh quote v1.0.42
+       Fresh parking_lot_core v0.9.12
+       Fresh winapi v0.3.9
+       Fresh lru v0.12.5
+       Fresh paste v1.0.15
+       Fresh unicode-truncate v1.1.0
+       Fresh getrandom v0.3.4
+       Fresh syn v2.0.111
+       Fresh castaway v0.2.4
+       Fresh parking_lot v0.12.5
+       Fresh crossterm_winapi v0.9.1
+       Fresh tempfile v3.23.0
+       Fresh strum_macros v0.26.4
+       Fresh crossterm v0.27.0
+       Fresh stability v0.2.1
+       Fresh compact_str v0.7.1
+       Fresh strum v0.26.3
+       Fresh ratatui v0.26.3
+warning: unused imports: `KeyCode` and `KeyModifiers`
+ --> src\main.rs:7:31
+  |
+7 | use crossterm::event::{Event, KeyCode, KeyModifiers};
+  |                               ^^^^^^^  ^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `crate::editor::handle_edit`
+  --> src\main.rs:32:5
+   |
+32 | use crate::editor::handle_edit;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `handle_copy`, `handle_delete`, `handle_mkdir`, `handle_move`, `handle_overlay_keys`, and `handle_view`
+  --> src\main.rs:34:5
+   |
+34 |     handle_copy, handle_delete, handle_mkdir, handle_move, handle_overlay_keys, handle_view,
+   |     ^^^^^^^^^^^  ^^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^
+
+warning: unused import: `PanelSide`
+  --> src\main.rs:36:26
+   |
+36 | use crate::models::{App, PanelSide};
+   |                          ^^^^^^^^^
+
+warning: unused import: `crate::ui::ui`
+  --> src\main.rs:37:5
+   |
+37 | use crate::ui::ui;
+   |     ^^^^^^^^^^^^^
+
+warning: variable does not need to be mutable
+   --> src\main.rs:168:5
+    |
+168 |     mut app: App,
+    |     ----^^^
+    |     |
+    |     help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> src\main.rs:169:5
+    |
+169 |     mut read_event: F,
+    |     ----^^^^^^^^^^
+    |     |
+    |     help: remove this `mut`
+
+warning: unused variable: `terminal`
+   --> src\main.rs:167:5
+    |
+167 |     terminal: &mut Terminal<B>,
+    |     ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_terminal`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `app`
+   --> src\main.rs:168:5
+    |
+168 |     mut app: App,
+    |     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_app`
+
+warning: unused variable: `read_event`
+   --> src\main.rs:169:5
+    |
+169 |     mut read_event: F,
+    |     ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_read_event`
+
+warning: function `handle_edit` is never used
+  --> src\editor.rs:26:8
+   |
+26 | pub fn handle_edit<B: Backend + Write>(
+   |        ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `handle_edit_impl` is never used
+  --> src\editor.rs:35:15
+   |
+35 | pub(crate) fn handle_edit_impl<B, F>(
+   |               ^^^^^^^^^^^^^^^^
+
+warning: function `try_rename` is never used
+  --> src\handlers.rs:13:4
+   |
+13 | fn try_rename(source: &std::path::Path, dest: &std::path::Path) -> io::Result<()> {
+   |    ^^^^^^^^^^
+
+warning: function `handle_overlay_keys` is never used
+  --> src\handlers.rs:25:8
+   |
+25 | pub fn handle_overlay_keys(app: &mut App, key: KeyEvent) -> bool {
+   |        ^^^^^^^^^^^^^^^^^^^
+
+warning: function `jump_to_match` is never used
+   --> src\handlers.rs:174:4
+    |
+174 | fn jump_to_match(panel: &mut crate::models::Panel, query: &str) -> bool {
+    |    ^^^^^^^^^^^^^
+
+warning: function `execute_command` is never used
+   --> src\handlers.rs:189:4
+    |
+189 | fn execute_command(app: &mut App, command: &str) -> io::Result<()> {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `handle_view` is never used
+   --> src\handlers.rs:354:8
+    |
+354 | pub fn handle_view(app: &mut App) -> io::Result<()> {
+    |        ^^^^^^^^^^^
+
+warning: function `handle_copy` is never used
+   --> src\handlers.rs:383:8
+    |
+383 | pub fn handle_copy(app: &mut App) -> io::Result<()> {
+    |        ^^^^^^^^^^^
+
+warning: function `handle_move` is never used
+   --> src\handlers.rs:401:8
+    |
+401 | pub fn handle_move(app: &mut App) -> io::Result<()> {
+    |        ^^^^^^^^^^^
+
+warning: function `handle_mkdir` is never used
+   --> src\handlers.rs:427:8
+    |
+427 | pub fn handle_mkdir(app: &mut App) -> io::Result<()> {
+    |        ^^^^^^^^^^^^
+
+warning: function `handle_delete` is never used
+   --> src\handlers.rs:442:8
+    |
+442 | pub fn handle_delete(app: &mut App) -> io::Result<()> {
+    |        ^^^^^^^^^^^^^
+
+warning: method `label` is never used
+  --> src\models.rs:34:12
+   |
+24 | impl SortMode {
+   | ------------- method in this implementation
+...
+34 |     pub fn label(self) -> &'static str {
+   |            ^^^^^
+
+warning: fields `title`, `lines`, and `scroll` are never read
+  --> src\models.rs:45:9
+   |
+44 | pub struct Viewer {
+   |            ------ fields in this struct
+45 |     pub title: String,
+   |         ^^^^^
+46 |     pub lines: Vec<String>,
+   |         ^^^^^
+47 |     pub scroll: u16,
+   |         ^^^^^^
+   |
+   = note: `Viewer` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: methods `next`, `previous`, `enter`, `ensure_selection`, `selected_path`, and `clear_marks` are never used
+   --> src\models.rs:163:12
+    |
+ 59 | impl Panel {
+    | ---------- methods in this implementation
+...
+163 |     pub fn next(&mut self) {
+    |            ^^^^
+...
+180 |     pub fn previous(&mut self) {
+    |            ^^^^^^^^
+...
+197 |     pub fn enter(&mut self) -> io::Result<()> {
+    |            ^^^^^
+...
+223 |     pub fn ensure_selection(&mut self) {
+    |            ^^^^^^^^^^^^^^^^
+...
+229 |     pub fn selected_path(&self) -> Option<PathBuf> {
+    |            ^^^^^^^^^^^^^
+...
+258 |     pub fn clear_marks(&mut self) {
+    |            ^^^^^^^^^^^
+
+warning: variant `Right` is never constructed
+   --> src\models.rs:289:5
+    |
+287 | pub enum PanelSide {
+    |          --------- variant in this enum
+288 |     Left,
+289 |     Right,
+    |     ^^^^^
+    |
+    = note: `PanelSide` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: multiple fields are never read
+   --> src\models.rs:294:9
+    |
+293 | pub struct App {
+    |            --- fields in this struct
+294 |     pub left_panel: Panel,
+    |         ^^^^^^^^^^
+295 |     pub right_panel: Panel,
+    |         ^^^^^^^^^^^
+296 |     pub active_panel: PanelSide,
+    |         ^^^^^^^^^^^^
+297 |     pub show_help: bool,
+    |         ^^^^^^^^^
+298 |     pub viewer: Option<Viewer>,
+    |         ^^^^^^
+299 |     pub search: Option<String>,
+    |         ^^^^^^
+300 |     pub command_line: Option<String>,
+    |         ^^^^^^^^^^^^
+301 |     pub show_bookmarks: bool,
+    |         ^^^^^^^^^^^^^^
+302 |     pub bookmarks: Vec<Option<PathBuf>>,
+    |         ^^^^^^^^^
+303 |     pub should_quit: bool,
+    |         ^^^^^^^^^^^
+304 |     pub status_message: String,
+    |         ^^^^^^^^^^^^^^
+    |
+    = note: `App` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: methods `get_active_panel`, `get_inactive_panel`, and `switch_panel` are never used
+   --> src\models.rs:327:12
+    |
+307 | impl App {
+    | -------- methods in this implementation
+...
+327 |     pub fn get_active_panel(&mut self) -> &mut Panel {
+    |            ^^^^^^^^^^^^^^^^
+...
+334 |     pub fn get_inactive_panel(&mut self) -> &mut Panel {
+    |            ^^^^^^^^^^^^^^^^^^
+...
+341 |     pub fn switch_panel(&mut self) {
+    |            ^^^^^^^^^^^^
+
+warning: constant `NAME_FIELD_WIDTH` is never used
+  --> src\ui.rs:12:11
+   |
+12 | pub const NAME_FIELD_WIDTH: usize = 30;
+   |           ^^^^^^^^^^^^^^^^
+
+warning: constant `FAR_BLUE` is never used
+  --> src\ui.rs:14:7
+   |
+14 | const FAR_BLUE: Color = Color::Rgb(0, 0, 128);
+   |       ^^^^^^^^
+
+warning: function `ui` is never used
+  --> src\ui.rs:16:8
+   |
+16 | pub fn ui(f: &mut Frame, app: &mut App) {
+   |        ^^
+
+warning: function `render_panel` is never used
+  --> src\ui.rs:53:4
+   |
+53 | fn render_panel(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bool) {
+   |    ^^^^^^^^^^^^
+
+warning: function `render_header` is never used
+   --> src\ui.rs:113:4
+    |
+113 | fn render_header(f: &mut Frame, area: Rect) {
+    |    ^^^^^^^^^^^^^
+
+warning: function `render_status` is never used
+   --> src\ui.rs:123:4
+    |
+123 | fn render_status(f: &mut Frame, app: &App, area: Rect) {
+    |    ^^^^^^^^^^^^^
+
+warning: function `render_command_bar` is never used
+   --> src\ui.rs:152:4
+    |
+152 | fn render_command_bar(f: &mut Frame, area: Rect) {
+    |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `render_overlays` is never used
+   --> src\ui.rs:189:4
+    |
+189 | fn render_overlays(f: &mut Frame, app: &mut App) {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `centered_rect` is never used
+   --> src\ui.rs:247:8
+    |
+247 | pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    |        ^^^^^^^^^^^^^
+
+warning: function `format_size` is never used
+ --> src\utils.rs:8:8
+  |
+8 | pub fn format_size(size: u64) -> String {
+  |        ^^^^^^^^^^^
+
+warning: function `unique_destination` is never used
+  --> src\utils.rs:30:8
+   |
+30 | pub fn unique_destination(base: &Path, file_name: &std::ffi::OsStr) -> PathBuf {
+   |        ^^^^^^^^^^^^^^^^^^
+
+warning: function `copy_dir_all` is never used
+  --> src\utils.rs:50:8
+   |
+50 | pub fn copy_dir_all(src: &Path, dst: &Path) -> io::Result<()> {
+   |        ^^^^^^^^^^^^
+
+warning: function `refresh_panels` is never used
+  --> src\utils.rs:67:8
+   |
+67 | pub fn refresh_panels(app: &mut App) -> io::Result<()> {
+   |        ^^^^^^^^^^^^^^
+
+       Fresh funny-file-manager v0.1.0 (C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp)
+warning: unused import: `crate::editor::handle_edit`
+  --> src\main.rs:32:5
+   |
+32 | use crate::editor::handle_edit;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `handle_edit` is never used
+  --> src\editor.rs:17:8
+   |
+17 | pub fn handle_edit<B: Backend + Write>(
+   |        ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `funny-file-manager` (bin "ffm") generated 40 warnings (run `cargo fix --bin "ffm" -p funny-file-manager` to apply 10 suggestions)
+warning: `funny-file-manager` (bin "ffm" test) generated 9 warnings (7 duplicates) (run `cargo fix --bin "ffm" -p funny-file-manager --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.00s
+     Running `C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\ffm-3d13faf49e40bc82.exe`
+
+running 100 tests
+test handlers::tests::test_handle_copy_no_selection ... ok
+test handlers::tests::test_handle_delete_no_selection ... ok
+test handlers::tests::test_handle_edit_no_selection ... ok
+test handlers::tests::test_handle_edit_impl_no_selection ... ok
+test handlers::tests::test_handle_move_no_selection ... ok
+test handlers::tests::test_handle_overlay_keys_help ... ok
+test handlers::tests::test_handle_overlay_keys_no_overlay ... ok
+test handlers::tests::test_handle_overlay_keys_help_other_key ... ok
+test handlers::tests::test_handle_delete_directory ... ok
+test handlers::tests::test_handle_delete_file ... ok
+test handlers::tests::test_handle_edit_directory ... ok
+test handlers::tests::test_handle_overlay_keys_viewer_close_variations ... ok
+test handlers::tests::test_handle_overlay_keys_viewer_max_scroll ... ok
+test handlers::tests::test_handle_overlay_keys_command_line ... ok
+test handlers::tests::test_handle_overlay_keys_viewer_other_key ... ok
+test handlers::tests::test_handle_edit_exit_error ... ok
+test handlers::tests::test_handle_overlay_keys_viewer ... ok
+test handlers::tests::test_handle_edit_fail_launch ... ok
+test handlers::tests::test_handle_edit_impl_directory ... ok
+test handlers::tests::test_handle_edit_impl_editor_error_exit ... ok
+test handlers::tests::test_handle_edit_impl_success ... ok
+test handlers::tests::test_handle_overlay_keys_bookmarks ... ok
+test handlers::tests::test_handle_edit_success ... ok
+test handlers::tests::test_handle_edit_impl_launch_failure ... ok
+test handlers::tests::test_handle_overlay_keys_search ... ok
+test handlers::tests::test_execute_command_branches ... ok
+test handlers::tests::test_handle_view_no_selection ... ok
+test models::tests::test_app_new ... ok
+test models::tests::test_app_get_active_panel ... ok
+test models::tests::test_app_switch_panel ... ok
+test models::tests::test_dir_entry_clone ... ok
+test models::tests::test_app_get_inactive_panel ... ok
+test models::tests::test_dir_entry_creation ... ok
+test models::tests::test_app_switch_panel_multiple_times ... ok
+test models::tests::test_panel_ensure_selection_empty ... ok
+test handlers::tests::test_handle_mkdir_multiple ... ok
+test models::tests::test_panel_cycle_sort_mode ... ok
+test models::tests::test_panel_navigation_empty ... ok
+test handlers::tests::test_handle_view_empty_file ... ok
+test handlers::tests::test_handle_view_directory ... ok
+test handlers::tests::test_handle_move_fallback_for_file ... ok
+test models::tests::test_panel_side_copy ... ok
+test models::tests::test_panel_side_equality ... ok
+test models::tests::test_panel_ensure_selection ... ok
+test models::tests::test_sort_mode_next_and_label ... ok
+test models::tests::test_panel_load_entries_empty_dir ... ok
+test models::tests::test_viewer_creation ... ok
+test models::tests::test_viewer_default ... ok
+test models::tests::test_panel_enter_directory ... ok
+test tests::test_main_function_coverage ... ignored
+test handlers::tests::test_handle_view_file ... ok
+test models::tests::test_panel_enter_file ... ok
+test handlers::tests::test_handle_copy_directory ... ok
+test tests::test_run_app_full_coverage ... ignored
+test models::tests::test_panel_get_selected_entry ... ok
+test tests::test_main_impl_test_mode ... ok
+test handlers::tests::test_handle_move_cross_device ... ok
+test tests::test_writable_test_backend_clear ... ok
+test models::tests::test_panel_new ... ok
+test tests::test_writable_test_backend_cursor_operations ... ok
+test tests::test_writable_test_backend_flush ... ok
+test tests::test_writable_test_backend_window_size ... ok
+test models::tests::test_select_after_reload_empty_entries_with_selected_name ... ok
+test tests::test_writable_test_backend_write ... ok
+test models::tests::test_select_after_reload_empty_entries_without_selected_name ... ok
+test models::tests::test_panel_next_with_none_selected ... ok
+test models::tests::test_panel_marking_and_action_names ... ok
+test models::tests::test_panel_previous_with_none_selected ... ok
+test models::tests::test_panel_selected_path ... ok
+test utils::tests::test_format_size_bytes ... ok
+test utils::tests::test_format_size_gigabytes ... ok
+test utils::tests::test_format_size_kilobytes ... ok
+test ui::tests::test_centered_rect_various_sizes ... ok
+test tests::test_run_app_command_line_quit ... ok
+test utils::tests::test_format_size_megabytes ... ok
+test tests::test_run_app_coverage ... ok
+test models::tests::test_panel_load_entries_with_files ... ok
+test tests::test_run_app_ctrl_c_quit ... ok
+test tests::test_run_app_should_quit_after_key ... ok
+test models::tests::test_panel_load_entries_sort_modes ... ok
+test models::tests::test_panel_navigation_next ... ok
+test ui::tests::test_render_panel_with_various_entries ... ok
+test ui::tests::test_render_status_right_panel_active_with_file ... ok
+test models::tests::test_panel_navigation_previous ... ok
+test ui::tests::test_ui_render_status_with_file_selection ... ok
+test ui::tests::test_ui_render_with_right_panel_active ... ok
+test ui::tests::test_ui_render_status_no_selection ... ok
+test utils::tests::test_copy_dir_all_empty_dir ... ok
+test utils::tests::test_unique_destination_no_conflict ... ok
+test ui::tests::test_ui_render_with_help_overlay ... ok
+test ui::tests::test_ui_render_with_viewer_overlay ... ok
+test utils::tests::test_unique_destination_empty_extension ... ok
+test tests::test_run_app_with_event_sequence ... ok
+test utils::tests::test_unique_destination_multiple_dots ... ok
+test utils::tests::test_unique_destination_no_extension ... ok
+test utils::tests::test_refresh_panels ... ok
+test utils::tests::test_unique_destination_with_conflicts ... ok
+test utils::tests::test_refresh_panels_maintains_selection ... ok
+test utils::tests::test_copy_dir_all_simple ... ok
+test utils::tests::test_copy_dir_all_nested ... ok
+
+test result: ok. 98 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running `C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\integration_test-dd27c23f4b1dcf49.exe`
+
+running 7 tests
+test test_main_function_coverage ... ignored
+test test_event_loop_structure ... ok
+test test_function_keys ... ok
+test test_navigation_keys ... ok
+test test_run_app_full_coverage ... ignored
+test test_quit_keys ... ok
+test test_terminal_operations ... ok
+
+test result: ok. 5 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+*** result: Success

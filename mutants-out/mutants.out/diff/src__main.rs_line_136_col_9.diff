@@ -1,0 +1,21 @@
+--- src/main.rs
++++ replace <impl Backend for WritableTestBackend>::set_cursor -> io::Result<()> with Ok(())
+@@ -128,17 +128,17 @@
+         self.inner.show_cursor()
+     }
+ 
+     fn get_cursor(&mut self) -> io::Result<(u16, u16)> {
+         self.inner.get_cursor()
+     }
+ 
+     fn set_cursor(&mut self, x: u16, y: u16) -> io::Result<()> {
+-        self.inner.set_cursor(x, y)
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn clear(&mut self) -> io::Result<()> {
+         self.inner.clear()
+     }
+ 
+     fn size(&self) -> io::Result<ratatui::layout::Rect> {
+         self.inner.size()

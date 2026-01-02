@@ -161,6 +161,19 @@ mod tests {
     }
 
     #[test]
+    fn test_unique_destination_empty_extension() {
+        let temp_dir = TempDir::new().unwrap();
+        let base = temp_dir.path();
+
+        File::create(base.join("test.")).unwrap();
+
+        let file_name = std::ffi::OsStr::new("test.");
+        let dest = unique_destination(base, file_name);
+        // When extension is empty, it's treated as no extension
+        assert_eq!(dest, base.join("test_1"));
+    }
+
+    #[test]
     fn test_copy_dir_all_simple() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         let src = temp_dir.path().join("src");

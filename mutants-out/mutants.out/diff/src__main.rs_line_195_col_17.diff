@@ -1,0 +1,23 @@
+--- src/main.rs
++++ delete match arm KeyCode::Up in run_app_with_event_reader
+@@ -187,19 +187,17 @@
+             match key.code {
+                 KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::F(10) => return Ok(()),
+                 KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                     return Ok(())
+                 }
+                 KeyCode::Down => {
+                     app.get_active_panel().next();
+                 }
+-                KeyCode::Up => {
+-                    app.get_active_panel().previous();
+-                }
++                 /* ~ changed by cargo-mutants ~ */
+                 KeyCode::Enter => app.get_active_panel().enter()?,
+                 KeyCode::Tab => {
+                     app.switch_panel();
+                 }
+                 KeyCode::Left => {
+                     app.active_panel = PanelSide::Left;
+                 }
+                 KeyCode::Right => {

@@ -1,0 +1,21 @@
+--- src/utils.rs
++++ replace >= with < in format_size
+@@ -9,17 +9,17 @@
+     const KB: u64 = 1024;
+     const MB: u64 = KB * 1024;
+     const GB: u64 = MB * 1024;
+ 
+     if size >= GB {
+         return format!("{:.2} GB", size as f64 / GB as f64);
+     }
+ 
+-    if size >= MB {
++    if size < /* ~ changed by cargo-mutants ~ */ MB {
+         return format!("{:.2} MB", size as f64 / MB as f64);
+     }
+ 
+     if size >= KB {
+         return format!("{:.2} KB", size as f64 / KB as f64);
+     }
+ 
+     let mut bytes = size.to_string();

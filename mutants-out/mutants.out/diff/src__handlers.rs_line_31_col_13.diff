@@ -1,0 +1,23 @@
+--- src/handlers.rs
++++ delete match arm KeyCode::Esc | KeyCode::F(3) | KeyCode::Enter in handle_overlay_keys
+@@ -23,19 +23,17 @@
+ }
+ 
+ pub fn handle_overlay_keys(app: &mut App, key: KeyEvent) -> bool {
+     let code = key.code;
+     let modifiers = key.modifiers;
+ 
+     if let Some(viewer) = app.viewer.as_mut() {
+         match code {
+-            KeyCode::Esc | KeyCode::F(3) | KeyCode::Enter => {
+-                app.viewer = None;
+-            }
++             /* ~ changed by cargo-mutants ~ */
+             KeyCode::Down => {
+                 let max_scroll = viewer
+                     .lines
+                     .len()
+                     .saturating_sub(1)
+                     .saturating_sub(viewer.scroll as usize);
+                 if max_scroll > 0 {
+                     viewer.scroll = viewer.scroll.saturating_add(1);

@@ -1,0 +1,21 @@
+--- src/main.rs
++++ replace <impl Backend for WritableTestBackend>::flush -> io::Result<()> with Ok(())
+@@ -140,17 +140,17 @@
+         self.inner.clear()
+     }
+ 
+     fn size(&self) -> io::Result<ratatui::layout::Rect> {
+         self.inner.size()
+     }
+ 
+     fn flush(&mut self) -> io::Result<()> {
+-        self.inner.flush()
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn window_size(&mut self) -> io::Result<ratatui::backend::WindowSize> {
+         let size = self.size()?;
+         Ok(ratatui::backend::WindowSize {
+             columns_rows: ratatui::layout::Size {
+                 width: size.width,
+                 height: size.height,

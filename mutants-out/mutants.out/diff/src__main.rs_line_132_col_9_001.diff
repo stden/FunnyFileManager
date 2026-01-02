@@ -1,0 +1,21 @@
+--- src/main.rs
++++ replace <impl Backend for WritableTestBackend>::get_cursor -> io::Result<(u16, u16)> with Ok((0, 1))
+@@ -124,17 +124,17 @@
+         self.inner.hide_cursor()
+     }
+ 
+     fn show_cursor(&mut self) -> io::Result<()> {
+         self.inner.show_cursor()
+     }
+ 
+     fn get_cursor(&mut self) -> io::Result<(u16, u16)> {
+-        self.inner.get_cursor()
++        Ok((0, 1)) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn set_cursor(&mut self, x: u16, y: u16) -> io::Result<()> {
+         self.inner.set_cursor(x, y)
+     }
+ 
+     fn clear(&mut self) -> io::Result<()> {
+         self.inner.clear()

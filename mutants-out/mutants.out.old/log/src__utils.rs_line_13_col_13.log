@@ -1,0 +1,276 @@
+
+*** src/utils.rs:13:13: replace >= with < in format_size
+
+*** mutation diff:
+--- src/utils.rs
++++ replace >= with < in format_size
+@@ -5,17 +5,17 @@
+ 
+ use crate::models::App;
+ 
+ pub fn format_size(size: u64) -> String {
+     const KB: u64 = 1024;
+     const MB: u64 = KB * 1024;
+     const GB: u64 = MB * 1024;
+ 
+-    if size >= GB {
++    if size < /* ~ changed by cargo-mutants ~ */ GB {
+         return format!("{:.2} GB", size as f64 / GB as f64);
+     }
+ 
+     if size >= MB {
+         return format!("{:.2} MB", size as f64 / MB as f64);
+     }
+ 
+     if size >= KB {
+
+
+*** C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe test --no-run --verbose --package=funny-file-manager@0.1.0
+       Fresh cfg-if v1.0.4
+       Fresh unicode-ident v1.0.22
+       Fresh windows-link v0.2.1
+       Fresh scopeguard v1.2.0
+       Fresh either v1.15.0
+       Fresh smallvec v1.15.1
+       Fresh equivalent v1.0.2
+       Fresh foldhash v0.1.5
+       Fresh allocator-api2 v0.2.21
+       Fresh heck v0.5.0
+       Fresh static_assertions v1.1.0
+       Fresh ryu v1.0.20
+       Fresh unicode-segmentation v1.12.0
+       Fresh itoa v1.0.15
+       Fresh unicode-width v0.1.14
+       Fresh bitflags v2.10.0
+       Fresh cassowary v0.3.0
+       Fresh once_cell v1.21.3
+       Fresh proc-macro2 v1.0.103
+       Fresh lock_api v0.4.14
+       Fresh itertools v0.13.0
+       Fresh hashbrown v0.15.5
+       Fresh itertools v0.12.1
+       Fresh windows-sys v0.61.2
+       Fresh fastrand v2.3.0
+       Fresh rustversion v1.0.22
+       Fresh quote v1.0.42
+       Fresh parking_lot_core v0.9.12
+       Fresh winapi v0.3.9
+       Fresh lru v0.12.5
+       Fresh paste v1.0.15
+       Fresh unicode-truncate v1.1.0
+       Fresh getrandom v0.3.4
+       Fresh syn v2.0.111
+       Fresh castaway v0.2.4
+       Fresh crossterm_winapi v0.9.1
+       Fresh parking_lot v0.12.5
+       Fresh tempfile v3.23.0
+       Fresh strum_macros v0.26.4
+       Fresh crossterm v0.27.0
+       Fresh stability v0.2.1
+       Fresh compact_str v0.7.1
+       Fresh strum v0.26.3
+       Fresh ratatui v0.26.3
+       Dirty funny-file-manager v0.1.0 (C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp): the file `src\utils.rs` has changed (13411635935.854208300s, 2s after last build at 13411635933.646073700s)
+   Compiling funny-file-manager v0.1.0 (C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp)
+     Running `C:\ProgramData\Rust\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin\rustc.exe --crate-name ffm --edition=2021 'src\main.rs' --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --warn=unexpected_cfgs --check-cfg 'cfg(tarpaulin)' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("test-helpers"))' -C metadata=307104c70996bd1a -C extra-filename=-3d13faf49e40bc82 --out-dir 'C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp\target\debug\deps' -C 'incremental=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp\target\debug\incremental' -L 'dependency=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp\target\debug\deps' --extern 'crossterm=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp\target\debug\deps\libcrossterm-4218ed1821fa1220.rlib' --extern 'ratatui=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp\target\debug\deps\libratatui-2b6c53840b1a7dea.rlib' --extern 'tempfile=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp\target\debug\deps\libtempfile-a35ee4c4e5b5452e.rlib'`
+     Running `C:\ProgramData\Rust\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin\rustc.exe --crate-name ffm --edition=2021 'src\main.rs' --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --warn=unexpected_cfgs --check-cfg 'cfg(tarpaulin)' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("test-helpers"))' -C metadata=cb464bb3045e193e --out-dir 'C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp\target\debug\deps' -C 'incremental=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp\target\debug\incremental' -L 'dependency=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp\target\debug\deps' --extern 'crossterm=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp\target\debug\deps\libcrossterm-4218ed1821fa1220.rlib' --extern 'ratatui=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp\target\debug\deps\libratatui-2b6c53840b1a7dea.rlib'`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.60s
+  Executable `C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp\target\debug\deps\ffm-3d13faf49e40bc82.exe`
+  Executable `C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp\target\debug\deps\integration_test-dd27c23f4b1dcf49.exe`
+
+*** result: Success
+
+*** C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe test --verbose --package=funny-file-manager@0.1.0
+       Fresh cfg-if v1.0.4
+       Fresh unicode-ident v1.0.22
+       Fresh windows-link v0.2.1
+       Fresh smallvec v1.15.1
+       Fresh either v1.15.0
+       Fresh scopeguard v1.2.0
+       Fresh heck v0.5.0
+       Fresh foldhash v0.1.5
+       Fresh allocator-api2 v0.2.21
+       Fresh equivalent v1.0.2
+       Fresh unicode-segmentation v1.12.0
+       Fresh static_assertions v1.1.0
+       Fresh ryu v1.0.20
+       Fresh bitflags v2.10.0
+       Fresh unicode-width v0.1.14
+       Fresh itoa v1.0.15
+       Fresh cassowary v0.3.0
+       Fresh fastrand v2.3.0
+       Fresh proc-macro2 v1.0.103
+       Fresh lock_api v0.4.14
+       Fresh hashbrown v0.15.5
+       Fresh itertools v0.13.0
+       Fresh itertools v0.12.1
+       Fresh windows-sys v0.61.2
+       Fresh once_cell v1.21.3
+       Fresh quote v1.0.42
+       Fresh rustversion v1.0.22
+       Fresh winapi v0.3.9
+       Fresh parking_lot_core v0.9.12
+       Fresh unicode-truncate v1.1.0
+       Fresh lru v0.12.5
+       Fresh paste v1.0.15
+       Fresh getrandom v0.3.4
+       Fresh syn v2.0.111
+       Fresh castaway v0.2.4
+       Fresh parking_lot v0.12.5
+       Fresh crossterm_winapi v0.9.1
+       Fresh tempfile v3.23.0
+       Fresh strum_macros v0.26.4
+       Fresh stability v0.2.1
+       Fresh compact_str v0.7.1
+       Fresh crossterm v0.27.0
+       Fresh strum v0.26.3
+       Fresh ratatui v0.26.3
+       Fresh funny-file-manager v0.1.0 (C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.26s
+     Running `C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-J8VVDZ.tmp\target\debug\deps\ffm-3d13faf49e40bc82.exe`
+
+running 100 tests
+test handlers::tests::test_handle_copy_no_selection ... ok
+test handlers::tests::test_handle_edit_impl_no_selection ... ok
+test handlers::tests::test_handle_delete_no_selection ... ok
+test handlers::tests::test_handle_edit_no_selection ... ok
+test handlers::tests::test_handle_move_no_selection ... ok
+test handlers::tests::test_handle_overlay_keys_help ... ok
+test handlers::tests::test_handle_overlay_keys_help_other_key ... ok
+test handlers::tests::test_handle_overlay_keys_no_overlay ... ok
+test handlers::tests::test_handle_overlay_keys_viewer ... ok
+test handlers::tests::test_handle_overlay_keys_viewer_max_scroll ... ok
+test handlers::tests::test_handle_overlay_keys_viewer_close_variations ... ok
+test handlers::tests::test_handle_overlay_keys_viewer_other_key ... ok
+test handlers::tests::test_handle_delete_directory ... ok
+test handlers::tests::test_handle_edit_directory ... ok
+test handlers::tests::test_execute_command_branches ... ok
+test handlers::tests::test_handle_delete_file ... ok
+test handlers::tests::test_handle_overlay_keys_command_line ... ok
+test handlers::tests::test_handle_edit_impl_directory ... ok
+test handlers::tests::test_handle_view_no_selection ... ok
+test models::tests::test_dir_entry_clone ... ok
+test handlers::tests::test_handle_edit_impl_launch_failure ... ok
+test models::tests::test_dir_entry_creation ... ok
+test models::tests::test_panel_ensure_selection_empty ... ok
+test handlers::tests::test_handle_edit_fail_launch ... ok
+test handlers::tests::test_handle_edit_impl_success ... ok
+test handlers::tests::test_handle_overlay_keys_bookmarks ... ok
+test models::tests::test_panel_cycle_sort_mode ... ok
+test models::tests::test_app_switch_panel ... ok
+test handlers::tests::test_handle_edit_success ... ok
+test handlers::tests::test_handle_edit_exit_error ... ok
+test models::tests::test_panel_navigation_empty ... ok
+test models::tests::test_app_get_active_panel ... ok
+test models::tests::test_app_new ... ok
+test handlers::tests::test_handle_edit_impl_editor_error_exit ... ok
+test models::tests::test_app_get_inactive_panel ... ok
+test models::tests::test_app_switch_panel_multiple_times ... ok
+test handlers::tests::test_handle_mkdir_multiple ... ok
+test handlers::tests::test_handle_overlay_keys_search ... ok
+test models::tests::test_panel_side_copy ... ok
+test models::tests::test_panel_side_equality ... ok
+test models::tests::test_sort_mode_next_and_label ... ok
+test models::tests::test_viewer_creation ... ok
+test handlers::tests::test_handle_copy_directory ... ok
+test handlers::tests::test_handle_view_directory ... ok
+test models::tests::test_viewer_default ... ok
+test tests::test_main_function_coverage ... ignored
+test models::tests::test_panel_get_selected_entry ... ok
+test models::tests::test_panel_ensure_selection ... ok
+test tests::test_run_app_full_coverage ... ignored
+test handlers::tests::test_handle_view_file ... ok
+test models::tests::test_panel_enter_file ... ok
+test tests::test_writable_test_backend_clear ... ok
+test tests::test_writable_test_backend_cursor_operations ... ok
+test tests::test_writable_test_backend_flush ... ok
+test models::tests::test_panel_enter_directory ... ok
+test handlers::tests::test_handle_view_empty_file ... ok
+test tests::test_writable_test_backend_window_size ... ok
+test tests::test_writable_test_backend_write ... ok
+test models::tests::test_panel_load_entries_empty_dir ... ok
+test models::tests::test_panel_new ... ok
+test models::tests::test_select_after_reload_empty_entries_without_selected_name ... ok
+test models::tests::test_select_after_reload_empty_entries_with_selected_name ... ok
+test models::tests::test_panel_next_with_none_selected ... ok
+test handlers::tests::test_handle_move_fallback_for_file ... ok
+test tests::test_main_impl_test_mode ... ok
+test models::tests::test_panel_marking_and_action_names ... ok
+test models::tests::test_panel_selected_path ... ok
+test utils::tests::test_format_size_bytes ... FAILED
+test models::tests::test_panel_previous_with_none_selected ... ok
+test handlers::tests::test_handle_move_cross_device ... ok
+test utils::tests::test_format_size_gigabytes ... FAILED
+test ui::tests::test_centered_rect_various_sizes ... ok
+test utils::tests::test_format_size_kilobytes ... FAILED
+test utils::tests::test_format_size_megabytes ... FAILED
+test tests::test_run_app_should_quit_after_key ... ok
+test ui::tests::test_render_status_right_panel_active_with_file ... ok
+test models::tests::test_panel_load_entries_sort_modes ... ok
+test ui::tests::test_ui_render_status_no_selection ... ok
+test models::tests::test_panel_load_entries_with_files ... ok
+test ui::tests::test_render_panel_with_various_entries ... ok
+test ui::tests::test_ui_render_status_with_file_selection ... ok
+test utils::tests::test_copy_dir_all_empty_dir ... ok
+test models::tests::test_panel_navigation_next ... ok
+test ui::tests::test_ui_render_with_right_panel_active ... ok
+test tests::test_run_app_coverage ... ok
+test utils::tests::test_unique_destination_no_conflict ... ok
+test tests::test_run_app_command_line_quit ... ok
+test utils::tests::test_unique_destination_multiple_dots ... ok
+test utils::tests::test_unique_destination_empty_extension ... ok
+test tests::test_run_app_ctrl_c_quit ... ok
+test models::tests::test_panel_navigation_previous ... ok
+test utils::tests::test_unique_destination_no_extension ... ok
+test ui::tests::test_ui_render_with_viewer_overlay ... ok
+test ui::tests::test_ui_render_with_help_overlay ... ok
+test utils::tests::test_unique_destination_with_conflicts ... ok
+test utils::tests::test_refresh_panels ... ok
+test utils::tests::test_refresh_panels_maintains_selection ... ok
+test utils::tests::test_copy_dir_all_simple ... ok
+test utils::tests::test_copy_dir_all_nested ... ok
+test tests::test_run_app_with_event_sequence ... ok
+
+failures:
+
+---- utils::tests::test_format_size_bytes stdout ----
+
+thread 'utils::tests::test_format_size_bytes' (42064) panicked at src\utils.rs:85:9:
+assertion `left == right` failed
+  left: "0.00 GB"
+ right: "0 B"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- utils::tests::test_format_size_gigabytes stdout ----
+
+thread 'utils::tests::test_format_size_gigabytes' (18512) panicked at src\utils.rs:109:9:
+assertion `left == right` failed
+  left: "1024.00 MB"
+ right: "1.00 GB"
+
+---- utils::tests::test_format_size_kilobytes stdout ----
+
+thread 'utils::tests::test_format_size_kilobytes' (37912) panicked at src\utils.rs:93:9:
+assertion `left == right` failed
+  left: "0.00 GB"
+ right: "1.00 KB"
+
+---- utils::tests::test_format_size_megabytes stdout ----
+
+thread 'utils::tests::test_format_size_megabytes' (41528) panicked at src\utils.rs:101:9:
+assertion `left == right` failed
+  left: "0.00 GB"
+ right: "1.00 MB"
+
+
+failures:
+    utils::tests::test_format_size_bytes
+    utils::tests::test_format_size_gigabytes
+    utils::tests::test_format_size_kilobytes
+    utils::tests::test_format_size_megabytes
+
+test result: FAILED. 94 passed; 4 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+error: test failed, to rerun pass `-p funny-file-manager --bin ffm`
+
+*** result: Failure(101)

@@ -1,0 +1,68 @@
+--- src/main.rs
++++ replace run_app_with_event_reader -> io::Result<()> with Ok(())
+@@ -167,64 +167,17 @@
+     terminal: &mut Terminal<B>,
+     mut app: App,
+     mut read_event: F,
+ ) -> io::Result<()>
+ where
+     B: Backend + Write,
+     F: FnMut() -> io::Result<Event>,
+ {
+-    while !app.should_quit {
+-        terminal.draw(|f| ui(f, &mut app))?;
+-
+-        let event = read_event()?;
+-        if let Event::Key(key) = event {
+-            if handle_overlay_keys(&mut app, key) {
+-                if app.should_quit {
+-                    return Ok(());
+-                }
+-                continue;
+-            }
+-
+-            match key.code {
+-                KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::F(10) => return Ok(()),
+-                KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+-                    return Ok(())
+-                }
+-                KeyCode::Down => {
+-                    app.get_active_panel().next();
+-                }
+-                KeyCode::Up => {
+-                    app.get_active_panel().previous();
+-                }
+-                KeyCode::Enter => app.get_active_panel().enter()?,
+-                KeyCode::Tab => {
+-                    app.switch_panel();
+-                }
+-                KeyCode::Left => {
+-                    app.active_panel = PanelSide::Left;
+-                }
+-                KeyCode::Right => {
+-                    app.active_panel = PanelSide::Right;
+-                }
+-                KeyCode::F(1) => {
+-                    app.show_help = !app.show_help;
+-                }
+-                KeyCode::F(3) => handle_view(&mut app)?,
+-                KeyCode::F(4) => handle_edit(terminal, &mut app)?,
+-                KeyCode::F(5) => handle_copy(&mut app)?,
+-                KeyCode::F(6) => handle_move(&mut app)?,
+-                KeyCode::F(7) => handle_mkdir(&mut app)?,
+-                KeyCode::F(8) => handle_delete(&mut app)?,
+-                _ => {}
+-            }
+-        }
+-    }
+-
+-    Ok(())
++    Ok(()) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use crate::models::Panel;
+     use crossterm::event::KeyEvent;
+     use std::fs;

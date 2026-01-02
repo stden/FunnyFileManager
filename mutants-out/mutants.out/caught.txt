@@ -1,0 +1,16 @@
+src/main.rs:106:9: replace <impl Write for WritableTestBackend>::write -> io::Result<usize> with Ok(1)
+src/main.rs:106:9: replace <impl Write for WritableTestBackend>::write -> io::Result<usize> with Ok(0)
+src/main.rs:132:9: replace <impl Backend for WritableTestBackend>::get_cursor -> io::Result<(u16, u16)> with Ok((0, 0))
+src/main.rs:132:9: replace <impl Backend for WritableTestBackend>::get_cursor -> io::Result<(u16, u16)> with Ok((0, 1))
+src/main.rs:132:9: replace <impl Backend for WritableTestBackend>::get_cursor -> io::Result<(u16, u16)> with Ok((1, 1))
+src/main.rs:132:9: replace <impl Backend for WritableTestBackend>::get_cursor -> io::Result<(u16, u16)> with Ok((1, 0))
+src/main.rs:136:9: replace <impl Backend for WritableTestBackend>::set_cursor -> io::Result<()> with Ok(())
+src/main.rs:144:9: replace <impl Backend for WritableTestBackend>::size -> io::Result<ratatui::layout::Rect> with Ok(Default::default())
+src/main.rs:159:35: replace * with + in <impl Backend for WritableTestBackend>::window_size
+src/main.rs:159:35: replace * with / in <impl Backend for WritableTestBackend>::window_size
+src/main.rs:160:37: replace * with + in <impl Backend for WritableTestBackend>::window_size
+src/main.rs:160:37: replace * with / in <impl Backend for WritableTestBackend>::window_size
+src/main.rs:175:11: delete ! in run_app_with_event_reader
+src/main.rs:189:39: replace match guard key.modifiers.contains(KeyModifiers::CONTROL) with false in run_app_with_event_reader
+src/editor.rs:44:5: replace handle_edit_impl -> io::Result<()> with Ok(())
+src/editor.rs:108:5: replace handle_edit_test_mode -> io::Result<()> with Ok(())

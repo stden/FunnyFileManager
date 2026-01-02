@@ -1,0 +1,27 @@
+src/main.rs:40:5: replace main -> Result<(), Box<dyn Error>> with Ok(())
+src/main.rs:45:5: replace main_impl -> Result<(), Box<dyn Error>> with Ok(())
+src/main.rs:120:9: replace <impl Backend for WritableTestBackend>::draw -> io::Result<()> with Ok(())
+src/main.rs:124:9: replace <impl Backend for WritableTestBackend>::hide_cursor -> io::Result<()> with Ok(())
+src/main.rs:128:9: replace <impl Backend for WritableTestBackend>::show_cursor -> io::Result<()> with Ok(())
+src/main.rs:86:5: replace run_app -> io::Result<()> with Ok(())
+src/main.rs:71:5: replace main_impl -> Result<(), Box<dyn Error>> with Ok(())
+src/main.rs:140:9: replace <impl Backend for WritableTestBackend>::clear -> io::Result<()> with Ok(())
+src/main.rs:148:9: replace <impl Backend for WritableTestBackend>::flush -> io::Result<()> with Ok(())
+src/main.rs:175:5: replace run_app_with_event_reader -> io::Result<()> with Ok(())
+src/main.rs:192:17: delete match arm KeyCode::Down in run_app_with_event_reader
+src/main.rs:198:17: delete match arm KeyCode::Enter in run_app_with_event_reader
+src/main.rs:195:17: delete match arm KeyCode::Up in run_app_with_event_reader
+src/main.rs:199:17: delete match arm KeyCode::Tab in run_app_with_event_reader
+src/main.rs:202:17: delete match arm KeyCode::Left in run_app_with_event_reader
+src/main.rs:205:17: delete match arm KeyCode::Right in run_app_with_event_reader
+src/main.rs:208:17: delete match arm KeyCode::F(1) in run_app_with_event_reader
+src/main.rs:211:17: delete match arm KeyCode::F(3) in run_app_with_event_reader
+src/main.rs:213:17: delete match arm KeyCode::F(5) in run_app_with_event_reader
+src/main.rs:212:17: delete match arm KeyCode::F(4) in run_app_with_event_reader
+src/main.rs:214:17: delete match arm KeyCode::F(6) in run_app_with_event_reader
+src/main.rs:215:17: delete match arm KeyCode::F(7) in run_app_with_event_reader
+src/main.rs:216:17: delete match arm KeyCode::F(8) in run_app_with_event_reader
+src/main.rs:189:39: replace match guard key.modifiers.contains(KeyModifiers::CONTROL) with true in run_app_with_event_reader
+src/main.rs:209:37: delete ! in run_app_with_event_reader
+src/editor.rs:21:5: replace handle_edit -> io::Result<()> with Ok(())
+src/editor.rs:30:5: replace handle_edit -> io::Result<()> with Ok(())

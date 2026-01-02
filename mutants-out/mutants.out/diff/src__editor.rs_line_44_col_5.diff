@@ -1,0 +1,72 @@
+--- src/editor.rs
++++ replace handle_edit_impl -> io::Result<()> with Ok(())
+@@ -36,68 +36,17 @@
+     #[allow(unused_variables)] terminal: &mut Terminal<B>,
+     app: &mut App,
+     run_editor: F,
+ ) -> io::Result<()>
+ where
+     B: Backend + Write,
+     F: FnOnce(&str, &std::path::Path) -> io::Result<std::process::ExitStatus>,
+ {
+-    let Some(selected) = app.get_active_panel().selected_path() else {
+-        return Ok(());
+-    };
+-
+-    if selected.is_dir() {
+-        app.status_message = "Editing directories is not supported".to_string();
+-        return Ok(());
+-    }
+-
+-    // Skip terminal manipulation in test mode.
+-    #[cfg(all(not(test), not(tarpaulin)))]
+-    {
+-        disable_raw_mode()?;
+-        execute!(
+-            terminal.backend_mut(),
+-            LeaveAlternateScreen,
+-            DisableMouseCapture
+-        )?;
+-    }
+-
+-    let editor = std::env::var("EDITOR").unwrap_or_else(|_| "nano".to_string());
+-    let status = run_editor(&editor, &selected);
+-
+-    #[cfg(all(not(test), not(tarpaulin)))]
+-    {
+-        enable_raw_mode()?;
+-        execute!(
+-            terminal.backend_mut(),
+-            EnterAlternateScreen,
+-            EnableMouseCapture
+-        )?;
+-        terminal.clear()?;
+-    }
+-
+-    match status {
+-        Ok(code) => {
+-            if code.success() {
+-                app.status_message = format!("Edited {}", selected.display());
+-            } else {
+-                app.status_message = format!("Editor exited with status {}", code);
+-            }
+-        }
+-        Err(err) => {
+-            app.status_message = format!("Failed to launch editor: {}", err);
+-        }
+-    }
+-
+-    app.left_panel.load_entries()?;
+-    app.left_panel.ensure_selection();
+-    app.right_panel.load_entries()?;
+-    app.right_panel.ensure_selection();
+-    Ok(())
++    Ok(()) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ #[cfg(any(test, tarpaulin))]
+ #[derive(Clone, Copy, Debug)]
+ pub(crate) enum TestEditorBehavior {
+     Success,
+     FailLaunch,
+     ExitError,

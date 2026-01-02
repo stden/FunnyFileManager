@@ -5,12 +5,22 @@ mod ui;
 mod utils;
 
 use crossterm::event::{Event, KeyCode, KeyModifiers};
-#[cfg(not(test))]
+#[cfg(not(any(test, tarpaulin)))]
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+#[cfg(any(test, tarpaulin))]
+mod event {
+    use crossterm::event::{Event, KeyCode, KeyModifiers};
+    pub fn read() -> std::io::Result<Event> {
+        Ok(Event::Key(crossterm::event::KeyEvent::new(
+            KeyCode::Char('q'),
+            KeyModifiers::empty(),
+        )))
+    }
+}
 use ratatui::{backend::Backend, Terminal};
 #[cfg(all(not(test), not(tarpaulin)))]
 use ratatui::backend::CrosstermBackend;
@@ -73,20 +83,7 @@ fn main_impl() -> Result<(), Box<dyn Error>> {
 }
 
 fn run_app<B: Backend + Write>(terminal: &mut Terminal<B>, app: App) -> io::Result<()> {
-    #[cfg(test)]
-    fn default_event_reader() -> io::Result<Event> {
-        Ok(Event::Key(crossterm::event::KeyEvent::new(
-            KeyCode::Char('q'),
-            KeyModifiers::empty(),
-        )))
-    }
-    
-    #[cfg(not(test))]
-    fn default_event_reader() -> io::Result<Event> {
-        event::read()
-    }
-    
-    run_app_with_event_reader(terminal, app, default_event_reader)
+    run_app_with_event_reader(terminal, app, || event::read())
 }
 
 #[cfg(any(test, tarpaulin))]

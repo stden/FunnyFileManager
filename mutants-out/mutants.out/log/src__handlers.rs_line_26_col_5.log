@@ -1,0 +1,425 @@
+
+*** src/handlers.rs:26:5: replace handle_overlay_keys -> bool with true
+
+*** mutation diff:
+--- src/handlers.rs
++++ replace handle_overlay_keys -> bool with true
+@@ -18,162 +18,17 @@
+             "forced rename failure",
+         ));
+     }
+ 
+     fs::rename(source, dest)
+ }
+ 
+ pub fn handle_overlay_keys(app: &mut App, key: KeyEvent) -> bool {
+-    let code = key.code;
+-    let modifiers = key.modifiers;
+-
+-    if let Some(viewer) = app.viewer.as_mut() {
+-        match code {
+-            KeyCode::Esc | KeyCode::F(3) | KeyCode::Enter => {
+-                app.viewer = None;
+-            }
+-            KeyCode::Down => {
+-                let max_scroll = viewer
+-                    .lines
+-                    .len()
+-                    .saturating_sub(1)
+-                    .saturating_sub(viewer.scroll as usize);
+-                if max_scroll > 0 {
+-                    viewer.scroll = viewer.scroll.saturating_add(1);
+-                }
+-            }
+-            KeyCode::Up => {
+-                if viewer.scroll > 0 {
+-                    viewer.scroll -= 1;
+-                }
+-            }
+-            _ => {}
+-        }
+-        return true;
+-    }
+-
+-    if app.show_help {
+-        if matches!(code, KeyCode::Esc | KeyCode::F(1)) {
+-            app.show_help = false;
+-        }
+-        return true;
+-    }
+-
+-    if let Some(query) = app.search.as_mut() {
+-        match code {
+-            KeyCode::Esc => {
+-                app.search = None;
+-            }
+-            KeyCode::Enter => {
+-                let query_trimmed = query.trim().to_string();
+-                if !query_trimmed.is_empty() {
+-                    let found = jump_to_match(app.get_active_panel(), &query_trimmed);
+-                    if found {
+-                        app.status_message = format!("Found: {}", query_trimmed);
+-                    } else {
+-                        app.status_message = format!("Not found: {}", query_trimmed);
+-                    }
+-                }
+-                app.search = None;
+-            }
+-            KeyCode::Backspace => {
+-                query.pop();
+-                let query_trimmed = query.trim().to_string();
+-                if !query_trimmed.is_empty() {
+-                    jump_to_match(app.get_active_panel(), &query_trimmed);
+-                }
+-            }
+-            KeyCode::Char(ch)
+-                if !modifiers.contains(KeyModifiers::CONTROL)
+-                    && !modifiers.contains(KeyModifiers::ALT) =>
+-            {
+-                query.push(ch);
+-                let query_trimmed = query.trim().to_string();
+-                if !query_trimmed.is_empty() {
+-                    jump_to_match(app.get_active_panel(), &query_trimmed);
+-                }
+-            }
+-            _ => {}
+-        }
+-        return true;
+-    }
+-
+-    if app.show_bookmarks {
+-        match code {
+-            KeyCode::Esc | KeyCode::F(2) => {
+-                app.show_bookmarks = false;
+-            }
+-            KeyCode::Char(ch) if ch.is_ascii_digit() => {
+-                let index = (ch as u8 - b'0') as usize;
+-                if index >= app.bookmarks.len() {
+-                    app.status_message = format!("Invalid bookmark slot {}", index);
+-                    return true;
+-                }
+-
+-                if modifiers.contains(KeyModifiers::CONTROL) {
+-                    let path = app.get_active_panel().path.clone();
+-                    app.bookmarks[index] = Some(path.clone());
+-                    app.status_message = format!("Bookmark {} set to {}", index, path.display());
+-                } else if let Some(path) = app.bookmarks[index].clone() {
+-                    let panel = app.get_active_panel();
+-                    panel.path = path.clone();
+-                    panel.clear_marks();
+-                    match panel.load_entries() {
+-                        Ok(()) => {
+-                            panel.ensure_selection();
+-                            app.status_message =
+-                                format!("Opened bookmark {}: {}", index, path.display());
+-                            app.show_bookmarks = false;
+-                        }
+-                        Err(err) => {
+-                            app.status_message =
+-                                format!("Failed to open bookmark {}: {}", index, err);
+-                        }
+-                    }
+-                } else {
+-                    app.status_message = format!("Bookmark {} is empty", index);
+-                }
+-            }
+-            _ => {}
+-        }
+-        return true;
+-    }
+-
+-    if let Some(input) = app.command_line.as_mut() {
+-        match code {
+-            KeyCode::Esc => {
+-                app.command_line = None;
+-            }
+-            KeyCode::Enter => {
+-                let command = input.trim().to_string();
+-                app.command_line = None;
+-                if command.is_empty() {
+-                    return true;
+-                }
+-
+-                if let Err(err) = execute_command(app, &command) {
+-                    app.status_message = format!("Command failed: {}", err);
+-                }
+-            }
+-            KeyCode::Backspace => {
+-                input.pop();
+-            }
+-            KeyCode::Char(ch)
+-                if !modifiers.contains(KeyModifiers::CONTROL)
+-                    && !modifiers.contains(KeyModifiers::ALT) =>
+-            {
+-                input.push(ch);
+-            }
+-            _ => {}
+-        }
+-        return true;
+-    }
+-
+-    false
++    true /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ fn jump_to_match(panel: &mut crate::models::Panel, query: &str) -> bool {
+     let query = query.to_lowercase();
+     for (index, entry) in panel.entries.iter().enumerate() {
+         if entry.name == ".." {
+             continue;
+         }
+
+
+*** C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe test --no-run --verbose --package=funny-file-manager@0.1.0
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+       Fresh cfg-if v1.0.4
+       Fresh unicode-ident v1.0.22
+       Fresh windows-link v0.2.1
+       Fresh either v1.15.0
+       Fresh smallvec v1.15.1
+       Fresh scopeguard v1.2.0
+       Fresh foldhash v0.1.5
+       Fresh heck v0.5.0
+       Fresh allocator-api2 v0.2.21
+       Fresh equivalent v1.0.2
+       Fresh itoa v1.0.15
+       Fresh unicode-width v0.1.14
+       Fresh static_assertions v1.1.0
+       Fresh ryu v1.0.20
+       Fresh unicode-segmentation v1.12.0
+       Fresh bitflags v2.10.0
+       Fresh cassowary v0.3.0
+       Fresh proc-macro2 v1.0.103
+       Fresh lock_api v0.4.14
+       Fresh itertools v0.13.0
+       Fresh hashbrown v0.15.5
+       Fresh itertools v0.12.1
+       Fresh windows-sys v0.61.2
+       Fresh fastrand v2.3.0
+       Fresh once_cell v1.21.3
+       Fresh rustversion v1.0.22
+       Fresh quote v1.0.42
+       Fresh parking_lot_core v0.9.12
+       Fresh winapi v0.3.9
+       Fresh paste v1.0.15
+       Fresh unicode-truncate v1.1.0
+       Fresh lru v0.12.5
+       Fresh getrandom v0.3.4
+       Fresh syn v2.0.111
+       Fresh parking_lot v0.12.5
+       Fresh castaway v0.2.4
+       Fresh crossterm_winapi v0.9.1
+       Fresh tempfile v3.23.0
+       Fresh strum_macros v0.26.4
+       Fresh stability v0.2.1
+       Fresh crossterm v0.27.0
+       Fresh compact_str v0.7.1
+       Fresh strum v0.26.3
+       Fresh ratatui v0.26.3
+       Dirty funny-file-manager v0.1.0 (C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp): the file `src\handlers.rs` has changed (13411636255.153588200s, 11s after last build at 13411636244.396371200s)
+   Compiling funny-file-manager v0.1.0 (C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp)
+     Running `C:\ProgramData\Rust\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin\rustc.exe --crate-name ffm --edition=2021 'src\main.rs' --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --warn=unexpected_cfgs --check-cfg 'cfg(tarpaulin)' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("test-helpers"))' -C metadata=307104c70996bd1a -C extra-filename=-3d13faf49e40bc82 --out-dir 'C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps' -C 'incremental=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\incremental' -L 'dependency=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps' --extern 'crossterm=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\libcrossterm-4218ed1821fa1220.rlib' --extern 'ratatui=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\libratatui-2b6c53840b1a7dea.rlib' --extern 'tempfile=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\libtempfile-a35ee4c4e5b5452e.rlib'`
+     Running `C:\ProgramData\Rust\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin\rustc.exe --crate-name ffm --edition=2021 'src\main.rs' --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --warn=unexpected_cfgs --check-cfg 'cfg(tarpaulin)' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("test-helpers"))' -C metadata=cb464bb3045e193e --out-dir 'C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps' -C 'incremental=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\incremental' -L 'dependency=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps' --extern 'crossterm=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\libcrossterm-4218ed1821fa1220.rlib' --extern 'ratatui=C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\libratatui-2b6c53840b1a7dea.rlib'`
+warning: unused imports: `KeyCode` and `KeyModifiers`
+ --> src\handlers.rs:1:24
+  |
+1 | use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+  |                        ^^^^^^^            ^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `app`
+  --> src\handlers.rs:25:28
+   |
+25 | pub fn handle_overlay_keys(app: &mut App, key: KeyEvent) -> bool {
+   |                            ^^^ help: if this is intentional, prefix it with an underscore: `_app`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `key`
+  --> src\handlers.rs:25:43
+   |
+25 | pub fn handle_overlay_keys(app: &mut App, key: KeyEvent) -> bool {
+   |                                           ^^^ help: if this is intentional, prefix it with an underscore: `_key`
+
+warning: function `jump_to_match` is never used
+  --> src\handlers.rs:29:4
+   |
+29 | fn jump_to_match(panel: &mut crate::models::Panel, query: &str) -> bool {
+   |    ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `execute_command` is never used
+  --> src\handlers.rs:44:4
+   |
+44 | fn execute_command(app: &mut App, command: &str) -> io::Result<()> {
+   |    ^^^^^^^^^^^^^^^
+
+warning: method `label` is never used
+  --> src\models.rs:34:12
+   |
+24 | impl SortMode {
+   | ------------- method in this implementation
+...
+34 |     pub fn label(self) -> &'static str {
+   |            ^^^^^
+
+warning: method `clear_marks` is never used
+   --> src\models.rs:258:12
+    |
+ 59 | impl Panel {
+    | ---------- method in this implementation
+...
+258 |     pub fn clear_marks(&mut self) {
+    |            ^^^^^^^^^^^
+
+warning: fields `search`, `command_line`, `show_bookmarks`, and `bookmarks` are never read
+   --> src\models.rs:299:9
+    |
+293 | pub struct App {
+    |            --- fields in this struct
+...
+299 |     pub search: Option<String>,
+    |         ^^^^^^
+300 |     pub command_line: Option<String>,
+    |         ^^^^^^^^^^^^
+301 |     pub show_bookmarks: bool,
+    |         ^^^^^^^^^^^^^^
+302 |     pub bookmarks: Vec<Option<PathBuf>>,
+    |         ^^^^^^^^^
+    |
+    = note: `App` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: `funny-file-manager` (bin "ffm") generated 8 warnings (run `cargo fix --bin "ffm" -p funny-file-manager` to apply 3 suggestions)
+warning: `funny-file-manager` (bin "ffm" test) generated 3 warnings (3 duplicates)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.14s
+  Executable `C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\ffm-3d13faf49e40bc82.exe`
+  Executable `C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\integration_test-dd27c23f4b1dcf49.exe`
+
+*** result: Success
+
+*** C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe test --verbose --package=funny-file-manager@0.1.0
+    Blocking waiting for file lock on package cache
+       Fresh cfg-if v1.0.4
+       Fresh unicode-ident v1.0.22
+       Fresh proc-macro2 v1.0.103
+       Fresh windows-link v0.2.1
+       Fresh quote v1.0.42
+       Fresh either v1.15.0
+       Fresh smallvec v1.15.1
+       Fresh scopeguard v1.2.0
+       Fresh foldhash v0.1.5
+       Fresh heck v0.5.0
+       Fresh allocator-api2 v0.2.21
+       Fresh equivalent v1.0.2
+       Fresh static_assertions v1.1.0
+       Fresh itoa v1.0.15
+       Fresh unicode-segmentation v1.12.0
+       Fresh bitflags v2.10.0
+       Fresh ryu v1.0.20
+       Fresh unicode-width v0.1.14
+       Fresh cassowary v0.3.0
+       Fresh once_cell v1.21.3
+       Fresh fastrand v2.3.0
+       Fresh rustversion v1.0.22
+       Fresh syn v2.0.111
+       Fresh lock_api v0.4.14
+       Fresh hashbrown v0.15.5
+       Fresh itertools v0.13.0
+       Fresh itertools v0.12.1
+       Fresh windows-sys v0.61.2
+       Fresh parking_lot_core v0.9.12
+       Fresh winapi v0.3.9
+       Fresh strum_macros v0.26.4
+       Fresh castaway v0.2.4
+       Fresh lru v0.12.5
+       Fresh paste v1.0.15
+       Fresh unicode-truncate v1.1.0
+       Fresh stability v0.2.1
+       Fresh getrandom v0.3.4
+       Fresh parking_lot v0.12.5
+       Fresh crossterm_winapi v0.9.1
+       Fresh compact_str v0.7.1
+       Fresh strum v0.26.3
+       Fresh tempfile v3.23.0
+       Fresh crossterm v0.27.0
+       Fresh ratatui v0.26.3
+warning: unused imports: `KeyCode` and `KeyModifiers`
+ --> src\handlers.rs:1:24
+  |
+1 | use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+  |                        ^^^^^^^            ^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `app`
+  --> src\handlers.rs:25:28
+   |
+25 | pub fn handle_overlay_keys(app: &mut App, key: KeyEvent) -> bool {
+   |                            ^^^ help: if this is intentional, prefix it with an underscore: `_app`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `key`
+  --> src\handlers.rs:25:43
+   |
+25 | pub fn handle_overlay_keys(app: &mut App, key: KeyEvent) -> bool {
+   |                                           ^^^ help: if this is intentional, prefix it with an underscore: `_key`
+
+warning: function `jump_to_match` is never used
+  --> src\handlers.rs:29:4
+   |
+29 | fn jump_to_match(panel: &mut crate::models::Panel, query: &str) -> bool {
+   |    ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `execute_command` is never used
+  --> src\handlers.rs:44:4
+   |
+44 | fn execute_command(app: &mut App, command: &str) -> io::Result<()> {
+   |    ^^^^^^^^^^^^^^^
+
+warning: method `label` is never used
+  --> src\models.rs:34:12
+   |
+24 | impl SortMode {
+   | ------------- method in this implementation
+...
+34 |     pub fn label(self) -> &'static str {
+   |            ^^^^^
+
+warning: method `clear_marks` is never used
+   --> src\models.rs:258:12
+    |
+ 59 | impl Panel {
+    | ---------- method in this implementation
+...
+258 |     pub fn clear_marks(&mut self) {
+    |            ^^^^^^^^^^^
+
+warning: fields `search`, `command_line`, `show_bookmarks`, and `bookmarks` are never read
+   --> src\models.rs:299:9
+    |
+293 | pub struct App {
+    |            --- fields in this struct
+...
+299 |     pub search: Option<String>,
+    |         ^^^^^^
+300 |     pub command_line: Option<String>,
+    |         ^^^^^^^^^^^^
+301 |     pub show_bookmarks: bool,
+    |         ^^^^^^^^^^^^^^
+302 |     pub bookmarks: Vec<Option<PathBuf>>,
+    |         ^^^^^^^^^
+    |
+    = note: `App` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+       Fresh funny-file-manager v0.1.0 (C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp)
+warning: `funny-file-manager` (bin "ffm") generated 8 warnings (run `cargo fix --bin "ffm" -p funny-file-manager` to apply 3 suggestions)
+warning: `funny-file-manager` (bin "ffm" test) generated 3 warnings (3 duplicates)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.13s
+     Running `C:\Users\DENIS~1.STE\AppData\Local\Temp\cargo-mutants-FunnyFileManager-ECTlD5.tmp\target\debug\deps\ffm-3d13faf49e40bc82.exe`

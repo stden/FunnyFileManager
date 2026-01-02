@@ -1,0 +1,23 @@
+--- src/main.rs
++++ delete match arm KeyCode::Tab in run_app_with_event_reader
+@@ -191,19 +191,17 @@
+                 }
+                 KeyCode::Down => {
+                     app.get_active_panel().next();
+                 }
+                 KeyCode::Up => {
+                     app.get_active_panel().previous();
+                 }
+                 KeyCode::Enter => app.get_active_panel().enter()?,
+-                KeyCode::Tab => {
+-                    app.switch_panel();
+-                }
++                 /* ~ changed by cargo-mutants ~ */
+                 KeyCode::Left => {
+                     app.active_panel = PanelSide::Left;
+                 }
+                 KeyCode::Right => {
+                     app.active_panel = PanelSide::Right;
+                 }
+                 KeyCode::F(1) => {
+                     app.show_help = !app.show_help;
