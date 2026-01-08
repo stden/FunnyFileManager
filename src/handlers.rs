@@ -673,6 +673,29 @@ mod tests {
     }
 
     #[test]
+    fn test_handle_view_invalid_utf8() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("bad.txt");
+        fs::write(&file_path, b"\xFF")?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "bad.txt" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        let err = handle_view(&mut app).expect_err("expected invalid utf8");
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_handle_view_directory() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         fs::create_dir(temp_dir.path().join("subdir"))?;
@@ -831,6 +854,252 @@ mod tests {
         assert!(right_dir.join("source_dir").exists());
         assert!(right_dir.join("source_dir").join("file.txt").exists());
         assert!(app.status_message.contains("Copied to"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_copy_directory_with_conflict() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+
+        let source_dir = left_dir.join("source_dir");
+        fs::create_dir(&source_dir)?;
+        fs::write(source_dir.join("file.txt"), b"content")?;
+
+        fs::create_dir(right_dir.join("source_dir"))?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(left_dir.clone())?;
+        app.right_panel = Panel::new(right_dir.clone())?;
+
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "source_dir" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        handle_copy(&mut app)?;
+
+        assert!(right_dir.join("source_dir").exists());
+        let copied = right_dir.join("source_dir_1");
+        assert!(copied.exists());
+        assert_eq!(fs::read_to_string(copied.join("file.txt"))?, "content");
+        assert!(app.status_message.contains("Copied to"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_copy_file() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+
+        let file_name = "alpha.txt";
+        let source_file = left_dir.join(file_name);
+        fs::write(&source_file, b"alpha")?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(left_dir.clone())?;
+        app.right_panel = Panel::new(right_dir.clone())?;
+
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == file_name {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        handle_copy(&mut app)?;
+
+        let copied = right_dir.join(file_name);
+        assert!(source_file.exists());
+        assert!(copied.exists());
+        assert_eq!(fs::read_to_string(copied)?, "alpha");
+        assert!(app.status_message.contains("Copied to"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_copy_file_with_conflict() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+
+        let file_name = "data.txt";
+        let source_file = left_dir.join(file_name);
+        fs::write(&source_file, b"source")?;
+        fs::write(right_dir.join(file_name), b"existing")?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(left_dir.clone())?;
+        app.right_panel = Panel::new(right_dir.clone())?;
+
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == file_name {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        handle_copy(&mut app)?;
+
+        let copied = right_dir.join("data_1.txt");
+        assert!(source_file.exists());
+        assert!(copied.exists());
+        assert_eq!(fs::read_to_string(copied)?, "source");
+        assert!(app.status_message.contains("Copied to"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_move_rename_success() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+
+        let file_name = "move_ok.txt";
+        let source_file = left_dir.join(file_name);
+        fs::write(&source_file, b"content")?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(left_dir.clone())?;
+        app.right_panel = Panel::new(right_dir.clone())?;
+
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == file_name {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        handle_move(&mut app)?;
+
+        assert!(!source_file.exists());
+        let moved_file = right_dir.join(file_name);
+        assert!(moved_file.exists());
+        assert_eq!(fs::read_to_string(moved_file)?, "content");
+        assert!(app.status_message.contains("Moved to"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_move_directory_rename_success() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+
+        let source_dir = left_dir.join("dir_move");
+        fs::create_dir(&source_dir)?;
+        fs::write(source_dir.join("file.txt"), b"dircontent")?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(left_dir.clone())?;
+        app.right_panel = Panel::new(right_dir.clone())?;
+
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "dir_move" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        handle_move(&mut app)?;
+
+        assert!(!source_dir.exists());
+        let moved_dir = right_dir.join("dir_move");
+        assert!(moved_dir.exists());
+        assert_eq!(fs::read_to_string(moved_dir.join("file.txt"))?, "dircontent");
+        assert!(app.status_message.contains("Moved to"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_move_directory_with_conflict_renames() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+
+        let source_dir = left_dir.join("dir_move");
+        fs::create_dir(&source_dir)?;
+        fs::write(source_dir.join("file.txt"), b"dircontent")?;
+
+        fs::create_dir(right_dir.join("dir_move"))?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(left_dir.clone())?;
+        app.right_panel = Panel::new(right_dir.clone())?;
+
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "dir_move" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        handle_move(&mut app)?;
+
+        assert!(!source_dir.exists());
+        assert!(right_dir.join("dir_move").exists());
+        let moved_dir = right_dir.join("dir_move_1");
+        assert!(moved_dir.exists());
+        assert_eq!(fs::read_to_string(moved_dir.join("file.txt"))?, "dircontent");
+        assert!(app.status_message.contains("Moved to"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_move_file_with_conflict_renames() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+
+        let file_name = "conflict.txt";
+        let source_file = left_dir.join(file_name);
+        fs::write(&source_file, b"source")?;
+        fs::write(right_dir.join(file_name), b"existing")?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(left_dir.clone())?;
+        app.right_panel = Panel::new(right_dir.clone())?;
+
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == file_name {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        handle_move(&mut app)?;
+
+        assert!(!source_file.exists());
+        assert_eq!(fs::read_to_string(right_dir.join(file_name))?, "existing");
+        let moved_file = right_dir.join("conflict_1.txt");
+        assert!(moved_file.exists());
+        assert_eq!(fs::read_to_string(moved_file)?, "source");
+        assert!(app.status_message.contains("Moved to"));
 
         Ok(())
     }
@@ -1324,6 +1593,53 @@ mod tests {
     }
 
     #[test]
+    fn test_handle_overlay_keys_search_enter_empty_query() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.search = Some("   ".to_string());
+        app.status_message = "status".to_string();
+
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+        assert!(app.search.is_none());
+        assert_eq!(app.status_message, "status");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_overlay_keys_search_backspace_empty_query() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.search = Some(String::new());
+
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Backspace)));
+        assert_eq!(app.search.as_deref(), Some(""));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_overlay_keys_search_ignores_alt_char() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.search = Some("a".to_string());
+
+        assert!(handle_overlay_keys(
+            &mut app,
+            key_event_with_mods(KeyCode::Char('b'), KeyModifiers::ALT)
+        ));
+        assert_eq!(app.search.as_deref(), Some("a"));
+
+        Ok(())
+    }
+
+    #[test]
     fn test_handle_overlay_keys_bookmarks() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         let bookmark_dir = temp_dir.path().join("bookmark");
@@ -1411,6 +1727,53 @@ mod tests {
         app.command_line = Some("pwd".to_string());
         assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Esc)));
         assert!(app.command_line.is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_overlay_keys_command_line_enter_empty() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.command_line = Some("   ".to_string());
+        app.status_message = "status".to_string();
+
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+        assert!(app.command_line.is_none());
+        assert_eq!(app.status_message, "status");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_overlay_keys_command_line_backspace_empty() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.command_line = Some(String::new());
+
+        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Backspace)));
+        assert_eq!(app.command_line.as_deref(), Some(""));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_overlay_keys_command_line_ignores_control_char() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.command_line = Some("a".to_string());
+
+        assert!(handle_overlay_keys(
+            &mut app,
+            key_event_with_mods(KeyCode::Char('b'), KeyModifiers::CONTROL)
+        ));
+        assert_eq!(app.command_line.as_deref(), Some("a"));
 
         Ok(())
     }

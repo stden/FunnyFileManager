@@ -174,6 +174,18 @@ mod tests {
     }
 
     #[test]
+    fn test_unique_destination_dotfile() {
+        let temp_dir = TempDir::new().unwrap();
+        let base = temp_dir.path();
+
+        File::create(base.join(".env")).unwrap();
+
+        let file_name = std::ffi::OsStr::new(".env");
+        let dest = unique_destination(base, file_name);
+        assert_eq!(dest, base.join(".env_1"));
+    }
+
+    #[test]
     fn test_copy_dir_all_simple() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         let src = temp_dir.path().join("src");
@@ -324,6 +336,36 @@ mod tests {
         refresh_panels(&mut app)?;
 
         // Check selections are maintained
+        assert!(app.left_panel.state.selected().is_some());
+        assert!(app.right_panel.state.selected().is_some());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_refresh_panels_sets_selection_when_none() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        File::create(temp_dir.path().join("only.txt"))?;
+
+        let mut app = App {
+            left_panel: Panel::new(temp_dir.path().to_path_buf())?,
+            right_panel: Panel::new(temp_dir.path().to_path_buf())?,
+            active_panel: PanelSide::Left,
+            status_message: String::new(),
+            show_help: false,
+            viewer: None,
+            search: None,
+            command_line: None,
+            show_bookmarks: false,
+            bookmarks: vec![None; 10],
+            should_quit: false,
+        };
+
+        app.left_panel.state.select(None);
+        app.right_panel.state.select(None);
+
+        refresh_panels(&mut app)?;
+
         assert!(app.left_panel.state.selected().is_some());
         assert!(app.right_panel.state.selected().is_some());
 

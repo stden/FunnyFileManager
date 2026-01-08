@@ -471,6 +471,132 @@ mod tests {
     }
 
     #[test]
+    fn test_select_after_reload_preserves_selected_name() {
+        let mut panel = Panel {
+            path: PathBuf::new(),
+            entries: vec![
+                DirEntry {
+                    name: "alpha.txt".to_string(),
+                    is_dir: false,
+                    size: 10,
+                },
+                DirEntry {
+                    name: "beta.txt".to_string(),
+                    is_dir: false,
+                    size: 20,
+                },
+            ],
+            state: ListState::default(),
+            marked: BTreeSet::new(),
+            sort_mode: SortMode::default(),
+        };
+
+        panel.state.select(Some(0));
+        panel.select_after_reload(Some("beta.txt".to_string()));
+
+        assert_eq!(panel.state.selected(), Some(1));
+    }
+
+    #[test]
+    fn test_select_after_reload_selects_first_when_missing() {
+        let mut panel = Panel {
+            path: PathBuf::new(),
+            entries: vec![
+                DirEntry {
+                    name: "alpha.txt".to_string(),
+                    is_dir: false,
+                    size: 10,
+                },
+                DirEntry {
+                    name: "beta.txt".to_string(),
+                    is_dir: false,
+                    size: 20,
+                },
+            ],
+            state: ListState::default(),
+            marked: BTreeSet::new(),
+            sort_mode: SortMode::default(),
+        };
+
+        panel.state.select(Some(1));
+        panel.select_after_reload(Some("missing.txt".to_string()));
+
+        assert_eq!(panel.state.selected(), Some(0));
+    }
+
+    #[test]
+    fn test_select_after_reload_keeps_selection_when_none() {
+        let mut panel = Panel {
+            path: PathBuf::new(),
+            entries: vec![
+                DirEntry {
+                    name: "alpha.txt".to_string(),
+                    is_dir: false,
+                    size: 10,
+                },
+                DirEntry {
+                    name: "beta.txt".to_string(),
+                    is_dir: false,
+                    size: 20,
+                },
+            ],
+            state: ListState::default(),
+            marked: BTreeSet::new(),
+            sort_mode: SortMode::default(),
+        };
+
+        panel.state.select(Some(1));
+        panel.select_after_reload(None);
+
+        assert_eq!(panel.state.selected(), Some(1));
+    }
+
+    #[test]
+    fn test_panel_load_entries_preserves_selection() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        File::create(temp_dir.path().join("a.txt"))?.write_all(b"a")?;
+        File::create(temp_dir.path().join("b.txt"))?.write_all(b"b")?;
+
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        let selected_index = panel
+            .entries
+            .iter()
+            .position(|entry| entry.name == "b.txt")
+            .expect("b.txt entry");
+        panel.state.select(Some(selected_index));
+
+        File::create(temp_dir.path().join("aa.txt"))?.write_all(b"aa")?;
+        panel.load_entries()?;
+
+        let selected = panel.get_selected_entry().expect("selected entry");
+        assert_eq!(selected.name, "b.txt");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_load_entries_selects_first_when_selected_missing() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        File::create(temp_dir.path().join("a.txt"))?.write_all(b"a")?;
+        File::create(temp_dir.path().join("b.txt"))?.write_all(b"b")?;
+
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        let selected_index = panel
+            .entries
+            .iter()
+            .position(|entry| entry.name == "b.txt")
+            .expect("b.txt entry");
+        panel.state.select(Some(selected_index));
+
+        fs::remove_file(temp_dir.path().join("b.txt"))?;
+        panel.load_entries()?;
+
+        assert_eq!(panel.state.selected(), Some(0));
+
+        Ok(())
+    }
+
+    #[test]
     fn test_panel_load_entries_with_files() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
 
@@ -612,6 +738,37 @@ mod tests {
         panel.state.select(Some(0)); // Select ..
         panel.enter()?;
         assert_eq!(panel.path, temp_dir.path());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_enter_clears_marks() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let subdir = temp_dir.path().join("subdir");
+        fs::create_dir(&subdir)?;
+        File::create(temp_dir.path().join("file.txt"))?;
+
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        let file_index = panel
+            .entries
+            .iter()
+            .position(|entry| entry.name == "file.txt")
+            .expect("file.txt entry");
+        panel.state.select(Some(file_index));
+        assert!(panel.toggle_mark_selected());
+        assert!(panel.marked.contains("file.txt"));
+
+        let dir_index = panel
+            .entries
+            .iter()
+            .position(|entry| entry.name == "subdir")
+            .expect("subdir entry");
+        panel.state.select(Some(dir_index));
+        panel.enter()?;
+
+        assert!(panel.marked.is_empty());
 
         Ok(())
     }
