@@ -1,4 +1,3 @@
-#[cfg(all(not(test), not(tarpaulin)))]
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
@@ -7,13 +6,11 @@ use crossterm::{
 use ratatui::backend::Backend;
 use ratatui::Terminal;
 use std::io::{self, Write};
-
-#[cfg(all(not(test), not(tarpaulin)))]
 use std::process::Command;
 
 use crate::models::App;
 
-#[cfg(any(test, tarpaulin))]
+#[cfg(feature = "test-helpers")]
 pub fn handle_edit<B: Backend + Write>(
     terminal: &mut Terminal<B>,
     app: &mut App,
@@ -22,7 +19,7 @@ pub fn handle_edit<B: Backend + Write>(
     handle_edit_test_mode(app, TestEditorBehavior::Success)
 }
 
-#[cfg(all(not(test), not(tarpaulin)))]
+#[cfg(not(feature = "test-helpers"))]
 pub fn handle_edit<B: Backend + Write>(
     terminal: &mut Terminal<B>,
     app: &mut App,
@@ -41,17 +38,19 @@ where
     B: Backend + Write,
     F: FnOnce(&str, &std::path::Path) -> io::Result<std::process::ExitStatus>,
 {
-    let Some(selected) = app.get_active_panel().selected_path() else {
+    let Some(selected_entry) = app.get_active_panel().get_selected_entry() else {
         return Ok(());
     };
 
-    if selected.is_dir() {
+    if selected_entry.is_dir {
         app.status_message = "Editing directories is not supported".to_string();
         return Ok(());
     }
 
+    let selected = app.get_active_panel().selected_path().unwrap();
+
     // Skip terminal manipulation in test mode.
-    #[cfg(all(not(test), not(tarpaulin)))]
+    #[cfg(not(feature = "test-helpers"))]
     {
         disable_raw_mode()?;
         execute!(
@@ -64,7 +63,7 @@ where
     let editor = std::env::var("EDITOR").unwrap_or_else(|_| "nano".to_string());
     let status = run_editor(&editor, &selected);
 
-    #[cfg(all(not(test), not(tarpaulin)))]
+    #[cfg(not(feature = "test-helpers"))]
     {
         enable_raw_mode()?;
         execute!(
@@ -95,24 +94,26 @@ where
     Ok(())
 }
 
-#[cfg(any(test, tarpaulin))]
+#[cfg(feature = "test-helpers")]
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum TestEditorBehavior {
+pub enum TestEditorBehavior {
     Success,
     FailLaunch,
     ExitError,
 }
 
-#[cfg(any(test, tarpaulin))]
-pub(crate) fn handle_edit_test_mode(app: &mut App, behavior: TestEditorBehavior) -> io::Result<()> {
-    let Some(selected) = app.get_active_panel().selected_path() else {
+#[cfg(feature = "test-helpers")]
+pub fn handle_edit_test_mode(app: &mut App, behavior: TestEditorBehavior) -> io::Result<()> {
+    let Some(selected_entry) = app.get_active_panel().get_selected_entry() else {
         return Ok(());
     };
 
-    if selected.is_dir() {
+    if selected_entry.is_dir {
         app.status_message = "Editing directories is not supported".to_string();
         return Ok(());
     }
+
+    let selected = app.get_active_panel().selected_path().unwrap();
 
     match behavior {
         TestEditorBehavior::FailLaunch => {
