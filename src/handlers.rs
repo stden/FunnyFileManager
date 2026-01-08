@@ -173,7 +173,12 @@ pub fn handle_overlay_keys(app: &mut App, key: KeyEvent) -> bool {
 
 fn jump_to_match(panel: &mut crate::models::Panel, query: &str) -> bool {
     let query = query.to_lowercase();
-    for (index, entry) in panel.entries.iter().enumerate() {
+    let start_index = panel.state.selected().unwrap_or(0);
+
+    for i in 1..=panel.entries.len() {
+        let index = (start_index + i) % panel.entries.len();
+        let entry = &panel.entries[index];
+
         if entry.name == ".." {
             continue;
         }
@@ -206,7 +211,8 @@ fn execute_command(app: &mut App, command: &str) -> io::Result<()> {
                 requested
             } else {
                 app.get_active_panel().path.join(requested)
-            };
+            }
+            .canonicalize()?;
 
             if !new_path.is_dir() {
                 return Err(io::Error::new(
@@ -458,25 +464,26 @@ pub fn handle_delete(app: &mut App) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "test-helpers")]
     use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
+    #[cfg(feature = "test-helpers")]
+    use crate::WritableTestBackend;
     use crate::models::{App, Panel, SortMode, Viewer};
     use std::fs::File;
     use std::io::Write;
     use tempfile::TempDir;
 
+    #[cfg(feature = "test-helpers")]
     fn fake_exit_status(code: i32) -> std::process::ExitStatus {
-        #[cfg(unix)]
-        {
-            use std::os::unix::process::ExitStatusExt;
-            std::process::ExitStatus::from_raw(code << 8)
-        }
-
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::ExitStatusExt;
-            std::process::ExitStatus::from_raw(code as u32)
+        use std::process::Command;
+        if code == 0 {
+            Command::new("true").status().unwrap()
+        } else {
+            Command::new("false").status().unwrap()
         }
     }
+
+    
 
     struct ForceRenameFailureGuard;
 
@@ -711,8 +718,8 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_edit_success() -> io::Result<()> {
-        let temp_dir = TempDir::new()?;
+    #[cfg(feature = "test-helpers")]
+    fn test_handle_edit_success() -> io::Result<()> {        let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
 
@@ -734,8 +741,8 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_edit_fail_launch() -> io::Result<()> {
-        let temp_dir = TempDir::new()?;
+    #[cfg(feature = "test-helpers")]
+    fn test_handle_edit_fail_launch() -> io::Result<()> {        let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
 
@@ -757,8 +764,8 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_edit_exit_error() -> io::Result<()> {
-        let temp_dir = TempDir::new()?;
+    #[cfg(feature = "test-helpers")]
+    fn test_handle_edit_exit_error() -> io::Result<()> {        let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
 
@@ -780,8 +787,8 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_edit_directory() -> io::Result<()> {
-        let temp_dir = TempDir::new()?;
+    #[cfg(feature = "test-helpers")]
+    fn test_handle_edit_directory() -> io::Result<()> {        let temp_dir = TempDir::new()?;
         fs::create_dir(temp_dir.path().join("subdir"))?;
 
         let mut app = App::new()?;
@@ -1041,8 +1048,8 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_edit_no_selection() -> io::Result<()> {
-        let mut app = App::new()?;
+    #[cfg(feature = "test-helpers")]
+    fn test_handle_edit_no_selection() -> io::Result<()> {        let mut app = App::new()?;
         app.left_panel.state.select(None);
 
         // Should not crash
@@ -1050,83 +1057,11 @@ mod tests {
         Ok(())
     }
 
-    // Create a wrapper for TestBackend that implements Write
-    struct WritableTestBackend {
-        inner: ratatui::backend::TestBackend,
-    }
-
-    impl WritableTestBackend {
-        fn new(width: u16, height: u16) -> Self {
-            Self {
-                inner: ratatui::backend::TestBackend::new(width, height),
-            }
-        }
-    }
-
-    impl Write for WritableTestBackend {
-        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-            Ok(buf.len())
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            Ok(())
-        }
-    }
-
-    impl ratatui::backend::Backend for WritableTestBackend {
-        fn draw<'a, I>(&mut self, content: I) -> io::Result<()>
-        where
-            I: Iterator<Item = (u16, u16, &'a ratatui::buffer::Cell)>,
-        {
-            self.inner.draw(content)
-        }
-
-        fn hide_cursor(&mut self) -> io::Result<()> {
-            self.inner.hide_cursor()
-        }
-
-        fn show_cursor(&mut self) -> io::Result<()> {
-            self.inner.show_cursor()
-        }
-
-        fn get_cursor(&mut self) -> io::Result<(u16, u16)> {
-            self.inner.get_cursor()
-        }
-
-        fn set_cursor(&mut self, x: u16, y: u16) -> io::Result<()> {
-            self.inner.set_cursor(x, y)
-        }
-
-        fn clear(&mut self) -> io::Result<()> {
-            self.inner.clear()
-        }
-
-        fn size(&self) -> io::Result<ratatui::layout::Rect> {
-            self.inner.size()
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            self.inner.flush()
-        }
-
-        fn window_size(&mut self) -> io::Result<ratatui::backend::WindowSize> {
-            let size = self.size()?;
-            Ok(ratatui::backend::WindowSize {
-                columns_rows: ratatui::layout::Size {
-                    width: size.width,
-                    height: size.height,
-                },
-                pixels: ratatui::layout::Size {
-                    width: size.width * 8,
-                    height: size.height * 16,
-                },
-            })
-        }
-    }
+    
 
     #[test]
-    fn test_handle_edit_impl_success() -> io::Result<()> {
-        use ratatui::Terminal;
+    #[cfg(feature = "test-helpers")]
+    fn test_handle_edit_impl_success() -> io::Result<()> {        use ratatui::Terminal;
 
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
@@ -1161,8 +1096,8 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_edit_impl_editor_error_exit() -> io::Result<()> {
-        use ratatui::Terminal;
+    #[cfg(feature = "test-helpers")]
+    fn test_handle_edit_impl_editor_error_exit() -> io::Result<()> {        use ratatui::Terminal;
 
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
@@ -1194,8 +1129,8 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_edit_impl_launch_failure() -> io::Result<()> {
-        use ratatui::Terminal;
+    #[cfg(feature = "test-helpers")]
+    fn test_handle_edit_impl_launch_failure() -> io::Result<()> {        use ratatui::Terminal;
 
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
@@ -1227,8 +1162,8 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_edit_impl_no_selection() -> io::Result<()> {
-        use ratatui::Terminal;
+    #[cfg(feature = "test-helpers")]
+    fn test_handle_edit_impl_no_selection() -> io::Result<()> {        use ratatui::Terminal;
 
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
@@ -1247,8 +1182,8 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_edit_impl_directory() -> io::Result<()> {
-        use ratatui::Terminal;
+    #[cfg(feature = "test-helpers")]
+    fn test_handle_edit_impl_directory() -> io::Result<()> {        use ratatui::Terminal;
 
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
