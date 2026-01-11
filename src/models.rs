@@ -1117,4 +1117,239 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_panel_navigation_wraparound() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        for i in 0..3 {
+            File::create(temp_dir.path().join(format!("file{}.txt", i)))?;
+        }
+        
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        panel.load_entries()?;
+        
+        panel.selected = Some(0);
+        panel.previous();
+        assert_eq!(panel.selected, Some(3));
+        
+        panel.selected = Some(3);
+        panel.next();
+        assert_eq!(panel.selected, Some(1));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_with_max_entries() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        
+        for i in 0..1000 {
+            File::create(temp_dir.path().join(format!("file{:04}.txt", i)))?;
+        }
+        
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        panel.load_entries()?;
+        
+        assert_eq!(panel.entries.len(), 1001);
+        
+        panel.selected = Some(0);
+        for _ in 0..500 {
+            panel.next();
+        }
+        assert_eq!(panel.selected, Some(500));
+        
+        panel.selected = Some(1000);
+        assert_eq!(panel.selected_path(), Some(panel.entries[1000].path.clone()));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_empty_directory_operations() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let empty_dir = temp_dir.path().join("empty");
+        fs::create_dir(&empty_dir)?;
+        
+        let mut panel = Panel::new(empty_dir)?;
+        panel.load_entries()?;
+        
+        assert_eq!(panel.entries.len(), 1);
+        assert_eq!(panel.entries[0].name, "..");
+        
+        panel.next();
+        assert_eq!(panel.selected, Some(0));
+        
+        panel.previous();
+        assert_eq!(panel.selected, Some(0));
+        
+        panel.toggle_mark_selected();
+        assert!(panel.marked.is_empty());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_unicode_filenames() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        
+        let unicode_names = vec![
+            "файл.txt",
+            "文件.doc",
+            "αρχείο.pdf",
+            "🎵music🎵.mp3",
+            "file with spaces.txt",
+        ];
+        
+        for name in &unicode_names {
+            File::create(temp_dir.path().join(name))?;
+        }
+        
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        panel.load_entries()?;
+        
+        assert_eq!(panel.entries.len(), unicode_names.len() + 1);
+        
+        for name in &unicode_names {
+            let found = panel.entries.iter().any(|e| e.name == *name);
+            assert!(found, "Unicode filename {} not found", name);
+        }
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_very_long_filenames() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        
+        let long_name = "a".repeat(255);
+        let file_path = temp_dir.path().join(&long_name);
+        
+        #[cfg(not(windows))]
+        {
+            File::create(&file_path)?;
+            let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+            panel.load_entries()?;
+            
+            let found = panel.entries.iter().any(|e| e.name == long_name);
+            assert!(found);
+        }
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_sort_mode_edge_cases() {
+        let mut mode = SortMode::Name;
+        
+        mode = mode.next();
+        assert_eq!(mode, SortMode::Extension);
+        assert_eq!(mode.label(), "Extension");
+        
+        mode = mode.next();
+        assert_eq!(mode, SortMode::Size);
+        assert_eq!(mode.label(), "Size");
+        
+        mode = mode.next();
+        assert_eq!(mode, SortMode::Name);
+        assert_eq!(mode.label(), "Name");
+    }
+
+    #[test]
+    fn test_app_bookmarks_boundary() {
+        let mut app = App::new();
+        
+        assert_eq!(app.bookmarks.len(), 10);
+        
+        for (i, bookmark) in app.bookmarks.iter().enumerate() {
+            assert!(bookmark.is_none(), "Bookmark {} should be None", i);
+        }
+        
+        app.bookmarks[0] = Some(PathBuf::from("/test1"));
+        app.bookmarks[9] = Some(PathBuf::from("/test2"));
+        
+        assert_eq!(app.bookmarks[0], Some(PathBuf::from("/test1")));
+        assert_eq!(app.bookmarks[9], Some(PathBuf::from("/test2")));
+    }
+
+    #[test]
+    fn test_panel_marking_operations_edge_cases() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        for i in 0..5 {
+            File::create(temp_dir.path().join(format!("file{}.txt", i)))?;
+        }
+        
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        panel.load_entries()?;
+        
+        panel.selected = Some(1);
+        panel.toggle_mark_selected();
+        panel.toggle_mark_selected();
+        assert!(panel.marked.is_empty());
+        
+        for i in 1..=5 {
+            panel.selected = Some(i);
+            panel.toggle_mark_selected();
+        }
+        assert_eq!(panel.marked.len(), 5);
+        
+        panel.clear_marks();
+        assert!(panel.marked.is_empty());
+        
+        panel.selected = Some(0);
+        panel.toggle_mark_selected();
+        assert!(panel.marked.is_empty());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_viewer_with_extreme_content() {
+        let viewer = Viewer {
+            lines: vec!["x".repeat(1000); 10000],
+            scroll: 0,
+            title: "Large".to_string(),
+        };
+        
+        assert_eq!(viewer.lines.len(), 10000);
+        assert_eq!(viewer.lines[0].len(), 1000);
+        
+        let empty_viewer = Viewer {
+            lines: vec![],
+            scroll: 0,
+            title: "Empty".to_string(),
+        };
+        
+        assert_eq!(empty_viewer.lines.len(), 0);
+    }
+
+    #[test]
+    fn test_panel_action_entry_names_with_special_cases() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        File::create(temp_dir.path().join("regular.txt"))?;
+        File::create(temp_dir.path().join(".hidden"))?;
+        fs::create_dir(temp_dir.path().join("directory"))?;
+        
+        panel.load_entries()?;
+        
+        let names = panel.action_entry_names();
+        assert!(names.is_empty());
+        
+        panel.selected = Some(1);
+        let names = panel.action_entry_names();
+        assert_eq!(names.len(), 1);
+        
+        panel.marked.insert("regular.txt".to_string());
+        panel.marked.insert(".hidden".to_string());
+        panel.marked.insert("directory".to_string());
+        
+        let names = panel.action_entry_names();
+        assert_eq!(names.len(), 3);
+        assert!(names.contains(&"regular.txt".to_string()));
+        assert!(names.contains(&".hidden".to_string()));
+        assert!(names.contains(&"directory".to_string()));
+        
+        Ok(())
+    }
 }

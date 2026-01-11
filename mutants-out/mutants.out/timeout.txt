@@ -1,1 +1,0 @@
-src/main.rs:188:17: delete match arm KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::F(10) in run_app_with_event_reader

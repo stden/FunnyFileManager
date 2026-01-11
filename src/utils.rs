@@ -371,4 +371,217 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_format_size_edge_cases() {
+        assert_eq!(format_size(0), "0 B");
+        assert_eq!(format_size(1), "1 B");
+        assert_eq!(format_size(1023), "1023 B");
+        assert_eq!(format_size(1024), "1.0 KiB");
+        assert_eq!(format_size(1536), "1.5 KiB");
+        assert_eq!(format_size(1048575), "1024.0 KiB");
+        assert_eq!(format_size(1048576), "1.0 MiB");
+        assert_eq!(format_size(1073741823), "1024.0 MiB");
+        assert_eq!(format_size(1073741824), "1.0 GiB");
+        assert_eq!(format_size(u64::MAX), "16.0 EiB");
+    }
+
+    #[test]
+    fn test_unique_destination_special_cases() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        
+        let without_ext = temp_dir.path().join("noext");
+        File::create(&without_ext)?;
+        let unique = unique_destination(&without_ext);
+        assert!(unique.to_string_lossy().contains("noext (1)"));
+        
+        let multiple_dots = temp_dir.path().join("file.tar.gz");
+        File::create(&multiple_dots)?;
+        let unique = unique_destination(&multiple_dots);
+        assert!(unique.to_string_lossy().contains("file.tar (1).gz"));
+        
+        let hidden = temp_dir.path().join(".hidden");
+        File::create(&hidden)?;
+        let unique = unique_destination(&hidden);
+        assert!(unique.to_string_lossy().contains(".hidden (1)"));
+        
+        let trailing_dot = temp_dir.path().join("file.");
+        File::create(&trailing_dot)?;
+        let unique = unique_destination(&trailing_dot);
+        assert!(unique.to_string_lossy().contains("file. (1)"));
+        
+        let base_name = temp_dir.path().join("test");
+        for i in 0..15 {
+            if i == 0 {
+                File::create(&base_name)?;
+            } else {
+                File::create(temp_dir.path().join(format!("test ({})", i)))?;
+            }
+        }
+        let unique = unique_destination(&base_name);
+        assert!(unique.to_string_lossy().contains("test (15)"));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_copy_dir_all_with_symlinks() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let src = temp_dir.path().join("src");
+        let dst = temp_dir.path().join("dst");
+        
+        fs::create_dir(&src)?;
+        let file_path = src.join("file.txt");
+        File::create(&file_path)?.write_all(b"content")?;
+        
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let link_path = src.join("link.txt");
+            symlink(&file_path, &link_path)?;
+            
+            copy_dir_all(&src, &dst)?;
+            
+            assert!(dst.join("file.txt").exists());
+            assert!(dst.join("link.txt").exists());
+        }
+        
+        #[cfg(not(unix))]
+        {
+            copy_dir_all(&src, &dst)?;
+            assert!(dst.join("file.txt").exists());
+        }
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_copy_dir_all_permission_errors() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let src = temp_dir.path().join("src");
+        let dst = temp_dir.path().join("dst");
+        
+        fs::create_dir(&src)?;
+        File::create(src.join("file.txt"))?.write_all(b"content")?;
+        
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::create_dir(&dst)?;
+            let mut perms = fs::metadata(&dst)?.permissions();
+            perms.set_mode(0o000);
+            fs::set_permissions(&dst, perms)?;
+            
+            let result = copy_dir_all(&src, &dst);
+            
+            let mut perms = fs::metadata(&dst)?.permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&dst, perms)?;
+            
+            assert!(result.is_err());
+        }
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_copy_dir_all_deeply_nested() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let src = temp_dir.path().join("src");
+        let dst = temp_dir.path().join("dst");
+        
+        let mut current = src.clone();
+        for i in 0..10 {
+            current = current.join(format!("level{}", i));
+            fs::create_dir_all(&current)?;
+            File::create(current.join("file.txt"))?.write_all(b"content")?;
+        }
+        
+        copy_dir_all(&src, &dst)?;
+        
+        let mut check = dst.clone();
+        for i in 0..10 {
+            check = check.join(format!("level{}", i));
+            assert!(check.exists());
+            assert!(check.join("file.txt").exists());
+        }
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_copy_dir_all_with_special_filenames() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let src = temp_dir.path().join("src");
+        let dst = temp_dir.path().join("dst");
+        
+        fs::create_dir(&src)?;
+        
+        let special_names = vec![
+            "file with spaces.txt",
+            "file[brackets].txt",
+            "file(parens).txt",
+            "file{braces}.txt",
+            ".hidden",
+            "ñoño.txt",
+            "файл.txt",
+        ];
+        
+        for name in &special_names {
+            File::create(src.join(name))?.write_all(b"content")?;
+        }
+        
+        copy_dir_all(&src, &dst)?;
+        
+        for name in &special_names {
+            assert!(dst.join(name).exists(), "File {} not copied", name);
+        }
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_refresh_panels_with_deleted_directories() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let left_dir = temp_dir.path().join("left");
+        let right_dir = temp_dir.path().join("right");
+        
+        fs::create_dir(&left_dir)?;
+        fs::create_dir(&right_dir)?;
+        
+        let mut app = App {
+            left_panel: Panel::new(left_dir.clone())?,
+            right_panel: Panel::new(right_dir.clone())?,
+            active_panel: PanelSide::Left,
+            should_quit: false,
+            viewer: None,
+            show_help: false,
+            entering_command: false,
+            command: String::new(),
+            input: String::new(),
+            status_message: String::new(),
+            searching: false,
+            search_query: String::new(),
+            show_bookmarks: false,
+            bookmarks: vec![None; 10],
+        };
+        
+        fs::remove_dir(&left_dir)?;
+        fs::remove_dir(&right_dir)?;
+        
+        let result = refresh_panels(&mut app);
+        
+        assert!(result.is_err() || app.left_panel.path != left_dir);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_format_size_precision() {
+        assert_eq!(format_size(1500), "1.5 KiB");
+        assert_eq!(format_size(1536), "1.5 KiB");
+        assert_eq!(format_size(1999), "2.0 KiB");
+        assert_eq!(format_size(1024 * 1024 + 512 * 1024), "1.5 MiB");
+        assert_eq!(format_size(1024 * 1024 * 1024 + 512 * 1024 * 1024), "1.5 GiB");
+    }
 }

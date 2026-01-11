@@ -1843,4 +1843,265 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_handle_copy_permission_denied() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new();
+        
+        let source_file = temp_dir.path().join("source.txt");
+        let dest_dir = temp_dir.path().join("readonly_dest");
+        fs::create_dir(&dest_dir)?;
+        File::create(&source_file)?.write_all(b"content")?;
+        
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.right_panel.path = dest_dir.clone();
+        app.left_panel.load_entries()?;
+        app.right_panel.load_entries()?;
+        app.left_panel.selected = Some(1);
+        
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&dest_dir)?.permissions();
+            perms.set_mode(0o444);
+            fs::set_permissions(&dest_dir, perms)?;
+        }
+        
+        let result = handle_copy(&mut app);
+        
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&dest_dir)?.permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&dest_dir, perms)?;
+        }
+        
+        if result.is_err() {
+            assert!(app.status_message.contains("Failed to copy") || 
+                    app.status_message.contains("Permission"));
+        }
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_move_same_source_and_destination() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new();
+        
+        let file = temp_dir.path().join("file.txt");
+        File::create(&file)?.write_all(b"content")?;
+        
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.right_panel.path = temp_dir.path().to_path_buf();
+        app.left_panel.load_entries()?;
+        app.right_panel.load_entries()?;
+        app.left_panel.selected = Some(1);
+        
+        handle_move(&mut app)?;
+        assert!(app.status_message.contains("same location"));
+        assert!(file.exists());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_delete_marked_entries() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new();
+        
+        let file1 = temp_dir.path().join("file1.txt");
+        let file2 = temp_dir.path().join("file2.txt");
+        let file3 = temp_dir.path().join("file3.txt");
+        File::create(&file1)?.write_all(b"1")?;
+        File::create(&file2)?.write_all(b"2")?;
+        File::create(&file3)?.write_all(b"3")?;
+        
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.left_panel.load_entries()?;
+        
+        app.left_panel.marked.insert("file1.txt".to_string());
+        app.left_panel.marked.insert("file3.txt".to_string());
+        
+        handle_delete(&mut app)?;
+        
+        assert!(!file1.exists());
+        assert!(file2.exists());
+        assert!(!file3.exists());
+        assert!(app.left_panel.marked.is_empty());
+        assert!(app.status_message.contains("Deleted 2"));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_mkdir_invalid_names() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new();
+        
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.left_panel.load_entries()?;
+        
+        app.input = "".to_string();
+        handle_mkdir(&mut app)?;
+        assert!(app.status_message.is_empty());
+        
+        #[cfg(windows)]
+        {
+            app.input = "dir<>|?*".to_string();
+            let result = handle_mkdir(&mut app);
+            assert!(result.is_err() || app.status_message.contains("Failed"));
+        }
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_view_large_file() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new();
+        
+        let large_file = temp_dir.path().join("large.txt");
+        let content = "Line\n".repeat(10000);
+        File::create(&large_file)?.write_all(content.as_bytes())?;
+        
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.left_panel.load_entries()?;
+        app.left_panel.selected = Some(1);
+        
+        handle_view(&mut app)?;
+        
+        assert!(app.viewer.is_some());
+        if let Some(ref viewer) = app.viewer {
+            assert!(viewer.lines.len() >= 9999);
+        }
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_overlay_keys_viewer_navigation_limits() -> io::Result<()> {
+        let mut app = App::new();
+        let lines: Vec<String> = (0..20).map(|i| format!("Line {}", i)).collect();
+        
+        app.viewer = Some(Viewer {
+            lines: lines.clone(),
+            scroll: 0,
+            title: "Test".to_string(),
+        });
+        
+        for _ in 0..30 {
+            handle_overlay_keys(&mut app, key_event(KeyCode::Up))?;
+        }
+        assert_eq!(app.viewer.as_ref().unwrap().scroll, 0);
+        
+        for _ in 0..100 {
+            handle_overlay_keys(&mut app, key_event(KeyCode::Down))?;
+        }
+        
+        if let Some(ref viewer) = app.viewer {
+            assert!(viewer.scroll <= viewer.lines.len());
+        }
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_overlay_keys_search_special_characters() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new();
+        
+        let special_file = temp_dir.path().join("[special].txt");
+        let normal_file = temp_dir.path().join("normal.txt");
+        File::create(&special_file)?.write_all(b"content")?;
+        File::create(&normal_file)?.write_all(b"content")?;
+        
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.left_panel.load_entries()?;
+        app.searching = true;
+        
+        app.search_query = "[spec".to_string();
+        handle_overlay_keys(&mut app, key_event(KeyCode::Enter))?;
+        
+        assert!(!app.searching);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_execute_command_edge_cases() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new();
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        
+        assert!(execute_command(&mut app, "").is_err());
+        assert!(execute_command(&mut app, "   ").is_err());
+        assert!(execute_command(&mut app, "unknown_command").is_err());
+        
+        execute_command(&mut app, "  help  ")?;
+        assert!(app.show_help);
+        app.show_help = false;
+        
+        execute_command(&mut app, "HELP")?;
+        assert!(app.show_help);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_jump_to_match_wraparound() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new();
+        
+        for i in 0..5 {
+            File::create(temp_dir.path().join(format!("test{}.txt", i)))?;
+        }
+        
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.left_panel.load_entries()?;
+        app.left_panel.selected = Some(app.left_panel.entries.len() - 1);
+        
+        jump_to_match(&mut app, "test");
+        
+        assert!(app.left_panel.selected.unwrap() < app.left_panel.entries.len() - 1);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_copy_move_with_very_long_paths() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new();
+        
+        let mut long_path = temp_dir.path().to_path_buf();
+        for i in 0..10 {
+            long_path = long_path.join(format!("very_long_directory_name_{}", i));
+            fs::create_dir(&long_path)?;
+        }
+        
+        let source_file = temp_dir.path().join("source.txt");
+        File::create(&source_file)?.write_all(b"content")?;
+        
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.right_panel.path = long_path;
+        app.left_panel.load_entries()?;
+        app.right_panel.load_entries()?;
+        app.left_panel.selected = Some(1);
+        
+        let result = handle_copy(&mut app);
+        
+        #[cfg(windows)]
+        if long_path.to_string_lossy().len() > 260 {
+            assert!(result.is_err() || app.status_message.contains("Failed"));
+        } else {
+            assert!(result.is_ok());
+        }
+        
+        #[cfg(not(windows))]
+        assert!(result.is_ok());
+        
+        Ok(())
+    }
 }
