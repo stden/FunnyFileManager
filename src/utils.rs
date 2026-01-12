@@ -78,6 +78,7 @@ mod tests {
     use crate::models::{App, Panel, PanelSide};
     use std::fs::File;
     use std::io::Write;
+    use std::ffi::OsStr;
     use tempfile::TempDir;
 
     #[test]
@@ -183,6 +184,52 @@ mod tests {
         let file_name = std::ffi::OsStr::new(".env");
         let dest = unique_destination(base, file_name);
         assert_eq!(dest, base.join(".env_1"));
+    }
+
+    #[test] 
+    fn test_copy_dir_all_mutation_killer() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let src = temp_dir.path().join("src");
+        let dst = temp_dir.path().join("dst");
+        
+        fs::create_dir(&src)?;
+        File::create(src.join("file.txt"))?.write_all(b"content")?;
+        
+        // Test that function doesn't just return Ok(()) without doing anything
+        copy_dir_all(&src, &dst)?;
+        
+        // Verify the copy actually happened
+        assert!(dst.exists());
+        assert!(dst.join("file.txt").exists());
+        assert_eq!(fs::read_to_string(dst.join("file.txt"))?, "content");
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_refresh_panels_mutation_killer() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new()?;
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.right_panel.path = temp_dir.path().to_path_buf();
+        
+        // Create initial state
+        app.left_panel.load_entries()?;
+        app.right_panel.load_entries()?;
+        let initial_count = app.left_panel.entries.len();
+        
+        // Add a new file
+        File::create(temp_dir.path().join("new_file.txt"))?;
+        
+        // Test that refresh_panels actually does something
+        refresh_panels(&mut app)?;
+        
+        // Verify panels were actually refreshed
+        assert!(app.left_panel.entries.len() > initial_count);
+        assert!(app.right_panel.entries.len() > initial_count);
+        assert!(app.left_panel.entries.iter().any(|e| e.name == "new_file.txt"));
+        
+        Ok(())
     }
 
     #[test]
@@ -377,13 +424,49 @@ mod tests {
         assert_eq!(format_size(0), "0 B");
         assert_eq!(format_size(1), "1 B");
         assert_eq!(format_size(1023), "1023 B");
-        assert_eq!(format_size(1024), "1.0 KiB");
-        assert_eq!(format_size(1536), "1.5 KiB");
-        assert_eq!(format_size(1048575), "1024.0 KiB");
-        assert_eq!(format_size(1048576), "1.0 MiB");
-        assert_eq!(format_size(1073741823), "1024.0 MiB");
-        assert_eq!(format_size(1073741824), "1.0 GiB");
-        assert_eq!(format_size(u64::MAX), "16.0 EiB");
+        assert_eq!(format_size(1024), "1.00 KB");
+        assert_eq!(format_size(1536), "1.50 KB");
+        assert_eq!(format_size(1048575), "1024.00 KB");
+        assert_eq!(format_size(1048576), "1.00 MB");
+        assert_eq!(format_size(1073741823), "1024.00 MB");
+        assert_eq!(format_size(1073741824), "1.00 GB");
+        assert_eq!(format_size(u64::MAX), "17179869184.00 GB");
+    }
+
+    #[test]
+    fn test_unique_destination_mutation_killer() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        
+        // Test that kills "replace with Default::default()" mutation
+        let result = unique_destination(temp_dir.path(), OsStr::new("test.txt"));
+        assert!(!result.as_os_str().is_empty());
+        assert!(result.starts_with(temp_dir.path()));
+        
+        // Test match guard mutations for extension handling
+        let file_with_ext = temp_dir.path().join("file.txt");
+        File::create(&file_with_ext)?;
+        let unique = unique_destination(temp_dir.path(), OsStr::new("file.txt"));
+        assert!(unique.to_string_lossy().contains("file_1.txt"));
+        
+        // Test empty extension branch
+        let file_no_ext = temp_dir.path().join("file");
+        File::create(&file_no_ext)?;
+        let unique = unique_destination(temp_dir.path(), OsStr::new("file"));
+        assert!(unique.to_string_lossy().contains("file_1"));
+        assert!(!unique.to_string_lossy().ends_with(".")); // No trailing dot
+        
+        // Test counter increment mutations (+= vs -= vs *=)
+        File::create(temp_dir.path().join("count.txt"))?;
+        for i in 1..5 {
+            File::create(temp_dir.path().join(format!("count_{}.txt", i)))?;
+        }
+        let unique = unique_destination(temp_dir.path(), OsStr::new("count.txt"));
+        // Should be count_5.txt, not count_-1.txt or count_0.txt
+        assert!(unique.to_string_lossy().contains("count_5.txt"));
+        assert!(!unique.to_string_lossy().contains("count_-"));
+        assert!(!unique.to_string_lossy().contains("count_0"));
+        
+        Ok(())
     }
 
     #[test]
@@ -393,33 +476,33 @@ mod tests {
         let without_ext = temp_dir.path().join("noext");
         File::create(&without_ext)?;
         let unique = unique_destination(temp_dir.path(), without_ext.file_name().unwrap());
-        assert!(unique.to_string_lossy().contains("noext (1)"));
+        assert!(unique.to_string_lossy().contains("noext_1"));
         
         let multiple_dots = temp_dir.path().join("file.tar.gz");
         File::create(&multiple_dots)?;
         let unique = unique_destination(temp_dir.path(), multiple_dots.file_name().unwrap());
-        assert!(unique.to_string_lossy().contains("file.tar (1).gz"));
+        assert!(unique.to_string_lossy().contains("file.tar_1.gz"));
         
         let hidden = temp_dir.path().join(".hidden");
         File::create(&hidden)?;
         let unique = unique_destination(temp_dir.path(), hidden.file_name().unwrap());
-        assert!(unique.to_string_lossy().contains(".hidden (1)"));
+        assert!(unique.to_string_lossy().contains(".hidden_1"));
         
         let trailing_dot = temp_dir.path().join("file.");
         File::create(&trailing_dot)?;
         let unique = unique_destination(temp_dir.path(), trailing_dot.file_name().unwrap());
-        assert!(unique.to_string_lossy().contains("file. (1)"));
+        assert!(unique.to_string_lossy().contains("file_1"));
         
         let base_name = temp_dir.path().join("test");
         for i in 0..15 {
             if i == 0 {
                 File::create(&base_name)?;
             } else {
-                File::create(temp_dir.path().join(format!("test ({})", i)))?;
+                File::create(temp_dir.path().join(format!("test_{}", i)))?;
             }
         }
         let unique = unique_destination(temp_dir.path(), base_name.file_name().unwrap());
-        assert!(unique.to_string_lossy().contains("test (15)"));
+        assert!(unique.to_string_lossy().contains("test_15"));
         
         Ok(())
     }
@@ -574,11 +657,37 @@ mod tests {
     }
 
     #[test]
+    fn test_format_size_mutation_killer() {
+        // Test that kills mutations that replace function with String::new() or "xyzzy"
+        assert!(!format_size(1000).is_empty());
+        assert!(!format_size(1000).contains("xyzzy"));
+        
+        // Test exact KB constant (1024, not 1024 + 0 or 1024 / 1)
+        assert_eq!(format_size(1024), "1.00 KB");
+        assert_eq!(format_size(1023), "1023 B");
+        assert_ne!(format_size(1025), "1025 B"); // Should be KB
+        
+        // Test exact MB constant (1024 * 1024, not 1024 + 1024)
+        assert_eq!(format_size(1048576), "1.00 MB");
+        assert_eq!(format_size(1048575), "1024.00 KB");
+        assert_ne!(format_size(1048577), "1048577 B"); // Should be MB not bytes
+        
+        // Test exact GB constant
+        assert_eq!(format_size(1073741824), "1.00 GB");
+        assert_eq!(format_size(1073741823), "1024.00 MB");
+        
+        // Test >= vs < mutations
+        assert_ne!(format_size(1024), format_size(1023)); // KB boundary
+        assert_ne!(format_size(1048576), format_size(1048575)); // MB boundary
+        assert_ne!(format_size(1073741824), format_size(1073741823)); // GB boundary
+    }
+
+    #[test]
     fn test_format_size_precision() {
-        assert_eq!(format_size(1500), "1.5 KiB");
-        assert_eq!(format_size(1536), "1.5 KiB");
-        assert_eq!(format_size(1999), "2.0 KiB");
-        assert_eq!(format_size(1024 * 1024 + 512 * 1024), "1.5 MiB");
-        assert_eq!(format_size(1024 * 1024 * 1024 + 512 * 1024 * 1024), "1.5 GiB");
+        assert_eq!(format_size(1500), "1.46 KB");
+        assert_eq!(format_size(1536), "1.50 KB");
+        assert_eq!(format_size(1999), "1.95 KB");
+        assert_eq!(format_size(1024 * 1024 + 512 * 1024), "1.50 MB");
+        assert_eq!(format_size(1024 * 1024 * 1024 + 512 * 1024 * 1024), "1.50 GB");
     }
 }

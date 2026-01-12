@@ -1,0 +1,18 @@
+# Mutation testing configuration for FunnyFileManager
+
+# Exclude test code and main.rs from mutation testing
+exclude_globs = [
+    "src/main.rs",           # Entry point
+    "src/lib.rs",            # Mostly test infrastructure
+    "src/editor_unit_tests.rs",  # Test file
+    "tests/**/*.rs",         # Integration tests
+]
+
+# Timeout for each mutation test (in seconds)
+timeout_multiplier = 1.5
+
+# Additional arguments to pass to cargo test
+test_tool_args = ["--features", "test-helpers"]
+
+# Generate mutants for these specific functions
+# error_values = ["", "Err(std::io::Error::new(std::io::ErrorKind::Other, \"mutated\"))"]

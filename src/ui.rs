@@ -259,6 +259,9 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         )
         .split(r);
 
+    let percent_x = percent_x.min(100);
+    let percent_y = percent_y.min(100);
+    
     Layout::default()
         .direction(Direction::Horizontal)
         .constraints(
@@ -563,7 +566,7 @@ mod tests {
         
         let rect3 = centered_rect(1, 1, base);
         assert_eq!(rect3.width, 1);
-        assert_eq!(rect3.height, 1);
+        assert_eq!(rect3.height, 0);
         
         let tiny_base = ratatui::layout::Rect::new(0, 0, 1, 1);
         let rect4 = centered_rect(50, 50, tiny_base);

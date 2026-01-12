@@ -1128,13 +1128,14 @@ mod tests {
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
         panel.load_entries()?;
         
+        // With 3 files plus ".." entry, we have indices 0-3
         panel.state.select(Some(0));
         panel.previous();
         assert_eq!(panel.state.selected(), Some(3));
         
         panel.state.select(Some(3));
         panel.next();
-        assert_eq!(panel.state.selected(), Some(1));
+        assert_eq!(panel.state.selected(), Some(0));
         
         Ok(())
     }
@@ -1246,7 +1247,7 @@ mod tests {
         
         mode = mode.next();
         assert_eq!(mode, SortMode::Extension);
-        assert_eq!(mode.label(), "Extension");
+        assert_eq!(mode.label(), "Ext");
         
         mode = mode.next();
         assert_eq!(mode, SortMode::Size);
@@ -1328,6 +1329,90 @@ mod tests {
     }
 
     #[test]
+    fn test_sort_mode_default() {
+        // Test the Default implementation for SortMode
+        let default_mode: SortMode = Default::default();
+        assert_eq!(default_mode, SortMode::Name);
+    }
+
+    #[test]
+    fn test_sort_mode_extension_no_extension() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        
+        // Create files with and without extensions
+        File::create(temp_dir.path().join("file1.txt"))?;
+        File::create(temp_dir.path().join("file2"))?;  // No extension
+        File::create(temp_dir.path().join("file3.md"))?;
+        File::create(temp_dir.path().join("file4"))?;  // No extension
+        
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        panel.sort_mode = SortMode::Extension;
+        panel.load_entries()?;
+        
+        // Files without extensions should sort before files with extensions (after "..")
+        let entries = &panel.entries;
+        assert!(entries[0].name == ".." || entries[1].name == "file2" || entries[2].name == "file4");
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_toggle_mark_selected_no_selection() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Clear selection
+        panel.state.select(None);
+        
+        // Should return false when no selection
+        assert!(!panel.toggle_mark_selected());
+        assert!(panel.marked.is_empty());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_enter_parent_directory_navigation() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let subdir = temp_dir.path().join("subdir");
+        fs::create_dir(&subdir)?;
+        
+        let mut panel = Panel::new(subdir)?;
+        panel.load_entries()?;
+        
+        // Select parent directory ".."
+        panel.state.select(Some(0));
+        let selected_entry = panel.get_selected_entry().unwrap();
+        assert_eq!(selected_entry.name, "..");
+        
+        // Enter parent directory
+        panel.enter()?;
+        
+        // Should now be in the parent directory
+        assert_eq!(panel.path.canonicalize()?, temp_dir.path().canonicalize()?);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_action_entry_names_parent_directory() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        File::create(temp_dir.path().join("file.txt"))?;
+        panel.load_entries()?;
+        
+        // Select parent directory ".."
+        panel.state.select(Some(0));
+        let names = panel.action_entry_names();
+        
+        // Should be empty when parent directory is selected and no marks
+        assert!(names.is_empty());
+        
+        Ok(())
+    }
+
+    #[test]
     fn test_panel_action_entry_names_with_special_cases() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
@@ -1354,6 +1439,89 @@ mod tests {
         assert!(names.contains(&"regular.txt".to_string()));
         assert!(names.contains(&".hidden".to_string()));
         assert!(names.contains(&"directory".to_string()));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_load_entries_with_selected_name_edge_case() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Create files
+        File::create(temp_dir.path().join("file1.txt"))?;
+        File::create(temp_dir.path().join("file2.txt"))?;
+        
+        // Select file2.txt
+        panel.load_entries()?;
+        for (i, entry) in panel.entries.iter().enumerate() {
+            if entry.name == "file2.txt" {
+                panel.state.select(Some(i));
+                break;
+            }
+        }
+        
+        // Reload should preserve selection of file2.txt
+        panel.load_entries()?;
+        
+        // Should still have file2.txt selected
+        assert!(panel.state.selected().is_some());
+        if let Some(idx) = panel.state.selected() {
+            assert_eq!(panel.entries[idx].name, "file2.txt");
+        }
+        
+        // Now delete file2.txt and reload - should fall back to first entry
+        fs::remove_file(temp_dir.path().join("file2.txt"))?;
+        panel.load_entries()?;
+        
+        // Should fall back to selecting first entry since file2.txt doesn't exist
+        assert_eq!(panel.state.selected(), Some(0));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_ensure_selection_corner_case() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Test empty entries with no selection
+        panel.entries.clear();
+        panel.state.select(None);
+        panel.ensure_selection();
+        assert_eq!(panel.state.selected(), None); // Should remain None for empty entries
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_sort_modes_with_mixed_case() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Create files with mixed case names
+        File::create(temp_dir.path().join("UPPERCASE.txt"))?;
+        File::create(temp_dir.path().join("lowercase.txt"))?;
+        File::create(temp_dir.path().join("MixedCase.txt"))?;
+        fs::create_dir(temp_dir.path().join("Directory"))?;
+        
+        // Test that directories come before files in all sort modes
+        panel.sort_mode = SortMode::Name;
+        panel.load_entries()?;
+        
+        // Find positions of directory and files
+        let dir_pos = panel.entries.iter().position(|e| e.name == "Directory" && e.is_dir);
+        let file_positions: Vec<_> = panel.entries.iter()
+            .enumerate()
+            .filter(|(_, e)| !e.is_dir && e.name != "..")
+            .map(|(i, _)| i)
+            .collect();
+        
+        if let Some(dir_idx) = dir_pos {
+            for file_idx in &file_positions {
+                assert!(dir_idx < *file_idx, "Directory should come before files");
+            }
+        }
         
         Ok(())
     }

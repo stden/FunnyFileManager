@@ -3,6 +3,7 @@ pub mod handlers;
 pub mod models;
 pub mod ui;
 pub mod utils;
+pub mod mutation_test;
 
 #[cfg(test)]
 mod editor_unit_tests;
@@ -436,7 +437,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_run_app_full_coverage() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         let mut app = App::new()?;
@@ -458,7 +458,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_main_function_coverage() {
         let result = run();
         assert!(result.is_ok());

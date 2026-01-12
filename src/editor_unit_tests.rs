@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod editor_tests {
+    use std::io::Write;
     use crate::editor::handle_edit_impl;
     use crate::models::{App, DirEntry, Panel, PanelSide};
     use ratatui::Terminal;
@@ -91,7 +92,9 @@ mod editor_tests {
         let mut terminal = Terminal::new(backend)?;
 
         let result = handle_edit_impl(&mut terminal, &mut app, |editor, path| {
-            assert!(editor.contains("nano") || editor == "nano");
+            // The editor should be either the EDITOR env var or "nano" as default
+            let expected_editor = std::env::var("EDITOR").unwrap_or_else(|_| "nano".to_string());
+            assert_eq!(editor, expected_editor);
             assert_eq!(path, file_path.as_path());
             Ok(std::process::ExitStatus::default())
         });
@@ -227,6 +230,94 @@ mod editor_tests {
 
         assert!(result.is_ok());
         assert!(app.status_message.contains("Edited"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_terminal_error() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new()?;
+
+        let file = temp_dir.path().join("test.txt");
+        File::create(&file)?.write_all(b"content")?;
+
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.left_panel.load_entries()?;
+        app.left_panel.state.select(Some(1));
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        // Test with editor that returns error status
+        let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _path| {
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, "Cannot execute editor"))
+        });
+
+        assert!(result.is_ok());
+        assert!(app.status_message.contains("Failed to launch editor"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_file_not_found() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new()?;
+
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.left_panel.load_entries()?;
+
+        // Select a non-existent file by manipulating the panel state
+        app.left_panel.entries.push(crate::models::DirEntry {
+            name: "nonexistent.txt".to_string(),
+            is_dir: false,
+            size: 0,
+            // modified field removed from DirEntry
+        });
+        app.left_panel.state.select(Some(app.left_panel.entries.len() - 1));
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |_editor, path| {
+            // Verify the path doesn't exist
+            assert!(!path.exists());
+            Ok(std::process::ExitStatus::default())
+        });
+
+        assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_very_long_filename() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new()?;
+
+        // Create a file with a long name (but valid for Windows)
+        let long_name = "a".repeat(100) + ".txt";
+        let file = temp_dir.path().join(&long_name);
+        File::create(&file)?;
+
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.left_panel.load_entries()?;
+
+        // Find and select the long filename
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name.contains("aaaa") {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |_editor, path| {
+            assert!(path.file_name().unwrap().len() > 100);
+            Ok(std::process::ExitStatus::default())
+        });
+
+        assert!(result.is_ok());
         Ok(())
     }
 }
