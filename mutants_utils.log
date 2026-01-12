@@ -1,0 +1,20 @@
+Found 17 mutants to test
+ok       Unmutated baseline in 18s build + 6s test
+MISSED   src/utils.rs:9:5: replace format_size -> String with String::new() in 2s build + 3s test
+MISSED   src/utils.rs:9:5: replace format_size -> String with "xyzzy".into() in 1s build + 3s test
+MISSED   src/utils.rs:10:24: replace * with + in format_size in 2s build + 3s test
+MISSED   src/utils.rs:10:24: replace * with / in format_size in 1s build + 3s test
+MISSED   src/utils.rs:11:24: replace * with + in format_size in 2s build + 3s test
+MISSED   src/utils.rs:11:24: replace * with / in format_size in 2s build + 3s test
+MISSED   src/utils.rs:13:13: replace >= with < in format_size in 2s build + 3s test
+MISSED   src/utils.rs:17:13: replace >= with < in format_size in 2s build + 3s test
+MISSED   src/utils.rs:21:13: replace >= with < in format_size in 2s build + 3s test
+MISSED   src/utils.rs:31:5: replace unique_destination -> PathBuf with Default::default() in 2s build + 3s test
+MISSED   src/utils.rs:41:26: replace match guard !ext.is_empty() with true in unique_destination in 2s build + 3s test
+MISSED   src/utils.rs:41:26: replace match guard !ext.is_empty() with false in unique_destination in 2s build + 3s test
+MISSED   src/utils.rs:41:26: delete ! in unique_destination in 2s build + 3s test
+MISSED   src/utils.rs:45:17: replace += with -= in unique_destination in 2s build + 3s test
+MISSED   src/utils.rs:45:17: replace += with *= in unique_destination in 2s build + 3s test
+MISSED   src/utils.rs:51:5: replace copy_dir_all -> io::Result<()> with Ok(()) in 2s build + 4s test
+MISSED   src/utils.rs:68:5: replace refresh_panels -> io::Result<()> with Ok(()) in 2s build + 3s test
+17 mutants tested in 2m: 17 missed

@@ -1,0 +1,512 @@
+[
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "format_size",
+      "return_type": "-> String",
+      "span": {
+        "start": {
+          "line": 8,
+          "column": 1
+        },
+        "end": {
+          "line": 28,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 9,
+        "column": 5
+      },
+      "end": {
+        "line": 27,
+        "column": 10
+      }
+    },
+    "replacement": "String::new()",
+    "genre": "FnValue"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "format_size",
+      "return_type": "-> String",
+      "span": {
+        "start": {
+          "line": 8,
+          "column": 1
+        },
+        "end": {
+          "line": 28,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 9,
+        "column": 5
+      },
+      "end": {
+        "line": 27,
+        "column": 10
+      }
+    },
+    "replacement": "\"xyzzy\".into()",
+    "genre": "FnValue"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "format_size",
+      "return_type": "-> String",
+      "span": {
+        "start": {
+          "line": 8,
+          "column": 1
+        },
+        "end": {
+          "line": 28,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 10,
+        "column": 24
+      },
+      "end": {
+        "line": 10,
+        "column": 25
+      }
+    },
+    "replacement": "+",
+    "genre": "BinaryOperator"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "format_size",
+      "return_type": "-> String",
+      "span": {
+        "start": {
+          "line": 8,
+          "column": 1
+        },
+        "end": {
+          "line": 28,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 10,
+        "column": 24
+      },
+      "end": {
+        "line": 10,
+        "column": 25
+      }
+    },
+    "replacement": "/",
+    "genre": "BinaryOperator"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "format_size",
+      "return_type": "-> String",
+      "span": {
+        "start": {
+          "line": 8,
+          "column": 1
+        },
+        "end": {
+          "line": 28,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 11,
+        "column": 24
+      },
+      "end": {
+        "line": 11,
+        "column": 25
+      }
+    },
+    "replacement": "+",
+    "genre": "BinaryOperator"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "format_size",
+      "return_type": "-> String",
+      "span": {
+        "start": {
+          "line": 8,
+          "column": 1
+        },
+        "end": {
+          "line": 28,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 11,
+        "column": 24
+      },
+      "end": {
+        "line": 11,
+        "column": 25
+      }
+    },
+    "replacement": "/",
+    "genre": "BinaryOperator"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "format_size",
+      "return_type": "-> String",
+      "span": {
+        "start": {
+          "line": 8,
+          "column": 1
+        },
+        "end": {
+          "line": 28,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 13,
+        "column": 13
+      },
+      "end": {
+        "line": 13,
+        "column": 15
+      }
+    },
+    "replacement": "<",
+    "genre": "BinaryOperator"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "format_size",
+      "return_type": "-> String",
+      "span": {
+        "start": {
+          "line": 8,
+          "column": 1
+        },
+        "end": {
+          "line": 28,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 17,
+        "column": 13
+      },
+      "end": {
+        "line": 17,
+        "column": 15
+      }
+    },
+    "replacement": "<",
+    "genre": "BinaryOperator"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "format_size",
+      "return_type": "-> String",
+      "span": {
+        "start": {
+          "line": 8,
+          "column": 1
+        },
+        "end": {
+          "line": 28,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 21,
+        "column": 13
+      },
+      "end": {
+        "line": 21,
+        "column": 15
+      }
+    },
+    "replacement": "<",
+    "genre": "BinaryOperator"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "unique_destination",
+      "return_type": "-> PathBuf",
+      "span": {
+        "start": {
+          "line": 30,
+          "column": 1
+        },
+        "end": {
+          "line": 48,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 31,
+        "column": 5
+      },
+      "end": {
+        "line": 47,
+        "column": 9
+      }
+    },
+    "replacement": "Default::default()",
+    "genre": "FnValue"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "unique_destination",
+      "return_type": "-> PathBuf",
+      "span": {
+        "start": {
+          "line": 30,
+          "column": 1
+        },
+        "end": {
+          "line": 48,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 41,
+        "column": 26
+      },
+      "end": {
+        "line": 41,
+        "column": 41
+      }
+    },
+    "replacement": "true",
+    "genre": "MatchArmGuard"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "unique_destination",
+      "return_type": "-> PathBuf",
+      "span": {
+        "start": {
+          "line": 30,
+          "column": 1
+        },
+        "end": {
+          "line": 48,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 41,
+        "column": 26
+      },
+      "end": {
+        "line": 41,
+        "column": 41
+      }
+    },
+    "replacement": "false",
+    "genre": "MatchArmGuard"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "unique_destination",
+      "return_type": "-> PathBuf",
+      "span": {
+        "start": {
+          "line": 30,
+          "column": 1
+        },
+        "end": {
+          "line": 48,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 41,
+        "column": 26
+      },
+      "end": {
+        "line": 41,
+        "column": 27
+      }
+    },
+    "replacement": "",
+    "genre": "UnaryOperator"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "unique_destination",
+      "return_type": "-> PathBuf",
+      "span": {
+        "start": {
+          "line": 30,
+          "column": 1
+        },
+        "end": {
+          "line": 48,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 45,
+        "column": 17
+      },
+      "end": {
+        "line": 45,
+        "column": 19
+      }
+    },
+    "replacement": "-=",
+    "genre": "BinaryOperator"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "unique_destination",
+      "return_type": "-> PathBuf",
+      "span": {
+        "start": {
+          "line": 30,
+          "column": 1
+        },
+        "end": {
+          "line": 48,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 45,
+        "column": 17
+      },
+      "end": {
+        "line": 45,
+        "column": 19
+      }
+    },
+    "replacement": "*=",
+    "genre": "BinaryOperator"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "copy_dir_all",
+      "return_type": "-> io::Result<()>",
+      "span": {
+        "start": {
+          "line": 50,
+          "column": 1
+        },
+        "end": {
+          "line": 65,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 51,
+        "column": 5
+      },
+      "end": {
+        "line": 64,
+        "column": 11
+      }
+    },
+    "replacement": "Ok(())",
+    "genre": "FnValue"
+  },
+  {
+    "package": "funny-file-manager",
+    "file": "src/utils.rs",
+    "function": {
+      "function_name": "refresh_panels",
+      "return_type": "-> io::Result<()>",
+      "span": {
+        "start": {
+          "line": 67,
+          "column": 1
+        },
+        "end": {
+          "line": 73,
+          "column": 2
+        }
+      }
+    },
+    "span": {
+      "start": {
+        "line": 68,
+        "column": 5
+      },
+      "end": {
+        "line": 72,
+        "column": 11
+      }
+    },
+    "replacement": "Ok(())",
+    "genre": "FnValue"
+  }
+]

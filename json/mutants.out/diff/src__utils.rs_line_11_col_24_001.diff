@@ -1,0 +1,21 @@
+--- src/utils.rs
++++ replace * with / in format_size
+@@ -3,17 +3,17 @@
+     path::{Path, PathBuf},
+ };
+ 
+ use crate::models::App;
+ 
+ pub fn format_size(size: u64) -> String {
+     const KB: u64 = 1024;
+     const MB: u64 = KB * 1024;
+-    const GB: u64 = MB * 1024;
++    const GB: u64 = MB / /* ~ changed by cargo-mutants ~ */ 1024;
+ 
+     if size >= GB {
+         return format!("{:.2} GB", size as f64 / GB as f64);
+     }
+ 
+     if size >= MB {
+         return format!("{:.2} MB", size as f64 / MB as f64);
+     }

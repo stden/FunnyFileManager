@@ -1,0 +1,37 @@
+--- src/utils.rs
++++ replace unique_destination -> PathBuf with Default::default()
+@@ -23,33 +23,17 @@
+     }
+ 
+     let mut bytes = size.to_string();
+     bytes.push_str(" B");
+     bytes
+ }
+ 
+ pub fn unique_destination(base: &Path, file_name: &std::ffi::OsStr) -> PathBuf {
+-    let mut dest = base.join(file_name);
+-    let stem = Path::new(file_name)
+-        .file_stem()
+-        .and_then(|s| s.to_str())
+-        .unwrap_or("");
+-    let extension = Path::new(file_name).extension().and_then(|e| e.to_str());
+-
+-    let mut counter = 1;
+-    while dest.exists() {
+-        let new_name = match extension {
+-            Some(ext) if !ext.is_empty() => format!("{}_{}.{}", stem, counter, ext),
+-            _ => format!("{}_{}", stem, counter),
+-        };
+-        dest = base.join(new_name);
+-        counter += 1;
+-    }
+-    dest
++    Default::default() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ pub fn copy_dir_all(src: &Path, dst: &Path) -> io::Result<()> {
+     fs::create_dir_all(dst)?;
+     for entry in fs::read_dir(src)? {
+         let entry = entry?;
+         let file_type = entry.file_type()?;
+         let src_path = entry.path();

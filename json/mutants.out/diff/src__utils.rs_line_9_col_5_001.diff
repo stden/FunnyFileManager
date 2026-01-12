@@ -1,0 +1,39 @@
+--- src/utils.rs
++++ replace format_size -> String with "xyzzy".into()
+@@ -1,35 +1,17 @@
+ use std::{
+     fs, io,
+     path::{Path, PathBuf},
+ };
+ 
+ use crate::models::App;
+ 
+ pub fn format_size(size: u64) -> String {
+-    const KB: u64 = 1024;
+-    const MB: u64 = KB * 1024;
+-    const GB: u64 = MB * 1024;
+-
+-    if size >= GB {
+-        return format!("{:.2} GB", size as f64 / GB as f64);
+-    }
+-
+-    if size >= MB {
+-        return format!("{:.2} MB", size as f64 / MB as f64);
+-    }
+-
+-    if size >= KB {
+-        return format!("{:.2} KB", size as f64 / KB as f64);
+-    }
+-
+-    let mut bytes = size.to_string();
+-    bytes.push_str(" B");
+-    bytes
++    "xyzzy".into() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ pub fn unique_destination(base: &Path, file_name: &std::ffi::OsStr) -> PathBuf {
+     let mut dest = base.join(file_name);
+     let stem = Path::new(file_name)
+         .file_stem()
+         .and_then(|s| s.to_str())
+         .unwrap_or("");
