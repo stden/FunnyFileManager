@@ -1128,13 +1128,13 @@ mod tests {
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
         panel.load_entries()?;
         
-        panel.selected = Some(0);
+        panel.state.select(Some(0));
         panel.previous();
-        assert_eq!(panel.selected, Some(3));
+        assert_eq!(panel.state.selected(), Some(3));
         
-        panel.selected = Some(3);
+        panel.state.select(Some(3));
         panel.next();
-        assert_eq!(panel.selected, Some(1));
+        assert_eq!(panel.state.selected(), Some(1));
         
         Ok(())
     }
@@ -1152,14 +1152,15 @@ mod tests {
         
         assert_eq!(panel.entries.len(), 1001);
         
-        panel.selected = Some(0);
+        panel.state.select(Some(0));
         for _ in 0..500 {
             panel.next();
         }
-        assert_eq!(panel.selected, Some(500));
+        assert_eq!(panel.state.selected(), Some(500));
         
-        panel.selected = Some(1000);
-        assert_eq!(panel.selected_path(), Some(panel.entries[1000].path.clone()));
+        panel.state.select(Some(1000));
+        let entry_name = panel.entries[1000].name.clone();
+        assert_eq!(panel.selected_path(), Some(panel.path.join(entry_name)));
         
         Ok(())
     }
@@ -1177,10 +1178,10 @@ mod tests {
         assert_eq!(panel.entries[0].name, "..");
         
         panel.next();
-        assert_eq!(panel.selected, Some(0));
+        assert_eq!(panel.state.selected(), Some(0));
         
         panel.previous();
-        assert_eq!(panel.selected, Some(0));
+        assert_eq!(panel.state.selected(), Some(0));
         
         panel.toggle_mark_selected();
         assert!(panel.marked.is_empty());
@@ -1219,19 +1220,21 @@ mod tests {
 
     #[test]
     fn test_panel_very_long_filenames() -> io::Result<()> {
-        let temp_dir = TempDir::new()?;
-        
-        let long_name = "a".repeat(255);
-        let file_path = temp_dir.path().join(&long_name);
-        
         #[cfg(not(windows))]
         {
+            let temp_dir = TempDir::new()?;
+            let long_name = "a".repeat(255);
+            let file_path = temp_dir.path().join(&long_name);
             File::create(&file_path)?;
             let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
             panel.load_entries()?;
             
             let found = panel.entries.iter().any(|e| e.name == long_name);
             assert!(found);
+        }
+        #[cfg(windows)]
+        {
+            // Long filename test skipped on Windows
         }
         
         Ok(())
@@ -1255,8 +1258,8 @@ mod tests {
     }
 
     #[test]
-    fn test_app_bookmarks_boundary() {
-        let mut app = App::new();
+    fn test_app_bookmarks_boundary() -> io::Result<()> {
+        let mut app = App::new()?;
         
         assert_eq!(app.bookmarks.len(), 10);
         
@@ -1269,6 +1272,8 @@ mod tests {
         
         assert_eq!(app.bookmarks[0], Some(PathBuf::from("/test1")));
         assert_eq!(app.bookmarks[9], Some(PathBuf::from("/test2")));
+        
+        Ok(())
     }
 
     #[test]
@@ -1281,13 +1286,13 @@ mod tests {
         let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
         panel.load_entries()?;
         
-        panel.selected = Some(1);
+        panel.state.select(Some(1));
         panel.toggle_mark_selected();
         panel.toggle_mark_selected();
         assert!(panel.marked.is_empty());
         
         for i in 1..=5 {
-            panel.selected = Some(i);
+            panel.state.select(Some(i));
             panel.toggle_mark_selected();
         }
         assert_eq!(panel.marked.len(), 5);
@@ -1295,7 +1300,7 @@ mod tests {
         panel.clear_marks();
         assert!(panel.marked.is_empty());
         
-        panel.selected = Some(0);
+        panel.state.select(Some(0));
         panel.toggle_mark_selected();
         assert!(panel.marked.is_empty());
         
@@ -1336,7 +1341,7 @@ mod tests {
         let names = panel.action_entry_names();
         assert!(names.is_empty());
         
-        panel.selected = Some(1);
+        panel.state.select(Some(1));
         let names = panel.action_entry_names();
         assert_eq!(names.len(), 1);
         

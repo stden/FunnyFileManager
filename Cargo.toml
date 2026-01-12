@@ -3,6 +3,10 @@ name = "funny-file-manager"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "funny_file_manager"
+path = "src/lib.rs"
+
 [[bin]]
 name = "ffm"
 path = "src/main.rs"
@@ -16,6 +20,17 @@ tempfile = "3.8"
 
 [features]
 test-helpers = []
+
+[[test]]
+name = "editor_test"
+path = "tests/editor_test.rs"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "handlers_test"
+path = "tests/handlers_test.rs"
+required-features = ["test-helpers"]
+
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tarpaulin)"] }

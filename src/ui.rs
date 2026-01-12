@@ -7,6 +7,8 @@ use ratatui::{
 };
 
 use crate::models::{App, Panel, PanelSide};
+#[cfg(test)]
+use crate::models::Viewer;
 use crate::utils::format_size;
 
 pub const NAME_FIELD_WIDTH: usize = 30;
@@ -449,7 +451,7 @@ mod tests {
 
     #[test]
     fn test_ui_render_with_minimal_terminal_size() {
-        let mut app = App::new();
+        let mut app = App::new().unwrap();
         app.left_panel.path = std::path::PathBuf::from("/test");
         app.right_panel.path = std::path::PathBuf::from("/test2");
         
@@ -461,7 +463,7 @@ mod tests {
 
     #[test]
     fn test_ui_render_with_very_long_paths() {
-        let mut app = App::new();
+        let mut app = App::new().unwrap();
         let long_path = "/very/long/path/that/exceeds/normal/display/width/in/terminal/window";
         app.left_panel.path = std::path::PathBuf::from(long_path);
         app.right_panel.path = std::path::PathBuf::from(long_path);
@@ -475,22 +477,22 @@ mod tests {
 
     #[test]
     fn test_render_panel_with_empty_entries() {
-        let mut app = App::new();
+        let mut app = App::new().unwrap();
         app.left_panel.entries.clear();
-        app.left_panel.selected = None;
+        app.left_panel.state.select(None);
         
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
         
         terminal.draw(|f| {
-            let area = f.area();
-            render_panel(f, &app.left_panel, area, true, &app);
+            let area = f.size();
+            render_panel(f, &mut app.left_panel, area, true);
         }).unwrap();
     }
 
     #[test]
     fn test_render_overlays_with_all_types() {
-        let mut app = App::new();
+        let mut app = App::new().unwrap();
         
         app.show_help = true;
         let backend = TestBackend::new(80, 24);
@@ -506,15 +508,13 @@ mod tests {
         terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
         app.viewer = None;
         
-        app.entering_command = true;
-        app.input = "test command".to_string();
+        app.command_line = Some("test command".to_string());
         terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
-        app.entering_command = false;
+        app.command_line = None;
         
-        app.searching = true;
-        app.search_query = "search".to_string();
+        app.search = Some("search".to_string());
         terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
-        app.searching = false;
+        app.search = None;
         
         app.show_bookmarks = true;
         app.bookmarks[0] = Some(std::path::PathBuf::from("/bookmark1"));
@@ -524,30 +524,28 @@ mod tests {
 
     #[test]
     fn test_render_status_with_extreme_values() {
-        let mut app = App::new();
+        let mut app = App::new().unwrap();
         
         app.left_panel.entries = vec![
             DirEntry {
                 name: "..".to_string(),
-                path: std::path::PathBuf::from("/parent"),
                 is_dir: true,
                 size: 0,
             },
             DirEntry {
                 name: "huge_file.dat".to_string(),
-                path: std::path::PathBuf::from("/huge_file.dat"),
                 is_dir: false,
                 size: u64::MAX,
             },
         ];
-        app.left_panel.selected = Some(1);
+        app.left_panel.state.select(Some(1));
         
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
         
         terminal.draw(|f| {
             let area = ratatui::layout::Rect::new(0, 0, 80, 1);
-            render_status(f, area, &app);
+            render_status(f, &app, area);
         }).unwrap();
     }
 
@@ -579,7 +577,7 @@ mod tests {
         let mut terminal = Terminal::new(backend).unwrap();
         
         terminal.draw(|f| {
-            let area = f.area();
+            let area = f.size();
             render_command_bar(f, area);
         }).unwrap();
         
@@ -587,19 +585,18 @@ mod tests {
         let mut small_terminal = Terminal::new(small_backend).unwrap();
         
         small_terminal.draw(|f| {
-            let area = f.area();
+            let area = f.size();
             render_command_bar(f, area);
         }).unwrap();
     }
 
     #[test]
     fn test_render_panel_with_marked_files() {
-        let mut app = App::new();
+        let mut app = App::new().unwrap();
         
         for i in 0..10 {
             app.left_panel.entries.push(DirEntry {
                 name: format!("file{}.txt", i),
-                path: std::path::PathBuf::from(format!("/file{}.txt", i)),
                 is_dir: false,
                 size: 100 * i,
             });
@@ -608,14 +605,14 @@ mod tests {
         app.left_panel.marked.insert("file2.txt".to_string());
         app.left_panel.marked.insert("file5.txt".to_string());
         app.left_panel.marked.insert("file8.txt".to_string());
-        app.left_panel.selected = Some(5);
+        app.left_panel.state.select(Some(5));
         
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
         
         terminal.draw(|f| {
-            let area = f.area();
-            render_panel(f, &app.left_panel, area, true, &app);
+            let area = f.size();
+            render_panel(f, &mut app.left_panel, area, true);
         }).unwrap();
     }
 }

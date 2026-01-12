@@ -269,7 +269,7 @@ fn test_error_recovery_scenarios() -> io::Result<()> {
     terminal.clear()?;
     
     let result = terminal.draw(|f| {
-        let area = f.area();
+        let area = f.size();
         assert!(area.width > 0);
         assert!(area.height > 0);
     });

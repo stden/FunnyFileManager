@@ -392,22 +392,22 @@ mod tests {
         
         let without_ext = temp_dir.path().join("noext");
         File::create(&without_ext)?;
-        let unique = unique_destination(&without_ext);
+        let unique = unique_destination(temp_dir.path(), without_ext.file_name().unwrap());
         assert!(unique.to_string_lossy().contains("noext (1)"));
         
         let multiple_dots = temp_dir.path().join("file.tar.gz");
         File::create(&multiple_dots)?;
-        let unique = unique_destination(&multiple_dots);
+        let unique = unique_destination(temp_dir.path(), multiple_dots.file_name().unwrap());
         assert!(unique.to_string_lossy().contains("file.tar (1).gz"));
         
         let hidden = temp_dir.path().join(".hidden");
         File::create(&hidden)?;
-        let unique = unique_destination(&hidden);
+        let unique = unique_destination(temp_dir.path(), hidden.file_name().unwrap());
         assert!(unique.to_string_lossy().contains(".hidden (1)"));
         
         let trailing_dot = temp_dir.path().join("file.");
         File::create(&trailing_dot)?;
-        let unique = unique_destination(&trailing_dot);
+        let unique = unique_destination(temp_dir.path(), trailing_dot.file_name().unwrap());
         assert!(unique.to_string_lossy().contains("file. (1)"));
         
         let base_name = temp_dir.path().join("test");
@@ -418,7 +418,7 @@ mod tests {
                 File::create(temp_dir.path().join(format!("test ({})", i)))?;
             }
         }
-        let unique = unique_destination(&base_name);
+        let unique = unique_destination(temp_dir.path(), base_name.file_name().unwrap());
         assert!(unique.to_string_lossy().contains("test (15)"));
         
         Ok(())
@@ -457,15 +457,15 @@ mod tests {
 
     #[test]
     fn test_copy_dir_all_permission_errors() -> io::Result<()> {
-        let temp_dir = TempDir::new()?;
-        let src = temp_dir.path().join("src");
-        let dst = temp_dir.path().join("dst");
-        
-        fs::create_dir(&src)?;
-        File::create(src.join("file.txt"))?.write_all(b"content")?;
-        
         #[cfg(unix)]
         {
+            let temp_dir = TempDir::new()?;
+            let src = temp_dir.path().join("src");
+            let dst = temp_dir.path().join("dst");
+            
+            fs::create_dir(&src)?;
+            File::create(src.join("file.txt"))?.write_all(b"content")?;
+            
             use std::os::unix::fs::PermissionsExt;
             fs::create_dir(&dst)?;
             let mut perms = fs::metadata(&dst)?.permissions();
@@ -556,12 +556,9 @@ mod tests {
             should_quit: false,
             viewer: None,
             show_help: false,
-            entering_command: false,
-            command: String::new(),
-            input: String::new(),
+            search: None,
+            command_line: None,
             status_message: String::new(),
-            searching: false,
-            search_query: String::new(),
             show_bookmarks: false,
             bookmarks: vec![None; 10],
         };
