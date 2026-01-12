@@ -8,6 +8,9 @@ pub mod mutation_test;
 #[cfg(test)]
 mod editor_unit_tests;
 
+use std::fs::OpenOptions;
+use std::io::Write as IoWrite;
+
 use crossterm::event::{Event, KeyCode, KeyModifiers};
 #[cfg(not(any(test, tarpaulin)))]
 use crossterm::{
@@ -39,9 +42,44 @@ use crate::handlers::{
 };
 use crate::models::{App, PanelSide};
 use crate::ui::ui;
+use std::time::{Duration, Instant};
+
+fn log_action(action: &str) {
+    if let Ok(mut file) = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("ffm_actions.log")
+    {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        let _ = writeln!(file, "[{}] {}", timestamp, action);
+    }
+}
+
+fn log_error(error: &str) {
+    if let Ok(mut file) = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("ffm_errors.log")
+    {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        let _ = writeln!(file, "[{}] ERROR: {}", timestamp, error);
+    }
+}
 
 pub fn run() -> Result<(), Box<dyn Error>> {
-    main_impl()
+    log_action("=== FunnyFileManager Started ===");
+    let result = main_impl();
+    if let Err(ref e) = result {
+        log_error(&format!("Main error: {}", e));
+    }
+    log_action("=== FunnyFileManager Ended ===");
+    result
 }
 
 #[cfg(all(not(test), not(tarpaulin)))]
@@ -53,6 +91,7 @@ fn main_impl() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     let app = App::new()?;
+    log_action("App initialized successfully");
     let res = run_app(&mut terminal, app);
 
     disable_raw_mode()?;
@@ -176,13 +215,22 @@ where
     B: Backend + Write,
     F: FnMut() -> io::Result<Event>,
 {
+    let mut last_nav_time = Instant::now();
+    let nav_debounce = Duration::from_millis(0); // Temporarily disabled to debug
+    
+    log_action(&format!("Starting event loop with {} entries in left panel", 
+        app.left_panel.entries.len()));
+    
     while !app.should_quit {
         terminal.draw(|f| ui(f, &mut app))?;
 
         let event = read_event()?;
         if let Event::Key(key) = event {
+            log_action(&format!("Key event: {:?} (modifiers: {:?})", key.code, key.modifiers));
+            
             if handle_overlay_keys(&mut app, key) {
                 if app.should_quit {
+                    log_action("Quitting from overlay");
                     return Ok(());
                 }
                 continue;
@@ -194,10 +242,38 @@ where
                     return Ok(())
                 }
                 KeyCode::Down => {
-                    app.get_active_panel().next();
+                    let now = Instant::now();
+                    let time_since = now.duration_since(last_nav_time);
+                    log_action(&format!("Down key - time since last nav: {:?}ms, debounce: {:?}ms", 
+                        time_since.as_millis(), nav_debounce.as_millis()));
+                    
+                    if time_since >= nav_debounce {
+                        let panel = app.get_active_panel();
+                        let before = panel.state.selected();
+                        panel.next();
+                        let after = panel.state.selected();
+                        log_action(&format!("Navigation DOWN: {:?} -> {:?}", before, after));
+                        last_nav_time = now;
+                    } else {
+                        log_action("Down key ignored due to debounce");
+                    }
                 }
                 KeyCode::Up => {
-                    app.get_active_panel().previous();
+                    let now = Instant::now();
+                    let time_since = now.duration_since(last_nav_time);
+                    log_action(&format!("Up key - time since last nav: {:?}ms, debounce: {:?}ms", 
+                        time_since.as_millis(), nav_debounce.as_millis()));
+                    
+                    if time_since >= nav_debounce {
+                        let panel = app.get_active_panel();
+                        let before = panel.state.selected();
+                        panel.previous();
+                        let after = panel.state.selected();
+                        log_action(&format!("Navigation UP: {:?} -> {:?}", before, after));
+                        last_nav_time = now;
+                    } else {
+                        log_action("Up key ignored due to debounce");
+                    }
                 }
                 KeyCode::Enter => app.get_active_panel().enter()?,
                 KeyCode::Tab => {
@@ -218,6 +294,19 @@ where
                 KeyCode::F(6) => handle_move(&mut app)?,
                 KeyCode::F(7) => handle_mkdir(&mut app)?,
                 KeyCode::F(8) => handle_delete(&mut app)?,
+                KeyCode::Insert => {
+                    app.get_active_panel().toggle_mark_selected();
+                    app.get_active_panel().next();
+                }
+                KeyCode::Char(' ') => {
+                    app.get_active_panel().toggle_mark_selected();
+                    app.get_active_panel().next();
+                }
+                KeyCode::Char('\\') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    let root = if cfg!(windows) { "C:\\" } else { "/" };
+                    app.get_active_panel().path = std::path::PathBuf::from(root);
+                    app.get_active_panel().load_entries()?;
+                }
                 _ => {}
             }
         }
@@ -461,6 +550,71 @@ mod tests {
     fn test_main_function_coverage() {
         let result = run();
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_navigation_moves_one_item() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        // Create multiple files to test navigation
+        for i in 1..=5 {
+            fs::write(temp_dir.path().join(format!("file{}.txt", i)), b"data")?;
+        }
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        
+        // Start at first item
+        app.left_panel.state.select(Some(0));
+        
+        // Move down once
+        app.left_panel.next();
+        assert_eq!(app.left_panel.state.selected(), Some(1), "Should move to second item");
+        
+        // Move down again
+        app.left_panel.next();
+        assert_eq!(app.left_panel.state.selected(), Some(2), "Should move to third item");
+        
+        // Move up once
+        app.left_panel.previous();
+        assert_eq!(app.left_panel.state.selected(), Some(1), "Should move back to second item");
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_far_manager_hotkeys() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        fs::create_dir(temp_dir.path().join("subdir"))?;
+        fs::write(temp_dir.path().join("file1.txt"), b"data")?;
+        fs::write(temp_dir.path().join("file2.txt"), b"data")?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        let backend = WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let mut events = vec![
+            // Test Insert key for marking
+            Event::Key(key_event(KeyCode::Insert)),
+            // Test Space key for marking
+            Event::Key(key_event(KeyCode::Char(' '))),
+            // Test Ctrl+\ for root navigation
+            Event::Key(key_event_with_mods(KeyCode::Char('\\'), KeyModifiers::CONTROL)),
+            // Exit
+            Event::Key(key_event(KeyCode::F(10))),
+        ]
+        .into_iter();
+
+        let result = run_app_with_event_reader(&mut terminal, app, || {
+            events
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+        });
+
+        assert!(result.is_ok());
+        Ok(())
     }
 
     #[test]
