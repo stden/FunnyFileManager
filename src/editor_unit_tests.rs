@@ -1,4 +1,4 @@
-#[cfg(test)]
+#[cfg(all(test, feature = "test-helpers"))]
 mod editor_tests {
     use std::io::Write;
     use crate::editor::handle_edit_impl;

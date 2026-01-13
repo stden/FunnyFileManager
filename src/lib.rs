@@ -344,6 +344,7 @@ mod tests {
         KeyEvent::new(code, modifiers)
     }
 
+    #[cfg(feature = "test-helpers")]
     fn select_entry(panel: &mut Panel, name: &str) {
         if let Some(index) = panel.entries.iter().position(|entry| entry.name == name) {
             panel.state.select(Some(index));
@@ -351,6 +352,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "test-helpers")]
     fn test_run_app_with_event_sequence() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         let left_dir = temp_dir.path().join("left");

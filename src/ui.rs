@@ -260,8 +260,7 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         .split(r);
 
     let percent_x = percent_x.min(100);
-    let _percent_y = percent_y.min(100);
-    
+
     Layout::default()
         .direction(Direction::Horizontal)
         .constraints(
