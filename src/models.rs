@@ -195,23 +195,27 @@ impl Panel {
     }
 
     pub fn enter(&mut self) -> io::Result<()> {
-        if let Some(i) = self.state.selected() {
-            if let Some(entry) = self.entries.get(i) {
-                if entry.is_dir {
-                    if entry.name == ".." {
-                        if let Some(parent) = self.path.parent() {
-                            self.path = parent.to_path_buf();
-                        }
-                    } else {
-                        self.path = self.path.join(&entry.name);
-                    }
-                    self.marked.clear();
-                    self.load_entries()?;
-                    if !self.entries.is_empty() {
-                        self.state.select(Some(0));
-                    }
-                }
+        let Some(i) = self.state.selected() else {
+            return Ok(());
+        };
+        let Some(entry) = self.entries.get(i) else {
+            return Ok(());
+        };
+        if !entry.is_dir {
+            return Ok(());
+        }
+
+        if entry.name == ".." {
+            if let Some(parent) = self.path.parent() {
+                self.path = parent.to_path_buf();
             }
+        } else {
+            self.path = self.path.join(&entry.name);
+        }
+        self.marked.clear();
+        self.load_entries()?;
+        if !self.entries.is_empty() {
+            self.state.select(Some(0));
         }
         Ok(())
     }
@@ -413,18 +417,16 @@ mod tests {
     #[test]
     fn test_panel_new() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
-        let panel = Panel::new(temp_dir.path().to_path_buf())?;
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
 
         assert_eq!(panel.path, temp_dir.path());
-        assert!(!panel.entries.is_empty() || panel.entries.is_empty()); // May have .. entry or be empty
-        assert_eq!(
-            panel.state.selected(),
-            if panel.entries.is_empty() {
-                None
-            } else {
-                Some(0)
-            }
-        );
+        assert!(!panel.entries.is_empty());
+        assert_eq!(panel.state.selected(), Some(0));
+
+        panel.entries.clear();
+        panel.state.select(None);
+        assert!(panel.entries.is_empty());
+        assert_eq!(panel.state.selected(), None);
 
         Ok(())
     }
@@ -436,10 +438,7 @@ mod tests {
 
         panel.load_entries()?;
 
-        // Should have parent directory entry if not at root
-        if temp_dir.path().parent().is_some() {
-            assert!(panel.entries.iter().any(|e| e.name == ".."));
-        }
+        assert!(panel.entries.iter().any(|e| e.name == ".."));
 
         Ok(())
     }
@@ -611,17 +610,14 @@ mod tests {
 
         // Check entries are sorted (directories first, then files)
         let mut found_file = false;
+        let mut found_dir_after_file = false;
         for entry in &panel.entries {
             if entry.name != ".." {
-                if entry.is_dir && found_file {
-                    // Found a directory after a file - this is wrong
-                    panic!("Found directory after file in sorted entries");
-                }
-                if !entry.is_dir {
-                    found_file = true;
-                }
+                found_dir_after_file |= entry.is_dir && found_file;
+                found_file |= !entry.is_dir;
             }
         }
+        assert!(!found_dir_after_file, "Found directory after file in sorted entries");
 
         // Verify we have the expected entries
         assert!(panel.entries.len() >= 5); // .. + 2 dirs + 2 files
@@ -792,6 +788,30 @@ mod tests {
         // Entering a file should not change the path
         panel.enter()?;
         assert_eq!(panel.path, original_path);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_enter_no_selection() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        panel.state.select(None);
+
+        panel.enter()?;
+        assert_eq!(panel.path, temp_dir.path());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_panel_enter_missing_entry() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+        panel.state.select(Some(10_000));
+
+        panel.enter()?;
+        assert_eq!(panel.path, temp_dir.path());
 
         Ok(())
     }
@@ -1465,10 +1485,8 @@ mod tests {
         panel.load_entries()?;
         
         // Should still have file2.txt selected
-        assert!(panel.state.selected().is_some());
-        if let Some(idx) = panel.state.selected() {
-            assert_eq!(panel.entries[idx].name, "file2.txt");
-        }
+        let idx = panel.state.selected().expect("selection");
+        assert_eq!(panel.entries[idx].name, "file2.txt");
         
         // Now delete file2.txt and reload - should fall back to first entry
         fs::remove_file(temp_dir.path().join("file2.txt"))?;
@@ -1517,10 +1535,9 @@ mod tests {
             .map(|(i, _)| i)
             .collect();
         
-        if let Some(dir_idx) = dir_pos {
-            for file_idx in &file_positions {
-                assert!(dir_idx < *file_idx, "Directory should come before files");
-            }
+        let dir_idx = dir_pos.expect("Directory entry");
+        for file_idx in &file_positions {
+            assert!(dir_idx < *file_idx, "Directory should come before files");
         }
         
         Ok(())

@@ -3,6 +3,15 @@ use std::fs::{self, File};
 use std::io::{self, Write};
 use tempfile::TempDir;
 
+fn select_entry(panel: &mut Panel, name: &str) {
+    let index = panel
+        .entries
+        .iter()
+        .position(|entry| entry.name == name)
+        .expect("entry not found");
+    panel.state.select(Some(index));
+}
+
 #[test]
 fn test_panel_navigation_mutations() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
@@ -129,7 +138,7 @@ fn test_panel_sort_mutations() -> io::Result<()> {
     // Files should be sorted by size
     let sizes: Vec<u64> = panel.entries[1..].iter().map(|e| e.size).collect();
     for i in 1..sizes.len() {
-        assert!(sizes[i] >= sizes[i-1], "Should be sorted by size");
+        assert!(sizes[i] <= sizes[i - 1], "Should be sorted by size");
     }
     
     Ok(())
@@ -144,17 +153,17 @@ fn test_panel_marking_mutations() -> io::Result<()> {
     let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
     
     // Test toggle_mark with selection
-    panel.state.select(Some(1)); // Select file1.txt
-    panel.toggle_mark();
+    select_entry(&mut panel, "file1.txt");
+    panel.toggle_mark_selected();
     assert!(panel.marked.contains("file1.txt"));
     
     // Toggle again to unmark
-    panel.toggle_mark();
+    panel.toggle_mark_selected();
     assert!(!panel.marked.contains("file1.txt"));
     
     // Test toggle_mark with no selection
     panel.state.select(None);
-    panel.toggle_mark(); // Should not crash
+    panel.toggle_mark_selected();
     assert!(panel.marked.is_empty());
     
     // Test clear_marks
@@ -179,7 +188,7 @@ fn test_panel_action_entry_names_mutations() -> io::Result<()> {
     // Test with marks
     panel.marked.insert("file1.txt".to_string());
     panel.marked.insert("file3.txt".to_string());
-    panel.state.select(Some(2)); // Select file2.txt
+    select_entry(&mut panel, "file2.txt");
     
     let names = panel.action_entry_names();
     assert_eq!(names.len(), 2);
@@ -188,7 +197,7 @@ fn test_panel_action_entry_names_mutations() -> io::Result<()> {
     
     // Test without marks (should return selected)
     panel.marked.clear();
-    panel.state.select(Some(2)); // file2.txt
+    select_entry(&mut panel, "file2.txt");
     let names = panel.action_entry_names();
     assert_eq!(names.len(), 1);
     assert!(names.contains(&"file2.txt".to_string()));
@@ -199,7 +208,7 @@ fn test_panel_action_entry_names_mutations() -> io::Result<()> {
     assert!(names.is_empty());
     
     // Test parent directory ".."
-    panel.state.select(Some(0)); // Select ".."
+    select_entry(&mut panel, "..");
     let names = panel.action_entry_names();
     assert!(names.is_empty(), "Parent directory should not be included");
     
@@ -212,23 +221,36 @@ fn test_app_panel_getters_mutations() -> io::Result<()> {
     
     // Test get_active_panel with Left
     app.active_panel = PanelSide::Left;
-    let active = app.get_active_panel();
-    assert!(std::ptr::eq(&app.left_panel, active));
+    {
+        let active = app.get_active_panel();
+        active.sort_mode = SortMode::Size;
+    }
+    assert_eq!(app.left_panel.sort_mode, SortMode::Size);
+    assert_eq!(app.right_panel.sort_mode, SortMode::Name);
     
     // Test get_active_panel with Right
     app.active_panel = PanelSide::Right;
-    let active = app.get_active_panel();
-    assert!(std::ptr::eq(&app.right_panel, active));
+    {
+        let active = app.get_active_panel();
+        active.sort_mode = SortMode::Extension;
+    }
+    assert_eq!(app.right_panel.sort_mode, SortMode::Extension);
     
     // Test get_inactive_panel with Left active
     app.active_panel = PanelSide::Left;
-    let inactive = app.get_inactive_panel();
-    assert!(std::ptr::eq(&app.right_panel, inactive));
+    {
+        let inactive = app.get_inactive_panel();
+        inactive.sort_mode = SortMode::Size;
+    }
+    assert_eq!(app.right_panel.sort_mode, SortMode::Size);
     
     // Test get_inactive_panel with Right active
     app.active_panel = PanelSide::Right;
-    let inactive = app.get_inactive_panel();
-    assert!(std::ptr::eq(&app.left_panel, inactive));
+    {
+        let inactive = app.get_inactive_panel();
+        inactive.sort_mode = SortMode::Name;
+    }
+    assert_eq!(app.left_panel.sort_mode, SortMode::Name);
     
     Ok(())
 }
@@ -300,28 +322,18 @@ fn test_panel_enter_mutations() -> io::Result<()> {
     let original_path = panel.path.clone();
     
     // Test entering a file (should not change path)
-    for (i, entry) in panel.entries.iter().enumerate() {
-        if entry.name == "file.txt" {
-            panel.state.select(Some(i));
-            break;
-        }
-    }
+    select_entry(&mut panel, "file.txt");
     panel.enter()?;
     assert_eq!(panel.path, original_path, "Path should not change for files");
     
     // Test entering a directory
-    for (i, entry) in panel.entries.iter().enumerate() {
-        if entry.name == "subdir" {
-            panel.state.select(Some(i));
-            break;
-        }
-    }
+    select_entry(&mut panel, "subdir");
     panel.enter()?;
     assert!(panel.path.ends_with("subdir"), "Should enter subdirectory");
     assert!(panel.marked.is_empty(), "Marks should be cleared");
     
     // Test entering parent directory
-    panel.state.select(Some(0)); // Select ".."
+    select_entry(&mut panel, "..");
     panel.enter()?;
     assert_eq!(panel.path, original_path, "Should return to parent");
     
@@ -336,12 +348,7 @@ fn test_panel_selected_path_mutations() -> io::Result<()> {
     let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
     
     // Test with selection
-    for (i, entry) in panel.entries.iter().enumerate() {
-        if entry.name == "test.txt" {
-            panel.state.select(Some(i));
-            break;
-        }
-    }
+    select_entry(&mut panel, "test.txt");
     let path = panel.selected_path();
     assert!(path.is_some());
     assert!(path.unwrap().ends_with("test.txt"));

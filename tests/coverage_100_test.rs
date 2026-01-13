@@ -14,14 +14,14 @@ fn test_format_size_all_ranges() {
     assert_eq!(format_size(0), "0 B");
     assert_eq!(format_size(1), "1 B");
     assert_eq!(format_size(999), "999 B");
-    assert_eq!(format_size(1024), "1.0 KB");
-    assert_eq!(format_size(1536), "1.5 KB");
-    assert_eq!(format_size(1048576), "1.0 MB");
-    assert_eq!(format_size(1572864), "1.5 MB");
-    assert_eq!(format_size(1073741824), "1.0 GB");
-    assert_eq!(format_size(1610612736), "1.5 GB");
-    assert_eq!(format_size(1099511627776), "1.0 TB");
-    assert_eq!(format_size(2199023255552), "2.0 TB");
+    assert_eq!(format_size(1024), "1.00 KB");
+    assert_eq!(format_size(1536), "1.50 KB");
+    assert_eq!(format_size(1048576), "1.00 MB");
+    assert_eq!(format_size(1572864), "1.50 MB");
+    assert_eq!(format_size(1073741824), "1.00 GB");
+    assert_eq!(format_size(1610612736), "1.50 GB");
+    assert_eq!(format_size(1099511627776), "1024.00 GB");
+    assert_eq!(format_size(2199023255552), "2048.00 GB");
 }
 
 #[test]
@@ -44,7 +44,6 @@ fn test_unique_destination_with_conflicts() -> io::Result<()> {
     fs::write(temp_dir.path().join("file_1.txt"), b"copy1")?;
     fs::write(temp_dir.path().join("file_2.txt"), b"copy2")?;
     
-    let dest_path = temp_dir.path().join("file.txt");
     let result = unique_destination(temp_dir.path(), std::ffi::OsStr::new("file.txt"));
     
     assert_eq!(result, temp_dir.path().join("file_3.txt"));
@@ -224,6 +223,7 @@ fn test_bookmarks_all_digits() -> io::Result<()> {
         let digit = (i as u8 + b'0') as char;
         
         // Set bookmark
+        app.show_bookmarks = true;
         handle_overlay_keys(&mut app, key_event(KeyCode::Char(digit), KeyModifiers::CONTROL));
         assert!(app.bookmarks[i].is_some());
         

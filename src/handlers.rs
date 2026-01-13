@@ -1358,9 +1358,6 @@ mod tests {
             Ok(fake_exit_status(0))
         });
 
-        if let Err(e) = &result {
-            panic!("handle_edit_impl failed with error: {:?}", e);
-        }
         assert!(result.is_ok());
         assert!(app.status_message.contains("Edited"));
 
@@ -1435,31 +1432,22 @@ mod tests {
 
     #[test]
     #[cfg(feature = "test-helpers")]
-    fn test_handle_edit_impl_no_selection() -> io::Result<()> {        use ratatui::Terminal;
-
-        let backend = WritableTestBackend::new(80, 24);
-        let mut terminal = Terminal::new(backend)?;
-
+    fn test_handle_edit_impl_no_selection() -> io::Result<()> {
         let mut app = App::new()?;
         app.left_panel.state.select(None);
+        let initial_status = app.status_message.clone();
 
-        // Should return Ok without doing anything
-        let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _path| {
-            panic!("Editor should not be called when no file is selected");
-        });
+        let result = handle_edit_test_mode(&mut app, TestEditorBehavior::Success);
 
         assert!(result.is_ok());
+        assert_eq!(app.status_message, initial_status);
 
         Ok(())
     }
 
     #[test]
     #[cfg(feature = "test-helpers")]
-    fn test_handle_edit_impl_directory() -> io::Result<()> {        use ratatui::Terminal;
-
-        let backend = WritableTestBackend::new(80, 24);
-        let mut terminal = Terminal::new(backend)?;
-
+    fn test_handle_edit_impl_directory() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         fs::create_dir(temp_dir.path().join("subdir"))?;
 
@@ -1474,10 +1462,7 @@ mod tests {
             }
         }
 
-        // Should return Ok without launching editor
-        let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _path| {
-            panic!("Editor should not be called for directories");
-        });
+        let result = handle_edit_test_mode(&mut app, TestEditorBehavior::Success);
 
         assert!(result.is_ok());
         assert_eq!(app.status_message, "Editing directories is not supported");
@@ -1912,10 +1897,8 @@ mod tests {
         
         handle_view(&mut app)?;
         
-        assert!(app.viewer.is_some());
-        if let Some(ref viewer) = app.viewer {
-            assert!(viewer.lines.len() >= 9999);
-        }
+        let viewer = app.viewer.as_ref().expect("viewer");
+        assert!(viewer.lines.len() >= 9999);
         
         Ok(())
     }
@@ -1940,9 +1923,8 @@ mod tests {
             handle_overlay_keys(&mut app, key_event(KeyCode::Down));
         }
         
-        if let Some(ref viewer) = app.viewer {
-            assert!((viewer.scroll as usize) <= viewer.lines.len());
-        }
+        let viewer = app.viewer.as_ref().expect("viewer");
+        assert!((viewer.scroll as usize) <= viewer.lines.len());
         
         Ok(())
     }
@@ -2296,6 +2278,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(coverage))]
     #[ignore = "Stack overflow on Windows"]
     fn test_handle_copy_move_with_very_long_paths() -> io::Result<()> {
         let temp_dir = TempDir::new()?;

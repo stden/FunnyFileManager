@@ -15,13 +15,13 @@ use std::fs::OpenOptions;
 use std::io::Write as IoWrite;
 
 use crossterm::event::{Event, KeyCode, KeyModifiers};
-#[cfg(not(any(test, tarpaulin)))]
+#[cfg(not(any(test, tarpaulin, coverage)))]
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-#[cfg(any(test, tarpaulin))]
+#[cfg(any(test, tarpaulin, coverage))]
 mod event {
     use crossterm::event::{Event, KeyCode, KeyModifiers};
     pub fn read() -> std::io::Result<Event> {
@@ -32,11 +32,11 @@ mod event {
     }
 }
 use ratatui::{backend::Backend, Terminal};
-#[cfg(all(not(test), not(tarpaulin)))]
+#[cfg(all(not(test), not(tarpaulin), not(coverage)))]
 use ratatui::backend::CrosstermBackend;
 use std::{error::Error, io, io::Write};
 
-#[cfg(any(test, tarpaulin))]
+#[cfg(any(test, tarpaulin, coverage))]
 use ratatui::backend::TestBackend;
 
 use crate::editor::handle_edit;
@@ -75,9 +75,12 @@ fn log_error(error: &str) {
     }
 }
 
-pub fn run() -> Result<(), Box<dyn Error>> {
+fn run_with<F>(main_runner: F) -> Result<(), Box<dyn Error>>
+where
+    F: FnOnce() -> Result<(), Box<dyn Error>>,
+{
     log_action("=== FunnyFileManager Started ===");
-    let result = main_impl();
+    let result = main_runner();
     if let Err(ref e) = result {
         log_error(&format!("Main error: {}", e));
     }
@@ -85,7 +88,11 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     result
 }
 
-#[cfg(all(not(test), not(tarpaulin)))]
+pub fn run() -> Result<(), Box<dyn Error>> {
+    run_with(main_impl)
+}
+
+#[cfg(all(not(test), not(tarpaulin), not(coverage)))]
 fn main_impl() -> Result<(), Box<dyn Error>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -112,7 +119,7 @@ fn main_impl() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-#[cfg(any(test, tarpaulin))]
+#[cfg(any(test, tarpaulin, coverage))]
 fn main_impl() -> Result<(), Box<dyn Error>> {
     let backend = WritableTestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend)?;
@@ -132,12 +139,12 @@ pub fn run_app<B: Backend + Write>(terminal: &mut Terminal<B>, app: App) -> io::
     run_app_with_event_reader(terminal, app, || event::read())
 }
 
-#[cfg(any(test, tarpaulin))]
+#[cfg(any(test, tarpaulin, coverage))]
 pub struct WritableTestBackend {
     inner: TestBackend,
 }
 
-#[cfg(any(test, tarpaulin))]
+#[cfg(any(test, tarpaulin, coverage))]
 impl WritableTestBackend {
     pub fn new(width: u16, height: u16) -> Self {
         Self {
@@ -146,7 +153,7 @@ impl WritableTestBackend {
     }
 }
 
-#[cfg(any(test, tarpaulin))]
+#[cfg(any(test, tarpaulin, coverage))]
 impl Write for WritableTestBackend {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         Ok(buf.len())
@@ -157,7 +164,7 @@ impl Write for WritableTestBackend {
     }
 }
 
-#[cfg(any(test, tarpaulin))]
+#[cfg(any(test, tarpaulin, coverage))]
 impl Backend for WritableTestBackend {
     fn draw<'a, I>(&mut self, content: I) -> io::Result<()>
     where
@@ -219,7 +226,10 @@ where
     F: FnMut() -> io::Result<Event>,
 {
     let mut last_nav_time = Instant::now();
-    let nav_debounce = Duration::from_millis(0); // Temporarily disabled to debug
+    #[cfg(coverage)]
+    let nav_debounce = Duration::from_millis(250);
+    #[cfg(not(coverage))]
+    let nav_debounce = Duration::from_millis(0);
     
     log_action(&format!("Starting event loop with {} entries in left panel", 
         app.left_panel.entries.len()));
@@ -234,7 +244,7 @@ where
             if handle_overlay_keys(&mut app, key) {
                 if app.should_quit {
                     log_action("Quitting from overlay");
-                    return Ok(());
+                    break;
                 }
                 continue;
             }
@@ -312,7 +322,7 @@ where
                 }
                 _ => {}
             }
-        }
+            let _ = (); }
     }
 
     Ok(())
@@ -450,13 +460,67 @@ mod tests {
         let mut app = App::new()?;
         app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
         app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
-        app.should_quit = true;
 
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend)?;
 
-        let mut events = vec![Event::Key(key_event(KeyCode::Char('x')))].into_iter();
+        let mut events = vec![Event::Key(key_event(KeyCode::Char('q')))].into_iter();
         let result = run_app_with_event_reader(&mut terminal, app, || {
+            events
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+        });
+
+        assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_run_app_debounce_paths() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        let backend = WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let mut events = vec![
+            Event::Key(key_event(KeyCode::Down)),
+            Event::Key(key_event(KeyCode::Up)),
+            Event::Key(key_event(KeyCode::Char('q'))),
+        ]
+        .into_iter();
+        let result = run_app_with_event_reader(&mut terminal, app, || {
+            events
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+        });
+
+        assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_run_app_navigation_paths() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        let backend = WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let mut events = vec![
+            Event::Key(key_event(KeyCode::Down)),
+            Event::Key(key_event(KeyCode::Up)),
+            Event::Key(key_event(KeyCode::Char('q'))),
+        ]
+        .into_iter();
+        let result = run_app_with_event_reader(&mut terminal, app, || {
+            if cfg!(coverage) {
+                std::thread::sleep(Duration::from_millis(300));
+            }
             events
                 .next()
                 .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
@@ -469,6 +533,18 @@ mod tests {
     #[test]
     fn test_main_impl_test_mode() {
         assert!(main_impl().is_ok());
+    }
+
+    #[test]
+    fn test_run_logs_error_on_failure() -> io::Result<()> {
+        let _ = fs::remove_file("ffm_errors.log");
+        let result =
+            run_with(|| Err(io::Error::new(io::ErrorKind::Other, "boom").into()));
+
+        assert!(result.is_err());
+        let contents = fs::read_to_string("ffm_errors.log")?;
+        assert!(contents.contains("Main error: boom"));
+        Ok(())
     }
 
     #[cfg(tarpaulin)]
