@@ -35,3 +35,5 @@ Optional coverage (tooling may be platform-dependent): `cargo tarpaulin --out Ht
 
 - History mixes simple subjects and Conventional-Commit style (`feat:`, `test:`, `style:`). Prefer the prefixed style for new work.
 - PRs should include: a short summary + rationale, verification steps (`cargo test`), and a screenshot/recording for UI changes. Link related issues (e.g., `#12`) when applicable.
+
+test

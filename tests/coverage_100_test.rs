@@ -4,7 +4,6 @@ use funny_file_manager::utils::{format_size, copy_dir_all, unique_destination, r
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::{fs, io};
 use tempfile::TempDir;
-use std::path::Path;
 
 fn key_event(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
     KeyEvent::new(code, modifiers)
@@ -30,7 +29,7 @@ fn test_unique_destination_no_conflict() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
     let dest_path = temp_dir.path().join("new_file.txt");
     
-    let result = unique_destination(&dest_path);
+    let result = unique_destination(temp_dir.path(), std::ffi::OsStr::new("new_file.txt"));
     assert_eq!(result, dest_path);
     
     Ok(())
@@ -46,7 +45,7 @@ fn test_unique_destination_with_conflicts() -> io::Result<()> {
     fs::write(temp_dir.path().join("file_2.txt"), b"copy2")?;
     
     let dest_path = temp_dir.path().join("file.txt");
-    let result = unique_destination(&dest_path);
+    let result = unique_destination(temp_dir.path(), std::ffi::OsStr::new("file.txt"));
     
     assert_eq!(result, temp_dir.path().join("file_3.txt"));
     

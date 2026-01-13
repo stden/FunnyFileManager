@@ -8,25 +8,14 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 21.8927535,
-          "process_status": "Success",
-          "argv": [
-            "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
-            "test",
-            "--no-run",
-            "--verbose",
-            "--package=funny-file-manager@0.1.0"
-          ]
-        },
-        {
-          "phase": "Test",
-          "duration": 1.7209184,
+          "duration": 14.2557042,
           "process_status": {
             "Failure": 101
           },
           "argv": [
             "C:\\ProgramData\\Rust\\.rustup\\toolchains\\stable-x86_64-pc-windows-msvc\\bin\\cargo.exe",
             "test",
+            "--no-run",
             "--verbose",
             "--package=funny-file-manager@0.1.0"
           ]
@@ -40,7 +29,7 @@
   "timeout": 0,
   "unviable": 0,
   "success": 0,
-  "start_time": "2026-01-12T22:41:43.3963411Z",
-  "end_time": "2026-01-12T22:42:09.8681138Z",
+  "start_time": "2026-01-12T23:46:49.1076241Z",
+  "end_time": "2026-01-12T23:47:04.90911Z",
   "cargo_mutants_version": "26.0.0"
 }

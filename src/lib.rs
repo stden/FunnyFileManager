@@ -8,6 +8,9 @@ pub mod mutation_test;
 #[cfg(test)]
 mod editor_unit_tests;
 
+#[cfg(test)]
+mod mutation_killer_tests;
+
 use std::fs::OpenOptions;
 use std::io::Write as IoWrite;
 
