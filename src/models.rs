@@ -263,6 +263,50 @@ impl Panel {
         self.marked.clear();
     }
 
+    /// Find and select the next entry matching the given prefix (case-insensitive).
+    /// If already on a matching entry, moves to the next matching one.
+    /// Returns true if a match was found.
+    pub fn find_next_matching(&mut self, prefix: &str) -> bool {
+        if self.entries.is_empty() || prefix.is_empty() {
+            return false;
+        }
+
+        let prefix_lower = prefix.to_lowercase();
+        let current = self.state.selected().unwrap_or(0);
+        let len = self.entries.len();
+
+        // Search from current+1 to end, then from 0 to current (inclusive)
+        for offset in 1..=len {
+            let idx = (current + offset) % len;
+            let entry = &self.entries[idx];
+            if entry.name != ".." && entry.name.to_lowercase().starts_with(&prefix_lower) {
+                self.state.select(Some(idx));
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Find and select the first entry matching the given prefix (case-insensitive).
+    /// Returns true if a match was found.
+    pub fn find_first_matching(&mut self, prefix: &str) -> bool {
+        if self.entries.is_empty() || prefix.is_empty() {
+            return false;
+        }
+
+        let prefix_lower = prefix.to_lowercase();
+
+        for (idx, entry) in self.entries.iter().enumerate() {
+            if entry.name != ".." && entry.name.to_lowercase().starts_with(&prefix_lower) {
+                self.state.select(Some(idx));
+                return true;
+            }
+        }
+
+        false
+    }
+
     #[allow(dead_code)]
     pub fn action_entry_names(&self) -> Vec<String> {
         if !self.marked.is_empty() {
@@ -306,6 +350,7 @@ pub struct App {
     pub bookmarks: Vec<Option<PathBuf>>,
     pub should_quit: bool,
     pub status_message: String,
+    pub quick_search: Option<String>,
 }
 
 impl App {
@@ -325,6 +370,7 @@ impl App {
             status_message: String::from(
                 "F1 Help  F3 View  F4 Edit  F5 Copy  F6 Move  F7 Mkdir  F8 Delete",
             ),
+            quick_search: None,
         })
     }
 
@@ -1539,7 +1585,80 @@ mod tests {
         for file_idx in &file_positions {
             assert!(dir_idx < *file_idx, "Directory should come before files");
         }
-        
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_quick_search_find_first_matching() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        File::create(temp_dir.path().join("alpha.txt"))?;
+        File::create(temp_dir.path().join("beta.txt"))?;
+        File::create(temp_dir.path().join("gamma.txt"))?;
+        File::create(temp_dir.path().join("Alpha_upper.txt"))?;
+
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        // Find first entry starting with "a" (case-insensitive)
+        assert!(panel.find_first_matching("a"));
+        let selected = panel.get_selected_entry().unwrap();
+        assert!(selected.name.to_lowercase().starts_with("a"));
+
+        // Find first entry starting with "b"
+        assert!(panel.find_first_matching("b"));
+        let selected = panel.get_selected_entry().unwrap();
+        assert_eq!(selected.name, "beta.txt");
+
+        // Non-existent prefix
+        assert!(!panel.find_first_matching("z"));
+
+        // Empty prefix
+        assert!(!panel.find_first_matching(""));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_quick_search_find_next_matching() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        File::create(temp_dir.path().join("apple.txt"))?;
+        File::create(temp_dir.path().join("apricot.txt"))?;
+        File::create(temp_dir.path().join("avocado.txt"))?;
+        File::create(temp_dir.path().join("banana.txt"))?;
+
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        // Find first "a" entry
+        assert!(panel.find_first_matching("a"));
+        let first_match = panel.get_selected_entry().unwrap().name.clone();
+
+        // Find next "a" entry - should cycle to a different one
+        assert!(panel.find_next_matching("a"));
+        let second_match = panel.get_selected_entry().unwrap().name.clone();
+        assert_ne!(first_match, second_match);
+        assert!(second_match.to_lowercase().starts_with("a"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_quick_search_empty_panel() {
+        let mut panel = Panel {
+            path: PathBuf::new(),
+            entries: Vec::new(),
+            state: ListState::default(),
+            marked: BTreeSet::new(),
+            sort_mode: SortMode::default(),
+        };
+
+        assert!(!panel.find_first_matching("a"));
+        assert!(!panel.find_next_matching("a"));
+    }
+
+    #[test]
+    fn test_app_quick_search_field() -> io::Result<()> {
+        let app = App::new()?;
+        assert!(app.quick_search.is_none());
         Ok(())
     }
 }

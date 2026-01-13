@@ -319,8 +319,49 @@ where
                     let root = if cfg!(windows) { "C:\\" } else { "/" };
                     app.get_active_panel().path = std::path::PathBuf::from(root);
                     app.get_active_panel().load_entries()?;
+                    app.quick_search = None;
                 }
-                _ => {}
+                KeyCode::Char(c) if key.modifiers.contains(KeyModifiers::ALT) => {
+                    // Alt+letter quick search like in Far Manager
+                    let search_str = if let Some(ref mut existing) = app.quick_search {
+                        existing.push(c);
+                        existing.clone()
+                    } else {
+                        app.quick_search = Some(c.to_string());
+                        c.to_string()
+                    };
+
+                    // Try to find matching entry
+                    let panel = app.get_active_panel();
+                    if !panel.find_first_matching(&search_str) {
+                        // If no match found with full string, try with just the new character
+                        if search_str.len() > 1 {
+                            app.quick_search = Some(c.to_string());
+                            app.get_active_panel().find_first_matching(&c.to_string());
+                        }
+                    }
+                    log_action(&format!("Quick search: {:?}", app.quick_search));
+                }
+                KeyCode::Esc => {
+                    app.quick_search = None;
+                }
+                KeyCode::Backspace if app.quick_search.is_some() => {
+                    if let Some(ref mut search) = app.quick_search {
+                        search.pop();
+                        if search.is_empty() {
+                            app.quick_search = None;
+                        } else {
+                            let search_str = search.clone();
+                            app.get_active_panel().find_first_matching(&search_str);
+                        }
+                    }
+                }
+                _ => {
+                    // Clear quick search on other keys
+                    if !matches!(key.code, KeyCode::Up | KeyCode::Down | KeyCode::Enter) {
+                        app.quick_search = None;
+                    }
+                }
             }
             let _ = (); }
     }
@@ -552,7 +593,7 @@ mod tests {
     #[cfg(tarpaulin)]
     #[test]
     fn test_tarpaulin_main_stub() {
-        assert!(super::main().is_ok());
+        assert!(super::run().is_ok());
     }
 
     #[test]
@@ -618,6 +659,126 @@ mod tests {
 
         let mut events = vec![Event::Key(key_event(KeyCode::F(10)))].into_iter();
         
+        run_app_with_event_reader(&mut terminal, app, || {
+            events
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+        })?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_all_key_handlers_coverage() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let subdir = temp_dir.path().join("subdir");
+        fs::create_dir(&subdir)?;
+        fs::write(temp_dir.path().join("file1.txt"), b"content1")?;
+        fs::write(temp_dir.path().join("file2.txt"), b"content2")?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        let backend = WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let mut events = vec![
+            // Navigation keys
+            Event::Key(key_event(KeyCode::Down)),
+            Event::Key(key_event(KeyCode::Up)),
+            // Panel switching
+            Event::Key(key_event(KeyCode::Tab)),
+            Event::Key(key_event(KeyCode::Left)),
+            Event::Key(key_event(KeyCode::Right)),
+            // F1 toggle help
+            Event::Key(key_event(KeyCode::F(1))),
+            Event::Key(key_event(KeyCode::Esc)),
+            // F3 view (then close)
+            Event::Key(key_event(KeyCode::F(3))),
+            Event::Key(key_event(KeyCode::Esc)),
+            // F7 mkdir (then cancel)
+            Event::Key(key_event(KeyCode::F(7))),
+            Event::Key(key_event(KeyCode::Esc)),
+            // Enter key on directory
+            Event::Key(key_event(KeyCode::Down)),
+            Event::Key(key_event(KeyCode::Enter)),
+            // Unknown key (default case)
+            Event::Key(key_event(KeyCode::Backspace)),
+            // Quit
+            Event::Key(key_event(KeyCode::Char('q'))),
+        ]
+        .into_iter();
+
+        run_app_with_event_reader(&mut terminal, app, || {
+            events
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+        })?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_overlay_continue_path() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        fs::write(temp_dir.path().join("file.txt"), b"content")?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        // Start with help overlay active
+        app.show_help = true;
+
+        let backend = WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let mut events = vec![
+            // This key is handled by overlay, triggering continue
+            Event::Key(key_event(KeyCode::Esc)),
+            // After overlay closes, this quits
+            Event::Key(key_event(KeyCode::Char('q'))),
+        ]
+        .into_iter();
+
+        run_app_with_event_reader(&mut terminal, app, || {
+            events
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+        })?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_function_keys_f4_f5_f6_f8() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("file.txt");
+        fs::write(&file_path, b"content")?;
+
+        let mut app = App::new()?;
+        app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+        app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        let backend = WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let mut events = vec![
+            // F4 edit (opens editor overlay, then close)
+            Event::Key(key_event(KeyCode::F(4))),
+            Event::Key(key_event(KeyCode::Esc)),
+            // F5 copy (select file first)
+            Event::Key(key_event(KeyCode::Down)),
+            Event::Key(key_event(KeyCode::F(5))),
+            // F6 move (cancel via Esc since no confirmation needed)
+            Event::Key(key_event(KeyCode::F(6))),
+            // F8 delete (cancel)
+            Event::Key(key_event(KeyCode::F(8))),
+            // Quit
+            Event::Key(key_event(KeyCode::Char('q'))),
+        ]
+        .into_iter();
+
         run_app_with_event_reader(&mut terminal, app, || {
             events
                 .next()

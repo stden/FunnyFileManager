@@ -139,12 +139,17 @@ fn render_status(f: &mut Frame, app: &App, area: Rect) {
         "No selection".to_string()
     };
 
-    let help_text = format!(
-        " ↑↓: Navigate | Enter: Open | Tab: Switch Panel | ←→: Select Panel | {} | {}",
-        selected_info, app.status_message
-    );
+    // Show quick search if active, otherwise show normal status
+    let status_text = if let Some(ref search) = app.quick_search {
+        format!(" Quick search: {}_", search)
+    } else {
+        format!(
+            " ↑↓: Navigate | Enter: Open | Tab: Switch Panel | ←→: Select Panel | {} | {}",
+            selected_info, app.status_message
+        )
+    };
 
-    let paragraph = Paragraph::new(help_text)
+    let paragraph = Paragraph::new(status_text)
         .style(Style::default().bg(FAR_BLUE).fg(Color::Cyan))
         .block(Block::default().borders(Borders::NONE));
 
