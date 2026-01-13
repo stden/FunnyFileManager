@@ -622,4 +622,45 @@ mod tests {
             render_panel(f, &mut app.left_panel, area, true);
         }).unwrap();
     }
+
+    #[test]
+    fn test_render_status_with_quick_search() {
+        let mut app = App::new().unwrap();
+        app.quick_search = Some("test".to_string());
+
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal.draw(|f| {
+            let area = ratatui::layout::Rect::new(0, 0, 80, 2);
+            render_status(f, &app, area);
+        }).unwrap();
+    }
+
+    #[test]
+    fn test_render_status_without_quick_search() {
+        let mut app = App::new().unwrap();
+        app.quick_search = None;
+
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal.draw(|f| {
+            let area = ratatui::layout::Rect::new(0, 0, 80, 2);
+            render_status(f, &app, area);
+        }).unwrap();
+    }
+
+    #[test]
+    fn test_ui_render_with_quick_search_active() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let mut app = App::new().unwrap();
+        app.quick_search = Some("search".to_string());
+
+        terminal.draw(|f| {
+            ui(f, &mut app);
+        }).unwrap();
+    }
 }
