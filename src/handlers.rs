@@ -2382,4 +2382,20 @@ mod tests {
         
         Ok(())
     }
+
+    #[test]
+    fn test_jump_to_match_no_match() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+
+        for i in 0..5 {
+            File::create(temp_dir.path().join(format!("file{}.txt", i)))?;
+        }
+        panel.load_entries()?;
+
+        let found = jump_to_match(&mut panel, "nonexistent");
+        assert!(!found);
+
+        Ok(())
+    }
 }
