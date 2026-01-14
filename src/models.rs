@@ -1375,6 +1375,21 @@ mod tests {
     }
 
     #[test]
+    fn test_sort_mode_cycle() {
+        let mut mode = SortMode::Name;
+        assert_eq!(mode, SortMode::Name);
+
+        mode = mode.next();
+        assert_eq!(mode, SortMode::Extension);
+
+        mode = mode.next();
+        assert_eq!(mode, SortMode::Size);
+
+        mode = mode.next();
+        assert_eq!(mode, SortMode::Name);
+    }
+
+    #[test]
     fn test_viewer_with_extreme_content() {
         let viewer = Viewer {
             lines: vec!["x".repeat(1000); 10000],
