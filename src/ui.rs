@@ -457,6 +457,21 @@ mod tests {
     }
 
     #[test]
+    fn test_centered_rect_small_base() {
+        let base = Rect {
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+        };
+        let rect = centered_rect(50, 50, base);
+        assert_eq!(rect.width, 5);
+        assert_eq!(rect.height, 5);
+        assert_eq!(rect.x, 3);
+        assert_eq!(rect.y, 3);
+    }
+
+    #[test]
     fn test_ui_render_with_minimal_terminal_size() {
         let mut app = App::new().unwrap();
         app.left_panel.path = std::path::PathBuf::from("/test");
