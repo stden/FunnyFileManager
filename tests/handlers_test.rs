@@ -1,5 +1,5 @@
 use funny_file_manager::handlers::{handle_overlay_keys, handle_view, handle_copy, handle_move, handle_mkdir, handle_delete};
-use funny_file_manager::models::{App, Panel, PanelSide, Viewer};
+use funny_file_manager::models::{App, Panel, PanelSide, SortMode, Viewer};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::fs::{self, File};
 use std::io::{self, Write};
@@ -406,6 +406,40 @@ fn test_command_line_sort_extension() -> io::Result<()> {
 
     handle_overlay_keys(&mut app, key_event(KeyCode::Enter));
     assert!(app.status_message.contains("Sort: Ext"));
+
+    Ok(())
+}
+
+#[test]
+fn test_command_line_sort_size_right_panel() -> io::Result<()> {
+    let temp_dir = TempDir::new()?;
+    File::create(temp_dir.path().join("small.txt"))?.write_all(b"1")?;
+    File::create(temp_dir.path().join("large.txt"))?.write_all(b"12345")?;
+
+    let mut app = App::new()?;
+    app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+    app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
+    app.active_panel = PanelSide::Right;
+    app.command_line = Some("sort size".to_string());
+
+    handle_overlay_keys(&mut app, key_event(KeyCode::Enter));
+    assert!(matches!(app.right_panel.sort_mode, SortMode::Size));
+    assert!(app.status_message.contains("Sort: Size"));
+
+    Ok(())
+}
+
+#[test]
+fn test_command_line_sort_invalid() -> io::Result<()> {
+    let temp_dir = TempDir::new()?;
+    File::create(temp_dir.path().join("a.txt"))?;
+
+    let mut app = App::new()?;
+    app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
+    app.command_line = Some("sort nope".to_string());
+
+    handle_overlay_keys(&mut app, key_event(KeyCode::Enter));
+    assert!(app.status_message.contains("sort expects"));
 
     Ok(())
 }

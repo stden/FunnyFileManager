@@ -21,7 +21,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-#[cfg(any(test, tarpaulin, coverage))]
+#[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]
 mod event {
     use crossterm::event::{Event, KeyCode, KeyModifiers};
     pub fn read() -> std::io::Result<Event> {
@@ -36,7 +36,7 @@ use ratatui::{backend::Backend, Terminal};
 use ratatui::backend::CrosstermBackend;
 use std::{error::Error, io, io::Write};
 
-#[cfg(any(test, tarpaulin, coverage))]
+#[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]
 use ratatui::backend::TestBackend;
 
 use crate::editor::handle_edit;
@@ -139,12 +139,12 @@ pub fn run_app<B: Backend + Write>(terminal: &mut Terminal<B>, app: App) -> io::
     run_app_with_event_reader(terminal, app, || event::read())
 }
 
-#[cfg(any(test, tarpaulin, coverage))]
+#[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]
 pub struct WritableTestBackend {
     inner: TestBackend,
 }
 
-#[cfg(any(test, tarpaulin, coverage))]
+#[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]
 impl WritableTestBackend {
     pub fn new(width: u16, height: u16) -> Self {
         Self {
@@ -153,7 +153,7 @@ impl WritableTestBackend {
     }
 }
 
-#[cfg(any(test, tarpaulin, coverage))]
+#[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]
 impl Write for WritableTestBackend {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         Ok(buf.len())
@@ -164,7 +164,7 @@ impl Write for WritableTestBackend {
     }
 }
 
-#[cfg(any(test, tarpaulin, coverage))]
+#[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]
 impl Backend for WritableTestBackend {
     fn draw<'a, I>(&mut self, content: I) -> io::Result<()>
     where
@@ -1036,6 +1036,38 @@ mod tests {
         .into_iter();
 
         let result = run_app_with_event_reader(&mut terminal, app, || {
+            events
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
+        });
+
+        assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_quick_search_cleared_on_tab() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        fs::write(temp_dir.path().join("file.txt"), b"data")?;
+
+        let mut app = App::new()?;
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.right_panel.path = temp_dir.path().to_path_buf();
+
+        let backend = WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let mut events = vec![
+            // Start quick search
+            Event::Key(key_event_with_mods(KeyCode::Char('f'), KeyModifiers::ALT)),
+            // Tab should clear quick search
+            Event::Key(key_event(KeyCode::Tab)),
+            // Quit
+            Event::Key(key_event(KeyCode::Char('q'))),
+        ]
+        .into_iter();
+
+        let result = run_app_with_event_reader(&mut terminal, app.clone(), || {
             events
                 .next()
                 .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "No more events"))
