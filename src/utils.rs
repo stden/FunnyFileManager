@@ -207,6 +207,18 @@ mod tests {
     }
 
     #[test]
+    fn test_copy_dir_all_src_not_exist() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let src = temp_dir.path().join("non_existent_src");
+        let dst = temp_dir.path().join("dst");
+
+        let result = copy_dir_all(&src, &dst);
+        assert!(result.is_err());
+
+        Ok(())
+    }
+
+    #[test]
     fn test_refresh_panels_mutation_killer() -> io::Result<()> {
         let temp_dir = TempDir::new()?;
         let mut app = App::new()?;
