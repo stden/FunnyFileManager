@@ -1,0 +1,1791 @@
+Coverage Report
+Created: 2026-01-16 16:06
+C:\x\FunnyFileManager\src\models.rs:
+    1|       |use ratatui::widgets::ListState;
+    2|       |use std::{cmp::Ordering, collections::BTreeSet, fs, io, path::PathBuf};
+    3|       |
+    4|       |#[derive(Debug, Clone)]
+    5|       |pub struct DirEntry {
+    6|       |    pub name: String,
+    7|       |    pub is_dir: bool,
+    8|       |    pub size: u64,
+    9|       |}
+   10|       |
+   11|       |#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+   12|       |pub enum SortMode {
+   13|       |    Name,
+   14|       |    Extension,
+   15|       |    Size,
+   16|       |}
+   17|       |
+   18|       |impl Default for SortMode {
+   19|    443|    fn default() -> Self {
+   20|    443|        SortMode::Name
+   21|    443|    }
+   22|       |}
+   23|       |
+   24|       |impl SortMode {
+   25|       |    #[allow(dead_code)]
+   26|     27|    pub fn next(self) -> Self {
+   27|     27|        match self {
+   28|     11|            SortMode::Name => SortMode::Extension,
+   29|      9|            SortMode::Extension => SortMode::Size,
+   30|      7|            SortMode::Size => SortMode::Name,
+   31|       |        }
+   32|     27|    }
+   33|       |
+   34|     15|    pub fn label(self) -> &'static str {
+   35|     15|        match self {
+   36|      5|            SortMode::Name => "Name",
+   37|      5|            SortMode::Extension => "Ext",
+   38|      5|            SortMode::Size => "Size",
+   39|       |        }
+   40|     15|    }
+   41|       |}
+   42|       |
+   43|       |#[derive(Default, Clone)]
+   44|       |pub struct Viewer {
+   45|       |    pub title: String,
+   46|       |    pub lines: Vec<String>,
+   47|       |    pub scroll: u16,
+   48|       |}
+   49|       |
+   50|       |#[derive(Debug, Clone)]
+   51|       |pub struct Panel {
+   52|       |    pub path: PathBuf,
+   53|       |    pub entries: Vec<DirEntry>,
+   54|       |    pub state: ListState,
+   55|       |    pub marked: BTreeSet<String>,
+   56|       |    pub sort_mode: SortMode,
+   57|       |}
+   58|       |
+   59|       |impl Panel {
+   60|    436|    pub fn new(path: PathBuf) -> io::Result<Self> {
+   61|    436|        let mut panel = Panel {
+   62|    436|            path,
+   63|    436|            entries: Vec::new(),
+   64|    436|            state: ListState::default(),
+   65|    436|            marked: BTreeSet::new(),
+   66|    436|            sort_mode: SortMode::default(),
+   67|    436|        };
+   68|    436|        panel.load_entries()?;
+                                          ^0
+   69|    436|        panel.state.select(panel.entries.first().map(|_| 0));
+   70|    436|        Ok(panel)
+   71|    436|    }
+   72|       |
+   73|    602|    pub fn load_entries(&mut self) -> io::Result<()> {
+   74|    602|        let selected_name = self.get_selected_entry().map(|entry| entry.name.clone());
+                                                                                ^164       ^164
+   75|       |
+   76|    602|        self.entries.clear();
+   77|       |
+   78|    602|        if self.path.parent().is_some() {
+   79|    597|            self.entries.push(DirEntry {
+   80|    597|                name: "..".to_string(),
+   81|    597|                is_dir: true,
+   82|    597|                size: 0,
+   83|    597|            });
+   84|    597|        }
+                      ^5
+   85|       |
+   86|    602|        let mut entries: Vec<DirEntry> = fs::read_dir(&self.path)?
+                          ^600         ^600                                    ^2
+   87|  10.9k|            .filter_map(|entry| {
+                           ^600
+   88|  10.9k|                let entry = entry.ok()?;
+                                                    ^0
+   89|  10.9k|                let metadata = entry.metadata().ok()?;
+                                                                  ^0
+   90|  10.9k|                let name = entry.file_name().to_string_lossy().to_string();
+   91|       |
+   92|  10.9k|                Some(DirEntry {
+   93|  10.9k|                    name,
+   94|  10.9k|                    is_dir: metadata.is_dir(),
+   95|  10.9k|                    size: metadata.len(),
+   96|  10.9k|                })
+   97|  10.9k|            })
+   98|    600|            .collect();
+   99|       |
+  100|    600|        let sort_mode = self.sort_mode;
+  101|  30.4k|        entries.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+                      ^600    ^600
+  102|  15.1k|            (true, false) => Ordering::Less,
+  103|    587|            (false, true) => Ordering::Greater,
+  104|  14.6k|            _ => match sort_mode {
+  105|  14.4k|                SortMode::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+  106|       |                SortMode::Extension => {
+  107|    113|                    let a_ext = std::path::Path::new(&a.name)
+  108|    113|                        .extension()
+  109|    113|                        .and_then(|ext| ext.to_str())
+                                                      ^28 ^28
+  110|    113|                        .unwrap_or("")
+  111|    113|                        .to_lowercase();
+  112|    113|                    let b_ext = std::path::Path::new(&b.name)
+  113|    113|                        .extension()
+  114|    113|                        .and_then(|ext| ext.to_str())
+                                                      ^59 ^59
+  115|    113|                        .unwrap_or("")
+  116|    113|                        .to_lowercase();
+  117|    113|                    a_ext
+  118|    113|                        .cmp(&b_ext)
+  119|    113|                        .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+                                                    ^53                   ^53 ^53
+  120|       |                }
+  121|     89|                SortMode::Size => b
+  122|     89|                    .size
+  123|     89|                    .cmp(&a.size)
+  124|     89|                    .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase())),
+                                                ^58                   ^58 ^58
+  125|       |            },
+  126|  30.4k|        });
+  127|       |
+  128|    600|        self.entries.extend(entries);
+  129|       |
+  130|    600|        let valid_names: BTreeSet<String> = self
+  131|    600|            .entries
+  132|    600|            .iter()
+  133|  11.5k|            .filter(|entry| entry.name != "..")
+                           ^600
+  134|  10.9k|            .map(|entry| entry.name.clone())
+                           ^600
+  135|    600|            .collect();
+  136|    600|        self.marked.retain(|name| valid_names.contains(name));
+                                                ^5          ^5       ^5
+  137|       |
+  138|    600|        self.select_after_reload(selected_name);
+  139|       |
+  140|    600|        Ok(())
+  141|    602|    }
+  142|       |
+  143|    605|    fn select_after_reload(&mut self, selected_name: Option<String>) {
+  144|    605|        if let Some(selected_name) = selected_name {
+                                  ^165
+  145|    165|            if let Some(index) = self
+                                      ^139
+  146|    165|                .entries
+  147|    165|                .iter()
+  148|    270|                .position(|entry| entry.name == selected_name)
+                               ^165
+  149|    139|            {
+  150|    139|                self.state.select(Some(index));
+  151|    139|            } else if self.entries.is_empty() {
+                                    ^26          ^26
+  152|      1|                self.state.select(None);
+  153|     25|            } else {
+  154|     25|                self.state.select(Some(0));
+  155|     25|            }
+  156|    440|        } else if self.entries.is_empty() {
+  157|      1|            self.state.select(None);
+  158|    439|        }
+  159|    605|    }
+  160|       |
+  161|    522|    pub fn next(&mut self) {
+  162|    522|        if self.entries.is_empty() {
+  163|      2|            return;
+  164|    520|        }
+  165|    520|        let i = match self.state.selected() {
+  166|    519|            Some(i) => {
+  167|    519|                if i >= self.entries.len() - 1 {
+  168|      6|                    0
+  169|       |                } else {
+  170|    513|                    i + 1
+  171|       |                }
+  172|       |            }
+  173|      1|            None => 0,
+  174|       |        };
+  175|    520|        self.state.select(Some(i));
+  176|    522|    }
+  177|       |
+  178|     13|    pub fn previous(&mut self) {
+  179|     13|        if self.entries.is_empty() {
+  180|      2|            return;
+  181|     11|        }
+  182|     11|        let i = match self.state.selected() {
+  183|     10|            Some(i) => {
+  184|     10|                if i == 0 {
+  185|      6|                    self.entries.len() - 1
+  186|       |                } else {
+  187|      4|                    i - 1
+  188|       |                }
+  189|       |            }
+  190|      1|            None => 0,
+  191|       |        };
+  192|     11|        self.state.select(Some(i));
+  193|     13|    }
+  194|       |
+  195|     11|    pub fn enter(&mut self) -> io::Result<()> {
+  196|     11|        let Some(i) = self.state.selected() else {
+                               ^10
+  197|      1|            return Ok(());
+  198|       |        };
+  199|     10|        let Some(entry) = self.entries.get(i) else {
+                               ^9
+  200|      1|            return Ok(());
+  201|       |        };
+  202|      9|        if !entry.is_dir {
+  203|      2|            return Ok(());
+  204|      7|        }
+  205|       |
+  206|      7|        if entry.name == ".." {
+  207|      3|            self.path.pop();
+  208|      4|        } else {
+  209|      4|            self.path = self.path.join(&entry.name);
+  210|      4|        }
+  211|      7|        self.marked.clear();
+  212|      7|        self.load_entries()?;
+                                         ^0
+  213|      7|        self.state.select(self.entries.first().map(|_| 0));
+  214|      7|        Ok(())
+  215|     11|    }
+  216|       |
+  217|    779|    pub fn get_selected_entry(&self) -> Option<&DirEntry> {
+  218|    779|        self.state.selected().and_then(|i| self.entries.get(i))
+                                                         ^328         ^328^328
+  219|    779|    }
+  220|       |
+  221|    106|    pub fn ensure_selection(&mut self) {
+  222|    106|        if !self.entries.is_empty() && self.state.selected().is_none() {
+                                                     ^103                  ^103
+  223|      5|            self.state.select(Some(0));
+  224|    101|        }
+  225|    106|    }
+  226|       |
+  227|     51|    pub fn selected_path(&self) -> Option<PathBuf> {
+  228|     51|        self.get_selected_entry().and_then(|entry| {
+                                                                 ^43
+  229|     43|            if entry.name == ".." {
+  230|      5|                None
+  231|       |            } else {
+  232|     38|                Some(self.path.join(&entry.name))
+  233|       |            }
+  234|     43|        })
+  235|     51|    }
+  236|       |
+  237|       |    #[allow(dead_code)]
+  238|     21|    pub fn toggle_mark_selected(&mut self) -> bool {
+  239|     21|        let Some(selected_name) = self.get_selected_entry().map(|entry| entry.name.clone()) else {
+                               ^18                                                    ^18        ^18
+  240|      3|            return false;
+  241|       |        };
+  242|       |
+  243|     18|        if selected_name == ".." {
+  244|      4|            return false;
+  245|     14|        }
+  246|       |
+  247|     14|        if self.marked.contains(&selected_name) {
+  248|      3|            self.marked.remove(&selected_name);
+  249|     11|        } else {
+  250|     11|            self.marked.insert(selected_name);
+  251|     11|        }
+  252|       |
+  253|     14|        true
+  254|     21|    }
+  255|       |
+  256|     20|    pub fn clear_marks(&mut self) {
+  257|     20|        self.marked.clear();
+  258|     20|    }
+  259|       |
+  260|       |    /// Find and select the next entry matching the given prefix (case-insensitive).
+  261|       |    /// If already on a matching entry, moves to the next matching one.
+  262|       |    /// Returns true if a match was found.
+  263|      7|    pub fn find_next_matching(&mut self, prefix: &str) -> bool {
+  264|      7|        if self.entries.is_empty() || prefix.is_empty() {
+                                                    ^6     ^6
+  265|      1|            return false;
+  266|      6|        }
+  267|       |
+  268|      6|        let prefix_lower = prefix.to_lowercase();
+  269|      6|        let current = self.state.selected().unwrap_or(0);
+  270|      6|        let len = self.entries.len();
+  271|       |
+  272|       |        // Search from current+1 to end, then from 0 to current (inclusive)
+  273|      9|        for offset in 1..=len {
+                                        ^6
+  274|      9|            let idx = (current + offset) % len;
+  275|      9|            let entry = &self.entries[idx];
+  276|      9|            if entry.name != ".." && entry.name.to_lowercase().starts_with(&prefix_lower) {
+                                                   ^7
+  277|      5|                self.state.select(Some(idx));
+  278|      5|                return true;
+  279|      4|            }
+  280|       |        }
+  281|       |
+  282|      1|        false
+  283|      7|    }
+  284|       |
+  285|       |    /// Find and select the first entry matching the given prefix (case-insensitive).
+  286|       |    /// Returns true if a match was found.
+  287|     21|    pub fn find_first_matching(&mut self, prefix: &str) -> bool {
+  288|     21|        if self.entries.is_empty() || prefix.is_empty() {
+                                                    ^20    ^20
+  289|      2|            return false;
+  290|     19|        }
+  291|       |
+  292|     19|        let prefix_lower = prefix.to_lowercase();
+  293|       |
+  294|     69|        for (idx, entry) in self.entries.iter().enumerate() {
+                                          ^19                 ^19
+  295|     69|            if entry.name != ".." && entry.name.to_lowercase().starts_with(&prefix_lower) {
+                                                   ^50
+  296|     14|                self.state.select(Some(idx));
+  297|     14|                return true;
+  298|     55|            }
+  299|       |        }
+  300|       |
+  301|      5|        false
+  302|     21|    }
+  303|       |
+  304|       |    #[allow(dead_code)]
+  305|     13|    pub fn action_entry_names(&self) -> Vec<String> {
+  306|     13|        if !self.marked.is_empty() {
+  307|      4|            return self.marked.iter().cloned().collect();
+  308|      9|        }
+  309|       |
+  310|      9|        self.get_selected_entry()
+  311|      9|            .and_then(|entry| {
+                                            ^8
+  312|      8|                if entry.name == ".." {
+  313|      4|                    None
+  314|       |                } else {
+  315|      4|                    Some(entry.name.clone())
+  316|       |                }
+  317|      8|            })
+  318|      9|            .into_iter()
+  319|      9|            .collect()
+  320|     13|    }
+  321|       |
+  322|       |    #[allow(dead_code)]
+  323|      6|    pub fn cycle_sort_mode(&mut self) {
+  324|      6|        self.sort_mode = self.sort_mode.next();
+  325|      6|    }
+  326|       |}
+  327|       |
+  328|       |#[derive(Debug, Clone, Copy, PartialEq)]
+  329|       |pub enum PanelSide {
+  330|       |    Left,
+  331|       |    Right,
+  332|       |}
+  333|       |
+  334|       |#[derive(Clone)]
+  335|       |pub struct App {
+  336|       |    pub left_panel: Panel,
+  337|       |    pub right_panel: Panel,
+  338|       |    pub active_panel: PanelSide,
+  339|       |    pub show_help: bool,
+  340|       |    pub viewer: Option<Viewer>,
+  341|       |    pub search: Option<String>,
+  342|       |    pub command_line: Option<String>,
+  343|       |    pub show_bookmarks: bool,
+  344|       |    pub bookmarks: Vec<Option<PathBuf>>,
+  345|       |    pub should_quit: bool,
+  346|       |    pub status_message: String,
+  347|       |    pub quick_search: Option<String>,
+  348|       |}
+  349|       |
+  350|       |impl App {
+  351|    134|    pub fn new() -> io::Result<Self> {
+  352|    134|        let current_dir = std::env::current_dir()?;
+                                                               ^0
+  353|       |        Ok(App {
+  354|    134|            left_panel: Panel::new(current_dir.clone())?,
+                                                                     ^0
+  355|    134|            right_panel: Panel::new(current_dir)?,
+                                                              ^0
+  356|    134|            active_panel: PanelSide::Left,
+  357|       |            show_help: false,
+  358|    134|            viewer: None,
+  359|    134|            search: None,
+  360|    134|            command_line: None,
+  361|       |            show_bookmarks: false,
+  362|    134|            bookmarks: vec![None; 10],
+  363|       |            should_quit: false,
+  364|    134|            status_message: String::from(
+  365|       |                "F1 Help  F3 View  F4 Edit  F5 Copy  F6 Move  F7 Mkdir  F8 Delete",
+  366|       |            ),
+  367|    134|            quick_search: None,
+  368|       |        })
+  369|    134|    }
+  370|       |
+  371|    137|    pub fn get_active_panel(&mut self) -> &mut Panel {
+  372|    137|        match self.active_panel {
+  373|    131|            PanelSide::Left => &mut self.left_panel,
+  374|      6|            PanelSide::Right => &mut self.right_panel,
+  375|       |        }
+  376|    137|    }
+  377|       |
+  378|     19|    pub fn get_inactive_panel(&mut self) -> &mut Panel {
+  379|     19|        match self.active_panel {
+  380|     17|            PanelSide::Left => &mut self.right_panel,
+  381|      2|            PanelSide::Right => &mut self.left_panel,
+  382|       |        }
+  383|     19|    }
+  384|       |
+  385|     19|    pub fn switch_panel(&mut self) {
+  386|     19|        self.active_panel = match self.active_panel {
+  387|     11|            PanelSide::Left => PanelSide::Right,
+  388|      8|            PanelSide::Right => PanelSide::Left,
+  389|       |        };
+  390|     19|    }
+  391|       |}
+  392|       |
+  393|       |#[cfg(test)]
+  394|       |mod tests {
+  395|       |    use super::*;
+  396|       |    use std::fs::File;
+  397|       |    use std::io::Write;
+  398|       |    use tempfile::TempDir;
+  399|       |
+  400|      3|    fn file_names(panel: &Panel) -> Vec<String> {
+  401|      3|        panel
+  402|      3|            .entries
+  403|      3|            .iter()
+  404|     13|            .filter(|entry| !entry.is_dir && entry.name != "..")
+                           ^3                              ^8
+  405|      8|            .map(|entry| entry.name.clone())
+                           ^3
+  406|      3|            .collect()
+  407|      3|    }
+  408|       |
+  409|       |    #[test]
+  410|      1|    fn test_dir_entry_creation() {
+  411|      1|        let entry = DirEntry {
+  412|      1|            name: "test.txt".to_string(),
+  413|      1|            is_dir: false,
+  414|      1|            size: 1024,
+  415|      1|        };
+  416|       |
+  417|      1|        assert_eq!(entry.name, "test.txt");
+  418|      1|        assert!(!entry.is_dir);
+  419|      1|        assert_eq!(entry.size, 1024);
+  420|      1|    }
+  421|       |
+  422|       |    #[test]
+  423|      1|    fn test_dir_entry_clone() {
+  424|      1|        let entry = DirEntry {
+  425|      1|            name: "test.txt".to_string(),
+  426|      1|            is_dir: false,
+  427|      1|            size: 1024,
+  428|      1|        };
+  429|       |
+  430|      1|        let cloned = entry.clone();
+  431|      1|        assert_eq!(cloned.name, entry.name);
+  432|      1|        assert_eq!(cloned.is_dir, entry.is_dir);
+  433|      1|        assert_eq!(cloned.size, entry.size);
+  434|      1|    }
+  435|       |
+  436|       |    #[test]
+  437|      1|    fn test_viewer_default() {
+  438|      1|        let viewer = Viewer::default();
+  439|      1|        assert_eq!(viewer.title, "");
+  440|      1|        assert!(viewer.lines.is_empty());
+  441|      1|        assert_eq!(viewer.scroll, 0);
+  442|      1|    }
+  443|       |
+  444|       |    #[test]
+  445|      1|    fn test_viewer_creation() {
+  446|      1|        let viewer = Viewer {
+  447|      1|            title: "test.txt".to_string(),
+  448|      1|            lines: vec!["Line 1".to_string(), "Line 2".to_string()],
+  449|      1|            scroll: 5,
+  450|      1|        };
+  451|       |
+  452|      1|        assert_eq!(viewer.title, "test.txt");
+  453|      1|        assert_eq!(viewer.lines.len(), 2);
+  454|      1|        assert_eq!(viewer.scroll, 5);
+  455|      1|    }
+  456|       |
+  457|       |    #[test]
+  458|      1|    fn test_panel_new() -> io::Result<()> {
+  459|      1|        let temp_dir = TempDir::new().expect("test setup");
+  460|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  461|       |
+  462|      1|        assert_eq!(panel.path, temp_dir.path());
+  463|      1|        assert!(!panel.entries.is_empty());
+  464|      1|        assert_eq!(panel.state.selected(), Some(0));
+  465|       |
+  466|      1|        panel.entries.clear();
+  467|      1|        panel.state.select(None);
+  468|      1|        assert!(panel.entries.is_empty());
+  469|      1|        assert_eq!(panel.state.selected(), None);
+  470|       |
+  471|      1|        Ok(())
+  472|      1|    }
+  473|       |
+  474|       |    #[test]
+  475|      1|    fn test_panel_load_entries_empty_dir() -> io::Result<()> {
+  476|      1|        let temp_dir = TempDir::new().expect("test setup");
+  477|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  478|       |
+  479|      1|        panel.load_entries().expect("test setup");
+  480|       |
+  481|      1|        assert!(panel.entries.iter().any(|e| e.name == ".."));
+  482|       |
+  483|      1|        Ok(())
+  484|      1|    }
+  485|       |
+  486|       |    #[test]
+  487|      1|    fn test_select_after_reload_empty_entries_with_selected_name() -> io::Result<()> {
+  488|      1|        let temp_dir = TempDir::new().expect("test setup");
+  489|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  490|       |
+  491|      1|        panel.entries.clear();
+  492|      1|        panel.state.select(Some(0));
+  493|      1|        panel.select_after_reload(Some("missing.txt".to_string()));
+  494|       |
+  495|      1|        assert_eq!(panel.state.selected(), None);
+  496|      1|        Ok(())
+  497|      1|    }
+  498|       |
+  499|       |    #[test]
+  500|      1|    fn test_select_after_reload_empty_entries_without_selected_name() -> io::Result<()> {
+  501|      1|        let temp_dir = TempDir::new().expect("test setup");
+  502|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  503|       |
+  504|      1|        panel.entries.clear();
+  505|      1|        panel.state.select(Some(0));
+  506|      1|        panel.select_after_reload(None);
+  507|       |
+  508|      1|        assert_eq!(panel.state.selected(), None);
+  509|      1|        Ok(())
+  510|      1|    }
+  511|       |
+  512|       |    #[test]
+  513|      1|    fn test_select_after_reload_preserves_selected_name() {
+  514|      1|        let mut panel = Panel {
+  515|      1|            path: PathBuf::new(),
+  516|      1|            entries: vec![
+  517|      1|                DirEntry {
+  518|      1|                    name: "alpha.txt".to_string(),
+  519|      1|                    is_dir: false,
+  520|      1|                    size: 10,
+  521|      1|                },
+  522|      1|                DirEntry {
+  523|      1|                    name: "beta.txt".to_string(),
+  524|      1|                    is_dir: false,
+  525|      1|                    size: 20,
+  526|      1|                },
+  527|      1|            ],
+  528|      1|            state: ListState::default(),
+  529|      1|            marked: BTreeSet::new(),
+  530|      1|            sort_mode: SortMode::default(),
+  531|      1|        };
+  532|       |
+  533|      1|        panel.state.select(Some(0));
+  534|      1|        panel.select_after_reload(Some("beta.txt".to_string()));
+  535|       |
+  536|      1|        assert_eq!(panel.state.selected(), Some(1));
+  537|      1|    }
+  538|       |
+  539|       |    #[test]
+  540|      1|    fn test_select_after_reload_selects_first_when_missing() {
+  541|      1|        let mut panel = Panel {
+  542|      1|            path: PathBuf::new(),
+  543|      1|            entries: vec![
+  544|      1|                DirEntry {
+  545|      1|                    name: "alpha.txt".to_string(),
+  546|      1|                    is_dir: false,
+  547|      1|                    size: 10,
+  548|      1|                },
+  549|      1|                DirEntry {
+  550|      1|                    name: "beta.txt".to_string(),
+  551|      1|                    is_dir: false,
+  552|      1|                    size: 20,
+  553|      1|                },
+  554|      1|            ],
+  555|      1|            state: ListState::default(),
+  556|      1|            marked: BTreeSet::new(),
+  557|      1|            sort_mode: SortMode::default(),
+  558|      1|        };
+  559|       |
+  560|      1|        panel.state.select(Some(1));
+  561|      1|        panel.select_after_reload(Some("missing.txt".to_string()));
+  562|       |
+  563|      1|        assert_eq!(panel.state.selected(), Some(0));
+  564|      1|    }
+  565|       |
+  566|       |    #[test]
+  567|      1|    fn test_select_after_reload_keeps_selection_when_none() {
+  568|      1|        let mut panel = Panel {
+  569|      1|            path: PathBuf::new(),
+  570|      1|            entries: vec![
+  571|      1|                DirEntry {
+  572|      1|                    name: "alpha.txt".to_string(),
+  573|      1|                    is_dir: false,
+  574|      1|                    size: 10,
+  575|      1|                },
+  576|      1|                DirEntry {
+  577|      1|                    name: "beta.txt".to_string(),
+  578|      1|                    is_dir: false,
+  579|      1|                    size: 20,
+  580|      1|                },
+  581|      1|            ],
+  582|      1|            state: ListState::default(),
+  583|      1|            marked: BTreeSet::new(),
+  584|      1|            sort_mode: SortMode::default(),
+  585|      1|        };
+  586|       |
+  587|      1|        panel.state.select(Some(1));
+  588|      1|        panel.select_after_reload(None);
+  589|       |
+  590|      1|        assert_eq!(panel.state.selected(), Some(1));
+  591|      1|    }
+  592|       |
+  593|       |    #[test]
+  594|      1|    fn test_panel_load_entries_preserves_selection() -> io::Result<()> {
+  595|      1|        let temp_dir = TempDir::new().expect("test setup");
+  596|      1|        File::create(temp_dir.path().join("a.txt"))
+  597|      1|            .expect("test setup")
+  598|      1|            .write_all(b"a")
+  599|      1|            .expect("test setup");
+  600|      1|        File::create(temp_dir.path().join("b.txt"))
+  601|      1|            .expect("test setup")
+  602|      1|            .write_all(b"b")
+  603|      1|            .expect("test setup");
+  604|       |
+  605|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  606|      1|        let selected_index = panel
+  607|      1|            .entries
+  608|      1|            .iter()
+  609|      3|            .position(|entry| entry.name == "b.txt")
+                           ^1
+  610|      1|            .expect("b.txt entry");
+  611|      1|        panel.state.select(Some(selected_index));
+  612|       |
+  613|      1|        File::create(temp_dir.path().join("aa.txt"))
+  614|      1|            .expect("test setup")
+  615|      1|            .write_all(b"aa")
+  616|      1|            .expect("test setup");
+  617|      1|        panel.load_entries().expect("test setup");
+  618|       |
+  619|      1|        let selected = panel.get_selected_entry().expect("selected entry");
+  620|      1|        assert_eq!(selected.name, "b.txt");
+  621|       |
+  622|      1|        Ok(())
+  623|      1|    }
+  624|       |
+  625|       |    #[test]
+  626|      1|    fn test_panel_load_entries_selects_first_when_selected_missing() -> io::Result<()> {
+  627|      1|        let temp_dir = TempDir::new().expect("test setup");
+  628|      1|        File::create(temp_dir.path().join("a.txt"))
+  629|      1|            .expect("test setup")
+  630|      1|            .write_all(b"a")
+  631|      1|            .expect("test setup");
+  632|      1|        File::create(temp_dir.path().join("b.txt"))
+  633|      1|            .expect("test setup")
+  634|      1|            .write_all(b"b")
+  635|      1|            .expect("test setup");
+  636|       |
+  637|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  638|      1|        let selected_index = panel
+  639|      1|            .entries
+  640|      1|            .iter()
+  641|      3|            .position(|entry| entry.name == "b.txt")
+                           ^1
+  642|      1|            .expect("b.txt entry");
+  643|      1|        panel.state.select(Some(selected_index));
+  644|       |
+  645|      1|        fs::remove_file(temp_dir.path().join("b.txt")).expect("test setup");
+  646|      1|        panel.load_entries().expect("test setup");
+  647|       |
+  648|      1|        assert_eq!(panel.state.selected(), Some(0));
+  649|       |
+  650|      1|        Ok(())
+  651|      1|    }
+  652|       |
+  653|       |    #[test]
+  654|      1|    fn test_panel_load_entries_with_files() -> io::Result<()> {
+  655|      1|        let temp_dir = TempDir::new().expect("test setup");
+  656|       |
+  657|       |        // Create test files and directories
+  658|      1|        fs::create_dir(temp_dir.path().join("dir1")).expect("test setup");
+  659|      1|        fs::create_dir(temp_dir.path().join("dir2")).expect("test setup");
+  660|      1|        File::create(temp_dir.path().join("file1.txt"))
+  661|      1|            .expect("test setup")
+  662|      1|            .write_all(b"test")
+  663|      1|            .expect("test setup");
+  664|      1|        File::create(temp_dir.path().join("file2.txt"))
+  665|      1|            .expect("test setup")
+  666|      1|            .write_all(b"test")
+  667|      1|            .expect("test setup");
+  668|       |
+  669|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  670|      1|        panel.load_entries().expect("test setup");
+  671|       |
+  672|       |        // Check entries are sorted (directories first, then files)
+  673|      1|        let mut found_file = false;
+  674|      1|        let mut found_dir_after_file = false;
+  675|      6|        for entry in &panel.entries {
+                          ^5
+  676|      5|            if entry.name != ".." {
+  677|      4|                found_dir_after_file |= entry.is_dir && found_file;
+                                                                      ^2
+  678|      4|                found_file |= !entry.is_dir;
+  679|      1|            }
+  680|       |        }
+  681|      1|        assert!(
+  682|      1|            !found_dir_after_file,
+  683|      0|            "Found directory after file in sorted entries"
+  684|       |        );
+  685|       |
+  686|       |        // Verify we have the expected entries
+  687|      1|        assert!(panel.entries.len() >= 5); // .. + 2 dirs + 2 files
+  688|      2|        assert!(panel.entries.iter().any(|e| e.name == "dir1" && e.is_dir));
+                      ^1      ^1                   ^1                          ^1
+  689|      3|        assert!(panel.entries.iter().any(|e| e.name == "dir2" && e.is_dir));
+                      ^1      ^1                   ^1                          ^1
+  690|      1|        assert!(panel
+  691|      1|            .entries
+  692|      1|            .iter()
+  693|      4|            .any(|e| e.name == "file1.txt" && !e.is_dir));
+                           ^1                               ^1
+  694|      1|        assert!(panel
+  695|      1|            .entries
+  696|      1|            .iter()
+  697|      5|            .any(|e| e.name == "file2.txt" && !e.is_dir));
+                           ^1                               ^1
+  698|       |
+  699|      1|        Ok(())
+  700|      1|    }
+  701|       |
+  702|       |    #[test]
+  703|      1|    fn test_panel_navigation_next() -> io::Result<()> {
+  704|      1|        let temp_dir = TempDir::new().expect("test setup");
+  705|       |
+  706|       |        // Create multiple files
+  707|      6|        for i in 0..5 {
+                          ^5
+  708|      5|            File::create(temp_dir.path().join(format!("file{}.txt", i))).expect("test setup");
+  709|      5|        }
+  710|       |
+  711|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  712|       |
+  713|       |        // Test next navigation
+  714|      1|        assert_eq!(panel.state.selected(), Some(0));
+  715|       |
+  716|      1|        panel.next();
+  717|      1|        assert_eq!(panel.state.selected(), Some(1));
+  718|       |
+  719|      1|        panel.next();
+  720|      1|        assert_eq!(panel.state.selected(), Some(2));
+  721|       |
+  722|       |        // Navigate to last item
+  723|      4|        while panel.state.selected() != Some(panel.entries.len() - 1) {
+  724|      3|            panel.next();
+  725|      3|        }
+  726|       |
+  727|       |        // Next should wrap to first
+  728|      1|        panel.next();
+  729|      1|        assert_eq!(panel.state.selected(), Some(0));
+  730|       |
+  731|      1|        Ok(())
+  732|      1|    }
+  733|       |
+  734|       |    #[test]
+  735|      1|    fn test_panel_navigation_previous() -> io::Result<()> {
+  736|      1|        let temp_dir = TempDir::new().expect("test setup");
+  737|       |
+  738|       |        // Create multiple files
+  739|      6|        for i in 0..5 {
+                          ^5
+  740|      5|            File::create(temp_dir.path().join(format!("file{}.txt", i))).expect("test setup");
+  741|      5|        }
+  742|       |
+  743|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  744|       |
+  745|       |        // Test previous navigation from first item (should wrap to last)
+  746|      1|        panel.previous();
+  747|      1|        assert_eq!(panel.state.selected(), Some(panel.entries.len() - 1));
+  748|       |
+  749|       |        // Navigate back
+  750|      1|        panel.previous();
+  751|      1|        assert_eq!(panel.state.selected(), Some(panel.entries.len() - 2));
+  752|       |
+  753|      1|        Ok(())
+  754|      1|    }
+  755|       |
+  756|       |    #[test]
+  757|      1|    fn test_panel_navigation_empty() {
+  758|      1|        let mut panel = Panel {
+  759|      1|            path: PathBuf::new(),
+  760|      1|            entries: Vec::new(),
+  761|      1|            state: ListState::default(),
+  762|      1|            marked: BTreeSet::new(),
+  763|      1|            sort_mode: SortMode::default(),
+  764|      1|        };
+  765|       |
+  766|       |        // Navigation should not crash on empty panel
+  767|      1|        panel.next();
+  768|      1|        assert_eq!(panel.state.selected(), None);
+  769|       |
+  770|      1|        panel.previous();
+  771|      1|        assert_eq!(panel.state.selected(), None);
+  772|      1|    }
+  773|       |
+  774|       |    #[test]
+  775|      1|    fn test_panel_enter_directory() -> io::Result<()> {
+  776|      1|        let temp_dir = TempDir::new().expect("test setup");
+  777|      1|        let subdir = temp_dir.path().join("subdir");
+  778|      1|        fs::create_dir(&subdir).expect("test setup");
+  779|       |
+  780|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  781|       |
+  782|       |        // Find and select the subdirectory
+  783|      2|        for (i, entry) in panel.entries.iter().enumerate() {
+                                        ^1                   ^1
+  784|      2|            if entry.name == "subdir" {
+  785|      1|                panel.state.select(Some(i));
+  786|      1|                break;
+  787|      1|            }
+  788|       |        }
+  789|       |
+  790|       |        // Enter the directory
+  791|      1|        panel.enter().expect("test setup");
+  792|      1|        assert_eq!(panel.path, subdir);
+  793|       |
+  794|       |        // Should have .. entry
+  795|      1|        assert!(panel.entries.iter().any(|e| e.name == ".."));
+  796|       |
+  797|       |        // Go back to parent
+  798|      1|        panel.state.select(Some(0)); // Select ..
+  799|      1|        panel.enter().expect("test setup");
+  800|      1|        assert_eq!(panel.path, temp_dir.path());
+  801|       |
+  802|      1|        Ok(())
+  803|      1|    }
+  804|       |
+  805|       |    #[test]
+  806|      1|    fn test_panel_enter_clears_marks() -> io::Result<()> {
+  807|      1|        let temp_dir = TempDir::new().expect("test setup");
+  808|      1|        let subdir = temp_dir.path().join("subdir");
+  809|      1|        fs::create_dir(&subdir).expect("test setup");
+  810|      1|        File::create(temp_dir.path().join("file.txt")).expect("test setup");
+  811|       |
+  812|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  813|       |
+  814|      1|        let file_index = panel
+  815|      1|            .entries
+  816|      1|            .iter()
+  817|      3|            .position(|entry| entry.name == "file.txt")
+                           ^1
+  818|      1|            .expect("file.txt entry");
+  819|      1|        panel.state.select(Some(file_index));
+  820|      1|        assert!(panel.toggle_mark_selected());
+  821|      1|        assert!(panel.marked.contains("file.txt"));
+  822|       |
+  823|      1|        let dir_index = panel
+  824|      1|            .entries
+  825|      1|            .iter()
+  826|      2|            .position(|entry| entry.name == "subdir")
+                           ^1
+  827|      1|            .expect("subdir entry");
+  828|      1|        panel.state.select(Some(dir_index));
+  829|      1|        panel.enter().expect("test setup");
+  830|       |
+  831|      1|        assert!(panel.marked.is_empty());
+  832|       |
+  833|      1|        Ok(())
+  834|      1|    }
+  835|       |
+  836|       |    #[test]
+  837|      1|    fn test_panel_enter_file() -> io::Result<()> {
+  838|      1|        let temp_dir = TempDir::new().expect("test setup");
+  839|      1|        File::create(temp_dir.path().join("test.txt")).expect("test setup");
+  840|       |
+  841|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  842|      1|        let original_path = panel.path.clone();
+  843|       |
+  844|       |        // Find and select the file
+  845|      2|        for (i, entry) in panel.entries.iter().enumerate() {
+                                        ^1                   ^1
+  846|      2|            if entry.name == "test.txt" {
+  847|      1|                panel.state.select(Some(i));
+  848|      1|                break;
+  849|      1|            }
+  850|       |        }
+  851|       |
+  852|       |        // Entering a file should not change the path
+  853|      1|        panel.enter().expect("test setup");
+  854|      1|        assert_eq!(panel.path, original_path);
+  855|       |
+  856|      1|        Ok(())
+  857|      1|    }
+  858|       |
+  859|       |    #[test]
+  860|      1|    fn test_panel_enter_no_selection() -> io::Result<()> {
+  861|      1|        let temp_dir = TempDir::new().expect("test setup");
+  862|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  863|      1|        panel.state.select(None);
+  864|       |
+  865|      1|        panel.enter().expect("test setup");
+  866|      1|        assert_eq!(panel.path, temp_dir.path());
+  867|       |
+  868|      1|        Ok(())
+  869|      1|    }
+  870|       |
+  871|       |    #[test]
+  872|      1|    fn test_panel_enter_missing_entry() -> io::Result<()> {
+  873|      1|        let temp_dir = TempDir::new().expect("test setup");
+  874|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  875|      1|        panel.state.select(Some(10_000));
+  876|       |
+  877|      1|        panel.enter().expect("test setup");
+  878|      1|        assert_eq!(panel.path, temp_dir.path());
+  879|       |
+  880|      1|        Ok(())
+  881|      1|    }
+  882|       |
+  883|       |    #[test]
+  884|      1|    fn test_panel_get_selected_entry() -> io::Result<()> {
+  885|      1|        let temp_dir = TempDir::new().expect("test setup");
+  886|      1|        File::create(temp_dir.path().join("test.txt")).expect("test setup");
+  887|       |
+  888|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  889|       |
+  890|       |        // Should have an entry selected by default
+  891|      1|        let entry = panel.get_selected_entry();
+  892|      1|        assert!(entry.is_some());
+  893|       |
+  894|       |        // Clear selection
+  895|      1|        panel.state.select(None);
+  896|      1|        assert!(panel.get_selected_entry().is_none());
+  897|       |
+  898|      1|        Ok(())
+  899|      1|    }
+  900|       |
+  901|       |    #[test]
+  902|      1|    fn test_panel_ensure_selection() -> io::Result<()> {
+  903|      1|        let temp_dir = TempDir::new().expect("test setup");
+  904|      1|        File::create(temp_dir.path().join("test.txt")).expect("test setup");
+  905|       |
+  906|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  907|       |
+  908|       |        // Clear selection
+  909|      1|        panel.state.select(None);
+  910|      1|        assert!(panel.state.selected().is_none());
+  911|       |
+  912|       |        // Ensure selection should set it to 0
+  913|      1|        panel.ensure_selection();
+  914|      1|        assert_eq!(panel.state.selected(), Some(0));
+  915|       |
+  916|      1|        Ok(())
+  917|      1|    }
+  918|       |
+  919|       |    #[test]
+  920|      1|    fn test_panel_ensure_selection_empty() {
+  921|      1|        let mut panel = Panel {
+  922|      1|            path: PathBuf::new(),
+  923|      1|            entries: Vec::new(),
+  924|      1|            state: ListState::default(),
+  925|      1|            marked: BTreeSet::new(),
+  926|      1|            sort_mode: SortMode::default(),
+  927|      1|        };
+  928|       |
+  929|       |        // Should not set selection on empty panel
+  930|      1|        panel.ensure_selection();
+  931|      1|        assert!(panel.state.selected().is_none());
+  932|      1|    }
+  933|       |
+  934|       |    #[test]
+  935|      1|    fn test_panel_selected_path() -> io::Result<()> {
+  936|      1|        let temp_dir = TempDir::new().expect("test setup");
+  937|      1|        File::create(temp_dir.path().join("test.txt")).expect("test setup");
+  938|       |
+  939|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  940|       |
+  941|       |        // Find and select the file
+  942|      2|        for (i, entry) in panel.entries.iter().enumerate() {
+                                        ^1                   ^1
+  943|      2|            if entry.name == "test.txt" {
+  944|      1|                panel.state.select(Some(i));
+  945|      1|                break;
+  946|      1|            }
+  947|       |        }
+  948|       |
+  949|      1|        let selected_path = panel.selected_path();
+  950|      1|        assert!(selected_path.is_some());
+  951|      1|        assert_eq!(selected_path.unwrap(), temp_dir.path().join("test.txt"));
+  952|       |
+  953|       |        // Clear selection
+  954|      1|        panel.state.select(None);
+  955|      1|        assert!(panel.selected_path().is_none());
+  956|       |
+  957|      1|        Ok(())
+  958|      1|    }
+  959|       |
+  960|       |    #[test]
+  961|      1|    fn test_panel_side_equality() {
+  962|      1|        assert_eq!(PanelSide::Left, PanelSide::Left);
+  963|      1|        assert_eq!(PanelSide::Right, PanelSide::Right);
+  964|      1|        assert_ne!(PanelSide::Left, PanelSide::Right);
+  965|      1|        assert_ne!(PanelSide::Right, PanelSide::Left);
+  966|      1|    }
+  967|       |
+  968|       |    #[test]
+  969|      1|    fn test_panel_side_copy() {
+  970|      1|        let side = PanelSide::Left;
+  971|      1|        let copied = side;
+  972|      1|        assert_eq!(side, copied);
+  973|      1|    }
+  974|       |
+  975|       |    #[test]
+  976|      1|    fn test_app_new() -> io::Result<()> {
+  977|      1|        let app = App::new().expect("test setup");
+  978|       |
+  979|      1|        assert_eq!(app.active_panel, PanelSide::Left);
+  980|      1|        assert!(!app.show_help);
+  981|      1|        assert!(app.viewer.is_none());
+  982|      1|        assert!(app.search.is_none());
+  983|      1|        assert!(app.command_line.is_none());
+  984|      1|        assert!(!app.show_bookmarks);
+  985|      1|        assert_eq!(app.bookmarks.len(), 10);
+  986|      1|        assert!(!app.should_quit);
+  987|      1|        assert_eq!(
+  988|       |            app.status_message,
+  989|       |            "F1 Help  F3 View  F4 Edit  F5 Copy  F6 Move  F7 Mkdir  F8 Delete"
+  990|       |        );
+  991|       |
+  992|       |        // Both panels should be in the current directory
+  993|      1|        assert_eq!(app.left_panel.path, app.right_panel.path);
+  994|       |
+  995|      1|        Ok(())
+  996|      1|    }
+  997|       |
+  998|       |    #[test]
+  999|      1|    fn test_app_get_active_panel() -> io::Result<()> {
+ 1000|      1|        let mut app = App::new().expect("test setup");
+ 1001|       |
+ 1002|       |        // Initially active panel is left
+ 1003|      1|        let left_path = app.left_panel.path.clone();
+ 1004|      1|        let active_path = app.get_active_panel().path.clone();
+ 1005|      1|        assert_eq!(active_path, left_path);
+ 1006|       |
+ 1007|       |        // Switch to right panel
+ 1008|      1|        app.active_panel = PanelSide::Right;
+ 1009|      1|        let right_path = app.right_panel.path.clone();
+ 1010|      1|        let active_path = app.get_active_panel().path.clone();
+ 1011|      1|        assert_eq!(active_path, right_path);
+ 1012|       |
+ 1013|      1|        Ok(())
+ 1014|      1|    }
+ 1015|       |
+ 1016|       |    #[test]
+ 1017|      1|    fn test_app_get_inactive_panel() -> io::Result<()> {
+ 1018|      1|        let mut app = App::new().expect("test setup");
+ 1019|       |
+ 1020|       |        // Initially active panel is left, so inactive is right
+ 1021|      1|        let right_path = app.right_panel.path.clone();
+ 1022|      1|        let inactive_path = app.get_inactive_panel().path.clone();
+ 1023|      1|        assert_eq!(inactive_path, right_path);
+ 1024|       |
+ 1025|       |        // Switch to right panel
+ 1026|      1|        app.active_panel = PanelSide::Right;
+ 1027|      1|        let left_path = app.left_panel.path.clone();
+ 1028|      1|        let inactive_path = app.get_inactive_panel().path.clone();
+ 1029|      1|        assert_eq!(inactive_path, left_path);
+ 1030|       |
+ 1031|      1|        Ok(())
+ 1032|      1|    }
+ 1033|       |
+ 1034|       |    #[test]
+ 1035|      1|    fn test_app_switch_panel() -> io::Result<()> {
+ 1036|      1|        let mut app = App::new().expect("test setup");
+ 1037|       |
+ 1038|      1|        assert_eq!(app.active_panel, PanelSide::Left);
+ 1039|       |
+ 1040|      1|        app.switch_panel();
+ 1041|      1|        assert_eq!(app.active_panel, PanelSide::Right);
+ 1042|       |
+ 1043|      1|        app.switch_panel();
+ 1044|      1|        assert_eq!(app.active_panel, PanelSide::Left);
+ 1045|       |
+ 1046|      1|        Ok(())
+ 1047|      1|    }
+ 1048|       |
+ 1049|       |    #[test]
+ 1050|      1|    fn test_app_switch_panel_multiple_times() -> io::Result<()> {
+ 1051|      1|        let mut app = App::new().expect("test setup");
+ 1052|       |
+ 1053|       |        // Switch multiple times and ensure it alternates correctly
+ 1054|     11|        for _ in 0..10 {
+ 1055|     10|            let before = app.active_panel;
+ 1056|     10|            app.switch_panel();
+ 1057|     10|            let after = app.active_panel;
+ 1058|       |
+ 1059|     10|            match before {
+ 1060|      5|                PanelSide::Left => assert_eq!(after, PanelSide::Right),
+ 1061|      5|                PanelSide::Right => assert_eq!(after, PanelSide::Left),
+ 1062|       |            }
+ 1063|       |        }
+ 1064|       |
+ 1065|      1|        Ok(())
+ 1066|      1|    }
+ 1067|       |
+ 1068|       |    #[test]
+ 1069|      1|    fn test_panel_next_with_none_selected() -> io::Result<()> {
+ 1070|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1071|      1|        File::create(temp_dir.path().join("test.txt")).expect("test setup");
+ 1072|       |
+ 1073|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1074|       |
+ 1075|       |        // Clear the selection
+ 1076|      1|        panel.state.select(None);
+ 1077|       |
+ 1078|       |        // Next should select the first item
+ 1079|      1|        panel.next();
+ 1080|      1|        assert_eq!(panel.state.selected(), Some(0));
+ 1081|       |
+ 1082|      1|        Ok(())
+ 1083|      1|    }
+ 1084|       |
+ 1085|       |    #[test]
+ 1086|      1|    fn test_panel_previous_with_none_selected() -> io::Result<()> {
+ 1087|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1088|      1|        File::create(temp_dir.path().join("test.txt")).expect("test setup");
+ 1089|       |
+ 1090|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1091|       |
+ 1092|       |        // Clear the selection
+ 1093|      1|        panel.state.select(None);
+ 1094|       |
+ 1095|       |        // Previous should select the first item
+ 1096|      1|        panel.previous();
+ 1097|      1|        assert_eq!(panel.state.selected(), Some(0));
+ 1098|       |
+ 1099|      1|        Ok(())
+ 1100|      1|    }
+ 1101|       |
+ 1102|       |    #[test]
+ 1103|      1|    fn test_sort_mode_next_and_label() {
+ 1104|      1|        assert_eq!(SortMode::Name.label(), "Name");
+ 1105|      1|        assert_eq!(SortMode::Extension.label(), "Ext");
+ 1106|      1|        assert_eq!(SortMode::Size.label(), "Size");
+ 1107|       |
+ 1108|      1|        assert_eq!(SortMode::Name.next(), SortMode::Extension);
+ 1109|      1|        assert_eq!(SortMode::Extension.next(), SortMode::Size);
+ 1110|      1|        assert_eq!(SortMode::Size.next(), SortMode::Name);
+ 1111|      1|    }
+ 1112|       |
+ 1113|       |    #[test]
+ 1114|      1|    fn test_panel_cycle_sort_mode() -> io::Result<()> {
+ 1115|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1116|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1117|       |
+ 1118|      1|        assert_eq!(panel.sort_mode, SortMode::Name);
+ 1119|      1|        panel.cycle_sort_mode();
+ 1120|      1|        assert_eq!(panel.sort_mode, SortMode::Extension);
+ 1121|      1|        panel.cycle_sort_mode();
+ 1122|      1|        assert_eq!(panel.sort_mode, SortMode::Size);
+ 1123|      1|        panel.cycle_sort_mode();
+ 1124|      1|        assert_eq!(panel.sort_mode, SortMode::Name);
+ 1125|       |
+ 1126|      1|        Ok(())
+ 1127|      1|    }
+ 1128|       |
+ 1129|       |    #[test]
+ 1130|      1|    fn test_panel_marking_and_action_names() -> io::Result<()> {
+ 1131|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1132|      1|        File::create(temp_dir.path().join("alpha.txt")).expect("test setup");
+ 1133|      1|        File::create(temp_dir.path().join("beta.txt")).expect("test setup");
+ 1134|       |
+ 1135|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1136|      1|        let alpha_index = panel
+ 1137|      1|            .entries
+ 1138|      1|            .iter()
+ 1139|      2|            .position(|entry| entry.name == "alpha.txt")
+                           ^1
+ 1140|      1|            .expect("alpha.txt entry");
+ 1141|      1|        panel.state.select(Some(alpha_index));
+ 1142|       |
+ 1143|      1|        assert!(panel.toggle_mark_selected());
+ 1144|      1|        assert!(panel.marked.contains("alpha.txt"));
+ 1145|      1|        assert_eq!(file_names(&panel), vec!["alpha.txt", "beta.txt"]);
+ 1146|       |
+ 1147|      1|        let mut action_names = panel.action_entry_names();
+ 1148|      1|        action_names.sort();
+ 1149|      1|        assert_eq!(action_names, vec!["alpha.txt"]);
+ 1150|       |
+ 1151|      1|        assert!(panel.toggle_mark_selected());
+ 1152|      1|        assert!(panel.marked.is_empty());
+ 1153|      1|        assert_eq!(panel.action_entry_names(), vec!["alpha.txt"]);
+ 1154|       |
+ 1155|      1|        let beta_index = panel
+ 1156|      1|            .entries
+ 1157|      1|            .iter()
+ 1158|      3|            .position(|entry| entry.name == "beta.txt")
+                           ^1
+ 1159|      1|            .expect("beta.txt entry");
+ 1160|      1|        panel.state.select(Some(beta_index));
+ 1161|      1|        assert!(panel.toggle_mark_selected());
+ 1162|      1|        assert!(panel.marked.contains("beta.txt"));
+ 1163|       |
+ 1164|      1|        std::fs::remove_file(temp_dir.path().join("beta.txt")).expect("test setup");
+ 1165|      1|        panel.load_entries().expect("test setup");
+ 1166|      1|        assert!(!panel.marked.contains("beta.txt"));
+ 1167|       |
+ 1168|      1|        panel.state.select(None);
+ 1169|      1|        assert!(!panel.toggle_mark_selected());
+ 1170|       |
+ 1171|      1|        let parent_index = panel
+ 1172|      1|            .entries
+ 1173|      1|            .iter()
+ 1174|      1|            .position(|entry| entry.name == "..")
+ 1175|      1|            .expect("parent entry");
+ 1176|      1|        panel.state.select(Some(parent_index));
+ 1177|      1|        assert!(!panel.toggle_mark_selected());
+ 1178|      1|        assert!(panel.action_entry_names().is_empty());
+ 1179|      1|        assert!(panel.selected_path().is_none());
+ 1180|       |
+ 1181|      1|        Ok(())
+ 1182|      1|    }
+ 1183|       |
+ 1184|       |    #[test]
+ 1185|      1|    fn test_panel_load_entries_sort_modes() -> io::Result<()> {
+ 1186|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1187|      1|        std::fs::create_dir(temp_dir.path().join("dir")).expect("test setup");
+ 1188|      1|        File::create(temp_dir.path().join("b.txt"))
+ 1189|      1|            .expect("test setup")
+ 1190|      1|            .write_all(b"1")
+ 1191|      1|            .expect("test setup");
+ 1192|      1|        File::create(temp_dir.path().join("a.rs"))
+ 1193|      1|            .expect("test setup")
+ 1194|      1|            .write_all(b"1234")
+ 1195|      1|            .expect("test setup");
+ 1196|      1|        File::create(temp_dir.path().join("c"))
+ 1197|      1|            .expect("test setup")
+ 1198|      1|            .write_all(b"12")
+ 1199|      1|            .expect("test setup");
+ 1200|       |
+ 1201|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1202|       |
+ 1203|      1|        panel.sort_mode = SortMode::Extension;
+ 1204|      1|        panel.load_entries().expect("test setup");
+ 1205|      1|        assert_eq!(file_names(&panel), vec!["c", "a.rs", "b.txt"]);
+ 1206|       |
+ 1207|      1|        panel.sort_mode = SortMode::Size;
+ 1208|      1|        panel.load_entries().expect("test setup");
+ 1209|      1|        assert_eq!(file_names(&panel), vec!["a.rs", "c", "b.txt"]);
+ 1210|       |
+ 1211|      1|        Ok(())
+ 1212|      1|    }
+ 1213|       |
+ 1214|       |    #[test]
+ 1215|      1|    fn test_panel_navigation_wraparound() -> io::Result<()> {
+ 1216|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1217|      4|        for i in 0..3 {
+                          ^3
+ 1218|      3|            File::create(temp_dir.path().join(format!("file{}.txt", i))).expect("test setup");
+ 1219|      3|        }
+ 1220|       |
+ 1221|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1222|      1|        panel.load_entries().expect("test setup");
+ 1223|       |
+ 1224|       |        // With 3 files plus ".." entry, we have indices 0-3
+ 1225|      1|        panel.state.select(Some(0));
+ 1226|      1|        panel.previous();
+ 1227|      1|        assert_eq!(panel.state.selected(), Some(3));
+ 1228|       |
+ 1229|      1|        panel.state.select(Some(3));
+ 1230|      1|        panel.next();
+ 1231|      1|        assert_eq!(panel.state.selected(), Some(0));
+ 1232|       |
+ 1233|      1|        Ok(())
+ 1234|      1|    }
+ 1235|       |
+ 1236|       |    #[test]
+ 1237|      1|    fn test_panel_with_max_entries() -> io::Result<()> {
+ 1238|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1239|       |
+ 1240|  1.00k|        for i in 0..1000 {
+                          ^1.00k
+ 1241|  1.00k|            File::create(temp_dir.path().join(format!("file{:04}.txt", i))).expect("test setup");
+ 1242|  1.00k|        }
+ 1243|       |
+ 1244|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1245|      1|        panel.load_entries().expect("test setup");
+ 1246|       |
+ 1247|      1|        assert_eq!(panel.entries.len(), 1001);
+ 1248|       |
+ 1249|      1|        panel.state.select(Some(0));
+ 1250|    501|        for _ in 0..500 {
+ 1251|    500|            panel.next();
+ 1252|    500|        }
+ 1253|      1|        assert_eq!(panel.state.selected(), Some(500));
+ 1254|       |
+ 1255|      1|        panel.state.select(Some(1000));
+ 1256|      1|        let entry_name = panel.entries[1000].name.clone();
+ 1257|      1|        assert_eq!(panel.selected_path(), Some(panel.path.join(entry_name)));
+ 1258|       |
+ 1259|      1|        Ok(())
+ 1260|      1|    }
+ 1261|       |
+ 1262|       |    #[test]
+ 1263|      1|    fn test_panel_empty_directory_operations() -> io::Result<()> {
+ 1264|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1265|      1|        let empty_dir = temp_dir.path().join("empty");
+ 1266|      1|        fs::create_dir(&empty_dir).expect("test setup");
+ 1267|       |
+ 1268|      1|        let mut panel = Panel::new(empty_dir).expect("test setup");
+ 1269|      1|        panel.load_entries().expect("test setup");
+ 1270|       |
+ 1271|      1|        assert_eq!(panel.entries.len(), 1);
+ 1272|      1|        assert_eq!(panel.entries[0].name, "..");
+ 1273|       |
+ 1274|      1|        panel.next();
+ 1275|      1|        assert_eq!(panel.state.selected(), Some(0));
+ 1276|       |
+ 1277|      1|        panel.previous();
+ 1278|      1|        assert_eq!(panel.state.selected(), Some(0));
+ 1279|       |
+ 1280|      1|        panel.toggle_mark_selected();
+ 1281|      1|        assert!(panel.marked.is_empty());
+ 1282|       |
+ 1283|      1|        Ok(())
+ 1284|      1|    }
+ 1285|       |
+ 1286|       |    #[test]
+ 1287|      1|    fn test_panel_unicode_filenames() -> io::Result<()> {
+ 1288|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1289|       |
+ 1290|      1|        let unicode_names = vec![
+ 1291|       |            "файл.txt",
+ 1292|      1|            "文件.doc",
+ 1293|      1|            "αρχείο.pdf",
+ 1294|      1|            "🎵music🎵.mp3",
+ 1295|      1|            "file with spaces.txt",
+ 1296|       |        ];
+ 1297|       |
+ 1298|      6|        for name in &unicode_names {
+                          ^5
+ 1299|      5|            File::create(temp_dir.path().join(name)).expect("test setup");
+ 1300|      5|        }
+ 1301|       |
+ 1302|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1303|      1|        panel.load_entries().expect("test setup");
+ 1304|       |
+ 1305|      1|        assert_eq!(panel.entries.len(), unicode_names.len() + 1);
+ 1306|       |
+ 1307|      6|        for name in &unicode_names {
+                          ^5
+ 1308|     20|            let found = panel.entries.iter().any(|e| e.name == *name);
+                              ^5      ^5                   ^5
+ 1309|      5|            assert!(found, "Unicode filename {} not found", name);
+                                         ^0
+ 1310|       |        }
+ 1311|       |
+ 1312|      1|        Ok(())
+ 1313|      1|    }
+ 1314|       |
+ 1315|       |    #[test]
+ 1316|      1|    fn test_panel_very_long_filenames() -> io::Result<()> {
+ 1317|       |        #[cfg(not(windows))]
+ 1318|       |        {
+ 1319|       |            let temp_dir = TempDir::new().expect("test setup");
+ 1320|       |            let long_name = "a".repeat(255);
+ 1321|       |            let file_path = temp_dir.path().join(&long_name);
+ 1322|       |            File::create(&file_path).expect("test setup");
+ 1323|       |            let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1324|       |            panel.load_entries().expect("test setup");
+ 1325|       |
+ 1326|       |            let found = panel.entries.iter().any(|e| e.name == long_name);
+ 1327|       |            assert!(found);
+ 1328|       |        }
+ 1329|       |        #[cfg(windows)]
+ 1330|      1|        {
+ 1331|      1|            // Long filename test skipped on Windows
+ 1332|      1|        }
+ 1333|       |
+ 1334|      1|        Ok(())
+ 1335|      1|    }
+ 1336|       |
+ 1337|       |    #[test]
+ 1338|      1|    fn test_sort_mode_edge_cases() {
+ 1339|      1|        let mut mode = SortMode::Name;
+ 1340|       |
+ 1341|      1|        mode = mode.next();
+ 1342|      1|        assert_eq!(mode, SortMode::Extension);
+ 1343|      1|        assert_eq!(mode.label(), "Ext");
+ 1344|       |
+ 1345|      1|        mode = mode.next();
+ 1346|      1|        assert_eq!(mode, SortMode::Size);
+ 1347|      1|        assert_eq!(mode.label(), "Size");
+ 1348|       |
+ 1349|      1|        mode = mode.next();
+ 1350|      1|        assert_eq!(mode, SortMode::Name);
+ 1351|      1|        assert_eq!(mode.label(), "Name");
+ 1352|      1|    }
+ 1353|       |
+ 1354|       |    #[test]
+ 1355|      1|    fn test_app_bookmarks_boundary() -> io::Result<()> {
+ 1356|      1|        let mut app = App::new().expect("test setup");
+ 1357|       |
+ 1358|      1|        assert_eq!(app.bookmarks.len(), 10);
+ 1359|       |
+ 1360|     10|        for (i, bookmark) in app.bookmarks.iter().enumerate() {
+                                           ^1                   ^1
+ 1361|     10|            assert!(bookmark.is_none(), "Bookmark {} should be None", i);
+                                                      ^0
+ 1362|       |        }
+ 1363|       |
+ 1364|      1|        app.bookmarks[0] = Some(PathBuf::from("/test1"));
+ 1365|      1|        app.bookmarks[9] = Some(PathBuf::from("/test2"));
+ 1366|       |
+ 1367|      1|        assert_eq!(app.bookmarks[0], Some(PathBuf::from("/test1")));
+ 1368|      1|        assert_eq!(app.bookmarks[9], Some(PathBuf::from("/test2")));
+ 1369|       |
+ 1370|      1|        Ok(())
+ 1371|      1|    }
+ 1372|       |
+ 1373|       |    #[test]
+ 1374|      1|    fn test_panel_marking_operations_edge_cases() -> io::Result<()> {
+ 1375|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1376|      6|        for i in 0..5 {
+                          ^5
+ 1377|      5|            File::create(temp_dir.path().join(format!("file{}.txt", i))).expect("test setup");
+ 1378|      5|        }
+ 1379|       |
+ 1380|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1381|      1|        panel.load_entries().expect("test setup");
+ 1382|       |
+ 1383|      1|        panel.state.select(Some(1));
+ 1384|      1|        panel.toggle_mark_selected();
+ 1385|      1|        panel.toggle_mark_selected();
+ 1386|      1|        assert!(panel.marked.is_empty());
+ 1387|       |
+ 1388|      6|        for i in 1..=5 {
+                          ^5
+ 1389|      5|            panel.state.select(Some(i));
+ 1390|      5|            panel.toggle_mark_selected();
+ 1391|      5|        }
+ 1392|      1|        assert_eq!(panel.marked.len(), 5);
+ 1393|       |
+ 1394|      1|        panel.clear_marks();
+ 1395|      1|        assert!(panel.marked.is_empty());
+ 1396|       |
+ 1397|      1|        panel.state.select(Some(0));
+ 1398|      1|        panel.toggle_mark_selected();
+ 1399|      1|        assert!(panel.marked.is_empty());
+ 1400|       |
+ 1401|      1|        Ok(())
+ 1402|      1|    }
+ 1403|       |
+ 1404|       |    #[test]
+ 1405|      1|    fn test_sort_mode_cycle() {
+ 1406|      1|        let mut mode = SortMode::Name;
+ 1407|      1|        assert_eq!(mode, SortMode::Name);
+ 1408|       |
+ 1409|      1|        mode = mode.next();
+ 1410|      1|        assert_eq!(mode, SortMode::Extension);
+ 1411|       |
+ 1412|      1|        mode = mode.next();
+ 1413|      1|        assert_eq!(mode, SortMode::Size);
+ 1414|       |
+ 1415|      1|        mode = mode.next();
+ 1416|      1|        assert_eq!(mode, SortMode::Name);
+ 1417|      1|    }
+ 1418|       |
+ 1419|       |    #[test]
+ 1420|      1|    fn test_viewer_with_extreme_content() {
+ 1421|      1|        let viewer = Viewer {
+ 1422|      1|            lines: vec!["x".repeat(1000); 10000],
+ 1423|      1|            scroll: 0,
+ 1424|      1|            title: "Large".to_string(),
+ 1425|      1|        };
+ 1426|       |
+ 1427|      1|        assert_eq!(viewer.lines.len(), 10000);
+ 1428|      1|        assert_eq!(viewer.lines[0].len(), 1000);
+ 1429|       |
+ 1430|      1|        let empty_viewer = Viewer {
+ 1431|      1|            lines: vec![],
+ 1432|      1|            scroll: 0,
+ 1433|      1|            title: "Empty".to_string(),
+ 1434|      1|        };
+ 1435|       |
+ 1436|      1|        assert_eq!(empty_viewer.lines.len(), 0);
+ 1437|      1|    }
+ 1438|       |
+ 1439|       |    #[test]
+ 1440|      1|    fn test_sort_mode_default() {
+ 1441|       |        // Test the Default implementation for SortMode
+ 1442|      1|        let default_mode: SortMode = Default::default();
+ 1443|      1|        assert_eq!(default_mode, SortMode::Name);
+ 1444|      1|    }
+ 1445|       |
+ 1446|       |    #[test]
+ 1447|      1|    fn test_sort_mode_extension_no_extension() -> io::Result<()> {
+ 1448|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1449|       |
+ 1450|       |        // Create files with and without extensions
+ 1451|      1|        File::create(temp_dir.path().join("file1.txt")).expect("test setup");
+ 1452|      1|        File::create(temp_dir.path().join("file2")).expect("test setup"); // No extension
+ 1453|      1|        File::create(temp_dir.path().join("file3.md")).expect("test setup");
+ 1454|      1|        File::create(temp_dir.path().join("file4")).expect("test setup"); // No extension
+ 1455|       |
+ 1456|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1457|      1|        panel.sort_mode = SortMode::Extension;
+ 1458|      1|        panel.load_entries().expect("test setup");
+ 1459|       |
+ 1460|       |        // Files without extensions should sort before files with extensions (after "..")
+ 1461|      1|        let entries = &panel.entries;
+ 1462|      1|        assert!(
+ 1463|      1|            entries[0].name == ".." || entries[1].name == "file2" || entries[2].name == "file4"
+                                                     ^0                            ^0
+ 1464|       |        );
+ 1465|       |
+ 1466|      1|        Ok(())
+ 1467|      1|    }
+ 1468|       |
+ 1469|       |    #[test]
+ 1470|      1|    fn test_toggle_mark_selected_no_selection() -> io::Result<()> {
+ 1471|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1472|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1473|       |
+ 1474|       |        // Clear selection
+ 1475|      1|        panel.state.select(None);
+ 1476|       |
+ 1477|       |        // Should return false when no selection
+ 1478|      1|        assert!(!panel.toggle_mark_selected());
+ 1479|      1|        assert!(panel.marked.is_empty());
+ 1480|       |
+ 1481|      1|        Ok(())
+ 1482|      1|    }
+ 1483|       |
+ 1484|       |    #[test]
+ 1485|      1|    fn test_panel_enter_parent_directory_navigation() -> io::Result<()> {
+ 1486|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1487|      1|        let subdir = temp_dir.path().join("subdir");
+ 1488|      1|        fs::create_dir(&subdir).expect("test setup");
+ 1489|       |
+ 1490|      1|        let mut panel = Panel::new(subdir).expect("test setup");
+ 1491|      1|        panel.load_entries().expect("test setup");
+ 1492|       |
+ 1493|       |        // Select parent directory ".."
+ 1494|      1|        panel.state.select(Some(0));
+ 1495|      1|        let selected_entry = panel.get_selected_entry().unwrap();
+ 1496|      1|        assert_eq!(selected_entry.name, "..");
+ 1497|       |
+ 1498|       |        // Enter parent directory
+ 1499|      1|        panel.enter().expect("test setup");
+ 1500|       |
+ 1501|       |        // Should now be in the parent directory
+ 1502|      1|        assert_eq!(
+ 1503|      1|            panel.path.canonicalize().expect("test setup"),
+ 1504|      1|            temp_dir.path().canonicalize().expect("test setup")
+ 1505|       |        );
+ 1506|       |
+ 1507|      1|        Ok(())
+ 1508|      1|    }
+ 1509|       |
+ 1510|       |    #[test]
+ 1511|      1|    fn test_action_entry_names_parent_directory() -> io::Result<()> {
+ 1512|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1513|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1514|       |
+ 1515|      1|        File::create(temp_dir.path().join("file.txt")).expect("test setup");
+ 1516|      1|        panel.load_entries().expect("test setup");
+ 1517|       |
+ 1518|       |        // Select parent directory ".."
+ 1519|      1|        panel.state.select(Some(0));
+ 1520|      1|        let names = panel.action_entry_names();
+ 1521|       |
+ 1522|       |        // Should be empty when parent directory is selected and no marks
+ 1523|      1|        assert!(names.is_empty());
+ 1524|       |
+ 1525|      1|        Ok(())
+ 1526|      1|    }
+ 1527|       |
+ 1528|       |    #[test]
+ 1529|      1|    fn test_panel_action_entry_names_with_special_cases() -> io::Result<()> {
+ 1530|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1531|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1532|       |
+ 1533|      1|        File::create(temp_dir.path().join("regular.txt")).expect("test setup");
+ 1534|      1|        File::create(temp_dir.path().join(".hidden")).expect("test setup");
+ 1535|      1|        fs::create_dir(temp_dir.path().join("directory")).expect("test setup");
+ 1536|       |
+ 1537|      1|        panel.load_entries().expect("test setup");
+ 1538|       |
+ 1539|      1|        let names = panel.action_entry_names();
+ 1540|      1|        assert!(names.is_empty());
+ 1541|       |
+ 1542|      1|        panel.state.select(Some(1));
+ 1543|      1|        let names = panel.action_entry_names();
+ 1544|      1|        assert_eq!(names.len(), 1);
+ 1545|       |
+ 1546|      1|        panel.marked.insert("regular.txt".to_string());
+ 1547|      1|        panel.marked.insert(".hidden".to_string());
+ 1548|      1|        panel.marked.insert("directory".to_string());
+ 1549|       |
+ 1550|      1|        let names = panel.action_entry_names();
+ 1551|      1|        assert_eq!(names.len(), 3);
+ 1552|      1|        assert!(names.contains(&"regular.txt".to_string()));
+ 1553|      1|        assert!(names.contains(&".hidden".to_string()));
+ 1554|      1|        assert!(names.contains(&"directory".to_string()));
+ 1555|       |
+ 1556|      1|        Ok(())
+ 1557|      1|    }
+ 1558|       |
+ 1559|       |    #[test]
+ 1560|      1|    fn test_panel_load_entries_with_selected_name_edge_case() -> io::Result<()> {
+ 1561|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1562|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1563|       |
+ 1564|       |        // Create files
+ 1565|      1|        File::create(temp_dir.path().join("file1.txt")).expect("test setup");
+ 1566|      1|        File::create(temp_dir.path().join("file2.txt")).expect("test setup");
+ 1567|       |
+ 1568|       |        // Select file2.txt
+ 1569|      1|        panel.load_entries().expect("test setup");
+ 1570|      3|        for (i, entry) in panel.entries.iter().enumerate() {
+                                        ^1                   ^1
+ 1571|      3|            if entry.name == "file2.txt" {
+ 1572|      1|                panel.state.select(Some(i));
+ 1573|      1|                break;
+ 1574|      2|            }
+ 1575|       |        }
+ 1576|       |
+ 1577|       |        // Reload should preserve selection of file2.txt
+ 1578|      1|        panel.load_entries().expect("test setup");
+ 1579|       |
+ 1580|       |        // Should still have file2.txt selected
+ 1581|      1|        let idx = panel.state.selected().expect("selection");
+ 1582|      1|        assert_eq!(panel.entries[idx].name, "file2.txt");
+ 1583|       |
+ 1584|       |        // Now delete file2.txt and reload - should fall back to first entry
+ 1585|      1|        fs::remove_file(temp_dir.path().join("file2.txt")).expect("test setup");
+ 1586|      1|        panel.load_entries().expect("test setup");
+ 1587|       |
+ 1588|       |        // Should fall back to selecting first entry since file2.txt doesn't exist
+ 1589|      1|        assert_eq!(panel.state.selected(), Some(0));
+ 1590|       |
+ 1591|      1|        Ok(())
+ 1592|      1|    }
+ 1593|       |
+ 1594|       |    #[test]
+ 1595|      1|    fn test_panel_ensure_selection_corner_case() -> io::Result<()> {
+ 1596|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1597|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1598|       |
+ 1599|       |        // Test empty entries with no selection
+ 1600|      1|        panel.entries.clear();
+ 1601|      1|        panel.state.select(None);
+ 1602|      1|        panel.ensure_selection();
+ 1603|      1|        assert_eq!(panel.state.selected(), None); // Should remain None for empty entries
+ 1604|       |
+ 1605|      1|        Ok(())
+ 1606|      1|    }
+ 1607|       |
+ 1608|       |    #[test]
+ 1609|      1|    fn test_panel_sort_modes_with_mixed_case() -> io::Result<()> {
+ 1610|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1611|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1612|       |
+ 1613|       |        // Create files with mixed case names
+ 1614|      1|        File::create(temp_dir.path().join("UPPERCASE.txt")).expect("test setup");
+ 1615|      1|        File::create(temp_dir.path().join("lowercase.txt")).expect("test setup");
+ 1616|      1|        File::create(temp_dir.path().join("MixedCase.txt")).expect("test setup");
+ 1617|      1|        fs::create_dir(temp_dir.path().join("Directory")).expect("test setup");
+ 1618|       |
+ 1619|       |        // Test that directories come before files in all sort modes
+ 1620|      1|        panel.sort_mode = SortMode::Name;
+ 1621|      1|        panel.load_entries().expect("test setup");
+ 1622|       |
+ 1623|       |        // Find positions of directory and files
+ 1624|      1|        let dir_pos = panel
+ 1625|      1|            .entries
+ 1626|      1|            .iter()
+ 1627|      2|            .position(|e| e.name == "Directory" && e.is_dir);
+                           ^1                                    ^1
+ 1628|      1|        let file_positions: Vec<_> = panel
+ 1629|      1|            .entries
+ 1630|      1|            .iter()
+ 1631|      1|            .enumerate()
+ 1632|      5|            .filter(|(_, e)| !e.is_dir && e.name != "..")
+                           ^1                           ^3
+ 1633|      1|            .map(|(i, _)| i)
+ 1634|      1|            .collect();
+ 1635|       |
+ 1636|      1|        let dir_idx = dir_pos.expect("Directory entry");
+ 1637|      4|        for file_idx in &file_positions {
+                          ^3
+ 1638|      3|            assert!(dir_idx < *file_idx, "Directory should come before files");
+                                                       ^0
+ 1639|       |        }
+ 1640|       |
+ 1641|      1|        Ok(())
+ 1642|      1|    }
+ 1643|       |
+ 1644|       |    #[test]
+ 1645|      1|    fn test_quick_search_find_first_matching() -> io::Result<()> {
+ 1646|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1647|      1|        File::create(temp_dir.path().join("alpha.txt")).expect("test setup");
+ 1648|      1|        File::create(temp_dir.path().join("beta.txt")).expect("test setup");
+ 1649|      1|        File::create(temp_dir.path().join("gamma.txt")).expect("test setup");
+ 1650|      1|        File::create(temp_dir.path().join("Alpha_upper.txt")).expect("test setup");
+ 1651|       |
+ 1652|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1653|       |
+ 1654|       |        // Find first entry starting with "a" (case-insensitive)
+ 1655|      1|        assert!(panel.find_first_matching("a"));
+ 1656|      1|        let selected = panel.get_selected_entry().unwrap();
+ 1657|      1|        assert!(selected.name.to_lowercase().starts_with("a"));
+ 1658|       |
+ 1659|       |        // Find first entry starting with "b"
+ 1660|      1|        assert!(panel.find_first_matching("b"));
+ 1661|      1|        let selected = panel.get_selected_entry().unwrap();
+ 1662|      1|        assert_eq!(selected.name, "beta.txt");
+ 1663|       |
+ 1664|       |        // Non-existent prefix
+ 1665|      1|        assert!(!panel.find_first_matching("z"));
+ 1666|       |
+ 1667|       |        // Empty prefix
+ 1668|      1|        assert!(!panel.find_first_matching(""));
+ 1669|       |
+ 1670|      1|        Ok(())
+ 1671|      1|    }
+ 1672|       |
+ 1673|       |    #[test]
+ 1674|      1|    fn test_quick_search_find_next_matching() -> io::Result<()> {
+ 1675|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1676|      1|        File::create(temp_dir.path().join("apple.txt")).expect("test setup");
+ 1677|      1|        File::create(temp_dir.path().join("apricot.txt")).expect("test setup");
+ 1678|      1|        File::create(temp_dir.path().join("avocado.txt")).expect("test setup");
+ 1679|      1|        File::create(temp_dir.path().join("banana.txt")).expect("test setup");
+ 1680|       |
+ 1681|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1682|       |
+ 1683|       |        // Find first "a" entry
+ 1684|      1|        assert!(panel.find_first_matching("a"));
+ 1685|      1|        let first_match = panel.get_selected_entry().unwrap().name.clone();
+ 1686|       |
+ 1687|       |        // Find next "a" entry - should cycle to a different one
+ 1688|      1|        assert!(panel.find_next_matching("a"));
+ 1689|      1|        let second_match = panel.get_selected_entry().unwrap().name.clone();
+ 1690|      1|        assert_ne!(first_match, second_match);
+ 1691|      1|        assert!(second_match.to_lowercase().starts_with("a"));
+ 1692|       |
+ 1693|      1|        Ok(())
+ 1694|      1|    }
+ 1695|       |
+ 1696|       |    #[test]
+ 1697|      1|    fn test_quick_search_empty_panel() {
+ 1698|      1|        let mut panel = Panel {
+ 1699|      1|            path: PathBuf::new(),
+ 1700|      1|            entries: Vec::new(),
+ 1701|      1|            state: ListState::default(),
+ 1702|      1|            marked: BTreeSet::new(),
+ 1703|      1|            sort_mode: SortMode::default(),
+ 1704|      1|        };
+ 1705|       |
+ 1706|      1|        assert!(!panel.find_first_matching("a"));
+ 1707|      1|        assert!(!panel.find_next_matching("a"));
+ 1708|      1|    }
+ 1709|       |
+ 1710|       |    #[test]
+ 1711|      1|    fn test_app_quick_search_field() -> io::Result<()> {
+ 1712|      1|        let app = App::new().expect("test setup");
+ 1713|      1|        assert!(app.quick_search.is_none());
+ 1714|      1|        Ok(())
+ 1715|      1|    }
+ 1716|       |}
+

@@ -1,0 +1,1263 @@
+Coverage Report
+Created: 2026-01-16 16:06
+C:\x\FunnyFileManager\src\lib.rs:
+    1|       |pub mod editor;
+    2|       |pub mod handlers;
+    3|       |pub mod models;
+    4|       |pub mod mutation_test;
+    5|       |pub mod ui;
+    6|       |pub mod utils;
+    7|       |
+    8|       |#[cfg(test)]
+    9|       |mod editor_unit_tests;
+   10|       |
+   11|       |#[cfg(test)]
+   12|       |mod mutation_killer_tests;
+   13|       |
+   14|       |use std::fs::OpenOptions;
+   15|       |use std::io::Write as IoWrite;
+   16|       |
+   17|       |use crossterm::event::{Event, KeyCode, KeyModifiers};
+   18|       |#[cfg(not(any(test, tarpaulin, coverage)))]
+   19|       |use crossterm::{
+   20|       |    event::{self, DisableMouseCapture, EnableMouseCapture},
+   21|       |    execute,
+   22|       |    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+   23|       |};
+   24|       |#[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]
+   25|       |mod event {
+   26|       |    use crossterm::event::{Event, KeyCode, KeyModifiers};
+   27|      1|    pub fn read() -> std::io::Result<Event> {
+   28|      1|        Ok(Event::Key(crossterm::event::KeyEvent::new(
+   29|      1|            KeyCode::Char('q'),
+   30|      1|            KeyModifiers::empty(),
+   31|      1|        )))
+   32|      1|    }
+   33|       |}
+   34|       |#[cfg(all(not(test), not(tarpaulin), not(coverage)))]
+   35|       |use ratatui::backend::CrosstermBackend;
+   36|       |use ratatui::{backend::Backend, Terminal};
+   37|       |use std::{error::Error, io, io::Write};
+   38|       |
+   39|       |#[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]
+   40|       |use ratatui::backend::TestBackend;
+   41|       |
+   42|       |use crate::editor::handle_edit;
+   43|       |use crate::handlers::{
+   44|       |    handle_copy, handle_delete, handle_mkdir, handle_move, handle_overlay_keys, handle_view,
+   45|       |};
+   46|       |use crate::models::{App, PanelSide};
+   47|       |use crate::ui::ui;
+   48|       |use std::time::{Duration, Instant};
+   49|       |
+   50|    127|fn log_action(action: &str) {
+   51|    127|    if let Ok(mut file) = OpenOptions::new()
+                            ^126
+   52|    127|        .create(true)
+   53|    127|        .append(true)
+   54|    127|        .open("ffm_actions.log")
+   55|    126|    {
+   56|    126|        let timestamp = std::time::SystemTime::now()
+   57|    126|            .duration_since(std::time::UNIX_EPOCH)
+   58|    126|            .unwrap()
+   59|    126|            .as_millis();
+   60|    126|        let _ = writeln!(file, "[{}] {}", timestamp, action);
+   61|    126|    }
+                  ^1
+   62|    127|}
+   63|       |
+   64|      3|fn log_error(error: &str) {
+   65|      3|    if let Ok(mut file) = OpenOptions::new()
+                            ^2
+   66|      3|        .create(true)
+   67|      3|        .append(true)
+   68|      3|        .open("ffm_errors.log")
+   69|      2|    {
+   70|      2|        let timestamp = std::time::SystemTime::now()
+   71|      2|            .duration_since(std::time::UNIX_EPOCH)
+   72|      2|            .unwrap()
+   73|      2|            .as_millis();
+   74|      2|        let _ = writeln!(file, "[{}] ERROR: {}", timestamp, error);
+   75|      2|    }
+                  ^1
+   76|      3|}
+   77|       |
+   78|       |#[cfg(coverage)]
+   79|      1|pub fn coverage_touch_logs() {
+   80|       |    // Exercise non-test instantiations in coverage builds.
+   81|      1|    log_action("coverage log action");
+   82|      1|    log_error("coverage log error");
+   83|      1|}
+   84|       |
+   85|       |#[cfg(coverage)]
+   86|      1|pub fn coverage_touch_backend() -> io::Result<()> {
+   87|       |    // Drive WritableTestBackend trait methods in non-test builds.
+   88|      1|    let mut backend = WritableTestBackend::new(80, 24);
+   89|      1|    let _ = backend.write(b"coverage").expect("write backend");
+   90|      1|    Write::flush(&mut backend).expect("flush backend");
+   91|      1|    Backend::flush(&mut backend).expect("flush backend");
+   92|      1|    let _ = backend.get_cursor().expect("get cursor");
+   93|      1|    backend.set_cursor(1, 1).expect("set cursor");
+   94|      1|    backend.clear().expect("clear backend");
+   95|      1|    let _ = backend.window_size().expect("window size");
+   96|      1|    Ok(())
+   97|      1|}
+   98|       |
+   99|      3|fn run_with<F>(main_runner: F) -> Result<(), Box<dyn Error>>
+  100|      3|where
+  101|      3|    F: FnOnce() -> Result<(), Box<dyn Error>>,
+  102|       |{
+  103|      3|    log_action("=== FunnyFileManager Started ===");
+  104|      3|    let result = main_runner();
+  105|      3|    if let Err(ref e) = result {
+                             ^1
+  106|      1|        log_error(&format!("Main error: {}", e));
+  107|      2|    }
+  108|      3|    log_action("=== FunnyFileManager Ended ===");
+  109|      3|    result
+  110|      3|}
+  111|       |
+  112|      2|pub fn run() -> Result<(), Box<dyn Error>> {
+  113|      2|    run_with(main_impl)
+  114|      2|}
+  115|       |
+  116|       |#[cfg(all(not(test), not(tarpaulin), not(coverage)))]
+  117|       |fn main_impl() -> Result<(), Box<dyn Error>> {
+  118|       |    enable_raw_mode()?;
+  119|       |    let mut stdout = io::stdout();
+  120|       |    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+  121|       |    let backend = CrosstermBackend::new(stdout);
+  122|       |    let mut terminal = Terminal::new(backend)?;
+  123|       |
+  124|       |    let app = App::new()?;
+  125|       |    log_action("App initialized successfully");
+  126|       |    let res = run_app(&mut terminal, app);
+  127|       |
+  128|       |    disable_raw_mode()?;
+  129|       |    execute!(
+  130|       |        terminal.backend_mut(),
+  131|       |        LeaveAlternateScreen,
+  132|       |        DisableMouseCapture
+  133|       |    )?;
+  134|       |    terminal.show_cursor()?;
+  135|       |
+  136|       |    if let Err(err) = res {
+  137|       |        eprintln!("Error: {:?}", err);
+  138|       |    }
+  139|       |
+  140|       |    Ok(())
+  141|       |}
+  142|       |
+  143|       |#[cfg(any(test, tarpaulin, coverage))]
+  144|      3|fn main_impl() -> Result<(), Box<dyn Error>> {
+  145|      3|    let backend = WritableTestBackend::new(80, 24);
+  146|      3|    let mut terminal = Terminal::new(backend).expect("terminal");
+  147|      3|    let app = App::new().expect("app");
+  148|       |
+  149|      3|    run_app_with_event_reader(&mut terminal, app, || {
+  150|      3|        Ok(Event::Key(crossterm::event::KeyEvent::new(
+  151|      3|            KeyCode::Char('q'),
+  152|      3|            KeyModifiers::empty(),
+  153|      3|        )))
+  154|      3|    })
+  155|      3|    .expect("run app");
+  156|       |
+  157|      3|    Ok(())
+  158|      3|}
+  159|       |
+  160|      1|pub fn run_app<B: Backend + Write>(terminal: &mut Terminal<B>, app: App) -> io::Result<()> {
+  161|      1|    run_app_with_event_reader(terminal, app, || event::read())
+  162|      1|}
+  163|       |
+  164|       |#[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]
+  165|       |pub struct WritableTestBackend {
+  166|       |    inner: TestBackend,
+  167|       |}
+  168|       |
+  169|       |#[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]
+  170|       |impl WritableTestBackend {
+  171|     34|    pub fn new(width: u16, height: u16) -> Self {
+  172|     34|        Self {
+  173|     34|            inner: TestBackend::new(width, height),
+  174|     34|        }
+  175|     34|    }
+  176|       |}
+  177|       |
+  178|       |#[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]
+  179|       |impl Write for WritableTestBackend {
+  180|      2|    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+  181|      2|        Ok(buf.len())
+  182|      2|    }
+  183|       |
+  184|      2|    fn flush(&mut self) -> io::Result<()> {
+  185|      2|        Ok(())
+  186|      2|    }
+  187|       |}
+  188|       |
+  189|       |#[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]
+  190|       |impl Backend for WritableTestBackend {
+  191|     67|    fn draw<'a, I>(&mut self, content: I) -> io::Result<()>
+  192|     67|    where
+  193|     67|        I: Iterator<Item = (u16, u16, &'a ratatui::buffer::Cell)>,
+  194|       |    {
+  195|     67|        self.inner.draw(content)
+  196|     67|    }
+  197|       |
+  198|     67|    fn hide_cursor(&mut self) -> io::Result<()> {
+  199|     67|        self.inner.hide_cursor()
+  200|     67|    }
+  201|       |
+  202|     21|    fn show_cursor(&mut self) -> io::Result<()> {
+  203|     21|        self.inner.show_cursor()
+  204|     21|    }
+  205|       |
+  206|      3|    fn get_cursor(&mut self) -> io::Result<(u16, u16)> {
+  207|      3|        self.inner.get_cursor()
+  208|      3|    }
+  209|       |
+  210|      2|    fn set_cursor(&mut self, x: u16, y: u16) -> io::Result<()> {
+  211|      2|        self.inner.set_cursor(x, y)
+  212|      2|    }
+  213|       |
+  214|      2|    fn clear(&mut self) -> io::Result<()> {
+  215|      2|        self.inner.clear()
+  216|      2|    }
+  217|       |
+  218|     97|    fn size(&self) -> io::Result<ratatui::layout::Rect> {
+  219|     97|        self.inner.size()
+  220|     97|    }
+  221|       |
+  222|     69|    fn flush(&mut self) -> io::Result<()> {
+  223|     69|        self.inner.flush()
+  224|     69|    }
+  225|       |
+  226|      2|    fn window_size(&mut self) -> io::Result<ratatui::backend::WindowSize> {
+  227|      2|        let size = self.size().expect("backend size");
+  228|      2|        Ok(ratatui::backend::WindowSize {
+  229|      2|            columns_rows: ratatui::layout::Size {
+  230|      2|                width: size.width,
+  231|      2|                height: size.height,
+  232|      2|            },
+  233|      2|            pixels: ratatui::layout::Size {
+  234|      2|                width: size.width * 8,
+  235|      2|                height: size.height * 16,
+  236|      2|            },
+  237|      2|        })
+  238|      2|    }
+  239|       |}
+  240|       |
+  241|     21|pub fn run_app_with_event_reader<B, F>(
+  242|     21|    terminal: &mut Terminal<B>,
+  243|     21|    mut app: App,
+  244|     21|    mut read_event: F,
+  245|     21|) -> io::Result<()>
+  246|     21|where
+  247|     21|    B: Backend + Write,
+  248|     21|    F: FnMut() -> io::Result<Event>,
+  249|       |{
+  250|     21|    let mut last_nav_time = Instant::now();
+  251|       |    #[cfg(coverage)]
+  252|     21|    let nav_debounce = Duration::from_millis(250);
+  253|       |    #[cfg(not(coverage))]
+  254|       |    let nav_debounce = Duration::from_millis(0);
+  255|       |
+  256|     21|    log_action(&format!(
+  257|     21|        "Starting event loop with {} entries in left panel",
+  258|     21|        app.left_panel.entries.len()
+  259|     21|    ));
+  260|       |
+  261|     67|    while !app.should_quit {
+  262|     67|        terminal.draw(|f| ui(f, &mut app))?;
+                                                        ^0
+  263|       |
+  264|     67|        let event = read_event()?;
+                                              ^0
+  265|     67|        if let Event::Key(key) = event {
+  266|     67|            log_action(&format!(
+  267|     67|                "Key event: {:?} (modifiers: {:?})",
+  268|     67|                key.code, key.modifiers
+  269|     67|            ));
+  270|       |
+  271|     67|            if handle_overlay_keys(&mut app, key) {
+  272|      3|                if app.should_quit {
+  273|      1|                    log_action("Quitting from overlay");
+  274|      1|                    break;
+  275|      2|                }
+  276|      2|                continue;
+  277|     64|            }
+  278|       |
+  279|     11|            match key.code {
+  280|     19|                KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::F(10) => return Ok(()),
+  281|      1|                KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+  282|      1|                    return Ok(())
+  283|       |                }
+  284|       |                KeyCode::Down => {
+  285|      6|                    let now = Instant::now();
+  286|      6|                    let time_since = now.duration_since(last_nav_time);
+  287|      6|                    log_action(&format!(
+  288|      6|                        "Down key - time since last nav: {:?}ms, debounce: {:?}ms",
+  289|      6|                        time_since.as_millis(),
+  290|      6|                        nav_debounce.as_millis()
+  291|      6|                    ));
+  292|       |
+  293|      6|                    if time_since >= nav_debounce {
+  294|      2|                        let panel = app.get_active_panel();
+  295|      2|                        let before = panel.state.selected();
+  296|      2|                        panel.next();
+  297|      2|                        let after = panel.state.selected();
+  298|      2|                        log_action(&format!("Navigation DOWN: {:?} -> {:?}", before, after));
+  299|      2|                        last_nav_time = now;
+  300|      4|                    } else {
+  301|      4|                        log_action("Down key ignored due to debounce");
+  302|      4|                    }
+  303|       |                }
+  304|       |                KeyCode::Up => {
+  305|      4|                    let now = Instant::now();
+  306|      4|                    let time_since = now.duration_since(last_nav_time);
+  307|      4|                    log_action(&format!(
+  308|      4|                        "Up key - time since last nav: {:?}ms, debounce: {:?}ms",
+  309|      4|                        time_since.as_millis(),
+  310|      4|                        nav_debounce.as_millis()
+  311|      4|                    ));
+  312|       |
+  313|      4|                    if time_since >= nav_debounce {
+  314|      1|                        let panel = app.get_active_panel();
+  315|      1|                        let before = panel.state.selected();
+  316|      1|                        panel.previous();
+  317|      1|                        let after = panel.state.selected();
+  318|      1|                        log_action(&format!("Navigation UP: {:?} -> {:?}", before, after));
+  319|      1|                        last_nav_time = now;
+  320|      3|                    } else {
+  321|      3|                        log_action("Up key ignored due to debounce");
+  322|      3|                    }
+  323|       |                }
+  324|      1|                KeyCode::Enter => app.get_active_panel().enter()?,
+                                                                              ^0
+  325|      3|                KeyCode::Tab => {
+  326|      3|                    app.switch_panel();
+  327|      3|                }
+  328|      1|                KeyCode::Left => {
+  329|      1|                    app.active_panel = PanelSide::Left;
+  330|      1|                }
+  331|      1|                KeyCode::Right => {
+  332|      1|                    app.active_panel = PanelSide::Right;
+  333|      1|                }
+  334|      1|                KeyCode::F(1) => {
+  335|      1|                    app.show_help = !app.show_help;
+  336|      1|                }
+  337|      1|                KeyCode::F(3) => handle_view(&mut app)?,
+                                                                    ^0
+  338|      1|                KeyCode::F(4) => handle_edit(terminal, &mut app)?,
+                                                                              ^0
+  339|      1|                KeyCode::F(5) => handle_copy(&mut app)?,
+                                                                    ^0
+  340|      1|                KeyCode::F(6) => handle_move(&mut app)?,
+                                                                    ^0
+  341|      1|                KeyCode::F(7) => handle_mkdir(&mut app)?,
+                                                                     ^0
+  342|      1|                KeyCode::F(8) => handle_delete(&mut app)?,
+                                                                      ^0
+  343|      1|                KeyCode::Insert => {
+  344|      1|                    app.get_active_panel().toggle_mark_selected();
+  345|      1|                    app.get_active_panel().next();
+  346|      1|                }
+  347|      1|                KeyCode::Char(' ') => {
+  348|      1|                    app.get_active_panel().toggle_mark_selected();
+  349|      1|                    app.get_active_panel().next();
+  350|      1|                }
+  351|      1|                KeyCode::Char('\\') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+  352|      1|                    let root = if cfg!(windows) { "C:\\" } else { "/" };
+                                                                                ^0
+  353|      1|                    app.get_active_panel().path = std::path::PathBuf::from(root);
+  354|      1|                    app.get_active_panel().load_entries()?;
+                                                                       ^0
+  355|      1|                    app.quick_search = None;
+  356|       |                }
+  357|     11|                KeyCode::Char(c) if key.modifiers.contains(KeyModifiers::ALT) => {
+                                            ^10                                           ^10
+  358|       |                    // Alt+letter quick search like in Far Manager
+  359|     10|                    let search_str = if let Some(ref mut existing) = app.quick_search {
+                                                               ^2
+  360|      2|                        existing.push(c);
+  361|      2|                        existing.clone()
+  362|       |                    } else {
+  363|      8|                        app.quick_search = Some(c.to_string());
+  364|      8|                        c.to_string()
+  365|       |                    };
+  366|       |
+  367|       |                    // Try to find matching entry
+  368|     10|                    let panel = app.get_active_panel();
+  369|     10|                    if !panel.find_first_matching(&search_str) {
+  370|       |                        // If no match found with full string, try with just the new character
+  371|      2|                        if search_str.len() > 1 {
+  372|      1|                            app.quick_search = Some(c.to_string());
+  373|      1|                            app.get_active_panel().find_first_matching(&c.to_string());
+  374|      1|                        }
+  375|      8|                    }
+  376|     10|                    log_action(&format!("Quick search: {:?}", app.quick_search));
+  377|       |                }
+  378|      4|                KeyCode::Esc => {
+  379|      4|                    app.quick_search = None;
+  380|      4|                }
+  381|       |                KeyCode::Backspace => {
+  382|      3|                    if let Some(ref mut search) = app.quick_search {
+                                              ^2
+  383|      2|                        search.pop();
+  384|      2|                        if search.is_empty() {
+  385|      1|                            app.quick_search = None;
+  386|      1|                        } else {
+  387|      1|                            let search_str = search.clone();
+  388|      1|                            app.get_active_panel().find_first_matching(&search_str);
+  389|      1|                        }
+  390|      1|                    } else {
+  391|      1|                        app.quick_search = None;
+  392|      1|                    }
+  393|       |                }
+  394|      1|                _ => {
+  395|      1|                    // Clear quick search on other keys
+  396|      1|                    app.quick_search = None;
+  397|      1|                }
+  398|       |            }
+  399|     44|            let _ = ();
+  400|      0|        }
+  401|       |    }
+  402|       |
+  403|      1|    Ok(())
+  404|     21|}
+  405|       |
+  406|       |#[cfg(test)]
+  407|       |mod tests {
+  408|       |    use super::*;
+  409|       |    use crate::models::Panel;
+  410|       |    use crossterm::event::KeyEvent;
+  411|       |    use std::env;
+  412|       |    use std::fs;
+  413|       |    use std::path::Path;
+  414|       |    use std::sync::{Mutex, OnceLock};
+  415|       |    use tempfile::TempDir;
+  416|       |
+  417|     51|    fn key_event(code: KeyCode) -> KeyEvent {
+  418|     51|        KeyEvent::new(code, KeyModifiers::empty())
+  419|     51|    }
+  420|       |
+  421|     12|    fn key_event_with_mods(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
+  422|     12|        KeyEvent::new(code, modifiers)
+  423|     12|    }
+  424|       |
+  425|      1|    fn cwd_mutex() -> &'static Mutex<()> {
+  426|       |        static CWD_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+  427|      1|        CWD_MUTEX.get_or_init(|| Mutex::new(()))
+  428|      1|    }
+  429|       |
+  430|       |    struct CwdGuard {
+  431|       |        original: std::path::PathBuf,
+  432|       |    }
+  433|       |
+  434|       |    impl CwdGuard {
+  435|      1|        fn set(path: &Path) -> io::Result<Self> {
+  436|      1|            let original = env::current_dir().expect("current dir");
+  437|      1|            env::set_current_dir(path).expect("set current dir");
+  438|      1|            Ok(Self { original })
+  439|      1|        }
+  440|       |    }
+  441|       |
+  442|       |    impl Drop for CwdGuard {
+  443|      1|        fn drop(&mut self) {
+  444|      1|            let _ = env::set_current_dir(&self.original);
+  445|      1|        }
+  446|       |    }
+  447|       |
+  448|       |    #[cfg(feature = "test-helpers")]
+  449|       |    fn select_entry(panel: &mut Panel, name: &str) {
+  450|       |        if let Some(index) = panel.entries.iter().position(|entry| entry.name == name) {
+  451|       |            panel.state.select(Some(index));
+  452|       |        }
+  453|       |    }
+  454|       |
+  455|       |    #[test]
+  456|       |    #[cfg(feature = "test-helpers")]
+  457|       |    fn test_run_app_with_event_sequence() -> io::Result<()> {
+  458|       |        let temp_dir = TempDir::new().expect("test setup");
+  459|       |        let left_dir = temp_dir.path().join("left");
+  460|       |        let right_dir = temp_dir.path().join("right");
+  461|       |        fs::create_dir(&left_dir).expect("test setup");
+  462|       |        fs::create_dir(&right_dir).expect("test setup");
+  463|       |
+  464|       |        fs::write(left_dir.join("left.txt"), b"left").expect("test setup");
+  465|       |        fs::write(right_dir.join("right.txt"), b"right").expect("test setup");
+  466|       |
+  467|       |        let mut app = App::new().expect("test setup");
+  468|       |        app.left_panel = Panel::new(left_dir).expect("test setup");
+  469|       |        app.right_panel = Panel::new(right_dir).expect("test setup");
+  470|       |        app.active_panel = PanelSide::Left;
+  471|       |        select_entry(&mut app.left_panel, "left.txt");
+  472|       |        select_entry(&mut app.right_panel, "right.txt");
+  473|       |        app.show_help = true;
+  474|       |
+  475|       |        let backend = WritableTestBackend::new(80, 24);
+  476|       |        let mut terminal = Terminal::new(backend).expect("test setup");
+  477|       |
+  478|       |        let mut events = vec![
+  479|       |            Event::Key(key_event(KeyCode::Esc)),
+  480|       |            Event::Key(key_event(KeyCode::F(1))),
+  481|       |            Event::Key(key_event(KeyCode::Esc)),
+  482|       |            Event::Key(key_event(KeyCode::Down)),
+  483|       |            Event::Key(key_event(KeyCode::Up)),
+  484|       |            Event::Key(key_event(KeyCode::Enter)),
+  485|       |            Event::Key(key_event(KeyCode::Tab)),
+  486|       |            Event::Key(key_event(KeyCode::Left)),
+  487|       |            Event::Key(key_event(KeyCode::Right)),
+  488|       |            Event::Key(key_event(KeyCode::F(3))),
+  489|       |            Event::Key(key_event(KeyCode::Esc)),
+  490|       |            Event::Key(key_event(KeyCode::F(4))),
+  491|       |            Event::Key(key_event(KeyCode::F(5))),
+  492|       |            Event::Key(key_event(KeyCode::F(6))),
+  493|       |            Event::Key(key_event(KeyCode::F(7))),
+  494|       |            Event::Key(key_event(KeyCode::F(8))),
+  495|       |            Event::Key(key_event(KeyCode::Char('x'))),
+  496|       |            Event::Key(key_event(KeyCode::Char('q'))),
+  497|       |        ]
+  498|       |        .into_iter();
+  499|       |
+  500|       |        let result = run_app_with_event_reader(&mut terminal, app, || {
+  501|       |            events.next().ok_or(io::Error::new(
+  502|       |                io::ErrorKind::UnexpectedEof,
+  503|       |                "No more events",
+  504|       |            ))
+  505|       |        });
+  506|       |
+  507|       |        assert!(result.is_ok());
+  508|       |        Ok(())
+  509|       |    }
+  510|       |
+  511|       |    #[test]
+  512|      1|    fn test_run_app_ctrl_c_quit() -> io::Result<()> {
+  513|      1|        let temp_dir = TempDir::new().expect("test setup");
+  514|      1|        fs::write(temp_dir.path().join("file.txt"), b"data").expect("test setup");
+  515|       |
+  516|      1|        let mut app = App::new().expect("test setup");
+  517|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  518|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  519|       |
+  520|      1|        let backend = WritableTestBackend::new(80, 24);
+  521|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+  522|       |
+  523|      1|        let mut events = vec![Event::Key(key_event_with_mods(
+  524|      1|            KeyCode::Char('c'),
+  525|      1|            KeyModifiers::CONTROL,
+  526|      1|        ))]
+  527|      1|        .into_iter();
+  528|       |
+  529|      1|        let result = run_app_with_event_reader(&mut terminal, app, || {
+  530|      1|            events.next().ok_or(io::Error::new(
+  531|      1|                io::ErrorKind::UnexpectedEof,
+  532|       |                "No more events",
+  533|       |            ))
+  534|      1|        });
+  535|       |
+  536|      1|        assert!(result.is_ok());
+  537|      1|        Ok(())
+  538|      1|    }
+  539|       |
+  540|       |    #[test]
+  541|      1|    fn test_run_app_command_line_quit() -> io::Result<()> {
+  542|      1|        let temp_dir = TempDir::new().expect("test setup");
+  543|      1|        let mut app = App::new().expect("test setup");
+  544|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  545|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  546|      1|        app.command_line = Some("quit".to_string());
+  547|       |
+  548|      1|        let backend = WritableTestBackend::new(80, 24);
+  549|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+  550|       |
+  551|      1|        let mut events = vec![Event::Key(key_event(KeyCode::Enter))].into_iter();
+  552|      1|        let result = run_app_with_event_reader(&mut terminal, app, || {
+  553|      1|            events.next().ok_or(io::Error::new(
+  554|      1|                io::ErrorKind::UnexpectedEof,
+  555|       |                "No more events",
+  556|       |            ))
+  557|      1|        });
+  558|       |
+  559|      1|        assert!(result.is_ok());
+  560|      1|        Ok(())
+  561|      1|    }
+  562|       |
+  563|       |    #[test]
+  564|      1|    fn test_run_app_should_quit_after_key() -> io::Result<()> {
+  565|      1|        let temp_dir = TempDir::new().expect("test setup");
+  566|      1|        let mut app = App::new().expect("test setup");
+  567|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  568|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  569|       |
+  570|      1|        let backend = WritableTestBackend::new(80, 24);
+  571|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+  572|       |
+  573|      1|        let mut events = vec![Event::Key(key_event(KeyCode::Char('q')))].into_iter();
+  574|      1|        let result = run_app_with_event_reader(&mut terminal, app, || {
+  575|      1|            events.next().ok_or(io::Error::new(
+  576|      1|                io::ErrorKind::UnexpectedEof,
+  577|       |                "No more events",
+  578|       |            ))
+  579|      1|        });
+  580|       |
+  581|      1|        assert!(result.is_ok());
+  582|      1|        Ok(())
+  583|      1|    }
+  584|       |
+  585|       |    #[test]
+  586|      1|    fn test_run_app_debounce_paths() -> io::Result<()> {
+  587|      1|        let temp_dir = TempDir::new().expect("test setup");
+  588|      1|        let mut app = App::new().expect("test setup");
+  589|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  590|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  591|       |
+  592|      1|        let backend = WritableTestBackend::new(80, 24);
+  593|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+  594|       |
+  595|      1|        let mut events = vec![
+  596|      1|            Event::Key(key_event(KeyCode::Down)),
+  597|      1|            Event::Key(key_event(KeyCode::Up)),
+  598|      1|            Event::Key(key_event(KeyCode::Char('q'))),
+  599|       |        ]
+  600|      1|        .into_iter();
+  601|      3|        let result = run_app_with_event_reader(&mut terminal, app, || {
+                          ^1       ^1                        ^1             ^1
+  602|      3|            events.next().ok_or(io::Error::new(
+  603|      3|                io::ErrorKind::UnexpectedEof,
+  604|       |                "No more events",
+  605|       |            ))
+  606|      3|        });
+  607|       |
+  608|      1|        assert!(result.is_ok());
+  609|      1|        Ok(())
+  610|      1|    }
+  611|       |
+  612|       |    #[test]
+  613|      1|    fn test_run_app_navigation_paths() -> io::Result<()> {
+  614|      1|        let temp_dir = TempDir::new().expect("test setup");
+  615|      1|        let mut app = App::new().expect("test setup");
+  616|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  617|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  618|       |
+  619|      1|        let backend = WritableTestBackend::new(80, 24);
+  620|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+  621|       |
+  622|      1|        let mut events = vec![
+  623|      1|            Event::Key(key_event(KeyCode::Down)),
+  624|      1|            Event::Key(key_event(KeyCode::Up)),
+  625|      1|            Event::Key(key_event(KeyCode::Char('q'))),
+  626|       |        ]
+  627|      1|        .into_iter();
+  628|      3|        let result = run_app_with_event_reader(&mut terminal, app, || {
+                          ^1       ^1                        ^1             ^1
+  629|       |            #[cfg(coverage)]
+  630|      3|            std::thread::sleep(Duration::from_millis(300));
+  631|      3|            events.next().ok_or(io::Error::new(
+  632|      3|                io::ErrorKind::UnexpectedEof,
+  633|       |                "No more events",
+  634|       |            ))
+  635|      3|        });
+  636|       |
+  637|      1|        assert!(result.is_ok());
+  638|      1|        Ok(())
+  639|      1|    }
+  640|       |
+  641|       |    #[test]
+  642|      1|    fn test_main_impl_test_mode() {
+  643|      1|        assert!(main_impl().is_ok());
+  644|      1|    }
+  645|       |
+  646|       |    #[test]
+  647|      1|    fn test_run_logs_error_on_failure() -> io::Result<()> {
+  648|      1|        let _ = fs::remove_file("ffm_errors.log");
+  649|      1|        let result = run_with(|| Err(io::Error::new(io::ErrorKind::Other, "boom").into()));
+  650|       |
+  651|      1|        assert!(result.is_err());
+  652|      1|        let contents = fs::read_to_string("ffm_errors.log").expect("test setup");
+  653|      1|        assert!(contents.contains("Main error: boom"));
+  654|      1|        Ok(())
+  655|      1|    }
+  656|       |
+  657|       |    #[test]
+  658|      1|    fn test_log_open_failures() -> io::Result<()> {
+  659|      1|        let _guard = cwd_mutex()
+  660|      1|            .lock()
+  661|      1|            .expect("failed to lock current directory");
+  662|      1|        let temp_dir = TempDir::new().expect("test setup");
+  663|      1|        let _cwd_guard = CwdGuard::set(temp_dir.path()).expect("test setup");
+  664|       |
+  665|      1|        fs::create_dir("ffm_actions.log").expect("test setup");
+  666|      1|        fs::create_dir("ffm_errors.log").expect("test setup");
+  667|       |
+  668|      1|        log_action("action failure path");
+  669|      1|        log_error("error failure path");
+  670|       |
+  671|      1|        assert!(Path::new("ffm_actions.log").is_dir());
+  672|      1|        assert!(Path::new("ffm_errors.log").is_dir());
+  673|       |
+  674|      1|        Ok(())
+  675|      1|    }
+  676|       |
+  677|       |    #[cfg(tarpaulin)]
+  678|       |    #[test]
+  679|       |    fn test_tarpaulin_main_stub() {
+  680|       |        assert!(super::run().is_ok());
+  681|       |    }
+  682|       |
+  683|       |    #[test]
+  684|      1|    fn test_writable_test_backend_write() -> io::Result<()> {
+  685|      1|        let mut backend = WritableTestBackend::new(80, 24);
+  686|      1|        let data = b"test data";
+  687|      1|        let written = backend.write(data).expect("test setup");
+  688|      1|        assert_eq!(written, data.len());
+  689|      1|        Ok(())
+  690|      1|    }
+  691|       |
+  692|       |    #[test]
+  693|      1|    fn test_writable_test_backend_flush() -> io::Result<()> {
+  694|      1|        let mut backend = WritableTestBackend::new(80, 24);
+  695|      1|        Write::flush(&mut backend).expect("test setup");
+  696|      1|        Backend::flush(&mut backend).expect("test setup");
+  697|      1|        Ok(())
+  698|      1|    }
+  699|       |
+  700|       |    #[test]
+  701|      1|    fn test_writable_test_backend_cursor_operations() -> io::Result<()> {
+  702|      1|        let mut backend = WritableTestBackend::new(80, 24);
+  703|       |
+  704|      1|        let (x, y) = backend.get_cursor().expect("test setup");
+  705|      1|        assert_eq!((x, y), (0, 0));
+  706|       |
+  707|      1|        backend.set_cursor(10, 5).expect("test setup");
+  708|      1|        let (x, y) = backend.get_cursor().expect("test setup");
+  709|      1|        assert_eq!((x, y), (10, 5));
+  710|       |
+  711|      1|        Ok(())
+  712|      1|    }
+  713|       |
+  714|       |    #[test]
+  715|      1|    fn test_writable_test_backend_clear() -> io::Result<()> {
+  716|      1|        let mut backend = WritableTestBackend::new(80, 24);
+  717|      1|        backend.clear().expect("test setup");
+  718|      1|        Ok(())
+  719|      1|    }
+  720|       |
+  721|       |    #[test]
+  722|      1|    fn test_writable_test_backend_window_size() -> io::Result<()> {
+  723|      1|        let mut backend = WritableTestBackend::new(80, 24);
+  724|      1|        let window_size = backend.window_size().expect("test setup");
+  725|       |
+  726|      1|        assert_eq!(window_size.columns_rows.width, 80);
+  727|      1|        assert_eq!(window_size.columns_rows.height, 24);
+  728|      1|        assert_eq!(window_size.pixels.width, 80 * 8);
+  729|      1|        assert_eq!(window_size.pixels.height, 24 * 16);
+  730|       |
+  731|      1|        Ok(())
+  732|      1|    }
+  733|       |
+  734|       |    #[test]
+  735|      1|    fn test_run_app_full_coverage() -> io::Result<()> {
+  736|      1|        let temp_dir = TempDir::new().expect("test setup");
+  737|      1|        let mut app = App::new().expect("test setup");
+  738|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  739|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  740|       |
+  741|      1|        let backend = WritableTestBackend::new(80, 24);
+  742|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+  743|       |
+  744|      1|        let mut events = vec![Event::Key(key_event(KeyCode::F(10)))].into_iter();
+  745|       |
+  746|      1|        run_app_with_event_reader(&mut terminal, app, || {
+  747|      1|            events.next().ok_or(io::Error::new(
+  748|      1|                io::ErrorKind::UnexpectedEof,
+  749|       |                "No more events",
+  750|       |            ))
+  751|      1|        })
+  752|      1|        .expect("test setup");
+  753|       |
+  754|      1|        Ok(())
+  755|      1|    }
+  756|       |
+  757|       |    #[test]
+  758|      1|    fn test_all_key_handlers_coverage() -> io::Result<()> {
+  759|      1|        let temp_dir = TempDir::new().expect("test setup");
+  760|      1|        let subdir = temp_dir.path().join("subdir");
+  761|      1|        fs::create_dir(&subdir).expect("test setup");
+  762|      1|        fs::write(temp_dir.path().join("file1.txt"), b"content1").expect("test setup");
+  763|      1|        fs::write(temp_dir.path().join("file2.txt"), b"content2").expect("test setup");
+  764|       |
+  765|      1|        let mut app = App::new().expect("test setup");
+  766|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  767|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  768|       |
+  769|      1|        let backend = WritableTestBackend::new(80, 24);
+  770|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+  771|       |
+  772|      1|        let mut events = vec![
+  773|       |            // Navigation keys
+  774|      1|            Event::Key(key_event(KeyCode::Down)),
+  775|      1|            Event::Key(key_event(KeyCode::Up)),
+  776|       |            // Panel switching
+  777|      1|            Event::Key(key_event(KeyCode::Tab)),
+  778|      1|            Event::Key(key_event(KeyCode::Left)),
+  779|      1|            Event::Key(key_event(KeyCode::Right)),
+  780|       |            // F1 toggle help
+  781|      1|            Event::Key(key_event(KeyCode::F(1))),
+  782|      1|            Event::Key(key_event(KeyCode::Esc)),
+  783|       |            // F3 view (then close)
+  784|      1|            Event::Key(key_event(KeyCode::F(3))),
+  785|      1|            Event::Key(key_event(KeyCode::Esc)),
+  786|       |            // F7 mkdir (then cancel)
+  787|      1|            Event::Key(key_event(KeyCode::F(7))),
+  788|      1|            Event::Key(key_event(KeyCode::Esc)),
+  789|       |            // Enter key on directory
+  790|      1|            Event::Key(key_event(KeyCode::Down)),
+  791|      1|            Event::Key(key_event(KeyCode::Enter)),
+  792|       |            // Backspace with no quick search
+  793|      1|            Event::Key(key_event(KeyCode::Backspace)),
+  794|       |            // Unknown key (default case)
+  795|      1|            Event::Key(key_event(KeyCode::Char('x'))),
+  796|       |            // Quit
+  797|      1|            Event::Key(key_event(KeyCode::Char('q'))),
+  798|       |        ]
+  799|      1|        .into_iter();
+  800|       |
+  801|     16|        run_app_with_event_reader(&mut terminal, app, || {
+                      ^1                        ^1             ^1
+  802|     16|            events.next().ok_or(io::Error::new(
+  803|     16|                io::ErrorKind::UnexpectedEof,
+  804|       |                "No more events",
+  805|       |            ))
+  806|     16|        })
+  807|      1|        .expect("test setup");
+  808|       |
+  809|      1|        Ok(())
+  810|      1|    }
+  811|       |
+  812|       |    #[test]
+  813|      1|    fn test_overlay_continue_path() -> io::Result<()> {
+  814|      1|        let temp_dir = TempDir::new().expect("test setup");
+  815|      1|        fs::write(temp_dir.path().join("file.txt"), b"content").expect("test setup");
+  816|       |
+  817|      1|        let mut app = App::new().expect("test setup");
+  818|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  819|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  820|       |        // Start with help overlay active
+  821|      1|        app.show_help = true;
+  822|       |
+  823|      1|        let backend = WritableTestBackend::new(80, 24);
+  824|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+  825|       |
+  826|      1|        let mut events = vec![
+  827|       |            // This key is handled by overlay, triggering continue
+  828|      1|            Event::Key(key_event(KeyCode::Esc)),
+  829|       |            // After overlay closes, this quits
+  830|      1|            Event::Key(key_event(KeyCode::Char('q'))),
+  831|       |        ]
+  832|      1|        .into_iter();
+  833|       |
+  834|      2|        run_app_with_event_reader(&mut terminal, app, || {
+                      ^1                        ^1             ^1
+  835|      2|            events.next().ok_or(io::Error::new(
+  836|      2|                io::ErrorKind::UnexpectedEof,
+  837|       |                "No more events",
+  838|       |            ))
+  839|      2|        })
+  840|      1|        .expect("test setup");
+  841|       |
+  842|      1|        Ok(())
+  843|      1|    }
+  844|       |
+  845|       |    #[test]
+  846|      1|    fn test_function_keys_f4_f5_f6_f8() -> io::Result<()> {
+  847|      1|        let temp_dir = TempDir::new().expect("test setup");
+  848|      1|        let file_path = temp_dir.path().join("file.txt");
+  849|      1|        fs::write(&file_path, b"content").expect("test setup");
+  850|       |
+  851|      1|        let mut app = App::new().expect("test setup");
+  852|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  853|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  854|       |
+  855|      1|        let backend = WritableTestBackend::new(80, 24);
+  856|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+  857|       |
+  858|      1|        let mut events = vec![
+  859|       |            // F4 edit (opens editor overlay, then close)
+  860|      1|            Event::Key(key_event(KeyCode::F(4))),
+  861|      1|            Event::Key(key_event(KeyCode::Esc)),
+  862|       |            // F5 copy (select file first)
+  863|      1|            Event::Key(key_event(KeyCode::Down)),
+  864|      1|            Event::Key(key_event(KeyCode::F(5))),
+  865|       |            // F6 move (cancel via Esc since no confirmation needed)
+  866|      1|            Event::Key(key_event(KeyCode::F(6))),
+  867|       |            // F8 delete (cancel)
+  868|      1|            Event::Key(key_event(KeyCode::F(8))),
+  869|       |            // Quit
+  870|      1|            Event::Key(key_event(KeyCode::Char('q'))),
+  871|       |        ]
+  872|      1|        .into_iter();
+  873|       |
+  874|      7|        run_app_with_event_reader(&mut terminal, app, || {
+                      ^1                        ^1             ^1
+  875|      7|            events.next().ok_or(io::Error::new(
+  876|      7|                io::ErrorKind::UnexpectedEof,
+  877|       |                "No more events",
+  878|       |            ))
+  879|      7|        })
+  880|      1|        .expect("test setup");
+  881|       |
+  882|      1|        Ok(())
+  883|      1|    }
+  884|       |
+  885|       |    #[test]
+  886|      1|    fn test_main_function_coverage() {
+  887|      1|        let result = run();
+  888|      1|        assert!(result.is_ok());
+  889|      1|    }
+  890|       |
+  891|       |    #[test]
+  892|      1|    fn test_navigation_moves_one_item() -> io::Result<()> {
+  893|      1|        let temp_dir = TempDir::new().expect("test setup");
+  894|       |        // Create multiple files to test navigation
+  895|      6|        for i in 1..=5 {
+                          ^5
+  896|      5|            fs::write(temp_dir.path().join(format!("file{}.txt", i)), b"data").expect("test setup");
+  897|      5|        }
+  898|       |
+  899|      1|        let mut app = App::new().expect("test setup");
+  900|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  901|       |
+  902|       |        // Start at first item
+  903|      1|        app.left_panel.state.select(Some(0));
+  904|       |
+  905|       |        // Move down once
+  906|      1|        app.left_panel.next();
+  907|      1|        assert_eq!(
+  908|      1|            app.left_panel.state.selected(),
+  909|       |            Some(1),
+  910|      0|            "Should move to second item"
+  911|       |        );
+  912|       |
+  913|       |        // Move down again
+  914|      1|        app.left_panel.next();
+  915|      1|        assert_eq!(
+  916|      1|            app.left_panel.state.selected(),
+  917|       |            Some(2),
+  918|      0|            "Should move to third item"
+  919|       |        );
+  920|       |
+  921|       |        // Move up once
+  922|      1|        app.left_panel.previous();
+  923|      1|        assert_eq!(
+  924|      1|            app.left_panel.state.selected(),
+  925|       |            Some(1),
+  926|      0|            "Should move back to second item"
+  927|       |        );
+  928|       |
+  929|      1|        Ok(())
+  930|      1|    }
+  931|       |
+  932|       |    #[test]
+  933|      1|    fn test_far_manager_hotkeys() -> io::Result<()> {
+  934|      1|        let temp_dir = TempDir::new().expect("test setup");
+  935|      1|        fs::create_dir(temp_dir.path().join("subdir")).expect("test setup");
+  936|      1|        fs::write(temp_dir.path().join("file1.txt"), b"data").expect("test setup");
+  937|      1|        fs::write(temp_dir.path().join("file2.txt"), b"data").expect("test setup");
+  938|       |
+  939|      1|        let mut app = App::new().expect("test setup");
+  940|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  941|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  942|       |
+  943|      1|        let backend = WritableTestBackend::new(80, 24);
+  944|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+  945|       |
+  946|      1|        let mut events = vec![
+  947|       |            // Test Insert key for marking
+  948|      1|            Event::Key(key_event(KeyCode::Insert)),
+  949|       |            // Test Space key for marking
+  950|      1|            Event::Key(key_event(KeyCode::Char(' '))),
+  951|       |            // Test Ctrl+\ for root navigation
+  952|      1|            Event::Key(key_event_with_mods(
+  953|      1|                KeyCode::Char('\\'),
+  954|      1|                KeyModifiers::CONTROL,
+  955|      1|            )),
+  956|       |            // Exit
+  957|      1|            Event::Key(key_event(KeyCode::F(10))),
+  958|       |        ]
+  959|      1|        .into_iter();
+  960|       |
+  961|      4|        let result = run_app_with_event_reader(&mut terminal, app, || {
+                          ^1       ^1                        ^1             ^1
+  962|      4|            events.next().ok_or(io::Error::new(
+  963|      4|                io::ErrorKind::UnexpectedEof,
+  964|       |                "No more events",
+  965|       |            ))
+  966|      4|        });
+  967|       |
+  968|      1|        assert!(result.is_ok());
+  969|      1|        Ok(())
+  970|      1|    }
+  971|       |
+  972|       |    #[test]
+  973|      1|    fn test_run_app_coverage() -> io::Result<()> {
+  974|      1|        let temp_dir = TempDir::new().expect("test setup");
+  975|      1|        let mut app = App::new().expect("test setup");
+  976|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  977|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  978|       |
+  979|      1|        let backend = WritableTestBackend::new(80, 24);
+  980|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+  981|       |
+  982|       |        // This test covers the run_app function wrapper
+  983|      1|        run_app(&mut terminal, app).expect("test setup");
+  984|      1|        Ok(())
+  985|      1|    }
+  986|       |
+  987|       |    #[test]
+  988|      1|    fn test_quick_search_alt_key() -> io::Result<()> {
+  989|      1|        let temp_dir = TempDir::new().expect("test setup");
+  990|      1|        fs::write(temp_dir.path().join("alpha.txt"), b"data").expect("test setup");
+  991|      1|        fs::write(temp_dir.path().join("beta.txt"), b"data").expect("test setup");
+  992|      1|        fs::write(temp_dir.path().join("gamma.txt"), b"data").expect("test setup");
+  993|       |
+  994|      1|        let mut app = App::new().expect("test setup");
+  995|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  996|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  997|       |
+  998|      1|        let backend = WritableTestBackend::new(80, 24);
+  999|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+ 1000|       |
+ 1001|      1|        let mut events = vec![
+ 1002|       |            // Alt+b to search for "beta"
+ 1003|      1|            Event::Key(key_event_with_mods(KeyCode::Char('b'), KeyModifiers::ALT)),
+ 1004|       |            // Esc to clear search
+ 1005|      1|            Event::Key(key_event(KeyCode::Esc)),
+ 1006|       |            // Alt+g to search for "gamma"
+ 1007|      1|            Event::Key(key_event_with_mods(KeyCode::Char('g'), KeyModifiers::ALT)),
+ 1008|       |            // Quit
+ 1009|      1|            Event::Key(key_event(KeyCode::Char('q'))),
+ 1010|       |        ]
+ 1011|      1|        .into_iter();
+ 1012|       |
+ 1013|      4|        let result = run_app_with_event_reader(&mut terminal, app, || {
+                          ^1       ^1                        ^1             ^1
+ 1014|      4|            events.next().ok_or(io::Error::new(
+ 1015|      4|                io::ErrorKind::UnexpectedEof,
+ 1016|       |                "No more events",
+ 1017|       |            ))
+ 1018|      4|        });
+ 1019|       |
+ 1020|      1|        assert!(result.is_ok());
+ 1021|      1|        Ok(())
+ 1022|      1|    }
+ 1023|       |
+ 1024|       |    #[test]
+ 1025|      1|    fn test_quick_search_multi_char() -> io::Result<()> {
+ 1026|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1027|      1|        fs::write(temp_dir.path().join("apple.txt"), b"data").expect("test setup");
+ 1028|      1|        fs::write(temp_dir.path().join("apricot.txt"), b"data").expect("test setup");
+ 1029|      1|        fs::write(temp_dir.path().join("avocado.txt"), b"data").expect("test setup");
+ 1030|       |
+ 1031|      1|        let mut app = App::new().expect("test setup");
+ 1032|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1033|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1034|       |
+ 1035|      1|        let backend = WritableTestBackend::new(80, 24);
+ 1036|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+ 1037|       |
+ 1038|      1|        let mut events = vec![
+ 1039|       |            // Type "ap" to narrow search to apple/apricot
+ 1040|      1|            Event::Key(key_event_with_mods(KeyCode::Char('a'), KeyModifiers::ALT)),
+ 1041|      1|            Event::Key(key_event_with_mods(KeyCode::Char('p'), KeyModifiers::ALT)),
+ 1042|       |            // Backspace to remove 'p'
+ 1043|      1|            Event::Key(key_event(KeyCode::Backspace)),
+ 1044|       |            // Quit
+ 1045|      1|            Event::Key(key_event(KeyCode::Char('q'))),
+ 1046|       |        ]
+ 1047|      1|        .into_iter();
+ 1048|       |
+ 1049|      4|        let result = run_app_with_event_reader(&mut terminal, app, || {
+                          ^1       ^1                        ^1             ^1
+ 1050|      4|            events.next().ok_or(io::Error::new(
+ 1051|      4|                io::ErrorKind::UnexpectedEof,
+ 1052|       |                "No more events",
+ 1053|       |            ))
+ 1054|      4|        });
+ 1055|       |
+ 1056|      1|        assert!(result.is_ok());
+ 1057|      1|        Ok(())
+ 1058|      1|    }
+ 1059|       |
+ 1060|       |    #[test]
+ 1061|      1|    fn test_quick_search_backspace_clears() -> io::Result<()> {
+ 1062|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1063|      1|        fs::write(temp_dir.path().join("test.txt"), b"data").expect("test setup");
+ 1064|       |
+ 1065|      1|        let mut app = App::new().expect("test setup");
+ 1066|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1067|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1068|       |
+ 1069|      1|        let backend = WritableTestBackend::new(80, 24);
+ 1070|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+ 1071|       |
+ 1072|      1|        let mut events = vec![
+ 1073|       |            // Start quick search
+ 1074|      1|            Event::Key(key_event_with_mods(KeyCode::Char('t'), KeyModifiers::ALT)),
+ 1075|       |            // Backspace clears the single character, clearing quick search
+ 1076|      1|            Event::Key(key_event(KeyCode::Backspace)),
+ 1077|       |            // Quit
+ 1078|      1|            Event::Key(key_event(KeyCode::Char('q'))),
+ 1079|       |        ]
+ 1080|      1|        .into_iter();
+ 1081|       |
+ 1082|      3|        let result = run_app_with_event_reader(&mut terminal, app, || {
+                          ^1       ^1                        ^1             ^1
+ 1083|      3|            events.next().ok_or(io::Error::new(
+ 1084|      3|                io::ErrorKind::UnexpectedEof,
+ 1085|       |                "No more events",
+ 1086|       |            ))
+ 1087|      3|        });
+ 1088|       |
+ 1089|      1|        assert!(result.is_ok());
+ 1090|      1|        Ok(())
+ 1091|      1|    }
+ 1092|       |
+ 1093|       |    #[test]
+ 1094|      1|    fn test_quick_search_no_match_fallback() -> io::Result<()> {
+ 1095|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1096|      1|        fs::write(temp_dir.path().join("apple.txt"), b"data").expect("test setup");
+ 1097|      1|        fs::write(temp_dir.path().join("banana.txt"), b"data").expect("test setup");
+ 1098|       |
+ 1099|      1|        let mut app = App::new().expect("test setup");
+ 1100|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1101|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1102|       |
+ 1103|      1|        let backend = WritableTestBackend::new(80, 24);
+ 1104|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+ 1105|       |
+ 1106|      1|        let mut events = vec![
+ 1107|       |            // Search for "a"
+ 1108|      1|            Event::Key(key_event_with_mods(KeyCode::Char('a'), KeyModifiers::ALT)),
+ 1109|       |            // Then "x" - no match for "ax", should try just "x"
+ 1110|      1|            Event::Key(key_event_with_mods(KeyCode::Char('x'), KeyModifiers::ALT)),
+ 1111|       |            // Quit
+ 1112|      1|            Event::Key(key_event(KeyCode::Char('q'))),
+ 1113|       |        ]
+ 1114|      1|        .into_iter();
+ 1115|       |
+ 1116|      3|        let result = run_app_with_event_reader(&mut terminal, app, || {
+                          ^1       ^1                        ^1             ^1
+ 1117|      3|            events.next().ok_or(io::Error::new(
+ 1118|      3|                io::ErrorKind::UnexpectedEof,
+ 1119|       |                "No more events",
+ 1120|       |            ))
+ 1121|      3|        });
+ 1122|       |
+ 1123|      1|        assert!(result.is_ok());
+ 1124|      1|        Ok(())
+ 1125|      1|    }
+ 1126|       |
+ 1127|       |    #[test]
+ 1128|      1|    fn test_quick_search_no_match_single_char() -> io::Result<()> {
+ 1129|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1130|      1|        fs::write(temp_dir.path().join("apple.txt"), b"data").expect("test setup");
+ 1131|       |
+ 1132|      1|        let mut app = App::new().expect("test setup");
+ 1133|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1134|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1135|       |
+ 1136|      1|        let backend = WritableTestBackend::new(80, 24);
+ 1137|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+ 1138|       |
+ 1139|      1|        let mut events = vec![
+ 1140|       |            // No match for "x" should exercise the single-char fallback path
+ 1141|      1|            Event::Key(key_event_with_mods(KeyCode::Char('x'), KeyModifiers::ALT)),
+ 1142|       |            // Quit
+ 1143|      1|            Event::Key(key_event(KeyCode::Char('q'))),
+ 1144|       |        ]
+ 1145|      1|        .into_iter();
+ 1146|       |
+ 1147|      2|        let result = run_app_with_event_reader(&mut terminal, app, || {
+                          ^1       ^1                        ^1             ^1
+ 1148|      2|            events.next().ok_or(io::Error::new(
+ 1149|      2|                io::ErrorKind::UnexpectedEof,
+ 1150|       |                "No more events",
+ 1151|       |            ))
+ 1152|      2|        });
+ 1153|       |
+ 1154|      1|        assert!(result.is_ok());
+ 1155|      1|        Ok(())
+ 1156|      1|    }
+ 1157|       |
+ 1158|       |    #[test]
+ 1159|      1|    fn test_quick_search_cleared_on_navigation() -> io::Result<()> {
+ 1160|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1161|      1|        fs::write(temp_dir.path().join("file.txt"), b"data").expect("test setup");
+ 1162|       |
+ 1163|      1|        let mut app = App::new().expect("test setup");
+ 1164|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1165|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1166|       |
+ 1167|      1|        let backend = WritableTestBackend::new(80, 24);
+ 1168|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+ 1169|       |
+ 1170|      1|        let mut events = vec![
+ 1171|       |            // Start quick search
+ 1172|      1|            Event::Key(key_event_with_mods(KeyCode::Char('f'), KeyModifiers::ALT)),
+ 1173|       |            // Navigate - should NOT clear quick search
+ 1174|      1|            Event::Key(key_event(KeyCode::Down)),
+ 1175|      1|            Event::Key(key_event(KeyCode::Up)),
+ 1176|       |            // Tab should clear quick search
+ 1177|      1|            Event::Key(key_event(KeyCode::Tab)),
+ 1178|       |            // Quit
+ 1179|      1|            Event::Key(key_event(KeyCode::Char('q'))),
+ 1180|       |        ]
+ 1181|      1|        .into_iter();
+ 1182|       |
+ 1183|      5|        let result = run_app_with_event_reader(&mut terminal, app, || {
+                          ^1       ^1                        ^1             ^1
+ 1184|      5|            events.next().ok_or(io::Error::new(
+ 1185|      5|                io::ErrorKind::UnexpectedEof,
+ 1186|       |                "No more events",
+ 1187|       |            ))
+ 1188|      5|        });
+ 1189|       |
+ 1190|      1|        assert!(result.is_ok());
+ 1191|      1|        Ok(())
+ 1192|      1|    }
+ 1193|       |
+ 1194|       |    #[test]
+ 1195|      1|    fn test_quick_search_cleared_on_tab() -> io::Result<()> {
+ 1196|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1197|      1|        fs::write(temp_dir.path().join("file.txt"), b"data").expect("test setup");
+ 1198|       |
+ 1199|      1|        let mut app = App::new().expect("test setup");
+ 1200|      1|        app.left_panel.path = temp_dir.path().to_path_buf();
+ 1201|      1|        app.right_panel.path = temp_dir.path().to_path_buf();
+ 1202|       |
+ 1203|      1|        let backend = WritableTestBackend::new(80, 24);
+ 1204|      1|        let mut terminal = Terminal::new(backend).expect("test setup");
+ 1205|       |
+ 1206|      1|        let mut events = vec![
+ 1207|       |            // Start quick search
+ 1208|      1|            Event::Key(key_event_with_mods(KeyCode::Char('f'), KeyModifiers::ALT)),
+ 1209|       |            // Tab should clear quick search
+ 1210|      1|            Event::Key(key_event(KeyCode::Tab)),
+ 1211|       |            // Quit
+ 1212|      1|            Event::Key(key_event(KeyCode::Char('q'))),
+ 1213|       |        ]
+ 1214|      1|        .into_iter();
+ 1215|       |
+ 1216|      3|        let result = run_app_with_event_reader(&mut terminal, app.clone(), || {
+                          ^1       ^1                        ^1             ^1  ^1
+ 1217|      3|            events.next().ok_or(io::Error::new(
+ 1218|      3|                io::ErrorKind::UnexpectedEof,
+ 1219|       |                "No more events",
+ 1220|       |            ))
+ 1221|      3|        });
+ 1222|       |
+ 1223|      1|        assert!(result.is_ok());
+ 1224|      1|        Ok(())
+ 1225|      1|    }
+ 1226|       |}
+

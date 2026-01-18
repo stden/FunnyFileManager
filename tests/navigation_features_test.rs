@@ -1,7 +1,7 @@
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use funny_file_manager::models::{App, PanelSide};
 use funny_file_manager::run_app_with_event_reader;
 use funny_file_manager::WritableTestBackend;
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::Terminal;
 use std::fs;
 use std::io;
@@ -54,12 +54,15 @@ fn test_ctrl_backslash_root_navigation() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
     let mut app = App::new()?;
     app.left_panel.path = temp_dir.path().to_path_buf();
-    
+
     let backend = WritableTestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend)?;
 
     let mut events = vec![
-        Event::Key(key_event_with_mods(KeyCode::Char('\\'), KeyModifiers::CONTROL)),
+        Event::Key(key_event_with_mods(
+            KeyCode::Char('\\'),
+            KeyModifiers::CONTROL,
+        )),
         Event::Key(key_event(KeyCode::Char('q'))),
     ]
     .into_iter();

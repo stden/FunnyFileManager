@@ -1,0 +1,710 @@
+Coverage Report
+Created: 2026-01-16 16:06
+C:\x\FunnyFileManager\src\ui.rs:
+    1|       |use ratatui::{
+    2|       |    layout::{Constraint, Direction, Layout, Rect},
+    3|       |    style::{Color, Modifier, Style},
+    4|       |    text::{Line, Span},
+    5|       |    widgets::{Block, Borders, List, ListItem, Paragraph},
+    6|       |    Frame,
+    7|       |};
+    8|       |
+    9|       |#[cfg(test)]
+   10|       |use crate::models::Viewer;
+   11|       |use crate::models::{App, Panel, PanelSide};
+   12|       |use crate::utils::format_size;
+   13|       |
+   14|       |pub const NAME_FIELD_WIDTH: usize = 30;
+   15|       |
+   16|       |const FAR_BLUE: Color = Color::Rgb(0, 0, 128);
+   17|       |
+   18|     77|pub fn ui(f: &mut Frame, app: &mut App) {
+   19|     77|    let chunks = Layout::default()
+   20|     77|        .direction(Direction::Vertical)
+   21|     77|        .constraints([
+   22|     77|            Constraint::Length(1),
+   23|     77|            Constraint::Min(0),
+   24|     77|            Constraint::Length(2),
+   25|     77|            Constraint::Length(2),
+   26|     77|        ])
+   27|     77|        .split(f.size());
+   28|       |
+   29|     77|    let panels = Layout::default()
+   30|     77|        .direction(Direction::Horizontal)
+   31|     77|        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+   32|     77|        .split(chunks[1]);
+   33|       |
+   34|     77|    render_header(f, chunks[0]);
+   35|       |
+   36|     77|    render_panel(
+   37|     77|        f,
+   38|     77|        &mut app.left_panel,
+   39|     77|        panels[0],
+   40|     77|        app.active_panel == PanelSide::Left,
+   41|       |    );
+   42|       |
+   43|     77|    render_panel(
+   44|     77|        f,
+   45|     77|        &mut app.right_panel,
+   46|     77|        panels[1],
+   47|     77|        app.active_panel == PanelSide::Right,
+   48|       |    );
+   49|       |
+   50|     77|    render_status(f, app, chunks[2]);
+   51|     77|    render_command_bar(f, chunks[3]);
+   52|     77|    render_overlays(f, app);
+   53|     77|}
+   54|       |
+   55|    156|fn render_panel(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bool) {
+   56|    156|    let border_style = if is_active {
+   57|     79|        Style::default().fg(Color::Cyan)
+   58|       |    } else {
+   59|     77|        Style::default().fg(Color::Cyan)
+   60|       |    };
+   61|       |
+   62|    156|    let title = format!(" {} ", panel.path.display());
+   63|       |
+   64|    156|    let items: Vec<ListItem> = panel
+   65|    156|        .entries
+   66|    156|        .iter()
+   67|  1.41k|        .map(|entry| {
+                       ^156
+   68|  1.41k|            let icon = if entry.is_dir { "📁" } else { "📄" };
+                                                       ^550            ^866
+   69|  1.41k|            let size_str = if entry.is_dir {
+   70|    550|                "<DIR>".to_string()
+   71|       |            } else {
+   72|    866|                format_size(entry.size)
+   73|       |            };
+   74|       |
+   75|  1.41k|            let line = Line::from(vec![
+   76|  1.41k|                Span::raw(icon),
+   77|  1.41k|                Span::raw(" "),
+   78|  1.41k|                Span::styled(
+   79|  1.41k|                    format!("{:<width$}", entry.name, width = NAME_FIELD_WIDTH),
+   80|  1.41k|                    if entry.is_dir {
+   81|    550|                        Style::default()
+   82|    550|                            .fg(Color::White)
+   83|    550|                            .add_modifier(Modifier::BOLD)
+   84|       |                    } else {
+   85|    866|                        Style::default().fg(Color::Cyan)
+   86|       |                    },
+   87|       |                ),
+   88|  1.41k|                Span::styled(size_str, Style::default().fg(Color::LightCyan)),
+   89|       |            ]);
+   90|       |
+   91|  1.41k|            ListItem::new(line)
+   92|  1.41k|        })
+   93|    156|        .collect();
+   94|       |
+   95|    156|    let list = List::new(items)
+   96|    156|        .block(
+   97|    156|            Block::default()
+   98|    156|                .borders(Borders::ALL)
+   99|    156|                .border_style(border_style)
+  100|    156|                .style(Style::default().bg(FAR_BLUE))
+  101|    156|                .title(title)
+  102|    156|                .title_style(Style::default().fg(Color::White).bg(Color::Cyan)),
+  103|       |        )
+  104|    156|        .highlight_style(
+  105|    156|            Style::default()
+  106|    156|                .bg(Color::Cyan)
+  107|    156|                .fg(Color::Black)
+  108|    156|                .add_modifier(Modifier::BOLD),
+  109|       |        )
+  110|    156|        .highlight_symbol("» ");
+  111|       |
+  112|    156|    f.render_stateful_widget(list, area, &mut panel.state);
+  113|    156|}
+  114|       |
+  115|     77|fn render_header(f: &mut Frame, area: Rect) {
+  116|     77|    let paragraph = Paragraph::new("Far Manager style | Tab: Switch panels | F1 for help").style(
+  117|     77|        Style::default()
+  118|     77|            .fg(Color::Cyan)
+  119|     77|            .bg(FAR_BLUE)
+  120|     77|            .add_modifier(Modifier::BOLD),
+  121|       |    );
+  122|     77|    f.render_widget(paragraph, area);
+  123|     77|}
+  124|       |
+  125|     80|fn render_status(f: &mut Frame, app: &App, area: Rect) {
+  126|     80|    let panel = match app.active_panel {
+  127|     64|        PanelSide::Left => &app.left_panel,
+  128|     16|        PanelSide::Right => &app.right_panel,
+  129|       |    };
+  130|       |
+  131|     80|    let selected_info = if let Some(entry) = panel.get_selected_entry() {
+                                                  ^79
+  132|     79|        let size_info = if entry.is_dir {
+  133|     61|            "DIR".to_string()
+  134|       |        } else {
+  135|     18|            format_size(entry.size)
+  136|       |        };
+  137|     79|        format!("{} | {}", entry.name, size_info)
+  138|       |    } else {
+  139|      1|        "No selection".to_string()
+  140|       |    };
+  141|       |
+  142|       |    // Show quick search if active, otherwise show normal status
+  143|     80|    let status_text = if let Some(ref search) = app.quick_search {
+                                                ^17
+  144|     17|        format!(" Quick search: {}_", search)
+  145|       |    } else {
+  146|     63|        format!(
+  147|     63|            " ↑↓: Navigate | Enter: Open | Tab: Switch Panel | ←→: Select Panel | {} | {}",
+  148|       |            selected_info, app.status_message
+  149|       |        )
+  150|       |    };
+  151|       |
+  152|     80|    let paragraph = Paragraph::new(status_text)
+  153|     80|        .style(Style::default().bg(FAR_BLUE).fg(Color::Cyan))
+  154|     80|        .block(Block::default().borders(Borders::NONE));
+  155|       |
+  156|     80|    f.render_widget(paragraph, area);
+  157|     80|}
+  158|       |
+  159|     79|fn render_command_bar(f: &mut Frame, area: Rect) {
+  160|     79|    let keys = [
+  161|     79|        ("1", "Help"),
+  162|     79|        ("2", "UserMn"),
+  163|     79|        ("3", "View"),
+  164|     79|        ("4", "Edit"),
+  165|     79|        ("5", "Copy"),
+  166|     79|        ("6", "RenMov"),
+  167|     79|        ("7", "MkFold"),
+  168|     79|        ("8", "Delete"),
+  169|     79|        ("9", "ConfMn"),
+  170|     79|        ("10", "Quit"),
+  171|     79|    ];
+  172|       |
+  173|     79|    let spans: Vec<Span> = keys
+  174|     79|        .iter()
+  175|    790|        .flat_map(|(key, label)| {
+                       ^79
+  176|    790|            vec![
+  177|    790|                Span::styled(
+  178|    790|                    format!("{}", key),
+  179|    790|                    Style::default().bg(Color::Black).fg(Color::Cyan),
+  180|       |                ),
+  181|    790|                Span::styled(
+  182|    790|                    format!("{:<6}", label),
+  183|    790|                    Style::default().bg(Color::Cyan).fg(Color::Black),
+  184|       |                ),
+  185|       |            ]
+  186|    790|        })
+  187|     79|        .collect();
+  188|       |
+  189|     79|    let paragraph = Paragraph::new(Line::from(spans))
+  190|     79|        .style(Style::default().bg(Color::Cyan).fg(Color::Black))
+  191|     79|        .block(Block::default().borders(Borders::NONE));
+  192|       |
+  193|     79|    f.render_widget(paragraph, area);
+  194|     79|}
+  195|       |
+  196|     82|fn render_overlays(f: &mut Frame, app: &mut App) {
+  197|     82|    if app.show_help {
+  198|      4|        let area = centered_rect(80, 80, f.size());
+  199|      4|        let help_lines = vec![
+  200|       |            "Far Manager style navigation:",
+  201|      4|            "F1: Toggle this help window",
+  202|      4|            "F3: View selected file (read-only)",
+  203|      4|            "F4: Edit selected file with $EDITOR or nano",
+  204|      4|            "F5: Copy selected entry to other panel",
+  205|      4|            "F6: Move/Rename selected entry to other panel",
+  206|      4|            "F7: Create a new directory in active panel",
+  207|      4|            "F8: Delete selected entry",
+  208|      4|            "F10 or Q: Quit",
+  209|      4|            "Tab: switch active panel",
+  210|       |        ];
+  211|       |
+  212|      4|        let content = help_lines
+  213|      4|            .into_iter()
+  214|     40|            .map(|line| Line::from(Span::raw(line.to_string())))
+                           ^4
+  215|      4|            .collect::<Vec<Line>>();
+  216|       |
+  217|      4|        let block = Block::default()
+  218|      4|            .title(" Help ")
+  219|      4|            .borders(Borders::ALL)
+  220|      4|            .border_style(Style::default().fg(Color::Cyan))
+  221|      4|            .style(Style::default().bg(FAR_BLUE));
+  222|       |
+  223|      4|        let paragraph = Paragraph::new(content)
+  224|      4|            .block(block)
+  225|      4|            .style(Style::default().fg(Color::Cyan));
+  226|       |
+  227|      4|        f.render_widget(paragraph, area);
+  228|     78|    }
+  229|       |
+  230|     82|    if let Some(viewer) = app.viewer.as_ref() {
+                              ^2
+  231|      2|        let area = centered_rect(90, 90, f.size());
+  232|       |
+  233|      2|        let block = Block::default()
+  234|      2|            .title(format!(" View: {} (Esc to close) ", viewer.title))
+  235|      2|            .borders(Borders::ALL)
+  236|      2|            .border_style(Style::default().fg(Color::Cyan))
+  237|      2|            .style(Style::default().bg(FAR_BLUE));
+  238|       |
+  239|      2|        let paragraph = Paragraph::new(
+  240|      2|            viewer
+  241|      2|                .lines
+  242|      2|                .iter()
+  243|      4|                .map(|line| Line::from(Span::raw(line.clone())))
+                               ^2
+  244|      2|                .collect::<Vec<Line>>(),
+  245|       |        )
+  246|      2|        .scroll((viewer.scroll, 0))
+  247|      2|        .block(block)
+  248|      2|        .style(Style::default().fg(Color::Cyan));
+  249|       |
+  250|      2|        f.render_widget(paragraph, area);
+  251|     80|    }
+  252|     82|}
+  253|       |
+  254|     14|pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+  255|     14|    let popup_layout = Layout::default()
+  256|     14|        .direction(Direction::Vertical)
+  257|     14|        .constraints(
+  258|     14|            [
+  259|     14|                Constraint::Percentage((100 - percent_y) / 2),
+  260|     14|                Constraint::Percentage(percent_y),
+  261|     14|                Constraint::Percentage((100 - percent_y) / 2),
+  262|     14|            ]
+  263|     14|            .as_ref(),
+  264|     14|        )
+  265|     14|        .split(r);
+  266|       |
+  267|     14|    let percent_x = percent_x.min(100);
+  268|       |
+  269|     14|    Layout::default()
+  270|     14|        .direction(Direction::Horizontal)
+  271|     14|        .constraints(
+  272|     14|            [
+  273|     14|                Constraint::Percentage((100 - percent_x) / 2),
+  274|     14|                Constraint::Percentage(percent_x),
+  275|     14|                Constraint::Percentage((100 - percent_x) / 2),
+  276|     14|            ]
+  277|     14|            .as_ref(),
+  278|     14|        )
+  279|     14|        .split(popup_layout[1])[1]
+  280|     14|}
+  281|       |
+  282|       |#[cfg(test)]
+  283|       |mod tests {
+  284|       |    use super::*;
+  285|       |    use crate::models::{App, DirEntry};
+  286|       |    use ratatui::backend::TestBackend;
+  287|       |    use ratatui::Terminal;
+  288|       |
+  289|       |    #[test]
+  290|      1|    fn test_ui_render_with_right_panel_active() {
+  291|      1|        let backend = TestBackend::new(80, 24);
+  292|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  293|       |
+  294|      1|        let mut app = App::new().unwrap();
+  295|      1|        app.active_panel = PanelSide::Right;
+  296|       |
+  297|      1|        terminal
+  298|      1|            .draw(|f| {
+  299|      1|                ui(f, &mut app);
+  300|      1|            })
+  301|      1|            .unwrap();
+  302|      1|    }
+  303|       |
+  304|       |    #[test]
+  305|      1|    fn test_ui_render_status_with_file_selection() {
+  306|      1|        let backend = TestBackend::new(80, 24);
+  307|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  308|       |
+  309|      1|        let mut app = App::new().unwrap();
+  310|       |
+  311|       |        // Add a file to the panel
+  312|      1|        app.left_panel.entries.push(DirEntry {
+  313|      1|            name: "test.txt".to_string(),
+  314|      1|            is_dir: false,
+  315|      1|            size: 1024,
+  316|      1|        });
+  317|      1|        app.left_panel
+  318|      1|            .state
+  319|      1|            .select(Some(app.left_panel.entries.len() - 1));
+  320|       |
+  321|      1|        terminal
+  322|      1|            .draw(|f| {
+  323|      1|                ui(f, &mut app);
+  324|      1|            })
+  325|      1|            .unwrap();
+  326|      1|    }
+  327|       |
+  328|       |    #[test]
+  329|      1|    fn test_ui_render_status_no_selection() {
+  330|      1|        let backend = TestBackend::new(80, 24);
+  331|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  332|       |
+  333|      1|        let mut app = App::new().unwrap();
+  334|       |
+  335|       |        // Clear panel selection
+  336|      1|        app.left_panel.state.select(None);
+  337|       |
+  338|      1|        terminal
+  339|      1|            .draw(|f| {
+  340|      1|                ui(f, &mut app);
+  341|      1|            })
+  342|      1|            .unwrap();
+  343|      1|    }
+  344|       |
+  345|       |    #[test]
+  346|      1|    fn test_ui_render_with_help_overlay() {
+  347|      1|        let backend = TestBackend::new(80, 24);
+  348|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  349|       |
+  350|      1|        let mut app = App::new().unwrap();
+  351|      1|        app.show_help = true;
+  352|       |
+  353|      1|        terminal
+  354|      1|            .draw(|f| {
+  355|      1|                ui(f, &mut app);
+  356|      1|            })
+  357|      1|            .unwrap();
+  358|      1|    }
+  359|       |
+  360|       |    #[test]
+  361|      1|    fn test_ui_render_with_viewer_overlay() {
+  362|      1|        let backend = TestBackend::new(80, 24);
+  363|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  364|       |
+  365|      1|        let mut app = App::new().unwrap();
+  366|      1|        app.viewer = Some(crate::models::Viewer {
+  367|      1|            title: "test.txt".to_string(),
+  368|      1|            lines: vec!["Line 1".to_string(), "Line 2".to_string()],
+  369|      1|            scroll: 0,
+  370|      1|        });
+  371|       |
+  372|      1|        terminal
+  373|      1|            .draw(|f| {
+  374|      1|                ui(f, &mut app);
+  375|      1|            })
+  376|      1|            .unwrap();
+  377|      1|    }
+  378|       |
+  379|       |    #[test]
+  380|      1|    fn test_render_status_right_panel_active_with_file() {
+  381|      1|        let backend = TestBackend::new(80, 24);
+  382|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  383|       |
+  384|      1|        let mut app = App::new().unwrap();
+  385|      1|        app.active_panel = PanelSide::Right;
+  386|       |
+  387|       |        // Add a file to the right panel
+  388|      1|        app.right_panel.entries.push(DirEntry {
+  389|      1|            name: "document.pdf".to_string(),
+  390|      1|            is_dir: false,
+  391|      1|            size: 2048576, // 2MB
+  392|      1|        });
+  393|      1|        app.right_panel
+  394|      1|            .state
+  395|      1|            .select(Some(app.right_panel.entries.len() - 1));
+  396|       |
+  397|      1|        terminal
+  398|      1|            .draw(|f| {
+  399|      1|                ui(f, &mut app);
+  400|      1|            })
+  401|      1|            .unwrap();
+  402|      1|    }
+  403|       |
+  404|       |    #[test]
+  405|      1|    fn test_render_panel_with_various_entries() {
+  406|      1|        let backend = TestBackend::new(80, 24);
+  407|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  408|       |
+  409|      1|        let mut app = App::new().unwrap();
+  410|       |
+  411|       |        // Add various types of entries
+  412|      1|        app.left_panel.entries.clear();
+  413|      1|        app.left_panel.entries.push(DirEntry {
+  414|      1|            name: "..".to_string(),
+  415|      1|            is_dir: true,
+  416|      1|            size: 0,
+  417|      1|        });
+  418|      1|        app.left_panel.entries.push(DirEntry {
+  419|      1|            name: "documents".to_string(),
+  420|      1|            is_dir: true,
+  421|      1|            size: 0,
+  422|      1|        });
+  423|      1|        app.left_panel.entries.push(DirEntry {
+  424|      1|            name: "image.jpg".to_string(),
+  425|      1|            is_dir: false,
+  426|      1|            size: 1536000, // ~1.5MB
+  427|      1|        });
+  428|       |
+  429|      1|        terminal
+  430|      1|            .draw(|f| {
+  431|      1|                ui(f, &mut app);
+  432|      1|            })
+  433|      1|            .unwrap();
+  434|      1|    }
+  435|       |
+  436|       |    #[test]
+  437|      1|    fn test_centered_rect_various_sizes() {
+  438|      1|        let base = Rect {
+  439|      1|            x: 0,
+  440|      1|            y: 0,
+  441|      1|            width: 100,
+  442|      1|            height: 100,
+  443|      1|        };
+  444|       |
+  445|       |        // Test different percentages
+  446|      1|        let rect1 = centered_rect(80, 60, base);
+  447|      1|        assert_eq!(rect1.width, 80);
+  448|      1|        assert_eq!(rect1.height, 60);
+  449|       |
+  450|      1|        let rect2 = centered_rect(100, 100, base);
+  451|      1|        assert_eq!(rect2.width, 100);
+  452|      1|        assert_eq!(rect2.height, 100);
+  453|       |
+  454|      1|        let rect3 = centered_rect(10, 10, base);
+  455|      1|        assert_eq!(rect3.width, 10);
+  456|      1|        assert_eq!(rect3.height, 10);
+  457|      1|    }
+  458|       |
+  459|       |    #[test]
+  460|      1|    fn test_centered_rect_small_base() {
+  461|      1|        let base = Rect {
+  462|      1|            x: 0,
+  463|      1|            y: 0,
+  464|      1|            width: 10,
+  465|      1|            height: 10,
+  466|      1|        };
+  467|      1|        let rect = centered_rect(50, 50, base);
+  468|      1|        assert_eq!(rect.width, 5);
+  469|      1|        assert_eq!(rect.height, 5);
+  470|      1|        assert_eq!(rect.x, 3);
+  471|      1|        assert_eq!(rect.y, 3);
+  472|      1|    }
+  473|       |
+  474|       |    #[test]
+  475|      1|    fn test_ui_render_with_minimal_terminal_size() {
+  476|      1|        let mut app = App::new().unwrap();
+  477|      1|        app.left_panel.path = std::path::PathBuf::from("/test");
+  478|      1|        app.right_panel.path = std::path::PathBuf::from("/test2");
+  479|       |
+  480|      1|        let backend = TestBackend::new(40, 10);
+  481|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  482|       |
+  483|      1|        terminal.draw(|f| ui(f, &mut app)).unwrap();
+  484|      1|    }
+  485|       |
+  486|       |    #[test]
+  487|      1|    fn test_ui_render_with_very_long_paths() {
+  488|      1|        let mut app = App::new().unwrap();
+  489|      1|        let long_path = "/very/long/path/that/exceeds/normal/display/width/in/terminal/window";
+  490|      1|        app.left_panel.path = std::path::PathBuf::from(long_path);
+  491|      1|        app.right_panel.path = std::path::PathBuf::from(long_path);
+  492|      1|        app.status_message = "x".repeat(200);
+  493|       |
+  494|      1|        let backend = TestBackend::new(80, 24);
+  495|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  496|       |
+  497|      1|        terminal.draw(|f| ui(f, &mut app)).unwrap();
+  498|      1|    }
+  499|       |
+  500|       |    #[test]
+  501|      1|    fn test_render_panel_with_empty_entries() {
+  502|      1|        let mut app = App::new().unwrap();
+  503|      1|        app.left_panel.entries.clear();
+  504|      1|        app.left_panel.state.select(None);
+  505|       |
+  506|      1|        let backend = TestBackend::new(80, 24);
+  507|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  508|       |
+  509|      1|        terminal
+  510|      1|            .draw(|f| {
+  511|      1|                let area = f.size();
+  512|      1|                render_panel(f, &mut app.left_panel, area, true);
+  513|      1|            })
+  514|      1|            .unwrap();
+  515|      1|    }
+  516|       |
+  517|       |    #[test]
+  518|      1|    fn test_render_overlays_with_all_types() {
+  519|      1|        let mut app = App::new().unwrap();
+  520|       |
+  521|      1|        app.show_help = true;
+  522|      1|        let backend = TestBackend::new(80, 24);
+  523|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  524|      1|        terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
+  525|      1|        app.show_help = false;
+  526|       |
+  527|      1|        app.viewer = Some(Viewer {
+  528|      1|            lines: vec!["Line 1".to_string(), "Line 2".to_string()],
+  529|      1|            scroll: 0,
+  530|      1|            title: "Test Viewer".to_string(),
+  531|      1|        });
+  532|      1|        terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
+  533|      1|        app.viewer = None;
+  534|       |
+  535|      1|        app.command_line = Some("test command".to_string());
+  536|      1|        terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
+  537|      1|        app.command_line = None;
+  538|       |
+  539|      1|        app.search = Some("search".to_string());
+  540|      1|        terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
+  541|      1|        app.search = None;
+  542|       |
+  543|      1|        app.show_bookmarks = true;
+  544|      1|        app.bookmarks[0] = Some(std::path::PathBuf::from("/bookmark1"));
+  545|      1|        app.bookmarks[5] = Some(std::path::PathBuf::from("/bookmark2"));
+  546|      1|        terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
+  547|      1|    }
+  548|       |
+  549|       |    #[test]
+  550|      1|    fn test_render_status_with_extreme_values() {
+  551|      1|        let mut app = App::new().unwrap();
+  552|       |
+  553|      1|        app.left_panel.entries = vec![
+  554|      1|            DirEntry {
+  555|      1|                name: "..".to_string(),
+  556|      1|                is_dir: true,
+  557|      1|                size: 0,
+  558|      1|            },
+  559|      1|            DirEntry {
+  560|      1|                name: "huge_file.dat".to_string(),
+  561|      1|                is_dir: false,
+  562|      1|                size: u64::MAX,
+  563|      1|            },
+  564|       |        ];
+  565|      1|        app.left_panel.state.select(Some(1));
+  566|       |
+  567|      1|        let backend = TestBackend::new(80, 24);
+  568|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  569|       |
+  570|      1|        terminal
+  571|      1|            .draw(|f| {
+  572|      1|                let area = ratatui::layout::Rect::new(0, 0, 80, 1);
+  573|      1|                render_status(f, &app, area);
+  574|      1|            })
+  575|      1|            .unwrap();
+  576|      1|    }
+  577|       |
+  578|       |    #[test]
+  579|      1|    fn test_centered_rect_edge_cases() {
+  580|      1|        let base = ratatui::layout::Rect::new(0, 0, 100, 50);
+  581|       |
+  582|      1|        let rect1 = centered_rect(0, 0, base);
+  583|      1|        assert_eq!(rect1.width, 0);
+  584|      1|        assert_eq!(rect1.height, 0);
+  585|       |
+  586|      1|        let rect2 = centered_rect(200, 100, base);
+  587|      1|        assert_eq!(rect2.width, 100);
+  588|      1|        assert_eq!(rect2.height, 50);
+  589|       |
+  590|      1|        let rect3 = centered_rect(1, 1, base);
+  591|      1|        assert_eq!(rect3.width, 1);
+  592|      1|        assert_eq!(rect3.height, 0);
+  593|       |
+  594|      1|        let tiny_base = ratatui::layout::Rect::new(0, 0, 1, 1);
+  595|      1|        let rect4 = centered_rect(50, 50, tiny_base);
+  596|      1|        assert_eq!(rect4.width, 1);
+  597|      1|        assert_eq!(rect4.height, 1);
+  598|      1|    }
+  599|       |
+  600|       |    #[test]
+  601|      1|    fn test_render_command_bar_variations() {
+  602|      1|        let backend = TestBackend::new(120, 3);
+  603|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  604|       |
+  605|      1|        terminal
+  606|      1|            .draw(|f| {
+  607|      1|                let area = f.size();
+  608|      1|                render_command_bar(f, area);
+  609|      1|            })
+  610|      1|            .unwrap();
+  611|       |
+  612|      1|        let small_backend = TestBackend::new(40, 3);
+  613|      1|        let mut small_terminal = Terminal::new(small_backend).unwrap();
+  614|       |
+  615|      1|        small_terminal
+  616|      1|            .draw(|f| {
+  617|      1|                let area = f.size();
+  618|      1|                render_command_bar(f, area);
+  619|      1|            })
+  620|      1|            .unwrap();
+  621|      1|    }
+  622|       |
+  623|       |    #[test]
+  624|      1|    fn test_render_panel_with_marked_files() {
+  625|      1|        let mut app = App::new().unwrap();
+  626|       |
+  627|     11|        for i in 0..10 {
+                          ^10
+  628|     10|            app.left_panel.entries.push(DirEntry {
+  629|     10|                name: format!("file{}.txt", i),
+  630|     10|                is_dir: false,
+  631|     10|                size: 100 * i,
+  632|     10|            });
+  633|     10|        }
+  634|       |
+  635|      1|        app.left_panel.marked.insert("file2.txt".to_string());
+  636|      1|        app.left_panel.marked.insert("file5.txt".to_string());
+  637|      1|        app.left_panel.marked.insert("file8.txt".to_string());
+  638|      1|        app.left_panel.state.select(Some(5));
+  639|       |
+  640|      1|        let backend = TestBackend::new(80, 24);
+  641|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  642|       |
+  643|      1|        terminal
+  644|      1|            .draw(|f| {
+  645|      1|                let area = f.size();
+  646|      1|                render_panel(f, &mut app.left_panel, area, true);
+  647|      1|            })
+  648|      1|            .unwrap();
+  649|      1|    }
+  650|       |
+  651|       |    #[test]
+  652|      1|    fn test_render_status_with_quick_search() {
+  653|      1|        let mut app = App::new().unwrap();
+  654|      1|        app.quick_search = Some("test".to_string());
+  655|       |
+  656|      1|        let backend = TestBackend::new(80, 24);
+  657|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  658|       |
+  659|      1|        terminal
+  660|      1|            .draw(|f| {
+  661|      1|                let area = ratatui::layout::Rect::new(0, 0, 80, 2);
+  662|      1|                render_status(f, &app, area);
+  663|      1|            })
+  664|      1|            .unwrap();
+  665|      1|    }
+  666|       |
+  667|       |    #[test]
+  668|      1|    fn test_render_status_without_quick_search() {
+  669|      1|        let mut app = App::new().unwrap();
+  670|      1|        app.quick_search = None;
+  671|       |
+  672|      1|        let backend = TestBackend::new(80, 24);
+  673|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  674|       |
+  675|      1|        terminal
+  676|      1|            .draw(|f| {
+  677|      1|                let area = ratatui::layout::Rect::new(0, 0, 80, 2);
+  678|      1|                render_status(f, &app, area);
+  679|      1|            })
+  680|      1|            .unwrap();
+  681|      1|    }
+  682|       |
+  683|       |    #[test]
+  684|      1|    fn test_ui_render_with_quick_search_active() {
+  685|      1|        let backend = TestBackend::new(80, 24);
+  686|      1|        let mut terminal = Terminal::new(backend).unwrap();
+  687|       |
+  688|      1|        let mut app = App::new().unwrap();
+  689|      1|        app.quick_search = Some("search".to_string());
+  690|       |
+  691|      1|        terminal
+  692|      1|            .draw(|f| {
+  693|      1|                ui(f, &mut app);
+  694|      1|            })
+  695|      1|            .unwrap();
+  696|      1|    }
+  697|       |}
+

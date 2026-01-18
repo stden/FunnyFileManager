@@ -1,6 +1,8 @@
-use funny_file_manager::handlers::{handle_overlay_keys, handle_view, handle_copy, handle_move, handle_mkdir, handle_delete};
-use funny_file_manager::models::{App, Panel, PanelSide, SortMode, Viewer};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use funny_file_manager::handlers::{
+    handle_copy, handle_delete, handle_mkdir, handle_move, handle_overlay_keys, handle_view,
+};
+use funny_file_manager::models::{App, Panel, PanelSide, SortMode, Viewer};
 use std::fs::{self, File};
 use std::io::{self, Write};
 use tempfile::TempDir;
@@ -229,7 +231,9 @@ fn test_command_line_pwd() -> io::Result<()> {
 
     handle_overlay_keys(&mut app, key_event(KeyCode::Enter));
     assert!(app.command_line.is_none());
-    assert!(app.status_message.contains(temp_dir.path().to_str().unwrap()));
+    assert!(app
+        .status_message
+        .contains(temp_dir.path().to_str().unwrap()));
 
     Ok(())
 }

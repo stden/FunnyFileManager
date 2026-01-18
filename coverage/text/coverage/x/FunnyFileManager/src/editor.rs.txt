@@ -1,0 +1,423 @@
+Coverage Report
+Created: 2026-01-16 16:06
+C:\x\FunnyFileManager\src\editor.rs:
+    1|       |#[cfg(all(not(feature = "test-helpers"), not(any(test, coverage))))]
+    2|       |use crossterm::{
+    3|       |    event::{DisableMouseCapture, EnableMouseCapture},
+    4|       |    execute,
+    5|       |    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    6|       |};
+    7|       |use ratatui::backend::Backend;
+    8|       |use ratatui::Terminal;
+    9|       |use std::io::{self, Write};
+   10|       |use std::process::Command;
+   11|       |
+   12|       |use crate::models::App;
+   13|       |
+   14|       |#[cfg(feature = "test-helpers")]
+   15|       |pub fn handle_edit<B: Backend + Write>(
+   16|       |    terminal: &mut Terminal<B>,
+   17|       |    app: &mut App,
+   18|       |) -> io::Result<()> {
+   19|       |    let _ = terminal;
+   20|       |    handle_edit_test_mode(app, TestEditorBehavior::Success)
+   21|       |}
+   22|       |
+   23|       |#[cfg(not(feature = "test-helpers"))]
+   24|      3|pub fn handle_edit<B: Backend + Write>(
+   25|      3|    terminal: &mut Terminal<B>,
+   26|      3|    app: &mut App,
+   27|      3|) -> io::Result<()> {
+   28|      3|    handle_edit_impl(terminal, app, |editor, path| {
+                                                                 ^2
+   29|      2|        Command::new(editor).arg(path).status()
+   30|      2|    })
+   31|      3|}
+   32|       |
+   33|      8|pub(crate) fn handle_edit_impl<B, F>(
+   34|      8|    #[allow(unused_variables)] terminal: &mut Terminal<B>,
+   35|      8|    app: &mut App,
+   36|      8|    run_editor: F,
+   37|      8|) -> io::Result<()>
+   38|      8|where
+   39|      8|    B: Backend + Write,
+   40|      8|    F: FnOnce(&str, &std::path::Path) -> io::Result<std::process::ExitStatus>,
+   41|       |{
+   42|      8|    let Some(selected_entry) = app.get_active_panel().get_selected_entry() else {
+                           ^7
+   43|      1|        return Ok(());
+   44|       |    };
+   45|       |
+   46|      7|    if selected_entry.is_dir {
+   47|      2|        app.status_message = "Editing directories is not supported".to_string();
+   48|      2|        return Ok(());
+   49|      5|    }
+   50|       |
+   51|      5|    let selected = app.get_active_panel().selected_path().unwrap();
+   52|       |
+   53|       |    // Skip terminal manipulation in test/coverage mode.
+   54|       |    #[cfg(all(not(feature = "test-helpers"), not(any(test, coverage))))]
+   55|       |    {
+   56|       |        disable_raw_mode()?;
+   57|       |        execute!(
+   58|       |            terminal.backend_mut(),
+   59|       |            LeaveAlternateScreen,
+   60|       |            DisableMouseCapture
+   61|       |        )?;
+   62|       |    }
+   63|       |
+   64|      5|    let editor = std::env::var("EDITOR").unwrap_or_else(|_| "nano".to_string());
+                                                                          ^0     ^0
+   65|      5|    let status = run_editor(&editor, &selected);
+   66|       |
+   67|       |    #[cfg(all(not(feature = "test-helpers"), not(any(test, coverage))))]
+   68|       |    {
+   69|       |        enable_raw_mode()?;
+   70|       |        execute!(
+   71|       |            terminal.backend_mut(),
+   72|       |            EnterAlternateScreen,
+   73|       |            EnableMouseCapture
+   74|       |        )?;
+   75|       |        terminal.clear()?;
+   76|       |    }
+   77|       |
+   78|      5|    match status {
+   79|      4|        Ok(code) => {
+   80|      4|            if code.success() {
+   81|      3|                app.status_message = format!("Edited {}", selected.display());
+   82|      3|            } else {
+   83|      1|                app.status_message = format!("Editor exited with status {}", code);
+   84|      1|            }
+   85|       |        }
+   86|      1|        Err(err) => {
+   87|      1|            app.status_message = format!("Failed to launch editor: {}", err);
+   88|      1|        }
+   89|       |    }
+   90|       |
+   91|      5|    app.left_panel.load_entries()?;
+                                               ^0
+   92|      5|    app.left_panel.ensure_selection();
+   93|      5|    app.right_panel.load_entries()?;
+                                                ^0
+   94|      5|    app.right_panel.ensure_selection();
+   95|      5|    Ok(())
+   96|      8|}
+   97|       |
+   98|       |#[cfg(feature = "test-helpers")]
+   99|       |#[derive(Clone, Copy, Debug)]
+  100|       |pub enum TestEditorBehavior {
+  101|       |    Success,
+  102|       |    FailLaunch,
+  103|       |    ExitError,
+  104|       |}
+  105|       |
+  106|       |#[cfg(feature = "test-helpers")]
+  107|       |pub fn handle_edit_test_mode(app: &mut App, behavior: TestEditorBehavior) -> io::Result<()> {
+  108|       |    let Some(selected_entry) = app.get_active_panel().get_selected_entry() else {
+  109|       |        return Ok(());
+  110|       |    };
+  111|       |
+  112|       |    if selected_entry.is_dir {
+  113|       |        app.status_message = "Editing directories is not supported".to_string();
+  114|       |        return Ok(());
+  115|       |    }
+  116|       |
+  117|       |    let selected = app.get_active_panel().selected_path().unwrap();
+  118|       |
+  119|       |    match behavior {
+  120|       |        TestEditorBehavior::FailLaunch => {
+  121|       |            app.status_message =
+  122|       |                "Failed to launch editor: No such file or directory (os error 2)".to_string();
+  123|       |        }
+  124|       |        TestEditorBehavior::ExitError => {
+  125|       |            app.status_message = "Editor exited with status exit status: 1".to_string();
+  126|       |        }
+  127|       |        TestEditorBehavior::Success => {
+  128|       |            app.status_message = format!("Edited {}", selected.display());
+  129|       |        }
+  130|       |    }
+  131|       |
+  132|       |    app.left_panel.load_entries()?;
+  133|       |    app.left_panel.ensure_selection();
+  134|       |    app.right_panel.load_entries()?;
+  135|       |    app.right_panel.ensure_selection();
+  136|       |    Ok(())
+  137|       |}
+  138|       |
+  139|       |#[cfg(test)]
+  140|       |mod tests {
+  141|       |    use super::{handle_edit, handle_edit_impl};
+  142|       |    use crate::models::{App, Panel, PanelSide};
+  143|       |    use crate::WritableTestBackend;
+  144|       |    use ratatui::Terminal;
+  145|       |    use std::ffi::OsString;
+  146|       |    use std::fs;
+  147|       |    use std::io;
+  148|       |    use std::path::{Path, PathBuf};
+  149|       |    use std::sync::Mutex;
+  150|       |    use tempfile::TempDir;
+  151|       |
+  152|       |    static ENV_LOCK: Mutex<()> = Mutex::new(());
+  153|       |
+  154|       |    struct EditorEnvGuard<'a> {
+  155|       |        _lock: std::sync::MutexGuard<'a, ()>,
+  156|       |        previous: Option<OsString>,
+  157|       |    }
+  158|       |
+  159|       |    impl<'a> EditorEnvGuard<'a> {
+  160|      2|        fn set(path: &Path) -> Self {
+  161|      2|            let lock = ENV_LOCK.lock().unwrap();
+  162|      2|            Self::set_with_lock(lock, path)
+  163|      2|        }
+  164|       |
+  165|      3|        fn set_with_lock(lock: std::sync::MutexGuard<'a, ()>, path: &Path) -> Self {
+  166|      3|            let previous = std::env::var_os("EDITOR");
+  167|      3|            std::env::set_var("EDITOR", path);
+  168|      3|            Self {
+  169|      3|                _lock: lock,
+  170|      3|                previous,
+  171|      3|            }
+  172|      3|        }
+  173|       |    }
+  174|       |
+  175|       |    impl Drop for EditorEnvGuard<'_> {
+  176|      3|        fn drop(&mut self) {
+  177|      3|            if let Some(previous) = self.previous.take() {
+                                      ^1
+  178|      1|                std::env::set_var("EDITOR", previous);
+  179|      2|            } else {
+  180|      2|                std::env::remove_var("EDITOR");
+  181|      2|            }
+  182|      3|        }
+  183|       |    }
+  184|       |
+  185|      6|    fn build_app(temp_dir: &TempDir) -> App {
+  186|      6|        App {
+  187|      6|            left_panel: Panel::new(temp_dir.path().to_path_buf()).expect("create left panel"),
+  188|      6|            right_panel: Panel::new(temp_dir.path().to_path_buf()).expect("create right panel"),
+  189|      6|            active_panel: PanelSide::Left,
+  190|      6|            show_help: false,
+  191|      6|            viewer: None,
+  192|      6|            search: None,
+  193|      6|            command_line: None,
+  194|      6|            show_bookmarks: false,
+  195|      6|            bookmarks: vec![None; 10],
+  196|      6|            should_quit: false,
+  197|      6|            status_message: String::new(),
+  198|      6|            quick_search: None,
+  199|      6|        }
+  200|      6|    }
+  201|       |
+  202|      6|    fn select_entry(panel: &mut Panel, name: &str) -> bool {
+  203|     12|        if let Some(index) = panel.entries.iter().position(|entry| entry.name == name) {
+                                  ^5       ^6                   ^6
+  204|      5|            panel.state.select(Some(index));
+  205|      5|            true
+  206|       |        } else {
+  207|      1|            false
+  208|       |        }
+  209|      6|    }
+  210|       |
+  211|      1|    fn run_editor_success(_editor: &str, _path: &Path) -> io::Result<std::process::ExitStatus> {
+  212|      1|        Ok(std::process::ExitStatus::default())
+  213|      1|    }
+  214|       |
+  215|      3|    fn restore_editor_env(value: Option<OsString>) {
+  216|      3|        match value {
+  217|      1|            Some(value) => std::env::set_var("EDITOR", value),
+  218|      2|            None => std::env::remove_var("EDITOR"),
+  219|       |        }
+  220|      3|    }
+  221|       |
+  222|       |    #[cfg(unix)]
+  223|       |    fn fake_editor_path(dir: &Path, exit_code: i32) -> PathBuf {
+  224|       |        use std::os::unix::fs::PermissionsExt;
+  225|       |        let path = dir.join("fake_editor.sh");
+  226|       |        let script = format!("#!/bin/sh\nexit {}\n", exit_code);
+  227|       |        fs::write(&path, script).expect("write fake editor script");
+  228|       |        let mut perms = fs::metadata(&path)
+  229|       |            .expect("read fake editor metadata")
+  230|       |            .permissions();
+  231|       |        perms.set_mode(0o755);
+  232|       |        fs::set_permissions(&path, perms).expect("set fake editor permissions");
+  233|       |        path
+  234|       |    }
+  235|       |
+  236|       |    #[cfg(windows)]
+  237|      2|    fn fake_editor_path(dir: &Path, exit_code: i32) -> PathBuf {
+  238|      2|        let path = dir.join("fake_editor.cmd");
+  239|      2|        let script = format!("@echo off\r\nexit /b {}\r\n", exit_code);
+  240|      2|        fs::write(&path, script).expect("write fake editor script");
+  241|      2|        path
+  242|      2|    }
+  243|       |
+  244|       |    #[cfg(unix)]
+  245|       |    fn failure_exit_status() -> std::process::ExitStatus {
+  246|       |        use std::os::unix::process::ExitStatusExt;
+  247|       |        std::process::ExitStatus::from_raw(1 << 8)
+  248|       |    }
+  249|       |
+  250|       |    #[cfg(windows)]
+  251|      1|    fn failure_exit_status() -> std::process::ExitStatus {
+  252|       |        use std::os::windows::process::ExitStatusExt;
+  253|      1|        std::process::ExitStatus::from_raw(1)
+  254|      1|    }
+  255|       |
+  256|       |    #[test]
+  257|      1|    fn test_handle_edit_impl_no_selection() -> io::Result<()> {
+  258|      1|        let temp_dir = TempDir::new().expect("temp dir");
+  259|      1|        let mut app = build_app(&temp_dir);
+  260|      1|        app.left_panel.state.select(None);
+  261|       |
+  262|      1|        let backend = WritableTestBackend::new(80, 24);
+  263|      1|        let mut terminal = Terminal::new(backend).expect("terminal");
+  264|       |
+  265|      1|        let result = handle_edit_impl(&mut terminal, &mut app, run_editor_success);
+  266|       |
+  267|      1|        assert!(result.is_ok());
+  268|      1|        assert!(app.status_message.is_empty());
+  269|      1|        Ok(())
+  270|      1|    }
+  271|       |
+  272|       |    #[test]
+  273|      1|    fn test_handle_edit_impl_directory_selected() -> io::Result<()> {
+  274|      1|        let temp_dir = TempDir::new().expect("temp dir");
+  275|      1|        let subdir = temp_dir.path().join("subdir");
+  276|      1|        fs::create_dir(&subdir).expect("create subdir");
+  277|       |
+  278|      1|        let mut app = build_app(&temp_dir);
+  279|      1|        assert!(select_entry(&mut app.left_panel, "subdir"));
+  280|       |
+  281|      1|        let backend = WritableTestBackend::new(80, 24);
+  282|      1|        let mut terminal = Terminal::new(backend).expect("terminal");
+  283|       |
+  284|      1|        let result = handle_edit_impl(&mut terminal, &mut app, run_editor_success);
+  285|       |
+  286|      1|        assert!(result.is_ok());
+  287|      1|        assert_eq!(app.status_message, "Editing directories is not supported");
+  288|      1|        Ok(())
+  289|      1|    }
+  290|       |
+  291|       |    #[test]
+  292|      1|    fn test_handle_edit_impl_success() -> io::Result<()> {
+  293|      1|        let temp_dir = TempDir::new().expect("temp dir");
+  294|      1|        let file_path = temp_dir.path().join("file.txt");
+  295|      1|        fs::write(&file_path, b"content").expect("write file");
+  296|       |
+  297|      1|        let mut app = build_app(&temp_dir);
+  298|      1|        assert!(select_entry(&mut app.left_panel, "file.txt"));
+  299|      1|        let editor_path = Path::new("nano");
+  300|      1|        let _guard = EditorEnvGuard::set(editor_path);
+  301|      1|        let expected_editor = editor_path.to_string_lossy().to_string();
+  302|       |
+  303|      1|        let backend = WritableTestBackend::new(80, 24);
+  304|      1|        let mut terminal = Terminal::new(backend).expect("terminal");
+  305|       |
+  306|      1|        let result = handle_edit_impl(&mut terminal, &mut app, |editor, path| {
+  307|      1|            assert_eq!(editor, expected_editor);
+  308|      1|            assert_eq!(path, file_path.as_path());
+  309|      1|            run_editor_success(editor, path)
+  310|      1|        });
+  311|       |
+  312|      1|        assert!(result.is_ok());
+  313|      1|        assert!(app.status_message.contains("Edited"));
+  314|      1|        Ok(())
+  315|      1|    }
+  316|       |
+  317|       |    #[test]
+  318|      1|    fn test_handle_edit_impl_exit_error() -> io::Result<()> {
+  319|      1|        let temp_dir = TempDir::new().expect("temp dir");
+  320|      1|        let file_path = temp_dir.path().join("file.txt");
+  321|      1|        fs::write(&file_path, b"content").expect("write file");
+  322|       |
+  323|      1|        let mut app = build_app(&temp_dir);
+  324|      1|        assert!(select_entry(&mut app.left_panel, "file.txt"));
+  325|       |
+  326|      1|        let backend = WritableTestBackend::new(80, 24);
+  327|      1|        let mut terminal = Terminal::new(backend).expect("terminal");
+  328|       |
+  329|      1|        let result = handle_edit_impl(&mut terminal, &mut app, |_, _| Ok(failure_exit_status()));
+  330|       |
+  331|      1|        assert!(result.is_ok());
+  332|      1|        assert!(app.status_message.contains("Editor exited with status"));
+  333|      1|        Ok(())
+  334|      1|    }
+  335|       |
+  336|       |    #[test]
+  337|      1|    fn test_handle_edit_impl_launch_error() -> io::Result<()> {
+  338|      1|        let temp_dir = TempDir::new().expect("temp dir");
+  339|      1|        let file_path = temp_dir.path().join("file.txt");
+  340|      1|        fs::write(&file_path, b"content").expect("write file");
+  341|       |
+  342|      1|        let mut app = build_app(&temp_dir);
+  343|      1|        assert!(select_entry(&mut app.left_panel, "file.txt"));
+  344|       |
+  345|      1|        let backend = WritableTestBackend::new(80, 24);
+  346|      1|        let mut terminal = Terminal::new(backend).expect("terminal");
+  347|       |
+  348|      1|        let result = handle_edit_impl(&mut terminal, &mut app, |_, _| {
+  349|      1|            Err(io::Error::new(io::ErrorKind::NotFound, "missing editor"))
+  350|      1|        });
+  351|       |
+  352|      1|        assert!(result.is_ok());
+  353|      1|        assert!(app.status_message.contains("Failed to launch editor"));
+  354|      1|        Ok(())
+  355|      1|    }
+  356|       |
+  357|       |    #[test]
+  358|      1|    fn test_handle_edit_runs_command() -> io::Result<()> {
+  359|      1|        let temp_dir = TempDir::new().expect("temp dir");
+  360|      1|        let file_path = temp_dir.path().join("file.txt");
+  361|      1|        fs::write(&file_path, b"content").expect("write file");
+  362|       |
+  363|      1|        let editor_path = fake_editor_path(temp_dir.path(), 0);
+  364|      1|        let _guard = EditorEnvGuard::set(&editor_path);
+  365|       |
+  366|      1|        let mut app = build_app(&temp_dir);
+  367|      1|        assert!(select_entry(&mut app.left_panel, "file.txt"));
+  368|       |
+  369|      1|        let backend = WritableTestBackend::new(80, 24);
+  370|      1|        let mut terminal = Terminal::new(backend).expect("terminal");
+  371|       |
+  372|      1|        let result = handle_edit(&mut terminal, &mut app);
+  373|       |
+  374|      1|        assert!(result.is_ok());
+  375|      1|        assert!(app.status_message.contains("Edited"));
+  376|      1|        Ok(())
+  377|      1|    }
+  378|       |
+  379|       |    #[test]
+  380|      1|    fn test_select_entry_returns_false() -> io::Result<()> {
+  381|      1|        let temp_dir = TempDir::new().expect("temp dir");
+  382|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("create panel");
+  383|       |
+  384|      1|        assert!(!select_entry(&mut panel, "missing.txt"));
+  385|      1|        Ok(())
+  386|      1|    }
+  387|       |
+  388|       |    #[test]
+  389|      1|    fn test_editor_env_guard_restores_existing_value() -> io::Result<()> {
+  390|      1|        let temp_dir = TempDir::new().expect("temp dir");
+  391|      1|        let editor_path = fake_editor_path(temp_dir.path(), 0);
+  392|       |
+  393|      1|        let lock = ENV_LOCK.lock().unwrap();
+  394|      1|        let original = std::env::var_os("EDITOR");
+  395|      1|        std::env::set_var("EDITOR", "keep");
+  396|       |
+  397|      1|        let guard = EditorEnvGuard::set_with_lock(lock, &editor_path);
+  398|      1|        let current = std::env::var("EDITOR").unwrap();
+  399|      1|        let expected = editor_path.to_string_lossy().to_string();
+  400|      1|        assert!(current == expected);
+  401|      1|        drop(guard);
+  402|       |
+  403|      1|        let lock = ENV_LOCK.lock().unwrap();
+  404|      1|        assert_eq!(std::env::var("EDITOR").unwrap(), "keep");
+  405|      1|        restore_editor_env(Some(OsString::from("ffm_temp")));
+  406|      1|        restore_editor_env(None);
+  407|      1|        restore_editor_env(original);
+  408|      1|        drop(lock);
+  409|       |
+  410|      1|        Ok(())
+  411|      1|    }
+  412|       |}
+

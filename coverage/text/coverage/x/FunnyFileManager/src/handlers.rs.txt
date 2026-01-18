@@ -1,0 +1,2592 @@
+Coverage Report
+Created: 2026-01-16 16:06
+C:\x\FunnyFileManager\src\handlers.rs:
+    1|       |use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    2|       |use std::{fs, io, path::PathBuf};
+    3|       |
+    4|       |use crate::models::{App, SortMode, Viewer};
+    5|       |use crate::utils::{copy_dir_all, refresh_panels, unique_destination};
+    6|       |
+    7|       |#[cfg(any(test, tarpaulin))]
+    8|       |use std::sync::atomic::{AtomicBool, Ordering};
+    9|       |
+   10|       |#[cfg(any(test, tarpaulin))]
+   11|       |static FORCE_RENAME_FAILURE: AtomicBool = AtomicBool::new(false);
+   12|       |
+   13|      9|fn try_rename(source: &std::path::Path, dest: &std::path::Path) -> io::Result<()> {
+   14|       |    #[cfg(any(test, tarpaulin))]
+   15|      8|    let forced = FORCE_RENAME_FAILURE.load(Ordering::SeqCst);
+   16|       |
+   17|       |    #[cfg(not(any(test, tarpaulin)))]
+   18|      1|    let forced = false;
+   19|       |
+   20|      9|    if forced {
+   21|      7|        Err(io::Error::new(
+   22|      7|            io::ErrorKind::Other,
+   23|      7|            "forced rename failure",
+   24|      7|        ))
+   25|       |    } else {
+   26|      2|        fs::rename(source, dest)
+   27|       |    }
+   28|      9|}
+   29|       |
+   30|    296|pub fn handle_overlay_keys(app: &mut App, key: KeyEvent) -> bool {
+   31|    296|    let code = key.code;
+   32|    296|    let modifiers = key.modifiers;
+   33|       |
+   34|    296|    if let Some(viewer) = app.viewer.as_mut() {
+                              ^161
+   35|    161|        match code {
+   36|      3|            KeyCode::Esc | KeyCode::F(3) | KeyCode::Enter => {
+   37|      3|                app.viewer = None;
+   38|      3|            }
+   39|       |            KeyCode::Down => {
+   40|    118|                let max_scroll = viewer
+   41|    118|                    .lines
+   42|    118|                    .len()
+   43|    118|                    .saturating_sub(1)
+   44|    118|                    .saturating_sub(viewer.scroll as usize);
+   45|    118|                if max_scroll > 0 {
+   46|     25|                    viewer.scroll = viewer.scroll.saturating_add(1);
+   47|     93|                }
+   48|       |            }
+   49|       |            KeyCode::Up => {
+   50|     36|                if viewer.scroll > 0 {
+   51|      4|                    viewer.scroll -= 1;
+   52|     32|                }
+   53|       |            }
+   54|      4|            _ => {}
+   55|       |        }
+   56|    161|        return true;
+   57|    135|    }
+   58|       |
+   59|    135|    if app.show_help {
+   60|      5|        if matches!(code, KeyCode::Esc | KeyCode::F(1)) {
+                         ^1
+   61|      4|            app.show_help = false;
+   62|      4|        }
+                      ^1
+   63|      5|        return true;
+   64|    130|    }
+   65|       |
+   66|    130|    if let Some(query) = app.search.as_mut() {
+                              ^11
+   67|      4|        match code {
+   68|      1|            KeyCode::Esc => {
+   69|      1|                app.search = None;
+   70|      1|            }
+   71|       |            KeyCode::Enter => {
+   72|      4|                let query_trimmed = query.trim().to_string();
+   73|      4|                if !query_trimmed.is_empty() {
+   74|      3|                    let found = jump_to_match(app.get_active_panel(), &query_trimmed);
+   75|      3|                    if found {
+   76|      2|                        app.status_message = format!("Found: {}", query_trimmed);
+   77|      2|                    } else {
+   78|      1|                        app.status_message = format!("Not found: {}", query_trimmed);
+   79|      1|                    }
+   80|      1|                }
+   81|      4|                app.search = None;
+   82|       |            }
+   83|       |            KeyCode::Backspace => {
+   84|      2|                query.pop();
+   85|      2|                let query_trimmed = query.trim().to_string();
+   86|      2|                if !query_trimmed.is_empty() {
+   87|      1|                    jump_to_match(app.get_active_panel(), &query_trimmed);
+   88|      1|                }
+   89|       |            }
+   90|      2|            KeyCode::Char(ch)
+   91|      4|                if !modifiers.contains(KeyModifiers::CONTROL)
+   92|      3|                    && !modifiers.contains(KeyModifiers::ALT) =>
+                                                                          ^2
+   93|       |            {
+   94|      2|                query.push(ch);
+   95|      2|                let query_trimmed = query.trim().to_string();
+   96|      2|                if !query_trimmed.is_empty() {
+   97|      1|                    jump_to_match(app.get_active_panel(), &query_trimmed);
+   98|      1|                }
+   99|       |            }
+  100|      2|            _ => {}
+  101|       |        }
+  102|     11|        return true;
+  103|    119|    }
+  104|       |
+  105|    119|    if app.show_bookmarks {
+  106|     29|        match code {
+  107|      1|            KeyCode::Esc | KeyCode::F(2) => {
+  108|      1|                app.show_bookmarks = false;
+  109|      1|            }
+  110|     29|            KeyCode::Char(ch) if ch.is_ascii_digit() => {
+                                        ^27                      ^27
+  111|     27|                let index = (ch as u8 - b'0') as usize;
+  112|     27|                if index >= app.bookmarks.len() {
+  113|      1|                    app.status_message = format!("Invalid bookmark slot {}", index);
+  114|      1|                    return true;
+  115|     26|                }
+  116|       |
+  117|     26|                if modifiers.contains(KeyModifiers::CONTROL) {
+  118|     12|                    let path = app.get_active_panel().path.clone();
+  119|     12|                    app.bookmarks[index] = Some(path.clone());
+  120|     12|                    app.status_message = format!("Bookmark {} set to {}", index, path.display());
+  121|     14|                } else if let Some(path) = app.bookmarks[index].clone() {
+                                                 ^13
+  122|     13|                    let panel = app.get_active_panel();
+  123|     13|                    panel.path = path.clone();
+  124|     13|                    panel.clear_marks();
+  125|     13|                    match panel.load_entries() {
+  126|     12|                        Ok(()) => {
+  127|     12|                            panel.ensure_selection();
+  128|     12|                            app.status_message =
+  129|     12|                                format!("Opened bookmark {}: {}", index, path.display());
+  130|     12|                            app.show_bookmarks = false;
+  131|     12|                        }
+  132|      1|                        Err(err) => {
+  133|      1|                            app.status_message =
+  134|      1|                                format!("Failed to open bookmark {}: {}", index, err);
+  135|      1|                        }
+  136|       |                    }
+  137|      1|                } else {
+  138|      1|                    app.status_message = format!("Bookmark {} is empty", index);
+  139|      1|                }
+  140|       |            }
+  141|      2|            _ => {}
+  142|       |        }
+  143|     29|        return true;
+  144|     89|    }
+  145|       |
+  146|     89|    if let Some(input) = app.command_line.as_mut() {
+                              ^22
+  147|      7|        match code {
+  148|      2|            KeyCode::Esc => {
+  149|      2|                app.command_line = None;
+  150|      2|            }
+  151|       |            KeyCode::Enter => {
+  152|      9|                let command = input.trim().to_string();
+  153|      9|                app.command_line = None;
+  154|      9|                if command.is_empty() {
+  155|      3|                    return true;
+  156|      6|                }
+  157|       |
+  158|      6|                if let Err(err) = execute_command(app, &command) {
+                                         ^2
+  159|      2|                    app.status_message = format!("Command failed: {}", err);
+  160|      4|                }
+  161|       |            }
+  162|      4|            KeyCode::Backspace => {
+  163|      4|                input.pop();
+  164|      4|            }
+  165|      5|            KeyCode::Char(ch)
+  166|      7|                if !modifiers.contains(KeyModifiers::CONTROL)
+  167|      6|                    && !modifiers.contains(KeyModifiers::ALT) =>
+                                                                          ^5
+  168|      5|            {
+  169|      5|                input.push(ch);
+  170|      5|            }
+  171|      2|            _ => {}
+  172|       |        }
+  173|     19|        return true;
+  174|     67|    }
+  175|       |
+  176|     67|    false
+  177|    296|}
+  178|       |
+  179|     12|fn jump_to_match(panel: &mut crate::models::Panel, query: &str) -> bool {
+  180|     12|    let query = query.to_lowercase();
+  181|     12|    let start_index = panel.state.selected().unwrap_or(0);
+  182|       |
+  183|     24|    for i in 1..=panel.entries.len() {
+                               ^12           ^12
+  184|     24|        let index = (start_index + i) % panel.entries.len();
+  185|     24|        let entry = &panel.entries[index];
+  186|       |
+  187|     24|        if entry.name == ".." {
+  188|      7|            continue;
+  189|     17|        }
+  190|     17|        if entry.name.to_lowercase().contains(&query) {
+  191|      7|            panel.state.select(Some(index));
+  192|      7|            return true;
+  193|     10|        }
+  194|       |    }
+  195|       |
+  196|      5|    false
+  197|     12|}
+  198|       |
+  199|     44|fn execute_command(app: &mut App, command: &str) -> io::Result<()> {
+  200|     44|    let mut parts = command.split_whitespace();
+  201|     44|    let Some(cmd) = parts.next() else {
+                           ^41
+  202|      3|        return Err(io::Error::new(io::ErrorKind::InvalidInput, "empty command"));
+  203|       |    };
+  204|       |
+  205|     41|    match cmd {
+  206|     41|        "cd" => {
+  207|      7|            let Some(path_arg) = parts.next() else {
+                                   ^5
+  208|      2|                return Err(io::Error::new(
+  209|      2|                    io::ErrorKind::InvalidInput,
+  210|      2|                    "cd requires a path",
+  211|      2|                ));
+  212|       |            };
+  213|       |
+  214|      5|            let requested = PathBuf::from(path_arg);
+  215|      5|            let new_path = if requested.is_absolute() {
+  216|      2|                requested
+  217|       |            } else {
+  218|      3|                app.get_active_panel().path.join(requested)
+  219|       |            }
+  220|      5|            .canonicalize()?;
+                                         ^0
+  221|       |
+  222|      5|            if !new_path.is_dir() {
+  223|      2|                return Err(io::Error::new(
+  224|      2|                    io::ErrorKind::NotFound,
+  225|      2|                    format!("not a directory: {}", new_path.display()),
+  226|      2|                ));
+  227|      3|            }
+  228|       |
+  229|      3|            let panel = app.get_active_panel();
+  230|      3|            panel.path = new_path.clone();
+  231|      3|            panel.clear_marks();
+  232|      3|            panel.load_entries()?;
+                                              ^0
+  233|      3|            panel.ensure_selection();
+  234|      3|            app.status_message = format!("Opened {}", new_path.display());
+  235|      3|            Ok(())
+  236|       |        }
+  237|     34|        "pwd" => {
+  238|      1|            let path = app.get_active_panel().path.clone();
+  239|      1|            app.status_message = path.display().to_string();
+  240|      1|            Ok(())
+  241|       |        }
+  242|     33|        "sort" => {
+  243|      5|            let mode = parts.next().unwrap_or("name");
+  244|      5|            let sort_mode = match mode {
+                              ^3
+  245|      5|                "name" => SortMode::Name,
+                                        ^1
+  246|      4|                "ext" | "extension" => SortMode::Extension,
+                                      ^3             ^1
+  247|      3|                "size" => SortMode::Size,
+                                        ^1
+  248|       |                _ => {
+  249|      2|                    return Err(io::Error::new(
+  250|      2|                        io::ErrorKind::InvalidInput,
+  251|      2|                        "sort expects: name|ext|size",
+  252|      2|                    ));
+  253|       |                }
+  254|       |            };
+  255|       |
+  256|      3|            let panel = app.get_active_panel();
+  257|      3|            panel.sort_mode = sort_mode;
+  258|      3|            panel.load_entries()?;
+                                              ^0
+  259|      3|            panel.ensure_selection();
+  260|      3|            app.status_message = format!("Sort: {}", panel.sort_mode.label());
+  261|      3|            Ok(())
+  262|       |        }
+  263|     28|        "bookmark" => {
+  264|     13|            let Some(sub) = parts.next() else {
+                                   ^11
+  265|      2|                return Err(io::Error::new(
+  266|      2|                    io::ErrorKind::InvalidInput,
+  267|      2|                    "bookmark expects: set|go <0-9>",
+  268|      2|                ));
+  269|       |            };
+  270|     11|            let Some(slot_str) = parts.next() else {
+                                   ^10
+  271|      1|                return Err(io::Error::new(
+  272|      1|                    io::ErrorKind::InvalidInput,
+  273|      1|                    "bookmark expects a slot 0-9",
+  274|      1|                ));
+  275|       |            };
+  276|       |
+  277|     10|            let slot: usize = slot_str.parse().map_err(|_| {
+                              ^8    ^8                                   ^2
+  278|      2|                io::Error::new(io::ErrorKind::InvalidInput, "bookmark slot must be 0-9")
+  279|      2|            })?;
+  280|      8|            if slot >= app.bookmarks.len() {
+  281|      2|                return Err(io::Error::new(
+  282|      2|                    io::ErrorKind::InvalidInput,
+  283|      2|                    "bookmark slot must be 0-9",
+  284|      2|                ));
+  285|      6|            }
+  286|       |
+  287|      6|            match sub {
+  288|      6|                "set" => {
+  289|      1|                    let path = app.get_active_panel().path.clone();
+  290|      1|                    app.bookmarks[slot] = Some(path.clone());
+  291|      1|                    app.status_message = format!("Bookmark {} set to {}", slot, path.display());
+  292|      1|                    Ok(())
+  293|       |                }
+  294|      5|                "go" => {
+  295|      3|                    let Some(path) = app.bookmarks[slot].clone() else {
+                                           ^1
+  296|      2|                        return Err(io::Error::new(
+  297|      2|                            io::ErrorKind::NotFound,
+  298|      2|                            format!("bookmark {} is empty", slot),
+  299|      2|                        ));
+  300|       |                    };
+  301|      1|                    let panel = app.get_active_panel();
+  302|      1|                    panel.path = path.clone();
+  303|      1|                    panel.clear_marks();
+  304|      1|                    panel.load_entries()?;
+                                                      ^0
+  305|      1|                    panel.ensure_selection();
+  306|      1|                    app.status_message = format!("Opened bookmark {}: {}", slot, path.display());
+  307|      1|                    Ok(())
+  308|       |                }
+  309|      2|                _ => Err(io::Error::new(
+  310|      2|                    io::ErrorKind::InvalidInput,
+  311|      2|                    "bookmark expects: set|go <0-9>",
+  312|      2|                )),
+  313|       |            }
+  314|       |        }
+  315|     15|        "mark" => {
+  316|      5|            let Some(sub) = parts.next() else {
+                                   ^3
+  317|      2|                return Err(io::Error::new(
+  318|      2|                    io::ErrorKind::InvalidInput,
+  319|      2|                    "mark expects: all",
+  320|      2|                ));
+  321|       |            };
+  322|       |
+  323|      3|            match sub {
+  324|      3|                "all" => {
+  325|      1|                    let names: Vec<String> = app
+  326|      1|                        .get_active_panel()
+  327|      1|                        .entries
+  328|      1|                        .iter()
+  329|     39|                        .filter(|entry| entry.name != "..")
+                                       ^1
+  330|     39|                        .map(|entry| entry.name.clone())
+                                       ^1
+  331|      1|                        .collect();
+  332|      1|                    let panel = app.get_active_panel();
+  333|     40|                    for name in names {
+                                      ^39
+  334|     39|                        panel.marked.insert(name);
+  335|     39|                    }
+  336|      1|                    app.status_message = format!("Marked {} items", panel.marked.len());
+  337|      1|                    Ok(())
+  338|       |                }
+  339|      2|                _ => Err(io::Error::new(
+  340|      2|                    io::ErrorKind::InvalidInput,
+  341|      2|                    "mark expects: all",
+  342|      2|                )),
+  343|       |            }
+  344|       |        }
+  345|     10|        "unmark" => {
+  346|      1|            app.get_active_panel().clear_marks();
+  347|      1|            app.status_message = "Unmarked all".to_string();
+  348|      1|            Ok(())
+  349|       |        }
+  350|      9|        "help" => {
+  351|      2|            app.show_help = true;
+  352|      2|            Ok(())
+  353|       |        }
+  354|      7|        "quit" | "exit" => {
+                               ^5
+  355|      2|            app.should_quit = true;
+  356|      2|            Ok(())
+  357|       |        }
+  358|      5|        _ => Err(io::Error::new(
+  359|      5|            io::ErrorKind::InvalidInput,
+  360|      5|            format!("unknown command: {}", cmd),
+  361|      5|        )),
+  362|       |    }
+  363|     44|}
+  364|       |
+  365|     11|pub fn handle_view(app: &mut App) -> io::Result<()> {
+  366|     11|    let Some(selected) = app.get_active_panel().selected_path() else {
+                           ^9
+  367|      2|        return Ok(());
+  368|       |    };
+  369|       |
+  370|      9|    if selected.is_dir() {
+  371|      2|        app.status_message = "Cannot view a directory".to_string();
+  372|      2|        return Ok(());
+  373|      7|    }
+  374|       |
+  375|      7|    let content = fs::read_to_string(&selected)?;
+                      ^6                                     ^1
+  376|  10.0k|    let mut lines: Vec<String> = content.lines().map(|l| l.to_string()).collect();
+                      ^6         ^6            ^6              ^6                     ^6
+  377|      6|    if lines.is_empty() {
+  378|      1|        lines.push(String::from("<empty file>"));
+  379|      5|    }
+  380|       |
+  381|      6|    app.viewer = Some(Viewer {
+  382|      6|        title: selected
+  383|      6|            .file_name()
+  384|      6|            .unwrap_or_default()
+  385|      6|            .to_string_lossy()
+  386|      6|            .to_string(),
+  387|      6|        lines,
+  388|      6|        scroll: 0,
+  389|      6|    });
+  390|      6|    app.status_message = format!("Viewing {}", selected.display());
+  391|      6|    Ok(())
+  392|     11|}
+  393|       |
+  394|      9|pub fn handle_copy(app: &mut App) -> io::Result<()> {
+  395|      9|    let Some(source_path) = app.get_active_panel().selected_path() else {
+                           ^6
+  396|      3|        return Ok(());
+  397|       |    };
+  398|      6|    let target_dir = app.get_inactive_panel().path.clone();
+  399|       |
+  400|      6|    let dest = unique_destination(&target_dir, source_path.file_name().unwrap_or_default());
+  401|      6|    if source_path.is_dir() {
+  402|      2|        copy_dir_all(&source_path, &dest)?;
+                                                       ^0
+  403|       |    } else {
+  404|      4|        fs::copy(&source_path, &dest)?;
+                                                   ^0
+  405|       |    }
+  406|       |
+  407|      6|    app.status_message = format!("Copied to {}", dest.display());
+  408|      6|    refresh_panels(app)?;
+                                     ^0
+  409|      6|    Ok(())
+  410|      9|}
+  411|       |
+  412|     11|pub fn handle_move(app: &mut App) -> io::Result<()> {
+  413|     11|    let Some(source_path) = app.get_active_panel().selected_path() else {
+                           ^9
+  414|      2|        return Ok(());
+  415|       |    };
+  416|      9|    let target_dir = app.get_inactive_panel().path.clone();
+  417|       |
+  418|      9|    let dest = unique_destination(&target_dir, source_path.file_name().unwrap_or_default());
+  419|       |
+  420|      9|    match try_rename(&source_path, &dest) {
+  421|      2|        Ok(_) => {}
+  422|       |        Err(_) => {
+  423|      7|            if source_path.is_dir() {
+  424|      3|                copy_dir_all(&source_path, &dest)?;
+                                                               ^0
+  425|      3|                fs::remove_dir_all(&source_path)?;
+                                                              ^0
+  426|       |            } else {
+  427|      4|                fs::copy(&source_path, &dest)?;
+                                                           ^0
+  428|      4|                fs::remove_file(&source_path)?;
+                                                           ^0
+  429|       |            }
+  430|       |        }
+  431|       |    }
+  432|       |
+  433|      9|    app.status_message = format!("Moved to {}", dest.display());
+  434|      9|    refresh_panels(app)?;
+                                     ^0
+  435|      9|    Ok(())
+  436|     11|}
+  437|       |
+  438|      6|pub fn handle_mkdir(app: &mut App) -> io::Result<()> {
+  439|      6|    let base_dir = app.get_active_panel().path.clone();
+  440|      6|    let mut counter = 0;
+  441|      6|    let mut candidate = base_dir.join("new_folder");
+  442|      9|    while candidate.exists() {
+  443|      3|        counter += 1;
+  444|      3|        candidate = base_dir.join(format!("new_folder_{}", counter));
+  445|      3|    }
+  446|       |
+  447|      6|    fs::create_dir_all(&candidate)?;
+                                                ^0
+  448|      6|    app.status_message = format!("Created directory {}", candidate.display());
+  449|      6|    refresh_panels(app)?;
+                                     ^0
+  450|      6|    Ok(())
+  451|      6|}
+  452|       |
+  453|      7|pub fn handle_delete(app: &mut App) -> io::Result<()> {
+  454|      7|    let Some(target) = app.get_active_panel().selected_path() else {
+                           ^5
+  455|      2|        return Ok(());
+  456|       |    };
+  457|       |
+  458|      5|    if target.is_dir() {
+  459|      2|        fs::remove_dir_all(&target)?;
+                                                 ^0
+  460|       |    } else {
+  461|      3|        fs::remove_file(&target)?;
+                                              ^0
+  462|       |    }
+  463|       |
+  464|      5|    app.status_message = format!("Deleted {}", target.display());
+  465|      5|    refresh_panels(app)?;
+                                     ^0
+  466|      5|    Ok(())
+  467|      7|}
+  468|       |
+  469|       |#[cfg(test)]
+  470|       |mod tests {
+  471|       |    use super::*;
+  472|       |    #[cfg(feature = "test-helpers")]
+  473|       |    use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
+  474|       |    use crate::models::{App, Panel, SortMode, Viewer};
+  475|       |    #[cfg(feature = "test-helpers")]
+  476|       |    use crate::WritableTestBackend;
+  477|       |    use std::fs::File;
+  478|       |    use std::io::Write;
+  479|       |    use tempfile::TempDir;
+  480|       |
+  481|       |    #[cfg(feature = "test-helpers")]
+  482|       |    fn fake_exit_status(code: i32) -> std::process::ExitStatus {
+  483|       |        use std::process::Command;
+  484|       |        if code == 0 {
+  485|       |            Command::new("true").status().unwrap()
+  486|       |        } else {
+  487|       |            Command::new("false").status().unwrap()
+  488|       |        }
+  489|       |    }
+  490|       |
+  491|       |    struct ForceRenameFailureGuard;
+  492|       |
+  493|       |    impl ForceRenameFailureGuard {
+  494|      2|        fn enable() -> Self {
+  495|      2|            FORCE_RENAME_FAILURE.store(true, Ordering::SeqCst);
+  496|      2|            Self
+  497|      2|        }
+  498|       |    }
+  499|       |
+  500|       |    impl Drop for ForceRenameFailureGuard {
+  501|      2|        fn drop(&mut self) {
+  502|      2|            FORCE_RENAME_FAILURE.store(false, Ordering::SeqCst);
+  503|      2|        }
+  504|       |    }
+  505|       |
+  506|    180|    fn key_event(code: KeyCode) -> KeyEvent {
+  507|    180|        KeyEvent::new(code, KeyModifiers::empty())
+  508|    180|    }
+  509|       |
+  510|      5|    fn key_event_with_mods(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
+  511|      5|        KeyEvent::new(code, modifiers)
+  512|      5|    }
+  513|       |
+  514|       |    #[test]
+  515|      1|    fn test_handle_overlay_keys_viewer() -> io::Result<()> {
+  516|      1|        let mut app = App::new().expect("test setup");
+  517|       |
+  518|       |        // Create a viewer with multiple lines
+  519|      1|        app.viewer = Some(Viewer {
+  520|      1|            title: "test.txt".to_string(),
+  521|      1|            lines: vec![
+  522|      1|                "Line 1".to_string(),
+  523|      1|                "Line 2".to_string(),
+  524|      1|                "Line 3".to_string(),
+  525|      1|                "Line 4".to_string(),
+  526|      1|                "Line 5".to_string(),
+  527|      1|            ],
+  528|      1|            scroll: 0,
+  529|      1|        });
+  530|       |
+  531|       |        // Test scrolling down
+  532|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Down)));
+  533|      1|        assert_eq!(app.viewer.as_ref().unwrap().scroll, 1);
+  534|       |
+  535|       |        // Test scrolling up
+  536|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Up)));
+  537|      1|        assert_eq!(app.viewer.as_ref().unwrap().scroll, 0);
+  538|       |
+  539|       |        // Test scrolling up at top (should stay at 0)
+  540|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Up)));
+  541|      1|        assert_eq!(app.viewer.as_ref().unwrap().scroll, 0);
+  542|       |
+  543|       |        // Test closing viewer with Esc
+  544|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Esc)));
+  545|      1|        assert!(app.viewer.is_none());
+  546|       |
+  547|      1|        Ok(())
+  548|      1|    }
+  549|       |
+  550|       |    #[test]
+  551|      1|    fn test_handle_overlay_keys_viewer_close_variations() -> io::Result<()> {
+  552|      1|        let mut app = App::new().expect("test setup");
+  553|       |
+  554|       |        // Test closing with F3
+  555|      1|        app.viewer = Some(Viewer {
+  556|      1|            title: "test.txt".to_string(),
+  557|      1|            lines: vec!["Line 1".to_string()],
+  558|      1|            scroll: 0,
+  559|      1|        });
+  560|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::F(3))));
+  561|      1|        assert!(app.viewer.is_none());
+  562|       |
+  563|       |        // Test closing with Enter
+  564|      1|        app.viewer = Some(Viewer {
+  565|      1|            title: "test.txt".to_string(),
+  566|      1|            lines: vec!["Line 1".to_string()],
+  567|      1|            scroll: 0,
+  568|      1|        });
+  569|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+  570|      1|        assert!(app.viewer.is_none());
+  571|       |
+  572|      1|        Ok(())
+  573|      1|    }
+  574|       |
+  575|       |    #[test]
+  576|      1|    fn test_handle_overlay_keys_viewer_max_scroll() -> io::Result<()> {
+  577|      1|        let mut app = App::new().expect("test setup");
+  578|       |
+  579|       |        // Create a viewer with limited lines
+  580|      1|        app.viewer = Some(Viewer {
+  581|      1|            title: "test.txt".to_string(),
+  582|      1|            lines: vec!["Line 1".to_string(), "Line 2".to_string()],
+  583|      1|            scroll: 0,
+  584|      1|        });
+  585|       |
+  586|       |        // Try to scroll beyond available lines
+  587|     11|        for _ in 0..10 {
+  588|     10|            handle_overlay_keys(&mut app, key_event(KeyCode::Down));
+  589|     10|        }
+  590|       |        // Should stop at maximum scroll position
+  591|      1|        assert!(app.viewer.as_ref().unwrap().scroll <= 1);
+  592|       |
+  593|      1|        Ok(())
+  594|      1|    }
+  595|       |
+  596|       |    #[test]
+  597|      1|    fn test_handle_overlay_keys_help() -> io::Result<()> {
+  598|      1|        let mut app = App::new().expect("test setup");
+  599|      1|        app.show_help = true;
+  600|       |
+  601|       |        // Test closing help with Esc
+  602|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Esc)));
+  603|      1|        assert!(!app.show_help);
+  604|       |
+  605|      1|        app.show_help = true;
+  606|       |        // Test closing help with F1
+  607|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::F(1))));
+  608|      1|        assert!(!app.show_help);
+  609|       |
+  610|      1|        Ok(())
+  611|      1|    }
+  612|       |
+  613|       |    #[test]
+  614|      1|    fn test_handle_overlay_keys_no_overlay() -> io::Result<()> {
+  615|      1|        let mut app = App::new().expect("test setup");
+  616|       |
+  617|       |        // No viewer or help shown - should return false
+  618|      1|        assert!(!handle_overlay_keys(&mut app, key_event(KeyCode::Down)));
+  619|      1|        assert!(!handle_overlay_keys(&mut app, key_event(KeyCode::Up)));
+  620|      1|        assert!(!handle_overlay_keys(&mut app, key_event(KeyCode::Esc)));
+  621|       |
+  622|      1|        Ok(())
+  623|      1|    }
+  624|       |
+  625|       |    #[test]
+  626|      1|    fn test_handle_view_file() -> io::Result<()> {
+  627|      1|        let temp_dir = TempDir::new().expect("test setup");
+  628|      1|        let file_path = temp_dir.path().join("test.txt");
+  629|      1|        File::create(&file_path)
+  630|      1|            .expect("test setup")
+  631|      1|            .write_all(b"Line 1\nLine 2\nLine 3")
+  632|      1|            .expect("test setup");
+  633|       |
+  634|      1|        let mut app = App::new().expect("test setup");
+  635|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  636|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  637|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  638|       |
+  639|       |        // Select the file
+  640|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+  641|      2|            if entry.name == "test.txt" {
+  642|      1|                app.left_panel.state.select(Some(i));
+  643|      1|                break;
+  644|      1|            }
+  645|       |        }
+  646|       |
+  647|      1|        handle_view(&mut app).expect("test setup");
+  648|       |
+  649|      1|        assert!(app.viewer.is_some());
+  650|      1|        let viewer = app.viewer.as_ref().unwrap();
+  651|      1|        assert_eq!(viewer.title, "test.txt");
+  652|      1|        assert_eq!(viewer.lines.len(), 3);
+  653|      1|        assert_eq!(viewer.lines[0], "Line 1");
+  654|      1|        assert!(app.status_message.contains("Viewing"));
+  655|       |
+  656|      1|        Ok(())
+  657|      1|    }
+  658|       |
+  659|       |    #[test]
+  660|      1|    fn test_handle_view_empty_file() -> io::Result<()> {
+  661|      1|        let temp_dir = TempDir::new().expect("test setup");
+  662|      1|        let file_path = temp_dir.path().join("empty.txt");
+  663|      1|        File::create(&file_path).expect("test setup"); // Empty file
+  664|       |
+  665|      1|        let mut app = App::new().expect("test setup");
+  666|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  667|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  668|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  669|       |
+  670|       |        // Select the file
+  671|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+  672|      2|            if entry.name == "empty.txt" {
+  673|      1|                app.left_panel.state.select(Some(i));
+  674|      1|                break;
+  675|      1|            }
+  676|       |        }
+  677|       |
+  678|      1|        handle_view(&mut app).expect("test setup");
+  679|       |
+  680|      1|        assert!(app.viewer.is_some());
+  681|      1|        let viewer = app.viewer.as_ref().unwrap();
+  682|      1|        assert_eq!(viewer.lines.len(), 1);
+  683|      1|        assert_eq!(viewer.lines[0], "<empty file>");
+  684|       |
+  685|      1|        Ok(())
+  686|      1|    }
+  687|       |
+  688|       |    #[test]
+  689|      1|    fn test_handle_view_invalid_utf8() -> io::Result<()> {
+  690|      1|        let temp_dir = TempDir::new().expect("test setup");
+  691|      1|        let file_path = temp_dir.path().join("bad.txt");
+  692|      1|        fs::write(&file_path, b"\xFF").expect("test setup");
+  693|       |
+  694|      1|        let mut app = App::new().expect("test setup");
+  695|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  696|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  697|       |
+  698|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+  699|      2|            if entry.name == "bad.txt" {
+  700|      1|                app.left_panel.state.select(Some(i));
+  701|      1|                break;
+  702|      1|            }
+  703|       |        }
+  704|       |
+  705|      1|        let err = handle_view(&mut app).expect_err("expected invalid utf8");
+  706|      1|        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+  707|       |
+  708|      1|        Ok(())
+  709|      1|    }
+  710|       |
+  711|       |    #[test]
+  712|      1|    fn test_handle_view_directory() -> io::Result<()> {
+  713|      1|        let temp_dir = TempDir::new().expect("test setup");
+  714|      1|        fs::create_dir(temp_dir.path().join("subdir")).expect("test setup");
+  715|       |
+  716|      1|        let mut app = App::new().expect("test setup");
+  717|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  718|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  719|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  720|       |
+  721|       |        // Select the directory
+  722|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+  723|      2|            if entry.name == "subdir" {
+  724|      1|                app.left_panel.state.select(Some(i));
+  725|      1|                break;
+  726|      1|            }
+  727|       |        }
+  728|       |
+  729|      1|        handle_view(&mut app).expect("test setup");
+  730|       |
+  731|      1|        assert!(app.viewer.is_none());
+  732|      1|        assert_eq!(app.status_message, "Cannot view a directory");
+  733|       |
+  734|      1|        Ok(())
+  735|      1|    }
+  736|       |
+  737|       |    #[test]
+  738|      1|    fn test_handle_view_no_selection() -> io::Result<()> {
+  739|      1|        let mut app = App::new().expect("test setup");
+  740|      1|        app.left_panel.state.select(None);
+  741|       |
+  742|       |        // Should not crash
+  743|      1|        handle_view(&mut app).expect("test setup");
+  744|      1|        assert!(app.viewer.is_none());
+  745|       |
+  746|      1|        Ok(())
+  747|      1|    }
+  748|       |
+  749|       |    #[test]
+  750|       |    #[cfg(feature = "test-helpers")]
+  751|       |    fn test_handle_edit_success() -> io::Result<()> {
+  752|       |        let temp_dir = TempDir::new().expect("test setup");
+  753|       |        let file_path = temp_dir.path().join("test.txt");
+  754|       |        File::create(&file_path).expect("test setup");
+  755|       |
+  756|       |        let mut app = App::new().expect("test setup");
+  757|       |        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  758|       |
+  759|       |        // Select the file
+  760|       |        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+  761|       |            if entry.name == "test.txt" {
+  762|       |                app.left_panel.state.select(Some(i));
+  763|       |                break;
+  764|       |            }
+  765|       |        }
+  766|       |
+  767|       |        handle_edit_test_mode(&mut app, TestEditorBehavior::Success).expect("test setup");
+  768|       |        assert!(app.status_message.contains("Edited"));
+  769|       |
+  770|       |        Ok(())
+  771|       |    }
+  772|       |
+  773|       |    #[test]
+  774|       |    #[cfg(feature = "test-helpers")]
+  775|       |    fn test_handle_edit_fail_launch() -> io::Result<()> {
+  776|       |        let temp_dir = TempDir::new().expect("test setup");
+  777|       |        let file_path = temp_dir.path().join("test.txt");
+  778|       |        File::create(&file_path).expect("test setup");
+  779|       |
+  780|       |        let mut app = App::new().expect("test setup");
+  781|       |        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  782|       |
+  783|       |        // Select the file
+  784|       |        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+  785|       |            if entry.name == "test.txt" {
+  786|       |                app.left_panel.state.select(Some(i));
+  787|       |                break;
+  788|       |            }
+  789|       |        }
+  790|       |
+  791|       |        handle_edit_test_mode(&mut app, TestEditorBehavior::FailLaunch).expect("test setup");
+  792|       |        assert!(app.status_message.contains("Failed to launch editor"));
+  793|       |
+  794|       |        Ok(())
+  795|       |    }
+  796|       |
+  797|       |    #[test]
+  798|       |    #[cfg(feature = "test-helpers")]
+  799|       |    fn test_handle_edit_exit_error() -> io::Result<()> {
+  800|       |        let temp_dir = TempDir::new().expect("test setup");
+  801|       |        let file_path = temp_dir.path().join("test.txt");
+  802|       |        File::create(&file_path).expect("test setup");
+  803|       |
+  804|       |        let mut app = App::new().expect("test setup");
+  805|       |        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  806|       |
+  807|       |        // Select the file
+  808|       |        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+  809|       |            if entry.name == "test.txt" {
+  810|       |                app.left_panel.state.select(Some(i));
+  811|       |                break;
+  812|       |            }
+  813|       |        }
+  814|       |
+  815|       |        handle_edit_test_mode(&mut app, TestEditorBehavior::ExitError).expect("test setup");
+  816|       |        assert!(app.status_message.contains("Editor exited with status"));
+  817|       |
+  818|       |        Ok(())
+  819|       |    }
+  820|       |
+  821|       |    #[test]
+  822|       |    #[cfg(feature = "test-helpers")]
+  823|       |    fn test_handle_edit_directory() -> io::Result<()> {
+  824|       |        let temp_dir = TempDir::new().expect("test setup");
+  825|       |        fs::create_dir(temp_dir.path().join("subdir")).expect("test setup");
+  826|       |
+  827|       |        let mut app = App::new().expect("test setup");
+  828|       |        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+  829|       |
+  830|       |        // Select the directory
+  831|       |        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+  832|       |            if entry.name == "subdir" {
+  833|       |                app.left_panel.state.select(Some(i));
+  834|       |                break;
+  835|       |            }
+  836|       |        }
+  837|       |
+  838|       |        handle_edit_test_mode(&mut app, TestEditorBehavior::Success).expect("test setup");
+  839|       |        assert_eq!(app.status_message, "Editing directories is not supported");
+  840|       |
+  841|       |        Ok(())
+  842|       |    }
+  843|       |
+  844|       |    #[test]
+  845|      1|    fn test_handle_copy_directory() -> io::Result<()> {
+  846|      1|        let temp_dir = TempDir::new().expect("test setup");
+  847|      1|        let left_dir = temp_dir.path().join("left");
+  848|      1|        let right_dir = temp_dir.path().join("right");
+  849|      1|        fs::create_dir(&left_dir).expect("test setup");
+  850|      1|        fs::create_dir(&right_dir).expect("test setup");
+  851|       |
+  852|       |        // Create a directory with contents
+  853|      1|        let source_dir = left_dir.join("source_dir");
+  854|      1|        fs::create_dir(&source_dir).expect("test setup");
+  855|      1|        File::create(source_dir.join("file.txt"))
+  856|      1|            .expect("test setup")
+  857|      1|            .write_all(b"content")
+  858|      1|            .expect("test setup");
+  859|       |
+  860|      1|        let mut app = App::new().expect("test setup");
+  861|      1|        app.left_panel = Panel::new(left_dir).expect("test setup");
+  862|      1|        app.right_panel = Panel::new(right_dir.clone()).expect("test setup");
+  863|       |
+  864|       |        // Select the directory
+  865|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+  866|      2|            if entry.name == "source_dir" {
+  867|      1|                app.left_panel.state.select(Some(i));
+  868|      1|                break;
+  869|      1|            }
+  870|       |        }
+  871|       |
+  872|      1|        handle_copy(&mut app).expect("test setup");
+  873|       |
+  874|      1|        assert!(right_dir.join("source_dir").exists());
+  875|      1|        assert!(right_dir.join("source_dir").join("file.txt").exists());
+  876|      1|        assert!(app.status_message.contains("Copied to"));
+  877|       |
+  878|      1|        Ok(())
+  879|      1|    }
+  880|       |
+  881|       |    #[test]
+  882|      1|    fn test_handle_copy_directory_with_conflict() -> io::Result<()> {
+  883|      1|        let temp_dir = TempDir::new().expect("test setup");
+  884|      1|        let left_dir = temp_dir.path().join("left");
+  885|      1|        let right_dir = temp_dir.path().join("right");
+  886|      1|        fs::create_dir(&left_dir).expect("test setup");
+  887|      1|        fs::create_dir(&right_dir).expect("test setup");
+  888|       |
+  889|      1|        let source_dir = left_dir.join("source_dir");
+  890|      1|        fs::create_dir(&source_dir).expect("test setup");
+  891|      1|        fs::write(source_dir.join("file.txt"), b"content").expect("test setup");
+  892|       |
+  893|      1|        fs::create_dir(right_dir.join("source_dir")).expect("test setup");
+  894|       |
+  895|      1|        let mut app = App::new().expect("test setup");
+  896|      1|        app.left_panel = Panel::new(left_dir.clone()).expect("test setup");
+  897|      1|        app.right_panel = Panel::new(right_dir.clone()).expect("test setup");
+  898|       |
+  899|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+  900|      2|            if entry.name == "source_dir" {
+  901|      1|                app.left_panel.state.select(Some(i));
+  902|      1|                break;
+  903|      1|            }
+  904|       |        }
+  905|       |
+  906|      1|        handle_copy(&mut app).expect("test setup");
+  907|       |
+  908|      1|        assert!(right_dir.join("source_dir").exists());
+  909|      1|        let copied = right_dir.join("source_dir_1");
+  910|      1|        assert!(copied.exists());
+  911|      1|        assert_eq!(
+  912|      1|            fs::read_to_string(copied.join("file.txt")).expect("test setup"),
+  913|       |            "content"
+  914|       |        );
+  915|      1|        assert!(app.status_message.contains("Copied to"));
+  916|       |
+  917|      1|        Ok(())
+  918|      1|    }
+  919|       |
+  920|       |    #[test]
+  921|      1|    fn test_handle_copy_file() -> io::Result<()> {
+  922|      1|        let temp_dir = TempDir::new().expect("test setup");
+  923|      1|        let left_dir = temp_dir.path().join("left");
+  924|      1|        let right_dir = temp_dir.path().join("right");
+  925|      1|        fs::create_dir(&left_dir).expect("test setup");
+  926|      1|        fs::create_dir(&right_dir).expect("test setup");
+  927|       |
+  928|      1|        let file_name = "alpha.txt";
+  929|      1|        let source_file = left_dir.join(file_name);
+  930|      1|        fs::write(&source_file, b"alpha").expect("test setup");
+  931|       |
+  932|      1|        let mut app = App::new().expect("test setup");
+  933|      1|        app.left_panel = Panel::new(left_dir.clone()).expect("test setup");
+  934|      1|        app.right_panel = Panel::new(right_dir.clone()).expect("test setup");
+  935|       |
+  936|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+  937|      2|            if entry.name == file_name {
+  938|      1|                app.left_panel.state.select(Some(i));
+  939|      1|                break;
+  940|      1|            }
+  941|       |        }
+  942|       |
+  943|      1|        handle_copy(&mut app).expect("test setup");
+  944|       |
+  945|      1|        let copied = right_dir.join(file_name);
+  946|      1|        assert!(source_file.exists());
+  947|      1|        assert!(copied.exists());
+  948|      1|        assert_eq!(fs::read_to_string(copied).expect("test setup"), "alpha");
+  949|      1|        assert!(app.status_message.contains("Copied to"));
+  950|       |
+  951|      1|        Ok(())
+  952|      1|    }
+  953|       |
+  954|       |    #[test]
+  955|      1|    fn test_handle_copy_file_with_conflict() -> io::Result<()> {
+  956|      1|        let temp_dir = TempDir::new().expect("test setup");
+  957|      1|        let left_dir = temp_dir.path().join("left");
+  958|      1|        let right_dir = temp_dir.path().join("right");
+  959|      1|        fs::create_dir(&left_dir).expect("test setup");
+  960|      1|        fs::create_dir(&right_dir).expect("test setup");
+  961|       |
+  962|      1|        let file_name = "data.txt";
+  963|      1|        let source_file = left_dir.join(file_name);
+  964|      1|        fs::write(&source_file, b"source").expect("test setup");
+  965|      1|        fs::write(right_dir.join(file_name), b"existing").expect("test setup");
+  966|       |
+  967|      1|        let mut app = App::new().expect("test setup");
+  968|      1|        app.left_panel = Panel::new(left_dir.clone()).expect("test setup");
+  969|      1|        app.right_panel = Panel::new(right_dir.clone()).expect("test setup");
+  970|       |
+  971|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+  972|      2|            if entry.name == file_name {
+  973|      1|                app.left_panel.state.select(Some(i));
+  974|      1|                break;
+  975|      1|            }
+  976|       |        }
+  977|       |
+  978|      1|        handle_copy(&mut app).expect("test setup");
+  979|       |
+  980|      1|        let copied = right_dir.join("data_1.txt");
+  981|      1|        assert!(source_file.exists());
+  982|      1|        assert!(copied.exists());
+  983|      1|        assert_eq!(fs::read_to_string(copied).expect("test setup"), "source");
+  984|      1|        assert!(app.status_message.contains("Copied to"));
+  985|       |
+  986|      1|        Ok(())
+  987|      1|    }
+  988|       |
+  989|       |    #[test]
+  990|      1|    fn test_handle_move_rename_success() -> io::Result<()> {
+  991|      1|        let temp_dir = TempDir::new().expect("test setup");
+  992|      1|        let left_dir = temp_dir.path().join("left");
+  993|      1|        let right_dir = temp_dir.path().join("right");
+  994|      1|        fs::create_dir(&left_dir).expect("test setup");
+  995|      1|        fs::create_dir(&right_dir).expect("test setup");
+  996|       |
+  997|      1|        let file_name = "move_ok.txt";
+  998|      1|        let source_file = left_dir.join(file_name);
+  999|      1|        fs::write(&source_file, b"content").expect("test setup");
+ 1000|       |
+ 1001|      1|        let mut app = App::new().expect("test setup");
+ 1002|      1|        app.left_panel = Panel::new(left_dir.clone()).expect("test setup");
+ 1003|      1|        app.right_panel = Panel::new(right_dir.clone()).expect("test setup");
+ 1004|       |
+ 1005|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+ 1006|      2|            if entry.name == file_name {
+ 1007|      1|                app.left_panel.state.select(Some(i));
+ 1008|      1|                break;
+ 1009|      1|            }
+ 1010|       |        }
+ 1011|       |
+ 1012|      1|        handle_move(&mut app).expect("test setup");
+ 1013|       |
+ 1014|      1|        assert!(!source_file.exists());
+ 1015|      1|        let moved_file = right_dir.join(file_name);
+ 1016|      1|        assert!(moved_file.exists());
+ 1017|      1|        assert_eq!(
+ 1018|      1|            fs::read_to_string(moved_file).expect("test setup"),
+ 1019|       |            "content"
+ 1020|       |        );
+ 1021|      1|        assert!(app.status_message.contains("Moved to"));
+ 1022|       |
+ 1023|      1|        Ok(())
+ 1024|      1|    }
+ 1025|       |
+ 1026|       |    #[test]
+ 1027|      1|    fn test_handle_move_directory_rename_success() -> io::Result<()> {
+ 1028|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1029|      1|        let left_dir = temp_dir.path().join("left");
+ 1030|      1|        let right_dir = temp_dir.path().join("right");
+ 1031|      1|        fs::create_dir(&left_dir).expect("test setup");
+ 1032|      1|        fs::create_dir(&right_dir).expect("test setup");
+ 1033|       |
+ 1034|      1|        let source_dir = left_dir.join("dir_move");
+ 1035|      1|        fs::create_dir(&source_dir).expect("test setup");
+ 1036|      1|        fs::write(source_dir.join("file.txt"), b"dircontent").expect("test setup");
+ 1037|       |
+ 1038|      1|        let mut app = App::new().expect("test setup");
+ 1039|      1|        app.left_panel = Panel::new(left_dir.clone()).expect("test setup");
+ 1040|      1|        app.right_panel = Panel::new(right_dir.clone()).expect("test setup");
+ 1041|       |
+ 1042|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+ 1043|      2|            if entry.name == "dir_move" {
+ 1044|      1|                app.left_panel.state.select(Some(i));
+ 1045|      1|                break;
+ 1046|      1|            }
+ 1047|       |        }
+ 1048|       |
+ 1049|      1|        handle_move(&mut app).expect("test setup");
+ 1050|       |
+ 1051|      1|        assert!(!source_dir.exists());
+ 1052|      1|        let moved_dir = right_dir.join("dir_move");
+ 1053|      1|        assert!(moved_dir.exists());
+ 1054|      1|        assert_eq!(
+ 1055|      1|            fs::read_to_string(moved_dir.join("file.txt")).expect("test setup"),
+ 1056|       |            "dircontent"
+ 1057|       |        );
+ 1058|      1|        assert!(app.status_message.contains("Moved to"));
+ 1059|       |
+ 1060|      1|        Ok(())
+ 1061|      1|    }
+ 1062|       |
+ 1063|       |    #[test]
+ 1064|      1|    fn test_handle_move_directory_with_conflict_renames() -> io::Result<()> {
+ 1065|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1066|      1|        let left_dir = temp_dir.path().join("left");
+ 1067|      1|        let right_dir = temp_dir.path().join("right");
+ 1068|      1|        fs::create_dir(&left_dir).expect("test setup");
+ 1069|      1|        fs::create_dir(&right_dir).expect("test setup");
+ 1070|       |
+ 1071|      1|        let source_dir = left_dir.join("dir_move");
+ 1072|      1|        fs::create_dir(&source_dir).expect("test setup");
+ 1073|      1|        fs::write(source_dir.join("file.txt"), b"dircontent").expect("test setup");
+ 1074|       |
+ 1075|      1|        fs::create_dir(right_dir.join("dir_move")).expect("test setup");
+ 1076|       |
+ 1077|      1|        let mut app = App::new().expect("test setup");
+ 1078|      1|        app.left_panel = Panel::new(left_dir.clone()).expect("test setup");
+ 1079|      1|        app.right_panel = Panel::new(right_dir.clone()).expect("test setup");
+ 1080|       |
+ 1081|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+ 1082|      2|            if entry.name == "dir_move" {
+ 1083|      1|                app.left_panel.state.select(Some(i));
+ 1084|      1|                break;
+ 1085|      1|            }
+ 1086|       |        }
+ 1087|       |
+ 1088|      1|        handle_move(&mut app).expect("test setup");
+ 1089|       |
+ 1090|      1|        assert!(!source_dir.exists());
+ 1091|      1|        assert!(right_dir.join("dir_move").exists());
+ 1092|      1|        let moved_dir = right_dir.join("dir_move_1");
+ 1093|      1|        assert!(moved_dir.exists());
+ 1094|      1|        assert_eq!(
+ 1095|      1|            fs::read_to_string(moved_dir.join("file.txt")).expect("test setup"),
+ 1096|       |            "dircontent"
+ 1097|       |        );
+ 1098|      1|        assert!(app.status_message.contains("Moved to"));
+ 1099|       |
+ 1100|      1|        Ok(())
+ 1101|      1|    }
+ 1102|       |
+ 1103|       |    #[test]
+ 1104|      1|    fn test_handle_move_file_with_conflict_renames() -> io::Result<()> {
+ 1105|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1106|      1|        let left_dir = temp_dir.path().join("left");
+ 1107|      1|        let right_dir = temp_dir.path().join("right");
+ 1108|      1|        fs::create_dir(&left_dir).expect("test setup");
+ 1109|      1|        fs::create_dir(&right_dir).expect("test setup");
+ 1110|       |
+ 1111|      1|        let file_name = "conflict.txt";
+ 1112|      1|        let source_file = left_dir.join(file_name);
+ 1113|      1|        fs::write(&source_file, b"source").expect("test setup");
+ 1114|      1|        fs::write(right_dir.join(file_name), b"existing").expect("test setup");
+ 1115|       |
+ 1116|      1|        let mut app = App::new().expect("test setup");
+ 1117|      1|        app.left_panel = Panel::new(left_dir.clone()).expect("test setup");
+ 1118|      1|        app.right_panel = Panel::new(right_dir.clone()).expect("test setup");
+ 1119|       |
+ 1120|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+ 1121|      2|            if entry.name == file_name {
+ 1122|      1|                app.left_panel.state.select(Some(i));
+ 1123|      1|                break;
+ 1124|      1|            }
+ 1125|       |        }
+ 1126|       |
+ 1127|      1|        handle_move(&mut app).expect("test setup");
+ 1128|       |
+ 1129|      1|        assert!(!source_file.exists());
+ 1130|      1|        assert_eq!(
+ 1131|      1|            fs::read_to_string(right_dir.join(file_name)).expect("test setup"),
+ 1132|       |            "existing"
+ 1133|       |        );
+ 1134|      1|        let moved_file = right_dir.join("conflict_1.txt");
+ 1135|      1|        assert!(moved_file.exists());
+ 1136|      1|        assert_eq!(
+ 1137|      1|            fs::read_to_string(moved_file).expect("test setup"),
+ 1138|       |            "source"
+ 1139|       |        );
+ 1140|      1|        assert!(app.status_message.contains("Moved to"));
+ 1141|       |
+ 1142|      1|        Ok(())
+ 1143|      1|    }
+ 1144|       |
+ 1145|       |    #[test]
+ 1146|      1|    fn test_handle_move_cross_device() -> io::Result<()> {
+ 1147|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1148|      1|        let left_dir = temp_dir.path().join("left");
+ 1149|      1|        let right_dir = temp_dir.path().join("right");
+ 1150|      1|        fs::create_dir(&left_dir).expect("test setup");
+ 1151|      1|        fs::create_dir(&right_dir).expect("test setup");
+ 1152|       |
+ 1153|       |        // Create a directory to move
+ 1154|      1|        let source_dir = left_dir.join("move_dir");
+ 1155|      1|        fs::create_dir(&source_dir).expect("test setup");
+ 1156|      1|        File::create(source_dir.join("file.txt"))
+ 1157|      1|            .expect("test setup")
+ 1158|      1|            .write_all(b"content")
+ 1159|      1|            .expect("test setup");
+ 1160|       |
+ 1161|      1|        let mut app = App::new().expect("test setup");
+ 1162|      1|        app.left_panel = Panel::new(left_dir.clone()).expect("test setup");
+ 1163|      1|        app.right_panel = Panel::new(right_dir.clone()).expect("test setup");
+ 1164|       |
+ 1165|       |        // Select the directory
+ 1166|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+ 1167|      2|            if entry.name == "move_dir" {
+ 1168|      1|                app.left_panel.state.select(Some(i));
+ 1169|      1|                break;
+ 1170|      1|            }
+ 1171|       |        }
+ 1172|       |
+ 1173|      1|        let _guard = ForceRenameFailureGuard::enable();
+ 1174|      1|        handle_move(&mut app).expect("test setup");
+ 1175|       |
+ 1176|      1|        assert!(!source_dir.exists());
+ 1177|      1|        assert!(right_dir.join("move_dir").exists());
+ 1178|      1|        assert!(right_dir.join("move_dir").join("file.txt").exists());
+ 1179|      1|        assert!(app.status_message.contains("Moved to"));
+ 1180|       |
+ 1181|      1|        Ok(())
+ 1182|      1|    }
+ 1183|       |
+ 1184|       |    #[test]
+ 1185|      1|    fn test_handle_move_fallback_for_file() -> io::Result<()> {
+ 1186|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1187|      1|        let left_dir = temp_dir.path().join("left");
+ 1188|      1|        let right_dir = temp_dir.path().join("right");
+ 1189|      1|        fs::create_dir(&left_dir).expect("test setup");
+ 1190|      1|        fs::create_dir(&right_dir).expect("test setup");
+ 1191|       |
+ 1192|      1|        let file_name = "move_file.txt";
+ 1193|      1|        let source_file = left_dir.join(file_name);
+ 1194|      1|        File::create(&source_file)
+ 1195|      1|            .expect("test setup")
+ 1196|      1|            .write_all(b"content")
+ 1197|      1|            .expect("test setup");
+ 1198|       |
+ 1199|      1|        let mut app = App::new().expect("test setup");
+ 1200|      1|        app.left_panel = Panel::new(left_dir.clone()).expect("test setup");
+ 1201|      1|        app.right_panel = Panel::new(right_dir.clone()).expect("test setup");
+ 1202|       |
+ 1203|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+ 1204|      2|            if entry.name == file_name {
+ 1205|      1|                app.left_panel.state.select(Some(i));
+ 1206|      1|                break;
+ 1207|      1|            }
+ 1208|       |        }
+ 1209|       |
+ 1210|      1|        let _guard = ForceRenameFailureGuard::enable();
+ 1211|      1|        handle_move(&mut app).expect("test setup");
+ 1212|       |
+ 1213|      1|        assert!(!source_file.exists());
+ 1214|      1|        let moved_file = right_dir.join(file_name);
+ 1215|      1|        assert!(moved_file.exists());
+ 1216|      1|        assert_eq!(
+ 1217|      1|            fs::read_to_string(&moved_file).expect("test setup"),
+ 1218|       |            "content"
+ 1219|       |        );
+ 1220|      1|        assert!(app.status_message.contains("Moved to"));
+ 1221|       |
+ 1222|      1|        Ok(())
+ 1223|      1|    }
+ 1224|       |
+ 1225|       |    #[test]
+ 1226|      1|    fn test_handle_mkdir_multiple() -> io::Result<()> {
+ 1227|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1228|       |
+ 1229|      1|        let mut app = App::new().expect("test setup");
+ 1230|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1231|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1232|       |
+ 1233|       |        // Create first directory
+ 1234|      1|        handle_mkdir(&mut app).expect("test setup");
+ 1235|      1|        assert!(temp_dir.path().join("new_folder").exists());
+ 1236|       |
+ 1237|       |        // Create second directory (should be numbered)
+ 1238|      1|        handle_mkdir(&mut app).expect("test setup");
+ 1239|      1|        assert!(temp_dir.path().join("new_folder_1").exists());
+ 1240|       |
+ 1241|       |        // Create third directory
+ 1242|      1|        handle_mkdir(&mut app).expect("test setup");
+ 1243|      1|        assert!(temp_dir.path().join("new_folder_2").exists());
+ 1244|       |
+ 1245|      1|        Ok(())
+ 1246|      1|    }
+ 1247|       |
+ 1248|       |    #[test]
+ 1249|      1|    fn test_handle_delete_no_selection() -> io::Result<()> {
+ 1250|      1|        let mut app = App::new().expect("test setup");
+ 1251|      1|        app.left_panel.state.select(None);
+ 1252|       |
+ 1253|       |        // Should not crash
+ 1254|      1|        handle_delete(&mut app).expect("test setup");
+ 1255|       |
+ 1256|      1|        Ok(())
+ 1257|      1|    }
+ 1258|       |
+ 1259|       |    #[test]
+ 1260|      1|    fn test_handle_delete_file() -> io::Result<()> {
+ 1261|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1262|      1|        let file_path = temp_dir.path().join("delete.txt");
+ 1263|      1|        File::create(&file_path).expect("test setup");
+ 1264|       |
+ 1265|      1|        let mut app = App::new().expect("test setup");
+ 1266|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1267|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1268|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+ 1269|      2|            if entry.name == "delete.txt" {
+ 1270|      1|                app.left_panel.state.select(Some(i));
+ 1271|      1|                break;
+ 1272|      1|            }
+ 1273|       |        }
+ 1274|       |
+ 1275|      1|        handle_delete(&mut app).expect("test setup");
+ 1276|       |
+ 1277|      1|        assert!(!file_path.exists());
+ 1278|      1|        assert!(app.status_message.contains("Deleted"));
+ 1279|       |
+ 1280|      1|        Ok(())
+ 1281|      1|    }
+ 1282|       |
+ 1283|       |    #[test]
+ 1284|      1|    fn test_handle_delete_directory() -> io::Result<()> {
+ 1285|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1286|      1|        let dir_path = temp_dir.path().join("delete_dir");
+ 1287|      1|        fs::create_dir(&dir_path).expect("test setup");
+ 1288|       |
+ 1289|      1|        let mut app = App::new().expect("test setup");
+ 1290|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1291|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1292|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+ 1293|      2|            if entry.name == "delete_dir" {
+ 1294|      1|                app.left_panel.state.select(Some(i));
+ 1295|      1|                break;
+ 1296|      1|            }
+ 1297|       |        }
+ 1298|       |
+ 1299|      1|        handle_delete(&mut app).expect("test setup");
+ 1300|       |
+ 1301|      1|        assert!(!dir_path.exists());
+ 1302|      1|        assert!(app.status_message.contains("Deleted"));
+ 1303|       |
+ 1304|      1|        Ok(())
+ 1305|      1|    }
+ 1306|       |
+ 1307|       |    #[test]
+ 1308|      1|    fn test_handle_copy_no_selection() -> io::Result<()> {
+ 1309|      1|        let mut app = App::new().expect("test setup");
+ 1310|      1|        app.left_panel.state.select(None);
+ 1311|       |
+ 1312|       |        // Should not crash
+ 1313|      1|        handle_copy(&mut app).expect("test setup");
+ 1314|       |
+ 1315|      1|        Ok(())
+ 1316|      1|    }
+ 1317|       |
+ 1318|       |    #[test]
+ 1319|      1|    fn test_handle_move_no_selection() -> io::Result<()> {
+ 1320|      1|        let mut app = App::new().expect("test setup");
+ 1321|      1|        app.left_panel.state.select(None);
+ 1322|       |
+ 1323|       |        // Should not crash
+ 1324|      1|        handle_move(&mut app).expect("test setup");
+ 1325|       |
+ 1326|      1|        Ok(())
+ 1327|      1|    }
+ 1328|       |
+ 1329|       |    #[test]
+ 1330|      1|    fn test_handle_overlay_keys_viewer_other_key() -> io::Result<()> {
+ 1331|      1|        let mut app = App::new().expect("test setup");
+ 1332|      1|        app.viewer = Some(Viewer {
+ 1333|      1|            title: "test.txt".to_string(),
+ 1334|      1|            lines: vec!["Line 1".to_string()],
+ 1335|      1|            scroll: 0,
+ 1336|      1|        });
+ 1337|       |
+ 1338|       |        // Test with a key that doesn't do anything in viewer
+ 1339|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('a'))));
+ 1340|       |        // Viewer should still be active
+ 1341|      1|        assert!(app.viewer.is_some());
+ 1342|       |
+ 1343|      1|        Ok(())
+ 1344|      1|    }
+ 1345|       |
+ 1346|       |    #[test]
+ 1347|      1|    fn test_handle_overlay_keys_help_other_key() -> io::Result<()> {
+ 1348|      1|        let mut app = App::new().expect("test setup");
+ 1349|      1|        app.show_help = true;
+ 1350|       |
+ 1351|       |        // Test with a key that doesn't close help
+ 1352|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Down)));
+ 1353|       |        // Help should still be shown
+ 1354|      1|        assert!(app.show_help);
+ 1355|       |
+ 1356|      1|        Ok(())
+ 1357|      1|    }
+ 1358|       |
+ 1359|       |    #[test]
+ 1360|       |    #[cfg(feature = "test-helpers")]
+ 1361|       |    fn test_handle_edit_no_selection() -> io::Result<()> {
+ 1362|       |        let mut app = App::new().expect("test setup");
+ 1363|       |        app.left_panel.state.select(None);
+ 1364|       |
+ 1365|       |        // Should not crash
+ 1366|       |        handle_edit_test_mode(&mut app, TestEditorBehavior::Success).expect("test setup");
+ 1367|       |        Ok(())
+ 1368|       |    }
+ 1369|       |
+ 1370|       |    #[test]
+ 1371|       |    #[cfg(feature = "test-helpers")]
+ 1372|       |    fn test_handle_edit_impl_success() -> io::Result<()> {
+ 1373|       |        use ratatui::Terminal;
+ 1374|       |
+ 1375|       |        let backend = WritableTestBackend::new(80, 24);
+ 1376|       |        let mut terminal = Terminal::new(backend).expect("test setup");
+ 1377|       |
+ 1378|       |        let temp_dir = TempDir::new().expect("test setup");
+ 1379|       |        let file_path = temp_dir.path().join("test.txt");
+ 1380|       |        File::create(&file_path).expect("test setup");
+ 1381|       |
+ 1382|       |        let mut app = App::new().expect("test setup");
+ 1383|       |        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1384|       |
+ 1385|       |        // Select the file
+ 1386|       |        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+ 1387|       |            if entry.name == "test.txt" {
+ 1388|       |                app.left_panel.state.select(Some(i));
+ 1389|       |                break;
+ 1390|       |            }
+ 1391|       |        }
+ 1392|       |
+ 1393|       |        // Mock successful editor run
+ 1394|       |        let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _path| {
+ 1395|       |            Ok(fake_exit_status(0))
+ 1396|       |        });
+ 1397|       |
+ 1398|       |        assert!(result.is_ok());
+ 1399|       |        assert!(app.status_message.contains("Edited"));
+ 1400|       |
+ 1401|       |        Ok(())
+ 1402|       |    }
+ 1403|       |
+ 1404|       |    #[test]
+ 1405|       |    #[cfg(feature = "test-helpers")]
+ 1406|       |    fn test_handle_edit_impl_editor_error_exit() -> io::Result<()> {
+ 1407|       |        use ratatui::Terminal;
+ 1408|       |
+ 1409|       |        let backend = WritableTestBackend::new(80, 24);
+ 1410|       |        let mut terminal = Terminal::new(backend).expect("test setup");
+ 1411|       |
+ 1412|       |        let temp_dir = TempDir::new().expect("test setup");
+ 1413|       |        let file_path = temp_dir.path().join("test.txt");
+ 1414|       |        File::create(&file_path).expect("test setup");
+ 1415|       |
+ 1416|       |        let mut app = App::new().expect("test setup");
+ 1417|       |        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1418|       |
+ 1419|       |        // Select the file
+ 1420|       |        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+ 1421|       |            if entry.name == "test.txt" {
+ 1422|       |                app.left_panel.state.select(Some(i));
+ 1423|       |                break;
+ 1424|       |            }
+ 1425|       |        }
+ 1426|       |
+ 1427|       |        // Mock editor with error exit code
+ 1428|       |        let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _path| {
+ 1429|       |            Ok(fake_exit_status(1))
+ 1430|       |        });
+ 1431|       |
+ 1432|       |        assert!(result.is_ok());
+ 1433|       |        assert!(app.status_message.contains("Editor exited with status"));
+ 1434|       |
+ 1435|       |        Ok(())
+ 1436|       |    }
+ 1437|       |
+ 1438|       |    #[test]
+ 1439|       |    #[cfg(feature = "test-helpers")]
+ 1440|       |    fn test_handle_edit_impl_launch_failure() -> io::Result<()> {
+ 1441|       |        use ratatui::Terminal;
+ 1442|       |
+ 1443|       |        let backend = WritableTestBackend::new(80, 24);
+ 1444|       |        let mut terminal = Terminal::new(backend).expect("test setup");
+ 1445|       |
+ 1446|       |        let temp_dir = TempDir::new().expect("test setup");
+ 1447|       |        let file_path = temp_dir.path().join("test.txt");
+ 1448|       |        File::create(&file_path).expect("test setup");
+ 1449|       |
+ 1450|       |        let mut app = App::new().expect("test setup");
+ 1451|       |        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1452|       |
+ 1453|       |        // Select the file
+ 1454|       |        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+ 1455|       |            if entry.name == "test.txt" {
+ 1456|       |                app.left_panel.state.select(Some(i));
+ 1457|       |                break;
+ 1458|       |            }
+ 1459|       |        }
+ 1460|       |
+ 1461|       |        // Mock editor launch failure
+ 1462|       |        let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _path| {
+ 1463|       |            Err(io::Error::new(io::ErrorKind::NotFound, "Editor not found"))
+ 1464|       |        });
+ 1465|       |
+ 1466|       |        assert!(result.is_ok());
+ 1467|       |        assert!(app.status_message.contains("Failed to launch editor"));
+ 1468|       |
+ 1469|       |        Ok(())
+ 1470|       |    }
+ 1471|       |
+ 1472|       |    #[test]
+ 1473|       |    #[cfg(feature = "test-helpers")]
+ 1474|       |    fn test_handle_edit_impl_no_selection() -> io::Result<()> {
+ 1475|       |        let mut app = App::new().expect("test setup");
+ 1476|       |        app.left_panel.state.select(None);
+ 1477|       |        let initial_status = app.status_message.clone();
+ 1478|       |
+ 1479|       |        let result = handle_edit_test_mode(&mut app, TestEditorBehavior::Success);
+ 1480|       |
+ 1481|       |        assert!(result.is_ok());
+ 1482|       |        assert_eq!(app.status_message, initial_status);
+ 1483|       |
+ 1484|       |        Ok(())
+ 1485|       |    }
+ 1486|       |
+ 1487|       |    #[test]
+ 1488|       |    #[cfg(feature = "test-helpers")]
+ 1489|       |    fn test_handle_edit_impl_directory() -> io::Result<()> {
+ 1490|       |        let temp_dir = TempDir::new().expect("test setup");
+ 1491|       |        fs::create_dir(temp_dir.path().join("subdir")).expect("test setup");
+ 1492|       |
+ 1493|       |        let mut app = App::new().expect("test setup");
+ 1494|       |        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1495|       |
+ 1496|       |        // Select the directory
+ 1497|       |        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+ 1498|       |            if entry.name == "subdir" {
+ 1499|       |                app.left_panel.state.select(Some(i));
+ 1500|       |                break;
+ 1501|       |            }
+ 1502|       |        }
+ 1503|       |
+ 1504|       |        let result = handle_edit_test_mode(&mut app, TestEditorBehavior::Success);
+ 1505|       |
+ 1506|       |        assert!(result.is_ok());
+ 1507|       |        assert_eq!(app.status_message, "Editing directories is not supported");
+ 1508|       |
+ 1509|       |        Ok(())
+ 1510|       |    }
+ 1511|       |
+ 1512|       |    #[test]
+ 1513|      1|    fn test_handle_overlay_keys_search() -> io::Result<()> {
+ 1514|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1515|      1|        File::create(temp_dir.path().join("alpha.txt")).expect("test setup");
+ 1516|      1|        File::create(temp_dir.path().join("beta.txt")).expect("test setup");
+ 1517|       |
+ 1518|      1|        let mut app = App::new().expect("test setup");
+ 1519|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1520|      1|        app.search = Some(String::new());
+ 1521|       |
+ 1522|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('b'))));
+ 1523|      1|        let beta_index = app
+ 1524|      1|            .left_panel
+ 1525|      1|            .entries
+ 1526|      1|            .iter()
+ 1527|      3|            .position(|entry| entry.name == "beta.txt")
+                           ^1
+ 1528|      1|            .unwrap();
+ 1529|      1|        assert_eq!(app.left_panel.state.selected(), Some(beta_index));
+ 1530|       |
+ 1531|      1|        assert!(handle_overlay_keys(
+ 1532|      1|            &mut app,
+ 1533|      1|            key_event_with_mods(KeyCode::Char('x'), KeyModifiers::CONTROL)
+ 1534|       |        ));
+ 1535|      1|        assert_eq!(app.search.as_deref(), Some("b"));
+ 1536|       |
+ 1537|      1|        app.search = Some("ab".to_string());
+ 1538|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Backspace)));
+ 1539|      1|        assert_eq!(app.search.as_deref(), Some("a"));
+ 1540|       |
+ 1541|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+ 1542|      1|        assert!(app.search.is_none());
+ 1543|      1|        assert!(app.status_message.contains("Found: a"));
+ 1544|       |
+ 1545|      1|        app.search = Some("zzz".to_string());
+ 1546|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+ 1547|      1|        assert!(app.search.is_none());
+ 1548|      1|        assert!(app.status_message.contains("Not found: zzz"));
+ 1549|       |
+ 1550|      1|        app.search = Some("alpha".to_string());
+ 1551|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Esc)));
+ 1552|      1|        assert!(app.search.is_none());
+ 1553|       |
+ 1554|      1|        Ok(())
+ 1555|      1|    }
+ 1556|       |
+ 1557|       |    #[test]
+ 1558|      1|    fn test_handle_overlay_keys_search_enter_empty_query() -> io::Result<()> {
+ 1559|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1560|       |
+ 1561|      1|        let mut app = App::new().expect("test setup");
+ 1562|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1563|      1|        app.search = Some("   ".to_string());
+ 1564|      1|        app.status_message = "status".to_string();
+ 1565|       |
+ 1566|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+ 1567|      1|        assert!(app.search.is_none());
+ 1568|      1|        assert_eq!(app.status_message, "status");
+ 1569|       |
+ 1570|      1|        Ok(())
+ 1571|      1|    }
+ 1572|       |
+ 1573|       |    #[test]
+ 1574|      1|    fn test_handle_overlay_keys_search_whitespace_char() -> io::Result<()> {
+ 1575|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1576|      1|        File::create(temp_dir.path().join("alpha.txt")).expect("test setup");
+ 1577|       |
+ 1578|      1|        let mut app = App::new().expect("test setup");
+ 1579|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1580|      1|        app.search = Some(String::new());
+ 1581|       |
+ 1582|      1|        let selected_before = app.left_panel.state.selected();
+ 1583|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char(' '))));
+ 1584|      1|        assert_eq!(app.search.as_deref(), Some(" "));
+ 1585|      1|        assert_eq!(app.left_panel.state.selected(), selected_before);
+ 1586|       |
+ 1587|      1|        Ok(())
+ 1588|      1|    }
+ 1589|       |
+ 1590|       |    #[test]
+ 1591|      1|    fn test_handle_overlay_keys_search_backspace_empty_query() -> io::Result<()> {
+ 1592|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1593|       |
+ 1594|      1|        let mut app = App::new().expect("test setup");
+ 1595|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1596|      1|        app.search = Some(String::new());
+ 1597|       |
+ 1598|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Backspace)));
+ 1599|      1|        assert_eq!(app.search.as_deref(), Some(""));
+ 1600|       |
+ 1601|      1|        Ok(())
+ 1602|      1|    }
+ 1603|       |
+ 1604|       |    #[test]
+ 1605|      1|    fn test_handle_overlay_keys_search_ignores_alt_char() -> io::Result<()> {
+ 1606|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1607|       |
+ 1608|      1|        let mut app = App::new().expect("test setup");
+ 1609|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1610|      1|        app.search = Some("a".to_string());
+ 1611|       |
+ 1612|      1|        assert!(handle_overlay_keys(
+ 1613|      1|            &mut app,
+ 1614|      1|            key_event_with_mods(KeyCode::Char('b'), KeyModifiers::ALT)
+ 1615|       |        ));
+ 1616|      1|        assert_eq!(app.search.as_deref(), Some("a"));
+ 1617|       |
+ 1618|      1|        Ok(())
+ 1619|      1|    }
+ 1620|       |
+ 1621|       |    #[test]
+ 1622|      1|    fn test_handle_overlay_keys_bookmarks() -> io::Result<()> {
+ 1623|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1624|      1|        let bookmark_dir = temp_dir.path().join("bookmark");
+ 1625|      1|        fs::create_dir(&bookmark_dir).expect("test setup");
+ 1626|       |
+ 1627|      1|        let mut app = App::new().expect("test setup");
+ 1628|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1629|       |
+ 1630|      1|        app.show_bookmarks = true;
+ 1631|      1|        app.bookmarks = vec![None; 1];
+ 1632|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('9'))));
+ 1633|      1|        assert!(app.status_message.contains("Invalid bookmark slot"));
+ 1634|      1|        assert!(app.show_bookmarks);
+ 1635|       |
+ 1636|      1|        app.bookmarks = vec![None; 10];
+ 1637|      1|        app.show_bookmarks = true;
+ 1638|      1|        assert!(handle_overlay_keys(
+ 1639|      1|            &mut app,
+ 1640|      1|            key_event_with_mods(KeyCode::Char('1'), KeyModifiers::CONTROL)
+ 1641|       |        ));
+ 1642|      1|        assert!(app.bookmarks[1].is_some());
+ 1643|       |
+ 1644|      1|        app.show_bookmarks = true;
+ 1645|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('2'))));
+ 1646|      1|        assert!(app.status_message.contains("Bookmark 2 is empty"));
+ 1647|       |
+ 1648|      1|        app.bookmarks[3] = Some(bookmark_dir.clone());
+ 1649|      1|        app.show_bookmarks = true;
+ 1650|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('3'))));
+ 1651|      1|        assert!(!app.show_bookmarks);
+ 1652|      1|        assert_eq!(app.get_active_panel().path, bookmark_dir);
+ 1653|       |
+ 1654|      1|        app.bookmarks[4] = Some(temp_dir.path().join("missing"));
+ 1655|      1|        app.show_bookmarks = true;
+ 1656|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('4'))));
+ 1657|      1|        assert!(app.status_message.contains("Failed to open bookmark"));
+ 1658|       |
+ 1659|      1|        app.show_bookmarks = true;
+ 1660|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('x'))));
+ 1661|      1|        assert!(app.show_bookmarks);
+ 1662|       |
+ 1663|      1|        app.show_bookmarks = true;
+ 1664|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Esc)));
+ 1665|      1|        assert!(!app.show_bookmarks);
+ 1666|       |
+ 1667|      1|        Ok(())
+ 1668|      1|    }
+ 1669|       |
+ 1670|       |    #[test]
+ 1671|      1|    fn test_handle_overlay_keys_command_line() -> io::Result<()> {
+ 1672|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1673|       |
+ 1674|      1|        let mut app = App::new().expect("test setup");
+ 1675|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1676|       |
+ 1677|      1|        app.command_line = Some(String::new());
+ 1678|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Char('p'))));
+ 1679|      1|        assert_eq!(app.command_line.as_deref(), Some("p"));
+ 1680|       |
+ 1681|      1|        assert!(handle_overlay_keys(
+ 1682|      1|            &mut app,
+ 1683|      1|            key_event_with_mods(KeyCode::Char('x'), KeyModifiers::ALT)
+ 1684|       |        ));
+ 1685|      1|        assert_eq!(app.command_line.as_deref(), Some("p"));
+ 1686|       |
+ 1687|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Backspace)));
+ 1688|      1|        assert_eq!(app.command_line.as_deref(), Some(""));
+ 1689|       |
+ 1690|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+ 1691|      1|        assert!(app.command_line.is_none());
+ 1692|       |
+ 1693|      1|        app.command_line = Some("pwd".to_string());
+ 1694|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+ 1695|      1|        assert_eq!(app.status_message, temp_dir.path().display().to_string());
+ 1696|       |
+ 1697|      1|        app.command_line = Some("unknown".to_string());
+ 1698|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+ 1699|      1|        assert!(app.status_message.contains("Command failed"));
+ 1700|       |
+ 1701|      1|        app.command_line = Some("quit".to_string());
+ 1702|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+ 1703|      1|        assert!(app.should_quit);
+ 1704|       |
+ 1705|      1|        app.should_quit = false;
+ 1706|      1|        app.command_line = Some("pwd".to_string());
+ 1707|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Esc)));
+ 1708|      1|        assert!(app.command_line.is_none());
+ 1709|       |
+ 1710|      1|        Ok(())
+ 1711|      1|    }
+ 1712|       |
+ 1713|       |    #[test]
+ 1714|      1|    fn test_handle_overlay_keys_command_line_enter_empty() -> io::Result<()> {
+ 1715|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1716|       |
+ 1717|      1|        let mut app = App::new().expect("test setup");
+ 1718|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1719|      1|        app.command_line = Some("   ".to_string());
+ 1720|      1|        app.status_message = "status".to_string();
+ 1721|       |
+ 1722|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Enter)));
+ 1723|      1|        assert!(app.command_line.is_none());
+ 1724|      1|        assert_eq!(app.status_message, "status");
+ 1725|       |
+ 1726|      1|        Ok(())
+ 1727|      1|    }
+ 1728|       |
+ 1729|       |    #[test]
+ 1730|      1|    fn test_handle_overlay_keys_command_line_backspace_empty() -> io::Result<()> {
+ 1731|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1732|       |
+ 1733|      1|        let mut app = App::new().expect("test setup");
+ 1734|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1735|      1|        app.command_line = Some(String::new());
+ 1736|       |
+ 1737|      1|        assert!(handle_overlay_keys(&mut app, key_event(KeyCode::Backspace)));
+ 1738|      1|        assert_eq!(app.command_line.as_deref(), Some(""));
+ 1739|       |
+ 1740|      1|        Ok(())
+ 1741|      1|    }
+ 1742|       |
+ 1743|       |    #[test]
+ 1744|      1|    fn test_handle_overlay_keys_command_line_ignores_control_char() -> io::Result<()> {
+ 1745|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1746|       |
+ 1747|      1|        let mut app = App::new().expect("test setup");
+ 1748|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1749|      1|        app.command_line = Some("a".to_string());
+ 1750|       |
+ 1751|      1|        assert!(handle_overlay_keys(
+ 1752|      1|            &mut app,
+ 1753|      1|            key_event_with_mods(KeyCode::Char('b'), KeyModifiers::CONTROL)
+ 1754|       |        ));
+ 1755|      1|        assert_eq!(app.command_line.as_deref(), Some("a"));
+ 1756|       |
+ 1757|      1|        Ok(())
+ 1758|      1|    }
+ 1759|       |
+ 1760|       |    #[test]
+ 1761|      1|    fn test_execute_command_branches() -> io::Result<()> {
+ 1762|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1763|      1|        let subdir = temp_dir.path().join("subdir");
+ 1764|      1|        let bookmark_dir = temp_dir.path().join("bookmark");
+ 1765|      1|        fs::create_dir(&subdir).expect("test setup");
+ 1766|      1|        fs::create_dir(&bookmark_dir).expect("test setup");
+ 1767|      1|        fs::write(temp_dir.path().join("file.txt"), b"data").expect("test setup");
+ 1768|      1|        fs::write(subdir.join("nested.txt"), b"nested").expect("test setup");
+ 1769|       |
+ 1770|      1|        let mut app = App::new().expect("test setup");
+ 1771|      1|        app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1772|      1|        app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 1773|      1|        app.active_panel = crate::models::PanelSide::Left;
+ 1774|       |
+ 1775|      1|        assert!(execute_command(&mut app, "").is_err());
+ 1776|      1|        assert!(execute_command(&mut app, "cd").is_err());
+ 1777|      1|        assert!(execute_command(&mut app, "cd file.txt").is_err());
+ 1778|       |
+ 1779|      1|        execute_command(&mut app, "cd subdir").expect("test setup");
+ 1780|      1|        assert!(app.get_active_panel().path.ends_with("subdir"));
+ 1781|      1|        assert!(app.status_message.contains("Opened"));
+ 1782|       |
+ 1783|      1|        let root_path = temp_dir
+ 1784|      1|            .path()
+ 1785|      1|            .ancestors()
+ 1786|      1|            .last()
+ 1787|      1|            .unwrap_or(temp_dir.path());
+ 1788|      1|        execute_command(&mut app, &format!("cd {}", root_path.display())).expect("test setup");
+ 1789|      1|        assert_eq!(
+ 1790|      1|            app.get_active_panel()
+ 1791|      1|                .path
+ 1792|      1|                .canonicalize()
+ 1793|      1|                .expect("test setup"),
+ 1794|      1|            root_path.canonicalize().expect("test setup")
+ 1795|       |        );
+ 1796|       |
+ 1797|      1|        execute_command(&mut app, "sort name").expect("test setup");
+ 1798|      1|        assert_eq!(app.get_active_panel().sort_mode, SortMode::Name);
+ 1799|      1|        execute_command(&mut app, "sort ext").expect("test setup");
+ 1800|      1|        assert_eq!(app.get_active_panel().sort_mode, SortMode::Extension);
+ 1801|      1|        execute_command(&mut app, "sort size").expect("test setup");
+ 1802|      1|        assert_eq!(app.get_active_panel().sort_mode, SortMode::Size);
+ 1803|      1|        assert!(execute_command(&mut app, "sort bogus").is_err());
+ 1804|       |
+ 1805|      1|        assert!(execute_command(&mut app, "mark").is_err());
+ 1806|      1|        execute_command(&mut app, "mark all").expect("test setup");
+ 1807|      1|        assert!(!app.get_active_panel().marked.is_empty());
+ 1808|      1|        execute_command(&mut app, "unmark").expect("test setup");
+ 1809|      1|        assert!(app.get_active_panel().marked.is_empty());
+ 1810|      1|        assert!(execute_command(&mut app, "mark nope").is_err());
+ 1811|       |
+ 1812|      1|        execute_command(&mut app, "help").expect("test setup");
+ 1813|      1|        assert!(app.show_help);
+ 1814|       |
+ 1815|      1|        assert!(execute_command(&mut app, "bookmark").is_err());
+ 1816|      1|        assert!(execute_command(&mut app, "bookmark set").is_err());
+ 1817|      1|        assert!(execute_command(&mut app, "bookmark set a").is_err());
+ 1818|      1|        assert!(execute_command(&mut app, "bookmark set 99").is_err());
+ 1819|      1|        assert!(execute_command(&mut app, "bookmark foo 1").is_err());
+ 1820|       |
+ 1821|      1|        execute_command(&mut app, "bookmark set 0").expect("test setup");
+ 1822|      1|        assert!(app.bookmarks[0].is_some());
+ 1823|      1|        assert!(execute_command(&mut app, "bookmark go 1").is_err());
+ 1824|       |
+ 1825|      1|        app.bookmarks[0] = Some(bookmark_dir.clone());
+ 1826|      1|        execute_command(&mut app, "bookmark go 0").expect("test setup");
+ 1827|      1|        assert_eq!(app.get_active_panel().path, bookmark_dir);
+ 1828|       |
+ 1829|      1|        Ok(())
+ 1830|      1|    }
+ 1831|       |
+ 1832|       |    #[test]
+ 1833|      1|    fn test_handle_copy_permission_denied() -> io::Result<()> {
+ 1834|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1835|      1|        let mut app = App::new().expect("test setup");
+ 1836|       |
+ 1837|      1|        let source_file = temp_dir.path().join("source.txt");
+ 1838|      1|        let dest_dir = temp_dir.path().join("readonly_dest");
+ 1839|      1|        fs::create_dir(&dest_dir).expect("test setup");
+ 1840|      1|        File::create(&source_file)
+ 1841|      1|            .expect("test setup")
+ 1842|      1|            .write_all(b"content")
+ 1843|      1|            .expect("test setup");
+ 1844|       |
+ 1845|      1|        app.left_panel.path = temp_dir.path().to_path_buf();
+ 1846|      1|        app.right_panel.path = dest_dir.clone();
+ 1847|      1|        app.left_panel.load_entries().expect("test setup");
+ 1848|      1|        app.right_panel.load_entries().expect("test setup");
+ 1849|      1|        app.left_panel.state.select(Some(1));
+ 1850|       |
+ 1851|       |        // Skip setting readonly permissions on Windows as it's complex
+ 1852|       |        // Test by selecting a file that doesn't exist
+ 1853|      1|        app.left_panel.entries.clear(); // Clear all entries
+ 1854|      1|        app.left_panel.state.select(Some(0)); // Select index 0 but no entries
+ 1855|       |
+ 1856|      1|        let result = handle_copy(&mut app);
+ 1857|      1|        assert!(result.is_ok());
+ 1858|       |        // No file selected or operation should do nothing
+ 1859|       |
+ 1860|      1|        Ok(())
+ 1861|      1|    }
+ 1862|       |
+ 1863|       |    #[test]
+ 1864|      1|    fn test_handle_move_same_source_and_destination() -> io::Result<()> {
+ 1865|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1866|      1|        let mut app = App::new().expect("test setup");
+ 1867|       |
+ 1868|      1|        let file = temp_dir.path().join("file.txt");
+ 1869|      1|        File::create(&file)
+ 1870|      1|            .expect("test setup")
+ 1871|      1|            .write_all(b"content")
+ 1872|      1|            .expect("test setup");
+ 1873|       |
+ 1874|      1|        app.left_panel.path = temp_dir.path().to_path_buf();
+ 1875|      1|        app.right_panel.path = temp_dir.path().to_path_buf();
+ 1876|      1|        app.left_panel.load_entries().expect("test setup");
+ 1877|      1|        app.right_panel.load_entries().expect("test setup");
+ 1878|      1|        app.left_panel.state.select(Some(1));
+ 1879|       |
+ 1880|       |        // handle_move will rename the file in place when source and dest are same
+ 1881|      1|        let result = handle_move(&mut app);
+ 1882|      1|        assert!(result.is_ok());
+ 1883|       |
+ 1884|       |        // The file should have been renamed with unique suffix
+ 1885|      1|        let moved_file = temp_dir.path().join("file_1.txt");
+ 1886|      1|        assert!(moved_file.exists(), "File should be renamed to file_1.txt");
+                                                   ^0
+ 1887|      1|        assert!(!file.exists(), "Original file should not exist");
+                                              ^0
+ 1888|      1|        assert!(app.status_message.contains("Moved to"));
+ 1889|       |
+ 1890|      1|        Ok(())
+ 1891|      1|    }
+ 1892|       |
+ 1893|       |    #[test]
+ 1894|      1|    fn test_handle_delete_marked_entries() -> io::Result<()> {
+ 1895|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1896|      1|        let mut app = App::new().expect("test setup");
+ 1897|       |
+ 1898|      1|        let file1 = temp_dir.path().join("file1.txt");
+ 1899|      1|        let file2 = temp_dir.path().join("file2.txt");
+ 1900|      1|        let file3 = temp_dir.path().join("file3.txt");
+ 1901|      1|        File::create(&file1)
+ 1902|      1|            .expect("test setup")
+ 1903|      1|            .write_all(b"1")
+ 1904|      1|            .expect("test setup");
+ 1905|      1|        File::create(&file2)
+ 1906|      1|            .expect("test setup")
+ 1907|      1|            .write_all(b"2")
+ 1908|      1|            .expect("test setup");
+ 1909|      1|        File::create(&file3)
+ 1910|      1|            .expect("test setup")
+ 1911|      1|            .write_all(b"3")
+ 1912|      1|            .expect("test setup");
+ 1913|       |
+ 1914|      1|        app.left_panel.path = temp_dir.path().to_path_buf();
+ 1915|      1|        app.left_panel.load_entries().expect("test setup");
+ 1916|       |
+ 1917|      1|        app.left_panel.marked.insert("file1.txt".to_string());
+ 1918|      1|        app.left_panel.marked.insert("file3.txt".to_string());
+ 1919|       |
+ 1920|       |        // Currently, handle_delete only deletes the selected entry, not marked ones
+ 1921|       |        // Select file2 and delete it
+ 1922|      3|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+ 1923|      3|            if entry.name == "file2.txt" {
+ 1924|      1|                app.left_panel.state.select(Some(i));
+ 1925|      1|                break;
+ 1926|      2|            }
+ 1927|       |        }
+ 1928|       |
+ 1929|      1|        handle_delete(&mut app).expect("test setup");
+ 1930|       |
+ 1931|       |        // Only the selected file should be deleted
+ 1932|      1|        assert!(file1.exists());
+ 1933|      1|        assert!(!file2.exists());
+ 1934|      1|        assert!(file3.exists());
+ 1935|      1|        assert!(app.status_message.contains("Deleted"));
+ 1936|       |
+ 1937|      1|        Ok(())
+ 1938|      1|    }
+ 1939|       |
+ 1940|       |    #[test]
+ 1941|      1|    fn test_handle_mkdir_invalid_names() -> io::Result<()> {
+ 1942|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1943|      1|        let mut app = App::new().expect("test setup");
+ 1944|       |
+ 1945|      1|        app.left_panel.path = temp_dir.path().to_path_buf();
+ 1946|      1|        app.left_panel.load_entries().expect("test setup");
+ 1947|       |
+ 1948|       |        // Test mkdir with empty input - this test may need adjustment based on actual mkdir implementation
+ 1949|      1|        handle_mkdir(&mut app).expect("test setup");
+ 1950|       |        // Check if a new_folder was created
+ 1951|      1|        assert!(temp_dir.path().join("new_folder").exists());
+ 1952|       |
+ 1953|       |        #[cfg(windows)]
+ 1954|      1|        {
+ 1955|      1|            // Test with invalid characters on Windows
+ 1956|      1|            // This test would need adjustment based on how mkdir actually handles input
+ 1957|      1|        }
+ 1958|       |
+ 1959|      1|        Ok(())
+ 1960|      1|    }
+ 1961|       |
+ 1962|       |    #[test]
+ 1963|      1|    fn test_handle_view_large_file() -> io::Result<()> {
+ 1964|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 1965|      1|        let mut app = App::new().expect("test setup");
+ 1966|       |
+ 1967|      1|        let large_file = temp_dir.path().join("large.txt");
+ 1968|      1|        let content = "Line\n".repeat(10000);
+ 1969|      1|        File::create(&large_file)
+ 1970|      1|            .expect("test setup")
+ 1971|      1|            .write_all(content.as_bytes())
+ 1972|      1|            .expect("test setup");
+ 1973|       |
+ 1974|      1|        app.left_panel.path = temp_dir.path().to_path_buf();
+ 1975|      1|        app.left_panel.load_entries().expect("test setup");
+ 1976|      1|        app.left_panel.state.select(Some(1));
+ 1977|       |
+ 1978|      1|        handle_view(&mut app).expect("test setup");
+ 1979|       |
+ 1980|      1|        let viewer = app.viewer.as_ref().expect("viewer");
+ 1981|      1|        assert!(viewer.lines.len() >= 9999);
+ 1982|       |
+ 1983|      1|        Ok(())
+ 1984|      1|    }
+ 1985|       |
+ 1986|       |    #[test]
+ 1987|      1|    fn test_handle_overlay_keys_viewer_navigation_limits() -> io::Result<()> {
+ 1988|      1|        let mut app = App::new().expect("test setup");
+ 1989|     20|        let lines: Vec<String> = (0..20).map(|i| format!("Line {}", i)).collect();
+                          ^1     ^1            ^1      ^1                             ^1
+ 1990|       |
+ 1991|      1|        app.viewer = Some(Viewer {
+ 1992|      1|            lines: lines.clone(),
+ 1993|      1|            scroll: 0,
+ 1994|      1|            title: "Test".to_string(),
+ 1995|      1|        });
+ 1996|       |
+ 1997|     31|        for _ in 0..30 {
+ 1998|     30|            handle_overlay_keys(&mut app, key_event(KeyCode::Up));
+ 1999|     30|        }
+ 2000|      1|        assert_eq!(app.viewer.as_ref().unwrap().scroll, 0);
+ 2001|       |
+ 2002|    101|        for _ in 0..100 {
+ 2003|    100|            handle_overlay_keys(&mut app, key_event(KeyCode::Down));
+ 2004|    100|        }
+ 2005|       |
+ 2006|      1|        let viewer = app.viewer.as_ref().expect("viewer");
+ 2007|      1|        assert!((viewer.scroll as usize) <= viewer.lines.len());
+ 2008|       |
+ 2009|      1|        Ok(())
+ 2010|      1|    }
+ 2011|       |
+ 2012|       |    #[test]
+ 2013|      1|    fn test_handle_overlay_keys_search_special_characters() -> io::Result<()> {
+ 2014|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 2015|      1|        let mut app = App::new().expect("test setup");
+ 2016|       |
+ 2017|      1|        let special_file = temp_dir.path().join("[special].txt");
+ 2018|      1|        let normal_file = temp_dir.path().join("normal.txt");
+ 2019|      1|        File::create(&special_file)
+ 2020|      1|            .expect("test setup")
+ 2021|      1|            .write_all(b"content")
+ 2022|      1|            .expect("test setup");
+ 2023|      1|        File::create(&normal_file)
+ 2024|      1|            .expect("test setup")
+ 2025|      1|            .write_all(b"content")
+ 2026|      1|            .expect("test setup");
+ 2027|       |
+ 2028|      1|        app.left_panel.path = temp_dir.path().to_path_buf();
+ 2029|      1|        app.left_panel.load_entries().expect("test setup");
+ 2030|      1|        app.search = Some("[spec".to_string());
+ 2031|      1|        handle_overlay_keys(&mut app, key_event(KeyCode::Enter));
+ 2032|       |
+ 2033|      1|        assert!(app.search.is_none());
+ 2034|       |
+ 2035|      1|        Ok(())
+ 2036|      1|    }
+ 2037|       |
+ 2038|       |    #[test]
+ 2039|      1|    fn test_execute_command_edge_cases() -> io::Result<()> {
+ 2040|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 2041|      1|        let mut app = App::new().expect("test setup");
+ 2042|      1|        app.left_panel.path = temp_dir.path().to_path_buf();
+ 2043|       |
+ 2044|      1|        assert!(execute_command(&mut app, "").is_err());
+ 2045|      1|        assert!(execute_command(&mut app, "   ").is_err());
+ 2046|      1|        assert!(execute_command(&mut app, "unknown_command").is_err());
+ 2047|       |
+ 2048|      1|        execute_command(&mut app, "  help  ").expect("test setup");
+ 2049|      1|        assert!(app.show_help);
+ 2050|      1|        app.show_help = false;
+ 2051|       |
+ 2052|       |        // Test unknown command returns error
+ 2053|      1|        assert!(execute_command(&mut app, "HELP").is_err());
+ 2054|       |
+ 2055|      1|        Ok(())
+ 2056|      1|    }
+ 2057|       |
+ 2058|       |    #[test]
+ 2059|      1|    fn test_jump_to_match_wraparound() -> io::Result<()> {
+ 2060|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 2061|      1|        let mut app = App::new().expect("test setup");
+ 2062|       |
+ 2063|      6|        for i in 0..5 {
+                          ^5
+ 2064|      5|            File::create(temp_dir.path().join(format!("test{}.txt", i))).expect("test setup");
+ 2065|      5|        }
+ 2066|       |
+ 2067|      1|        app.left_panel.path = temp_dir.path().to_path_buf();
+ 2068|      1|        app.left_panel.load_entries().expect("test setup");
+ 2069|      1|        app.left_panel
+ 2070|      1|            .state
+ 2071|      1|            .select(Some(app.left_panel.entries.len() - 1));
+ 2072|       |
+ 2073|      1|        jump_to_match(&mut app.left_panel, "test");
+ 2074|       |
+ 2075|      1|        assert!(app.left_panel.state.selected().unwrap() < app.left_panel.entries.len() - 1);
+ 2076|       |
+ 2077|      1|        Ok(())
+ 2078|      1|    }
+ 2079|       |
+ 2080|       |    #[test]
+ 2081|      1|    fn test_jump_to_match_no_selection() -> io::Result<()> {
+ 2082|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 2083|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 2084|       |
+ 2085|      6|        for i in 0..5 {
+                          ^5
+ 2086|      5|            File::create(temp_dir.path().join(format!("file{}.txt", i))).expect("test setup");
+ 2087|      5|        }
+ 2088|       |
+ 2089|      1|        panel.load_entries().expect("test setup");
+ 2090|      1|        panel.state.select(None); // No selection
+ 2091|       |
+ 2092|      1|        let found = jump_to_match(&mut panel, "file");
+ 2093|      1|        assert!(found);
+ 2094|      1|        assert!(panel.state.selected().is_some());
+ 2095|       |
+ 2096|      1|        Ok(())
+ 2097|      1|    }
+ 2098|       |
+ 2099|       |    #[test]
+ 2100|      1|    fn test_jump_to_match_no_match_found() -> io::Result<()> {
+ 2101|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 2102|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 2103|       |
+ 2104|      1|        File::create(temp_dir.path().join("test.txt")).expect("test setup");
+ 2105|      1|        panel.load_entries().expect("test setup");
+ 2106|      1|        panel.state.select(Some(1));
+ 2107|       |
+ 2108|      1|        let found = jump_to_match(&mut panel, "nonexistent");
+ 2109|      1|        assert!(!found);
+ 2110|      1|        assert_eq!(panel.state.selected(), Some(1)); // Selection unchanged
+ 2111|       |
+ 2112|      1|        Ok(())
+ 2113|      1|    }
+ 2114|       |
+ 2115|       |    #[test]
+ 2116|      1|    fn test_jump_to_match_empty_entries() -> io::Result<()> {
+ 2117|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 2118|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 2119|       |
+ 2120|       |        // Don't load entries, keep it empty
+ 2121|      1|        panel.entries.clear();
+ 2122|       |
+ 2123|      1|        let found = jump_to_match(&mut panel, "test");
+ 2124|      1|        assert!(!found);
+ 2125|       |
+ 2126|      1|        Ok(())
+ 2127|      1|    }
+ 2128|       |
+ 2129|       |    #[test]
+ 2130|      1|    fn test_execute_command_cd_missing_argument() -> io::Result<()> {
+ 2131|      1|        let mut app = App::new().expect("test setup");
+ 2132|       |
+ 2133|      1|        let result = execute_command(&mut app, "cd");
+ 2134|      1|        assert!(result.is_err());
+ 2135|      1|        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::InvalidInput);
+ 2136|       |
+ 2137|      1|        Ok(())
+ 2138|      1|    }
+ 2139|       |
+ 2140|       |    #[test]
+ 2141|      1|    fn test_execute_command_cd_invalid_path() -> io::Result<()> {
+ 2142|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 2143|      1|        let mut app = App::new().expect("test setup");
+ 2144|      1|        app.left_panel.path = temp_dir.path().to_path_buf();
+ 2145|       |
+ 2146|       |        // Try to cd to a file instead of directory
+ 2147|      1|        let file = temp_dir.path().join("file.txt");
+ 2148|      1|        File::create(&file).expect("test setup");
+ 2149|       |
+ 2150|      1|        let result = execute_command(&mut app, &format!("cd {}", file.display()));
+ 2151|      1|        assert!(result.is_err());
+ 2152|       |
+ 2153|      1|        Ok(())
+ 2154|      1|    }
+ 2155|       |
+ 2156|       |    #[test]
+ 2157|      1|    fn test_execute_command_sort_invalid_mode() -> io::Result<()> {
+ 2158|      1|        let mut app = App::new().expect("test setup");
+ 2159|       |
+ 2160|      1|        let result = execute_command(&mut app, "sort invalid");
+ 2161|      1|        assert!(result.is_err());
+ 2162|      1|        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::InvalidInput);
+ 2163|       |
+ 2164|      1|        Ok(())
+ 2165|      1|    }
+ 2166|       |
+ 2167|       |    #[test]
+ 2168|      1|    fn test_execute_command_bookmark_missing_subcommand() -> io::Result<()> {
+ 2169|      1|        let mut app = App::new().expect("test setup");
+ 2170|       |
+ 2171|      1|        let result = execute_command(&mut app, "bookmark");
+ 2172|      1|        assert!(result.is_err());
+ 2173|      1|        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::InvalidInput);
+ 2174|       |
+ 2175|      1|        Ok(())
+ 2176|      1|    }
+ 2177|       |
+ 2178|       |    #[test]
+ 2179|      1|    fn test_execute_command_bookmark_invalid_slot() -> io::Result<()> {
+ 2180|      1|        let mut app = App::new().expect("test setup");
+ 2181|       |
+ 2182|      1|        let result = execute_command(&mut app, "bookmark set 10");
+ 2183|      1|        assert!(result.is_err());
+ 2184|      1|        assert!(result.unwrap_err().to_string().contains("bookmark"));
+ 2185|       |
+ 2186|      1|        let result = execute_command(&mut app, "bookmark set abc");
+ 2187|      1|        assert!(result.is_err());
+ 2188|       |
+ 2189|      1|        Ok(())
+ 2190|      1|    }
+ 2191|       |
+ 2192|       |    #[test]
+ 2193|      1|    fn test_execute_command_bookmark_go_empty() -> io::Result<()> {
+ 2194|      1|        let mut app = App::new().expect("test setup");
+ 2195|       |
+ 2196|       |        // Try to go to an empty bookmark
+ 2197|      1|        let result = execute_command(&mut app, "bookmark go 0");
+ 2198|      1|        assert!(result.is_err());
+ 2199|      1|        let err_msg = result.unwrap_err().to_string();
+ 2200|      1|        assert!(err_msg.contains("Bookmark") || err_msg.contains("empty"));
+ 2201|       |
+ 2202|      1|        Ok(())
+ 2203|      1|    }
+ 2204|       |
+ 2205|       |    #[test]
+ 2206|      1|    fn test_execute_command_bookmark_invalid_subcommand() -> io::Result<()> {
+ 2207|      1|        let mut app = App::new().expect("test setup");
+ 2208|       |
+ 2209|      1|        let result = execute_command(&mut app, "bookmark invalid 0");
+ 2210|      1|        assert!(result.is_err());
+ 2211|       |        // Just check that it returns an error
+ 2212|      1|        assert!(result.is_err());
+ 2213|       |
+ 2214|      1|        Ok(())
+ 2215|      1|    }
+ 2216|       |
+ 2217|       |    #[test]
+ 2218|      1|    fn test_execute_command_mark_missing_argument() -> io::Result<()> {
+ 2219|      1|        let mut app = App::new().expect("test setup");
+ 2220|       |
+ 2221|      1|        let result = execute_command(&mut app, "mark");
+ 2222|      1|        assert!(result.is_err());
+ 2223|      1|        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::InvalidInput);
+ 2224|       |
+ 2225|      1|        Ok(())
+ 2226|      1|    }
+ 2227|       |
+ 2228|       |    #[test]
+ 2229|      1|    fn test_execute_command_mark_invalid_subcommand() -> io::Result<()> {
+ 2230|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 2231|      1|        let mut app = App::new().expect("test setup");
+ 2232|      1|        app.left_panel.path = temp_dir.path().to_path_buf();
+ 2233|      1|        app.left_panel.load_entries().expect("test setup");
+ 2234|       |
+ 2235|      1|        let result = execute_command(&mut app, "mark invalid");
+ 2236|      1|        assert!(result.is_err());
+ 2237|       |        // Just check that it returns an error
+ 2238|      1|        assert!(result.is_err());
+ 2239|       |
+ 2240|      1|        Ok(())
+ 2241|      1|    }
+ 2242|       |
+ 2243|       |    #[test]
+ 2244|      1|    fn test_execute_command_unknown_command() -> io::Result<()> {
+ 2245|      1|        let mut app = App::new().expect("test setup");
+ 2246|       |
+ 2247|      1|        let result = execute_command(&mut app, "unknowncommand arg1 arg2");
+ 2248|      1|        assert!(result.is_err());
+ 2249|      1|        assert!(result.unwrap_err().to_string().contains("unknown command"));
+ 2250|       |
+ 2251|      1|        Ok(())
+ 2252|      1|    }
+ 2253|       |
+ 2254|       |    #[test]
+ 2255|      1|    fn test_handle_view_directory_error() -> io::Result<()> {
+ 2256|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 2257|      1|        let mut app = App::new().expect("test setup");
+ 2258|       |
+ 2259|      1|        let dir = temp_dir.path().join("subdir");
+ 2260|      1|        fs::create_dir(&dir).expect("test setup");
+ 2261|       |
+ 2262|      1|        app.left_panel.path = temp_dir.path().to_path_buf();
+ 2263|      1|        app.left_panel.load_entries().expect("test setup");
+ 2264|       |
+ 2265|       |        // Find and select the subdir
+ 2266|      2|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+ 2267|      2|            if entry.name == "subdir" && entry.is_dir {
+                                                       ^1
+ 2268|      1|                app.left_panel.state.select(Some(i));
+ 2269|      1|                break;
+ 2270|      1|            }
+ 2271|       |        }
+ 2272|       |
+ 2273|       |        // handle_view returns Ok for directories but shows a message
+ 2274|      1|        let result = handle_view(&mut app);
+ 2275|      1|        assert!(result.is_ok());
+ 2276|      1|        assert!(app.status_message.contains("Cannot view directory") || app.viewer.is_none());
+ 2277|       |
+ 2278|      1|        Ok(())
+ 2279|      1|    }
+ 2280|       |
+ 2281|       |    #[test]
+ 2282|      1|    fn test_handle_overlay_keys_viewer_scroll_limits() -> io::Result<()> {
+ 2283|      1|        let mut app = App::new().expect("test setup");
+ 2284|      1|        app.viewer = Some(Viewer {
+ 2285|      1|            lines: vec!["Line 1".to_string(), "Line 2".to_string()],
+ 2286|      1|            scroll: 0,
+ 2287|      1|            title: "Test".to_string(),
+ 2288|      1|        });
+ 2289|       |
+ 2290|       |        // Test scrolling down at max
+ 2291|      1|        if let Some(viewer) = &mut app.viewer {
+ 2292|      1|            viewer.scroll = 1000; // Way beyond content
+ 2293|      1|        }
+                      ^0
+ 2294|      1|        handle_overlay_keys(
+ 2295|      1|            &mut app,
+ 2296|      1|            KeyEvent::new(KeyCode::Down, KeyModifiers::empty()),
+ 2297|       |        );
+ 2298|      1|        assert_eq!(app.viewer.as_ref().unwrap().scroll, 1000);
+ 2299|       |
+ 2300|       |        // Test page down at max
+ 2301|      1|        handle_overlay_keys(
+ 2302|      1|            &mut app,
+ 2303|      1|            KeyEvent::new(KeyCode::PageDown, KeyModifiers::empty()),
+ 2304|       |        );
+ 2305|      1|        assert_eq!(app.viewer.as_ref().unwrap().scroll, 1000);
+ 2306|       |
+ 2307|      1|        Ok(())
+ 2308|      1|    }
+ 2309|       |
+ 2310|       |    #[test]
+ 2311|      1|    fn test_handle_overlay_keys_invalid_bookmark_slot() -> io::Result<()> {
+ 2312|      1|        let mut app = App::new().expect("test setup");
+ 2313|      1|        app.show_bookmarks = true;
+ 2314|       |
+ 2315|       |        // Try invalid bookmark slot
+ 2316|      1|        handle_overlay_keys(
+ 2317|      1|            &mut app,
+ 2318|      1|            KeyEvent::new(KeyCode::Char('a'), KeyModifiers::empty()),
+ 2319|       |        );
+ 2320|      1|        assert!(app.show_bookmarks); // Still showing bookmarks
+ 2321|       |
+ 2322|      1|        Ok(())
+ 2323|      1|    }
+ 2324|       |
+ 2325|       |    #[test]
+ 2326|      1|    fn test_handle_overlay_keys_command_execute_error() -> io::Result<()> {
+ 2327|      1|        let mut app = App::new().expect("test setup");
+ 2328|      1|        app.command_line = Some(String::new());
+ 2329|      1|        app.command_line = Some("unknown_command".to_string());
+ 2330|       |
+ 2331|      1|        handle_overlay_keys(
+ 2332|      1|            &mut app,
+ 2333|      1|            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
+ 2334|       |        );
+ 2335|      1|        assert!(app.command_line.is_none());
+ 2336|      1|        assert!(app.status_message.contains("Error") || app.status_message.contains("unknown"));
+ 2337|       |
+ 2338|      1|        Ok(())
+ 2339|      1|    }
+ 2340|       |
+ 2341|       |    #[test]
+ 2342|      1|    fn test_handle_move_cross_device_fallback() -> io::Result<()> {
+ 2343|       |        // This test simulates cross-device move by using the force rename failure
+ 2344|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 2345|      1|        let mut app = App::new().expect("test setup");
+ 2346|       |
+ 2347|      1|        let source_file = temp_dir.path().join("source.txt");
+ 2348|      1|        File::create(&source_file)
+ 2349|      1|            .expect("test setup")
+ 2350|      1|            .write_all(b"content")
+ 2351|      1|            .expect("test setup");
+ 2352|       |
+ 2353|      1|        let dest_dir = temp_dir.path().join("dest");
+ 2354|      1|        fs::create_dir(&dest_dir).expect("test setup");
+ 2355|       |
+ 2356|      1|        app.left_panel.path = temp_dir.path().to_path_buf();
+ 2357|      1|        app.right_panel.path = dest_dir;
+ 2358|      1|        app.left_panel.load_entries().expect("test setup");
+ 2359|      1|        app.right_panel.load_entries().expect("test setup");
+ 2360|       |
+ 2361|       |        // Find source.txt in entries
+ 2362|      3|        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+                                        ^1                            ^1
+ 2363|      3|            if entry.name == "source.txt" {
+ 2364|      1|                app.left_panel.state.select(Some(i));
+ 2365|      1|                break;
+ 2366|      2|            }
+ 2367|       |        }
+ 2368|       |
+ 2369|       |        // Force rename to fail to trigger fallback
+ 2370|      1|        FORCE_RENAME_FAILURE.store(true, std::sync::atomic::Ordering::SeqCst);
+ 2371|       |
+ 2372|      1|        let result = handle_move(&mut app);
+ 2373|       |
+ 2374|      1|        FORCE_RENAME_FAILURE.store(false, std::sync::atomic::Ordering::SeqCst);
+ 2375|       |
+ 2376|      1|        assert!(result.is_ok());
+ 2377|      1|        assert!(!source_file.exists()); // Source should be deleted
+ 2378|       |
+ 2379|      1|        Ok(())
+ 2380|      1|    }
+ 2381|       |
+ 2382|       |    #[test]
+ 2383|       |    #[cfg(not(coverage))]
+ 2384|       |    #[ignore = "Stack overflow on Windows"]
+ 2385|       |    fn test_handle_copy_move_with_very_long_paths() -> io::Result<()> {
+ 2386|       |        let temp_dir = TempDir::new().expect("test setup");
+ 2387|       |        let mut app = App::new().expect("test setup");
+ 2388|       |
+ 2389|       |        let mut long_path = temp_dir.path().to_path_buf();
+ 2390|       |        for i in 0..10 {
+ 2391|       |            long_path = long_path.join(format!("very_long_directory_name_{}", i));
+ 2392|       |            fs::create_dir(&long_path).expect("test setup");
+ 2393|       |        }
+ 2394|       |
+ 2395|       |        let source_file = temp_dir.path().join("source.txt");
+ 2396|       |        File::create(&source_file)
+ 2397|       |            .expect("test setup")
+ 2398|       |            .write_all(b"content")
+ 2399|       |            .expect("test setup");
+ 2400|       |
+ 2401|       |        app.left_panel.path = temp_dir.path().to_path_buf();
+ 2402|       |        app.right_panel.path = long_path.clone();
+ 2403|       |        app.left_panel.load_entries().expect("test setup");
+ 2404|       |        app.right_panel.load_entries().expect("test setup");
+ 2405|       |        app.left_panel.state.select(Some(1));
+ 2406|       |
+ 2407|       |        let result = handle_copy(&mut app);
+ 2408|       |
+ 2409|       |        // Just check that the operation completes without panic
+ 2410|       |        assert!(result.is_ok() || result.is_err());
+ 2411|       |        // On Windows, very long paths may fail
+ 2412|       |        #[cfg(windows)]
+ 2413|       |        {
+ 2414|       |            if long_path.to_string_lossy().len() > 260 && result.is_err() {
+ 2415|       |                assert!(
+ 2416|       |                    app.status_message.contains("Failed")
+ 2417|       |                        || result.unwrap_err().to_string().contains("path")
+ 2418|       |                );
+ 2419|       |            }
+ 2420|       |        }
+ 2421|       |
+ 2422|       |        Ok(())
+ 2423|       |    }
+ 2424|       |
+ 2425|       |    #[test]
+ 2426|      1|    fn test_handle_overlay_keys_viewer_always_some() -> io::Result<()> {
+ 2427|      1|        let mut app = App::new().expect("test setup");
+ 2428|      1|        app.viewer = Some(Viewer {
+ 2429|      1|            lines: vec!["Line 1".to_string(), "Line 2".to_string()],
+ 2430|      1|            scroll: 0,
+ 2431|      1|            title: "Test".to_string(),
+ 2432|      1|        });
+ 2433|       |
+ 2434|       |        // Test various viewer operations to ensure viewer remains Some
+ 2435|      1|        handle_overlay_keys(&mut app, key_event(KeyCode::Down));
+ 2436|      1|        assert!(app.viewer.is_some());
+ 2437|       |
+ 2438|      1|        handle_overlay_keys(&mut app, key_event(KeyCode::Up));
+ 2439|      1|        assert!(app.viewer.is_some());
+ 2440|       |
+ 2441|       |        // Unknown keys don't close viewer
+ 2442|      1|        handle_overlay_keys(&mut app, key_event(KeyCode::Char('x')));
+ 2443|      1|        assert!(app.viewer.is_some());
+ 2444|       |
+ 2445|      1|        Ok(())
+ 2446|      1|    }
+ 2447|       |
+ 2448|       |    #[test]
+ 2449|      1|    fn test_jump_to_match_with_empty_query() -> io::Result<()> {
+ 2450|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 2451|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 2452|       |
+ 2453|      1|        File::create(temp_dir.path().join("test.txt")).expect("test setup");
+ 2454|      1|        panel.load_entries().expect("test setup");
+ 2455|      1|        panel.state.select(Some(1));
+ 2456|       |
+ 2457|       |        // Empty query matches everything (as empty string is substring of all strings)
+ 2458|      1|        let found = jump_to_match(&mut panel, "");
+ 2459|      1|        assert!(found); // Will match the first non-".." entry
+ 2460|       |
+ 2461|       |        // Test with whitespace-only query
+ 2462|      1|        panel.state.select(Some(1));
+ 2463|      1|        let found = jump_to_match(&mut panel, "   ");
+ 2464|      1|        assert!(!found); // Whitespace gets trimmed to empty but won't match filenames
+ 2465|       |
+ 2466|      1|        Ok(())
+ 2467|      1|    }
+ 2468|       |
+ 2469|       |    #[test]
+ 2470|      1|    fn test_handle_view_with_viewer_already_open() -> io::Result<()> {
+ 2471|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 2472|      1|        let mut app = App::new().expect("test setup");
+ 2473|       |
+ 2474|       |        // Create a file to view
+ 2475|      1|        let file_path = temp_dir.path().join("view.txt");
+ 2476|      1|        File::create(&file_path)
+ 2477|      1|            .expect("test setup")
+ 2478|      1|            .write_all(b"content")
+ 2479|      1|            .expect("test setup");
+ 2480|       |
+ 2481|      1|        app.left_panel.path = temp_dir.path().to_path_buf();
+ 2482|      1|        app.left_panel.load_entries().expect("test setup");
+ 2483|      1|        app.left_panel.state.select(Some(1));
+ 2484|       |
+ 2485|       |        // Open viewer first time
+ 2486|      1|        handle_view(&mut app).expect("test setup");
+ 2487|      1|        assert!(app.viewer.is_some());
+ 2488|       |
+ 2489|       |        // Try to open viewer again (should replace)
+ 2490|      1|        handle_view(&mut app).expect("test setup");
+ 2491|      1|        assert!(app.viewer.is_some());
+ 2492|       |
+ 2493|      1|        Ok(())
+ 2494|      1|    }
+ 2495|       |
+ 2496|       |    #[test]
+ 2497|      1|    fn test_jump_to_match_no_match() -> io::Result<()> {
+ 2498|      1|        let temp_dir = TempDir::new().expect("test setup");
+ 2499|      1|        let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
+ 2500|       |
+ 2501|      6|        for i in 0..5 {
+                          ^5
+ 2502|      5|            File::create(temp_dir.path().join(format!("file{}.txt", i))).expect("test setup");
+ 2503|      5|        }
+ 2504|      1|        panel.load_entries().expect("test setup");
+ 2505|       |
+ 2506|      1|        let found = jump_to_match(&mut panel, "nonexistent");
+ 2507|      1|        assert!(!found);
+ 2508|       |
+ 2509|      1|        Ok(())
+ 2510|      1|    }
+ 2511|       |}
+

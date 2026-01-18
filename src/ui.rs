@@ -6,9 +6,9 @@ use ratatui::{
     Frame,
 };
 
-use crate::models::{App, Panel, PanelSide};
 #[cfg(test)]
 use crate::models::Viewer;
+use crate::models::{App, Panel, PanelSide};
 use crate::utils::format_size;
 
 pub const NAME_FIELD_WIDTH: usize = 30;
@@ -476,10 +476,10 @@ mod tests {
         let mut app = App::new().unwrap();
         app.left_panel.path = std::path::PathBuf::from("/test");
         app.right_panel.path = std::path::PathBuf::from("/test2");
-        
+
         let backend = TestBackend::new(40, 10);
         let mut terminal = Terminal::new(backend).unwrap();
-        
+
         terminal.draw(|f| ui(f, &mut app)).unwrap();
     }
 
@@ -490,10 +490,10 @@ mod tests {
         app.left_panel.path = std::path::PathBuf::from(long_path);
         app.right_panel.path = std::path::PathBuf::from(long_path);
         app.status_message = "x".repeat(200);
-        
+
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        
+
         terminal.draw(|f| ui(f, &mut app)).unwrap();
     }
 
@@ -502,26 +502,28 @@ mod tests {
         let mut app = App::new().unwrap();
         app.left_panel.entries.clear();
         app.left_panel.state.select(None);
-        
+
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        
-        terminal.draw(|f| {
-            let area = f.size();
-            render_panel(f, &mut app.left_panel, area, true);
-        }).unwrap();
+
+        terminal
+            .draw(|f| {
+                let area = f.size();
+                render_panel(f, &mut app.left_panel, area, true);
+            })
+            .unwrap();
     }
 
     #[test]
     fn test_render_overlays_with_all_types() {
         let mut app = App::new().unwrap();
-        
+
         app.show_help = true;
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
         app.show_help = false;
-        
+
         app.viewer = Some(Viewer {
             lines: vec!["Line 1".to_string(), "Line 2".to_string()],
             scroll: 0,
@@ -529,15 +531,15 @@ mod tests {
         });
         terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
         app.viewer = None;
-        
+
         app.command_line = Some("test command".to_string());
         terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
         app.command_line = None;
-        
+
         app.search = Some("search".to_string());
         terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
         app.search = None;
-        
+
         app.show_bookmarks = true;
         app.bookmarks[0] = Some(std::path::PathBuf::from("/bookmark1"));
         app.bookmarks[5] = Some(std::path::PathBuf::from("/bookmark2"));
@@ -547,7 +549,7 @@ mod tests {
     #[test]
     fn test_render_status_with_extreme_values() {
         let mut app = App::new().unwrap();
-        
+
         app.left_panel.entries = vec![
             DirEntry {
                 name: "..".to_string(),
@@ -561,32 +563,34 @@ mod tests {
             },
         ];
         app.left_panel.state.select(Some(1));
-        
+
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        
-        terminal.draw(|f| {
-            let area = ratatui::layout::Rect::new(0, 0, 80, 1);
-            render_status(f, &app, area);
-        }).unwrap();
+
+        terminal
+            .draw(|f| {
+                let area = ratatui::layout::Rect::new(0, 0, 80, 1);
+                render_status(f, &app, area);
+            })
+            .unwrap();
     }
 
     #[test]
     fn test_centered_rect_edge_cases() {
         let base = ratatui::layout::Rect::new(0, 0, 100, 50);
-        
+
         let rect1 = centered_rect(0, 0, base);
         assert_eq!(rect1.width, 0);
         assert_eq!(rect1.height, 0);
-        
+
         let rect2 = centered_rect(200, 100, base);
         assert_eq!(rect2.width, 100);
         assert_eq!(rect2.height, 50);
-        
+
         let rect3 = centered_rect(1, 1, base);
         assert_eq!(rect3.width, 1);
         assert_eq!(rect3.height, 0);
-        
+
         let tiny_base = ratatui::layout::Rect::new(0, 0, 1, 1);
         let rect4 = centered_rect(50, 50, tiny_base);
         assert_eq!(rect4.width, 1);
@@ -597,25 +601,29 @@ mod tests {
     fn test_render_command_bar_variations() {
         let backend = TestBackend::new(120, 3);
         let mut terminal = Terminal::new(backend).unwrap();
-        
-        terminal.draw(|f| {
-            let area = f.size();
-            render_command_bar(f, area);
-        }).unwrap();
-        
+
+        terminal
+            .draw(|f| {
+                let area = f.size();
+                render_command_bar(f, area);
+            })
+            .unwrap();
+
         let small_backend = TestBackend::new(40, 3);
         let mut small_terminal = Terminal::new(small_backend).unwrap();
-        
-        small_terminal.draw(|f| {
-            let area = f.size();
-            render_command_bar(f, area);
-        }).unwrap();
+
+        small_terminal
+            .draw(|f| {
+                let area = f.size();
+                render_command_bar(f, area);
+            })
+            .unwrap();
     }
 
     #[test]
     fn test_render_panel_with_marked_files() {
         let mut app = App::new().unwrap();
-        
+
         for i in 0..10 {
             app.left_panel.entries.push(DirEntry {
                 name: format!("file{}.txt", i),
@@ -623,19 +631,21 @@ mod tests {
                 size: 100 * i,
             });
         }
-        
+
         app.left_panel.marked.insert("file2.txt".to_string());
         app.left_panel.marked.insert("file5.txt".to_string());
         app.left_panel.marked.insert("file8.txt".to_string());
         app.left_panel.state.select(Some(5));
-        
+
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        
-        terminal.draw(|f| {
-            let area = f.size();
-            render_panel(f, &mut app.left_panel, area, true);
-        }).unwrap();
+
+        terminal
+            .draw(|f| {
+                let area = f.size();
+                render_panel(f, &mut app.left_panel, area, true);
+            })
+            .unwrap();
     }
 
     #[test]
@@ -646,10 +656,12 @@ mod tests {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
 
-        terminal.draw(|f| {
-            let area = ratatui::layout::Rect::new(0, 0, 80, 2);
-            render_status(f, &app, area);
-        }).unwrap();
+        terminal
+            .draw(|f| {
+                let area = ratatui::layout::Rect::new(0, 0, 80, 2);
+                render_status(f, &app, area);
+            })
+            .unwrap();
     }
 
     #[test]
@@ -660,10 +672,12 @@ mod tests {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
 
-        terminal.draw(|f| {
-            let area = ratatui::layout::Rect::new(0, 0, 80, 2);
-            render_status(f, &app, area);
-        }).unwrap();
+        terminal
+            .draw(|f| {
+                let area = ratatui::layout::Rect::new(0, 0, 80, 2);
+                render_status(f, &app, area);
+            })
+            .unwrap();
     }
 
     #[test]
@@ -674,8 +688,10 @@ mod tests {
         let mut app = App::new().unwrap();
         app.quick_search = Some("search".to_string());
 
-        terminal.draw(|f| {
-            ui(f, &mut app);
-        }).unwrap();
+        terminal
+            .draw(|f| {
+                ui(f, &mut app);
+            })
+            .unwrap();
     }
 }

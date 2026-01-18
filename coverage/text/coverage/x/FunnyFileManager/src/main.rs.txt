@@ -1,0 +1,16 @@
+Coverage Report
+Created: 2026-01-16 16:06
+C:\x\FunnyFileManager\src\main.rs:
+    1|       |use funny_file_manager::run;
+    2|       |use std::error::Error;
+    3|       |
+    4|      1|fn main() -> Result<(), Box<dyn Error>> {
+    5|      1|    run()
+    6|      1|}
+    7|       |
+    8|       |#[cfg(coverage)]
+    9|       |#[test]
+   10|      1|fn test_main_coverage() {
+   11|      1|    assert!(main().is_ok());
+   12|      1|}
+

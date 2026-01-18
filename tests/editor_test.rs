@@ -163,4 +163,3 @@ fn test_handle_edit_reloads_entries() -> io::Result<()> {
     assert_eq!(app.left_panel.entries.len(), initial_count);
     Ok(())
 }
-
