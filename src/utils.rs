@@ -161,15 +161,17 @@ pub fn refresh_panels(app: &mut App) -> io::Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
-pub(crate) fn set_copy_dir_all_step(step: u8) {
-    FORCE_COPY_DIR_ALL_STEP.store(step, Ordering::SeqCst);
-}
-
-#[cfg(test)]
-pub(crate) fn set_refresh_panels_error(value: bool) {
-    FORCE_REFRESH_ERROR.store(value, Ordering::SeqCst);
-}
+// These functions are defined but not currently used in tests
+// They can be uncommented if needed for future mutation testing
+// #[cfg(test)]
+// pub(crate) fn set_copy_dir_all_step(step: u8) {
+//     FORCE_COPY_DIR_ALL_STEP.store(step, Ordering::SeqCst);
+// }
+//
+// #[cfg(test)]
+// pub(crate) fn set_refresh_panels_error(value: bool) {
+//     FORCE_REFRESH_ERROR.store(value, Ordering::SeqCst);
+// }
 
 #[cfg(test)]
 mod tests {

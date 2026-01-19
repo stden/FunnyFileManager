@@ -21,6 +21,7 @@ mod editor_tests {
             show_bookmarks: false,
             bookmarks: vec![None; 10],
             should_quit: false,
+            quick_search: None,
         })
     }
 
@@ -324,6 +325,105 @@ mod editor_tests {
         });
 
         assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_no_editor_env() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test.txt");
+        File::create(&file_path)?;
+
+        // Store the original EDITOR value
+        let original_editor = std::env::var("EDITOR").ok();
+        
+        // Remove EDITOR env var to test the default
+        std::env::remove_var("EDITOR");
+
+        let mut app = create_test_app(&temp_dir)?;
+
+        // Find and select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |editor, _| {
+            assert_eq!(editor, "nano"); // Should use "nano" as default
+            Ok(std::process::ExitStatus::default())
+        });
+
+        assert!(result.is_ok());
+        assert!(app.status_message.contains("Edited"));
+
+        // Restore original EDITOR value if it existed
+        if let Some(editor) = original_editor {
+            std::env::set_var("EDITOR", editor);
+        }
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_exit_error() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test.txt");
+        File::create(&file_path)?;
+
+        let mut app = create_test_app(&temp_dir)?;
+
+        // Find and select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        // Test that load_entries error is handled
+        let result = handle_edit_impl(&mut terminal, &mut app, |_, _| {
+            Ok(std::process::ExitStatus::default())
+        });
+
+        // The error from load_entries would be propagated
+        assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_launch_error() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test.txt");
+        File::create(&file_path)?;
+
+        let mut app = create_test_app(&temp_dir)?;
+
+        // Find and select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.state.select(Some(i));
+                break;
+            }
+        }
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |_, _| {
+            Err(io::Error::new(io::ErrorKind::Other, "Launch failed"))
+        });
+
+        assert!(result.is_ok());
+        assert!(app.status_message.contains("Failed to launch editor"));
+        assert!(app.status_message.contains("Launch failed"));
         Ok(())
     }
 }

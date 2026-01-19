@@ -17,6 +17,7 @@ fn create_test_app(temp_dir: &TempDir) -> io::Result<App> {
         show_bookmarks: false,
         bookmarks: vec![None; 10],
         should_quit: false,
+        quick_search: None,
     })
 }
 

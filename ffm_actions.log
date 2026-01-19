@@ -4720,3 +4720,263 @@ Key event: Char('q') (modifiers: KeyModifiers(0x0))
 [1768572669907] Key event: Char('q') (modifiers: KeyModifiers(0x0))
 [1768572669908] === FunnyFileManager Ended ===
 [1768572670627] coverage log action
+[1768728637288] === FunnyFileManager Started ===
+[1768728637299] Starting event loop with 32 entries in left panel
+[1768728637302] Starting event loop with 32 entries in left panel
+[1768728637328] Starting event loop with 2 entries in left panel
+[[1768728637334] Starting event loop with 32 entries in left panel
+1768728637335[] 1768728637336] Starting event loop with 1 entries in left panelStarting event loop with 4 entries in left panel
+
+[1768728637338[1768728637339] ] [Starting event loop with 2 entries in left panelStarting event loop with 4 entries in left panel1768728637341
+] 
+Starting event loop with 2 entries in left panel
+[1768728637345] Starting event loop with 2 entries in left panel
+[[[1768728637348] Starting event loop with 3 entries in left panel17687286373481768728637349
+] Key event: Enter (modifiers: KeyModifiers(0x0))] 
+Key event: F(4) (modifiers: KeyModifiers(0x0))
+[[17687286373511768728637351] ] Key event: Char('f') (modifiers: KeyModifiers(ALT))Starting event loop with 1 entries in left panel
+
+[1768728637353] Starting event loop with 4 entries in left panel
+[1768728637354] Starting event loop with 4 entries in left panel
+[[17687286373551768728637355] ] Quitting from overlayStarting event loop with 1 entries in left panel[[
+[
+176872863735617687286373561768728637356] ] ] Key event: Char('t') (modifiers: KeyModifiers(ALT))[
+Starting event loop with 2 entries in left panelKey event: Char('x') (modifiers: KeyModifiers(ALT))[
+
+[17687286373581768728637357] 1768728637358[[[Quick search: Some("f")] ] 
+176872863736017687286373591768728637359Key event: Char('f') (modifiers: KeyModifiers(ALT))] Key event: Down (modifiers: KeyModifiers(0x0))] 
+Key event: Char('a') (modifiers: KeyModifiers(ALT))
+] Key event: Esc (modifiers: KeyModifiers(0x0))[[
+1768728637361Key event: Insert (modifiers: KeyModifiers(0x0))1768728637361
+] 
+] Quick search: Some("x")
+[Quick search: Some("t")[
+17687286373631768728637363] [] Quick search: Some("f")Key event: Down (modifiers: KeyModifiers(0x0))1768728637364
+
+] Down key - time since last nav: 29ms, debounce: 0ms
+[1768728637368] [Key event: Char('b') (modifiers: KeyModifiers(ALT))1768728637369] Quick search: Some("a")
+
+[1768728637369[[[1768728637370] 1768728637370] Key event: Char('a') (modifiers: KeyModifiers(ALT))Starting event loop with 1 entries in left panel
+1768728637371
+] ] [=== FunnyFileManager Started ===[[[
+1768728637373Starting event loop with 1 entries in left panel17687286373731768728637374] 1768728637373[[[] 17687286373741768728637374Key event: Char('q') (modifiers: KeyModifiers(0x0))
+] ] 1768728637374[Starting event loop with 2 entries in left panel
+[[Key event: Down (modifiers: KeyModifiers(0x0))] 
+1768728637376Navigation DOWN: Some(0) -> Some(1)] 17687286373761768728637376
+[[[[[] ] 17687286373761768728637376Key event: Char('x') (modifiers: KeyModifiers(ALT))1768728637376] ] 
+Starting event loop with 1 entries in left panel] ] 1768728637375Key event: Backspace (modifiers: KeyModifiers(0x0))] Quick search: Some("a")Key event: Down (modifiers: KeyModifiers(0x0))
+] Quick search: Some("b")
+Key event: Char('c') (modifiers: KeyModifiers(CONTROL))
+Key event: Down (modifiers: KeyModifiers(0x0))1768728637377
+
+Down key - time since last nav: 18ms, debounce: 0ms
+
+Key event: Tab (modifiers: KeyModifiers(0x0))[
+
+
+] [1768728637384] 1768728637384Key event: Char(' ') (modifiers: KeyModifiers(0x0))[[[1768728637386[] 176872863738817687286373881768728637387Down key - time since last nav: 35ms, debounce: 0ms] ] ] 
+[Quick search: Some("x")Key event: Char('q') (modifiers: KeyModifiers(0x0))Key event: Char('q') (modifiers: KeyModifiers(0x0))[
+1768728637388
+
+] 1768728637388[1768728637390] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[[[1768728637392] 1768728637392] Navigation DOWN: Some(0) -> Some(0)Key event: Up (modifiers: KeyModifiers(0x0))
+
+[[[1768728637402] [Up key - time since last nav: 32ms, debounce: 0ms
+1768728637402] [[Key event: F(10) (modifiers: KeyModifiers(0x0))17687286374031768728637402
+] ] [1768728637407] Navigation UP: Some(1) -> Some(0)
+[1768728637412] Key event: Tab (modifiers: KeyModifiers(0x0))
+[1768728637417] Key event: Left (modifiers: KeyModifiers(0x0))
+] Down key - time since last nav: 56ms, debounce: 0ms=== FunnyFileManager Ended ===
+
+[[17687286374231768728637423] ] Navigation DOWN: Some(0) -> Some(1)Key event: Right (modifiers: KeyModifiers(0x0))
+
+[1768728637428] Key event: F(5) (modifiers: KeyModifiers(0x0))
+Key event: Up (modifiers: KeyModifiers(0x0))Navigation DOWN: Some(0) -> Some(0)[] Key event: Esc (modifiers: KeyModifiers(0x0))17687286373941768728637391
+Key event: Char('p') (modifiers: KeyModifiers(ALT))1768728637389] 
+1768728637393] 
+] 
+] Key event: Esc (modifiers: KeyModifiers(0x0))[[1768728637437] 1768728637437Quick search: Some("ap")] Up key - time since last nav: 51ms, debounce: 0ms
+
+[1768728637440] Navigation UP: Some(0) -> Some(0)
+[[17687286374421768728637442] ] Key event: Backspace (modifiers: KeyModifiers(0x0))
+Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[1768728637445] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[1768728637447] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+
+[1768728637452] Key event: F(6) (modifiers: KeyModifiers(0x0))[1768728637458] Key event: Char('\\') (modifiers: KeyModifiers(CONTROL))
+
+Down key - time since last nav: 47ms, debounce: 0msKey event: Char('q') (modifiers: KeyModifiers(0x0))Key event: Char('q') (modifiers: KeyModifiers(0x0))
+
+
+[1768728637430[1768728637470] Navigation DOWN: Some(1) -> Some(0)
+[1768728637471] Key event: F(10) (modifiers: KeyModifiers(0x0))
+[[1768728637476] Key event: Up (modifiers: KeyModifiers(0x0))
+[1768728637479] Up key - time since last nav: 90ms, debounce: 0ms
+[[17687286374811768728637438] ] Navigation UP: Some(0) -> Some(1)
+Key event: Up (modifiers: KeyModifiers(0x0))
+[1768728637484] Up key - time since last nav: 117ms, debounce: 0ms
+[1768728637486] Navigation UP: Some(0) -> Some(0)
+[1768728637488] Key event: Tab (modifiers: KeyModifiers(0x0))
+[1768728637491] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[
+[1768728637511] Key event: F(8) (modifiers: KeyModifiers(0x0))
+[1768728637518] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+1768728637492] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+1768728637473] ] Key event: Char('g') (modifiers: KeyModifiers(ALT))
+Key event: F(1) (modifiers: KeyModifiers(0x0))
+[1768728637546] Quick search: Some("g")
+[1768728637553] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[1768728637558] Key event: Esc (modifiers: KeyModifiers(0x0))
+[1768728637566] Key event: F(3) (modifiers: KeyModifiers(0x0))
+[1768728637573] Key event: Esc (modifiers: KeyModifiers(0x0))
+[1768728637577] Key event: F(7) (modifiers: KeyModifiers(0x0))
+[1768728637588] Key event: Esc (modifiers: KeyModifiers(0x0))
+[1768728637597] Key event: Down (modifiers: KeyModifiers(0x0))
+[1768728637599] Down key - time since last nav: 204ms, debounce: 0ms
+[1768728637601] Navigation DOWN: Some(0) -> Some(1)
+[1768728637608] Key event: Enter (modifiers: KeyModifiers(0x0))
+[1768728637614] Key event: Backspace (modifiers: KeyModifiers(0x0))
+[1768728637618] Key event: Char('x') (modifiers: KeyModifiers(0x0))
+[1768728637623] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[1768729128016] === FunnyFileManager Started ===
+[1768729128036] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[1768729128038] Starting event loop with 2 entries in left panel
+[1768729128039] === FunnyFileManager Ended ===
+[[17687291280441768729128044] ] Key event: Char('q') (modifiers: KeyModifiers(0x0))Starting event loop with 4 entries in left panel
+
+[1768729128046] Starting event loop with 4 entries in left panel
+[[1768729128054] 1768729128054Key event: F(4) (modifiers: KeyModifiers(0x0))
+] Starting event loop with 32 entries in left panel
+[[[176872912805517687291280551768729128055[] ] [1768729128056] Starting event loop with 2 entries in left panelStarting event loop with 2 entries in left panel[1768729128056
+Starting event loop with 1 entries in left panel
+] [
+] 1768729128059] Starting event loop with 2 entries in left panel[Starting event loop with 1 entries in left panel1768729128060Key event: Insert (modifiers: KeyModifiers(0x0))
+1768729128061
+
+] ] Starting event loop with 4 entries in left panelStarting event loop with 2 entries in left panel[
+
+1768729128063] Key event: Esc (modifiers: KeyModifiers(0x0))
+[1768729128065[] Key event: Down (modifiers: KeyModifiers(0x0))1768729128067
+] Starting event loop with 3 entries in left panel
+[1768729128071] Starting event loop with 2 entries in left panel
+[1768729128072] Starting event loop with 1 entries in left panel
+[1768729128073[] 1768729128073[Key event: Char(' ') (modifiers: KeyModifiers(0x0))1768729128074] ] 
+Starting event loop with 1 entries in left panelStarting event loop with 4 entries in left panel[
+
+1768729128074[] [[Key event: Char('f') (modifiers: KeyModifiers(ALT))176872912807617687291280751768729128076
+] [] Key event: Char('t') (modifiers: KeyModifiers(ALT))] Starting event loop with 1 entries in left panel1768729128076[Key event: Char('f') (modifiers: KeyModifiers(ALT))
+
+] 
+[1768729128077[1768729128078] 1768729128078Key event: Enter (modifiers: KeyModifiers(0x0))[[[176872912808517687291280851768729128085] [] Key event: Char('\\') (modifiers: KeyModifiers(CONTROL))] 1768729128085Key event: Char('a') (modifiers: KeyModifiers(ALT))
+Starting event loop with 1 entries in left panel
+
+] [[1768729128087] Quick search: Some("f")1768729128087Key event: Char('c') (modifiers: KeyModifiers(CONTROL))[[1768729128087[[[1768729128087] [Key event: F(10) (modifiers: KeyModifiers(0x0))] 176872912808817687291280871768729128088Key event: Char('a') (modifiers: KeyModifiers(ALT))
+] ] ] 
+[Key event: Down (modifiers: KeyModifiers(0x0))=== FunnyFileManager Started ===1768729128089Key event: Esc (modifiers: KeyModifiers(0x0))[1768729128090] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[1768729128091] Quick search: Some("a")
+[1768729128091] Starting event loop with 2 entries in left panel
+[1768729128094] Key event: Char('p') (modifiers: KeyModifiers(ALT))
+[1768729128095] Key event: F(10) (modifiers: KeyModifiers(0x0))
+[1768729128096] Quick search: Some("ap")
+[1768729128101] Key event: Backspace (modifiers: KeyModifiers(0x0))
+[1768729128101] Key event: Down (modifiers: KeyModifiers(0x0))
+[1768729128105[] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+1768729128105] [1768729128108] Key event: Esc (modifiers: KeyModifiers(0x0))
+[1768729128078] Key event: Char('x') (modifiers: KeyModifiers(ALT))
+[1768729128112] Quick search: Some("x")
+[1768729128114] Key event: F(1) (modifiers: KeyModifiers(0x0))
+[1768729128117] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[1768729128123] Key event: Esc (modifiers: KeyModifiers(0x0))
+[
+
+1768729128087
+] ] ] 
+] Down key - time since last nav: 27ms, debounce: 0ms
+1768729128080Key event: Char('b') (modifiers: KeyModifiers(ALT))
+[1768729128130] Down key - time since last nav: 58ms, debounce: 0ms
+[[1768729128134] 1768729128134Navigation DOWN: Some(0) -> Some(0)] 
+Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[[1768729128137] Key event: Tab (modifiers: KeyModifiers(0x0))
+[1768729128139] Key event: Up (modifiers: KeyModifiers(0x0))
+[1768729128140] Up key - time since last nav: 12ms, debounce: 0ms
+Down key - time since last nav: 23ms, debounce: 0ms
+[1768729128142] Navigation UP: Some(0) -> Some(0)
+[1768729128144] Navigation DOWN: Some(0) -> Some(0)
+[[17687291281461768729128146] ] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[1768729128151] Key event: Up (modifiers: KeyModifiers(0x0))
+[1768729128155] Up key - time since last nav: 50ms, debounce: 0ms
+[1768729128157] Navigation UP: Some(0) -> Some(0)
+] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+Quick search: Some("a")Quick search: Some("t")[1768729128159] Navigation DOWN: Some(0) -> Some(1)
+[1768729128161] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[1768729128166] Key event: Up (modifiers: KeyModifiers(0x0))
+[1768729128170] Up key - time since last nav: 96ms, debounce: 0ms
+[1768729128135
+] [] 1768729128127[1768729128130Quick search: Some("f")] === FunnyFileManager Ended ===] 
+Key event: Down (modifiers: KeyModifiers(0x0))Quitting from overlay
+1768729128173
+
+[[1768729128176] Down key - time since last nav: 84ms, debounce: 0ms
+1768729128176] Quick search: Some("b")
+[1768729128178] Navigation DOWN: Some(1) -> Some(0)
+[1768729128180] Key event: Down (modifiers: KeyModifiers(0x0))
+[[1768729128182] Key event: Up (modifiers: KeyModifiers(0x0))
+1768729128183[] [1768729128185] Up key - time since last nav: 9ms, debounce: 0ms
+[1768729128187] Navigation UP: Some(0) -> Some(1)
+Key event: Down (modifiers: KeyModifiers(0x0))
+
+
+
+[1768729128191] [Key event: Enter (modifiers: KeyModifiers(0x0))
+1768729128191] [1768729128192] Key event: Char('x') (modifiers: KeyModifiers(ALT))
+[1768729128194] Quick search: Some("x")
+[1768729128196] Key event: Backspace (modifiers: KeyModifiers(0x0))
+[1768729128198] Key event: Tab (modifiers: KeyModifiers(0x0))
+[1768729128200] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[[1768729128207] Key event: Left (modifiers: KeyModifiers(0x0))
+[1768729128212] Key event: Right (modifiers: KeyModifiers(0x0))
+[1768729128219] Key event: F(3) (modifiers: KeyModifiers(0x0))] 1768729128183
+Navigation UP: Some(1) -> Some(0)Key event: Esc (modifiers: KeyModifiers(0x0))
+] 
+Down key - time since last nav: 130ms, debounce: 0ms[1768729128224] Key event: Tab (modifiers: KeyModifiers(0x0))
+[1768729128225] Key event: Char('g') (modifiers: KeyModifiers(ALT))
+[[1768729128228] 1768729128229Quick search: Some("g")] 
+Key event: Left (modifiers: KeyModifiers(0x0))
+[1768729128234] Key event: Right (modifiers: KeyModifiers(0x0))
+[1768729128236] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[1768729128241] Key event: F(1) (modifiers: KeyModifiers(0x0))
+
+[1768729128252] Navigation DOWN: Some(1) -> Some(0)
+[1768729128256] Key event: Up (modifiers: KeyModifiers(0x0))
+[[1768729128258] Up key - time since last nav: 75ms, debounce: 0ms
+[1768729128261] Navigation UP: Some(0) -> Some(1)
+[[Down key - time since last nav: 154ms, debounce: 0ms17687291282311768729128201] 
+1768729128265Key event: Esc (modifiers: KeyModifiers(0x0))
+] ] Key event: Char('q') (modifiers: KeyModifiers(0x0))[1768729128268] Navigation DOWN: Some(0) -> Some(1)
+[1768729128270] Key event: F(4) (modifiers: KeyModifiers(0x0))
+[1768729128272] Key event: F(5) (modifiers: KeyModifiers(0x0))
+[1768729128276] Key event: F(5) (modifiers: KeyModifiers(0x0))
+[1768729128290] Key event: F(6) (modifiers: KeyModifiers(0x0))
+[1768729128294] Key event: F(6) (modifiers: KeyModifiers(0x0))
+1768729128257
+Key event: Tab (modifiers: KeyModifiers(0x0))] Key event: Esc (modifiers: KeyModifiers(0x0))
+
+[1768729128301] Key event: F(7) (modifiers: KeyModifiers(0x0))
+[1768729128303] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[1768729128305] Key event: F(3) (modifiers: KeyModifiers(0x0))
+[1768729128307] Key event: F(8) (modifiers: KeyModifiers(0x0))
+[1768729128309] Key event: F(8) (modifiers: KeyModifiers(0x0))
+[1768729128312] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[1768729128313] Key event: Esc (modifiers: KeyModifiers(0x0))
+[1768729128314] Key event: Char('x') (modifiers: KeyModifiers(0x0))
+[1768729128320] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[1768729128320] Key event: F(7) (modifiers: KeyModifiers(0x0))
+[1768729128336] Key event: Esc (modifiers: KeyModifiers(0x0))
+[1768729128343] Key event: Down (modifiers: KeyModifiers(0x0))
+[1768729128346] Down key - time since last nav: 176ms, debounce: 0ms
+[1768729128349] Navigation DOWN: Some(0) -> Some(1)
+[1768729128357] Key event: Enter (modifiers: KeyModifiers(0x0))
+[1768729128365] Key event: Backspace (modifiers: KeyModifiers(0x0))
+[1768729128373] Key event: Char('x') (modifiers: KeyModifiers(0x0))
+[1768729128378] Key event: Char('q') (modifiers: KeyModifiers(0x0))

@@ -7,6 +7,7 @@ use crossterm::{
 use ratatui::backend::Backend;
 use ratatui::Terminal;
 use std::io::{self, Write};
+#[cfg(not(feature = "test-helpers"))]
 use std::process::Command;
 
 use crate::models::App;
@@ -30,6 +31,7 @@ pub fn handle_edit<B: Backend + Write>(
     })
 }
 
+#[allow(dead_code)]
 pub(crate) fn handle_edit_impl<B, F>(
     #[allow(unused_variables)] terminal: &mut Terminal<B>,
     app: &mut App,
@@ -407,6 +409,41 @@ mod tests {
         restore_editor_env(original);
         drop(lock);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_default_editor() -> io::Result<()> {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let file_path = temp_dir.path().join("file.txt");
+        fs::write(&file_path, b"content").expect("write file");
+
+        let mut app = build_app(&temp_dir);
+        assert!(select_entry(&mut app.left_panel, "file.txt"));
+        
+        // Remove EDITOR env var to test default
+        let lock = ENV_LOCK.lock().unwrap();
+        let original = std::env::var_os("EDITOR");
+        std::env::remove_var("EDITOR");
+
+        let backend = WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |editor, path| {
+            assert_eq!(editor, "nano"); // Should use nano as default
+            assert_eq!(path, file_path.as_path());
+            run_editor_success(editor, path)
+        });
+
+        assert!(result.is_ok());
+        assert!(app.status_message.contains("Edited"));
+        
+        // Restore original
+        if let Some(orig) = original {
+            std::env::set_var("EDITOR", orig);
+        }
+        drop(lock);
+        
         Ok(())
     }
 }

@@ -17,7 +17,7 @@ use std::io::Write as IoWrite;
 use crossterm::event::{Event, KeyCode, KeyModifiers};
 #[cfg(not(any(test, tarpaulin, coverage)))]
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture},
+    event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -158,7 +158,15 @@ fn main_impl() -> Result<(), Box<dyn Error>> {
 }
 
 pub fn run_app<B: Backend + Write>(terminal: &mut Terminal<B>, app: App) -> io::Result<()> {
-    run_app_with_event_reader(terminal, app, || event::read())
+    #[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]
+    {
+        return run_app_with_event_reader(terminal, app, || event::read());
+    }
+    
+    #[cfg(not(any(test, tarpaulin, coverage)))]
+    {
+        run_app_with_event_reader(terminal, app, || crossterm::event::read())
+    }
 }
 
 #[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]
