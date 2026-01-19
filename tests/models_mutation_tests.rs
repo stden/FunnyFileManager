@@ -389,3 +389,37 @@ fn test_panel_selected_path_mutations() -> io::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_panel_find_first_matching_full_coverage() -> io::Result<()> {
+    let temp_dir = TempDir::new()?;
+    
+    // Create test files
+    File::create(temp_dir.path().join("aaa.txt"))?;
+    File::create(temp_dir.path().join("bbb.txt"))?;
+    File::create(temp_dir.path().join("abc.txt"))?;
+    
+    let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
+    
+    // Test 1: No current selection - should find first match
+    panel.state.select(None);
+    assert!(panel.find_first_matching("b"));
+    assert_eq!(panel.get_selected_entry().unwrap().name, "bbb.txt");
+    
+    // Test 2: Current selection matches pattern - should wrap and find next
+    select_entry(&mut panel, "aaa.txt");
+    assert!(panel.find_first_matching("a"));
+    // Should skip current "aaa.txt" and find "abc.txt"
+    assert_eq!(panel.get_selected_entry().unwrap().name, "abc.txt");
+    
+    // Test 3: No match found
+    assert!(!panel.find_first_matching("xyz"));
+    
+    // Test 4: Pattern matches only current selection
+    select_entry(&mut panel, "bbb.txt");
+    assert!(panel.find_first_matching("bbb"));
+    // Should stay on bbb.txt since it's the only match
+    assert_eq!(panel.get_selected_entry().unwrap().name, "bbb.txt");
+    
+    Ok(())
+}

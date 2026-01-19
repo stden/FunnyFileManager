@@ -158,15 +158,7 @@ fn main_impl() -> Result<(), Box<dyn Error>> {
 }
 
 pub fn run_app<B: Backend + Write>(terminal: &mut Terminal<B>, app: App) -> io::Result<()> {
-    #[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]
-    {
-        return run_app_with_event_reader(terminal, app, || event::read());
-    }
-    
-    #[cfg(not(any(test, tarpaulin, coverage)))]
-    {
-        run_app_with_event_reader(terminal, app, || crossterm::event::read())
-    }
+    run_app_with_event_reader(terminal, app, || event::read())
 }
 
 #[cfg(any(test, tarpaulin, coverage, feature = "test-helpers"))]

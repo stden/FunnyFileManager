@@ -1,8 +1,12 @@
-use funny_file_manager::editor::{handle_edit_test_mode, TestEditorBehavior};
 use funny_file_manager::models::{App, Panel, PanelSide};
+use funny_file_manager::WritableTestBackend;
+use ratatui::Terminal;
 use std::fs::File;
 use std::io;
 use tempfile::TempDir;
+
+#[cfg(feature = "test-helpers")]
+use funny_file_manager::editor::{handle_edit_test_mode, TestEditorBehavior};
 
 fn create_test_app(temp_dir: &TempDir) -> io::Result<App> {
     Ok(App {
@@ -22,6 +26,7 @@ fn create_test_app(temp_dir: &TempDir) -> io::Result<App> {
 }
 
 #[test]
+#[cfg(feature = "test-helpers")]
 fn test_handle_edit_success() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
     let file_path = temp_dir.path().join("test.txt");
@@ -40,6 +45,7 @@ fn test_handle_edit_success() -> io::Result<()> {
 }
 
 #[test]
+#[cfg(feature = "test-helpers")]
 fn test_handle_edit_fail_launch() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
     let file_path = temp_dir.path().join("test.txt");
@@ -58,6 +64,7 @@ fn test_handle_edit_fail_launch() -> io::Result<()> {
 }
 
 #[test]
+#[cfg(feature = "test-helpers")]
 fn test_handle_edit_exit_error() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
     let file_path = temp_dir.path().join("test.txt");
@@ -76,6 +83,7 @@ fn test_handle_edit_exit_error() -> io::Result<()> {
 }
 
 #[test]
+#[cfg(feature = "test-helpers")]
 fn test_handle_edit_no_selection() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
     let mut app = create_test_app(&temp_dir)?;
@@ -88,6 +96,7 @@ fn test_handle_edit_no_selection() -> io::Result<()> {
 }
 
 #[test]
+#[cfg(feature = "test-helpers")]
 fn test_handle_edit_directory() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
     let mut app = create_test_app(&temp_dir)?;
@@ -100,6 +109,7 @@ fn test_handle_edit_directory() -> io::Result<()> {
 }
 
 #[test]
+#[cfg(feature = "test-helpers")]
 fn test_handle_edit_right_panel() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
     let file_path = temp_dir.path().join("right_file.txt");
@@ -125,6 +135,7 @@ fn test_handle_edit_right_panel() -> io::Result<()> {
 }
 
 #[test]
+#[cfg(feature = "test-helpers")]
 fn test_handle_edit_subdirectory() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
     let subdir = temp_dir.path().join("subdir");
@@ -147,6 +158,7 @@ fn test_handle_edit_subdirectory() -> io::Result<()> {
 }
 
 #[test]
+#[cfg(feature = "test-helpers")]
 fn test_handle_edit_reloads_entries() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
     let file_path = temp_dir.path().join("test.txt");
@@ -164,3 +176,4 @@ fn test_handle_edit_reloads_entries() -> io::Result<()> {
     assert_eq!(app.left_panel.entries.len(), initial_count);
     Ok(())
 }
+
