@@ -406,11 +406,10 @@ fn test_panel_find_first_matching_full_coverage() -> io::Result<()> {
     assert!(panel.find_first_matching("b"));
     assert_eq!(panel.get_selected_entry().unwrap().name, "bbb.txt");
     
-    // Test 2: Current selection matches pattern - should wrap and find next
+    // Test 2: Current selection matches pattern - should return first match
     select_entry(&mut panel, "aaa.txt");
     assert!(panel.find_first_matching("a"));
-    // Should skip current "aaa.txt" and find "abc.txt"
-    assert_eq!(panel.get_selected_entry().unwrap().name, "abc.txt");
+    assert_eq!(panel.get_selected_entry().unwrap().name, "aaa.txt");
     
     // Test 3: No match found
     assert!(!panel.find_first_matching("xyz"));

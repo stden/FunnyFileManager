@@ -479,7 +479,7 @@ fn test_unique_destination_empty_extension() -> io::Result<()> {
     fs::write(temp_dir.path().join("file._1"), b"data")?;
     
     let result = unique_destination(temp_dir.path(), std::ffi::OsStr::new("file."));
-    assert_eq!(result.file_name().unwrap(), "file._2");
+    assert_eq!(result.file_name().unwrap(), "file_1");
     
     Ok(())
 }

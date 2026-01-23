@@ -142,47 +142,14 @@ pub fn handle_edit_test_mode(app: &mut App, behavior: TestEditorBehavior) -> io:
 mod tests {
     use super::{handle_edit, handle_edit_impl};
     use crate::models::{App, Panel, PanelSide};
+    use crate::test_support::{editor_env_lock, EditorEnvGuard, restore_editor_env};
     use crate::WritableTestBackend;
     use ratatui::Terminal;
     use std::ffi::OsString;
     use std::fs;
     use std::io;
     use std::path::{Path, PathBuf};
-    use std::sync::Mutex;
     use tempfile::TempDir;
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-    struct EditorEnvGuard<'a> {
-        _lock: std::sync::MutexGuard<'a, ()>,
-        previous: Option<OsString>,
-    }
-
-    impl<'a> EditorEnvGuard<'a> {
-        fn set(path: &Path) -> Self {
-            let lock = ENV_LOCK.lock().unwrap();
-            Self::set_with_lock(lock, path)
-        }
-
-        fn set_with_lock(lock: std::sync::MutexGuard<'a, ()>, path: &Path) -> Self {
-            let previous = std::env::var_os("EDITOR");
-            std::env::set_var("EDITOR", path);
-            Self {
-                _lock: lock,
-                previous,
-            }
-        }
-    }
-
-    impl Drop for EditorEnvGuard<'_> {
-        fn drop(&mut self) {
-            if let Some(previous) = self.previous.take() {
-                std::env::set_var("EDITOR", previous);
-            } else {
-                std::env::remove_var("EDITOR");
-            }
-        }
-    }
 
     fn build_app(temp_dir: &TempDir) -> App {
         App {
@@ -214,12 +181,6 @@ mod tests {
         Ok(std::process::ExitStatus::default())
     }
 
-    fn restore_editor_env(value: Option<OsString>) {
-        match value {
-            Some(value) => std::env::set_var("EDITOR", value),
-            None => std::env::remove_var("EDITOR"),
-        }
-    }
 
     #[cfg(unix)]
     fn fake_editor_path(dir: &Path, exit_code: i32) -> PathBuf {
@@ -392,7 +353,7 @@ mod tests {
         let temp_dir = TempDir::new().expect("temp dir");
         let editor_path = fake_editor_path(temp_dir.path(), 0);
 
-        let lock = ENV_LOCK.lock().unwrap();
+        let lock = editor_env_lock();
         let original = std::env::var_os("EDITOR");
         std::env::set_var("EDITOR", "keep");
 
@@ -402,7 +363,7 @@ mod tests {
         assert!(current == expected);
         drop(guard);
 
-        let lock = ENV_LOCK.lock().unwrap();
+        let lock = editor_env_lock();
         assert_eq!(std::env::var("EDITOR").unwrap(), "keep");
         restore_editor_env(Some(OsString::from("ffm_temp")));
         restore_editor_env(None);
@@ -422,9 +383,7 @@ mod tests {
         assert!(select_entry(&mut app.left_panel, "file.txt"));
         
         // Remove EDITOR env var to test default
-        let lock = ENV_LOCK.lock().unwrap();
-        let original = std::env::var_os("EDITOR");
-        std::env::remove_var("EDITOR");
+        let _guard = EditorEnvGuard::clear();
 
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).expect("terminal");
@@ -437,12 +396,6 @@ mod tests {
 
         assert!(result.is_ok());
         assert!(app.status_message.contains("Edited"));
-        
-        // Restore original
-        if let Some(orig) = original {
-            std::env::set_var("EDITOR", orig);
-        }
-        drop(lock);
         
         Ok(())
     }

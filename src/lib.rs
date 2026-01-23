@@ -11,6 +11,9 @@ mod editor_unit_tests;
 #[cfg(test)]
 mod mutation_killer_tests;
 
+#[cfg(test)]
+mod test_support;
+
 use std::fs::OpenOptions;
 use std::io::Write as IoWrite;
 

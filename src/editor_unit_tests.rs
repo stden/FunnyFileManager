@@ -2,10 +2,12 @@
 mod editor_tests {
     use crate::editor::handle_edit_impl;
     use crate::models::{App, DirEntry, Panel, PanelSide};
+    use crate::test_support::{editor_env_lock, EditorEnvGuard};
     use ratatui::Terminal;
     use std::fs::File;
     use std::io;
     use std::io::Write;
+    use std::path::Path;
     use tempfile::TempDir;
 
     fn create_test_app(temp_dir: &TempDir) -> io::Result<App> {
@@ -82,6 +84,7 @@ mod editor_tests {
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
 
+        let _lock = editor_env_lock();
         let mut app = create_test_app(&temp_dir)?;
 
         // Find and select the file
@@ -177,8 +180,7 @@ mod editor_tests {
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
 
-        // Set custom editor
-        std::env::set_var("EDITOR", "vim");
+        let _guard = EditorEnvGuard::set(Path::new("vim"));
 
         let mut app = create_test_app(&temp_dir)?;
 
@@ -199,9 +201,6 @@ mod editor_tests {
         });
 
         assert!(result.is_ok());
-
-        // Clean up
-        std::env::remove_var("EDITOR");
         Ok(())
     }
 
@@ -334,11 +333,7 @@ mod editor_tests {
         let file_path = temp_dir.path().join("test.txt");
         File::create(&file_path)?;
 
-        // Store the original EDITOR value
-        let original_editor = std::env::var("EDITOR").ok();
-        
-        // Remove EDITOR env var to test the default
-        std::env::remove_var("EDITOR");
+        let _guard = EditorEnvGuard::clear();
 
         let mut app = create_test_app(&temp_dir)?;
 
@@ -360,12 +355,6 @@ mod editor_tests {
 
         assert!(result.is_ok());
         assert!(app.status_message.contains("Edited"));
-
-        // Restore original EDITOR value if it existed
-        if let Some(editor) = original_editor {
-            std::env::set_var("EDITOR", editor);
-        }
-        
         Ok(())
     }
 
