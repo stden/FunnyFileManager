@@ -32,6 +32,8 @@ mod event {
     }
 }
 #[cfg(all(not(test), not(tarpaulin), not(coverage)))]
+use crossterm::event;
+#[cfg(all(not(test), not(tarpaulin), not(coverage)))]
 use ratatui::backend::CrosstermBackend;
 use ratatui::{backend::Backend, Terminal};
 use std::{error::Error, io, io::Write};
