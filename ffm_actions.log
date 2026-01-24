@@ -6958,3 +6958,112 @@ Up key ignored due to debounce
 [1769173378498] Quick search: Some("g")
 [[1769173378510] Key event: Char('q') (modifiers: KeyModifiers(0x0))
 1769173378510] Key event: Char('q') (modifiers: KeyModifiers(0x0))
+[1769234537795] === FunnyFileManager Started ===
+[1769234537796] App initialized successfully
+[1769234537796] Starting event loop with 29 entries in left panel
+[1769234538656] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234538656] Down key - time since last nav: 859ms, debounce: 0ms
+[1769234538656] Navigation DOWN: Some(0) -> Some(1)
+[1769234538918] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234538918] Down key - time since last nav: 262ms, debounce: 0ms
+[1769234538918] Navigation DOWN: Some(1) -> Some(2)
+[1769234538939] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234538939] Down key - time since last nav: 20ms, debounce: 0ms
+[1769234538939] Navigation DOWN: Some(2) -> Some(3)
+[1769234538977] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234538977] Down key - time since last nav: 38ms, debounce: 0ms
+[1769234538977] Navigation DOWN: Some(3) -> Some(4)
+[1769234539018] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234539018] Down key - time since last nav: 40ms, debounce: 0ms
+[1769234539018] Navigation DOWN: Some(4) -> Some(5)
+[1769234539052] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234539052] Down key - time since last nav: 33ms, debounce: 0ms
+[1769234539052] Navigation DOWN: Some(5) -> Some(6)
+[1769234539084] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234539085] Down key - time since last nav: 32ms, debounce: 0ms
+[1769234539085] Navigation DOWN: Some(6) -> Some(7)
+[1769234539119] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234539119] Down key - time since last nav: 34ms, debounce: 0ms
+[1769234539119] Navigation DOWN: Some(7) -> Some(8)
+[1769234539153] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234539153] Down key - time since last nav: 33ms, debounce: 0ms
+[1769234539153] Navigation DOWN: Some(8) -> Some(9)
+[1769234540153] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234540153] Down key - time since last nav: 999ms, debounce: 0ms
+[1769234540153] Navigation DOWN: Some(9) -> Some(10)
+[1769234541459] Key event: F(4) (modifiers: KeyModifiers(0x0))
+[1769234545725] Key event: Tab (modifiers: KeyModifiers(0x0))
+[1769234546704] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234546705] Down key - time since last nav: 6551ms, debounce: 0ms
+[1769234546705] Navigation DOWN: Some(0) -> Some(1)
+[1769234546935] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234546935] Down key - time since last nav: 230ms, debounce: 0ms
+[1769234546935] Navigation DOWN: Some(1) -> Some(2)
+[1769234547151] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234547151] Down key - time since last nav: 215ms, debounce: 0ms
+[1769234547151] Navigation DOWN: Some(2) -> Some(3)
+[1769234547340] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234547340] Down key - time since last nav: 189ms, debounce: 0ms
+[1769234547340] Navigation DOWN: Some(3) -> Some(4)
+[1769234547783] Key event: Tab (modifiers: KeyModifiers(0x0))
+[1769234550026] Key event: F(10) (modifiers: KeyModifiers(0x0))
+[1769234550026] === FunnyFileManager Ended ===
+[1769234554059] === FunnyFileManager Started ===
+[1769234554062] App initialized successfully
+[1769234554062] Starting event loop with 29 entries in left panel
+[1769234555068] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234555069] Down key - time since last nav: 1006ms, debounce: 0ms
+[1769234555069] Navigation DOWN: Some(0) -> Some(1)
+[1769234555323] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234555324] Down key - time since last nav: 255ms, debounce: 0ms
+[1769234555324] Navigation DOWN: Some(1) -> Some(2)
+[1769234555516] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234555517] Down key - time since last nav: 192ms, debounce: 0ms
+[1769234555517] Navigation DOWN: Some(2) -> Some(3)
+[1769234555710] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234555711] Down key - time since last nav: 194ms, debounce: 0ms
+[1769234555711] Navigation DOWN: Some(3) -> Some(4)
+[1769234555961] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234555961] Down key - time since last nav: 250ms, debounce: 0ms
+[1769234555961] Navigation DOWN: Some(4) -> Some(5)
+[1769234555991] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234555991] Down key - time since last nav: 30ms, debounce: 0ms
+[1769234555991] Navigation DOWN: Some(5) -> Some(6)
+[1769234556053] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234556054] Down key - time since last nav: 62ms, debounce: 0ms
+[1769234556054] Navigation DOWN: Some(6) -> Some(7)
+[1769234556085] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234556085] Down key - time since last nav: 31ms, debounce: 0ms
+[1769234556085] Navigation DOWN: Some(7) -> Some(8)
+[1769234556119] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234556119] Down key - time since last nav: 33ms, debounce: 0ms
+[1769234556119] Navigation DOWN: Some(8) -> Some(9)
+[1769234556605] Key event: Tab (modifiers: KeyModifiers(0x0))
+[1769234557369] Key event: Tab (modifiers: KeyModifiers(0x0))
+[1769234557785] Key event: Tab (modifiers: KeyModifiers(0x0))
+[1769234558168] Key event: Tab (modifiers: KeyModifiers(0x0))
+[1769234558534] Key event: Tab (modifiers: KeyModifiers(0x0))
+[1769234558905] Key event: Tab (modifiers: KeyModifiers(0x0))
+[1769234559568] Key event: Tab (modifiers: KeyModifiers(0x0))
+[1769234560364] Key event: Tab (modifiers: KeyModifiers(0x0))
+[1769234579198] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234579198] Down key - time since last nav: 23078ms, debounce: 0ms
+[1769234579198] Navigation DOWN: Some(9) -> Some(10)
+[1769234579365] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234579365] Down key - time since last nav: 166ms, debounce: 0ms
+[1769234579365] Navigation DOWN: Some(10) -> Some(11)
+[1769234579513] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234579513] Down key - time since last nav: 148ms, debounce: 0ms
+[1769234579513] Navigation DOWN: Some(11) -> Some(12)
+[1769234579740] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234579741] Down key - time since last nav: 227ms, debounce: 0ms
+[1769234579741] Navigation DOWN: Some(12) -> Some(13)
+[1769234580013] Key event: Down (modifiers: KeyModifiers(0x0))
+[1769234580013] Down key - time since last nav: 272ms, debounce: 0ms
+[1769234580013] Navigation DOWN: Some(13) -> Some(14)
+[1769234580582] Key event: Insert (modifiers: KeyModifiers(0x0))
+[1769234580807] Key event: Insert (modifiers: KeyModifiers(0x0))
+[1769234580997] Key event: Insert (modifiers: KeyModifiers(0x0))
+[1769234581285] Key event: Insert (modifiers: KeyModifiers(0x0))
+[1769234639243] Key event: F(10) (modifiers: KeyModifiers(0x0))
+[1769234639243] === FunnyFileManager Ended ===

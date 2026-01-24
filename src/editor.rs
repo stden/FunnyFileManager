@@ -21,13 +21,12 @@ pub fn handle_edit<B: Backend + Write>(
     handle_edit_test_mode(app, TestEditorBehavior::Success)
 }
 
-#[cfg(not(feature = "test-helpers"))]
 pub fn handle_edit<B: Backend + Write>(
     terminal: &mut Terminal<B>,
     app: &mut App,
 ) -> io::Result<()> {
-    handle_edit_impl(terminal, app, |editor, path| {
-        Command::new(editor).arg(path).status()
+    handle_edit_impl(terminal, app, |editor, args, path| {
+        Command::new(editor).args(args).arg(path).status()
     })
 }
 
@@ -39,7 +38,7 @@ pub(crate) fn handle_edit_impl<B, F>(
 ) -> io::Result<()>
 where
     B: Backend + Write,
-    F: FnOnce(&str, &std::path::Path) -> io::Result<std::process::ExitStatus>,
+    F: FnOnce(&str, &[String], &std::path::Path) -> io::Result<std::process::ExitStatus>,
 {
     let Some(selected_entry) = app.get_active_panel().get_selected_entry() else {
         return Ok(());
@@ -63,8 +62,33 @@ where
         )?;
     }
 
-    let editor = std::env::var("EDITOR").unwrap_or_else(|_| "nano".to_string());
-    let status = run_editor(&editor, &selected);
+    // Determine editor: Prefer "code -w" if available, else EDITOR, else nano
+    let (editor, args) = {
+        #[cfg(not(feature = "test-helpers"))]
+        {
+            if std::process::Command::new("code")
+                .arg("--version")
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false)
+            {
+                ("code".to_string(), vec!["-w".to_string(), "-n".to_string()])
+            } else {
+                let env_editor = std::env::var("EDITOR").unwrap_or_else(|_| "nano".to_string());
+                let mut parts = env_editor.split_whitespace();
+                let cmd = parts.next().unwrap_or("nano").to_string();
+                let args: Vec<String> = parts.map(|s| s.to_string()).collect();
+                (cmd, args)
+            }
+        }
+        #[cfg(feature = "test-helpers")]
+        {
+             let env_editor = std::env::var("EDITOR").unwrap_or_else(|_| "nano".to_string());
+             (env_editor, vec![])
+        }
+    };
+
+    let status = run_editor(&editor, &args, &selected);
 
     #[cfg(all(not(feature = "test-helpers"), not(any(test, coverage))))]
     {
@@ -225,7 +249,7 @@ mod tests {
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).expect("terminal");
 
-        let result = handle_edit_impl(&mut terminal, &mut app, run_editor_success);
+        let result = handle_edit_impl(&mut terminal, &mut app, |_, _, _| run_editor_success("", Path::new("")));
 
         assert!(result.is_ok());
         assert!(app.status_message.is_empty());
@@ -244,7 +268,7 @@ mod tests {
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).expect("terminal");
 
-        let result = handle_edit_impl(&mut terminal, &mut app, run_editor_success);
+        let result = handle_edit_impl(&mut terminal, &mut app, |_, _, _| run_editor_success("", Path::new("")));
 
         assert!(result.is_ok());
         assert_eq!(app.status_message, "Editing directories is not supported");
@@ -266,7 +290,7 @@ mod tests {
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).expect("terminal");
 
-        let result = handle_edit_impl(&mut terminal, &mut app, |editor, path| {
+        let result = handle_edit_impl(&mut terminal, &mut app, |editor, _args, path| {
             assert_eq!(editor, expected_editor);
             assert_eq!(path, file_path.as_path());
             run_editor_success(editor, path)
@@ -289,7 +313,7 @@ mod tests {
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).expect("terminal");
 
-        let result = handle_edit_impl(&mut terminal, &mut app, |_, _| Ok(failure_exit_status()));
+        let result = handle_edit_impl(&mut terminal, &mut app, |_, _, _| Ok(failure_exit_status()));
 
         assert!(result.is_ok());
         assert!(app.status_message.contains("Editor exited with status"));
@@ -308,7 +332,7 @@ mod tests {
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).expect("terminal");
 
-        let result = handle_edit_impl(&mut terminal, &mut app, |_, _| {
+        let result = handle_edit_impl(&mut terminal, &mut app, |_, _, _| {
             Err(io::Error::new(io::ErrorKind::NotFound, "missing editor"))
         });
 
@@ -388,7 +412,7 @@ mod tests {
         let backend = WritableTestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).expect("terminal");
 
-        let result = handle_edit_impl(&mut terminal, &mut app, |editor, path| {
+        let result = handle_edit_impl(&mut terminal, &mut app, |editor, _, path| {
             assert_eq!(editor, "nano"); // Should use nano as default
             assert_eq!(path, file_path.as_path());
             run_editor_success(editor, path)

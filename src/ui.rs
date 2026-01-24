@@ -54,9 +54,11 @@ pub fn ui(f: &mut Frame, app: &mut App) {
 
 fn render_panel(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bool) {
     let border_style = if is_active {
-        Style::default().fg(Color::Cyan)
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::Cyan)
+        Style::default().fg(Color::Blue)
     };
 
     let title = format!(" {} ", panel.path.display());
