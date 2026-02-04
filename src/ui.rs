@@ -251,6 +251,59 @@ fn render_overlays(f: &mut Frame, app: &mut App) {
 
         f.render_widget(paragraph, area);
     }
+
+    // Drive selection overlay (Alt+F1/Alt+F2)
+    if let Some(target_panel) = app.show_drives {
+        let area = centered_rect(40, 50, f.size());
+        let drives = crate::models::App::get_drives();
+
+        let title = match target_panel {
+            crate::models::PanelSide::Left => " Select Drive (Left Panel) ",
+            crate::models::PanelSide::Right => " Select Drive (Right Panel) ",
+        };
+
+        let drive_lines: Vec<Line> = drives
+            .iter()
+            .map(|d| Line::from(Span::raw(format!("  {}  ", d.display()))))
+            .collect();
+
+        let block = Block::default()
+            .title(title)
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Yellow))
+            .style(Style::default().bg(FAR_BLUE));
+
+        let paragraph = Paragraph::new(drive_lines)
+            .block(block)
+            .style(Style::default().fg(Color::White));
+
+        f.render_widget(paragraph, area);
+    }
+
+    // New file input overlay (Shift+F4)
+    if let Some(input) = app.new_file_input.as_ref() {
+        let area = centered_rect(50, 20, f.size());
+
+        let block = Block::default()
+            .title(" Create New File (Shift+F4) ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Green))
+            .style(Style::default().bg(FAR_BLUE));
+
+        let content = vec![
+            Line::from(Span::raw("Enter filename:")),
+            Line::from(Span::styled(
+                format!("{}_", input),
+                Style::default().fg(Color::White).bg(Color::DarkGray),
+            )),
+        ];
+
+        let paragraph = Paragraph::new(content)
+            .block(block)
+            .style(Style::default().fg(Color::Cyan));
+
+        f.render_widget(paragraph, area);
+    }
 }
 
 pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {

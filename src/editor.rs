@@ -189,6 +189,8 @@ mod tests {
             should_quit: false,
             status_message: String::new(),
             quick_search: None,
+            show_drives: None,
+            new_file_input: None,
         }
     }
 

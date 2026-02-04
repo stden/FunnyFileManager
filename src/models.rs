@@ -345,6 +345,10 @@ pub struct App {
     pub should_quit: bool,
     pub status_message: String,
     pub quick_search: Option<String>,
+    /// Drive selection overlay: Some(PanelSide) = which panel to change
+    pub show_drives: Option<PanelSide>,
+    /// Input buffer for new file name (Shift+F4)
+    pub new_file_input: Option<String>,
 }
 
 impl App {
@@ -365,6 +369,8 @@ impl App {
                 "F1 Help  F3 View  F4 Edit  F5 Copy  F6 Move  F7 Mkdir  F8 Delete",
             ),
             quick_search: None,
+            show_drives: None,
+            new_file_input: None,
         })
     }
 
@@ -387,6 +393,35 @@ impl App {
             PanelSide::Left => PanelSide::Right,
             PanelSide::Right => PanelSide::Left,
         };
+    }
+
+    /// Swap the contents (paths) of left and right panels (Ctrl+U)
+    pub fn swap_panels(&mut self) -> io::Result<()> {
+        std::mem::swap(&mut self.left_panel.path, &mut self.right_panel.path);
+        std::mem::swap(&mut self.left_panel.entries, &mut self.right_panel.entries);
+        std::mem::swap(&mut self.left_panel.state, &mut self.right_panel.state);
+        std::mem::swap(&mut self.left_panel.marked, &mut self.right_panel.marked);
+        std::mem::swap(&mut self.left_panel.sort_mode, &mut self.right_panel.sort_mode);
+        Ok(())
+    }
+
+    /// Get available drives (Windows) or mount points (Unix)
+    #[cfg(windows)]
+    pub fn get_drives() -> Vec<PathBuf> {
+        let mut drives = Vec::new();
+        for letter in b'A'..=b'Z' {
+            let drive = format!("{}:\\", letter as char);
+            let path = PathBuf::from(&drive);
+            if path.exists() {
+                drives.push(path);
+            }
+        }
+        drives
+    }
+
+    #[cfg(not(windows))]
+    pub fn get_drives() -> Vec<PathBuf> {
+        vec![PathBuf::from("/")]
     }
 }
 

@@ -463,6 +463,8 @@ mod tests {
             bookmarks: vec![None; 10],
             should_quit: false,
             quick_search: None,
+            show_drives: None,
+            new_file_input: None,
         };
 
         // Add new files after app creation
@@ -516,6 +518,8 @@ mod tests {
             bookmarks: vec![None; 10],
             should_quit: false,
             quick_search: None,
+            show_drives: None,
+            new_file_input: None,
         };
 
         // Set selection to second file
@@ -550,6 +554,8 @@ mod tests {
             bookmarks: vec![None; 10],
             should_quit: false,
             quick_search: None,
+            show_drives: None,
+            new_file_input: None,
         };
 
         app.left_panel.state.select(None);
@@ -801,6 +807,8 @@ mod tests {
             show_bookmarks: false,
             bookmarks: vec![None; 10],
             quick_search: None,
+            show_drives: None,
+            new_file_input: None,
         };
 
         fs::remove_dir(&left_dir).expect("test setup");

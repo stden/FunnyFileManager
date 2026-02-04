@@ -353,6 +353,21 @@ where
                     }
                     log_action("Navigation END: moved to last item");
                 }
+                // Alt+F1: Drive selection for left panel (MUST come before F(1))
+                KeyCode::F(1) if key.modifiers.contains(KeyModifiers::ALT) => {
+                    app.show_drives = Some(PanelSide::Left);
+                    log_action("Alt+F1: Opening drive selection for left panel");
+                }
+                // Alt+F2: Drive selection for right panel
+                KeyCode::F(2) if key.modifiers.contains(KeyModifiers::ALT) => {
+                    app.show_drives = Some(PanelSide::Right);
+                    log_action("Alt+F2: Opening drive selection for right panel");
+                }
+                // Shift+F4: Create new file (MUST come before F(4))
+                KeyCode::F(4) if key.modifiers.contains(KeyModifiers::SHIFT) => {
+                    app.new_file_input = Some(String::new());
+                    log_action("Shift+F4: Opening new file dialog");
+                }
                 KeyCode::F(1) => {
                     app.show_help = !app.show_help;
                 }
@@ -375,6 +390,12 @@ where
                     app.get_active_panel().path = std::path::PathBuf::from(root);
                     app.get_active_panel().load_entries()?;
                     app.quick_search = None;
+                }
+                // Ctrl+U: Swap panel contents
+                KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    app.swap_panels()?;
+                    app.status_message = "Panels swapped".to_string();
+                    log_action("Ctrl+U: Swapped panel contents");
                 }
                 KeyCode::Char(c) if key.modifiers.contains(KeyModifiers::ALT) => {
                     // Alt+letter quick search like in Far Manager

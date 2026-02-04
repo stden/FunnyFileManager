@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::{fs, io, path::PathBuf};
 
-use crate::models::{App, SortMode, Viewer};
+use crate::models::{App, PanelSide, SortMode, Viewer};
 use crate::utils::{copy_dir_all, refresh_panels, unique_destination};
 
 #[cfg(any(test, tarpaulin))]
@@ -157,6 +157,89 @@ pub fn handle_overlay_keys(app: &mut App, key: KeyEvent) -> bool {
 
                 if let Err(err) = execute_command(app, &command) {
                     app.status_message = format!("Command failed: {}", err);
+                }
+            }
+            KeyCode::Backspace => {
+                input.pop();
+            }
+            KeyCode::Char(ch)
+                if !modifiers.contains(KeyModifiers::CONTROL)
+                    && !modifiers.contains(KeyModifiers::ALT) =>
+            {
+                input.push(ch);
+            }
+            _ => {}
+        }
+        return true;
+    }
+
+    // Drive selection overlay (Alt+F1/Alt+F2)
+    if let Some(target_panel) = app.show_drives {
+        match code {
+            KeyCode::Esc => {
+                app.show_drives = None;
+            }
+            KeyCode::Char(ch) if ch.is_ascii_alphabetic() => {
+                // Select drive by letter (Windows)
+                let drive_letter = ch.to_ascii_uppercase();
+                let drive_path = PathBuf::from(format!("{}:\\", drive_letter));
+                if drive_path.exists() {
+                    let panel = match target_panel {
+                        PanelSide::Left => &mut app.left_panel,
+                        PanelSide::Right => &mut app.right_panel,
+                    };
+                    panel.path = drive_path.clone();
+                    panel.clear_marks();
+                    match panel.load_entries() {
+                        Ok(()) => {
+                            panel.ensure_selection();
+                            app.status_message = format!("Changed to drive {}", drive_path.display());
+                        }
+                        Err(err) => {
+                            app.status_message = format!("Failed to open drive: {}", err);
+                        }
+                    }
+                    app.show_drives = None;
+                } else {
+                    app.status_message = format!("Drive {} does not exist", drive_letter);
+                }
+            }
+            KeyCode::Enter => {
+                // Select highlighted drive
+                app.show_drives = None;
+            }
+            _ => {}
+        }
+        return true;
+    }
+
+    // New file input overlay (Shift+F4)
+    if let Some(input) = app.new_file_input.as_mut() {
+        match code {
+            KeyCode::Esc => {
+                app.new_file_input = None;
+            }
+            KeyCode::Enter => {
+                let filename = input.trim().to_string();
+                app.new_file_input = None;
+                if filename.is_empty() {
+                    app.status_message = "Filename cannot be empty".to_string();
+                    return true;
+                }
+
+                let file_path = app.get_active_panel().path.join(&filename);
+                if file_path.exists() {
+                    app.status_message = format!("File already exists: {}", filename);
+                } else {
+                    match fs::File::create(&file_path) {
+                        Ok(_) => {
+                            app.status_message = format!("Created file: {}", filename);
+                            let _ = refresh_panels(app);
+                        }
+                        Err(err) => {
+                            app.status_message = format!("Failed to create file: {}", err);
+                        }
+                    }
                 }
             }
             KeyCode::Backspace => {
