@@ -341,6 +341,18 @@ where
                 KeyCode::Right => {
                     app.active_panel = PanelSide::Right;
                 }
+                KeyCode::Home => {
+                    let panel = app.get_active_panel();
+                    panel.state.select(Some(0));
+                    log_action("Navigation HOME: moved to first item");
+                }
+                KeyCode::End => {
+                    let panel = app.get_active_panel();
+                    if !panel.entries.is_empty() {
+                        panel.state.select(Some(panel.entries.len() - 1));
+                    }
+                    log_action("Navigation END: moved to last item");
+                }
                 KeyCode::F(1) => {
                     app.show_help = !app.show_help;
                 }
