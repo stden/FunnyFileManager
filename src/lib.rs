@@ -2,6 +2,7 @@ pub mod editor;
 pub mod handlers;
 pub mod models;
 pub mod mutation_test;
+pub mod s3;
 pub mod ui;
 pub mod utils;
 
@@ -46,7 +47,8 @@ use ratatui::backend::TestBackend;
 
 use crate::editor::handle_edit;
 use crate::handlers::{
-    handle_copy, handle_delete, handle_mkdir, handle_move, handle_overlay_keys, handle_view,
+    handle_copy, handle_delete, handle_delete_confirm, handle_mkdir, handle_move,
+    handle_overlay_keys, handle_view,
 };
 use crate::models::{App, PanelSide};
 use crate::ui::ui;
@@ -376,7 +378,7 @@ where
                 KeyCode::F(5) => handle_copy(&mut app)?,
                 KeyCode::F(6) => handle_move(&mut app)?,
                 KeyCode::F(7) => handle_mkdir(&mut app)?,
-                KeyCode::F(8) => handle_delete(&mut app)?,
+                KeyCode::F(8) => handle_delete_confirm(&mut app)?,
                 KeyCode::Insert => {
                     app.get_active_panel().toggle_mark_selected();
                     app.get_active_panel().next();
@@ -396,6 +398,11 @@ where
                     app.swap_panels()?;
                     app.status_message = "Panels swapped".to_string();
                     log_action("Ctrl+U: Swapped panel contents");
+                }
+                // Ctrl+O: Toggle console (hide/show panels)
+                KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    app.show_console = !app.show_console;
+                    log_action(&format!("Ctrl+O: Console mode = {}", app.show_console));
                 }
                 KeyCode::Char(c) if key.modifiers.contains(KeyModifiers::ALT) => {
                     // Alt+letter quick search like in Far Manager

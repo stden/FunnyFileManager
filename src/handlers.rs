@@ -175,12 +175,72 @@ pub fn handle_overlay_keys(app: &mut App, key: KeyEvent) -> bool {
 
     // Drive selection overlay (Alt+F1/Alt+F2)
     if let Some(target_panel) = app.show_drives {
+        let drives = crate::models::App::get_all_drives();
+        let drive_count = drives.len();
+
         match code {
             KeyCode::Esc => {
                 app.show_drives = None;
+                app.drive_selection_index = 0;
+            }
+            KeyCode::Up => {
+                if app.drive_selection_index > 0 {
+                    app.drive_selection_index -= 1;
+                } else if drive_count > 0 {
+                    app.drive_selection_index = drive_count - 1;
+                }
+            }
+            KeyCode::Down => {
+                if app.drive_selection_index < drive_count.saturating_sub(1) {
+                    app.drive_selection_index += 1;
+                } else {
+                    app.drive_selection_index = 0;
+                }
+            }
+            KeyCode::Home => {
+                app.drive_selection_index = 0;
+            }
+            KeyCode::End => {
+                if drive_count > 0 {
+                    app.drive_selection_index = drive_count - 1;
+                }
+            }
+            KeyCode::Enter => {
+                if app.drive_selection_index < drive_count {
+                    let selected = &drives[app.drive_selection_index];
+                    let panel = match target_panel {
+                        PanelSide::Left => &mut app.left_panel,
+                        PanelSide::Right => &mut app.right_panel,
+                    };
+
+                    match selected {
+                        crate::models::DriveEntry::Local(path) => {
+                            panel.path = path.clone();
+                            panel.clear_marks();
+                            match panel.load_entries() {
+                                Ok(()) => {
+                                    panel.ensure_selection();
+                                    app.status_message =
+                                        format!("Changed to {}", path.display());
+                                }
+                                Err(err) => {
+                                    app.status_message =
+                                        format!("Failed to open drive: {}", err);
+                                }
+                            }
+                        }
+                        crate::models::DriveEntry::S3Profile(profile) => {
+                            // For S3, we'll show buckets (future: integrate with S3 panel)
+                            app.status_message =
+                                format!("S3 profile '{}' selected (S3 browser coming soon)", profile);
+                        }
+                    }
+                    app.show_drives = None;
+                    app.drive_selection_index = 0;
+                }
             }
             KeyCode::Char(ch) if ch.is_ascii_alphabetic() => {
-                // Select drive by letter (Windows)
+                // Quick select by drive letter (Windows)
                 let drive_letter = ch.to_ascii_uppercase();
                 let drive_path = PathBuf::from(format!("{}:\\", drive_letter));
                 if drive_path.exists() {
@@ -193,20 +253,33 @@ pub fn handle_overlay_keys(app: &mut App, key: KeyEvent) -> bool {
                     match panel.load_entries() {
                         Ok(()) => {
                             panel.ensure_selection();
-                            app.status_message = format!("Changed to drive {}", drive_path.display());
+                            app.status_message =
+                                format!("Changed to drive {}", drive_path.display());
                         }
                         Err(err) => {
                             app.status_message = format!("Failed to open drive: {}", err);
                         }
                     }
                     app.show_drives = None;
-                } else {
-                    app.status_message = format!("Drive {} does not exist", drive_letter);
+                    app.drive_selection_index = 0;
                 }
             }
-            KeyCode::Enter => {
-                // Select highlighted drive
-                app.show_drives = None;
+            _ => {}
+        }
+        return true;
+    }
+
+    // Delete confirmation overlay (F8)
+    if app.delete_confirm.is_some() {
+        match code {
+            KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => {
+                // Confirmed - perform delete
+                let _ = handle_delete(app);
+            }
+            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+                // Cancelled
+                app.delete_confirm = None;
+                app.status_message = "Delete cancelled".to_string();
             }
             _ => {}
         }
@@ -533,18 +606,70 @@ pub fn handle_mkdir(app: &mut App) -> io::Result<()> {
     Ok(())
 }
 
-pub fn handle_delete(app: &mut App) -> io::Result<()> {
-    let Some(target) = app.get_active_panel().selected_path() else {
+/// Show delete confirmation dialog (F8)
+pub fn handle_delete_confirm(app: &mut App) -> io::Result<()> {
+    let panel = app.get_active_panel();
+
+    // Collect files to delete (marked files or selected file)
+    let files_to_delete: Vec<PathBuf> = if !panel.marked.is_empty() {
+        panel
+            .marked
+            .iter()
+            .map(|name| panel.path.join(name))
+            .collect()
+    } else if let Some(path) = panel.selected_path() {
+        if path.file_name().map(|n| n.to_str()) == Some(Some("..")) {
+            return Ok(()); // Don't delete parent directory marker
+        }
+        vec![path]
+    } else {
         return Ok(());
     };
 
-    if target.is_dir() {
-        fs::remove_dir_all(&target)?;
-    } else {
-        fs::remove_file(&target)?;
+    if files_to_delete.is_empty() {
+        return Ok(());
     }
 
-    app.status_message = format!("Deleted {}", target.display());
+    app.delete_confirm = Some(files_to_delete);
+    Ok(())
+}
+
+/// Actually perform the delete operation
+pub fn handle_delete(app: &mut App) -> io::Result<()> {
+    let Some(files) = app.delete_confirm.take() else {
+        return Ok(());
+    };
+
+    let mut deleted_count = 0;
+    let mut errors = Vec::new();
+
+    for target in &files {
+        let result = if target.is_dir() {
+            fs::remove_dir_all(target)
+        } else {
+            fs::remove_file(target)
+        };
+
+        match result {
+            Ok(()) => deleted_count += 1,
+            Err(e) => errors.push(format!("{}: {}", target.display(), e)),
+        }
+    }
+
+    // Clear marks after deletion
+    app.get_active_panel().clear_marks();
+
+    if errors.is_empty() {
+        app.status_message = format!("Deleted {} item(s)", deleted_count);
+    } else {
+        app.status_message = format!(
+            "Deleted {} item(s), {} error(s): {}",
+            deleted_count,
+            errors.len(),
+            errors.first().unwrap_or(&String::new())
+        );
+    }
+
     refresh_panels(app)?;
     Ok(())
 }

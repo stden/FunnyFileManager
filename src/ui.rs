@@ -16,6 +16,25 @@ pub const NAME_FIELD_WIDTH: usize = 30;
 const FAR_BLUE: Color = Color::Rgb(0, 0, 128);
 
 pub fn ui(f: &mut Frame, app: &mut App) {
+    // Ctrl-O console mode: show blank screen
+    if app.show_console {
+        let block = Block::default()
+            .style(Style::default().bg(Color::Black));
+        f.render_widget(block, f.size());
+
+        // Show hint at bottom
+        let hint = Paragraph::new("Press Ctrl+O to return to file manager")
+            .style(Style::default().fg(Color::DarkGray));
+        let hint_area = Rect {
+            x: 0,
+            y: f.size().height.saturating_sub(1),
+            width: f.size().width,
+            height: 1,
+        };
+        f.render_widget(hint, hint_area);
+        return;
+    }
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -254,8 +273,8 @@ fn render_overlays(f: &mut Frame, app: &mut App) {
 
     // Drive selection overlay (Alt+F1/Alt+F2)
     if let Some(target_panel) = app.show_drives {
-        let area = centered_rect(40, 50, f.size());
-        let drives = crate::models::App::get_drives();
+        let area = centered_rect(50, 60, f.size());
+        let drives = crate::models::App::get_all_drives();
 
         let title = match target_panel {
             crate::models::PanelSide::Left => " Select Drive (Left Panel) ",
@@ -264,7 +283,20 @@ fn render_overlays(f: &mut Frame, app: &mut App) {
 
         let drive_lines: Vec<Line> = drives
             .iter()
-            .map(|d| Line::from(Span::raw(format!("  {}  ", d.display()))))
+            .enumerate()
+            .map(|(i, d)| {
+                let prefix = if i == app.drive_selection_index {
+                    "► "
+                } else {
+                    "  "
+                };
+                let style = if i == app.drive_selection_index {
+                    Style::default().fg(Color::Black).bg(Color::Cyan)
+                } else {
+                    Style::default().fg(Color::White)
+                };
+                Line::from(Span::styled(format!("{}{}", prefix, d.display()), style))
+            })
             .collect();
 
         let block = Block::default()
@@ -274,6 +306,51 @@ fn render_overlays(f: &mut Frame, app: &mut App) {
             .style(Style::default().bg(FAR_BLUE));
 
         let paragraph = Paragraph::new(drive_lines)
+            .block(block)
+            .style(Style::default().fg(Color::White));
+
+        f.render_widget(paragraph, area);
+    }
+
+    // Delete confirmation overlay (F8)
+    if let Some(ref files) = app.delete_confirm {
+        let area = centered_rect(60, 40, f.size());
+
+        let file_count = files.len();
+        let preview: Vec<Line> = files
+            .iter()
+            .take(5)
+            .map(|p| {
+                let name = p.file_name().map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| p.display().to_string());
+                Line::from(Span::raw(format!("  {}", name)))
+            })
+            .collect();
+
+        let mut content = vec![
+            Line::from(Span::styled(
+                format!("Delete {} item(s)?", file_count),
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            )),
+            Line::from(""),
+        ];
+        content.extend(preview);
+        if file_count > 5 {
+            content.push(Line::from(Span::raw(format!("  ... and {} more", file_count - 5))));
+        }
+        content.push(Line::from(""));
+        content.push(Line::from(Span::styled(
+            "[Y]es  [N]o  [Esc] Cancel",
+            Style::default().fg(Color::Cyan),
+        )));
+
+        let block = Block::default()
+            .title(" Confirm Delete ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Red))
+            .style(Style::default().bg(FAR_BLUE));
+
+        let paragraph = Paragraph::new(content)
             .block(block)
             .style(Style::default().fg(Color::White));
 

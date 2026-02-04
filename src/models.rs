@@ -349,6 +349,12 @@ pub struct App {
     pub show_drives: Option<PanelSide>,
     /// Input buffer for new file name (Shift+F4)
     pub new_file_input: Option<String>,
+    /// Console toggle (Ctrl-O) - hide panels, show blank screen
+    pub show_console: bool,
+    /// Selected drive index in drive selection overlay
+    pub drive_selection_index: usize,
+    /// Delete confirmation: Some(paths) = files pending deletion
+    pub delete_confirm: Option<Vec<PathBuf>>,
 }
 
 impl App {
@@ -371,6 +377,9 @@ impl App {
             quick_search: None,
             show_drives: None,
             new_file_input: None,
+            show_console: false,
+            drive_selection_index: 0,
+            delete_confirm: None,
         })
     }
 
@@ -422,6 +431,40 @@ impl App {
     #[cfg(not(windows))]
     pub fn get_drives() -> Vec<PathBuf> {
         vec![PathBuf::from("/")]
+    }
+
+    /// Get all available "drives" including local drives and AWS S3 profiles
+    pub fn get_all_drives() -> Vec<DriveEntry> {
+        let mut entries = Vec::new();
+
+        // Add local drives
+        for drive in Self::get_drives() {
+            entries.push(DriveEntry::Local(drive));
+        }
+
+        // Add AWS S3 profiles
+        let profiles = crate::s3::list_aws_profiles();
+        for profile in profiles {
+            entries.push(DriveEntry::S3Profile(profile.name));
+        }
+
+        entries
+    }
+}
+
+/// Represents a drive entry (local or S3)
+#[derive(Clone, Debug)]
+pub enum DriveEntry {
+    Local(PathBuf),
+    S3Profile(String),
+}
+
+impl DriveEntry {
+    pub fn display(&self) -> String {
+        match self {
+            DriveEntry::Local(path) => path.display().to_string(),
+            DriveEntry::S3Profile(name) => format!("S3: {}", name),
+        }
     }
 }
 
