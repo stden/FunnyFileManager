@@ -8207,3 +8207,5 @@ Navigation DOWN: Some(0) -> Some(0)[
 [1770193176855] Key event: Char('o') (modifiers: KeyModifiers(CONTROL))
 [1770193177102] Key event: Char('o') (modifiers: KeyModifiers(CONTROL))
 [1770193177327] Key event: Char('o') (modifiers: KeyModifiers(CONTROL))
+[1770193941803] Key event: F(10) (modifiers: KeyModifiers(0x0))
+[1770193941805] === FunnyFileManager Ended ===
