@@ -17,7 +17,7 @@ mod test_support;
 use std::fs::OpenOptions;
 use std::io::Write as IoWrite;
 
-use crossterm::event::{Event, KeyCode, KeyModifiers};
+use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 #[cfg(not(any(test, tarpaulin, coverage)))]
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -268,6 +268,11 @@ where
 
         let event = read_event()?;
         if let Event::Key(key) = event {
+            // Only process Press events, ignore Release/Repeat to avoid double navigation on Windows
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
+
             log_action(&format!(
                 "Key event: {:?} (modifiers: {:?})",
                 key.code, key.modifiers

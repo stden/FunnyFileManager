@@ -1,324 +1,639 @@
-#set document(title: "FunnyFileManager Архитектура", author: "Архитектурная документация")
-#set page(paper: "a4", margin: (x: 2cm, y: 2.5cm))
+#set document(
+  title: "FunnyFileManager Architecture",
+  author: "FFM Development Team"
+)
+
+#set page(
+  paper: "a4",
+  margin: (x: 2cm, y: 2.5cm),
+  header: [
+    #set text(9pt)
+    #h(1fr) FunnyFileManager Architecture Documentation #h(1fr)
+  ],
+  footer: [
+    #set text(9pt)
+    #h(1fr) #context counter(page).display("1 / 1", both: true) #h(1fr)
+  ]
+)
+
 #set text(font: "New Computer Modern", size: 11pt)
 #set heading(numbering: "1.1")
 #set par(justify: true)
 
 #show link: underline
-#show raw: set text(font: "Fira Code", size: 9pt)
+#show raw: set text(size: 9pt)
 
-// Титульная страница
+// Title Page
 #align(center)[
   #v(3cm)
-  #text(size: 28pt, weight: "bold")[FunnyFileManager]
+  #text(size: 32pt, weight: "bold")[FunnyFileManager]
   #v(0.5cm)
-  #text(size: 18pt)[Архитектурная документация]
+  #text(size: 20pt)[Architecture Documentation]
   #v(1cm)
-  #text(size: 12pt, style: "italic")[Терминальный двухпанельный файловый менеджер]
+  #text(size: 14pt, style: "italic")[Terminal-based Dual-Panel File Manager]
   #v(0.5cm)
-  #text(size: 11pt)[Вдохновлён Far Manager]
+  #text(size: 12pt)[Inspired by Far Manager]
   #v(2cm)
   #line(length: 60%)
   #v(0.5cm)
-  #text(size: 10pt)[Написан на Rust с использованием TUI-фреймворка Ratatui]
+  #text(size: 11pt)[Written in Rust using Ratatui TUI Framework]
+  #v(0.3cm)
+  #text(size: 10pt)[Version 0.1.0]
   #v(4cm)
 ]
 
 #pagebreak()
 
-// Оглавление
-#outline(title: "Оглавление", indent: auto, depth: 3)
+// Table of Contents
+#outline(title: "Table of Contents", indent: auto, depth: 3)
 
 #pagebreak()
 
-= Введение
+= Introduction
 
-FunnyFileManager (FFM) — терминальный двухпанельный файловый менеджер, написанный на Rust. Он предоставляет пользовательский интерфейс в стиле Far Manager с клавиатурной навигацией и файловыми операциями.
+FunnyFileManager (FFM) is a terminal-based dual-panel file manager written in Rust. It provides a Far Manager-style user interface with keyboard-driven navigation and file operations.
 
-== Ключевые возможности
+== Key Features
 
-- *Двухпанельная компоновка* для эффективных файловых операций между каталогами
-- *Цветовая схема Far Manager* (тёмно-синий фон, бирюзовый текст)
-- *F-клавиши* для всех основных операций
-- *Быстрый поиск* с комбинациями Alt+буква
-- *Закладки* для часто посещаемых каталогов
-- *Встроенный просмотрщик файлов* для текстовых файлов
-- *Интеграция с внешним редактором* с приоритетом VS Code
+- *Dual-panel layout* for efficient file operations between directories
+- *Far Manager color scheme* (dark blue background, cyan text)
+- *F-key commands* for all major operations
+- *Quick search* with Alt+letter combinations
+- *Bookmarks* for frequently visited directories
+- *Built-in file viewer* for text files
+- *External editor integration* with VS Code priority
 
-== Технологический стек
+== Technology Stack
 
 #table(
   columns: (auto, 1fr),
-  inset: 8pt,
+  inset: 10pt,
   align: (left, left),
-  fill: (col, _) => if col == 0 { rgb("#e8e8e8") },
-  [*Компонент*], [*Технология*],
-  [Язык], [Rust 2021 Edition],
-  [TUI-фреймворк], [Ratatui],
-  [Терминальный бэкенд], [Crossterm],
-  [Тестирование], [Встроенное + Tarpaulin для покрытия],
+  stroke: 0.5pt,
+  fill: (col, _) => if col == 0 { rgb("#e8e8f8") },
+  [*Component*], [*Technology*],
+  [Language], [Rust 2021 Edition],
+  [TUI Framework], [Ratatui 0.26],
+  [Terminal Backend], [Crossterm 0.27],
+  [Testing], [Built-in + Tarpaulin for coverage],
 )
 
 #pagebreak()
 
-= Структура проекта
+= Project Structure
 
-== Организация файлов
-
-```
-FunnyFileManager/
-├── src/
-│   ├── main.rs          # Точка входа (тонкая обёртка)
-│   ├── lib.rs           # Публичный API, цикл событий
-│   ├── models.rs        # Основные структуры данных
-│   ├── ui.rs            # Отрисовка TUI
-│   ├── handlers.rs      # Обработчики событий
-│   ├── utils.rs         # Вспомогательные функции
-│   └── editor.rs        # Интеграция с редактором
-├── tests/
-│   └── integration_test.rs
-├── Cargo.toml
-└── CLAUDE.md
-```
-
-== Диаграмма зависимостей модулей
+== File Organization
 
 #align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt)[
-    #align(center)[
-      #text(weight: "bold", size: 12pt)[Зависимости модулей]
-      #v(0.5cm)
+  #box(stroke: 1pt + rgb("#4a90d9"), inset: 15pt, radius: 5pt, fill: rgb("#f8f8ff"))[
+    ```
+    FunnyFileManager/
+    ├── src/
+    │   ├── main.rs          # Entry point (thin wrapper)
+    │   ├── lib.rs           # Public API, event loop
+    │   ├── models.rs        # Core data structures
+    │   ├── ui.rs            # TUI rendering
+    │   ├── handlers.rs      # Event handlers
+    │   ├── utils.rs         # Helper functions
+    │   └── editor.rs        # Editor integration
+    ├── tests/
+    │   ├── editor_test.rs
+    │   ├── handlers_test.rs
+    │   └── navigation_features_test.rs
+    ├── Cargo.toml
+    └── CLAUDE.md
+    ```
+  ]
+]
 
-      ```
-                    ┌─────────────┐
-                    │   main.rs   │
-                    │   (вход)    │
-                    └──────┬──────┘
-                           │
-                           ▼
-                    ┌─────────────┐
-                    │   lib.rs    │
-                    │(цикл событий)│
-                    └──────┬──────┘
-                           │
-           ┌───────────────┼───────────────┐
-           │               │               │
-           ▼               ▼               ▼
-      ┌─────────┐    ┌──────────┐    ┌──────────┐
-      │  ui.rs  │    │handlers.rs│   │ editor.rs│
-      │(отрисов)│    │ (логика) │    │(внешний) │
-      └────┬────┘    └────┬─────┘    └──────────┘
-           │              │
-           │         ┌────┴────┐
-           │         │         │
-           ▼         ▼         ▼
-      ┌─────────────────┐  ┌─────────┐
-      │    models.rs    │  │ utils.rs│
-      │(структуры данн.)│  │(файлов. │
-      └─────────────────┘  │ операц.)│
-                           └─────────┘
-      ```
+#v(1cm)
+
+== Module Dependency Diagram
+
+#align(center)[
+  #box(stroke: 2pt + rgb("#333"), inset: 20pt, radius: 8pt)[
+    #grid(
+      columns: (1fr),
+      gutter: 8pt,
+
+      // Entry point
+      align(center)[
+        #box(fill: rgb("#90EE90"), stroke: 1pt, inset: 10pt, radius: 20pt)[
+          #text(weight: "bold")[main.rs]
+        ]
+      ],
+
+      align(center)[#text(16pt)[#sym.arrow.b]],
+
+      // lib.rs
+      align(center)[
+        #box(fill: rgb("#87CEEB"), stroke: 1pt, inset: 10pt, radius: 5pt)[
+          #text(weight: "bold")[lib.rs]
+          #v(0.3em)
+          #text(size: 9pt)[Event Loop & App Initialization]
+        ]
+      ],
+
+      align(center)[
+        #grid(
+          columns: (1fr, 1fr, 1fr),
+          gutter: 5pt,
+          [#sym.arrow.bl], [#sym.arrow.b], [#sym.arrow.br],
+        )
+      ],
+
+      // Middle layer
+      grid(
+        columns: (1fr, 1fr, 1fr),
+        gutter: 10pt,
+        align(center)[
+          #box(fill: rgb("#DDA0DD"), stroke: 1pt, inset: 8pt, radius: 5pt)[
+            #text(weight: "bold", size: 10pt)[ui.rs]
+            #v(0.2em)
+            #text(size: 8pt)[Rendering]
+          ]
+        ],
+        align(center)[
+          #box(fill: rgb("#FFB347"), stroke: 1pt, inset: 8pt, radius: 5pt)[
+            #text(weight: "bold", size: 10pt)[handlers.rs]
+            #v(0.2em)
+            #text(size: 8pt)[Logic]
+          ]
+        ],
+        align(center)[
+          #box(fill: rgb("#98FB98"), stroke: 1pt, inset: 8pt, radius: 5pt)[
+            #text(weight: "bold", size: 10pt)[editor.rs]
+            #v(0.2em)
+            #text(size: 8pt)[External]
+          ]
+        ],
+      ),
+
+      align(center)[
+        #grid(
+          columns: (1fr, 1fr),
+          gutter: 30pt,
+          [#sym.arrow.bl #h(1em) #sym.arrow.br], [#sym.arrow.b],
+        )
+      ],
+
+      // Bottom layer
+      grid(
+        columns: (1fr, 1fr),
+        gutter: 20pt,
+        align(center)[
+          #box(fill: rgb("#FFD700"), stroke: 1pt, inset: 8pt, radius: 5pt)[
+            #text(weight: "bold", size: 10pt)[models.rs]
+            #v(0.2em)
+            #text(size: 8pt)[Data Structures]
+          ]
+        ],
+        align(center)[
+          #box(fill: rgb("#F0E68C"), stroke: 1pt, inset: 8pt, radius: 5pt)[
+            #text(weight: "bold", size: 10pt)[utils.rs]
+            #v(0.2em)
+            #text(size: 8pt)[File Operations]
+          ]
+        ],
+      ),
+    )
+  ]
+]
+
+#pagebreak()
+
+= Core Data Structures
+
+== Class Diagram
+
+#align(center)[
+  #box(stroke: 2pt + rgb("#000080"), inset: 15pt, radius: 5pt)[
+    #grid(
+      columns: (1fr, 1fr),
+      gutter: 20pt,
+
+      // App class
+      [
+        #box(fill: rgb("#e6f3ff"), stroke: 1pt, inset: 10pt, radius: 3pt, width: 100%)[
+          #align(center)[#text(weight: "bold", size: 12pt)[App]]
+          #line(length: 100%, stroke: 0.5pt)
+          #text(size: 9pt)[
+            + left_panel: Panel \
+            + right_panel: Panel \
+            + active_panel: PanelSide \
+            + show_help: bool \
+            + viewer: Option\<Viewer\> \
+            + search: Option\<String\> \
+            + command_line: Option\<String\> \
+            + show_bookmarks: bool \
+            + bookmarks: Vec\<Option\<PathBuf\>\> \
+            + should_quit: bool \
+            + status_message: String \
+            + quick_search: Option\<String\>
+          ]
+          #line(length: 100%, stroke: 0.5pt)
+          #text(size: 9pt)[
+            + new() -> Result\<Self\> \
+            + get_active_panel() -> &mut Panel \
+            + get_inactive_panel() -> &mut Panel \
+            + switch_panel()
+          ]
+        ]
+      ],
+
+      // Panel class
+      [
+        #box(fill: rgb("#fff3e6"), stroke: 1pt, inset: 10pt, radius: 3pt, width: 100%)[
+          #align(center)[#text(weight: "bold", size: 12pt)[Panel]]
+          #line(length: 100%, stroke: 0.5pt)
+          #text(size: 9pt)[
+            + path: PathBuf \
+            + entries: Vec\<DirEntry\> \
+            + state: ListState \
+            + marked: BTreeSet\<String\> \
+            + sort_mode: SortMode
+          ]
+          #line(length: 100%, stroke: 0.5pt)
+          #text(size: 9pt)[
+            + new(path) -> Result \
+            + load_entries() -> Result \
+            + next() / previous() \
+            + enter() -> Result \
+            + toggle_mark_selected() \
+            + find_first_matching(prefix) \
+            + find_next_matching(prefix) \
+            + selected_path() -> Option
+          ]
+        ]
+      ],
+    )
+
+    #v(1em)
+
+    #grid(
+      columns: (1fr, 1fr, 1fr),
+      gutter: 15pt,
+
+      // DirEntry
+      box(fill: rgb("#e6ffe6"), stroke: 1pt, inset: 8pt, radius: 3pt)[
+        #align(center)[#text(weight: "bold", size: 11pt)[DirEntry]]
+        #line(length: 100%, stroke: 0.5pt)
+        #text(size: 9pt)[
+          + name: String \
+          + is_dir: bool \
+          + size: u64
+        ]
+      ],
+
+      // SortMode
+      box(fill: rgb("#ffe6f3"), stroke: 1pt, inset: 8pt, radius: 3pt)[
+        #align(center)[#text(weight: "bold", size: 11pt)[SortMode]]
+        #line(length: 100%, stroke: 0.5pt)
+        #text(size: 9pt)[
+          Name \
+          Extension \
+          Size
+        ]
+      ],
+
+      // Viewer
+      box(fill: rgb("#f3e6ff"), stroke: 1pt, inset: 8pt, radius: 3pt)[
+        #align(center)[#text(weight: "bold", size: 11pt)[Viewer]]
+        #line(length: 100%, stroke: 0.5pt)
+        #text(size: 9pt)[
+          + title: String \
+          + lines: Vec\<String\> \
+          + scroll: u16
+        ]
+      ],
+    )
+  ]
+]
+
+#pagebreak()
+
+== Entity Relationships
+
+#align(center)[
+  #box(stroke: 1pt + rgb("#666"), inset: 20pt, radius: 8pt)[
+    ```
+    ┌─────────────────────────────────────────────────────────────────┐
+    │                              App                                 │
+    │  ┌───────────────┐                    ┌───────────────┐         │
+    │  │  left_panel   │◄─────────┐   ┌────►│  right_panel  │         │
+    │  │    :Panel     │          │   │     │    :Panel     │         │
+    │  └───────┬───────┘          │   │     └───────┬───────┘         │
+    │          │                  │   │             │                  │
+    │          │ 1                │   │             │ 1                │
+    │          │                  │   │             │                  │
+    │          ▼                  │   │             ▼                  │
+    │  ┌───────────────┐          │   │     ┌───────────────┐         │
+    │  │   entries     │          │   │     │   entries     │         │
+    │  │ Vec<DirEntry> │          │   │     │ Vec<DirEntry> │         │
+    │  │     0..*      │     ┌────┴───┴───┐ │     0..*      │         │
+    │  └───────────────┘     │active_panel│ └───────────────┘         │
+    │                        │ :PanelSide │                            │
+    │                        └────────────┘                            │
+    │                                                                  │
+    │  ┌─────────────────────────────────────────────────────────┐    │
+    │  │              Overlays (mutually exclusive)               │    │
+    │  │  ┌─────────┐ ┌─────────┐ ┌────────┐ ┌──────────────┐    │    │
+    │  │  │show_help│ │ viewer  │ │ search │ │command_line  │    │    │
+    │  │  │  :bool  │ │:Option  │ │:Option │ │   :Option    │    │    │
+    │  │  └─────────┘ └─────────┘ └────────┘ └──────────────┘    │    │
+    │  └─────────────────────────────────────────────────────────┘    │
+    │                                                                  │
+    │  bookmarks: [Option<PathBuf>; 10]                               │
+    └─────────────────────────────────────────────────────────────────┘
+    ```
+  ]
+]
+
+#pagebreak()
+
+== Panel State Machine
+
+#align(center)[
+  #box(stroke: 1pt + rgb("#333"), inset: 15pt, radius: 5pt)[
+    ```
+    ┌──────────────────────────────────────────────────────────────┐
+    │                        Panel State                            │
+    ├──────────────────────────────────────────────────────────────┤
+    │                                                               │
+    │   path: /home/user/documents                                  │
+    │   ┌─────────────────────────────────────────────────────┐    │
+    │   │ entries: Vec<DirEntry>                              │    │
+    │   │  ┌────────────────────────────────────────────────┐ │    │
+    │   │  │ [0] ".."        is_dir: true   size: 0         │ │    │
+    │   │  │ [1] "folder1"   is_dir: true   size: 0         │ │    │
+    │   │  │ [2] "file.txt"  is_dir: false  size: 1024      │◄┼────┼── selected
+    │   │  │ [3] "image.png" is_dir: false  size: 2048      │ │    │
+    │   │  └────────────────────────────────────────────────┘ │    │
+    │   └─────────────────────────────────────────────────────┘    │
+    │   state.selected() = Some(2)                                  │
+    │   marked: {"folder1", "image.png"}                            │
+    │   sort_mode: Name                                             │
+    └──────────────────────────────────────────────────────────────┘
+
+    Navigation State Transitions:
+    ┌────────┐  Down   ┌────────┐  Down   ┌────────┐
+    │ idx=0  │ ──────► │ idx=1  │ ──────► │ idx=2  │
+    └────────┘         └────────┘         └────────┘
+        ▲                                      │
+        │              Up (wrap)               │
+        └──────────────────────────────────────┘
+    ```
+  ]
+]
+
+#pagebreak()
+
+= User Interface Architecture
+
+== Screen Layout Diagram
+
+#align(center)[
+  #box(stroke: 3pt + rgb("#000080"), inset: 0pt, radius: 3pt, width: 95%)[
+    // Header
+    #box(fill: rgb("#000080"), width: 100%, inset: 6pt)[
+      #text(fill: rgb("#00ffff"), size: 10pt, weight: "bold")[
+        Far Manager style | Tab: Switch panels | F1 for help
+      ]
+    ]
+
+    // Panels area
+    #grid(
+      columns: (1fr, 1fr),
+      stroke: 1pt + rgb("#0000aa"),
+
+      // Left Panel
+      box(fill: rgb("#000080"), height: 180pt, width: 100%, inset: 8pt)[
+        #box(fill: rgb("#00ffff"), width: 100%, inset: 4pt)[
+          #text(fill: rgb("#000000"), size: 9pt, weight: "bold")[ /home/user ]
+        ]
+        #v(0.5em)
+        #set text(size: 9pt)
+        #text(fill: rgb("#ffffff"), weight: "bold")[#sym.arrow.r.double .. #h(3em) \<DIR\>] \
+        #text(fill: rgb("#ffffff"), weight: "bold")[#h(0.3em) documents/ #h(1.5em) \<DIR\>] \
+        #text(fill: rgb("#ffffff"), weight: "bold")[#h(0.3em) downloads/ #h(1.7em) \<DIR\>] \
+        #box(fill: rgb("#00ffff"), inset: 2pt)[#text(fill: rgb("#000000"))[#h(0.3em) file.txt #h(2.2em) 1.5 KB]] \
+        #text(fill: rgb("#00ffff"))[#h(0.3em) image.png #h(1.5em) 45 KB] \
+        #text(fill: rgb("#00ffff"))[#h(0.3em) readme.md #h(1.2em) 2.1 KB]
+      ],
+
+      // Right Panel
+      box(fill: rgb("#000080"), height: 180pt, width: 100%, inset: 8pt)[
+        #box(fill: rgb("#0000aa"), width: 100%, inset: 4pt)[
+          #text(fill: rgb("#8888ff"), size: 9pt)[ /tmp ]
+        ]
+        #v(0.5em)
+        #set text(fill: rgb("#6688aa"), size: 9pt)
+        #sym.arrow.r.double .. #h(3em) \<DIR\> \
+        #h(0.3em) cache/ #h(2.5em) \<DIR\> \
+        #h(0.3em) temp.dat #h(1.5em) 256 B
+      ],
+    )
+
+    // Status bar
+    #box(fill: rgb("#000080"), width: 100%, inset: 6pt)[
+      #text(fill: rgb("#00ffff"), size: 9pt)[
+        #sym.arrow.t#sym.arrow.b Navigate | Enter: Open | file.txt | 1.5 KB
+      ]
+    ]
+
+    // Command bar
+    #box(fill: rgb("#00ffff"), width: 100%, inset: 4pt)[
+      #set text(size: 8pt)
+      #box(fill: rgb("#000000"), inset: 2pt)[#text(fill: rgb("#00ffff"))[1]]#text(fill: rgb("#000000"))[Help ]
+      #box(fill: rgb("#000000"), inset: 2pt)[#text(fill: rgb("#00ffff"))[2]]#text(fill: rgb("#000000"))[UserMn ]
+      #box(fill: rgb("#000000"), inset: 2pt)[#text(fill: rgb("#00ffff"))[3]]#text(fill: rgb("#000000"))[View ]
+      #box(fill: rgb("#000000"), inset: 2pt)[#text(fill: rgb("#00ffff"))[4]]#text(fill: rgb("#000000"))[Edit ]
+      #box(fill: rgb("#000000"), inset: 2pt)[#text(fill: rgb("#00ffff"))[5]]#text(fill: rgb("#000000"))[Copy ]
+      #box(fill: rgb("#000000"), inset: 2pt)[#text(fill: rgb("#00ffff"))[6]]#text(fill: rgb("#000000"))[RenMov ]
+      #box(fill: rgb("#000000"), inset: 2pt)[#text(fill: rgb("#00ffff"))[7]]#text(fill: rgb("#000000"))[MkFold ]
+      #box(fill: rgb("#000000"), inset: 2pt)[#text(fill: rgb("#00ffff"))[8]]#text(fill: rgb("#000000"))[Delete ]
+      #box(fill: rgb("#000000"), inset: 2pt)[#text(fill: rgb("#00ffff"))[10]]#text(fill: rgb("#000000"))[Quit]
     ]
   ]
 ]
 
-#pagebreak()
+#v(0.5cm)
 
-= Основные структуры данных
-
-== DirEntry
-
-Представляет одну запись файловой системы (файл или каталог).
-
-#box(stroke: 1pt + rgb("#4a90d9"), inset: 10pt, radius: 3pt, width: 100%)[
-  ```rust
-  pub struct DirEntry {
-      pub name: String,    // Имя файла или ".."
-      pub is_dir: bool,    // Флаг каталога
-      pub size: u64,       // Размер файла в байтах
-  }
-  ```
-]
-
-== SortMode
-
-Перечисление для сортировки содержимого каталога.
-
-#box(stroke: 1pt + rgb("#4a90d9"), inset: 10pt, radius: 3pt, width: 100%)[
-  ```rust
-  pub enum SortMode {
-      Name,       // По алфавиту (без учёта регистра)
-      Extension,  // По расширению, затем по имени
-      Size,       // По размеру (по убыванию)
-  }
-  ```
-]
+== Layout Constraints
 
 #table(
-  columns: (auto, 1fr, auto),
+  columns: (auto, auto, 1fr),
   inset: 8pt,
-  align: (center, left, center),
+  stroke: 0.5pt,
   fill: (_, row) => if row == 0 { rgb("#4a90d9") },
-  text(fill: white)[*Режим*], text(fill: white)[*Описание*], text(fill: white)[*Метка*],
-  [Name], [Алфавитная сортировка без учёта регистра], ["Name"],
-  [Extension], [Группировка по расширению, затем по алфавиту], ["Ext"],
-  [Size], [Сначала большие файлы], ["Size"],
+  text(fill: white)[*Component*], text(fill: white)[*Height*], text(fill: white)[*Description*],
+  [Header], [1 line], [Application title and keyboard hints],
+  [Panels], [Remaining], [50/50 horizontal split],
+  [Status Bar], [2 lines], [File info and quick search display],
+  [Command Bar], [2 lines], [F-key function labels],
 )
-
-== PanelSide
-
-Простое перечисление, определяющее активную панель.
-
-#box(stroke: 1pt + rgb("#4a90d9"), inset: 10pt, radius: 3pt, width: 100%)[
-  ```rust
-  pub enum PanelSide {
-      Left,   // Левая
-      Right,  // Правая
-  }
-  ```
-]
 
 #pagebreak()
 
-== Panel
-
-Структура Panel представляет одну половину двухпанельного интерфейса.
-
-#box(stroke: 1pt + rgb("#4a90d9"), inset: 10pt, radius: 3pt, width: 100%)[
-  ```rust
-  pub struct Panel {
-      pub path: PathBuf,           // Текущий каталог
-      pub entries: Vec<DirEntry>,  // Содержимое каталога
-      pub state: ListState,        // Состояние выделения (ratatui)
-      pub marked: BTreeSet<String>,// Отмеченные файлы
-      pub sort_mode: SortMode,     // Текущая сортировка
-  }
-  ```
-]
-
-=== Методы Panel
+== Color Scheme
 
 #table(
-  columns: (auto, 1fr),
+  columns: (auto, auto, 1fr),
   inset: 8pt,
-  align: (left, left),
-  fill: (_, row) => if row == 0 { rgb("#e8e8e8") },
-  [*Метод*], [*Назначение*],
-  [`new(path)`], [Инициализация панели для указанного пути],
-  [`load_entries()`], [Обновление содержимого каталога],
-  [`next()` / `previous()`], [Навигация с переходом по кругу],
-  [`enter()`], [Вход в каталог или возврат],
-  [`toggle_mark_selected()`], [Отметить/снять отметку для групповых операций],
-  [`find_first_matching(prefix)`], [Быстрый поиск с начала],
-  [`find_next_matching(prefix)`], [Быстрый поиск с циклическим переходом],
-  [`selected_path()`], [Получить полный путь выделенного элемента],
+  stroke: 0.5pt,
+  fill: (_, row) => if row == 0 { rgb("#000080") },
+  text(fill: white)[*Element*], text(fill: white)[*Color*], text(fill: white)[*RGB Value*],
+  [Background], [Far Blue], [RGB(0, 0, 128)],
+  [Active Border], [Cyan Bold], [RGB(0, 255, 255)],
+  [Inactive Border], [Dark Blue], [RGB(0, 0, 139)],
+  [Directories], [White Bold], [RGB(255, 255, 255)],
+  [Files], [Cyan], [RGB(0, 255, 255)],
+  [File Sizes], [Light Cyan], [RGB(224, 255, 255)],
+  [Selection], [Black on Cyan], [BG: Cyan, FG: Black],
+  [Marked Files], [Yellow], [RGB(255, 255, 0)],
 )
 
-== Диаграмма состояния панели
+#pagebreak()
+
+= Event Loop and Key Handling
+
+== Main Event Loop Flowchart
 
 #align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt)[
-    ```
-    ┌─────────────────────────────────────────────────────┐
-    │                     Panel                            │
-    ├─────────────────────────────────────────────────────┤
-    │  path: /home/user/documents                         │
-    │  ┌─────────────────────────────────────────────────┐│
-    │  │ entries: Vec<DirEntry>                          ││
-    │  │  ┌──────────────────────────────────────────┐   ││
-    │  │  │ [0] ".."        is_dir: true   size: 0   │   ││
-    │  │  │ [1] "folder1"   is_dir: true   size: 0   │   ││
-    │  │  │ [2] "file.txt"  is_dir: false  size: 1024│ ◄─┼┼── выделено
-    │  │  │ [3] "image.png" is_dir: false  size: 2048│   ││
-    │  │  └──────────────────────────────────────────┘   ││
-    │  └─────────────────────────────────────────────────┘│
-    │  state.selected() = Some(2)                         │
-    │  marked: {"folder1", "image.png"}                   │
-    │  sort_mode: Name                                    │
-    └─────────────────────────────────────────────────────┘
-    ```
+  #box(stroke: 2pt + rgb("#333"), inset: 20pt, radius: 8pt)[
+    #grid(
+      columns: (1fr),
+      gutter: 6pt,
+
+      // Start
+      align(center)[
+        #box(fill: rgb("#90EE90"), stroke: 1pt, inset: 8pt, radius: 20pt)[
+          *Start Application*
+        ]
+      ],
+
+      align(center)[#sym.arrow.b],
+
+      // Initialize
+      align(center)[
+        #box(fill: rgb("#e6f3ff"), stroke: 1pt, inset: 8pt, radius: 3pt)[
+          Initialize Terminal & App State
+        ]
+      ],
+
+      align(center)[#sym.arrow.b],
+
+      // Main loop box
+      align(center)[
+        #box(stroke: 2pt + rgb("#0066cc"), inset: 10pt, radius: 5pt)[
+          #text(weight: "bold")[Event Loop]
+          #v(0.3em)
+
+          #grid(
+            columns: (1fr),
+            gutter: 5pt,
+
+            box(fill: rgb("#cce5ff"), stroke: 1pt, inset: 6pt, radius: 3pt)[
+              Draw UI: terminal.draw(ui)
+            ],
+
+            align(center)[#sym.arrow.b],
+
+            box(fill: rgb("#cce5ff"), stroke: 1pt, inset: 6pt, radius: 3pt)[
+              Read Event: event::read()
+            ],
+
+            align(center)[#sym.arrow.b],
+
+            box(fill: rgb("#fff3cd"), stroke: 1pt, inset: 6pt, radius: 3pt)[
+              #rotate(-45deg, reflow: true)[Overlay Active?]
+            ],
+
+            grid(
+              columns: (1fr, 1fr),
+              [Yes #sym.arrow.r handle_overlay_keys()],
+              [No #sym.arrow.b],
+            ),
+
+            box(fill: rgb("#ffe6cc"), stroke: 1pt, inset: 6pt, radius: 3pt)[
+              Route Input (navigation, F-keys, etc.)
+            ],
+          )
+        ]
+      ],
+
+      align(center)[#sym.arrow.b],
+
+      // Quit check
+      align(center)[
+        #box(fill: rgb("#fff3cd"), stroke: 1pt, inset: 6pt, radius: 3pt)[
+          should_quit == true?
+        ]
+      ],
+
+      grid(
+        columns: (1fr, 1fr),
+        gutter: 20pt,
+        align(center)[No #sym.arrow.tl Loop],
+        align(center)[
+          Yes #sym.arrow.r
+          #box(fill: rgb("#ffcccc"), stroke: 1pt, inset: 6pt, radius: 15pt)[
+            *Exit*
+          ]
+        ],
+      ),
+    )
   ]
 ]
 
 #pagebreak()
 
-== Viewer
+== Key Event Priority
 
-Структура оверлея просмотрщика файлов (только чтение).
+#table(
+  columns: (auto, auto, 1fr),
+  inset: 8pt,
+  stroke: 0.5pt,
+  fill: (_, row) => if row == 0 { rgb("#4a90d9") },
+  text(fill: white)[*Priority*], text(fill: white)[*Handler*], text(fill: white)[*Keys Handled*],
+  [1], [Overlay Keys], [Viewer, Help, Search, Bookmarks, Command Line],
+  [2], [Quit Keys], [Q, Ctrl+C, F10],
+  [3], [Navigation], [Up, Down, Enter, Tab, Left, Right],
+  [4], [Function Keys], [F1-F8 for file operations],
+  [5], [Marking], [Insert, Space for file selection],
+  [6], [Quick Search], [Alt+letter for fast navigation],
+  [7], [Other Keys], [Clears quick search state],
+)
 
-#box(stroke: 1pt + rgb("#4a90d9"), inset: 10pt, radius: 3pt, width: 100%)[
-  ```rust
-  pub struct Viewer {
-      pub title: String,       // Имя просматриваемого файла
-      pub lines: Vec<String>,  // Содержимое файла (построчно)
-      pub scroll: u16,         // Текущая позиция прокрутки
-  }
-  ```
-]
-
-== App (Состояние приложения)
-
-Главный контейнер состояния приложения, хранящий все данные времени выполнения.
-
-#box(stroke: 1pt + rgb("#4a90d9"), inset: 10pt, radius: 3pt, width: 100%)[
-  ```rust
-  pub struct App {
-      // Панели
-      pub left_panel: Panel,
-      pub right_panel: Panel,
-      pub active_panel: PanelSide,
-
-      // Оверлеи
-      pub show_help: bool,
-      pub viewer: Option<Viewer>,
-      pub search: Option<String>,
-      pub command_line: Option<String>,
-      pub show_bookmarks: bool,
-      pub quick_search: Option<String>,
-
-      // Состояние
-      pub bookmarks: Vec<Option<PathBuf>>,  // 10 слотов
-      pub should_quit: bool,
-      pub status_message: String,
-  }
-  ```
-]
-
-#pagebreak()
-
-== Диаграмма состояния приложения
+== Overlay State Machine
 
 #align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt)[
+  #box(stroke: 1pt + rgb("#333"), inset: 15pt, radius: 5pt)[
     ```
     ┌─────────────────────────────────────────────────────────────┐
-    │                          App                                 │
+    │                    Overlay State Machine                     │
     ├─────────────────────────────────────────────────────────────┤
     │                                                              │
-    │  ┌──────────────────────┐    ┌──────────────────────┐       │
-    │  │     left_panel       │    │     right_panel      │       │
-    │  │                      │    │                      │       │
-    │  │  path: /home/user    │    │  path: /tmp          │       │
-    │  │  entries: [...]      │    │  entries: [...]      │       │
-    │  │  state: ListState    │    │  state: ListState    │       │
-    │  │  marked: {}          │    │  marked: {}          │       │
-    │  └──────────────────────┘    └──────────────────────┘       │
-    │           ▲                                                  │
-    │           │ active_panel = Left                              │
-    │                                                              │
-    │  ┌────────────────────────────────────────────────────┐     │
-    │  │ Оверлеи (взаимоисключающее отображение)            │     │
-    │  │  • show_help: bool                                 │     │
-    │  │  • viewer: Option<Viewer>                          │     │
-    │  │  • search: Option<String>                          │     │
-    │  │  • show_bookmarks: bool                            │     │
-    │  │  • command_line: Option<String>                    │     │
-    │  │  • quick_search: Option<String>                    │     │
-    │  └────────────────────────────────────────────────────┘     │
-    │                                                              │
-    │  bookmarks: [None, Some(/home), None, ...]  (10 слотов)     │
-    │  status_message: "Готово"                                    │
-    │  should_quit: false                                          │
+    │                      ┌──────────┐                            │
+    │            ┌─────────│  NORMAL  │─────────┐                  │
+    │            │         └────┬─────┘         │                  │
+    │            │              │               │                  │
+    │     F1     │       F3     │      F2       │     Ctrl+;       │
+    │            ▼              ▼               ▼                  ▼
+    │      ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
+    │      │  HELP    │   │  VIEWER  │   │BOOKMARKS │   │ COMMAND  │
+    │      │  Overlay │   │  Overlay │   │  Overlay │   │   LINE   │
+    │      └────┬─────┘   └────┬─────┘   └────┬─────┘   └────┬─────┘
+    │           │              │              │              │      │
+    │     Esc/F1│        Esc/F3│         Esc/F2              Esc    │
+    │           │        Enter │         0-9: Go             Enter  │
+    │           │              │       Ctrl+0-9: Set               │
+    │           └──────────────┴──────────────┴──────────────┘      │
+    │                              │                                │
+    │                              ▼                                │
+    │                         ┌──────────┐                          │
+    │                         │  NORMAL  │                          │
+    │                         └──────────┘                          │
     └─────────────────────────────────────────────────────────────┘
     ```
   ]
@@ -326,353 +641,122 @@ FunnyFileManager/
 
 #pagebreak()
 
-= Компоновка пользовательского интерфейса
+== Keyboard Shortcuts Reference
 
-== Структура экрана
-
-#align(center)[
-  #box(stroke: 2pt + rgb("#000080"), inset: 0pt, radius: 3pt, width: 90%)[
-    #table(
-      columns: (1fr),
-      inset: 0pt,
-      stroke: 1pt + rgb("#000080"),
-      align: center,
-
-      // Заголовок
-      table.cell(fill: rgb("#000080"))[
-        #text(fill: rgb("#00ffff"), size: 9pt)[
-          #h(1em) Стиль Far Manager | Tab: Переключение панелей | F1: Справка #h(1em)
-        ]
-      ],
-
-      // Строка панелей
-      table.cell()[
-        #table(
-          columns: (1fr, 1fr),
-          inset: 8pt,
-          stroke: 1pt + rgb("#000080"),
-          align: left,
-
-          // Левая панель
-          table.cell(fill: rgb("#000080"))[
-            #text(fill: rgb("#00ffff"), size: 9pt)[
-              *Левая панель*\
-              `/home/user`\
-              \
-              #text(fill: white)[`..`          `<DIR>`]\
-              #text(fill: white)[`documents/`  `<DIR>`]\
-              #box(fill: rgb("#00ffff"))[#text(fill: black)[`file.txt`    `1.2 KB`]]\
-              #text(fill: rgb("#00ffff"))[`image.png`   `45 KB`]
-            ]
-          ],
-
-          // Правая панель
-          table.cell(fill: rgb("#000080"))[
-            #text(fill: rgb("#808080"), size: 9pt)[
-              *Правая панель*\
-              `/tmp`\
-              \
-              #text(fill: rgb("#808080"))[`..`          `<DIR>`]\
-              #text(fill: rgb("#808080"))[`temp1/`      `<DIR>`]\
-              #text(fill: rgb("#808080"))[`cache.dat`   `256 B`]
-            ]
-          ],
-        )
-      ],
-
-      // Строка состояния
-      table.cell(fill: rgb("#000080"))[
-        #text(fill: rgb("#00ffff"), size: 9pt)[
-          file.txt | 1.2 KB | Изменён: 2024-01-15
-        ]
-      ],
-
-      // Панель команд
-      table.cell(fill: rgb("#008080"))[
-        #text(fill: black, size: 8pt)[
-          F1 Справка  F2 Закладки  F3 Просмотр  F4 Редакт  F5 Копир  F6 Перемест  F7 Каталог  F8 Удалить  F10 Выход
-        ]
-      ],
-    )
-  ]
-]
-
-#v(0.5cm)
-
-== Размеры элементов
-
-#table(
-  columns: (auto, auto, 1fr),
-  inset: 8pt,
-  align: (left, center, left),
-  fill: (_, row) => if row == 0 { rgb("#e8e8e8") },
-  [*Компонент*], [*Высота*], [*Описание*],
-  [Заголовок], [1 строка], [Название приложения и подсказки],
-  [Панели], [Остаток], [Разделение 50/50 по горизонтали],
-  [Строка состояния], [2 строки], [Информация о файле и быстрый поиск],
-  [Панель команд], [2 строки], [Отображение F-клавиш],
-)
-
-#pagebreak()
-
-== Цветовая схема
-
-#table(
-  columns: (auto, auto, 1fr),
-  inset: 8pt,
-  align: (left, left, left),
-  fill: (_, row) => if row == 0 { rgb("#000080") },
-  text(fill: white)[*Элемент*], text(fill: white)[*Цвет*], text(fill: white)[*RGB-значение*],
-  [Фон], [Far Blue], [RGB(0, 0, 128)],
-  [Активная рамка], [Бирюзовый жирный], [RGB(0, 255, 255)],
-  [Неактивная рамка], [Тёмно-синий], [RGB(0, 0, 139)],
-  [Каталоги], [Белый жирный], [RGB(255, 255, 255)],
-  [Файлы], [Бирюзовый], [RGB(0, 255, 255)],
-  [Размеры файлов], [Светло-бирюзовый], [RGB(224, 255, 255)],
-  [Выделение], [Чёрный на бирюзовом], [Фон: Бирюзовый, Текст: Чёрный],
-  [Отмеченные файлы], [Жёлтый], [RGB(255, 255, 0)],
-)
-
-== Функции отрисовки UI
+=== Navigation Keys
 
 #table(
   columns: (auto, 1fr),
   inset: 8pt,
-  align: (left, left),
+  stroke: 0.5pt,
   fill: (_, row) => if row == 0 { rgb("#e8e8e8") },
-  [*Функция*], [*Назначение*],
-  [`ui(frame, app)`], [Главный координатор отрисовки],
-  [`render_panel(frame, panel, area, is_active)`], [Отдельная панель с записями],
-  [`render_header(frame, area)`], [Верхний баннер],
-  [`render_status(frame, app, area)`], [Информация о файле / быстрый поиск],
-  [`render_command_bar(frame, area)`], [F-клавиши],
-  [`render_overlays(frame, app)`], [Оверлеи справки, просмотра, поиска],
-  [`centered_rect(pct_x, pct_y, area)`], [Расчёт размеров всплывающего окна],
+  [*Key*], [*Action*],
+  [#sym.arrow.t / #sym.arrow.b], [Move selection up/down (with wraparound)],
+  [#sym.arrow.l / #sym.arrow.r], [Switch between panels],
+  [Tab], [Toggle between panels],
+  [Enter], [Enter directory or go back (..)],
+  [Home], [Jump to first item],
+  [End], [Jump to last item],
+  [PgUp / PgDn], [Page navigation],
 )
 
-#pagebreak()
-
-= Цикл событий и обработка клавиатуры
-
-== Главный цикл событий
-
-#align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt)[
-    ```
-    ┌─────────────────────────────────────────────────────────┐
-    │                   run_app_with_event_reader()           │
-    └────────────────────────────┬────────────────────────────┘
-                                 │
-                                 ▼
-                    ┌────────────────────────┐
-                    │  Отрисовка UI (ui())   │
-                    └────────────┬───────────┘
-                                 │
-                                 ▼
-                    ┌────────────────────────┐
-                    │ Чтение события клавиши │
-                    └────────────┬───────────┘
-                                 │
-                                 ▼
-                    ┌────────────────────────┐
-                    │ handle_overlay_keys()  │──── Да ────┐
-                    │  (оверлей активен?)    │            │
-                    └────────────┬───────────┘            │
-                                 │ Нет                    │
-                                 ▼                        │
-                    ┌────────────────────────┐            │
-                    │ Маршрутизация ввода    │            │
-                    │ (навигация, F-клавиши) │            │
-                    └────────────┬───────────┘            │
-                                 │                        │
-                                 ▼                        │
-                    ┌────────────────────────┐            │
-                    │    should_quit?        │            │
-                    └────────────┬───────────┘            │
-                                 │ Нет                    │
-                                 └────────────────────────┘
-                                         │ Да
-                                         ▼
-                                    ┌─────────┐
-                                    │  Выход  │
-                                    └─────────┘
-    ```
-  ]
-]
-
-#pagebreak()
-
-== Горячие клавиши
-
-=== Клавиши навигации
-
-#table(
-  columns: (auto, 1fr),
-  inset: 8pt,
-  align: (left, left),
-  fill: (_, row) => if row == 0 { rgb("#e8e8e8") },
-  [*Клавиша*], [*Действие*],
-  [↑ / ↓], [Перемещение выделения вверх/вниз (с переходом по кругу)],
-  [← / →], [Переключение между панелями],
-  [Tab], [Переключение между панелями],
-  [Enter], [Вход в каталог или возврат (..)],
-  [Home], [Переход к первому элементу],
-  [End], [Переход к последнему элементу],
-  [PgUp / PgDn], [Постраничная навигация],
-)
-
-=== Функциональные клавиши
+=== Function Keys
 
 #table(
   columns: (auto, auto, 1fr),
   inset: 8pt,
-  align: (center, left, left),
+  stroke: 0.5pt,
   fill: (_, row) => if row == 0 { rgb("#008080") },
-  text(fill: white)[*Клавиша*], text(fill: white)[*Команда*], text(fill: white)[*Описание*],
-  [F1], [Справка], [Показать/скрыть оверлей справки],
-  [F2], [Закладки], [Показать менеджер закладок],
-  [F3], [Просмотр], [Просмотр файла во встроенном просмотрщике],
-  [F4], [Редактирование], [Открыть файл во внешнем редакторе],
-  [F5], [Копировать], [Копировать в другую панель],
-  [F6], [Переместить], [Переместить в другую панель],
-  [F7], [Каталог], [Создать новый каталог],
-  [F8], [Удалить], [Удалить выделенный элемент],
-  [F10], [Выход], [Выход из приложения],
+  text(fill: white)[*Key*], text(fill: white)[*Command*], text(fill: white)[*Description*],
+  [F1], [Help], [Toggle help overlay],
+  [F2], [Bookmarks], [Show bookmark manager],
+  [F3], [View], [View file in built-in viewer],
+  [F4], [Edit], [Open file in external editor],
+  [F5], [Copy], [Copy to other panel],
+  [F6], [Move], [Move to other panel],
+  [F7], [Mkdir], [Create new directory],
+  [F8], [Delete], [Delete selected item],
+  [F10], [Quit], [Exit application],
 )
 
-=== Клавиши отметки
+=== Quick Search Keys
 
 #table(
   columns: (auto, 1fr),
   inset: 8pt,
-  align: (left, left),
+  stroke: 0.5pt,
   fill: (_, row) => if row == 0 { rgb("#e8e8e8") },
-  [*Клавиша*], [*Действие*],
-  [Insert], [Переключить отметку выделенного файла],
-  [Пробел], [Переключить отметку и перейти вниз],
-  [Ctrl+A], [Отметить все файлы],
-  [Ctrl+U], [Снять все отметки],
-)
-
-=== Быстрый поиск
-
-#table(
-  columns: (auto, 1fr),
-  inset: 8pt,
-  align: (left, left),
-  fill: (_, row) => if row == 0 { rgb("#e8e8e8") },
-  [*Клавиша*], [*Действие*],
-  [Alt+буква], [Добавить букву к поисковому запросу],
-  [Backspace], [Удалить последний символ или очистить поиск],
-  [Esc], [Очистить быстрый поиск],
+  [*Key*], [*Action*],
+  [Alt+letter], [Add letter to search query, jump to first match],
+  [Backspace], [Remove last character or clear search],
+  [Esc], [Clear quick search],
 )
 
 #pagebreak()
 
-== Приоритет оверлеев
+= File Operation Handlers
 
-Когда несколько оверлеев могут быть активны, они проверяются в следующем порядке:
-
-#align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt)[
-    ```
-    Приоритет handle_overlay_keys():
-
-    1. Просмотрщик (F3)
-       │  Esc/F3/Enter → Закрыть
-       │  Up/Down → Прокрутка
-       │
-       ▼
-    2. Справка (F1)
-       │  Esc/F1 → Скрыть
-       │
-       ▼
-    3. Оверлей поиска
-       │  Esc → Отмена
-       │  Enter → Выполнить поиск
-       │  Символ → Добавить к запросу
-       │
-       ▼
-    4. Закладки (F2)
-       │  0-9 → Перейти к закладке
-       │  Ctrl+0-9 → Установить закладку
-       │  Esc/F2 → Закрыть
-       │
-       ▼
-    5. Командная строка (Ctrl+;)
-       │  Esc → Отмена
-       │  Enter → Выполнить команду
-       │  Символ → Добавить
-       │
-       ▼
-    6. Основной обработчик клавиатуры (без оверлея)
-    ```
-  ]
-]
-
-#pagebreak()
-
-= Обработчики файловых операций
-
-== Обзор обработчиков
+== Handler Overview
 
 #align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt, width: 90%)[
+  #box(stroke: 1pt + rgb("#333"), inset: 15pt, radius: 5pt, width: 90%)[
     ```
     handlers.rs
-    ├── handle_overlay_keys()  ──► Обработка ввода оверлеев
-    ├── handle_view()          ──► F3: Просмотр файла
-    ├── handle_copy()          ──► F5: Операция копирования
-    ├── handle_move()          ──► F6: Операция перемещения
-    ├── handle_mkdir()         ──► F7: Создание каталога
-    ├── handle_delete()        ──► F8: Удаление элемента
-    └── execute_command()      ──► Обработчик командной строки
+    ├── handle_overlay_keys()  ─► Overlay input processing
+    ├── handle_view()          ─► F3: File viewing
+    ├── handle_copy()          ─► F5: Copy operation
+    ├── handle_move()          ─► F6: Move operation
+    ├── handle_mkdir()         ─► F7: Directory creation
+    ├── handle_delete()        ─► F8: Item deletion
+    └── execute_command()      ─► Command line handler
     ```
   ]
 ]
 
-== Поток операции копирования
+== Copy Operation Sequence Diagram
 
 #align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt)[
+  #box(stroke: 1pt + rgb("#333"), inset: 15pt, radius: 5pt)[
     ```
     handle_copy(app)
            │
            ▼
     ┌──────────────────────┐
-    │ Получить источник из │
+    │ Get source from      │
     │ active_panel         │
+    │ (marked or selected) │
     └──────────┬───────────┘
                │
                ▼
     ┌──────────────────────┐
-    │ Получить целевой     │
-    │ каталог из           │
-    │ inactive_panel       │
+    │ Get destination from │
+    │ inactive_panel.path  │
     └──────────┬───────────┘
                │
                ▼
     ┌──────────────────────┐
     │ unique_destination() │
-    │ (избежать конфликтов)│
+    │ (avoid conflicts)    │
     └──────────┬───────────┘
                │
                ▼
-         ┌─────────────┐
-         │  is_dir?    │
-         └──────┬──────┘
-           Да   │  Нет
-           ┌────┴────┐
-           ▼         ▼
-    ┌────────────┐ ┌────────────┐
-    │copy_dir_all│ │ fs::copy() │
-    │(рекурсивно)│ │  (файл)    │
-    └─────┬──────┘ └─────┬──────┘
-          │              │
-          └──────┬───────┘
-                 ▼
+         ┌───────────┐
+         │  is_dir?  │
+         └─────┬─────┘
+          Yes  │  No
+          ┌────┴────┐
+          ▼         ▼
+    ┌──────────┐ ┌──────────┐
+    │copy_dir_ │ │fs::copy()│
+    │   all()  │ │  (file)  │
+    │(recursive)│ │          │
+    └─────┬────┘ └────┬─────┘
+          │           │
+          └─────┬─────┘
+                ▼
     ┌──────────────────────┐
     │  refresh_panels()    │
+    │  Update status msg   │
     └──────────────────────┘
     ```
   ]
@@ -680,38 +764,42 @@ FunnyFileManager/
 
 #pagebreak()
 
-== Поток операции перемещения
+== Move Operation Sequence Diagram
 
 #align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt)[
+  #box(stroke: 1pt + rgb("#333"), inset: 15pt, radius: 5pt)[
     ```
     handle_move(app)
            │
            ▼
     ┌──────────────────────┐
-    │ Получить источник    │
-    │ и цель               │
+    │ Get source and       │
+    │ destination paths    │
     └──────────┬───────────┘
                │
                ▼
     ┌──────────────────────┐
-    │  Попытка fs::rename()│
-    │  (атомарно, быстро)  │
+    │  Try fs::rename()    │
+    │  (atomic, fast)      │
     └──────────┬───────────┘
                │
          ┌─────┴─────┐
-         │  Успех?   │
+         │ Success?  │
          └─────┬─────┘
-          Да   │  Нет (разные ФС)
+          Yes  │  No (cross-device)
           │    │
           │    ▼
           │  ┌──────────────────────┐
-          │  │ Копировать в цель    │
+          │  │ Copy to destination  │
+          │  │ (copy_dir_all or     │
+          │  │  fs::copy)           │
           │  └──────────┬───────────┘
           │             │
           │             ▼
           │  ┌──────────────────────┐
-          │  │ Удалить источник     │
+          │  │ Delete source        │
+          │  │ (remove_dir_all or   │
+          │  │  remove_file)        │
           │  └──────────┬───────────┘
           │             │
           └──────┬──────┘
@@ -723,57 +811,57 @@ FunnyFileManager/
   ]
 ]
 
-== Команды командной строки
+#pagebreak()
 
-Командная строка (активируется Ctrl+;) поддерживает следующие команды:
+== Command Line Commands
 
 #table(
   columns: (auto, auto, 1fr),
   inset: 8pt,
-  align: (left, left, left),
+  stroke: 0.5pt,
   fill: (_, row) => if row == 0 { rgb("#e8e8e8") },
-  [*Команда*], [*Аргументы*], [*Действие*],
-  [`cd`], [`<путь>`], [Сменить каталог (активная панель)],
-  [`pwd`], [], [Показать текущий путь],
-  [`sort`], [`name|ext|size`], [Изменить режим сортировки],
-  [`bookmark`], [`set|go <0-9>`], [Управление закладками],
-  [`mark`], [`all`], [Отметить все файлы],
-  [`unmark`], [], [Снять все отметки],
-  [`help`], [], [Показать оверлей справки],
-  [`quit`], [], [Выход из приложения],
+  [*Command*], [*Arguments*], [*Action*],
+  [`cd`], [`<path>`], [Change directory (active panel)],
+  [`pwd`], [], [Show current path in status],
+  [`sort`], [`name|ext|size`], [Change sort mode],
+  [`bookmark`], [`set|go <0-9>`], [Manage bookmarks],
+  [`mark`], [`all`], [Mark all files],
+  [`unmark`], [], [Clear all marks],
+  [`help`], [], [Show help overlay],
+  [`quit`], [], [Exit application],
 )
 
 #pagebreak()
 
-= Вспомогательные функции
+= Utility Functions
 
-== Обзор utils.rs
+== utils.rs Overview
 
 #table(
   columns: (auto, 1fr),
   inset: 8pt,
-  align: (left, left),
+  stroke: 0.5pt,
   fill: (_, row) => if row == 0 { rgb("#e8e8e8") },
-  [*Функция*], [*Назначение*],
-  [`format_size(bytes)`], [Преобразование байтов в человекочитаемый формат],
-  [`unique_destination(base, name)`], [Генерация уникального имени файла],
-  [`copy_dir_all(src, dst)`], [Рекурсивное копирование каталога],
-  [`refresh_panels(app)`], [Перезагрузка обеих панелей],
+  [*Function*], [*Purpose*],
+  [`format_size(bytes)`], [Convert bytes to human-readable format],
+  [`unique_destination(base, name)`], [Generate unique filename if exists],
+  [`copy_dir_all(src, dst)`], [Recursive directory copy],
+  [`refresh_panels(app)`], [Reload both panels],
 )
 
-== Логика format_size()
+== format_size() Logic
 
 #align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt)[
+  #box(stroke: 1pt + rgb("#333"), inset: 15pt, radius: 5pt)[
     ```
     format_size(bytes: u64) → String
 
     bytes < 1024           →  "{bytes} B"
-    bytes < 1 048 576      →  "{bytes/1024:.2} KB"
-    bytes < 1 073 741 824  →  "{bytes/1048576:.2} MB"
-    bytes >= 1 073 741 824 →  "{bytes/1073741824:.2} GB"
+    bytes < 1,048,576      →  "{bytes/1024:.2} KB"
+    bytes < 1,073,741,824  →  "{bytes/1048576:.2} MB"
+    bytes >= 1,073,741,824 →  "{bytes/1073741824:.2} GB"
 
-    Примеры:
+    Examples:
       512        →  "512 B"
       2048       →  "2.00 KB"
       5242880    →  "5.00 MB"
@@ -782,35 +870,36 @@ FunnyFileManager/
   ]
 ]
 
-== Алгоритм unique_destination()
+== unique_destination() Algorithm
 
 #align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt)[
+  #box(stroke: 1pt + rgb("#333"), inset: 15pt, radius: 5pt)[
     ```
     unique_destination(base: &Path, file_name: &OsStr) → PathBuf
 
-    Вход: base=/target, file_name="test.txt"
+    Input: base=/target, file_name="test.txt"
 
-    Проверка: /target/test.txt существует?
-      Нет → вернуть /target/test.txt
-      Да  → попробовать /target/test_1.txt
-              → попробовать /target/test_2.txt
-              → попробовать /target/test_3.txt
-              → ... пока не найден уникальный
+    Check: /target/test.txt exists?
+      No  → return /target/test.txt
+      Yes → try /target/test_1.txt
+              → try /target/test_2.txt
+              → try /target/test_3.txt
+              → ... until unique found
 
-    Особые случаи:
+    Edge cases handled:
       • Dotfiles: ".env" → ".env_1"
-      • Без расширения: "Makefile" → "Makefile_1"
+      • No extension: "Makefile" → "Makefile_1"
+      • Multiple dots: "file.tar.gz" → "file.tar_1.gz"
     ```
   ]
 ]
 
 #pagebreak()
 
-== Рекурсивный алгоритм copy_dir_all()
+== Recursive copy_dir_all() Algorithm
 
 #align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt)[
+  #box(stroke: 1pt + rgb("#333"), inset: 15pt, radius: 5pt)[
     ```
     copy_dir_all(src, dst)
            │
@@ -830,94 +919,94 @@ FunnyFileManager/
          ┌─────────────┐                 │
          │  is_dir?    │                 │
          └──────┬──────┘                 │
-           Да   │  Нет                   │
+           Yes  │  No                    │
            │    │                        │
            ▼    ▼                        │
     ┌──────────┐ ┌──────────┐            │
     │copy_dir_ │ │fs::copy()│            │
-    │all(entry)│ │ (файл)   │            │
-    │(рекурсия)│ │          │            │
+    │all(entry)│ │ (file)   │            │
+    │(recurse) │ │          │            │
     └──────────┘ └──────────┘            │
            │         │                   │
            └────┬────┘                   │
                 │                        │
                 └────────────────────────┘
-                    (следующий элемент)
+                    (next entry)
     ```
   ]
 ]
 
 #pagebreak()
 
-= Интеграция с редактором
+= Editor Integration
 
-== Стратегия выбора редактора
+== Editor Selection Strategy
 
 #align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt)[
+  #box(stroke: 1pt + rgb("#333"), inset: 15pt, radius: 5pt)[
     ```
     get_editor_command() → (program, args)
 
     ┌─────────────────────────────────────────────┐
-    │ 1. Проверка VS Code                         │
-    │    Запуск: code --version                   │
-    │    Если успех → return ("code", ["-w","-n"])│
+    │ 1. Check VS Code availability               │
+    │    Run: code --version                      │
+    │    If success → return ("code", ["-w","-n"])│
     └─────────────────────┬───────────────────────┘
-                          │ Неудача
+                          │ Failed
                           ▼
     ┌─────────────────────────────────────────────┐
-    │ 2. Проверка переменной окружения EDITOR     │
-    │    Разбор: "vim -c 'set number'"            │
+    │ 2. Check EDITOR environment variable        │
+    │    Parse: "vim -c 'set number'"             │
     │    → program: "vim"                         │
     │    → args: ["-c", "set number"]             │
     └─────────────────────┬───────────────────────┘
-                          │ Не задана
+                          │ Not set
                           ▼
     ┌─────────────────────────────────────────────┐
-    │ 3. Запасной вариант — nano                  │
+    │ 3. Fallback to nano                         │
     │    return ("nano", [])                      │
     └─────────────────────────────────────────────┘
     ```
   ]
 ]
 
-== Последовательность handle_edit()
+== handle_edit() Sequence
 
 #align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt)[
+  #box(stroke: 1pt + rgb("#333"), inset: 15pt, radius: 5pt)[
     ```
     handle_edit(terminal, app)
            │
            ▼
     ┌──────────────────────┐
-    │ Валидация выделения  │
-    │ (не каталог, не None)│
+    │ Validate selection   │
+    │ (not dir, not None)  │
     └──────────┬───────────┘
                │
                ▼
     ┌──────────────────────┐
-    │ Восстановить терминал│
-    │ • Выйти из raw-режима│
-    │ • Покинуть alt-экран │
+    │ Restore terminal     │
+    │ • Leave raw mode     │
+    │ • Leave alt screen   │
     └──────────┬───────────┘
                │
                ▼
     ┌──────────────────────┐
-    │ Запустить редактор   │
-    │ • Ждать завершения   │
+    │ Spawn editor process │
+    │ • Wait for exit      │
     └──────────┬───────────┘
                │
                ▼
     ┌──────────────────────┐
-    │ Восстановить терминал│
-    │ • Войти в raw-режим  │
-    │ • Войти в alt-экран  │
+    │ Restore terminal     │
+    │ • Enter raw mode     │
+    │ • Enter alt screen   │
     └──────────┬───────────┘
                │
                ▼
     ┌──────────────────────┐
     │ refresh_panels()     │
-    │ Обновить статус      │
+    │ Update status        │
     └──────────────────────┘
     ```
   ]
@@ -925,18 +1014,18 @@ FunnyFileManager/
 
 #pagebreak()
 
-= Паттерны потока данных
+= Data Flow Patterns
 
-== Поток навигации по панели
+== Panel Navigation Flow
 
 #align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt)[
+  #box(stroke: 1pt + rgb("#333"), inset: 15pt, radius: 5pt)[
     ```
-    Ввод пользователя (клавиша ↓)
+    User Input (Down key)
            │
            ▼
     ┌──────────────────────┐
-    │ Обработчик событий   │
+    │ Event handler        │
     │ (run_app_with_event) │
     └──────────┬───────────┘
                │
@@ -947,27 +1036,27 @@ FunnyFileManager/
                │
                ▼
     ┌──────────────────────┐
-    │ Обновить ListState   │
+    │ Update ListState     │
     │ .selected()          │
     └──────────┬───────────┘
                │
                ▼
     ┌──────────────────────┐
-    │ Следующий кадр: ui() │
-    │ render_panel         │
-    │ использует ListState │
-    │ для подсветки        │
+    │ Next frame: ui()     │
+    │ render_panel uses    │
+    │ ListState to         │
+    │ highlight selection  │
     └──────────────────────┘
     ```
   ]
 ]
 
-== Поток быстрого поиска
+== Quick Search Flow
 
 #align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt)[
+  #box(stroke: 1pt + rgb("#333"), inset: 15pt, radius: 5pt)[
     ```
-    Нажат Alt+A
+    Alt+A pressed
          │
          ▼
     quick_search = Some("a")
@@ -976,13 +1065,13 @@ FunnyFileManager/
     find_first_matching("a")
          │
          ▼
-    Выделение перемещается на первый "a*" элемент
+    Selection moves to first "a*" entry
          │
          ▼
-    Строка состояния: "Быстрый поиск: a_"
+    Status bar: "Quick search: a_"
          │
          ▼
-    Нажат Alt+B
+    Alt+B pressed
          │
          ▼
     quick_search = Some("ab")
@@ -990,9 +1079,9 @@ FunnyFileManager/
          ▼
     find_first_matching("ab")
          │
-         ├── Найдено → Выделение перемещается
+         ├── Found → Selection moves
          │
-         └── Не найдено → Попробовать только "b"
+         └── Not found → Try just "b"
                             │
                             ▼
                    find_first_matching("b")
@@ -1002,33 +1091,33 @@ FunnyFileManager/
 
 #pagebreak()
 
-= Обработка ошибок
+= Error Handling
 
-== Стратегия обработки ошибок
+== Error Handling Strategy
 
 #table(
   columns: (auto, 1fr, 1fr),
   inset: 8pt,
-  align: (left, left, left),
+  stroke: 0.5pt,
   fill: (_, row) => if row == 0 { rgb("#e8e8e8") },
-  [*Операция*], [*Тип ошибки*], [*Обработка*],
-  [Доступ к каталогу], [`io::Error`], [Показать в статусе, продолжить],
-  [Просмотр файла (не UTF8)], [`io::Error`], [Показать сообщение об ошибке],
-  [Копирование/Перемещение/Удаление], [`io::Error`], [Сообщение в статусе, обновить панели],
-  [Запуск редактора], [Ошибка процесса], [Статус: «Не удалось запустить»],
-  [Перезагрузка панели], [`io::Error`], [Попытка обновления в любом случае],
+  [*Operation*], [*Error Type*], [*Handling*],
+  [Directory access], [`io::Error`], [Show in status, continue],
+  [File view (non-UTF8)], [`io::Error`], [Display error message],
+  [Copy/Move/Delete], [`io::Error`], [Status message, refresh panels],
+  [Editor launch], [Process error], [Status: "Failed to launch"],
+  [Panel reload], [`io::Error`], [Attempt refresh anyway],
 )
 
-== Поток обработки ошибок
+== Error Flow Diagram
 
 #align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt)[
+  #box(stroke: 1pt + rgb("#333"), inset: 15pt, radius: 5pt)[
     ```
-    Операция (например, handle_copy)
+    Operation (e.g., handle_copy)
            │
            ▼
     ┌──────────────────────┐
-    │ Выполнить I/O        │
+    │ Perform I/O          │
     └──────────┬───────────┘
                │
          ┌─────┴─────┐
@@ -1039,7 +1128,7 @@ FunnyFileManager/
           │    ▼
           │  ┌──────────────────────┐
           │  │ app.status_message = │
-          │  │ format!("Ошибка: {e}")│
+          │  │ format!("Error: {e}")│
           │  └──────────┬───────────┘
           │             │
           └──────┬──────┘
@@ -1047,13 +1136,13 @@ FunnyFileManager/
                  ▼
     ┌──────────────────────┐
     │ refresh_panels()     │
-    │ (попытка восстановл.)│
+    │ (attempt recovery)   │
     └──────────────────────┘
                  │
                  ▼
     ┌──────────────────────┐
-    │ Продолжить работу    │
-    │ (не фатальная ошибка)│
+    │ Continue execution   │
+    │ (non-fatal)          │
     └──────────────────────┘
     ```
   ]
@@ -1061,28 +1150,28 @@ FunnyFileManager/
 
 #pagebreak()
 
-= Архитектура тестирования
+= Testing Architecture
 
-== Уровни тестирования
+== Test Pyramid
 
 #align(center)[
-  #box(stroke: 1pt, inset: 15pt, radius: 5pt, width: 90%)[
+  #box(stroke: 1pt + rgb("#333"), inset: 15pt, radius: 5pt, width: 90%)[
     ```
     ┌─────────────────────────────────────────────────────────┐
-    │                  Пирамида тестирования                   │
+    │                     Test Pyramid                         │
     ├─────────────────────────────────────────────────────────┤
     │                                                          │
     │                    ┌───────────┐                         │
-    │                    │Интеграцион│                         │
-    │                    │   тесты   │                         │
+    │                    │Integration│                         │
+    │                    │   Tests   │                         │
     │                    └─────┬─────┘                         │
     │               ┌──────────┴──────────┐                    │
-    │               │   Тесты обработчиков│                    │
-    │               │ (многошаговые опер.)│                    │
+    │               │   Handler Tests     │                    │
+    │               │ (multi-step ops)    │                    │
     │               └──────────┬──────────┘                    │
     │          ┌───────────────┴───────────────┐               │
-    │          │       Модульные тесты         │               │
-    │          │  (структуры данных, утилиты)  │               │
+    │          │         Unit Tests            │               │
+    │          │  (data structures, utils)     │               │
     │          └───────────────────────────────┘               │
     │                                                          │
     └─────────────────────────────────────────────────────────┘
@@ -1090,206 +1179,196 @@ FunnyFileManager/
   ]
 ]
 
-== Инфраструктура тестирования
+== Test Infrastructure
 
 #table(
   columns: (auto, 1fr),
   inset: 8pt,
-  align: (left, left),
+  stroke: 0.5pt,
   fill: (_, row) => if row == 0 { rgb("#e8e8e8") },
-  [*Компонент*], [*Назначение*],
-  [`WritableTestBackend`], [Пользовательский бэкенд ratatui для тестирования],
-  [`tempfile::TempDir`], [Временные каталоги для тестов ФС],
-  [`FORCE_RENAME_FAILURE`], [Имитация перемещения между устройствами],
-  [`FORCE_COPY_DIR_ALL_STEP`], [Внедрение ошибок на определённых шагах],
-  [`FORCE_REFRESH_ERROR`], [Тестирование ошибок обновления панелей],
+  [*Component*], [*Purpose*],
+  [`WritableTestBackend`], [Custom ratatui backend for testing],
+  [`tempfile::TempDir`], [Temporary directories for FS tests],
+  [`FORCE_RENAME_FAILURE`], [Simulate cross-device moves],
+  [`FORCE_COPY_DIR_ALL_STEP`], [Inject errors at specific steps],
+  [`FORCE_REFRESH_ERROR`], [Test panel refresh failures],
 )
 
-== Точки мутационного тестирования
+== Mutation Testing Points
 
-Кодовая база включает специальные точки внедрения для мутационного тестирования:
+The codebase includes specific injection points for mutation testing:
 
 ```rust
-// В copy_dir_all()
-if std::env::var("FORCE_COPY_DIR_ALL_STEP").is_ok() {
+// In copy_dir_all()
+#[cfg(any(test, tarpaulin))]
+if FORCE_COPY_DIR_ALL_STEP.load(Ordering::SeqCst) == STEP {
     return Err(io::Error::new(...));
 }
 
-// В handle_move()
-if std::env::var("FORCE_RENAME_FAILURE").is_ok() {
-    // Принудительный переход к копированию+удалению
-}
+// In handle_move()
+#[cfg(any(test, tarpaulin))]
+static FORCE_RENAME_FAILURE: AtomicBool = AtomicBool::new(false);
 ```
 
 #pagebreak()
 
-= Архитектурные решения
+= Architectural Decisions
 
-== Ключевые проектные решения
+== Key Design Choices
 
-=== 1. Двухпанельная архитектура
+=== 1. Dual-Panel Architecture
 
-*Обоснование*: Обеспечивает интуитивные операции источник-приёмник без диалогов.
+*Rationale*: Enables intuitive source-target operations without dialogs.
 
 #box(stroke: 1pt + rgb("#4a90d9"), inset: 10pt, radius: 3pt, width: 100%)[
-  *Преимущества:*
-  - Визуальное сравнение каталогов
-  - Файловые операции одной клавишей (F5, F6)
-  - Независимое состояние навигации для каждой панели
+  *Benefits:*
+  - Visual directory comparison
+  - One-key file operations (F5, F6)
+  - Independent navigation state per panel
 ]
 
-=== 2. Паттерн стека оверлеев
+=== 2. Overlay Stack Pattern
 
-*Обоснование*: Модальные взаимодействия без сложного управления окнами.
+*Rationale*: Modal interactions without complex window management.
 
 #box(stroke: 1pt + rgb("#4a90d9"), inset: 10pt, radius: 3pt, width: 100%)[
-  *Преимущества:*
-  - Простой конечный автомат (один оверлей за раз)
-  - Согласованное поведение Escape
-  - Лёгкое расширение новыми оверлеями
+  *Benefits:*
+  - Simple state machine (one overlay at a time)
+  - Consistent Escape behavior
+  - Easy to add new overlays
 ]
 
-=== 3. Сохранение выделения
+=== 3. Selection Preservation
 
-*Обоснование*: Уменьшение дезориентации пользователя после операций.
+*Rationale*: Reduces user disorientation after operations.
 
 #box(stroke: 1pt + rgb("#4a90d9"), inset: 10pt, radius: 3pt, width: 100%)[
-  *Реализация:*
-  - Сохранение имени выделенного файла перед перезагрузкой
-  - Поиск имени файла после перезагрузки
-  - Переход к первому элементу, если не найден
+  *Implementation:*
+  - Save selected filename before reload
+  - Find filename after reload
+  - Fall back to first item if not found
 ]
 
-=== 4. Переименование с запасным вариантом для перемещения
+=== 4. Rename-with-Fallback for Move
 
-*Обоснование*: Корректная обработка перемещений между файловыми системами.
+*Rationale*: Handle cross-filesystem moves correctly.
 
 #box(stroke: 1pt + rgb("#4a90d9"), inset: 10pt, radius: 3pt, width: 100%)[
-  *Стратегия:*
-  1. Сначала попытка атомарного `fs::rename()` (быстрый путь)
-  2. При неудаче — копирование, затем удаление (медленный путь)
-  3. Пользователь видит одинаковый результат независимо от файловых систем
+  *Strategy:*
+  1. Try atomic `fs::rename()` first (fast path)
+  2. On failure, copy then delete (slow path)
+  3. User sees same result regardless of filesystems
 ]
 
-=== 5. Уникальное именование файлов назначения
+=== 5. Unique Destination Naming
 
-*Обоснование*: Никогда не перезаписывать существующие файлы молча.
+*Rationale*: Never silently overwrite existing files.
 
 #box(stroke: 1pt + rgb("#4a90d9"), inset: 10pt, radius: 3pt, width: 100%)[
-  *Стратегия:*
-  - Проверка существования файла назначения
-  - Добавление `_1`, `_2` и т.д. к основе имени
-  - Сохранение оригинального расширения
+  *Strategy:*
+  - Check if destination exists
+  - Append `_1`, `_2`, etc. to base name
+  - Preserve original extension
 ]
 
 #pagebreak()
 
-= Руководство по расширению
+= Extension Guide
 
-== Добавление новых возможностей
+== Adding New Features
 
-=== Новая команда F-клавиши
+=== New F-Key Command
 
 ```rust
-// В lib.rs, блок match key.code:
+// In lib.rs, match key.code block:
 KeyCode::F(9) => {
     handle_new_feature(&mut app)?;
 }
 ```
 
-=== Новый оверлей
+=== New Overlay
 
 ```rust
-// В models.rs, добавить в App:
+// In models.rs, add to App:
 pub new_overlay: Option<NewOverlayData>,
 
-// В handlers.rs, handle_overlay_keys():
+// In handlers.rs, handle_overlay_keys():
 if let Some(ref mut overlay) = app.new_overlay {
-    // Обработка клавиш специфичных для оверлея
+    // Handle overlay-specific keys
     return true;
 }
 
-// В ui.rs, render_overlays():
+// In ui.rs, render_overlays():
 if app.new_overlay.is_some() {
     render_new_overlay(frame, app);
 }
 ```
 
-=== Новый режим сортировки
+=== New Sort Mode
 
 ```rust
-// В models.rs, перечисление SortMode:
+// In models.rs, SortMode enum:
 pub enum SortMode {
     Name,
     Extension,
     Size,
-    Date,  // Новый режим
+    Date,  // New mode
 }
 
-// В Panel::load_entries() добавить логику сортировки
+// Add comparison logic in Panel::load_entries()
 ```
 
-=== Новая команда
-
-```rust
-// В handlers.rs, execute_command():
-"newcmd" => {
-    // Реализация команды
-    app.status_message = "Готово".to_string();
-}
-```
-
-== Точки конфигурации
+== Configuration Points
 
 #table(
   columns: (auto, auto, 1fr),
   inset: 8pt,
-  align: (left, left, left),
+  stroke: 0.5pt,
   fill: (_, row) => if row == 0 { rgb("#e8e8e8") },
-  [*Настройка*], [*Расположение*], [*Текущее значение*],
-  [Начальный каталог], [`lib.rs`], [`env::current_dir()`],
-  [Цветовая схема], [`ui.rs`], [Far Manager blue],
-  [Предпочтение редактора], [`editor.rs`], [VS Code > EDITOR > nano],
-  [Слоты закладок], [`models.rs`], [10 слотов (0-9)],
-  [Время антидребезга], [`lib.rs`], [250мс (режим покрытия)],
+  [*Setting*], [*Location*], [*Current Value*],
+  [Initial directory], [`lib.rs`], [`env::current_dir()`],
+  [Color scheme], [`ui.rs`], [Far Manager blue],
+  [Editor preference], [`editor.rs`], [VS Code > EDITOR > nano],
+  [Bookmark slots], [`models.rs`], [10 slots (0-9)],
+  [Debounce time], [`lib.rs`], [250ms (coverage mode)],
 )
 
 #pagebreak()
 
-= Заключение
+= Conclusion
 
-FunnyFileManager демонстрирует хорошо спроектированное терминальное приложение с:
+FunnyFileManager demonstrates a well-architected terminal application with:
 
 #box(stroke: 2pt + rgb("#4a90d9"), inset: 15pt, radius: 5pt, width: 100%)[
-  == Архитектурные особенности
+  == Architectural Highlights
 
   #table(
     columns: (auto, 1fr),
     inset: 8pt,
     stroke: none,
-    [*Разделение ответственности*], [Отдельные модули для моделей, UI, обработчиков, утилит],
-    [*Иммутабельная отрисовка*], [Функции UI не изменяют состояние],
-    [*Комплексная обработка ошибок*], [Не фатальные ошибки, плавное восстановление],
-    [*UX Far Manager*], [Знакомые горячие клавиши и цветовая схема],
-    [*Тестируемый дизайн*], [Точки внедрения для мутационного тестирования],
-    [*Безопасность терминала*], [Корректное восстановление режима для внешних программ],
+    [*Separation of Concerns*], [Distinct modules for models, UI, handlers, utilities],
+    [*Immutable Rendering*], [UI functions don't mutate state],
+    [*Comprehensive Error Handling*], [Non-fatal errors, graceful recovery],
+    [*Far Manager UX*], [Familiar hotkeys and color scheme],
+    [*Testable Design*], [Injection points for mutation testing],
+    [*Terminal Safety*], [Proper mode restoration for external programs],
   )
 ]
 
 #v(1cm)
 
 #align(center)[
-  #box(stroke: 1pt, inset: 20pt, radius: 10pt, fill: rgb("#f0f8ff"))[
-    #text(size: 14pt, weight: "bold")[
+  #box(stroke: 1pt + rgb("#666"), inset: 20pt, radius: 10pt, fill: rgb("#f0f8ff"))[
+    #text(size: 16pt, weight: "bold")[
       FunnyFileManager
     ]
     #v(0.3cm)
-    #text(size: 10pt)[
-      Современный терминальный файловый менеджер на Rust
+    #text(size: 11pt)[
+      Modern Terminal File Manager in Rust
     ]
     #v(0.3cm)
-    #text(size: 9pt, style: "italic")[
-      Построен с использованием Ratatui + Crossterm
+    #text(size: 10pt, style: "italic")[
+      Built with Ratatui + Crossterm
     ]
   ]
 ]
