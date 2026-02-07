@@ -383,6 +383,61 @@ impl VirtualPath {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aws_sdk_s3::config::{Credentials, Region, SharedCredentialsProvider};
+    use aws_sdk_s3::Client;
+    use aws_smithy_http_client::test_util::{ReplayEvent, StaticReplayClient};
+    use aws_smithy_types::body::SdkBody;
+    use http_1x::{Request, Response};
+    use std::env;
+    use std::io;
+    use std::path::PathBuf;
+    use tempfile::TempDir;
+
+    fn build_test_client(events: Vec<ReplayEvent>) -> S3Client {
+        let http_client = StaticReplayClient::new(events);
+        let config = aws_sdk_s3::Config::builder()
+            .credentials_provider(SharedCredentialsProvider::new(Credentials::for_tests()))
+            .region(Region::new("us-east-1"))
+            .http_client(http_client)
+            .behavior_version_latest()
+            .with_test_defaults()
+            .build();
+        let client = Client::from_conf(config);
+        let runtime = tokio::runtime::Runtime::new().expect("runtime");
+        S3Client {
+            client,
+            runtime,
+            profile: "test".to_string(),
+            current_bucket: None,
+            current_prefix: String::new(),
+        }
+    }
+
+    fn replay_event(xml_body: &str) -> ReplayEvent {
+        ReplayEvent::new(
+            Request::builder()
+                .uri("https://s3.us-east-1.amazonaws.com/")
+                .body(SdkBody::empty())
+                .expect("request"),
+            Response::builder()
+                .status(200)
+                .body(SdkBody::from(xml_body))
+                .expect("response"),
+        )
+    }
+
+    fn ok_event() -> ReplayEvent {
+        ReplayEvent::new(
+            Request::builder()
+                .uri("https://s3.us-east-1.amazonaws.com/")
+                .body(SdkBody::empty())
+                .expect("request"),
+            Response::builder()
+                .status(200)
+                .body(SdkBody::empty())
+                .expect("response"),
+        )
+    }
 
     #[test]
     fn test_virtual_path_parse_local() {
@@ -425,10 +480,141 @@ mod tests {
     }
 
     #[test]
+    fn test_virtual_path_display_formats() {
+        let local = VirtualPath::Local(PathBuf::from("/tmp"));
+        assert_eq!(local.display(), "/tmp");
+
+        let s3_root = VirtualPath::S3 {
+            profile: "default".to_string(),
+            bucket: None,
+            prefix: String::new(),
+        };
+        assert_eq!(s3_root.display(), "s3://default");
+
+        let s3_bucket = VirtualPath::S3 {
+            profile: "prod".to_string(),
+            bucket: Some("logs".to_string()),
+            prefix: String::new(),
+        };
+        assert_eq!(s3_bucket.display(), "s3://prod@logs");
+
+        let s3_prefix = VirtualPath::S3 {
+            profile: "prod".to_string(),
+            bucket: Some("logs".to_string()),
+            prefix: "2024/".to_string(),
+        };
+        assert_eq!(s3_prefix.display(), "s3://prod@logs/2024/");
+    }
+
+    #[test]
     fn test_list_aws_profiles() {
         // This test just ensures the function doesn't panic
         let profiles = list_aws_profiles();
         // Should at least have "default"
         assert!(profiles.iter().any(|p| p.name == "default"));
+    }
+
+    #[test]
+    fn test_list_aws_profiles_reads_credentials() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let credentials_dir = temp_dir.path().join(".aws");
+        std::fs::create_dir_all(&credentials_dir).expect("create .aws");
+        std::fs::write(
+            credentials_dir.join("credentials"),
+            "[default]\naws_access_key_id=AKIA\n[team]\naws_secret_access_key=SECRET\n",
+        )
+        .expect("write credentials");
+
+        let original_home = env::var("HOME").ok();
+        env::set_var("HOME", temp_dir.path());
+
+        let profiles = list_aws_profiles();
+        assert!(profiles.iter().any(|p| p.name == "default"));
+        assert!(profiles.iter().any(|p| p.name == "team"));
+
+        if let Some(home) = original_home {
+            env::set_var("HOME", home);
+        } else {
+            env::remove_var("HOME");
+        }
+    }
+
+    #[test]
+    fn test_s3_client_list_buckets_and_objects() -> io::Result<()> {
+        let list_buckets_xml = r#"
+            <ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+                <Buckets>
+                    <Bucket>
+                        <Name>alpha</Name>
+                        <CreationDate>2020-01-01T00:00:00.000Z</CreationDate>
+                    </Bucket>
+                </Buckets>
+            </ListAllMyBucketsResult>
+        "#;
+        let list_objects_xml = r#"
+            <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+                <Name>alpha</Name>
+                <Prefix>folder/</Prefix>
+                <Delimiter>/</Delimiter>
+                <CommonPrefixes>
+                    <Prefix>folder/subdir/</Prefix>
+                </CommonPrefixes>
+                <Contents>
+                    <Key>folder/file.txt</Key>
+                    <LastModified>2020-01-01T00:00:00.000Z</LastModified>
+                    <Size>123</Size>
+                </Contents>
+            </ListBucketResult>
+        "#;
+        let client = build_test_client(vec![
+            replay_event(list_buckets_xml),
+            replay_event(list_objects_xml),
+        ]);
+
+        let buckets = client.list_buckets()?;
+        assert_eq!(buckets.len(), 1);
+        assert_eq!(buckets[0].name, "alpha");
+        assert!(buckets[0].creation_date.is_some());
+
+        let objects = client.list_objects("alpha", "folder/")?;
+        assert!(objects.iter().any(|obj| obj.is_folder && obj.key == "subdir"));
+        assert!(objects.iter().any(|obj| !obj.is_folder && obj.key == "file.txt"));
+        assert!(objects.iter().any(|obj| obj.last_modified.is_some()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_s3_client_object_operations() -> io::Result<()> {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let download_path = temp_dir.path().join("download.txt");
+        let upload_path = temp_dir.path().join("upload.txt");
+        std::fs::write(&upload_path, "payload")?;
+
+        let get_response = ReplayEvent::new(
+            Request::builder()
+                .uri("https://s3.us-east-1.amazonaws.com/alpha/download.txt")
+                .body(SdkBody::empty())
+                .expect("request"),
+            Response::builder()
+                .status(200)
+                .body(SdkBody::from("downloaded"))
+                .expect("response"),
+        );
+        let client = build_test_client(vec![
+            get_response,
+            ok_event(),
+            ok_event(),
+            ok_event(),
+        ]);
+
+        client.download_object("alpha", "download.txt", &download_path)?;
+        assert_eq!(std::fs::read_to_string(&download_path)?, "downloaded");
+
+        client.upload_object("alpha", "upload.txt", &upload_path)?;
+        client.copy_object("alpha", "upload.txt", "alpha", "copied.txt")?;
+        client.delete_object("alpha", "copied.txt")?;
+
+        Ok(())
     }
 }
