@@ -116,53 +116,49 @@ impl S3Client {
             let mut objects = Vec::new();
 
             // Add "folders" (common prefixes)
-            if let Some(prefixes) = resp.common_prefixes() {
-                for p in prefixes {
-                    if let Some(prefix_str) = p.prefix() {
-                        // Remove the current prefix to get the folder name
-                        let folder_name = prefix_str
-                            .strip_prefix(prefix)
-                            .unwrap_or(prefix_str)
-                            .trim_end_matches('/');
+            for p in resp.common_prefixes() {
+                if let Some(prefix_str) = p.prefix() {
+                    // Remove the current prefix to get the folder name
+                    let folder_name = prefix_str
+                        .strip_prefix(prefix)
+                        .unwrap_or(prefix_str)
+                        .trim_end_matches('/');
 
-                        if !folder_name.is_empty() {
-                            objects.push(S3Object {
-                                key: folder_name.to_string(),
-                                size: 0,
-                                is_folder: true,
-                                last_modified: None,
-                            });
-                        }
+                    if !folder_name.is_empty() {
+                        objects.push(S3Object {
+                            key: folder_name.to_string(),
+                            size: 0,
+                            is_folder: true,
+                            last_modified: None,
+                        });
                     }
                 }
             }
 
             // Add files
-            if let Some(contents) = resp.contents() {
-                for obj in contents {
-                    if let Some(key) = obj.key() {
-                        // Skip the prefix itself if it appears as an object
-                        if key == prefix {
-                            continue;
-                        }
-
-                        let name = key
-                            .strip_prefix(prefix)
-                            .unwrap_or(key)
-                            .to_string();
-
-                        // Skip if this is just a folder marker
-                        if name.is_empty() || name == "/" {
-                            continue;
-                        }
-
-                        objects.push(S3Object {
-                            key: name,
-                            size: obj.size().unwrap_or(0) as u64,
-                            is_folder: false,
-                            last_modified: obj.last_modified().map(|d| d.to_string()),
-                        });
+            for obj in resp.contents() {
+                if let Some(key) = obj.key() {
+                    // Skip the prefix itself if it appears as an object
+                    if key == prefix {
+                        continue;
                     }
+
+                    let name = key
+                        .strip_prefix(prefix)
+                        .unwrap_or(key)
+                        .to_string();
+
+                    // Skip if this is just a folder marker
+                    if name.is_empty() || name == "/" {
+                        continue;
+                    }
+
+                    objects.push(S3Object {
+                        key: name,
+                        size: obj.size().unwrap_or(0) as u64,
+                        is_folder: false,
+                        last_modified: obj.last_modified().map(|d| d.to_string()),
+                    });
                 }
             }
 
