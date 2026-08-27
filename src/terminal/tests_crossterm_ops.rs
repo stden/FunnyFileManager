@@ -1,0 +1,294 @@
+//! Unit tests: the real [`CrosstermOps`] implementation of [`TerminalOps`], the
+//! inertness of the [`NoopTerminalOps`] double every other suite drives, and
+//! the terminal the session lends back to its caller.
+//!
+//! Every operation except `enable_raw` reaches the terminal through the
+//! injected backend, so a backend that keeps the bytes written and the
+//! [`Backend`] calls made pins each one to the escape sequence it really emits
+//! — no pty required.
+
+use super::*;
+
+use ratatui::backend::{ClearType, WindowSize};
+use ratatui::layout::{Position, Size};
+
+use crate::WritableTestBackend;
+
+/// Message carried by [`SpyBackend`]'s error, so a failure assertion can prove
+/// the backend's own text survived the conversion into [`io::Error`].
+const SPY_FAILURE: &str = "spy backend refused";
+
+/// Backend that keeps every byte written through [`Write`] and the name of
+/// every [`Backend`] method called.
+///
+/// `WritableTestBackend` throws written bytes away, so the escape sequences the
+/// `execute!` calls emit need a backend of their own to land in. `size` is left
+/// unrecorded: `Terminal::new` probes it before any test starts.
+struct SpyBackend {
+    inner: WritableTestBackend,
+    written: Vec<u8>,
+    calls: Vec<&'static str>,
+    fail: bool,
+}
+
+impl SpyBackend {
+    fn record(&mut self, operation: &'static str) -> io::Result<()> {
+        self.calls.push(operation);
+        if self.fail {
+            Err(io::Error::other(SPY_FAILURE))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl Write for SpyBackend {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.written.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl Backend for SpyBackend {
+    type Error = io::Error;
+
+    fn draw<'a, I>(&mut self, content: I) -> io::Result<()>
+    where
+        I: Iterator<Item = (u16, u16, &'a ratatui::buffer::Cell)>,
+    {
+        self.record("draw")?;
+        self.inner.draw(content)
+    }
+
+    fn hide_cursor(&mut self) -> io::Result<()> {
+        self.record("hide_cursor")?;
+        self.inner.hide_cursor()
+    }
+
+    fn show_cursor(&mut self) -> io::Result<()> {
+        self.record("show_cursor")?;
+        self.inner.show_cursor()
+    }
+
+    fn get_cursor_position(&mut self) -> io::Result<Position> {
+        self.record("get_cursor_position")?;
+        self.inner.get_cursor_position()
+    }
+
+    fn set_cursor_position<P: Into<Position>>(&mut self, position: P) -> io::Result<()> {
+        self.record("set_cursor_position")?;
+        self.inner.set_cursor_position(position)
+    }
+
+    fn clear(&mut self) -> io::Result<()> {
+        self.record("clear")?;
+        self.inner.clear()
+    }
+
+    fn clear_region(&mut self, clear_type: ClearType) -> io::Result<()> {
+        self.record("clear_region")?;
+        self.inner.clear_region(clear_type)
+    }
+
+    fn size(&self) -> io::Result<Size> {
+        self.inner.size()
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.record("flush")?;
+        Backend::flush(&mut self.inner)
+    }
+
+    fn window_size(&mut self) -> io::Result<WindowSize> {
+        self.record("window_size")?;
+        self.inner.window_size()
+    }
+}
+
+fn spy_terminal() -> Terminal<SpyBackend> {
+    Terminal::new(SpyBackend {
+        inner: WritableTestBackend::new(20, 5),
+        written: Vec::new(),
+        calls: Vec::new(),
+        fail: false,
+    })
+    .expect("terminal over the spy backend")
+}
+
+/// Bytes the terminal has been handed since the last [`take_written`] call.
+fn take_written(terminal: &mut Terminal<SpyBackend>) -> String {
+    let bytes = std::mem::take(&mut terminal.backend_mut().written);
+    String::from_utf8_lossy(&bytes).into_owned()
+}
+
+/// The alternate screen is what keeps the user's scrollback intact, so the two
+/// halves must emit the matching pair and not each other's sequence.
+#[test]
+fn crossterm_ops_switch_the_alternate_screen_both_ways() {
+    let mut terminal = spy_terminal();
+    let mut ops = CrosstermOps;
+
+    ops.enter_alternate(&mut terminal)
+        .expect("enter the alternate screen");
+    assert_eq!(take_written(&mut terminal), "\u{1b}[?1049h");
+
+    ops.leave_alternate(&mut terminal)
+        .expect("leave the alternate screen");
+    assert_eq!(take_written(&mut terminal), "\u{1b}[?1049l");
+}
+
+/// Mouse capture must be switched off again on the way out — a terminal left in
+/// SGR mouse mode reports clicks as garbage input to whatever runs next.
+#[test]
+fn crossterm_ops_toggle_mouse_capture_both_ways() {
+    // What each half hands the backend. Mouse capture is the one operation
+    // crossterm reports as *not* ANSI-supported on Windows: there it drives the
+    // console API instead, so the contract flips to "writes nothing" — a stray
+    // `?1000h` would land in the alternate screen as visible garbage.
+    #[cfg(not(windows))]
+    let (on, off) = (
+        "\u{1b}[?1000h\u{1b}[?1002h\u{1b}[?1003h\u{1b}[?1015h\u{1b}[?1006h",
+        "\u{1b}[?1006l\u{1b}[?1015l\u{1b}[?1003l\u{1b}[?1002l\u{1b}[?1000l",
+    );
+    #[cfg(windows)]
+    let (on, off) = ("", "");
+
+    let mut terminal = spy_terminal();
+    let mut ops = CrosstermOps;
+
+    // Enable first either way: the console-API path refuses to disable capture
+    // it never enabled ("Initial console modes not set").
+    ops.enable_mouse(&mut terminal)
+        .expect("enable mouse capture");
+    assert_eq!(take_written(&mut terminal), on);
+
+    ops.disable_mouse(&mut terminal)
+        .expect("disable mouse capture");
+    assert_eq!(take_written(&mut terminal), off);
+}
+
+/// `clear` must wipe the screen and `show_cursor` must give the cursor back —
+/// the two operations that run after the alternate screen is gone, so a no-op
+/// here leaves the user staring at a blinking-cursor-less shell.
+#[test]
+fn crossterm_ops_clear_and_show_cursor_reach_the_backend() {
+    let mut terminal = spy_terminal();
+    let mut ops = CrosstermOps;
+
+    ops.clear(&mut terminal).expect("clear the screen");
+    assert!(
+        terminal.backend().calls.contains(&"clear_region"),
+        "clear never reached the backend: {:?}",
+        terminal.backend().calls
+    );
+
+    terminal.backend_mut().calls.clear();
+    ops.show_cursor(&mut terminal).expect("show the cursor");
+    assert_eq!(terminal.backend().calls, ["show_cursor"]);
+}
+
+/// Both calls go through ratatui, whose error type is not `io::Error` for every
+/// backend. The conversion must carry the backend's own message: it is the only
+/// clue the user gets about why the terminal could not be restored.
+#[test]
+fn crossterm_ops_keep_the_backend_message_when_the_terminal_fails() {
+    let mut terminal = spy_terminal();
+    terminal.backend_mut().fail = true;
+    let mut ops = CrosstermOps;
+
+    let clear_error = ops
+        .clear(&mut terminal)
+        .expect_err("a failing backend must fail the clear");
+    assert_eq!(clear_error.kind(), io::ErrorKind::Other);
+    assert!(
+        clear_error.to_string().contains(SPY_FAILURE),
+        "the backend's message was lost: {clear_error}"
+    );
+
+    let cursor_error = ops
+        .show_cursor(&mut terminal)
+        .expect_err("a failing backend must fail show_cursor");
+    assert!(
+        cursor_error.to_string().contains(SPY_FAILURE),
+        "the backend's message was lost: {cursor_error}"
+    );
+}
+
+/// `disable_raw` is the one `CrosstermOps` call with no backend to record it.
+/// Crossterm makes it a no-op when raw mode was never entered, so the outcome
+/// to assert is "succeeded, and raw mode is off". That is enough to catch the
+/// realistic slip — calling `enable_raw_mode` here — on both kinds of runner:
+/// it errors without a tty, and it reports raw mode *on* with one.
+#[test]
+fn crossterm_ops_disable_raw_leaves_raw_mode_off() {
+    // Serialised against the external-editor test, the only other test in this
+    // binary that can switch the process-wide raw mode on.
+    let _lock = crate::test_support::editor_env_lock();
+    let mut ops = CrosstermOps;
+
+    TerminalOps::<SpyBackend>::disable_raw(&mut ops).expect("disable raw mode");
+
+    assert!(
+        !crossterm::terminal::is_raw_mode_enabled().expect("query raw mode"),
+        "raw mode is still on after disable_raw"
+    );
+}
+
+/// The double the session and suspension suites run on must be inert: if it
+/// reached the terminal, every one of those tests would be writing escape
+/// sequences into the test runner's own output.
+#[test]
+fn noop_terminal_ops_touch_neither_the_backend_nor_the_bytes() {
+    let mut terminal = spy_terminal();
+    let mut ops = NoopTerminalOps;
+
+    TerminalOps::<SpyBackend>::enable_raw(&mut ops).expect("enable raw");
+    TerminalOps::<SpyBackend>::disable_raw(&mut ops).expect("disable raw");
+    ops.enter_alternate(&mut terminal).expect("enter alternate");
+    ops.leave_alternate(&mut terminal).expect("leave alternate");
+    ops.enable_mouse(&mut terminal).expect("enable mouse");
+    ops.disable_mouse(&mut terminal).expect("disable mouse");
+    ops.clear(&mut terminal).expect("clear");
+    ops.show_cursor(&mut terminal).expect("show cursor");
+
+    assert!(
+        terminal.backend().calls.is_empty(),
+        "the no-op ops reached the backend: {:?}",
+        terminal.backend().calls
+    );
+    assert_eq!(take_written(&mut terminal), "");
+}
+
+/// `terminal_mut` is how `main_impl` reaches the terminal it lent the session.
+/// It must hand back *that* terminal, so a frame drawn through the session
+/// lands in the caller's own backend rather than somewhere the caller cannot
+/// see.
+#[test]
+fn session_terminal_mut_hands_back_the_borrowed_terminal() {
+    let mut terminal = spy_terminal();
+    let mut ops = NoopTerminalOps;
+
+    {
+        let mut session =
+            TerminalSession::enter(&mut terminal, &mut ops).expect("enter the session");
+        session
+            .terminal_mut()
+            .backend_mut()
+            .write_all(b"probe")
+            .expect("write through the session");
+        session.finish().expect("finish the session");
+    }
+
+    assert_eq!(take_written(&mut terminal), "probe");
+}
+
+/// Panic-hook cleanup must not panic even when the process has no real TTY —
+/// it is best-effort restoration after an abort.
+#[test]
+fn restore_after_abort_does_not_panic() {
+    restore_after_abort();
+}

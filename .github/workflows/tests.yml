@@ -1,0 +1,210 @@
+# Purpose: Runs the GitHub Actions quality gate for the Rust workspace.
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+
+# Cancel in-progress runs for the same ref — don't waste minutes on stale pushes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+  # Tiny registry index + no debuginfo in CI binaries.
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  RUSTFLAGS: "-C debuginfo=0"
+  # .cargo/config.toml enables sccache for local dev; the runners don't
+  # have it installed, and Swatinem/rust-cache already caches artifacts.
+  RUSTC_WRAPPER: ""
+
+jobs:
+  # ── Format + clippy (deny warnings) ─────────────────────────
+  # Runs in parallel with the heavier coverage/bdd jobs; fails fast
+  # when style or lint drifts.
+  lint:
+    name: Lint (fmt + clippy production + test-helpers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mold (fast linker)
+        uses: rui314/setup-mold@v1
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: lint
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      # Clippy feature matrix (see scripts/lint.sh for the local equivalent):
+      # 1. Without features → production code paths
+      #    (e.g. editor.rs code guarded by #[cfg(not(feature = "test-helpers"))])
+      # 2. With test-helpers → test seams and conditional test code
+      # 3. With keepass → off-by-default kdbx module (not parsed otherwise)
+      # 4. With s3 → off-by-default AWS module (not parsed otherwise)
+      # Without 3 and 4 a compile/lint error in those modules would leave
+      # every job green until a rarer BDD/feature job compiled them.
+      - name: Clippy (production, -D warnings)
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Clippy (test-helpers, -D warnings)
+        run: cargo clippy --all-targets --features test-helpers -- -D warnings
+
+      - name: Clippy (keepass, -D warnings)
+        run: cargo clippy --all-targets --features keepass -- -D warnings
+
+      - name: Clippy (s3, -D warnings)
+        run: cargo clippy --all-targets --features s3 -- -D warnings
+
+  # ── Tests + coverage (llvm-cov + nextest, no s3) ────────────
+  # cargo-llvm-cov uses LLVM source-based instrumentation natively — no
+  # ptrace dance like tarpaulin — and nextest parallelises test binaries
+  # more aggressively than `cargo test`. Together they replace the
+  # previous tarpaulin step at ~2× the throughput.
+  coverage:
+    name: Tests & Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mold (fast linker)
+        uses: rui314/setup-mold@v1
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: coverage
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install coverage + test tools (prebuilt)
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov,cargo-nextest
+
+      - name: Tests + coverage (fail under 99% lines)
+        # Mirror tarpaulin.toml's exclude-files (keep in sync). Excluded from
+        # MEASUREMENT (they still run/compile in the suite):
+        #  - main/bootstrap/editor: real-TTY / external-process entry points
+        #  - clipboard/system.rs: OS clipboard glue (headless CI has none)
+        #  - ops/shell/tty.rs: drains the live crossterm event queue
+        #  - test files: tests are not code under test; their unreached lines
+        #    are assertion-failure arms that never fire in a passing suite
+        #
+        # True line coverage of the measured set is 100.00% — `cargo llvm-cov
+        # report --show-missing-lines` lists nothing. The summary table this
+        # gate reads reports ~99.7%: the crate is instrumented twice (lib-test
+        # binary + rlib inside integration tests), and llvm counts a line
+        # missed when any instantiation group leaves it unexecuted. The gate
+        # sits at 99 to stay just under that artifact, not because lines are
+        # allowed to go untested.
+        run: |
+          cargo llvm-cov nextest \
+            --features test-helpers \
+            --ignore-filename-regex 'src/(main|editor|bootstrap)\.rs$|src/clipboard/system\.rs$|src/ops/shell/tty\.rs$|/tests[_.]|_tests\.rs$|/test_support\.rs$|/mutation_test\.rs$' \
+            --fail-under-lines 99 \
+            --summary-only
+
+      # The kdbx module is behind the off-by-default `keepass` feature, so the
+      # run above compiles neither it nor its tests. Kept as a second invocation
+      # so the coverage threshold stays tied to the default feature set; the
+      # tests use a near-zero Argon2 cost and finish in well under a second.
+      - name: Tests (keepass feature)
+        run: cargo test --features test-helpers,keepass --lib keepass
+
+  # ── BDD tests (need the s3 feature to compile) ──────────────
+  # Kept separate because enabling `s3` drags in aws-sdk-s3, which adds
+  # ~3 min to a cold build; isolating it lets the coverage job stay
+  # fast while still running every test declared in Cargo.toml.
+  bdd:
+    name: BDD (s3 feature)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mold (fast linker)
+        uses: rui314/setup-mold@v1
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: bdd
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      # The src/s3/ unit suite only compiles under the `s3` feature, so the
+      # coverage job (which omits `s3`) never runs it. This is the only job
+      # that enables `s3`, so run those lib tests here or they execute nowhere.
+      - name: S3 unit tests (feature-gated)
+        run: 'cargo test --features test-helpers,s3 --lib s3::'
+
+      # BDD suites use cucumber-rs with harness = false; nextest only
+      # supports libtest harnesses, so run them via cargo test.
+      - name: Run BDD tests
+        run: cargo test --features test-helpers,s3 --test bdd --test bdd_ru
+
+  # ── MCP workspace: fmt + clippy + tests ─────────────────────
+  mcp:
+    name: MCP Server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mold (fast linker)
+        uses: rui314/setup-mold@v1
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy, llvm-tools-preview
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: mcp
+          workspaces: mcp
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install coverage tool (prebuilt)
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy --all -- -D warnings
+
+      # MCP has a cucumber BDD test with harness = false; nextest doesn't
+      # handle custom harnesses, so llvm-cov drives `cargo test` here.
+      #
+      # Coverage is measured, not just run: the BDD scenarios exercise
+      # src/main.rs through a spawned `ffm-mcp` process, and for a long time
+      # that process was SIGKILLed at the end of every scenario — which skips
+      # the atexit hook the LLVM profiling runtime writes .profraw from. The
+      # module read as 0% covered while being the most exercised file in the
+      # crate, and nothing failed, because this job measured nothing. The
+      # harness now closes the server's stdin and waits for a clean exit;
+      # this gate is what keeps that from silently regressing.
+      #
+      # Threshold is 75 against 79.0% measured locally after the fix: enough
+      # headroom for platform-dependent branches, tight enough that losing a
+      # whole tool's scenarios turns the job red.
+      - name: Tests + coverage (fail under 75% lines)
+        run: cargo llvm-cov --all --fail-under-lines 75 --summary-only

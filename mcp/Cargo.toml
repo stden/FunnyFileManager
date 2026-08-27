@@ -1,0 +1,48 @@
+# Purpose: Defines the standalone MCP server crate and its dependencies.
+[package]
+name = "ffm-mcp"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.95"
+description = "MCP server for FunnyFileManager — expose file operations as AI tools"
+license = "MIT"
+repository = "https://github.com/stden/FunnyFileManager"
+keywords = ["mcp", "file-manager", "ai-tools"]
+categories = ["command-line-utilities", "filesystem"]
+
+[[bin]]
+name = "ffm-mcp"
+path = "src/main.rs"
+
+[dev-dependencies]
+criterion = "0.8"
+cucumber = "0.23"
+
+[[example]]
+name = "bench_mcp"
+path = "bench_mcp.rs"
+
+[[bench]]
+name = "tree_walk"
+harness = false
+
+[[test]]
+name = "bdd"
+harness = false
+
+[dependencies]
+rmcp = { version = "3", features = ["server", "transport-io"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# schemars is re-exported through rmcp (see `use rmcp::schemars`); pin to the
+# same major rmcp uses (1.x) so the tool-schema derives share one version.
+schemars = "1"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+sha2 = "0.11"
+# Atomic replacement needs an O_EXCL temp file with an unguessable name — a
+# fixed sibling name is a symlink-planting target. Also used by the tests.
+tempfile = "3"
+aws-sdk-s3 = "1"
+aws-config = { version = "1", features = ["behavior-version-latest"] }

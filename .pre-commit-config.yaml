@@ -1,0 +1,51 @@
+# Purpose: Defines pre-commit hooks used to check the repository before commits.
+# Pre-commit configuration for FunnyFileManager
+# https://pre-commit.com/
+#
+# Setup (one time):
+#   pip install pre-commit   # or: brew install pre-commit / choco install pre-commit
+#   pre-commit install
+#
+# This will install a Git hook that runs automatically on `git commit`.
+#
+# Hooks:
+#   - basic file hygiene (trailing whitespace, YAML, large files)
+#   - cargo fmt (auto-format the main crate)
+#   - cargo clippy matrix matching CI (-D warnings, key features)
+#   - mcp/ crate fmt + clippy when present
+#
+# To temporarily bypass (not recommended):
+#   git commit --no-verify
+#
+# To run manually on all files:
+#   pre-commit run --all-files
+#   ./scripts/lint.sh
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+
+  # Auto-format Rust code on commit, then deny clippy warnings.
+  # Uses the local cargo/rustfmt/clippy toolchain (no extra Rust deps).
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt (auto-format)
+        entry: cargo fmt --all
+        language: system
+        types_or: [rust]
+        pass_filenames: false
+
+      - id: cargo-clippy
+        name: cargo clippy (-D warnings, feature matrix)
+        entry: bash scripts/lint.sh clippy
+        language: system
+        types_or: [rust]
+        pass_filenames: false
+        # Clippy is slower than fmt; still run on every commit so local
+        # gate matches CI. Use `SKIP=cargo-clippy git commit` to skip once.

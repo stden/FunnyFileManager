@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo build:*)",
+      "Bash(sudo cp:*)",
+      "Bash(sudo chmod:*)",
+      "Bash(ffm:*)",
+      "Bash(ffm --help:*)",
+      "Bash(git pull:*)",
+      "Bash(wc:*)",
+      "Bash(cargo test:*)",
+      "Bash(git checkout:*)",
+      "Bash(git push:*)",
+      "Bash(grep:*)",
+      "Bash(cargo:*)",
+      "Bash(/bin/rm:*)",
+      "Bash(git:*)",
+      "Bash(ls -lh /Users/x/FunnyFileManager/tests/*.rs)",
+      "Bash(taskkill:*)",
+      "Bash(true:*)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "ffm-mcp"
+  ]
+}

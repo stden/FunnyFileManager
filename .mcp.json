@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "ffm-mcp": {
+      "type": "stdio",
+      "command": "mcp/target/release/ffm-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}
