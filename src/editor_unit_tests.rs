@@ -1,0 +1,444 @@
+//! Purpose: Holds feature-gated editor unit tests that need test-helper APIs.
+//!
+#[cfg(all(test, feature = "test-helpers"))]
+mod editor_tests {
+    use crate::editor::handle_edit_impl;
+    use crate::models::Bookmarks;
+    use crate::models::EntryKind;
+    use crate::models::FileSize;
+    use crate::models::ViewMode;
+    use crate::models::{App, DirEntry, Overlay, Panel, PanelSide};
+    use crate::quicksearch::QuickSearch;
+    use crate::status::Status;
+    use crate::test_support::EditorEnvGuard;
+    use ratatui::Terminal;
+    use std::fs::File;
+    use std::io;
+    use std::io::Write;
+    use std::path::Path;
+    use tempfile::TempDir;
+
+    fn create_test_app(temp_dir: &TempDir) -> io::Result<App> {
+        Ok(App {
+            left_panel: Panel::new(temp_dir.path().to_path_buf())?,
+            right_panel: Panel::new(temp_dir.path().to_path_buf())?,
+            active_panel: PanelSide::Left,
+            status: Status::Cleared,
+            view: ViewMode::default(),
+            overlay: Overlay::None,
+            bookmarks: Bookmarks::default(),
+            lifecycle: crate::models::Lifecycle::default(),
+            quick_search: QuickSearch::default(),
+            history: crate::history::History::default(),
+            console: crate::console::ConsoleLog::default(),
+        })
+    }
+
+    #[test]
+    fn test_handle_edit_impl_no_selection() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = create_test_app(&temp_dir)?;
+        app.left_panel.select(None);
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |editor, args, path| {
+            let _ = editor;
+            let _ = args;
+            let _ = path;
+            panic!("Editor should not be called when no selection");
+        });
+
+        assert!(result.is_ok());
+        assert_eq!(app.status_text(), "");
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_directory_selected() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = create_test_app(&temp_dir)?;
+
+        // Ensure there's a parent directory entry
+        if app.left_panel.entries.is_empty() || app.left_panel.entries[0].name != ".." {
+            // Manually add a directory entry
+            app.left_panel.entries.insert(
+                0,
+                DirEntry {
+                    name: "test_dir".to_string(),
+                    kind: EntryKind::Directory,
+                    size: FileSize::from_bytes(0),
+                },
+            );
+        }
+        app.left_panel.select(Some(0));
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |editor, args, path| {
+            let _ = editor;
+            let _ = args;
+            let _ = path;
+            panic!("Editor should not be called for directories");
+        });
+
+        assert!(result.is_ok());
+        assert_eq!(app.status_text(), "Editing directories is not supported");
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_success() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test.txt");
+        File::create(&file_path)?;
+
+        // Pin $EDITOR rather than reading it live inside the closure: comparing
+        // the resolved editor against whatever the ambient environment happens
+        // to hold makes the test depend on the machine it runs on, and on
+        // whichever sibling test last touched the variable.
+        let _guard = EditorEnvGuard::set(Path::new("ffm-test-editor"));
+        let mut app = create_test_app(&temp_dir)?;
+
+        // Find and select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.select(Some(i));
+                break;
+            }
+        }
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |editor, args, path| {
+            let _ = args;
+            assert_eq!(editor, "ffm-test-editor");
+            assert_eq!(path, file_path.as_path());
+            Ok(std::process::ExitStatus::default())
+        });
+
+        assert!(result.is_ok());
+        assert!(app.status_text().contains("Edited"));
+        assert!(app.status_text().contains("test.txt"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_editor_error() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test.txt");
+        File::create(&file_path)?;
+
+        let mut app = create_test_app(&temp_dir)?;
+
+        // Find and select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.select(Some(i));
+                break;
+            }
+        }
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |editor, args, path| {
+            let _ = editor;
+            let _ = args;
+            let _ = path;
+            Err(io::Error::new(io::ErrorKind::NotFound, "Editor not found"))
+        });
+
+        assert!(result.is_ok());
+        assert!(app.status_text().contains("Failed to launch editor"));
+        assert!(app.status_text().contains("Editor not found"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_editor_exit_code() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test.txt");
+        File::create(&file_path)?;
+
+        let mut app = create_test_app(&temp_dir)?;
+
+        // Find and select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.select(Some(i));
+                break;
+            }
+        }
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        // Create a mock ExitStatus with error code
+        #[cfg(unix)]
+        let exit_status = std::os::unix::process::ExitStatusExt::from_raw(256); // Exit code 1
+        #[cfg(windows)]
+        let exit_status = std::process::ExitStatus::default(); // Windows doesn't have from_raw
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |_, _, _| Ok(exit_status));
+
+        assert!(result.is_ok());
+        #[cfg(unix)]
+        assert!(app.status_text().contains("Editor exited with status"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_with_editor_env() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test.txt");
+        File::create(&file_path)?;
+
+        let _guard = EditorEnvGuard::set(Path::new("vim"));
+
+        let mut app = create_test_app(&temp_dir)?;
+
+        // Find and select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.select(Some(i));
+                break;
+            }
+        }
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |editor, args, path| {
+            let _ = args;
+            let _ = path;
+            assert_eq!(editor, "vim");
+            Ok(std::process::ExitStatus::default())
+        });
+
+        assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_right_panel() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("right.txt");
+        File::create(&file_path)?;
+
+        let mut app = create_test_app(&temp_dir)?;
+        app.active_panel = PanelSide::Right;
+
+        // Find and select the file in right panel
+        for (i, entry) in app.right_panel.entries.iter().enumerate() {
+            if entry.name == "right.txt" {
+                app.right_panel.select(Some(i));
+                break;
+            }
+        }
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |_, _, path| {
+            assert_eq!(path.file_name().unwrap().to_str().unwrap(), "right.txt");
+            Ok(std::process::ExitStatus::default())
+        });
+
+        assert!(result.is_ok());
+        assert!(app.status_text().contains("Edited"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_terminal_error() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new()?;
+
+        let file = temp_dir.path().join("test.txt");
+        File::create(&file)?.write_all(b"content")?;
+
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.left_panel.load_entries()?;
+        app.left_panel.select(Some(1));
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        // Test with editor that returns error status
+        let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _args, _path| {
+            Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "Cannot execute editor",
+            ))
+        });
+
+        assert!(result.is_ok());
+        assert!(app.status_text().contains("Failed to launch editor"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_file_not_found() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new()?;
+
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.left_panel.load_entries()?;
+
+        // Select a non-existent file by manipulating the panel state
+        app.left_panel.entries.push(crate::models::DirEntry {
+            name: "nonexistent.txt".to_string(),
+            kind: EntryKind::File,
+            size: FileSize::from_bytes(0),
+            // modified field removed from DirEntry
+        });
+        app.left_panel
+            .select(Some(app.left_panel.entries.len() - 1));
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _args, path| {
+            // Verify the path doesn't exist
+            assert!(!path.exists());
+            Ok(std::process::ExitStatus::default())
+        });
+
+        assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_very_long_filename() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let mut app = App::new()?;
+
+        // Create a file with a long name (but valid for Windows)
+        let long_name = "a".repeat(100) + ".txt";
+        let file = temp_dir.path().join(&long_name);
+        File::create(&file)?;
+
+        app.left_panel.path = temp_dir.path().to_path_buf();
+        app.left_panel.load_entries()?;
+
+        // Find and select the long filename
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name.contains("aaaa") {
+                app.left_panel.select(Some(i));
+                break;
+            }
+        }
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |_editor, _args, path| {
+            assert!(path.file_name().unwrap().len() > 100);
+            Ok(std::process::ExitStatus::default())
+        });
+
+        assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_no_editor_env() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test.txt");
+        File::create(&file_path)?;
+
+        let _guard = EditorEnvGuard::clear();
+
+        let mut app = create_test_app(&temp_dir)?;
+
+        // Find and select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.select(Some(i));
+                break;
+            }
+        }
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |editor, args, path| {
+            let _ = args;
+            let _ = path;
+            assert_eq!(editor, "nano"); // Should use "nano" as default
+            Ok(std::process::ExitStatus::default())
+        });
+
+        assert!(result.is_ok());
+        assert!(app.status_text().contains("Edited"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_exit_error() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test.txt");
+        File::create(&file_path)?;
+
+        let mut app = create_test_app(&temp_dir)?;
+
+        // Find and select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.select(Some(i));
+                break;
+            }
+        }
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        // Test that load_entries error is handled
+        let result = handle_edit_impl(&mut terminal, &mut app, |editor, args, path| {
+            let _ = editor;
+            let _ = args;
+            let _ = path;
+            Ok(std::process::ExitStatus::default())
+        });
+
+        // The error from load_entries would be propagated
+        assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_handle_edit_impl_launch_error() -> io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test.txt");
+        File::create(&file_path)?;
+
+        let mut app = create_test_app(&temp_dir)?;
+
+        // Find and select the file
+        for (i, entry) in app.left_panel.entries.iter().enumerate() {
+            if entry.name == "test.txt" {
+                app.left_panel.select(Some(i));
+                break;
+            }
+        }
+
+        let backend = crate::WritableTestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend)?;
+
+        let result = handle_edit_impl(&mut terminal, &mut app, |editor, args, path| {
+            let _ = editor;
+            let _ = args;
+            let _ = path;
+            Err(io::Error::other("Launch failed"))
+        });
+
+        assert!(result.is_ok());
+        assert!(app.status_text().contains("Failed to launch editor"));
+        assert!(app.status_text().contains("Launch failed"));
+        Ok(())
+    }
+}

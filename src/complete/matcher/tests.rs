@@ -1,0 +1,83 @@
+//! Unit tests: fuzzy matching and ranking.
+#![allow(unused_imports)]
+
+use super::*;
+
+#[test]
+fn test_exact_prefix_scores_in_the_prefix_tier() {
+    let score = score("cd", "cd").expect("prefix match");
+    assert_eq!(score.tier, Tier::Prefix);
+}
+
+#[test]
+fn test_subsequence_scores_in_the_fuzzy_tier() {
+    // d-w-n appear in order inside "Downloads/", but not as a prefix.
+    let score = score("dwn", "Downloads/").expect("fuzzy match");
+    assert_eq!(score.tier, Tier::Fuzzy);
+}
+
+#[test]
+fn test_non_subsequence_does_not_match() {
+    assert_eq!(score("zzz", "Downloads/"), None);
+}
+
+#[test]
+fn test_out_of_order_characters_do_not_match() {
+    // "nwd" has the right letters in the wrong order.
+    assert_eq!(score("nwd", "Downloads/"), None);
+}
+
+#[test]
+fn test_empty_query_matches_everything_in_the_prefix_tier() {
+    let score = score("", "anything").expect("empty query matches");
+    assert_eq!(score.tier, Tier::Prefix);
+}
+
+#[test]
+fn test_lowercase_query_is_case_insensitive() {
+    assert!(score("dow", "Downloads/").is_some());
+}
+
+#[test]
+fn test_uppercase_in_query_forces_case_sensitivity() {
+    // Smartcase: any uppercase character makes the whole query case-sensitive.
+    assert!(score("Dow", "Downloads/").is_some());
+    assert_eq!(score("Dow", "downloads/"), None);
+}
+
+#[test]
+fn test_consecutive_run_outscores_a_scattered_match() {
+    let tight = score("cat", "cat.txt").expect("match");
+    let loose = score("cat", "c_a_t.txt").expect("match");
+    assert!(
+        tight.points > loose.points,
+        "tight={tight:?} should outscore loose={loose:?}"
+    );
+}
+
+#[test]
+fn test_rank_puts_prefix_matches_above_fuzzy_ones() {
+    // "cd" is a prefix of "cd" and a subsequence of "copy_dir".
+    let ranked = rank("cd", vec!["copy_dir".to_string(), "cd".to_string()]);
+    assert_eq!(ranked, vec!["cd".to_string(), "copy_dir".to_string()]);
+}
+
+#[test]
+fn test_rank_drops_non_matching_candidates() {
+    let ranked = rank("cd", vec!["cd".to_string(), "zzz".to_string()]);
+    assert_eq!(ranked, vec!["cd".to_string()]);
+}
+
+#[test]
+fn test_rank_is_deterministic_for_equally_scored_candidates() {
+    // All three are prefix matches of equal length, so the lexicographic
+    // tiebreak decides — ranking must never vary between runs.
+    let ranked = rank(
+        "a",
+        vec!["ac".to_string(), "aa".to_string(), "ab".to_string()],
+    );
+    assert_eq!(
+        ranked,
+        vec!["aa".to_string(), "ab".to_string(), "ac".to_string()]
+    );
+}

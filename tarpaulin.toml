@@ -1,0 +1,25 @@
+# Purpose: Configures cargo-tarpaulin coverage collection for the project.
+[coverage]
+# Excluded from measurement (mirrors the CI llvm-cov regex — keep in sync):
+# - main.rs / bootstrap.rs: the real-TTY entry points; they take over the
+#   terminal and cannot run under a test harness
+# - clipboard/system.rs: arboard/OS-clipboard glue — whether it works depends
+#   on the machine (headless CI has no clipboard), not on this crate
+# - ops/shell/tty.rs: drains crossterm's live event queue for cancel keys
+# - test files (tests*.rs / *_tests.rs / test_support / mutation_test): tests
+#   are not code under test; their unreached lines are assertion-failure arms
+#
+# editor.rs is deliberately NOT excluded: the $EDITOR resolution and the
+# spawn path are covered by src/editor/tests.rs, and hiding the file only
+# hid the fact that they were not.
+exclude-files = [
+    "*/main.rs",
+    "*/bootstrap.rs",
+    "*/clipboard/system.rs",
+    "*/ops/shell/tty.rs",
+    "*/tests.rs",
+    "*/tests_*.rs",
+    "*/*_tests.rs",
+    "*/test_support.rs",
+    "*/mutation_test.rs",
+]
