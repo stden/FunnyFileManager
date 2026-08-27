@@ -480,7 +480,7 @@ fn test_apply_action_toggle_help_and_console() -> io::Result<()> {
         &mut last_nav,
         nav_debounce,
     );
-    assert!(app.view == ViewMode::Console);
+    assert_eq!(app.view, ViewMode::Console);
 
     apply_action(
         &mut terminal,

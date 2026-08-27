@@ -171,7 +171,7 @@ fn refuses_a_writerless_fifo_without_blocking() -> io::Result<()> {
 }
 
 /// The post-`metadata` size check: a file that grows past the limit between
-/// the size snapshot and the bounded read must still be refused as TooLarge
+/// the size snapshot and the bounded read must still be refused as `TooLarge`
 /// (not silently truncated to the first 10 MB).
 ///
 /// Uses a short retry loop because the interleaving is a race; on a quiet
