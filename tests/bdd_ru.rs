@@ -362,11 +362,7 @@ fn when_swap(world: &mut FfmWorld) {
 #[when("я переключаю режим консоли")]
 fn when_toggle_console(world: &mut FfmWorld) {
     let app = world.app();
-    if app.view == ViewMode::Console {
-        app.close_overlay();
-    } else {
-        app.view = ViewMode::Console;
-    }
+    app.view = app.view.toggled();
 }
 
 #[when("я перехожу в корневой каталог")]
