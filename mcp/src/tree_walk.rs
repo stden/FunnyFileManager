@@ -151,6 +151,26 @@ mod tests {
     }
 
     #[test]
+    fn directory_size_of_a_file_is_its_length() {
+        let temp = TempDir::new().expect("temp dir");
+        let file = temp.path().join("payload.bin");
+        fs::write(&file, [0_u8; 257]).expect("file");
+
+        assert_eq!(directory_size(&file), 257);
+    }
+
+    #[test]
+    fn empty_directory_has_no_size_and_only_renders_the_root() {
+        let temp = TempDir::new().expect("temp dir");
+
+        assert_eq!(directory_size(temp.path()), 0);
+        assert_eq!(
+            render_directory_tree(temp.path(), usize::MAX),
+            format!("{}/", temp.path().display())
+        );
+    }
+
+    #[test]
     fn render_directory_tree_sorts_entries_and_honours_depth() {
         let temp = TempDir::new().expect("temp dir");
         fs::create_dir_all(temp.path().join("alpha/deeper")).expect("nested dirs");
@@ -185,6 +205,18 @@ mod tests {
     }
 
     #[test]
+    fn zero_depth_renders_no_entries() {
+        let temp = TempDir::new().expect("temp dir");
+        fs::create_dir(temp.path().join("directory")).expect("directory");
+        fs::write(temp.path().join("file.txt"), b"contents").expect("file");
+
+        assert_eq!(
+            render_directory_tree(temp.path(), 0),
+            format!("{}/", temp.path().display())
+        );
+    }
+
+    #[test]
     fn missing_paths_have_no_size_and_only_render_the_root() {
         let temp = TempDir::new().expect("temp dir");
         let missing = temp.path().join("missing");
@@ -198,13 +230,21 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn directory_size_counts_a_link_without_following_it() {
+    fn directory_symlink_is_counted_and_rendered_as_a_leaf() {
         let root = TempDir::new().expect("root temp dir");
         let outside = TempDir::new().expect("outside temp dir");
         fs::write(outside.path().join("large.bin"), vec![0_u8; 64 * 1024]).expect("outside file");
-        std::os::unix::fs::symlink(outside.path(), root.path().join("link"))
-            .expect("directory link");
+        let link = root.path().join("link");
+        std::os::unix::fs::symlink(outside.path(), &link).expect("directory link");
+        let link_size = fs::symlink_metadata(&link).expect("link metadata").len();
 
-        assert!(directory_size(root.path()) < 64 * 1024);
+        assert_eq!(directory_size(root.path()), link_size);
+        assert_eq!(
+            render_directory_tree(root.path(), usize::MAX)
+                .lines()
+                .skip(1)
+                .collect::<Vec<_>>(),
+            ["└── link"]
+        );
     }
 }
