@@ -289,12 +289,18 @@ the **sibling file**, `src/action/editor.rs`. A directory holding nothing but
 - The eleven existing `mod.rs` files (`ops/`, `application/`, `handlers/`,
   `test_support/`, and test aggregators under them) are deliberate: each is a
   façade whose whole job is re-exporting a subsystem, so "the directory" *is*
-  the unit. Leave them; do not convert them either way. Converting one module
-  in isolation is worse than either convention, because the next reader
-  trips over the exception.
-- Either form is a pure file-placement choice: `git mv foo.rs foo/mod.rs`
-  changes no module path, no `use`, no public API. That also means it is never
-  worth doing for one module alone.
+  the unit. Leave them.
+- **Moving any module file breaks the architecture test.**
+  `tests/module_boundaries_test.rs` asserts against exact paths —
+  `src/handlers/mod.rs` (twice), `src/handlers/dispatch.rs`, `src/editor.rs`,
+  `src/bootstrap.rs` and others — and reads them with `expect("read facade")`,
+  so a rename panics rather than failing with a useful message. Renaming a
+  module is therefore a two-file change: the file and that test.
+- Either form is otherwise a pure file-placement choice: `git mv foo.rs
+  foo/mod.rs` changes no module path, no `use`, no public API. Because nothing
+  observable changes, converting one module in isolation buys nothing and
+  costs an exception the next reader trips over. Convert the whole tree or
+  none of it.
 - Target ≤ 300 lines per file; the guard test in
   `tests/file_line_limit_test.rs` enforces the hard cap. Split by
   responsibility into `<module>/<part>.rs` child modules, never by line count.
