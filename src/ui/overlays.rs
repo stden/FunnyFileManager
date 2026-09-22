@@ -309,6 +309,7 @@ fn render_commands_dialog(
         Overlay::Hotplug(dialog) => super::hotplug::render(f, tracker, dialog),
         Overlay::SortModes(dialog) => super::sortmenu::render(f, tracker, dialog),
         Overlay::Settings(dialog) => super::settings::render(f, tracker, dialog),
+        Overlay::DiskCleanup(dialog) => super::disk_cleanup::render(f, tracker, dialog),
         _ => {}
     }
 }

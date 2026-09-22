@@ -24,6 +24,7 @@ pub const VERBS: &[&str] = &[
     "wincheck",
     "wsl",
     "mcp",
+    "cleanup",
     "quit",
     "exit",
 ];
@@ -57,6 +58,8 @@ pub enum Command {
     Wsl,
     /// mcp
     Mcp,
+    /// cleanup — open the disk cleanup dialog.
+    DiskCleanup,
     /// quit / exit
     Quit,
     /// Any other input is treated as a shell command.
@@ -154,6 +157,7 @@ impl Command {
             "winperf" | "wincheck" => Self::WinPerf,
             "wsl" if parts.next().is_none() => Self::Wsl,
             "mcp" => Self::Mcp,
+            "cleanup" => Self::DiskCleanup,
             "quit" | "exit" => Self::Quit,
             // `input` has a non-whitespace token — `parts.next()` just yielded
             // one — so the constructor cannot fail; `Empty` above owns the

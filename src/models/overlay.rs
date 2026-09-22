@@ -151,6 +151,9 @@ pub enum Overlay {
     /// Options menu: one settings page.
     Settings(Box<SettingsDialog>),
 
+    /// `:cleanup` — the disk cleanup checklist.
+    DiskCleanup(Box<super::DiskCleanupDialog>),
+
     /// Enter on a `.kdbx` file: the unlock prompt, then the entry browser.
     /// Wrapped in [`KdbxOverlay`](crate::models::KdbxOverlay) because this
     /// enum derives `Clone` and a session's master key must not be duplicated

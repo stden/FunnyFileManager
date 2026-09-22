@@ -48,6 +48,7 @@ impl DurableLine {
             | Command::Wsl
             | Command::WinPerf
             | Command::Mcp
+            | Command::DiskCleanup
             | Command::Quit => Some(Self(trimmed.to_owned())),
             // Shell fall-through and known-verb-bad-args can carry secrets
             // (raw user text) — never durable. `Empty` is unreachable here

@@ -12,56 +12,57 @@ Built on the official **[rmcp](https://github.com/modelcontextprotocol/rust-sdk)
 - **`#[tool]` macros** — auto-generated JSON schemas from Rust types via `schemars`
 - **`#[tool_router]` + `#[tool_handler]`** — declarative tool dispatch, no manual JSON-RPC parsing
 - **`tracing`** — structured logging to stderr (stdout reserved for protocol)
-- **Root confinement** — every user-supplied path is canonicalized *and* checked to live under one allowed root (`FFM_MCP_ROOT`, default: the process working directory)
+- **Root confinement** — every user-supplied path is canonicalized *and* checked to live under one allowed root
+  (`FFM_MCP_ROOT`, default: the process working directory)
 - **Typed parameters** — each tool has a dedicated `Deserialize + JsonSchema` struct
 
 ## ✅ Best Practices Applied
 
-| Practice | Implementation |
-|----------|----------------|
-| Official SDK | `rmcp` v3.x with `#[tool]` macros instead of hand-rolled JSON-RPC |
-| Never print to stdout | All logging via `tracing` directed to stderr |
-| Root confinement | `paths::sanitize_path*()` rejects empty/null-byte paths, canonicalizes, and refuses anything outside the allowed root |
-| Typed inputs | `schemars::JsonSchema` derives generate accurate input schemas |
-| Proper error codes | Uses `McpError::invalid_params` / `internal_error` with JSON-RPC codes |
-| Async runtime | `tokio` for rmcp's async transport layer |
-| Graceful shutdown | `service.waiting().await` handles clean shutdown |
-| No `unwrap()` in library code | All errors propagated via `Result` / `?` operator |
-| Focused dependencies | MCP/stdio, serialization, KeePass, filesystem, and S3 support only |
+| Practice                      | Implementation                                                                                                        |
+|-------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| Official SDK                  | `rmcp` v3.x with `#[tool]` macros instead of hand-rolled JSON-RPC                                                     |
+| Never print to stdout         | All logging via `tracing` directed to stderr                                                                          |
+| Root confinement              | `paths::sanitize_path*()` rejects empty/null-byte paths, canonicalizes, and refuses anything outside the allowed root |
+| Typed inputs                  | `schemars::JsonSchema` derives generate accurate input schemas                                                        |
+| Proper error codes            | Uses `McpError::invalid_params` / `internal_error` with JSON-RPC codes                                                |
+| Async runtime                 | `tokio` for rmcp's async transport layer                                                                              |
+| Graceful shutdown             | `service.waiting().await` handles clean shutdown                                                                      |
+| No `unwrap()` in library code | All errors propagated via `Result` / `?` operator                                                                     |
+| Focused dependencies          | MCP/stdio, serialization, KeePass, filesystem, and S3 support only                                                    |
 
 ## 🔌 Tools (54)
 
 Core local-filesystem tools (the full list also covers pattern matching, batch
 operations, bookmarks, symlinks, permissions, checksums, system info and S3):
 
-| Tool | Description |
-|------|-------------|
-| `list_directory` | List files/dirs at path with name, type, size |
-| `get_file_info` | Detailed metadata: size, type (incl. `symlink` + target), permissions, modified time |
-| `view_file` | Read text file contents (max 10 MB) with offset/limit |
-| `kbdx` | Decrypt a root-confined `.kdbx`/`.kbdx` vault to JSON (default), YAML, or password-only dotenv text; the response contains plaintext secrets |
-| `create_file` | Create new file with content (fails if exists) |
-| `write_file` | Write/overwrite file content |
-| `create_directory` | Create directory tree (recursive) |
-| `copy` | Copy file or directory (recursive) |
-| `move_rename` | Move/rename with atomic rename fallback to copy+delete |
-| `delete` | Delete file or directory (recursive option); a symlink is unlinked, never followed |
-| `search` | Case-insensitive name search in directory tree |
-| `list_drives` | List local drives, mount points, and AWS S3 profiles |
-| `disk_usage` | Calculate total size of file or directory tree |
-| `tree` | Show directory tree structure with configurable depth |
-| `analyse_directory` | Total size, per-subdirectory sizes, totals per file kind, largest files |
-| `find_duplicates` | Identical-content groups (same-size files hashed) and reclaimable bytes |
-| `tail_file` | Last N lines, seeking from the end (capped at 10 MB of tail) |
-| `compare_directories` | Only-in-left, only-in-right, same-name-different-size across the trees |
-| `recent_files` | Files modified within N days, newest first |
-| `head_file` | First N lines, stopping once it has them; refuses after 10 MB of reading |
-| `read_lines` | A 1-based inclusive line range, reading no further than `to`; refuses after 10 MB of reading |
-| `text_format` | Line endings from a 256 KB sample, the file's true final newline, byte-order mark, and whether it looks binary |
-| `file_stats` | Lines, words, characters, bytes, and the longest line |
-| `compare_files` | Identical or not, both SHA-256 sums, and the first differing byte offset (read from the bytes, also when the sizes differ) |
-| `largest_files` | The biggest files under a tree, biggest first, with a `truncated` flag when the walk budget stops early |
-| `which` | Every match for an executable on `PATH`, in `PATH` order; on Unix only a file with an execute bit counts |
+| Tool                  | Description                                                                                                                                  |
+|-----------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| `list_directory`      | List files/dirs at path with name, type, size                                                                                                |
+| `get_file_info`       | Detailed metadata: size, type (incl. `symlink` + target), permissions, modified time                                                         |
+| `view_file`           | Read text file contents (max 10 MB) with offset/limit                                                                                        |
+| `kbdx`                | Decrypt a root-confined `.kdbx`/`.kbdx` vault to JSON (default), YAML, or password-only dotenv text; the response contains plaintext secrets |
+| `create_file`         | Create new file with content (fails if exists)                                                                                               |
+| `write_file`          | Write/overwrite file content                                                                                                                 |
+| `create_directory`    | Create directory tree (recursive)                                                                                                            |
+| `copy`                | Copy file or directory (recursive)                                                                                                           |
+| `move_rename`         | Move/rename with atomic rename fallback to copy+delete                                                                                       |
+| `delete`              | Delete file or directory (recursive option); a symlink is unlinked, never followed                                                           |
+| `search`              | Case-insensitive name search in directory tree                                                                                               |
+| `list_drives`         | List local drives, mount points, and AWS S3 profiles                                                                                         |
+| `disk_usage`          | Calculate total size of file or directory tree                                                                                               |
+| `tree`                | Show directory tree structure with configurable depth                                                                                        |
+| `analyse_directory`   | Total size, per-subdirectory sizes, totals per file kind, largest files                                                                      |
+| `find_duplicates`     | Identical-content groups (same-size files hashed) and reclaimable bytes                                                                      |
+| `tail_file`           | Last N lines, seeking from the end (capped at 10 MB of tail)                                                                                 |
+| `compare_directories` | Only-in-left, only-in-right, same-name-different-size across the trees                                                                       |
+| `recent_files`        | Files modified within N days, newest first                                                                                                   |
+| `head_file`           | First N lines, stopping once it has them; refuses after 10 MB of reading                                                                     |
+| `read_lines`          | A 1-based inclusive line range, reading no further than `to`; refuses after 10 MB of reading                                                 |
+| `text_format`         | Line endings from a 256 KB sample, the file's true final newline, byte-order mark, and whether it looks binary                               |
+| `file_stats`          | Lines, words, characters, bytes, and the longest line                                                                                        |
+| `compare_files`       | Identical or not, both SHA-256 sums, and the first differing byte offset (read from the bytes, also when the sizes differ)                   |
+| `largest_files`       | The biggest files under a tree, biggest first, with a `truncated` flag when the walk budget stops early                                      |
+| `which`               | Every match for an executable on `PATH`, in `PATH` order; on Unix only a file with an execute bit counts                                     |
 
 ### 🔐 KeePass export
 
@@ -129,9 +130,9 @@ started in — set it explicitly, since a client-spawned process often inherits
 
 ### ⚙️ Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `RUST_LOG` | `info` | Log level filter (trace/debug/info/warn/error) |
+| Variable       | Default                   | Description                                                                                                       |
+|----------------|---------------------------|-------------------------------------------------------------------------------------------------------------------|
+| `RUST_LOG`     | `info`                    | Log level filter (trace/debug/info/warn/error)                                                                    |
 | `FFM_MCP_ROOT` | process working directory | The only directory tree tools may read or write. Resolved once at startup; every path argument is confined to it. |
 
 ## 🔌 Protocol Flow
@@ -171,21 +172,25 @@ Every tool argument arrives from an AI client and is treated as untrusted input.
   caller-named binary
 - **One internal subprocess**: `system_info` shells out to `df -h /` (fixed
   argv, no user input) to report free space. Everything else uses `std::fs`.
-- **Size limits**: `view_file` accepts at most a 10 MB file, and `head_file`/`read_lines` stop after 10 MB of reading, to prevent memory exhaustion
-- **KeePass secrets**: `kbdx` is read-only and writes no export file, but its response deliberately contains plaintext secrets. Vaults and responses are each limited to 64 MB and are rejected rather than truncated. An optional key file passes through the same root-confinement check as the vault. See [`docs/kdbx-usage.md`](../docs/kdbx-usage.md) for the full parameter/format reference and the TUI vault browser this tool complements.
+- **Size limits**: `view_file` accepts at most a 10 MB file, and `head_file`/`read_lines` stop after 10 MB of reading,
+  to prevent memory exhaustion
+- **KeePass secrets**: `kbdx` is read-only and writes no export file, but its response deliberately contains plaintext
+  secrets. Vaults and responses are each limited to 64 MB and are rejected rather than truncated. An optional key file
+  passes through the same root-confinement check as the vault. See [`docs/kdbx-usage.md`](../docs/kdbx-usage.md) for the
+  full parameter/format reference and the TUI vault browser this tool complements.
 - **Existing-path validation**: read/delete operations require paths to exist
 - **New-path validation**: write operations validate the nearest existing ancestor
 
 ## 📚 Dependencies
 
-| Crate | Version | Purpose |
-|-------|---------|---------|
-| `rmcp` | 3.x | Official MCP SDK (server + stdio transport) |
-| `serde` | 1.x | Serialization |
-| `serde_json` | 1.x | JSON handling |
-| `keepass` | 0.13.x | KeePass `.kdbx` decryption and complete data model |
-| `serde_norway` | 0.9.x | YAML serialization |
-| `schemars` | 1.x | JSON Schema generation for tool inputs |
-| `tokio` | 1.x | Async runtime |
-| `tracing` | 0.1 | Structured logging |
-| `tracing-subscriber` | 0.3 | Log output formatting |
+| Crate                | Version | Purpose                                            |
+|----------------------|---------|----------------------------------------------------|
+| `rmcp`               | 3.x     | Official MCP SDK (server + stdio transport)        |
+| `serde`              | 1.x     | Serialization                                      |
+| `serde_json`         | 1.x     | JSON handling                                      |
+| `keepass`            | 0.13.x  | KeePass `.kdbx` decryption and complete data model |
+| `serde_norway`       | 0.9.x   | YAML serialization                                 |
+| `schemars`           | 1.x     | JSON Schema generation for tool inputs             |
+| `tokio`              | 1.x     | Async runtime                                      |
+| `tracing`            | 0.1     | Structured logging                                 |
+| `tracing-subscriber` | 0.3     | Log output formatting                              |

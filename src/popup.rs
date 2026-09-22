@@ -4,6 +4,7 @@ use crate::models::{App, Overlay};
 use crate::search::{SearchField, SearchPrompt};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
+mod disk_cleanup;
 mod menu_dialog;
 mod path_env;
 pub(crate) use editor::paste_text as paste_editor_text;
@@ -36,6 +37,7 @@ pub fn process_popup_input(app: &mut App, key: KeyEvent) -> bool {
         Overlay::NewFileInput(_) => new_file::process(app, code, modifiers),
         #[cfg(feature = "keepass")]
         Overlay::Kdbx(_) => kdbx::process_kdbx_input(app, code, modifiers),
+        Overlay::DiskCleanup(_) => disk_cleanup::process(app, code, modifiers),
         _ => process_menu_dialog(app, code, modifiers),
     }
 }

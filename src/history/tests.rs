@@ -60,6 +60,7 @@ fn durable_line_accepts_known_verbs_only() {
     assert!(DurableLine::classify("winmsg").is_some());
     assert!(DurableLine::classify("winperf").is_some());
     assert!(DurableLine::classify("mcp").is_some());
+    assert!(DurableLine::classify("cleanup").is_some());
     assert!(DurableLine::classify("quit").is_some());
     // Shell fall-through and known-verb-bad-args must never be durable.
     assert!(DurableLine::classify("aws s3 cp x --token SECRET").is_none());

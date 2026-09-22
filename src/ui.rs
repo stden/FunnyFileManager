@@ -55,6 +55,7 @@ mod viewer;
 mod wipe;
 mod wsl;
 pub(crate) use wsl::wsl_button_at;
+mod disk_cleanup;
 
 use overlays::render_overlays;
 

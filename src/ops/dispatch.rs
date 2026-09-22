@@ -123,6 +123,7 @@ fn execute_command_with_console(
         Command::BookmarkGo(slot) => return cmd_bookmark_go(app, slot),
         Command::WinMsg => return open_windows_system_messages(app),
         Command::WinPerf => return open_windows_performance_checker(app),
+        Command::DiskCleanup => return crate::ops::disk_cleanup::open(app),
         Command::Mcp => return open_mcp_status(app),
         Command::Shell(shell) => return cmd_shell(app, &shell),
         Command::NewConsole(shell) => return cmd_new_console(app, &shell, spawn_console),

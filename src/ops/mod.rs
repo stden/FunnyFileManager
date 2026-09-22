@@ -6,6 +6,7 @@ pub mod associations;
 pub mod attributes;
 pub mod compare;
 pub mod describe;
+pub mod disk_cleanup;
 mod dispatch;
 mod editor;
 mod file;
