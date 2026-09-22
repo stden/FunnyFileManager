@@ -1,0 +1,211 @@
+<!-- Purpose: Maps source modules to implementation ownership and test placement. -->
+
+# Module Structure
+
+For runtime diagrams and boundary rules, see
+[System Architecture](system-architecture.md).
+
+## Entry, coordination, and host effects
+
+| Source | Responsibility |
+|---|---|
+| `src/main.rs` | Thin binary calling `funny_file_manager::run()` |
+| `src/lib.rs` | Module declarations and stable public entry-point re-exports |
+| `src/bootstrap.rs` | Production `App` and history setup, terminal composition, panic restoration hook |
+| `src/application/mod.rs` | Draw/read event loop, viewport updates, event filtering, injected event source |
+| `src/application/dispatch.rs` | Main-view `Action` effects and modal-first keyboard/mouse routing |
+| `src/application/dispatch/dialog_mouse.rs` | Mouse input translation for dialogs |
+| `src/application/wsl_jobs.rs` | Serial WSL worker, injected backend, and completion delivery |
+| `src/diagnostics.rs` | Opt-in logging, payload redaction, lifecycle log wrapper |
+| `src/terminal.rs` | `TerminalOps`, `TerminalSession`, and `TerminalSuspension`; transition rollback and restoration |
+
+The crate-root `run`, `run_app`, and `run_app_with_event_reader` paths remain
+available. `run_app_with_wsl_backend` supplies both the optional-event polling
+seam and an injected system backend. The implementation is owned by bootstrap
+and application modules.
+
+## State and presentation
+
+| Source | Responsibility |
+|---|---|
+| `src/models.rs` | `App`, shared domain values, bookmarks, command-line state, view and lifecycle enums |
+| `src/models/panel.rs` | Panel entries and snapshot metadata, selection, sorting, marking, and navigation state |
+| `src/models/overlay.rs` | Mutually exclusive modal state and typed prompt payloads |
+| `src/models/editor.rs` | Built-in editor buffer, cursor, edits, and serialization state |
+| `src/models/editor/selection.rs` | Typed selection anchors, cursor movement, selected text, and replacement |
+| `src/models/clipboard.rs` | Session ownership of an injected clipboard backend |
+| `src/models/wsl.rs` | Validated distribution names, dialog selection/activity, typed request IDs, and the state-only request queue |
+| `src/models/viewer.rs` | Viewed-file metadata, offsets, and viewer state |
+| `src/models/viewport.rs` | Viewport dimensions and paging rules |
+| `src/models/drives.rs` | Drive rows and drive selection data |
+| `src/models/panelview.rs` | `PanelView` (Far's ten column layouts), `PanelKind` (files, tree, quick view), `PanelsShown`, and `SortMode` |
+| `src/models/filter.rs` | `PanelFilter` applied in `Panel::apply_listing`, and the `Ctrl+I` prompt |
+| `src/models/entry.rs` | `DirEntry` and its facts: `EntryKind`, `FileSize`, `Modified` (any timestamp), `Attributes` (mode bits / Windows flags) |
+| `src/models/histories.rs` | `ViewHistory` and `FolderHistory` — bounded path lists persisted beside the command history. A folder visit is noted by `Panel::apply_navigation` in `Panel.pending_visit` and moved into `FolderHistory` by `App::record_folder_visits`, which the event loop calls once per event; a test that navigates and then reads the history calls it itself |
+| `src/models/tree.rs`, `src/models/quickview.rs` | Folder-tree and quick-view state carried by `PanelKind` |
+| `src/models/shortname.rs` | `ShortName`, Far's 8.3 form of a name for `Ctrl+N` off |
+| `src/models/archive.rs`, `attributes.rs`, `apply.rs`, `describe.rs` | Files-menu dialog state (archives, attributes, apply command, descriptions) |
+| `src/models/findfile.rs`, `histlist.rs`, `usermenu.rs`, `associations.rs`, `shortcuts.rs`, `screens.rs`, `tasks.rs`, `hotplug.rs` | Commands-menu dialog state |
+| `src/models/sortmenu.rs`, `src/models/settings_dialog.rs` | Sort-modes menu and the one settings dialog for every Options page |
+| `src/ui/tree.rs`, `src/ui/quickview.rs` | Panel renderers chosen by `PanelKind` in `ui.rs::render_one_panel` |
+| `src/ui/stub.rs`, `src/ui/<feature>.rs` | Placeholder dialog frame and one renderer per F9 menu dialog, routed by `ui/overlays.rs` |
+| `src/ui.rs`, `src/ui/` | Ratatui composition, panels, console, prompt, menus, overlays, and shared text rendering |
+| `src/ui/console.rs` | Console layer: black ground, transcript rows, the Ctrl+O screen with its output-following prompt, and the scrollback note |
+| `src/ui/wsl.rs` | WSL distribution list, operation feedback, and keyboard controls from state |
+
+`ui/panel.rs` renders stored panel entries and metadata. It does not load
+directories or query disk space. The renderer may update layout bookkeeping
+such as list offsets and mouse hit areas.
+
+`models` is not an isolated effects-free domain crate: existing construction
+and drive enumeration retain adapter access. The placement of an inherent
+method's implementation determines its responsibility, even when Rust callers
+still invoke it through a model type.
+
+## Input and canonical operations
+
+| Source | Responsibility |
+|---|---|
+| `src/action.rs` | Pure main-view `KeyEvent` to `Action` mapping |
+| `src/action/keymap.rs` | Shared ordered `keymap!` DSL with `has`, `exact`, and `without` modifier policies |
+| `src/action/editor.rs` | Declarative editor keymap and typed `EditorCommand` language; no state mutation or effects |
+| `src/action/wsl.rs` | Pure WSL dialog keymap and distinct `WslCommand` update intents |
+| `src/popup.rs` | Exhaustive overlay routing and shared editor-search prompt helpers |
+| `src/popup/command_line.rs` | Command-line editing, completion, history, and command acceptance |
+| `src/popup/viewer.rs`, `src/popup/confirmation.rs` | Viewer input and help, information, quit, and delete confirmations |
+| `src/popup/name_prompt.rs`, `src/popup/mask_prompt.rs`, `src/popup/copy_prompt.rs`, `src/popup/new_file.rs` | Focused input and acceptance for each prompt |
+| `src/popup/drives.rs`, `src/popup/menu.rs` | Drive selection and menu interaction |
+| `src/popup/editor.rs` | Editor command interpreter, with confirmation and search input taking priority |
+| `src/popup/wsl.rs` | WSL command interpreter and busy-state input policy; no process execution |
+| `src/popup/stub.rs`, `src/popup/<feature>.rs` | Esc/F10 close for the placeholder dialogs; one input owner per F9 menu dialog, routed by `popup.rs` |
+| `src/command.rs` | Typed command parsing, validation, and shared command metadata |
+| `src/lineedit.rs`, `src/complete.rs`, `src/complete/` | Command editing, recall, and completion candidates |
+| `src/ops/mod.rs` | Canonical operation exports |
+| `src/ops/dispatch.rs` | Parsed command execution and built-in/shell dispatch |
+| `src/ops/file.rs` | Create, copy, move, mkdir, delete, and transfer outcomes |
+| `src/ops/panel.rs` | `Panel::new`, `load_entries`, `navigate_to`, and `enter`; load before applying state |
+| `src/ops/editor.rs` | `Editor::save` and filesystem save behavior |
+| `src/ops/editor/clipboard.rs` | Editor copy/paste effects and clipboard outcome reporting |
+| `src/ops/shell.rs` | Bounded shell-process execution and output capture |
+| `src/ops/shell/console.rs` | Independent Windows console launch with fresh input/output handles |
+| `src/ops/viewer.rs` | File viewer and MCP-status opening |
+| `src/ops/vault.rs` | KeePass file detection and vault-browser opening |
+| `src/ops/wsl.rs` | WSL request creation, completion interpretation, and panel navigation |
+| `src/ops/tree.rs`, `quickview.rs`, `panels.rs`, `longnames.rs`, `panelview.rs` | Left/Right menu toggles (`Ctrl+T`, `Ctrl+Q`, `Ctrl+F1/F2`, `Ctrl+N`) and the view-mode switch (`Ctrl+1` … `Ctrl+0`) |
+| `src/popup/tree.rs`, `src/popup/quickview.rs` | Keys of a tree or quick-view panel, asked by `dispatch_key` before the file-panel actions while `Panel.kind` is one of them |
+| `src/usermenu.rs`, `src/associations.rs`, `src/i18n.rs` | Where the user menu and the associations files live (`config::dir()`), and the interface-string lookup for `Settings.languages` |
+| `src/ops/link.rs`, `wipe.rs`, `archive.rs`, `attributes.rs`, `apply.rs`, `describe.rs` | Files-menu `open` functions, one dialog each |
+| `src/ops/findfile.rs`, `history_list.rs`, `videomode.rs`, `findfolder.rs`, `view_history.rs`, `folder_history.rs`, `compare.rs`, `usermenu.rs`, `associations.rs`, `shortcuts.rs`, `filter.rs`, `screens.rs`, `tasks.rs`, `hotplug.rs` | Commands-menu `open`/`run`/`toggle` functions; `associations::association_command` is consulted by `Enter` before the executable rule |
+| `src/ops/sortmenu.rs`, `settings.rs`, `savesetup.rs`, `stub.rs` | Sort menu and direct sort keys, Options pages, Save setup, and the "coming in this release" status |
+| `src/handlers/mod.rs` | Historical operation and popup API re-exports; no implementation ownership |
+
+The modal layer calls `ops` directly. Unsupported overlay keys are consumed;
+they never fall through to main-view actions. Some modal acceptance paths still
+perform synchronous I/O; a fully pure input/effect protocol is not implied.
+Main-view `Action`, editor `EditorCommand`, WSL `WslCommand`, and command-line
+`Command` share the same pattern: input translation produces typed intent, then the owning
+interpreter applies domain transitions or delegates effects to canonical operations.
+
+```mermaid
+flowchart LR
+    API[Public crate API] --> Application[application]
+    Application --> Action[action: main-view key mapping]
+    Application --> Popup[popup: modal input]
+    Popup --> EditorDSL[action/editor: typed editor commands]
+    Application --> Ops[ops: canonical operations]
+    Popup --> Ops
+    Compatibility[handlers: compatibility] --> Popup
+    Compatibility --> Ops
+    Ops --> State[models: state transitions]
+    Ops --> Adapters[Filesystem and external adapters]
+```
+
+## Adapters and supporting modules
+
+| Source | Responsibility |
+|---|---|
+| `src/directory.rs`, `src/directory/owner.rs` | Local directory loading, entry metadata (links, owner via a per-listing uid cache, allocation, three timestamps, attributes, description), hidden names, and free-space snapshot |
+| `src/description.rs` | Far-format description files (`Descript.ion`): read per listing, rewritten by `set_description` |
+| `src/config.rs`, `src/config/pages.rs` | `Settings` — one struct per Options page, JSON under the config directory, loaded in `bootstrap` and saved at exit |
+| `src/diskfree.rs`, `src/windows.rs` | Platform disk/drive information and diagnostics |
+| `src/fileload.rs` | Bounded regular-file loading shared by viewer and editor |
+| `src/editor.rs` | Built-in editor opening and external-editor process integration |
+| `src/utils.rs` | Existing size/transfer helpers, unique destinations, recursive copy, and panel refresh |
+| `src/history.rs`, `src/console.rs`, `src/status.rs` | Persistable history, in-memory transcript, and typed user-facing outcomes |
+| `src/highlight.rs`, `src/highlight/` | Typed scanner selection, dotenv continuation rules, and optional Colorer adapter |
+| `src/search.rs`, `src/quicksearch.rs`, `src/scroll.rs` | Search and scrolling rules |
+| `src/menu.rs`, `src/mouse.rs` | Menu rows (`Entry`, `Run`, `Check`, `MenuCommand`, `OptionsPage`), hit testing, and click interpretation |
+| `src/copy.rs`, `src/prompt.rs`, `src/mask.rs` | Transfer prompt, name input, and selection-mask rules |
+| `src/stats.rs`, `src/git.rs` | Directory statistics and repository information |
+| `src/s3.rs`, `src/s3/` | Optional AWS S3 adapter and virtual paths |
+| `src/keepass.rs`, `src/kdbx.rs`, `src/kdbx/` | Optional KeePass storage, session, secret, and editing behavior |
+| `src/clipboard.rs`, `src/clipboard/` | Native clipboard read/write and terminal copy fallback; backend injection |
+| `src/wsl.rs`, `src/wsl/process.rs` | `WslBackend`, system WSL command arguments, package-manager selection, and bounded process/output capture |
+
+KeePass also has focused state, presentation, and input modules at
+`models/vault_browser.rs`, `ui/kdbx.rs`, and `popup/kdbx.rs`. These are compiled
+with `keepass`; they are not detached source files.
+
+## Separate MCP package
+
+| Source | Responsibility |
+|---|---|
+| `mcp/src/main.rs` | MCP protocol/server composition, request DTOs, tool declarations, and dispatch |
+| `mcp/src/paths.rs` | Root confinement and path validation |
+| `mcp/src/fsops.rs` | Server filesystem operations |
+| `mcp/src/content_search.rs`, `mcp/src/pattern_search.rs` | Content, glob, and metadata searches with their existing result/depth/read limits |
+| `mcp/src/replace.rs`, `mcp/src/cleanup.rs` | Filtered text replacement and pattern deletion, including dry-run and error reporting |
+| `mcp/src/directory_tools.rs`, `mcp/src/reports.rs` | Directory ordering, available drives, composition, and duplicate-content reports |
+| `mcp/src/s3_profiles.rs` | Local AWS profile parsing and region metadata shared by profile and drive tools |
+| `mcp/src/kdbx.rs` | Read-only KeePass tools |
+| `mcp/src/lib.rs`, `mcp/src/tree_walk.rs` | Reusable directory-size and tree rendering implementation |
+| `mcp/src/tool_names.rs` | Import-free tool names shared with the TUI status viewer |
+
+`mcp/Cargo.toml` and its lockfile are independent. Root-crate tests do not run
+the MCP suite; use `cargo test --manifest-path mcp/Cargo.toml`.
+Extracted tool modules validate requested paths through the server before
+their scans or writes. Tool annotations and protocol request types stay at the
+server boundary; focused helpers own parsing, traversal, and result assembly.
+
+## Test ownership
+
+Tests are separate source files compiled through `#[cfg(test)]` declarations.
+Private unit tests stay with the module whose behavior they verify; integration
+tests stay under `tests/`. Canonical operations own their tests, rather than
+using the compatibility facade as a test container.
+
+| Location | Scope |
+|---|---|
+| `src/application/tests/` | Real event-loop behavior with scripted input |
+| `src/application/dispatch/tests/` | Keyboard/mouse dispatch and action effects |
+| `src/action/editor/tests.rs` | Pure editor command resolution, binding order, and modifier policies |
+| `src/popup/editor/tests.rs` | Editor command interpretation, modal precedence, and operation outcomes |
+| `src/popup/drives/tests.rs` | Drive-selection behavior and private helper regressions |
+| `src/diagnostics/tests/` | Logging and lifecycle wrappers with temporary paths |
+| `src/ops/tests/` | Operation regressions moved from the historical handlers facade; explicit popup imports for mixed workflows |
+| `src/ops/editor/tests.rs` | Filesystem save regression tests |
+| `src/<owner>/tests*.rs` or `src/<owner>/tests/` | Focused private unit tests |
+| `src/test_support/{backend,environment,events,coverage}.rs` | Writable backend, shared environment fixtures, scripted events, and coverage probes |
+| `tests/` | Public API integration, workflows, UI, and structural architecture checks |
+| `tests/features/`, `tests/features_ru/` | Cucumber scenarios |
+
+`test-helpers` exposes support APIs without replacing runtime behavior.
+Fault-injection controls are cfg-gated in-memory seams, not environment
+variables. Tests that must change environment variables use the shared guards;
+filesystem and logging fixtures use temporary directories.
+
+## Adding or moving code
+
+Choose the implementation owner from these tables. Keep state transitions with
+their state, coordinate effects in application/operations, and collect external
+facts before rendering. Preserve compatibility with re-exports or existing
+method signatures rather than duplicate implementations.
+For a new editor binding, declare its typed intent in `action/editor.rs`, then
+interpret it in `popup/editor.rs`; keep buffer invariants in the editor model
+and external effects in `ops/editor`.
+
+Put executable tests in dedicated test files. Target at most 300 lines per file,
+splitting by responsibility rather than line count. The current guard in
+`tests/file_line_limit_test.rs` enforces a separate hard limit of 1000 lines for
+each Rust file under `src/`; passing that guard does not replace the 300-line
+design target.

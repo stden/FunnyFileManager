@@ -1,0 +1,102 @@
+# Purpose: Defines the standalone MCP server crate and its dependencies.
+[package]
+name = "ffm-mcp"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.95"
+description = "MCP server for FunnyFileManager — expose file operations as AI tools"
+license = "MIT"
+keywords = ["mcp", "file-manager", "ai-tools"]
+categories = ["command-line-utilities", "filesystem"]
+
+# The auto-discovered src/lib.rs has no runnable doctests, but the doc-test
+# phase still spawns a rustdoc binary. A linked custom toolchain can ship
+# without rustdoc, and then `cargo test` aborts on the empty phase. Skip it.
+[lib]
+doctest = false
+
+[[bin]]
+name = "ffm-mcp"
+path = "src/main.rs"
+
+[dev-dependencies]
+criterion = "0.8.2"
+cucumber = "0.23.0"
+# Production is read-only; writing is enabled only to create encrypted tests.
+keepass = { version = "0.13.25", default-features = false, features = ["save_kdbx4"] }
+
+[[example]]
+name = "bench_mcp"
+path = "bench_mcp.rs"
+
+[[bench]]
+name = "tree_walk"
+harness = false
+
+[[test]]
+name = "bdd"
+harness = false
+
+[dependencies]
+rmcp = { version = "3.2.0", features = ["server", "transport-io"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+# KeePass vault parsing and complete serialization. Runtime support is read-only.
+keepass = { version = "0.13.25", default-features = false, features = ["serialization"] }
+# Maintained serde_yaml fork used for the `kbdx` tool's YAML output.
+serde_norway = "0.9.42"
+# schemars is re-exported through rmcp (see `use rmcp::schemars`); pin to the
+# same major rmcp uses (1.x) so the tool-schema derives share one version.
+schemars = "1.2.2"
+tokio = { version = "1.53.1", features = ["full"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+sha2 = "0.11.0"
+# Atomic replacement needs an O_EXCL temp file with an unguessable name — a
+# fixed sibling name is a symlink-planting target. Also used by the tests.
+tempfile = "3.27.0"
+# Match the TUI's modern HTTPS client; the SDK's legacy `rustls` default adds
+# a second TLS stack that neither application uses.
+aws-sdk-s3 = { version = "1.145.0", default-features = false, features = [
+    "sigv4a",
+    "http-1x",
+    "default-https-client",
+    "rt-tokio",
+] }
+aws-config = { version = "1.12.0", features = ["behavior-version-latest"] }
+
+# Match the application's local profiles so shared dependency artifacts can be
+# reused. The server's release profile retains Cargo's production defaults.
+[profile.dev]
+opt-level = 0
+debug = 0
+strip = "debuginfo"
+incremental = true
+codegen-units = 256
+lto = false
+debug-assertions = true
+overflow-checks = true
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.test]
+opt-level = 0
+debug = 0
+strip = "debuginfo"
+incremental = true
+codegen-units = 256
+lto = false
+debug-assertions = true
+overflow-checks = true
+
+[profile.test.package."*"]
+opt-level = 2
+
+[lints.rust]
+unfulfilled_lint_expectations = "deny"
+
+[lints.clippy]
+cognitive_complexity = "warn"
+excessive_nesting = "warn"
+too_many_lines = "warn"

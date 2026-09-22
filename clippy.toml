@@ -1,0 +1,13 @@
+# Purpose: Shared, enforced readability limits for the TUI, MCP and Colorer crates.
+# Lint levels belong to each Cargo manifest; thresholds are shared here.
+msrv = "1.95.0"
+
+# Counted by Clippy rather than physical file length. Keep coherent functions small.
+too-many-lines-threshold = 30
+
+# A branching heuristic, not a measurement of human comprehension.
+cognitive-complexity-threshold = 25
+
+# Clippy counts surrounding blocks, including inline modules and impls.
+# Zero disables this check, so keep the nesting budget explicit and nonzero.
+excessive-nesting-threshold = 4

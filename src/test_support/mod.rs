@@ -1,0 +1,21 @@
+//! Test adapters and fixtures, excluded from ordinary production builds.
+
+mod backend;
+#[cfg(any(test, feature = "test-helpers"))]
+mod environment;
+pub use backend::WritableTestBackend;
+#[cfg(any(test, feature = "test-helpers"))]
+pub use environment::*;
+
+#[cfg(test)]
+mod events;
+#[cfg(test)]
+pub(crate) use events::*;
+
+#[cfg(coverage)]
+mod coverage;
+#[cfg(coverage)]
+pub use coverage::{coverage_touch_backend, coverage_touch_logs};
+
+#[cfg(test)]
+mod tests;

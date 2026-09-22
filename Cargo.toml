@@ -1,0 +1,324 @@
+# Purpose: Defines the main FunnyFileManager crate, features, dependencies, and targets.
+[package]
+name = "funny-file-manager"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.95"
+description = "Terminal dual-panel file manager inspired by Far Manager, with AWS S3 integration"
+license = "MIT"
+keywords = ["file-manager", "tui", "terminal", "far-manager", "s3"]
+categories = ["command-line-utilities", "filesystem"]
+
+[lib]
+name = "funny_file_manager"
+path = "src/lib.rs"
+# The crate has no runnable doctests (the one fence in lib.rs is a text block
+# rustdoc never executes), but the doc-test phase still spawns a rustdoc
+# binary. A linked custom toolchain can ship without rustdoc, and then
+# `cargo test` aborts on the empty phase. Skip the phase instead.
+doctest = false
+
+[[bin]]
+name = "ffm"
+path = "src/main.rs"
+
+[dependencies]
+ratatui = "0.30.2"
+crossterm = { version = "0.29.0", features = ["serde"] }
+tempfile = "3.27.0"
+# Terminal *cell* widths. ratatui budgets each buffer row in cells, so the UI
+# must measure the same way: a CJK glyph is one char but two columns.
+unicode-width = "0.2.2"
+encoding_rs = "0.8.41"
+
+# Local date/time for the panel's Date and Time columns. `SystemTime` counts
+# seconds since the epoch and std has no calendar, let alone a timezone: the
+# columns show *local* wall-clock time, which needs the IANA database the
+# `clock` feature reaches. default-features = false drops the `oldtime`,
+# `serde` and wasm bindings this never touches.
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+
+# See the `colorer` feature.
+colorer-sys = { path = "colorer-sys", version = "0.1", optional = true }
+
+# AWS S3 integration (optional — enable with --features s3)
+aws-config = { version = "1.12.0", optional = true }
+# default-features = false drops the SDK's legacy `rustls` feature, which pins
+# rustls 0.21 / rustls-webpki 0.101 (RUSTSEC-2026-0098/0099/0104). The modern
+# TLS path (`default-https-client` -> rustls 0.23 + aws-lc, webpki 0.103) is
+# what actually serves requests; the remaining features mirror the defaults.
+aws-sdk-s3 = { version = "1.148.0", default-features = false, features = [
+    "sigv4a",
+    "http-1x",
+    "default-https-client",
+    "rt-tokio",
+], optional = true }
+tokio = { version = "1.53.1", features = ["full"], optional = true }
+
+# KeePass .kdbx read/edit (optional — enable with --features keepass).
+# default-features = false drops CLI extras; save_kdbx4 unlocks Database::save.
+# NOTE: keepass >= 0.13 declares rust-version 1.85, below the crate's 1.95 floor.
+# The write path is upstream-experimental, so the module backs up + writes
+# atomically (see src/keepass.rs).
+keepass = { version = "0.15.0", default-features = false, features = ["save_kdbx4"], optional = true }
+# Serialization for portable recordings and optional kdbx JSON/YAML export.
+# serde_norway is a maintained serde_yaml fork; serde_yaml itself is archived.
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+serde_norway = { version = "0.9.42", optional = true }
+# Text clipboard for editor selection and optional vault password copying.
+# Image support is unused; disabling it avoids image codec build dependencies.
+arboard = { version = "3.6.1", default-features = false }
+
+[dev-dependencies]
+regex = "1"
+criterion = "0.8.2"
+cucumber = "0.23.0"
+futures = "0.3.34"
+# S3 test mocks (used only by `#[cfg(feature = "s3")]` tests in src/s3/tests*.rs).
+# Versions track the aws-sdk-s3 1.x smithy stack already in the lockfile.
+aws-smithy-http-client = { version = "1.4.2", features = ["test-util"] }
+aws-smithy-types = "1.8.0"
+http_1x = { package = "http", version = "1.5.0" }
+
+[features]
+# Colorer is how the editor prefers to highlight, so it is on. The build script
+# never fails when the library is absent: the crate compiles to stubs and the
+# built-in tokenizer does the work. See docs/colorer.md.
+default = ["colorer", "keepass"]
+test-helpers = []
+# Real Colorer highlighting: the C++ engine Far's FarColorer plugin uses, with
+# Far's own HRC schemes. On by default, and harmless when the library is absent:
+# colorer-sys compiles to stubs and the built-in tokenizer does the work, so
+# `cargo build` never needs ICU, libxml2 or zlib. Install the engine itself with
+# `./ffm.sh colorer` or `ffm.cmd colorer`.
+colorer = ["dep:colorer-sys"]
+s3 = ["dep:aws-config", "dep:aws-sdk-s3", "dep:tokio"]
+keepass = ["dep:keepass", "dep:serde_norway"]
+
+# Drives the real event loop, so it needs the writable test backend.
+[[test]]
+name = "e2e_test"
+path = "tests/e2e_test.rs"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "highlight_render_test"
+path = "tests/highlight_render_test.rs"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "editor_test"
+path = "tests/editor_test.rs"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "editor_workflow_test"
+path = "tests/editor_workflow_test.rs"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "wsl_workflow_test"
+path = "tests/wsl_workflow_test.rs"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "handlers_test"
+path = "tests/handlers_test.rs"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "navigation_features_test"
+path = "tests/navigation_features_test.rs"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "coverage_100_test"
+path = "tests/coverage_100_test.rs"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "far_manager_hotkeys_test"
+path = "tests/far_manager_hotkeys_test.rs"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "comprehensive_test"
+path = "tests/comprehensive_test.rs"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "extra_coverage_test"
+path = "tests/extra_coverage_test.rs"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "targeted_coverage_tests"
+path = "tests/targeted_coverage_tests.rs"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "coverage_gaps_test"
+path = "tests/coverage_gaps_test.rs"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "bdd"
+path = "tests/bdd.rs"
+harness = false
+required-features = ["test-helpers", "s3"]
+
+[[test]]
+name = "tui_bdd"
+path = "tests/tui_bdd.rs"
+required-features = ["test-helpers", "keepass"]
+
+[[test]]
+name = "coverage_boost_test"
+path = "tests/coverage_boost_test.rs"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "bdd_ru"
+path = "tests/bdd_ru.rs"
+harness = false
+required-features = ["test-helpers", "s3"]
+
+[[test]]
+name = "mutation_killer_tests"
+path = "tests/mutation_killer_tests.rs"
+required-features = ["test-helpers"]
+
+[[bench]]
+name = "utils_bench"
+harness = false
+
+[[bench]]
+name = "ui_bench"
+harness = false
+
+[[bench]]
+name = "ops_bench"
+harness = false
+
+[[bench]]
+name = "autocomplete_bench"
+harness = false
+
+[[bench]]
+name = "editor_cursor_bench"
+harness = false
+
+[[bench]]
+name = "panel_bench"
+harness = false
+
+# Needs a real vault to open, so it only builds where the vault does.
+[[bench]]
+name = "kdbx_bench"
+harness = false
+required-features = ["keepass"]
+
+# Local builds prioritize compilation speed. Matching dev/test settings lets
+# Cargo reuse dependency artifacts between building, checking and testing.
+# Production optimization remains explicit via --release.
+
+[profile.dev]
+opt-level = 0
+lto = false
+codegen-units = 256
+strip = "debuginfo"
+debug = 0
+incremental = true
+debug-assertions = true
+overflow-checks = true
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.test]
+# Keep these settings aligned with dev for dependency artifact reuse.
+opt-level = 0
+debug = 0
+strip = "debuginfo"
+incremental = true
+codegen-units = 256
+lto = false
+debug-assertions = true
+overflow-checks = true
+
+[profile.test.package."*"]
+opt-level = 2
+
+# ── Release: maximum runtime speed ───────────────────────────────
+# Fat LTO + single codegen unit give the compiler full cross-crate
+# inlining at the cost of a longer link step. panic=abort removes
+# unwinding machinery; strip=symbols shrinks the binary.
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+debug = false
+incremental = false
+overflow-checks = false
+
+# Inherits everything from release but links faster — use for iterating
+# on release-only behavior without paying full LTO cost every build.
+[profile.release-fast]
+inherits = "release"
+lto = "thin"
+codegen-units = 16
+
+[lints.rust]
+unfulfilled_lint_expectations = "deny"
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tarpaulin)", "cfg(coverage)"] }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# Allow common patterns used throughout the codebase
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_precision_loss = "allow"
+struct_excessive_bools = "allow"
+cognitive_complexity = "warn"
+excessive_nesting = "warn"
+too_many_lines = "warn"
+wildcard_imports = "allow"
+similar_names = "allow"
+option_if_let_else = "allow"
+items_after_test_module = "allow"
+# Test / cucumber ergonomics under `--all-targets` (pedantic noise, not bugs):
+# - Result-returning test helpers and trait stubs that always Ok for the trait
+# - cucumber step args taken by value / &mut World when the framework dictates the signature
+# - test helpers that could be const but are clearer as plain fns
+# - `_` match arms on single-variant enums kept open for future variants
+unnecessary_wraps = "allow"
+needless_pass_by_value = "allow"
+needless_pass_by_ref_mut = "allow"
+missing_const_for_fn = "allow"
+match_wildcard_for_single_variants = "allow"
+
+# Free space for the panel's footer, which has no std equivalent: `statvfs`
+# on Unix, `GetDiskFreeSpaceExW` on Windows. Already in the tree — crossterm
+# pulls libc through signal-hook — so declaring it costs no extra crate.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.189"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = [
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Threading",
+    "Win32_System_WindowsProgramming",
+    "Win32_System_SystemInformation",
+] }

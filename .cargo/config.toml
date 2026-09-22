@@ -1,0 +1,41 @@
+# Purpose: Configures Cargo defaults used by local builds and test runs.
+[env]
+# This project leaves compiler wrappers opt-in; inherited Cargo configuration
+# may still select sccache. Preserve its foreground-server setting: this does
+# not disable the server or move compilation into the client process.
+SCCACHE_NO_DAEMON = { value = "1", force = true }
+
+[build]
+# All packages share compiled dependencies when their features/profiles match.
+# Cargo resolves this relative to the repository, including runs from mcp/.
+target-dir = "target"
+# jobs is unset here so Cargo can use its default or inherited parallelism.
+# Override with `cargo build -j N` or CARGO_BUILD_JOBS for headroom.
+
+# Profile settings live in each package's Cargo.toml.
+
+# ── Linux: mold linker ──────────────────────────────────────────
+# mold is the fastest linker (2-5x vs GNU ld). The win shows on link-heavy
+# builds — `cargo test` links one binary per integration test (~15+ here).
+# gcc >= 12 drives it directly, so no clang dependency. Install: `apt install
+# mold` (CI already installs it via rui314/setup-mold).
+# Caveat: an exported RUSTFLAGS env var REPLACES target.*.rustflags, so this
+# applies to plain local builds; add the link-arg to RUSTFLAGS too if you set one.
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
+# ── Windows MSVC target ─────────────────────────────────────────
+[target.x86_64-pc-windows-msvc]
+# LLD linker: 3-5x faster linking than MSVC link.exe
+linker = "lld-link"
+rustflags = ["-C", "link-arg=-threads:24"]
+
+# ── macOS: LLD linker (opt-in) ──────────────────────────────────
+# Uncomment after `brew install llvm` to swap in LLD (2-4x faster than ld64).
+# [target.x86_64-apple-darwin]
+# rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+# [target.aarch64-apple-darwin]
+# rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+# For a non-portable but maximally fast release binary tuned to the host
+# CPU, build with: RUSTFLAGS="-C target-cpu=native" cargo build --release

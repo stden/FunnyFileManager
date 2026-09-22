@@ -1,0 +1,28 @@
+# Purpose: Raw FFI to Colorer-library, the C++ engine Far's FarColorer plugin uses.
+[package]
+name = "colorer-sys"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.95"
+description = "Minimal C surface over Colorer-library (HRC schemes, HRD styles)"
+license = "MIT"
+links = "colorer"
+
+[lib]
+# Same constraint as the other two crates: no runnable doctests, but the
+# doc-test phase still spawns rustdoc, which a linked custom toolchain can
+# lack — and then `cargo test -p colorer-sys` aborts on the empty phase.
+doctest = false
+
+[dependencies]
+
+[build-dependencies]
+cc = "1.4.5"
+
+[lints.rust]
+unfulfilled_lint_expectations = "deny"
+
+[lints.clippy]
+cognitive_complexity = "warn"
+excessive_nesting = "warn"
+too_many_lines = "warn"

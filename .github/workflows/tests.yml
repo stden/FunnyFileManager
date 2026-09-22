@@ -1,0 +1,294 @@
+# Purpose: Runs the GitHub Actions quality gate for the Rust workspace.
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+
+# Cancel in-progress runs for the same ref — don't waste minutes on stale pushes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+  # Tiny registry index + no debuginfo in CI binaries.
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  RUSTFLAGS: "-C debuginfo=0"
+  # cargo-llvm-cov concatenates build.rustc-wrapper with rustc. An empty
+  # wrapper (project or user config) becomes ` rustc` and ENOENT. env is a
+  # no-op. Set here — not only on coverage jobs — because the MCP job runs
+  # with working-directory: mcp and must still see a real wrapper.
+  CARGO_BUILD_RUSTC_WRAPPER: /usr/bin/env
+
+jobs:
+  # ── Format + clippy (deny warnings) ─────────────────────────
+  # Runs in parallel with the heavier coverage/bdd jobs; fails fast
+  # when style or lint drifts.
+  lint:
+    name: Lint (format, readability, architecture)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install mold (fast linker)
+        uses: rui314/setup-mold@v1
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: lint
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      # Keep local and CI gates identical, including MCP/Colorer and test targets.
+      - name: Format and Clippy (all crates, -D warnings)
+        run: ./ffm.sh lint
+
+      - name: Readability gate self-test
+        run: ./ffm.sh lint self-test
+
+      - name: Architecture contracts
+        run: cargo test --locked --test module_boundaries_test
+
+  # ── Tests + coverage (llvm-cov + nextest, no s3) ────────────
+  # cargo-llvm-cov uses LLVM source-based instrumentation natively — no
+  # ptrace dance like tarpaulin — and nextest parallelises test binaries
+  # more aggressively than `cargo test`. Together they replace the
+  # previous tarpaulin step at ~2× the throughput.
+  coverage:
+    name: Tests & Coverage
+    runs-on: ubuntu-latest
+    env:
+      # Matches .cargo/config.toml. Kept here so a stale cache of an empty
+      # rustc-wrapper cannot make cargo-llvm-cov exec ` rustc` (ENOENT).
+      CARGO_BUILD_RUSTC_WRAPPER: /usr/bin/env
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install mold (fast linker)
+        uses: rui314/setup-mold@v1
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: coverage
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install coverage + test tools (prebuilt)
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov,cargo-nextest
+
+      - name: Tests + coverage (fail under 98% lines)
+        # Mirror tarpaulin.toml's exclude-files (keep in sync). Excluded from
+        # MEASUREMENT (they still run/compile in the suite):
+        #  - main/bootstrap/editor: real-TTY / external-process entry points
+        #  - clipboard/system.rs: OS clipboard glue (headless CI has none)
+        #  - ops/shell/tty.rs: drains the live crossterm event queue
+        #  - test files: tests are not code under test; their unreached lines
+        #    are assertion-failure arms that never fire in a passing suite
+        #
+        # `highlight/colorer.rs` is the Colorer FFI wrapper. This job does not
+        # build Colorer-library, so those lines cannot run here; the Colorer
+        # job covers them when the C++ engine is present.
+        #
+        # The summary table reports ~98.6% of the measured set. What is left
+        # is nearly all error handling that needs fault injection to reach: the
+        # `?` on a `create_dir`, a `write` that fails halfway, a `metadata`
+        # the filesystem refuses. Plus a handful that no test can reach at all
+        # — a `cfg!(windows)` arm, an `unreachable!`, and `try_from` on values
+        # that cannot be out of range. llvm also counts a line missed when any
+        # instantiation group leaves it unexecuted. The gate sits at 98, just
+        # under the number. Raise it as those paths gain tests — do not lower
+        # it to hide a regression.
+        run: |
+          cargo llvm-cov nextest \
+            --features test-helpers \
+            --ignore-filename-regex 'src/(main|editor|bootstrap)\.rs$|src/clipboard/system\.rs$|src/ops/shell/tty\.rs$|src/highlight/colorer\.rs$|/tests[_.\/]|_tests\.rs$|/test_support/' \
+            --fail-under-lines 98 \
+            --show-missing-lines \
+            --summary-only
+
+      # KeePass and the libtest-wrapped TUI Cucumber suite participate in the
+      # default coverage run. Fixture vaults use a cheap KDF and fake clipboard.
+
+  # ── BDD tests (need the s3 feature to compile) ──────────────
+  # Kept separate because enabling `s3` drags in aws-sdk-s3, which adds
+  # ~3 min to a cold build; isolating it lets the coverage job stay
+  # fast while still running every test declared in Cargo.toml.
+  bdd:
+    name: BDD (s3 feature, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      CARGO_BUILD_RUSTC_WRAPPER: ""
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: link.exe
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install mold (fast linker)
+        if: runner.os == 'Linux'
+        uses: rui314/setup-mold@v1
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: bdd-${{ matrix.os }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      # The src/s3/ unit suite only compiles under the `s3` feature, so the
+      # coverage job (which omits `s3`) never runs it. This is the only job
+      # that enables `s3`, so run those lib tests here or they execute nowhere.
+      - name: S3 unit tests (feature-gated)
+        run: 'cargo test --features test-helpers,s3 --lib s3::'
+
+      # BDD suites use cucumber-rs with harness = false; nextest only
+      # supports libtest harnesses, so run them via cargo test.
+      - name: Run BDD tests
+        run: cargo test --features test-helpers,s3 --test bdd --test bdd_ru
+
+  # Keyboard -> production event loop -> rendered cells, on both host platforms.
+  tui-bdd:
+    name: TUI BDD (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      # No LLVM coverage wrapper in this job; /usr/bin/env is not a Windows path.
+      CARGO_BUILD_RUSTC_WRAPPER: ""
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: link.exe
+      FFM_TUI_ARTIFACT_DIR: target/tui-bdd
+    steps:
+      - uses: actions/checkout@v7
+      - uses: rui314/setup-mold@v1
+        if: runner.os == 'Linux'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: tui-bdd-${{ runner.os }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Run TUI BDD scenarios (undefined steps fail)
+        run: cargo test --locked --features test-helpers --test tui_bdd
+      - name: Run the complete Windows test suite
+        if: runner.os == 'Windows'
+        run: cargo test --locked --features test-helpers
+      - name: Lint Windows code and tests
+        if: runner.os == 'Windows'
+        run: cargo clippy --locked --all-targets --features test-helpers -- -D warnings
+      - name: Upload terminal screen transcripts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: tui-screens-${{ runner.os }}
+          path: target/tui-bdd/
+          if-no-files-found: warn
+
+  # ── MCP workspace: fmt + clippy + tests ─────────────────────
+  mcp:
+    name: MCP Server
+    runs-on: ubuntu-latest
+    env:
+      # Same rustc-wrapper / cargo-llvm-cov guard as the coverage job.
+      CARGO_BUILD_RUSTC_WRAPPER: /usr/bin/env
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install mold (fast linker)
+        uses: rui314/setup-mold@v1
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy, llvm-tools-preview
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: mcp
+          workspaces: "mcp -> ../target"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install coverage tool (prebuilt)
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy --all -- -D warnings
+
+      # MCP has a cucumber BDD test with harness = false; nextest doesn't
+      # handle custom harnesses, so llvm-cov drives `cargo test` here.
+      #
+      # Coverage is measured, not just run: the BDD scenarios exercise
+      # src/main.rs through a spawned `ffm-mcp` process, and for a long time
+      # that process was SIGKILLed at the end of every scenario — which skips
+      # the atexit hook the LLVM profiling runtime writes .profraw from. The
+      # module read as 0% covered while being the most exercised file in the
+      # crate, and nothing failed, because this job measured nothing. The
+      # harness now closes the server's stdin and waits for a clean exit;
+      # this gate is what keeps that from silently regressing.
+      #
+      # Threshold is 75 against 79.0% measured locally after the fix: enough
+      # headroom for platform-dependent branches, tight enough that losing a
+      # whole tool's scenarios turns the job red.
+      - name: Tests + coverage (fail under 75% lines)
+        run: cargo llvm-cov --all --fail-under-lines 75 --summary-only
+
+  # ── Colorer (optional C++ engine) ───────────────────────────
+  # The `colorer` feature links Colorer-library, so nothing else in this
+  # workflow compiles it. Without a job here the feature rots: it built once,
+  # on one machine, and CI would never notice it stop.
+  colorer:
+    name: Colorer feature (FFI + real schemes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: System libraries Colorer needs
+        run: sudo apt-get update && sudo apt-get install -y libicu-dev libxml2-dev zlib1g-dev libminizip-dev
+
+      - name: Build Colorer-library
+        run: |
+          git clone --depth 1 https://github.com/colorer/Colorer-library /tmp/Colorer-library
+          cmake -S /tmp/Colorer-library -B /tmp/Colorer-library/_build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCOLORER_USE_VCPKG=OFF \
+            -DCOLORER_BUILD_TOOLS=OFF \
+            -DCOLORER_BUILD_TEST=OFF
+          cmake --build /tmp/Colorer-library/_build --parallel
+
+      - name: Fetch the schemes
+        run: git clone --depth 1 https://github.com/colorer/Colorer-schemes /tmp/Colorer-schemes
+
+      - name: Test with the feature on
+        env:
+          COLORER_INCLUDE_DIR: /tmp/Colorer-library/src
+          COLORER_BUILD_DIR: /tmp/Colorer-library/_build
+          COLORER_CATALOG: /tmp/Colorer-schemes/base/catalog.base.xml
+        run: |
+          cargo clippy --features colorer --all-targets -- -D warnings
+          cargo test --features colorer --lib highlight

@@ -1,0 +1,42 @@
+# Purpose: Configures cargo-mutants so mutation testing uses the project-specific exclusions and timeouts.
+# Mutation testing configuration for FunnyFileManager
+
+# Exclude test code and main.rs from mutation testing
+exclude_globs = [
+    "src/main.rs",           # Entry point
+    "src/lib.rs",            # Module facade only
+    "src/**/tests/*.rs",     # Private unit tests and fixtures
+    "src/**/tests/**/*.rs",  # Nested unit test suites
+    "src/**/tests*.rs",      # Sibling unit test modules
+    "src/**/*_tests.rs",     # Legacy unit test filenames
+    "src/test_support/**",  # Shared test fixtures
+    "tests/**/*.rs",         # Integration tests
+]
+
+# Copy .git so tests that depend on git repo presence pass
+copy_vcs = true
+
+# Timeout for each mutation test (in seconds)
+timeout_multiplier = 1.5
+
+# Additional arguments to pass to cargo test.
+# `keepass` is an off-by-default feature: without it src/keepass.rs is not
+# compiled, so every mutant of the kdbx writer would be reported unviable.
+# `--lib --bins --tests` excludes doctests. There are none to speak of, and
+# running them requires a `rustdoc` that is missing from some toolchains — a
+# mutation run must not be blocked by a component the tests do not need.
+additional_cargo_test_args = [
+    "--features",
+    "test-helpers,keepass",
+    "--lib",
+    "--bins",
+    "--tests",
+]
+
+# Generate mutants for these specific functions
+# error_values = ["", "Err(std::io::Error::new(std::io::ErrorKind::Other, \"mutated\"))"]
+# `is_root` is a one-line wrapper over `geteuid`. No test can make that syscall
+# answer differently, so a mutant of it is uncatchable by construction rather
+# than by weak testing — the *decision* it feeds is covered through
+# `Privilege`, which is injectable and is tested.
+exclude_re = ["is_root"]
