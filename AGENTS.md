@@ -263,6 +263,38 @@ Rules that must be followed when writing or reviewing code. This project is inte
 
 ### Modules and File Layout
 
+**A module is a file; the directory next to it holds that module's children.**
+This is the Rust 2018 form, and it is what you will see almost everywhere
+here — 201 modules use it against 11 `mod.rs` files:
+
+```
+src/action/
+├── editor.rs        # the module: its code, its types, its `mod` declarations
+└── editor/          # NOT the module — only its children
+    └── tests.rs
+```
+
+`editor.rs` owns the code and ends with `mod tests;`, which is what pulls
+`editor/tests.rs` in. Both are `crate::action::editor`; the path does not
+change with the layout.
+
+If you came looking for `src/action/editor/` and found only tests, the code is
+the **sibling file**, `src/action/editor.rs`. A directory holding nothing but
+`tests.rs` is normal and not a missing implementation.
+
+- **Do not add new `mod.rs` files.** The older `foo/mod.rs` form puts the code
+  inside the directory, which reads more naturally in a file tree but leaves
+  an editor showing ten tabs all called `mod.rs` with nothing to tell them
+  apart. Naming the file after the module is why the 2018 form exists.
+- The eleven existing `mod.rs` files (`ops/`, `application/`, `handlers/`,
+  `test_support/`, and test aggregators under them) are deliberate: each is a
+  façade whose whole job is re-exporting a subsystem, so "the directory" *is*
+  the unit. Leave them; do not convert them either way. Converting one module
+  in isolation is worse than either convention, because the next reader
+  trips over the exception.
+- Either form is a pure file-placement choice: `git mv foo.rs foo/mod.rs`
+  changes no module path, no `use`, no public API. That also means it is never
+  worth doing for one module alone.
 - Target ≤ 300 lines per file; the guard test in
   `tests/file_line_limit_test.rs` enforces the hard cap. Split by
   responsibility into `<module>/<part>.rs` child modules, never by line count.
