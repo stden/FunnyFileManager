@@ -19,26 +19,25 @@ struct ChildTree {
 impl ChildTree {
     fn start(command: &mut Command) -> Result<Self, InstallError> {
         crate::lsp::process::configure(command);
-        let mut tree = Self {
+        let tree = Self {
             child: Some(command.spawn()?),
             #[cfg(windows)]
             job: None,
         };
-        tree.attach()?;
-        Ok(tree)
+        tree.attach()
     }
 
     #[cfg(windows)]
-    fn attach(&mut self) -> Result<(), InstallError> {
+    fn attach(mut self) -> Result<Self, InstallError> {
         self.job = Some(crate::windows::lsp_job(
             self.child.as_ref().expect("spawn owns the child"),
         )?);
-        Ok(())
+        Ok(self)
     }
 
     #[cfg(unix)]
-    fn attach(&mut self) -> Result<(), InstallError> {
-        Ok(())
+    fn attach(self) -> Result<Self, InstallError> {
+        Ok(self)
     }
 
     fn exited(&mut self) -> bool {
