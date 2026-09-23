@@ -308,12 +308,13 @@ needless_pass_by_ref_mut = "allow"
 missing_const_for_fn = "allow"
 match_wildcard_for_single_variants = "allow"
 
-# Free space for the panel's footer, which has no std equivalent: `statvfs`
-# on Unix, `GetDiskFreeSpaceExW` on Windows. Already in the tree — crossterm
-# pulls libc through signal-hook — so declaring it costs no extra crate.
+# System calls std does not wrap. rustix covers the ones with a safe API
+# (uids, access checks, statvfs, process groups) and is what src/platform
+# uses; libc remains for poll(2), the passwd/group lookups and errno values.
+# Both are already in the tree through crossterm, so neither costs a crate.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.189"
-rustix = { version = "1.1.5", features = ["process"] }
+rustix = { version = "1.1.5", features = ["fs", "process"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = [

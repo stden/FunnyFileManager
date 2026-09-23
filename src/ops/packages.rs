@@ -76,8 +76,7 @@ mod tests;
 
 #[cfg(unix)]
 fn command(plan: &UpdatePlan, path: &std::path::Path, args: &[&str]) -> Command {
-    // SAFETY: geteuid has no preconditions and does not mutate process state.
-    let elevate = plan.manager == crate::packages::Manager::Apt && unsafe { libc::geteuid() } != 0;
+    let elevate = plan.manager == crate::packages::Manager::Apt && !crate::platform::is_root();
     let mut command = if elevate {
         let mut command = Command::new("sudo");
         command.arg("--").arg(path);

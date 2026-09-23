@@ -49,23 +49,16 @@ fn an_unreadable_directory_returns_an_error() -> io::Result<()> {
 #[cfg(windows)]
 #[test]
 fn hidden_attributes_change_only_when_the_panel_reloads() -> io::Result<()> {
-    use std::os::windows::ffi::OsStrExt;
-    use windows_sys::Win32::Storage::FileSystem::{
-        SetFileAttributesW, FILE_ATTRIBUTE_HIDDEN, FILE_ATTRIBUTE_NORMAL,
-    };
+    use crate::platform::set_file_attributes;
+    use windows_sys::Win32::Storage::FileSystem::{FILE_ATTRIBUTE_HIDDEN, FILE_ATTRIBUTE_NORMAL};
 
     let temp = TempDir::new()?;
     let file = temp.path().join("secret.txt");
     fs::write(&file, b"data")?;
-    let wide: Vec<u16> = file.as_os_str().encode_wide().chain(Some(0)).collect();
     let mut panel = crate::models::Panel::new(temp.path().to_path_buf())?;
     assert!(!panel.is_hidden("secret.txt"));
 
-    // SAFETY: `wide` is a NUL-terminated path and outlives each call.
-    assert_ne!(
-        unsafe { SetFileAttributesW(wide.as_ptr(), FILE_ATTRIBUTE_HIDDEN) },
-        0
-    );
+    set_file_attributes(&file, FILE_ATTRIBUTE_HIDDEN)?;
     assert!(
         !panel.is_hidden("secret.txt"),
         "the loaded snapshot is unchanged"
@@ -73,11 +66,7 @@ fn hidden_attributes_change_only_when_the_panel_reloads() -> io::Result<()> {
     panel.load_entries()?;
     assert!(panel.is_hidden("secret.txt"));
 
-    // SAFETY: same owned, NUL-terminated path as above.
-    assert_ne!(
-        unsafe { SetFileAttributesW(wide.as_ptr(), FILE_ATTRIBUTE_NORMAL) },
-        0
-    );
+    set_file_attributes(&file, FILE_ATTRIBUTE_NORMAL)?;
     assert!(panel.is_hidden("secret.txt"));
     panel.load_entries()?;
     assert!(!panel.is_hidden("secret.txt"));

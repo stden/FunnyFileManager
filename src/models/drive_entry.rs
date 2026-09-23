@@ -4,17 +4,11 @@ use std::path::PathBuf;
 
 use super::App;
 
-#[cfg(windows)]
-unsafe extern "system" {
-    fn GetLogicalDrives() -> u32;
-}
-
 impl App {
     /// Get available drives (Windows) or mount points (Unix)
     #[cfg(windows)]
     pub fn get_drives() -> Vec<PathBuf> {
-        let mask = unsafe { GetLogicalDrives() };
-        windows_drive_paths_from_mask(mask)
+        windows_drive_paths_from_mask(crate::platform::logical_drives())
     }
 
     #[cfg(not(windows))]
