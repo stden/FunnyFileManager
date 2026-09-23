@@ -1,0 +1,164 @@
+//! Purpose: The per-line tokenizer: comments, strings, numbers, words, switches and variables.
+
+use super::{Syntax, Token};
+
+/// Split one line into token runs, updating `in_block` for the next line.
+pub(super) fn tokenize<'a>(
+    line: &'a str,
+    syntax: Syntax,
+    in_block: &mut bool,
+) -> Vec<(&'a str, Token)> {
+    if let Some(token) = whole_line_token(line, syntax, *in_block) {
+        return vec![(line, token)];
+    }
+    let mut runs = Vec::new();
+    let mut at = 0;
+    while at < line.len() {
+        let rest = &line[at..];
+        let (length, token) = comment_length(rest, syntax, in_block).map_or_else(
+            || next_token(rest, syntax),
+            |length| (length, Token::Comment),
+        );
+        let end = at + length;
+        runs.push((&line[at..end], token));
+        at = end;
+    }
+    runs
+}
+
+/// Sections and directives take precedence over individual tokens.
+fn whole_line_token(line: &str, syntax: Syntax, in_block: bool) -> Option<Token> {
+    if in_block {
+        return None;
+    }
+    let trimmed = line.trim();
+    if syntax.section_headers
+        && trimmed.len() > 1
+        && trimmed.starts_with('[')
+        && trimmed.ends_with(']')
+    {
+        return Some(Token::Keyword);
+    }
+    syntax
+        .meta_prefix
+        .filter(|prefix| line.trim_start().starts_with(*prefix))
+        .map(|_| Token::Meta)
+}
+
+fn comment_length(rest: &str, syntax: Syntax, in_block: &mut bool) -> Option<usize> {
+    if *in_block {
+        let (_, close) = syntax
+            .block_comment
+            .expect("in_block is only set where a block comment exists");
+        return Some(rest.find(close).map_or(rest.len(), |offset| {
+            *in_block = false;
+            offset + close.len()
+        }));
+    }
+    if syntax
+        .line_comments
+        .iter()
+        .any(|marker| rest.starts_with(marker))
+    {
+        return Some(rest.len());
+    }
+    block_comment_length(rest, syntax, in_block)
+}
+
+/// Recognize an opening block comment and retain its continuation state.
+fn block_comment_length(rest: &str, syntax: Syntax, in_block: &mut bool) -> Option<usize> {
+    let (open, close) = syntax.block_comment?;
+    let body = rest.strip_prefix(open)?;
+    Some(if let Some(offset) = body.find(close) {
+        open.len() + offset + close.len()
+    } else {
+        *in_block = true;
+        rest.len()
+    })
+}
+
+/// Read one non-comment token. The caller passes a nonempty remainder of a line.
+fn next_token(rest: &str, syntax: Syntax) -> (usize, Token) {
+    let ch = rest.chars().next().expect("rest is non-empty");
+    if syntax.quotes.contains(&ch) {
+        return (string_length(rest, ch), Token::Str);
+    }
+
+    if let Some(token) = prefixed_token(rest, syntax, ch) {
+        return token;
+    }
+
+    if ch.is_ascii_digit() {
+        return (
+            run_length(rest, |c| c.is_alphanumeric() || c == '.' || c == '_'),
+            Token::Number,
+        );
+    }
+
+    if ch.is_alphabetic() || ch == '_' {
+        let length = run_length(rest, |c| {
+            c.is_alphanumeric() || c == '_' || (syntax.word_hyphens && c == '-')
+        });
+        let token = word_token(&rest[..length], syntax);
+        return (length, token);
+    }
+
+    // Retain whitespace in a single run so indentation does not multiply spans.
+    if ch.is_whitespace() {
+        return (run_length(rest, char::is_whitespace), Token::Normal);
+    }
+    (ch.len_utf8(), Token::Punctuation)
+}
+
+fn word_token(word: &str, syntax: Syntax) -> Token {
+    if syntax.keywords.contains(&word) {
+        Token::Keyword
+    } else if syntax.types.contains(&word) {
+        Token::Type
+    } else {
+        Token::Normal
+    }
+}
+
+fn prefixed_token(rest: &str, syntax: Syntax, ch: char) -> Option<(usize, Token)> {
+    let tail = &rest[ch.len_utf8()..];
+    if syntax.switch_prefix == Some(ch) && tail.chars().next().is_some_and(char::is_alphanumeric) {
+        return Some((
+            ch.len_utf8() + run_length(tail, char::is_alphanumeric),
+            Token::Switch,
+        ));
+    }
+    if syntax.variable_prefix == Some(ch) {
+        let name = run_length(tail, |c| c.is_alphanumeric() || c == '_' || c == ':');
+        if name > 0 {
+            return Some((ch.len_utf8() + name, Token::Type));
+        }
+    }
+    None
+}
+
+/// Byte length of the quoted string starting at `text[0]`, including both
+/// quotes — or the rest of the line when the closing quote is missing, which
+/// an editor sees constantly because the user is still typing it.
+fn string_length(text: &str, quote: char) -> usize {
+    let mut escaped = false;
+    for (offset, ch) in text.char_indices().skip(1) {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if ch == '\\' {
+            escaped = true;
+        } else if ch == quote {
+            return offset + ch.len_utf8();
+        }
+    }
+    text.len()
+}
+
+/// Byte length of the leading run of characters satisfying `keep`.
+pub(super) fn run_length(text: &str, keep: impl Fn(char) -> bool) -> usize {
+    text.char_indices()
+        .find(|(_, ch)| !keep(*ch))
+        .map_or(text.len(), |(offset, _)| offset)
+}

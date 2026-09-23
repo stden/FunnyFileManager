@@ -1,0 +1,5 @@
+[toolchain]
+# Use the same supported channel as CI, regardless of a host's nightly default.
+channel = "stable"
+profile = "minimal"
+components = ["rustfmt", "clippy"]

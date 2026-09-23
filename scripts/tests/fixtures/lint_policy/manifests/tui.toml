@@ -1,0 +1,26 @@
+# Compliant [lints] tables for the tui crate; scripts/test_lint_policy.py mutates them.
+[lints.rust]
+unfulfilled_lint_expectations = "deny"
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tarpaulin)", "cfg(coverage)"] }
+# Unsafe is opt-in per item (`#[allow(unsafe_code)]`) in reviewed files only.
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+cognitive_complexity = "warn"
+excessive_nesting = "warn"
+too_many_lines = "warn"
+undocumented_unsafe_blocks = "deny"
+# Names repeat their module on purpose (panel::PanelState reads better at call sites).
+module_name_repetitions = "allow"
+# Every pure getter would need #[must_use]; noise without catching bugs.
+must_use_candidate = "allow"
+# Error cases are documented on the error types, not on every fallible fn.
+missing_errors_doc = "allow"
+# const fn is an API promise, not a default.
+missing_const_for_fn = "allow"
+# Nursery style lint that fights `match`/`if let` readability.
+option_if_let_else = "allow"

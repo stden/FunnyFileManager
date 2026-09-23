@@ -1,0 +1,139 @@
+//! Measure input-to-frame latency; never include the blocking input reader.
+
+use crate::{
+    models::{App, Overlay},
+    performance::Performance,
+};
+use crossterm::event::{Event, KeyCode, KeyEvent};
+use std::time::Instant;
+
+pub(super) struct Pending {
+    action: String,
+    started: Instant,
+}
+
+impl Pending {
+    pub(super) fn start(app: &App, event: &Event, started: Instant) -> Self {
+        Self {
+            action: label(app, event),
+            started,
+        }
+    }
+
+    pub(super) fn finish(self, stats: &mut Performance, rendering: Instant, finished: Instant) {
+        stats.record(
+            &self.action,
+            rendering.saturating_duration_since(self.started),
+            finished.saturating_duration_since(rendering),
+        );
+    }
+}
+
+fn label(app: &App, event: &Event) -> String {
+    match event {
+        Event::Key(key) => key_label(app, *key),
+        Event::Mouse(mouse) => format!("{}/Mouse({:?})", context(&app.overlay), mouse.kind),
+        Event::Paste(_) => format!("{}/Paste", context(&app.overlay)),
+        Event::Resize(_, _) => "Resize".to_owned(),
+        Event::FocusGained => "FocusGained".to_owned(),
+        Event::FocusLost => "FocusLost".to_owned(),
+    }
+}
+
+fn key_label(app: &App, key: KeyEvent) -> String {
+    if key.code == KeyCode::Enter {
+        if let Some(label) = submitted_label(&app.overlay) {
+            return label;
+        }
+    }
+    if matches!(app.overlay, Overlay::None) {
+        return crate::diagnostics::action_label(crate::action::resolve(key));
+    }
+    if matches!(app.overlay, Overlay::Editor(_)) {
+        let command = crate::action::editor::resolve(key);
+        return match command {
+            crate::action::editor::EditorCommand::Insert(_) => "Editor/Insert".to_owned(),
+            other => format!("Editor/{other:?}"),
+        };
+    }
+    format!(
+        "{}/{:?}/{}",
+        context(&app.overlay),
+        key.modifiers,
+        crate::diagnostics::key_label(key.code)
+    )
+}
+
+fn submitted_label(overlay: &Overlay) -> Option<String> {
+    use crate::models::{ChoiceTarget, MenuDialog};
+    match overlay {
+        Overlay::CommandLine(line) => Some(command_label(line.line.text())),
+        Overlay::Menu(menu) => menu
+            .entry()
+            .and_then(crate::menu::Entry::menu_command)
+            .map(|command| format!("Menu/{command:?}")),
+        Overlay::MenuDialog(dialog) => {
+            let MenuDialog::Choices { rows, selected, .. } = dialog.as_ref() else {
+                return None;
+            };
+            match &rows.get(*selected)?.target {
+                ChoiceTarget::UpdatePackages(plan) => {
+                    Some(format!("PackageUpdate/{}", plan.manager.label()))
+                }
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+fn command_label(text: &str) -> String {
+    use crate::command::Command;
+    let kind = match Command::parse(text) {
+        Command::Shell(_) => "Shell",
+        Command::NewConsole(_) => "NewConsole",
+        Command::Cd(_) => "Cd",
+        Command::Sort(_) => "Sort",
+        Command::BookmarkSet(_) => "BookmarkSet",
+        Command::BookmarkGo(_) => "BookmarkGo",
+        Command::Invalid { .. } => "Invalid",
+        Command::Empty => "Empty",
+        other => return format!("Command/{other:?}"),
+    };
+    format!("Command/{kind}")
+}
+
+fn context(overlay: &Overlay) -> &'static str {
+    match overlay {
+        Overlay::None => "Panels",
+        Overlay::Editor(_) => "Editor",
+        Overlay::Viewer(_) => "Viewer",
+        Overlay::CommandLine(_) => "CommandLine",
+        Overlay::CopyPrompt(_) => "Transfer",
+        Overlay::NamePrompt(_) => "NamePrompt",
+        Overlay::DeleteConfirm(_) => "Delete",
+        Overlay::WipeConfirm(_) => "Wipe",
+        Overlay::ArchivePrompt(_) => "Archive",
+        Overlay::ExtractPrompt(_) => "Extract",
+        Overlay::ArchiveCommands(_) => "ArchiveCommands",
+        Overlay::Attributes(_) => "Attributes",
+        Overlay::ApplyCommand(_) => "ApplyCommand",
+        Overlay::Describe(_) => "Describe",
+        Overlay::FindFile(_) => "FindFile",
+        Overlay::FindFolder(_) => "FindFolder",
+        Overlay::Menu(_) => "Menu",
+        Overlay::Settings(_) => "Settings",
+        Overlay::Wsl(_) => "WSL",
+        Overlay::PathEditor(_) => "PathEditor",
+        #[cfg(feature = "keepass")]
+        Overlay::Kdbx(_) => "KeePass",
+        Overlay::NewFileInput(_) => "NewFile",
+        Overlay::DriveSelection { .. } => "DriveSelection",
+        Overlay::QuitConfirm(_) => "QuitConfirm",
+        Overlay::Help => "Help",
+        _ => "Dialog",
+    }
+}
+
+#[cfg(test)]
+mod tests;

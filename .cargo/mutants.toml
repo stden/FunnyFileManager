@@ -1,0 +1,47 @@
+# Purpose: Configures cargo-mutants so mutation testing uses the project-specific exclusions and timeouts.
+#
+# cargo-mutants reads this file only at `.cargo/mutants.toml`. It used to live
+# at `.cargo-mutants.toml`, a name the tool never opens: every bare
+# `cargo mutants` ran with none of the settings below.
+
+# Exclude test code and main.rs from mutation testing
+exclude_globs = [
+    "src/main.rs",           # Entry point
+    "src/lib.rs",            # Module facade only
+    "src/**/tests/*.rs",     # Private unit tests and fixtures
+    "src/**/tests/**/*.rs",  # Nested unit test suites
+    "src/**/tests*.rs",      # Sibling unit test modules
+    "src/**/*_tests.rs",     # Legacy unit test filenames
+    "src/test_support/**",  # Shared test fixtures
+    "tests/**/*.rs",         # Integration tests
+]
+
+# Copy .git so tests that depend on git repo presence pass
+copy_vcs = true
+
+# Timeout for each mutation test (in seconds)
+timeout_multiplier = 1.5
+
+# Features and targets go in keys that cargo-mutants applies to BOTH phases,
+# the build (`--no-run`) and the test run. `additional_cargo_test_args` reaches
+# only the test run: the build then compiled without `test-helpers`, the test
+# run compiled everything again, and a mutant that broke only test-helpers
+# code failed in the test run and was counted as caught.
+# `keepass` is named so the kdbx writer is compiled even if it leaves the
+# default feature set. `--lib --bins --tests` excludes doctests: there are none
+# to speak of, and they need a `rustdoc` some toolchains lack.
+features = ["test-helpers", "keepass"]
+additional_cargo_args = ["--lib", "--bins", "--tests"]
+
+# nextest runs each test in its own process. Under libtest's shared process a
+# test that writes an executable and then runs it can fail with ETXTBSY while
+# another thread forks; one such flake fails the baseline or makes a surviving
+# mutant look caught. The suite has no harness = false target under these
+# features (the cucumber `bdd` suites need `s3`), so nextest runs all of it.
+test_tool = "nextest"
+
+# `is_root` is a one-line wrapper over `geteuid`. No test can make that syscall
+# answer differently, so a mutant of it is uncatchable by construction rather
+# than by weak testing — the *decision* it feeds is covered through
+# `Privilege`, which is injectable and is tested.
+exclude_re = ["is_root"]
