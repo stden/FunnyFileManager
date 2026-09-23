@@ -2,110 +2,18 @@
 
 use super::*;
 
+#[cfg(test)]
+mod tests_clicks;
+#[cfg(test)]
+mod tests_dialog;
+#[cfg(test)]
+mod tests_fkeys;
+
 const KEYS: usize = 12;
 
 /// `hit` on the default screen with both panels drawn.
 fn both(column: u16, row: u16) -> Target {
     hit(SCREEN, column, row, KEYS, PanelsShown::Both)
-}
-
-// ─── click sequences ───────────────────────────────────────────────────────
-
-#[test]
-fn a_second_press_on_the_same_entry_activates_it() {
-    let now = Instant::now();
-    let mut clicks = PanelClicks::default();
-
-    assert_eq!(clicks.press(PanelSide::Left, 4, now), PanelRowClick::Select);
-    assert_eq!(
-        clicks.press(PanelSide::Left, 4, now + Duration::from_millis(250)),
-        PanelRowClick::Activate
-    );
-    assert_eq!(
-        clicks.press(PanelSide::Left, 4, now + Duration::from_millis(300)),
-        PanelRowClick::Select,
-        "the third press starts a new sequence"
-    );
-}
-
-#[test]
-fn another_entry_or_a_late_press_starts_a_new_sequence() {
-    let now = Instant::now();
-    let at = |millis| now + Duration::from_millis(millis);
-    let mut clicks = PanelClicks::default();
-
-    assert_eq!(clicks.press(PanelSide::Left, 1, now), PanelRowClick::Select);
-    assert_eq!(
-        clicks.press(PanelSide::Right, 1, at(100)),
-        PanelRowClick::Select,
-        "the same row on the other panel is another entry"
-    );
-    assert_eq!(
-        clicks.press(PanelSide::Right, 1, at(700)),
-        PanelRowClick::Select,
-        "a slow second press is not a double-click"
-    );
-    clicks.reset();
-    assert_eq!(
-        clicks.press(PanelSide::Right, 1, at(750)),
-        PanelRowClick::Select,
-        "an unrelated action breaks the sequence"
-    );
-}
-
-/// The twelve cells must cover the row exactly — no gap a click can fall
-/// through, and no overlap where two keys claim the same column.
-#[test]
-fn the_key_cells_tile_the_row_with_no_gaps_or_overlaps() {
-    for width in [12, 13, 80, 85, 100, 200] {
-        let widths = fkey_widths(width, KEYS);
-        assert_eq!(widths.len(), KEYS);
-        assert_eq!(
-            widths.iter().copied().map(u32::from).sum::<u32>(),
-            u32::from(width),
-            "the cells must spend the whole row at width {width}"
-        );
-
-        // Every column answers with exactly one key, in order.
-        let mut seen = Vec::new();
-        for column in 0..width {
-            seen.push(fkey_at(width, KEYS, column).expect("every column belongs to a key"));
-        }
-        assert!(
-            seen.windows(2).all(|pair| pair[1] >= pair[0]),
-            "keys must run left to right at width {width}"
-        );
-        assert_eq!(*seen.first().unwrap(), 1, "the row starts on F1");
-        assert_eq!(*seen.last().unwrap(), 12, "and ends on F12");
-    }
-}
-
-/// The remainder goes to the leftmost cells, which is what stops the last one
-/// being five columns wider than its neighbours.
-#[test]
-fn a_remainder_widens_the_left_cells_not_the_last_one() {
-    // 85 columns over 12 keys: 7 each, with 1 left over for the first.
-    let widths = fkey_widths(85, KEYS);
-    assert_eq!(widths[0], 8);
-    assert_eq!(widths[1], 7);
-    assert_eq!(*widths.last().unwrap(), 7);
-}
-
-#[test]
-fn a_column_past_the_end_of_the_bar_hits_nothing() {
-    assert_eq!(fkey_at(80, KEYS, 80), None);
-    assert_eq!(fkey_at(80, KEYS, 999), None);
-}
-
-/// A bar narrower than the number of keys gives some cells no columns at all.
-/// They must be unclickable rather than swallowing their neighbours' columns.
-#[test]
-fn a_bar_too_narrow_for_twelve_keys_still_answers_consistently() {
-    let widths = fkey_widths(5, KEYS);
-    assert_eq!(widths.iter().copied().map(u32::from).sum::<u32>(), 5);
-    for column in 0..5 {
-        assert!(fkey_at(5, KEYS, column).is_some(), "column {column}");
-    }
 }
 
 // ─── the screen ─────────────────────────────────────────────────────────────
@@ -313,100 +221,4 @@ fn an_absurd_row_does_not_overflow() {
         hit(one_row, 0, u16::MAX, KEYS, PanelsShown::Both),
         Target::Nothing
     );
-}
-
-// ─── clicks inside a dialog ─────────────────────────────────────────────────
-
-use super::{DialogMouse, DialogTarget};
-
-/// A dialog eight columns wide with two buttons on its last row.
-fn dialog() -> DialogMouse {
-    DialogMouse {
-        area: Some(Rect::new(10, 5, 20, 8)),
-        body: Some(Rect::new(13, 7, 14, 4)),
-        buttons: vec![(0, 14, 21), (1, 22, 28)],
-        buttons_y: 10,
-        offset: (0, 0),
-        grabbed: None,
-        screen: Rect::new(0, 0, 80, 24),
-    }
-}
-
-#[test]
-fn a_click_on_a_button_names_it() {
-    let dialog = dialog();
-    assert_eq!(dialog.hit(14, 10), DialogTarget::Button(0));
-    assert_eq!(dialog.hit(20, 10), DialogTarget::Button(0), "last column");
-    assert_eq!(dialog.hit(22, 10), DialogTarget::Button(1));
-    assert_eq!(dialog.hit(27, 10), DialogTarget::Button(1));
-}
-
-/// The gap between two buttons belongs to neither, and is somewhere a drag can
-/// take hold of instead.
-#[test]
-fn the_gap_between_buttons_is_chrome() {
-    assert_eq!(dialog().hit(21, 10), DialogTarget::Chrome);
-}
-
-#[test]
-fn a_click_on_a_body_row_names_it() {
-    let dialog = dialog();
-    assert_eq!(dialog.hit(13, 7), DialogTarget::Row(0));
-    assert_eq!(dialog.hit(20, 8), DialogTarget::Row(1));
-}
-
-/// The last two body rows are the rule and the buttons, and neither is a row
-/// a caller can act on.
-#[test]
-fn the_rule_and_the_button_row_are_not_body_rows() {
-    let dialog = dialog();
-    assert_eq!(dialog.hit(13, 9), DialogTarget::Chrome, "the rule");
-    assert!(matches!(
-        dialog.hit(13, 10),
-        DialogTarget::Chrome | DialogTarget::Button(_)
-    ));
-}
-
-#[test]
-fn the_frame_and_margin_are_chrome() {
-    let dialog = dialog();
-    assert_eq!(dialog.hit(10, 5), DialogTarget::Chrome, "top-left corner");
-    assert_eq!(dialog.hit(29, 12), DialogTarget::Chrome, "bottom-right");
-}
-
-#[test]
-fn anything_past_the_edge_is_outside() {
-    let dialog = dialog();
-    for (column, row) in [(9, 8), (30, 8), (15, 4), (15, 13)] {
-        assert_eq!(
-            dialog.hit(column, row),
-            DialogTarget::Outside,
-            "({column}, {row})"
-        );
-    }
-}
-
-/// With nothing drawn, every click is outside — otherwise a click on the
-/// panels would land in a dialog that has already closed.
-#[test]
-fn a_cleared_tracker_answers_outside_everywhere() {
-    let mut dialog = dialog();
-    dialog.clear();
-    assert_eq!(dialog.hit(15, 8), DialogTarget::Outside);
-}
-
-/// Clearing keeps where the dialog was dragged to, because the frame is being
-/// redrawn; resetting forgets it, because a new dialog opens centred.
-#[test]
-fn clear_keeps_the_drag_and_reset_forgets_it() {
-    let mut dialog = dialog();
-    dialog.offset = (4, -2);
-    dialog.grabbed = Some((1, 2));
-
-    dialog.clear();
-    assert_eq!(dialog.offset, (4, -2));
-
-    dialog.reset();
-    assert_eq!(dialog.offset, (0, 0));
-    assert_eq!(dialog.grabbed, None);
 }

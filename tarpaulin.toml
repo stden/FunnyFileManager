@@ -10,7 +10,7 @@
 #   are not code under test; their unreached lines are assertion-failure arms
 #
 # editor.rs is deliberately NOT excluded: the $EDITOR resolution and the
-# spawn path are covered by src/editor/tests.rs, and hiding the file only
+# spawn path are covered by src/editor/tests/, and hiding the file only
 # hid the fact that they were not.
 exclude-files = [
     "*/main.rs",

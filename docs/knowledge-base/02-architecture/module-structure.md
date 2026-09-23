@@ -30,8 +30,13 @@ and application modules.
 | Source | Responsibility |
 |---|---|
 | `src/models.rs` | `App`, shared domain values, bookmarks, command-line state, view and lifecycle enums |
-| `src/models/panel.rs` | Panel entries and snapshot metadata, selection, sorting, marking, and navigation state |
-| `src/models/overlay.rs` | Mutually exclusive modal state and typed prompt payloads |
+| `src/models/panel.rs` | Panel entries and snapshot metadata, listing commit, cursor restoration after a reload, and navigation state |
+| `src/models/panel/sort.rs` | Listing order for each `SortMode`, directories first |
+| `src/models/panel/cursor.rs` | Highlighted-row movement, paging, and the in-range selection invariant |
+| `src/models/panel/marks.rs` | Marking, mask selection, and the previous selection Ctrl+M restores |
+| `src/models/panel/search.rs` | Quick search and select-by-name |
+| `src/models/overlay.rs` | Mutually exclusive modal state (`Overlay`, `Confirm`) |
+| `src/models/overlay/{name_fields,name_prompt,mask_prompt}.rs` | Typed prompt payloads: the name dialog (`NamePurpose`, `LinkType`, `NameField`, `NamePrompt`) and the mask dialog (`MaskPurpose`, `MaskPrompt`) |
 | `src/models/editor.rs` | Built-in editor buffer, cursor, edits, and serialization state |
 | `src/models/editor/selection.rs` | Typed selection anchors, cursor movement, selected text, and replacement |
 | `src/models/clipboard.rs` | Session ownership of an injected clipboard backend |

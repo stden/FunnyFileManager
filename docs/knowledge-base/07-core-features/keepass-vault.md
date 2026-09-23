@@ -166,7 +166,7 @@ write is refused, and the replacement keeps the original's permissions.
 
 ---
 
-## 🧭 Vault navigation (`src/kdbx/vault.rs`)
+## 🧭 Vault navigation (`src/kdbx/vault.rs`, `src/kdbx/vault/`)
 
 `Vault` holds the entry list plus an incremental filter. `entries()` is
 everything, `matches()` the indices that pass the filter, `visible()` the

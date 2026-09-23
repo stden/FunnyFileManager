@@ -9,66 +9,15 @@
 //! dropped — and so [`EntryForm`] cannot derive `Debug`, which keeps the whole
 //! session unformattable (`tests_secrets.rs` asserts this structurally).
 
+mod field;
+mod undo;
+
+pub use field::{EditField, FormMode};
+use undo::EditUndo;
+
 use super::secret::MasterKey;
 use crate::keepass::EntryDetails;
 use crate::keepass::EntryId;
-
-/// Which form field has the cursor.
-///
-/// An enum rather than an index, for the reason `crate::models::NameField` is
-/// one: the tab order is stated once, and a field added in the middle cannot
-/// silently renumber the rest.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EditField {
-    Title,
-    Username,
-    Url,
-    Notes,
-    Password,
-}
-
-impl EditField {
-    /// The tab order, top to bottom.
-    const ORDER: [Self; 5] = [
-        Self::Title,
-        Self::Username,
-        Self::Url,
-        Self::Notes,
-        Self::Password,
-    ];
-
-    #[must_use]
-    pub fn next(self) -> Self {
-        crate::cycle::step(&Self::ORDER, self, true)
-    }
-
-    #[must_use]
-    pub fn prev(self) -> Self {
-        crate::cycle::step(&Self::ORDER, self, false)
-    }
-}
-
-/// Whether the form is taking edits or asking whether to discard them.
-///
-/// A mode instead of a bool named `confirming`: `Esc` on a dirty form must not
-/// throw the draft away silently, and the renderer and the key handler have to
-/// agree on which question is on screen.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FormMode {
-    Editing,
-    ConfirmSave,
-}
-
-enum EditValue {
-    Text(String),
-    Password(MasterKey),
-}
-
-struct EditUndo {
-    field: EditField,
-    value: EditValue,
-    dirty: bool,
-}
 
 /// One entry being edited: the draft fields plus the identity they came from.
 ///
@@ -248,26 +197,6 @@ impl EntryForm {
         self.mode = mode;
     }
 
-    /// Undo the most recent text mutation in this form.
-    pub fn undo(&mut self) -> bool {
-        let Some(undo) = self.undo.take() else {
-            return false;
-        };
-        self.focus = undo.field;
-        match undo.value {
-            EditValue::Text(value) => {
-                let Some(text) = self.focused_text_mut() else {
-                    return false;
-                };
-                *text = value;
-            }
-            EditValue::Password(value) => self.password = value,
-        }
-        self.error = None;
-        self.dirty = undo.dirty;
-        true
-    }
-
     // ── For `super` only ────────────────────────────────────────────────
 
     /// The draft password for the save path, revealed or not. `pub(super)`
@@ -301,21 +230,5 @@ impl EntryForm {
             EditField::Notes => Some(&mut self.notes),
             EditField::Password => None,
         }
-    }
-
-    fn remember_undo(&mut self) {
-        let value = if self.focus == EditField::Password {
-            EditValue::Password(MasterKey::new(self.password.expose().to_owned()))
-        } else {
-            let Some(text) = self.focused_text_mut() else {
-                return;
-            };
-            EditValue::Text(text.clone())
-        };
-        self.undo = Some(EditUndo {
-            field: self.focus,
-            value,
-            dirty: self.dirty,
-        });
     }
 }

@@ -7,12 +7,14 @@
 //! [`super::KdbxSession::tick`] is driven by real user activity and stays
 //! testable without a terminal.
 
+mod accessors;
+mod filter;
+
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use super::edit::EntryForm;
 use super::secret::{MasterKey, Revealed};
-use crate::casefold::contains_ignore_case;
 use crate::keepass::EntryId;
 use crate::keepass::EntrySummary;
 
@@ -101,88 +103,11 @@ impl Vault {
         }
     }
 
-    // ── Read-only accessors for the renderer ────────────────────────────
-
-    pub fn entries(&self) -> &[EntrySummary] {
-        &self.entries
-    }
-
-    /// Indices into [`Self::entries`] that currently pass the filter.
-    pub fn matches(&self) -> &[usize] {
-        &self.matches
-    }
-
-    /// The entries to draw, in display order.
-    pub fn visible(&self) -> impl Iterator<Item = &EntrySummary> {
-        self.matches
-            .iter()
-            .filter_map(|&index| self.entries.get(index))
-    }
-
-    pub fn filter(&self) -> &str {
-        &self.filter
-    }
-
-    /// Cursor position **within [`Self::matches`]**, always `< matches.len()`
-    /// whenever any entry matches.
-    pub fn selected(&self) -> usize {
-        self.selected
-    }
-
-    pub fn selected_entry(&self) -> Option<&EntrySummary> {
-        self.entries.get(*self.matches.get(self.selected)?)
-    }
-
-    /// The revealed password, or `None` while it is masked.
-    pub fn revealed(&self) -> Option<&str> {
-        self.revealed.as_ref().map(Revealed::expose)
-    }
-
-    pub fn is_revealed(&self) -> bool {
-        self.revealed.is_some()
-    }
-
-    /// The open edit form, or `None` while the user is browsing.
-    pub fn form(&self) -> Option<&EntryForm> {
-        self.edit.as_deref()
-    }
-
-    pub fn form_mut(&mut self) -> Option<&mut EntryForm> {
-        self.edit.as_deref_mut()
-    }
-
-    pub fn last_activity(&self) -> Instant {
-        self.last_activity
-    }
-
-    pub(crate) fn groups(&self) -> &[Vec<String>] {
-        &self.groups
-    }
-
     // ── Mutations ───────────────────────────────────────────────────────
 
     /// Record user activity, postponing [`super::IDLE_LOCK`].
     pub(super) fn touch(&mut self, now: Instant) {
         self.last_activity = now;
-    }
-
-    /// Append one character to the filter.
-    pub fn push_filter_char(&mut self, ch: char, now: Instant) {
-        self.filter.push(ch);
-        self.refilter(now);
-    }
-
-    /// Delete the last character of the filter.
-    pub fn pop_filter_char(&mut self, now: Instant) {
-        self.filter.pop();
-        self.refilter(now);
-    }
-
-    /// Replace the filter outright.
-    pub fn set_filter(&mut self, filter: &str, now: Instant) {
-        self.filter.clear();
-        self.filter.push_str(filter);
-        self.refilter(now);
     }
 
     /// Move the cursor, clamped at both ends — deliberately **without**
@@ -292,48 +217,4 @@ impl Vault {
     pub(super) fn keyfile(&self) -> Option<&Path> {
         self.keyfile.as_deref()
     }
-
-    // ── Internals ───────────────────────────────────────────────────────
-
-    /// Rebuild [`Self::matches`] and re-clamp the cursor.
-    fn refilter(&mut self, now: Instant) {
-        self.touch(now);
-        // The revealed password belongs to whichever entry was selected when
-        // `Ctrl+R` was pressed. A filter edit can move the cursor onto a
-        // different entry, so keeping it would print entry A's password next to
-        // entry B's name.
-        self.hide();
-        self.close_dialog();
-
-        let needle = self.filter.to_lowercase();
-        self.matches = self
-            .entries
-            .iter()
-            .enumerate()
-            .filter(|(_, entry)| matches_filter(entry, &needle))
-            .map(|(index, _)| index)
-            .collect();
-
-        // `selected` indexes `matches`, and narrowing the filter can shrink
-        // `matches` out from under it. An index that outlives the list it points
-        // into has already shipped once in this codebase (panel reload), so it
-        // is clamped here — the single place `matches` is rebuilt — instead of
-        // at every read site. With no matches this parks at 0 and
-        // `selected_entry()` correctly returns `None`.
-        self.selected = self.selected.min(self.matches.len().saturating_sub(1));
-    }
-}
-
-/// Case-insensitive substring test over the three secret-free fields.
-///
-/// `needle` must already be lowercased — [`Vault::refilter`] does it once per
-/// edit rather than once per entry.
-fn matches_filter(entry: &EntrySummary, needle: &str) -> bool {
-    [&entry.title, &entry.username, &entry.url]
-        .into_iter()
-        .any(|field| contains_ignore_case(field, needle))
-        || entry
-            .group_path
-            .iter()
-            .any(|group| contains_ignore_case(group, needle))
 }

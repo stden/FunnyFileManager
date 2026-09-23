@@ -4,15 +4,15 @@
 
 use std::fmt;
 use std::marker::PhantomData;
-use std::time::{Duration, Instant};
 
 use super::secret::{MasterKey, Revealed};
-use super::tests_support::{
-    focus, password_for, selected_title, type_password, unlocked_sample,
-    unlocked_sample_with_keyfile, username_for, vault_file, Fixture, VAULT_PASSWORD,
-};
-use super::{EntryForm, KdbxError, KdbxSession, KdbxState, Motion, UnlockPrompt, Vault, IDLE_LOCK};
-use tempfile::TempDir;
+use super::tests_support::unlocked_sample;
+use super::{EntryForm, KdbxError, KdbxSession, KdbxState, Motion, UnlockPrompt, Vault};
+
+#[cfg(test)]
+mod tests_lock;
+#[cfg(test)]
+mod tests_reveal;
 
 // ── "does `T` implement `Debug`?", answered at run time ──────────────────
 //
@@ -133,127 +133,6 @@ fn deleting_a_typed_character_erases_it_from_the_buffer() {
 }
 
 #[test]
-fn reveal_fetches_on_demand_and_toggles_back_off() {
-    let (_dir, mut session, now) = unlocked_sample();
-    focus(&mut session, "GitHub", now);
-    assert!(!session.vault().expect("unlocked").is_revealed());
-
-    assert!(session.reveal(now).expect("reveal on"));
-    assert_eq!(session.vault().expect("unlocked").revealed(), Some("gh-pw"));
-
-    assert!(!session.reveal(now).expect("reveal off"));
-    assert!(session.vault().expect("unlocked").revealed().is_none());
-    assert!(!session.vault().expect("unlocked").is_revealed());
-
-    // And it can be fetched again afterwards.
-    assert!(session.reveal(now).expect("reveal on again"));
-    assert_eq!(session.vault().expect("unlocked").revealed(), Some("gh-pw"));
-}
-
-#[test]
-fn copying_a_password_does_not_require_revealing_it_first() {
-    let (_dir, mut session, now) = unlocked_sample();
-    focus(&mut session, "GitHub", now);
-
-    assert_eq!(session.copy_password(now).expect("copy"), "gh-pw");
-
-    // Copying must not put the secret on screen as a side effect.
-    assert!(!session.vault().expect("unlocked").is_revealed());
-    assert!(session.vault().expect("unlocked").revealed().is_none());
-}
-
-#[test]
-fn copying_follows_the_cursor() {
-    let (_dir, mut session, now) = unlocked_sample();
-    let first = selected_title(&session).expect("a selection");
-    assert_eq!(session.copy_username().expect("copy"), username_for(&first));
-
-    session.move_selection(Motion::Next, now);
-
-    let second = selected_title(&session).expect("a selection");
-    assert_ne!(first, second, "the cursor actually moved");
-    assert_eq!(
-        session.copy_username().expect("copy"),
-        username_for(&second)
-    );
-    assert_eq!(
-        session.copy_password(now).expect("copy"),
-        password_for(&second)
-    );
-}
-
-#[test]
-fn tick_locks_once_the_idle_limit_is_reached_and_not_a_moment_before() {
-    let (_dir, mut session, t0) = unlocked_sample();
-
-    assert!(!session.tick(t0));
-    assert!(!session.tick(t0 + IDLE_LOCK.saturating_sub(Duration::from_millis(1))));
-    assert!(
-        session.vault().is_some(),
-        "still unlocked one millisecond short of the limit"
-    );
-
-    assert!(session.tick(t0 + IDLE_LOCK), "locks exactly at the limit");
-    assert!(session.vault().is_none());
-    assert!(session.state.is_locked());
-
-    // Already locked — no second "just locked" report on later ticks.
-    assert!(!session.tick(t0 + IDLE_LOCK * 2));
-}
-
-#[test]
-fn user_activity_postpones_the_idle_lock() {
-    let (_dir, mut session, t0) = unlocked_sample();
-    let late = t0 + IDLE_LOCK.saturating_sub(Duration::from_secs(1));
-
-    // A real action, not just a bare `touch`: typing into the filter counts.
-    session.type_char('g', late);
-
-    assert!(
-        !session.tick(t0 + IDLE_LOCK),
-        "the clock restarted at `late`"
-    );
-    assert!(session.tick(late + IDLE_LOCK));
-}
-
-#[test]
-fn revealing_and_copying_also_count_as_activity() {
-    let (_dir, mut session, t0) = unlocked_sample();
-    focus(&mut session, "GitHub", t0);
-    let late = t0 + IDLE_LOCK.saturating_sub(Duration::from_secs(1));
-
-    assert!(session.reveal(late).expect("reveal"));
-    assert!(!session.tick(t0 + IDLE_LOCK));
-
-    let later = late + Duration::from_secs(1);
-    assert_eq!(session.copy_password(later).expect("copy"), "gh-pw");
-    assert!(!session.tick(later + IDLE_LOCK.saturating_sub(Duration::from_millis(1))));
-    assert!(session.tick(later + IDLE_LOCK));
-}
-
-#[test]
-fn locking_discards_the_credentials_and_leaves_an_empty_prompt() {
-    // A key-file vault, so "the prompt comes back empty" says something about
-    // the key file instead of being vacuously true.
-    let (_dir, _key_dir, mut session, now) = unlocked_sample_with_keyfile();
-    assert!(session.reveal(now).expect("reveal"));
-
-    session.lock();
-
-    let prompt = session.prompt().expect("locked again");
-    assert!(prompt.is_empty());
-    assert_eq!(prompt.masked(), "");
-    assert!(prompt.error().is_none());
-    assert!(
-        prompt.keyfile().is_none(),
-        "the locked state must not keep half the credentials"
-    );
-    // The master key is gone: a read now fails as `Locked` instead of
-    // succeeding from a leftover credential.
-    assert!(matches!(session.copy_password(now), Err(KdbxError::Locked)));
-}
-
-#[test]
 #[allow(unsafe_code)]
 fn zeroizing_a_vault_wipes_the_master_key_and_the_revealed_password() {
     let (_dir, mut session, now) = unlocked_sample();
@@ -283,55 +162,4 @@ fn popping_an_empty_master_key_is_a_no_op() {
     key.pop();
     assert!(key.is_empty());
     assert_eq!(key.char_count(), 0);
-}
-
-/// A root-group vault holding two entries titled `GitHub`, unlocked; each
-/// entry's password is `pw-` followed by its user name.
-fn unlocked_twins() -> (TempDir, KdbxSession, Instant) {
-    let twins = [
-        Fixture {
-            group: &[],
-            title: "GitHub",
-            username: "alice",
-            url: "",
-            password: "pw-alice",
-        },
-        Fixture {
-            group: &[],
-            title: "GitHub",
-            username: "bob",
-            url: "",
-            password: "pw-bob",
-        },
-    ];
-    let (dir, path) = vault_file(&twins, VAULT_PASSWORD, None);
-    let now = Instant::now();
-    let mut session = KdbxSession::new(path);
-    type_password(&mut session, VAULT_PASSWORD, now);
-    assert!(session.unlock(now), "fixture vault must unlock");
-    (dir, session, now)
-}
-
-/// Two entries may share a title. The row under the cursor is the one whose
-/// password is copied — resolving by name would always give the first.
-#[test]
-fn a_duplicate_title_copies_the_password_of_the_selected_row() {
-    let (_dir, mut session, now) = unlocked_twins();
-
-    // Whatever order the two were listed in, each row copies its own secret.
-    for _ in 0..2 {
-        let user = session
-            .vault()
-            .expect("unlocked")
-            .selected_entry()
-            .expect("a row is selected")
-            .username
-            .clone();
-        assert_eq!(
-            session.copy_password(now).expect("copy"),
-            format!("pw-{user}"),
-            "the {user} row must copy the {user} password"
-        );
-        session.move_selection(Motion::Next, now);
-    }
 }
