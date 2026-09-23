@@ -1,2 +1,8 @@
-# Embedded Unix scripts must retain LF on Windows as well.
+# Purpose: Pin line endings that interpreters depend on, whatever core.autocrlf says.
+#
+# A POSIX shell reads a CR as part of the word: a CRLF checkout turns `set -eu`
+# into `set -eu\r`. src/wsl/package_update.sh is embedded with include_str!,
+# which copies the file byte for byte (unlike a string literal, whose CRLF rustc
+# normalizes), and WSL runs it with `sh -lc`.
 *.sh text eol=lf
+scripts/pre-commit text eol=lf
