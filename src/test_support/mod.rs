@@ -1,6 +1,8 @@
 //! Test adapters and fixtures, excluded from ordinary production builds.
 
 mod backend;
+mod executable;
+pub use executable::write_executable;
 #[cfg(any(test, feature = "test-helpers"))]
 mod environment;
 pub use backend::WritableTestBackend;

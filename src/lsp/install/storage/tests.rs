@@ -9,7 +9,7 @@ use tempfile::TempDir;
 fn reusing_a_complete_install_does_not_run_its_installer_again() {
     let root = TempDir::new().unwrap();
     let stop = AtomicBool::new(false);
-    let settings = recipe("from pathlib import Path; marker=Path('runs'); marker.write_text(marker.read_text()+'x' if marker.exists() else 'x'); Path('server').touch()");
+    let settings = recipe("from pathlib import Path; marker=Path('runs'); marker.write_text(marker.read_text()+'x' if marker.exists() else 'x'); Path('server').touch(); Path('server').chmod(0o755)");
     let first = prepare(&settings, root.path(), root.path(), &stop).unwrap();
     let second = prepare(&settings, root.path(), root.path(), &stop).unwrap();
     assert_eq!(first, second);
@@ -44,7 +44,20 @@ fn waiting_for_another_installer_is_cancellable_and_unlocks_on_drop() {
     let stop = Arc::new(AtomicBool::new(false));
     let cancelled = Arc::clone(&stop);
     let other = path.clone();
-    let thread = std::thread::spawn(move || lock(&other, &cancelled));
+    let (waiting, received) = std::sync::mpsc::sync_channel(1);
+    let thread = std::thread::spawn(move || {
+        lock_until(
+            &other,
+            &cancelled,
+            Instant::now() + Duration::from_secs(10),
+            || {
+                // Only the first blocked attempt needs to signal the test.
+                let _ = waiting.try_send(());
+                std::thread::sleep(Duration::from_millis(20));
+            },
+        )
+    });
+    received.recv_timeout(Duration::from_secs(5)).unwrap();
     stop.store(true, Ordering::Release);
     assert!(matches!(
         thread.join().unwrap(),
@@ -52,6 +65,18 @@ fn waiting_for_another_installer_is_cancellable_and_unlocks_on_drop() {
     ));
     drop(held);
     assert!(lock(&path, &AtomicBool::new(false)).is_ok());
+}
+
+#[test]
+fn a_contended_lock_obeys_its_deadline() {
+    let root = TempDir::new().unwrap();
+    let path = root.path().join("package.lock");
+    let stop = AtomicBool::new(false);
+    let _held = lock(&path, &stop).unwrap();
+    assert!(matches!(
+        lock_until(&path, &stop, Instant::now(), || panic!("deadline elapsed")),
+        Err(InstallError::Timeout)
+    ));
 }
 
 #[test]

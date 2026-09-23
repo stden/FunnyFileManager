@@ -26,7 +26,7 @@ pub(super) fn recipe(script: &str) -> ServerSettings {
 }
 
 pub(super) fn simple_recipe() -> ServerSettings {
-    recipe("from pathlib import Path; Path('server').write_text('installed')")
+    recipe("from pathlib import Path; Path('server').write_text('installed'); Path('server').chmod(0o755)")
 }
 
 fn wait(job: &Job) -> Result<ServerSettings, InstallError> {
@@ -87,15 +87,16 @@ fn dropping_a_running_install_cancels_the_process_and_removes_staging() {
 #[test]
 fn a_failed_installer_reports_failure_and_allows_an_explicit_retry() {
     let root = TempDir::new().unwrap();
+    let settings = recipe("from pathlib import Path; marker=Path('../attempt'); failed=not marker.exists(); marker.touch(); exec('if failed: raise SystemExit(7)'); Path('server').touch(); Path('server').chmod(0o755)");
     let job = Job::start(
-        recipe("raise SystemExit(7)"),
+        settings.clone(),
         root.path().to_path_buf(),
         root.path().to_path_buf(),
     )
     .unwrap();
     assert_eq!(wait(&job).unwrap_err(), InstallError::Command);
     let retry = Job::start(
-        simple_recipe(),
+        settings,
         root.path().to_path_buf(),
         root.path().to_path_buf(),
     )

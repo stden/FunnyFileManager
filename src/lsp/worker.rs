@@ -26,6 +26,7 @@ mod lifecycle;
 
 struct Connection {
     owner: DocumentId,
+    path: PathBuf,
     process: Process,
     client: Client,
     pending: Option<Snapshot>,
@@ -57,6 +58,7 @@ impl Connection {
         let process = Process::start(settings, root)?;
         Ok(Self {
             owner: snapshot.stamp.id,
+            path: snapshot.path.clone(),
             process,
             client: Client::new(language, root_uri),
             pending: Some(snapshot),
@@ -67,7 +69,8 @@ impl Connection {
 
     fn command(&mut self, command: Command) {
         match command {
-            Command::Update(snapshot) if snapshot.stamp.id == self.owner => {
+            Command::Update(mut snapshot) if snapshot.stamp.id == self.owner => {
+                snapshot.path.clone_from(&self.path);
                 self.pending = Some(snapshot);
                 self.query = None;
             }

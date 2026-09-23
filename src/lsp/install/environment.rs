@@ -40,7 +40,7 @@ fn discover(
     if names == ["java"] {
         if let Some(root) = java_home.filter(|root| root.is_absolute()) {
             let java = root.join("bin").join(launch::executable("java"));
-            if java.is_file() {
+            if launch::runnable(&java) {
                 return Ok(java);
             }
         }

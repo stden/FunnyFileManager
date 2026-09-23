@@ -8,6 +8,7 @@ pub(super) struct Packages {
     pub root: TempDir,
     pub calls: RefCell<Vec<Vec<String>>>,
     pub version: String,
+    pub curl_version: String,
     pub archive: Vec<u8>,
 }
 
@@ -15,13 +16,18 @@ impl Packages {
     pub fn new() -> Self {
         let root = TempDir::new().unwrap();
         for name in ["node", "java", "python3", "curl"] {
-            fs::write(root.path().join(launch::executable(name)), "runtime").unwrap();
+            crate::test_support::write_executable(
+                &root.path().join(launch::executable(name)),
+                b"runtime",
+            )
+            .unwrap();
         }
         write(root.path(), "node_modules/npm/bin/npm-cli.js", b"npm");
         Self {
             root,
             calls: RefCell::new(Vec::new()),
             version: "openjdk 21.0.11 2026-04-21".into(),
+            curl_version: "curl 8.4.0 (test)".into(),
             archive: java_archive(),
         }
     }
@@ -47,14 +53,19 @@ impl Environment for Packages {
             .collect();
         self.calls.borrow_mut().push(args.clone());
         if args == ["--version"] {
-            return Ok(self.version.as_bytes().to_vec());
+            let version = if Path::new(command.get_program()).file_stem().unwrap() == "curl" {
+                &self.curl_version
+            } else {
+                &self.version
+            };
+            return Ok(version.as_bytes().to_vec());
         }
         let root = command.get_current_dir().unwrap();
         match args.get(1).map(String::as_str) {
             Some("venv") => {
                 let python = launch::venv_python(root);
                 fs::create_dir_all(python.parent().unwrap()).unwrap();
-                fs::write(python, "python").unwrap();
+                crate::test_support::write_executable(&python, b"python").unwrap();
             }
             Some("pip") => write(root, "venv/installed", args.last().unwrap().as_bytes()),
             Some("install") => npm(root),

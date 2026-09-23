@@ -17,56 +17,7 @@ pub(super) struct Launch {
     configuration: Option<String>,
 }
 
-impl Launch {
-    pub fn settings(
-        &self,
-        settings: &ServerSettings,
-        root: &Path,
-        workspace: &Path,
-    ) -> Result<ServerSettings, InstallError> {
-        let prepared = self.preview(settings, root, workspace)?;
-        let data = workspace_data(root, workspace);
-        if let Some(configuration) = &self.configuration {
-            fs::create_dir_all(data.join("config"))?;
-            let target = data.join("config/config.ini");
-            if !target.exists() {
-                fs::copy(expand(configuration, root, &data), target)?;
-            }
-        }
-        Ok(prepared)
-    }
-
-    pub(super) fn preview(
-        &self,
-        settings: &ServerSettings,
-        root: &Path,
-        workspace: &Path,
-    ) -> Result<ServerSettings, InstallError> {
-        let data = workspace_data(root, workspace);
-        let mut prepared = settings.clone();
-        prepared.command = expand(&self.command, root, &data);
-        installed(Path::new(&prepared.command))?;
-        prepared.args = self
-            .args
-            .iter()
-            .chain(&settings.args)
-            .map(|arg| expand(arg, root, &data))
-            .collect();
-        prepared.install = None;
-        Ok(prepared)
-    }
-}
-
-fn workspace_data(root: &Path, workspace: &Path) -> PathBuf {
-    root.join("workspaces")
-        .join(storage::digest(workspace.as_os_str().as_encoded_bytes()))
-}
-
-fn expand(value: &str, root: &Path, data: &Path) -> String {
-    value
-        .replace("{install_dir}", &root.to_string_lossy())
-        .replace("{workspace_data}", &data.to_string_lossy())
-}
+mod receipt;
 
 pub(super) fn for_recipe(
     recipe: &InstallRecipe,
@@ -90,7 +41,9 @@ pub(super) fn for_recipe(
         InstallRecipe::Jdtls { .. } => jdtls(root, stop, environment),
         InstallRecipe::Command { executable, .. } => {
             let path = storage::relative(root, executable)?;
-            installed(&path)?;
+            if !runnable(&path) {
+                return Err(InstallError::Recipe);
+            }
             Ok(Launch {
                 command: template(root, &path)?,
                 args: Vec::new(),
@@ -166,12 +119,14 @@ fn jdtls(
 fn java_launcher(root: &Path) -> Result<PathBuf, InstallError> {
     for entry in fs::read_dir(root.join("plugins"))? {
         let path = entry?.path();
-        if path.file_name().is_some_and(|name| {
-            name.to_string_lossy()
-                .starts_with("org.eclipse.equinox.launcher_")
-        }) && path
-            .extension()
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("jar"))
+        if path.is_file()
+            && path.file_name().is_some_and(|name| {
+                name.to_string_lossy()
+                    .starts_with("org.eclipse.equinox.launcher_")
+            })
+            && path
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("jar"))
         {
             return Ok(path);
         }
@@ -224,12 +179,24 @@ pub(super) fn find_any(
     for directory in paths.filter(|path| path.is_absolute()) {
         for name in names {
             let path = directory.join(executable(name));
-            if path.is_file() {
+            if runnable(&path) {
                 return Ok(path);
             }
         }
     }
     Err(InstallError::Missing(message))
+}
+
+#[cfg(unix)]
+pub(super) fn runnable(path: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    path.metadata()
+        .is_ok_and(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
+}
+
+#[cfg(windows)]
+pub(super) fn runnable(path: &Path) -> bool {
+    path.is_file()
 }
 
 #[cfg(windows)]

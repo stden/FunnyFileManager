@@ -64,6 +64,9 @@ fn availability(
     cache: Option<&Path>,
     environment: &dyn Environment,
 ) {
+    let directory = directory
+        .canonicalize()
+        .unwrap_or_else(|_| directory.to_path_buf());
     let workspace =
         super::super::worker::workspace_root(&directory.join("source"), &server.root_markers);
     match resolve(server, cache, &workspace, environment) {
@@ -91,7 +94,7 @@ fn resolve(
     workspace: &Path,
     environment: &dyn Environment,
 ) -> Result<(&'static str, ServerSettings), InstallError> {
-    if let Some(path) = configured(&server.command, environment) {
+    if let Some(path) = configured(&server.command, workspace, environment) {
         let mut prepared = server.clone();
         prepared.command = path.to_string_lossy().into_owned();
         return Ok(("found configured executable", prepared));
@@ -111,17 +114,22 @@ fn resolve(
         .map_err(|_| InstallError::Recipe)?;
     Ok((
         "installed in FFM cache",
-        receipt.preview(server, &root, workspace)?,
+        receipt.preview(server, &root, workspace, environment)?,
     ))
 }
 
-fn configured(command: &str, environment: &dyn Environment) -> Option<std::path::PathBuf> {
+fn configured(
+    command: &str,
+    workspace: &Path,
+    environment: &dyn Environment,
+) -> Option<std::path::PathBuf> {
     let path = Path::new(command);
     if path.is_absolute() {
-        return path.is_file().then(|| path.to_path_buf());
+        return super::launch::runnable(path).then(|| path.to_path_buf());
     }
     if path.components().count() != 1 {
-        return None;
+        let path = workspace.join(path);
+        return super::launch::runnable(&path).then_some(path);
     }
     environment.program(&[command], "not installed").ok()
 }

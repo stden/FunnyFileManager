@@ -46,7 +46,7 @@ impl Session {
         Self::start_app(
             move || {
                 let executable = left.join("fixture-server");
-                fs::write(&executable, "fixture")?;
+                funny_file_manager::test_support::write_executable(&executable, b"fixture")?;
                 let mut app = App::with_panels(Panel::new(left)?, Panel::new(right)?);
                 app.config.lsp.0.clear();
                 app.config.lsp.0.insert(

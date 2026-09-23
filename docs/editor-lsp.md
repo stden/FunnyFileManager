@@ -75,7 +75,7 @@ defaults. `"install": null` disables automatic installation for one server.
 |---|---|---|
 | Rust | rust-analyzer | Install on PATH, e.g. `rustup component add rust-analyzer` |
 | Python | python-lsp-server (pylsp) | Python 3 with venv and pip |
-| Java | Eclipse JDT LS 1.61.0 | Java 21+ and curl; JAVA_HOME takes precedence for Java |
+| Java | Eclipse JDT LS 1.61.0 | Java 21+ and curl 8.4+; JAVA_HOME takes precedence for Java |
 | JavaScript / JSX / TypeScript / TSX | typescript-language-server + TypeScript 6 | Node.js and npm |
 | HTML / CSS / JSON | vscode-langservers-extracted | Node.js and npm |
 | YAML | yaml-language-server | Node.js and npm |
@@ -187,6 +187,15 @@ On Unix, exit polling retains the child PID until its group is terminated and
 reaped, preventing a reused PID from receiving cleanup signals. A full writer
 queue retains messages for retry in order, with a bounded backlog.
 
+Cached npm and Java servers discover their runtime again on each launch, so moving
+Node.js or changing `JAVA_HOME` does not require reinstalling the server. The
+inventory uses the same workspace identity and runtime discovery without running
+package managers or language servers.
+
+The Java download requires curl 8.4+ because older versions do not enforce
+`--max-filesize` when the response has no known length; see the
+[curl documentation](https://curl.se/docs/manpage.html#--max-filesize).
+
 The worker owns a cancellable installation job in its `Preparing` state and keeps
 the latest document snapshot while installation runs. A dedicated installer thread
 owns package-manager process trees. A temporary staging directory becomes a cache
@@ -195,9 +204,9 @@ a portable file lock and a launch receipt make reuse independent of editor widge
 No installer or recipe parsing runs in rendering code.
 
 The pure protocol client is independent of widgets and of rust-analyzer. Add
-language defaults in `config/lsp/catalog.json`; installation adapters live under
-`lsp/install/`; generic server support belongs under
-`src/lsp/`, editor effects under `ops/editor_lsp.rs`, and presentation in the
+language defaults in `src/config/lsp/catalog.json`; installation adapters live under
+`src/lsp/install/`; generic server support belongs under
+`src/lsp/`, editor effects under `src/ops/editor_lsp.rs`, and presentation in the
 editor model/input/rendering modules.
 
 Deterministic protocol tests use memory streams; lifecycle/controller tests run

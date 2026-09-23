@@ -53,12 +53,14 @@ fn closing_a_pending_install_discards_edits_and_never_reopens_the_document() {
         &events,
     );
     snapshot.text = "latest edit".into();
+    let original = snapshot.path.clone();
+    snapshot.path = root.path().join("alias.rs");
     host.command(Command::Update(snapshot.clone()), &events);
     let Session::Preparing(preparing) = &host.session else {
         panic!("installing")
     };
     assert_eq!(preparing.start.snapshot.text, "latest edit");
-    host.pump(&events);
+    assert_eq!(preparing.start.snapshot.path, original);
     let started = Instant::now();
     host.command(Command::Close, &events);
     assert!(started.elapsed() < Duration::from_secs(2));

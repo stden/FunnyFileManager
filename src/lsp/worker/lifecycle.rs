@@ -53,12 +53,12 @@ impl Host {
             (Session::Untrusted(start), Command::Update(snapshot))
                 if snapshot.stamp.id == start.snapshot.stamp.id =>
             {
-                start.snapshot = snapshot;
+                start.update(snapshot);
             }
             (Session::Preparing(preparing), Command::Update(snapshot))
                 if snapshot.stamp.id == preparing.start.snapshot.stamp.id =>
             {
-                preparing.start.snapshot = snapshot;
+                preparing.start.update(snapshot);
             }
             _ => {} // Closed/untrusted sessions cannot execute document requests.
         }
@@ -123,6 +123,11 @@ impl Host {
 }
 
 impl Start {
+    fn update(&mut self, mut snapshot: Snapshot) {
+        snapshot.path.clone_from(&self.snapshot.path);
+        self.snapshot = snapshot;
+    }
+
     fn prepare(
         language: String,
         settings: ServerSettings,
@@ -144,7 +149,7 @@ impl Start {
 fn document_path(path: &Path) -> std::io::Result<PathBuf> {
     let absolute = std::path::absolute(path)?;
     match absolute.canonicalize() {
-        Ok(path) => Ok(PathBuf::from(crate::path_display::label(&path).as_ref())),
+        Ok(path) => Ok(path),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(absolute),
         Err(error) => Err(error),
     }

@@ -88,7 +88,7 @@ fn java_download_is_verified_and_each_workspace_has_its_own_data() {
     assert!(first.args.iter().any(|arg| Path::new(arg)
         .extension()
         .is_some_and(|ext| ext.eq_ignore_ascii_case("jar"))));
-    assert_eq!(packages.calls.borrow().len(), 3);
+    assert_eq!(packages.calls.borrow().len(), 4);
 }
 
 #[test]
@@ -121,4 +121,23 @@ fn java_rejects_changed_downloads_without_publishing_a_receipt() {
     assert!(fs::read_dir(root.path())
         .unwrap()
         .all(|entry| entry.unwrap().path().is_file()));
+}
+
+#[test]
+fn cached_packages_follow_runtime_relocation_without_reinstallation() {
+    let root = TempDir::new().unwrap();
+    let first = Packages::new();
+    let moved = Packages::new();
+    for settings in [npm_settings(), java_settings(&first)] {
+        let original = prepare(&settings, root.path(), root.path(), &first).unwrap();
+        fs::remove_file(&original.command).unwrap();
+        let refreshed = prepare(&settings, root.path(), root.path(), &moved).unwrap();
+        assert!(Path::new(&refreshed.command).starts_with(moved.root.path()));
+        assert_eq!(refreshed.args, original.args);
+    }
+    assert!(moved
+        .calls
+        .borrow()
+        .iter()
+        .all(|args| args == &["--version"]));
 }

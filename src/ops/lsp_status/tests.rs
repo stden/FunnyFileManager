@@ -9,7 +9,7 @@ use crate::{
 fn lsp_command_opens_a_scrolling_inventory() {
     let root = tempfile::TempDir::new().unwrap();
     let executable = root.path().join("server");
-    std::fs::write(&executable, "fixture").unwrap();
+    crate::test_support::write_executable(&executable, b"fixture").unwrap();
     let panel = Panel::new(root.path().to_path_buf()).unwrap();
     let mut app = App::with_panels(panel.clone(), panel);
     app.config.lsp.0.clear();

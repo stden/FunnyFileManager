@@ -31,7 +31,7 @@ fn inventory_distinguishes_disabled_missing_and_configured_servers() {
 fn inventory_names_the_settings_and_passes_through_local_launch_parameters() {
     let root = TempDir::new().unwrap();
     let executable = root.path().join("server");
-    fs::write(&executable, "local").unwrap();
+    crate::test_support::write_executable(&executable, b"local").unwrap();
     let mut settings = LspSettings(std::collections::BTreeMap::new());
     settings.0.insert(
         "local".into(),
@@ -42,9 +42,26 @@ fn inventory_names_the_settings_and_passes_through_local_launch_parameters() {
         },
     );
     let text = inventory(&settings, root.path()).join("\n");
+    assert!(text.contains("local [enabled]"));
     assert!(text.contains("Launch argument: --stdio"));
     assert!(text.contains(&*executable.to_string_lossy()));
     assert!(text.contains("Auto-install: disabled"));
+}
+
+#[test]
+fn relative_commands_are_resolved_from_the_project_root() {
+    let root = TempDir::new().unwrap();
+    let packages = Packages::new();
+    let executable = root.path().join("tools/server");
+    fs::create_dir(executable.parent().unwrap()).unwrap();
+    crate::test_support::write_executable(&executable, b"server").unwrap();
+    let server = ServerSettings {
+        command: "./tools/server".into(),
+        ..ServerSettings::default()
+    };
+    let (_, prepared) = resolve(&server, None, root.path(), &packages).unwrap();
+    assert_eq!(Path::new(&prepared.command), executable);
+    assert!(packages.calls.borrow().is_empty());
 }
 
 #[test]
@@ -77,4 +94,57 @@ fn inventory_shows_cached_arguments_and_detects_corrupt_receipts() {
         &packages
     )
     .is_err());
+}
+
+fn installed_java(
+    root: &Path,
+    workspace: &Path,
+    packages: &Packages,
+) -> (ServerSettings, ServerSettings) {
+    let mut server = LspSettings::default().0.remove("java").unwrap();
+    server.install = Some(crate::config::InstallRecipe::Jdtls {
+        url: "https://example.com/server.tar.gz".into(),
+        sha256: storage::digest(&packages.archive),
+    });
+    let prepared = storage::prepare_with(
+        &server,
+        root,
+        &workspace.canonicalize().unwrap(),
+        &AtomicBool::new(false),
+        packages,
+    )
+    .unwrap();
+    (server, prepared)
+}
+
+#[test]
+fn java_inventory_uses_the_current_runtime_and_canonical_workspace_without_execution() {
+    let root = TempDir::new().unwrap();
+    let first = Packages::new();
+    let moved = Packages::new();
+    let workspace = root.path().join("project");
+    fs::create_dir_all(workspace.join("child")).unwrap();
+    let (server, prepared) = installed_java(root.path(), &workspace, &first);
+    fs::remove_file(&prepared.command).unwrap();
+    let mut lines = Vec::new();
+    availability(
+        &mut lines,
+        &server,
+        &workspace.join("child/.."),
+        Some(root.path()),
+        &moved,
+    );
+    assert!(lines.contains(&format!(
+        "  Launch argument: {}",
+        prepared.args.last().unwrap()
+    )));
+    assert!(lines.contains(&format!(
+        "  Executable: {}",
+        moved
+            .root
+            .path()
+            .join(super::super::launch::executable("java"))
+            .display()
+    )));
+    assert!(moved.calls.borrow().is_empty());
 }

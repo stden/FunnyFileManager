@@ -93,6 +93,9 @@ fn run_until(
     }
     // Terminate descendants before reaping the leader, retaining its PID on Unix.
     process.finish()?;
+    if output.metadata()?.len() > 1_048_576 {
+        return Err(InstallError::Command);
+    }
     output.seek(SeekFrom::Start(0))?;
     let mut bytes = Vec::new();
     output.take(65_536).read_to_end(&mut bytes)?;

@@ -51,23 +51,38 @@ pub(super) fn prepare_with(
     }
     let receipt = fs::read(destination.join("ready.json"))?;
     let launch: Launch = serde_json::from_slice(&receipt).map_err(|_| InstallError::Recipe)?;
-    launch.settings(settings, &destination, workspace)
+    launch.settings(settings, &destination, workspace, environment)
 }
 
 fn lock(path: &Path, stop: &AtomicBool) -> Result<File, InstallError> {
+    lock_until(
+        path,
+        stop,
+        Instant::now() + Duration::from_secs(600),
+        || {
+            std::thread::sleep(Duration::from_millis(20));
+        },
+    )
+}
+
+fn lock_until(
+    path: &Path,
+    stop: &AtomicBool,
+    deadline: Instant,
+    mut wait: impl FnMut(),
+) -> Result<File, InstallError> {
     let lock = File::options()
         .read(true)
         .write(true)
         .create(true)
         .truncate(false)
         .open(path)?;
-    let deadline = Instant::now() + Duration::from_secs(600);
     loop {
         check_cancel(stop)?;
         match lock.try_lock() {
             Ok(()) => return Ok(lock),
             Err(TryLockError::WouldBlock) if Instant::now() < deadline => {
-                std::thread::sleep(Duration::from_millis(20));
+                wait();
             }
             Err(TryLockError::WouldBlock) => return Err(InstallError::Timeout),
             Err(TryLockError::Error(error)) => return Err(error.into()),

@@ -24,10 +24,7 @@ pub(super) fn download(
     {
         return Err(InstallError::Recipe);
     }
-    let curl = environment.program(
-        &["curl"],
-        "LSP installation requires curl for HTTPS downloads",
-    )?;
+    let curl = bounded_curl(environment, stop)?;
     let archive = root.join("server.tar.gz");
     environment.run(
         Command::new(curl)
@@ -41,6 +38,28 @@ pub(super) fn download(
     unpack(File::open(&archive)?, root, stop)?;
     fs::remove_file(archive)?;
     Ok(())
+}
+
+fn bounded_curl(
+    environment: &dyn Environment,
+    stop: &AtomicBool,
+) -> Result<std::path::PathBuf, InstallError> {
+    const MISSING: &str = "LSP installation requires curl 8.4+ for bounded HTTPS downloads";
+    let curl = environment.program(&["curl"], MISSING)?;
+    let output = environment.run(Command::new(&curl).arg("--version"), stop)?;
+    let text = String::from_utf8_lossy(&output);
+    let version = text
+        .split_whitespace()
+        .nth(1)
+        .ok_or(InstallError::Missing(MISSING))?;
+    let mut parts = version.split('.');
+    let major = parts.next().and_then(|part| part.parse::<u32>().ok());
+    let minor = parts.next().and_then(|part| part.parse::<u32>().ok());
+    if major.zip(minor).is_some_and(|version| version >= (8, 4)) {
+        Ok(curl)
+    } else {
+        Err(InstallError::Missing(MISSING))
+    }
 }
 
 const CURL_ARGS: &[&str] = &[

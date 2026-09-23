@@ -87,3 +87,50 @@ fn invalid_archives_and_cancellation_stop_extraction() {
         Err(InstallError::Cancelled)
     );
 }
+
+#[test]
+fn a_traversal_member_cannot_write_outside_the_managed_directory() {
+    let root = TempDir::new().unwrap();
+    let managed = root.path().join("managed");
+    fs::create_dir(&managed).unwrap();
+    let gzip = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    let mut archive = tar::Builder::new(gzip);
+    let mut header = tar::Header::new_gnu();
+    header.as_mut_bytes()[..10].copy_from_slice(b"../outside");
+    header.set_size(4);
+    header.set_mode(0o644);
+    header.set_cksum();
+    archive.append(&header, &b"data"[..]).unwrap();
+    let data = archive.into_inner().unwrap().finish().unwrap();
+    assert_eq!(
+        unpack(&data[..], &managed, &AtomicBool::new(false)),
+        Err(InstallError::Archive)
+    );
+    assert!(!root.path().join("outside").exists());
+    assert_eq!(fs::read_dir(managed).unwrap().count(), 0);
+}
+
+#[test]
+fn curl_must_bound_downloads_without_a_content_length() {
+    let root = TempDir::new().unwrap();
+    let mut packages = crate::lsp::install::fixtures::Packages::new();
+    for version in ["curl 8.3.0", "curl 7.88.1", "invalid"] {
+        packages.curl_version = version.into();
+        assert!(matches!(
+            download(
+                "https://example.com/server.tar.gz",
+                &storage::digest(&packages.archive),
+                root.path(),
+                &AtomicBool::new(false),
+                &packages
+            ),
+            Err(InstallError::Missing(_))
+        ));
+    }
+    assert!(packages
+        .calls
+        .borrow()
+        .iter()
+        .all(|args| args == &["--version"]));
+    assert!(!root.path().join("server.tar.gz").exists());
+}
