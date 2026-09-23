@@ -70,9 +70,9 @@ not mark names hidden by itself, so a leading dot is the whole signal.
 
 F9 → Options → Panel settings is `on` or `off`. `on` shows those names. `off`
 removes them from the listing. The default value is `on`. Directories stay
-visible through a filename mask. The mask applies to files. `Ctrl+I` is still
-a placeholder dialog; the working mask is the one set from the F9 row, stored
-on the panel, and reapplied the next time the directory is read.
+visible through a filename mask. The mask applies to files. `Ctrl+I` opens the same mask prompt as the F9
+filter row. The mask is stored on the panel and reapplied the next time the
+directory is read.
 
 ## Copy, move, and names
 

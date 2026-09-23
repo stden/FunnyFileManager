@@ -46,11 +46,11 @@ The variant list changes as dialogs are added. Read `src/models/overlay.rs` rath
 
 `Ctrl+O` is `ViewMode::Console`, not an overlay.
 
-## Two ways into the same command
+## The hotkey and the F9 row
 
-F9 runs `ops/menu`. That path performs the command: a `MenuDialog` prompt or choice list, a settings prompt, or a direct effect such as `terminal::toggle_video_mode`.
+Alt+F8, Alt+F9, Alt+F10, Alt+F11, Alt+F12, Ctrl+I, F12, and Ctrl+W call the same `ops/menu` operation as the F9 row of that name. That is a `MenuDialog` prompt or choice list, the task-list viewer, or `terminal::toggle_video_mode`. Alt+F7 opens the Find file dialog; its containing-text field is part of the search.
 
-These hotkeys still open a dedicated variant whose frame says "Coming in this release" (`src/ui/stub.rs`): Alt+F8 history, Alt+F9 video mode, Alt+F10 find folder, Alt+F11 view history, Alt+F12 folder history, Ctrl+I filter, F12 screens, and Ctrl+W tasks. The F9 row of the same name does the work. Alt+F7 find file is a real dialog, not that placeholder.
+The older dedicated variants (`CommandHistory`, `FindFolder`, `ViewHistory`, `FolderHistory`, `Filter`, `Screens`, `Tasks`) still exist and still draw "Coming in this release" if something sets them. The hotkeys no longer do.
 
 ## Implementation locations
 
@@ -60,7 +60,7 @@ These hotkeys still open a dedicated variant whose frame says "Coming in this re
 - Opening from the main view: `src/application/dispatch.rs`. `src/lib.rs` re-exports `run_app`; it does not route keys.
 - Rendering: `src/ui/` children, routed from `src/ui/overlays.rs`. The viewer delegates to `src/ui/viewer.rs`. Highlighted text shared with the editor lives in `src/ui/code.rs`.
 
-Every variant must be reachable from a key or a menu row and have an intentional presentation. A placeholder frame is intentional only while that hotkey has not yet called the same operation as its F9 row. A variant that is only constructed in tests is dead weight: it makes `process_popup_input` swallow every key while nothing is painted. There was once a `Search(String)` and a `Bookmarks` variant in exactly that state; both were deleted. Incremental search is `Alt+letter` (quick search); bookmarks are `:bookmark set|go <0-9>`.
+Every variant must be reachable from a key or a menu row and have an intentional presentation. A variant that is only constructed in tests is dead weight: it makes `process_popup_input` swallow every key while nothing is painted. There was once a `Search(String)` and a `Bookmarks` variant in exactly that state; both were deleted. Incremental search is `Alt+letter` (quick search); bookmarks are `:bookmark set|go <0-9>`.
 
 While an overlay is active, every key is routed to `process_popup_input` before
 main-view action resolution. Unsupported keys remain consumed; they cannot fall

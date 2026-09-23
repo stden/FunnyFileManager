@@ -5,6 +5,7 @@ use std::io::Write;
 use ratatui::{backend::Backend, Terminal};
 
 use crate::action::{Action, ToolCommand};
+use crate::menu::MenuCommand;
 use crate::models::{App, CommandLine, Lifecycle, Overlay, ViewMode};
 use crate::ops;
 
@@ -37,8 +38,8 @@ where
             open_menu(app);
         }
         Action::ToggleConsole => app.view = app.view.toggled(),
-        // F12 lists the screens from either of them.
-        Action::Tool(ToolCommand::Screens) => ops::screens::open(app),
+        // F12 lists the screens from either of them, the same list F9 shows.
+        Action::Tool(ToolCommand::Screens) => ops::menu::execute(app, MenuCommand::Screens),
         Action::NavUp => app.console.scroll_up(1),
         Action::NavDown => app.console.scroll_down(1),
         Action::PageUp => app.console.scroll_up(page),

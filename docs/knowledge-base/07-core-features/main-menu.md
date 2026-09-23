@@ -82,7 +82,7 @@ with their shortcuts. Additional operations are:
 | Tasks / hotplug devices | Shows host process information or currently mounted drives. |
 | Plugin commands | Opens the existing MCP status interface. |
 
-The table describes the F9 row, which runs `ops/menu`. The matching hotkey does not always take that path. Alt+F8, Alt+F9, Alt+F10, Alt+F11, Alt+F12, Ctrl+I, F12, and Ctrl+W still open a placeholder frame (`src/ui/stub.rs`). Choosing the same name from F9 performs the operation. Alt+F7 opens the real Find file dialog. See [overlays](../../06-ui-and-interaction/overlays-and-modals.md).
+The F9 row and its shortcut call the same `ops/menu` operation. Alt+F7 opens the Find file dialog, whose containing-text field narrows the name search. See [overlays](../../06-ui-and-interaction/overlays-and-modals.md).
 
 User-menu files contain `Label<TAB>command` lines. Association files contain
 `extension<TAB>command`; extension matching ignores case and `{}` expands to

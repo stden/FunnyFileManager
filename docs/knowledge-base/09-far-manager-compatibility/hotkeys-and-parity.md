@@ -42,7 +42,7 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 | F9        | Menu bar                       | ✅         |       |
 | F10       | Quit                           | ✅         | Also Ctrl+C and the `quit` command |
 | F11       | Plugin commands                | ✅         | Opens MCP/plugin status |
-| F12       | Switch screens                 | ⚠️         | The key opens a placeholder list. Ctrl+O toggles the console. The F9 Screens row chooses file panels or the console transcript |
+| F12       | Switch screens                 | ✅         | The same list as F9 Screens: file panels or the console transcript. Ctrl+O toggles the console directly |
 | Alt+F1/F2 | Drive selection                | ✅         |       |
 | Ctrl+O    | Toggle console (hide panels)   | ✅         |       |
 | Ctrl+U    | Swap panels                    | ✅         | Ignored while a panel is hidden (Ctrl+F1 / Ctrl+F2), as in Far; the status line says so |
@@ -124,7 +124,6 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 ## ↔️ Known Differences (Intentional)
 
 - F4 opens the built-in editor, with syntax highlighting and optional language servers. Alt+F4 delegates to the external editor.
-- Alt+F8, Alt+F9, Alt+F10, Alt+F11, Alt+F12, Ctrl+I, and Ctrl+W open a placeholder frame. The F9 row of the same name runs the operation. See [overlays](../06-ui-and-interaction/overlays-and-modals.md).
 - Some advanced Far plugins and menu systems have no equivalent.
 - Drive letters on Unix are simulated as `/`.
 - With the `s3` feature, credential-file profiles appear as extra drive-menu rows. Selecting one does not open a bucket. See [S3](../../tutorials/s3.md).

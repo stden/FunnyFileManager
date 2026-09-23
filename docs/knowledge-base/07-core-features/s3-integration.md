@@ -26,9 +26,10 @@ paths stay inside the configured root. Its tools are `s3_list_profiles`,
 ## What is not implemented
 
 Panels store a local `PathBuf`. They never call `S3Client`. There is no
-pagination past the first `ListObjectsV2` page, no prefix delete, and no S3
-move. Credentials are the named profile in the shared credentials file, not
-the full SDK default chain. The region falls back to `us-east-1`.
+prefix delete and no S3 move. `list_objects` does follow every
+`ListObjectsV2` page and treats a prefix without a trailing slash as a folder.
+Credentials are the named profile in the shared credentials file, not the
+full SDK default chain. The region falls back to `us-east-1`.
 
 ## Feature gate
 

@@ -140,9 +140,46 @@ mod tests_crossterm_ops;
 mod tests;
 /// Toggle between a compact and tall host terminal while retaining its width.
 pub(crate) fn toggle_video_mode() -> std::io::Result<()> {
+    #[cfg(test)]
+    {
+        VIDEO_MODE_CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        if SKIP_VIDEO_MODE_RESIZE.load(std::sync::atomic::Ordering::SeqCst) {
+            return Ok(());
+        }
+    }
     let (width, height) = crossterm::terminal::size()?;
     crossterm::execute!(
         std::io::stdout(),
         crossterm::terminal::SetSize(width, if height > 30 { 25 } else { 50 })
     )
+}
+
+#[cfg(test)]
+static VIDEO_MODE_CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+#[cfg(test)]
+static SKIP_VIDEO_MODE_RESIZE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(test)]
+pub(crate) fn video_mode_calls() -> usize {
+    VIDEO_MODE_CALLS.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+/// Skip the host resize until the guard drops. Tests use this so Alt+F9 can
+/// prove it called [`toggle_video_mode`] without changing the terminal.
+#[cfg(test)]
+pub(crate) fn skip_video_mode_resize() -> VideoModeGuard {
+    SKIP_VIDEO_MODE_RESIZE.store(true, std::sync::atomic::Ordering::SeqCst);
+    VideoModeGuard
+}
+
+#[cfg(test)]
+pub(crate) struct VideoModeGuard;
+
+#[cfg(test)]
+impl Drop for VideoModeGuard {
+    fn drop(&mut self) {
+        SKIP_VIDEO_MODE_RESIZE.store(false, std::sync::atomic::Ordering::SeqCst);
+    }
 }
