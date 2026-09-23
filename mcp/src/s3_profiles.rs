@@ -16,7 +16,7 @@ pub fn list() -> CallToolResult {
 }
 
 /// Read profile names in credential-file order for the drive listing.
-pub(super) fn names() -> Vec<String> {
+pub fn names() -> Vec<String> {
     dirs_home()
         .map(|home| read_names(&home.join(".aws")))
         .unwrap_or_default()

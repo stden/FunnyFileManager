@@ -25,6 +25,15 @@ fn tool_json(result: &CallToolResult) -> serde_json::Value {
     serde_json::from_str(&text.text).expect("a tool payload is JSON")
 }
 
+/// `line 1` through `line {last}`, one per line, newline-terminated.
+fn numbered_lines(last: u32) -> String {
+    (1..=last).fold(String::new(), |mut body, n| {
+        // Writing into a `String` cannot fail.
+        let _ = writeln!(body, "line {n}");
+        body
+    })
+}
+
 fn write_file_at(path: &Path, content: &str) {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).expect("create parent directory");
@@ -643,7 +652,7 @@ fn find_duplicates_can_ignore_small_files() {
 fn tail_file_returns_the_last_lines() {
     let dir = TempDir::new().expect("temp dir");
     let (server, root) = server_at(&dir);
-    let body: String = (1..=100).map(|n| format!("line {n}\n")).collect();
+    let body = numbered_lines(100);
     write_file_at(&root.join("log.txt"), &body);
 
     let json = tool_json(
@@ -684,7 +693,7 @@ fn tail_file_reads_the_end_of_a_large_file() {
     let dir = TempDir::new().expect("temp dir");
     let (server, root) = server_at(&dir);
     // Comfortably more than the 8 KiB block the tail reads backwards in.
-    let body: String = (1..=20_000).map(|n| format!("line {n}\n")).collect();
+    let body = numbered_lines(20_000);
     write_file_at(&root.join("big.log"), &body);
 
     let json = tool_json(
@@ -1244,7 +1253,7 @@ fn compare_files_reports_the_first_differing_offset() {
     );
     assert_eq!(json["identical"], false);
     assert_eq!(json["first_difference_at"], 3);
-    assert!(json["left_sha256"] != json["right_sha256"]);
+    assert_ne!(json["left_sha256"], json["right_sha256"]);
 }
 
 /// Different sizes settle "identical" without hashing — but the offset is

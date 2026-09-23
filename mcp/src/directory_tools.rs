@@ -5,7 +5,7 @@ use rmcp::{model::CallToolResult, ErrorData as McpError};
 use serde_json::json;
 use std::{fs, path::Path};
 
-pub(super) fn sort_directory(
+pub fn sort_directory(
     server: &FfmServer,
     params: &SortDirectoryParams,
 ) -> Result<CallToolResult, McpError> {

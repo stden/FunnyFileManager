@@ -1,7 +1,7 @@
-//! FFM MCP Server — Model Context Protocol server for FunnyFileManager.
+//! FFM MCP Server — Model Context Protocol server for `FunnyFileManager`.
 //!
 //! Exposes file management operations as MCP tools so that AI assistants
-//! (Claude, ChatGPT, etc.) can manage files, directories, and S3 objects.
+//! (Claude, `ChatGPT`, etc.) can manage files, directories, and S3 objects.
 //!
 //! Built on the official `rmcp` SDK with stdio transport.
 
@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom, Write as IoWrite};
 use std::path::{Component, Path, PathBuf};
@@ -91,6 +92,15 @@ fn saturating_usize(value: u64) -> usize {
 fn object_size(size: Option<i64>) -> u64 {
     size.and_then(|bytes| u64::try_from(bytes).ok())
         .unwrap_or(0)
+}
+
+/// How many times `needle` occurs in `haystack`.
+#[expect(
+    clippy::naive_bytecount,
+    reason = "a SIMD byte-count crate is not worth a dependency for line-ending tallies"
+)]
+fn count_byte(haystack: &[u8], needle: u8) -> usize {
+    haystack.iter().filter(|byte| **byte == needle).count()
 }
 
 /// Copy one entry, preserving what it *is* — the single place that decides how
@@ -324,8 +334,8 @@ impl TextFormat {
         // A CR is only a lone CR when no LF follows it, which is the same rule
         // that makes a CRLF one ending rather than two.
         let crlf = bytes.windows(2).filter(|pair| pair == b"\r\n").count();
-        let lf = bytes.iter().filter(|byte| **byte == b'\n').count() - crlf;
-        let cr = bytes.iter().filter(|byte| **byte == b'\r').count() - crlf;
+        let lf = count_byte(bytes, b'\n') - crlf;
+        let cr = count_byte(bytes, b'\r') - crlf;
         let endings = match (crlf > 0, lf > 0, cr > 0) {
             (true, false, false) => "crlf",
             (false, true, false) => "lf",
@@ -402,7 +412,7 @@ fn which_all(name: &str, path_list: &std::ffi::OsStr) -> Vec<PathBuf> {
 }
 
 /// Whether `path` carries any execute bit. That is a permission-bit test,
-/// not an access(X_OK) answer for the current user — but without it a plain
+/// not an `access(X_OK)` answer for the current user — but without it a plain
 /// file named like the command — a README, a data file — shadows the real
 /// binary, and `which` names something no shell would ever run.
 #[cfg(unix)]
@@ -447,11 +457,14 @@ fn checksum_file(path: &Path) -> io::Result<String> {
         }
         hasher.update(&buffer[..read]);
     }
-    Ok(hasher
-        .finalize()
+    let digest = hasher.finalize();
+    Ok(digest
         .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect())
+        .fold(String::with_capacity(digest.len() * 2), |mut hex, byte| {
+            // Writing into a `String` cannot fail.
+            let _ = write!(hex, "{byte:02x}");
+            hex
+        }))
 }
 
 /// The last `wanted` lines of a file, and its size.
@@ -505,16 +518,15 @@ fn search_recursive(
     if results.len() >= max {
         return;
     }
-    let entries = match fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return,
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
     };
     for entry in entries.flatten() {
         if results.len() >= max {
             return;
         }
         let name = entry.file_name().to_string_lossy().to_string();
-        let is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        let is_dir = entry.file_type().is_ok_and(|t| t.is_dir());
 
         if name.to_lowercase().contains(pattern) {
             let include = (!files_only || !is_dir) && (!dirs_only || is_dir);
@@ -570,8 +582,9 @@ fn join_child(base: &Path, name: &str) -> Result<PathBuf, String> {
 }
 
 /// Generate a unique file path to avoid overwriting existing files.
-/// If "test.txt" already exists, returns "test_1.txt", "test_2.txt", etc.
+/// If `test.txt` already exists, returns `test_1.txt`, `test_2.txt`, etc.
 fn unique_destination(base: &Path, file_name: &str) -> Result<PathBuf, String> {
+    const MAX_ATTEMPTS: u32 = 9999;
     // The counter suffixes below are derived from this one validated component,
     // so `{stem}_{n}[.{ext}]` can never grow a separator or a `..` of its own.
     let mut dest = join_child(base, file_name)?;
@@ -583,11 +596,10 @@ fn unique_destination(base: &Path, file_name: &str) -> Result<PathBuf, String> {
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
     let extension = path.extension().and_then(|e| e.to_str());
 
-    const MAX_ATTEMPTS: u32 = 9999;
     for counter in 1..=MAX_ATTEMPTS {
         let new_name = match extension {
-            Some(ext) if !ext.is_empty() => format!("{}_{}.{}", stem, counter, ext),
-            _ => format!("{}_{}", stem, counter),
+            Some(ext) if !ext.is_empty() => format!("{stem}_{counter}.{ext}"),
+            _ => format!("{stem}_{counter}"),
         };
         dest = base.join(new_name);
         if !dest.exists() {
@@ -595,8 +607,7 @@ fn unique_destination(base: &Path, file_name: &str) -> Result<PathBuf, String> {
         }
     }
     Err(format!(
-        "could not find unique name for '{}' after {} attempts",
-        file_name, MAX_ATTEMPTS
+        "could not find unique name for '{file_name}' after {MAX_ATTEMPTS} attempts"
     ))
 }
 
@@ -774,7 +785,7 @@ struct KdbxParams {
     /// Master password. Omit only for a key-file-only database. Never logged.
     #[serde(default)]
     password: Option<String>,
-    /// Optional KeePass key file; it must also be inside the allowed root.
+    /// Optional `KeePass` key file; it must also be inside the allowed root.
     #[serde(default)]
     keyfile: Option<String>,
     /// Output format: `json` (default), `yaml`, or password-only `env`.
@@ -911,7 +922,7 @@ struct PermissionsParams {
 struct BookmarkParams {
     /// Bookmark name/key
     name: String,
-    /// Path to bookmark (required for set_bookmark)
+    /// Path to bookmark (required for `set_bookmark`)
     #[serde(default)]
     path: Option<String>,
 }
@@ -1142,6 +1153,7 @@ impl FfmServer {
 
 #[tool_router]
 impl FfmServer {
+    #[must_use]
     pub fn new(root: PathBuf) -> Self {
         Self {
             tool_router: Self::tool_router(),
@@ -1284,7 +1296,7 @@ impl FfmServer {
         Ok(json_response(&result))
     }
 
-    /// Decrypt a KeePass database and return its contents as JSON, YAML, or dotenv text.
+    /// Decrypt a `KeePass` database and return its contents as JSON, YAML, or dotenv text.
     /// JSON/YAML contain the complete model, including plaintext protected values;
     /// dotenv contains current password fields only. Nothing is written to disk.
     #[tool(
@@ -1402,7 +1414,6 @@ impl FfmServer {
                 .map_err(|e| McpError::internal_error(e.to_string(), None))?;
         }
 
-        use std::io::Write;
         let mut file = fs::OpenOptions::new()
             .create(true)
             .append(true)
@@ -2502,7 +2513,7 @@ impl FfmServer {
             .map(|b| {
                 json!({
                     "name": b.name().unwrap_or(""),
-                    "creation_date": b.creation_date().map(|d| d.to_string()),
+                    "creation_date": b.creation_date().map(std::string::ToString::to_string),
                 })
             })
             .collect();
@@ -2707,6 +2718,10 @@ struct FormatSizeParams {
 // `Self::tool_router()` would rebuild it on every call and leaves the field
 // unread (a `dead_code` warning that `clippy -D warnings` turns into an error).
 #[tool_handler(router = self.tool_router)]
+#[expect(
+    clippy::unused_async_trait_impl,
+    reason = "rmcp's tool_handler macro generates the async dispatch methods"
+)]
 impl ServerHandler for FfmServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
@@ -2773,7 +2788,7 @@ fn read_tail_bytes(file: &mut fs::File, size: u64, wanted: usize) -> io::Result<
         file.seek(SeekFrom::Start(position))?;
         let mut block = vec![0u8; usize::try_from(step).unwrap_or(BLOCK)];
         file.read_exact(&mut block)?;
-        newlines += block.iter().filter(|byte| **byte == b'\n').count();
+        newlines += count_byte(&block, b'\n');
         block.extend_from_slice(&buffer);
         buffer = block;
     }

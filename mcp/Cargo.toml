@@ -97,6 +97,14 @@ opt-level = 2
 unfulfilled_lint_expectations = "deny"
 
 [lints.clippy]
+all = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# Same crate-wide allowances as the root manifest, only where they fire here:
+# const fn is an API promise, not a default.
+missing_const_for_fn = "allow"
+# Nursery style lint that fights `match`/`if let` readability.
+option_if_let_else = "allow"
 cognitive_complexity = "warn"
 excessive_nesting = "warn"
 too_many_lines = "warn"

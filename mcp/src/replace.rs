@@ -50,9 +50,8 @@ struct ReplaceRun {
 }
 
 fn replace_recursive(dir: &Path, opts: &ReplaceOpts<'_>, run: &mut ReplaceRun) {
-    let entries = match fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return,
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
     };
     for entry in entries.flatten() {
         // A link is never opened: `read_to_string` below would follow it
@@ -80,7 +79,7 @@ fn replace_file(path: &Path, name: &str, opts: &ReplaceOpts<'_>, run: &mut Repla
     }
 
     // Keep the original byte cap and ignore unreadable or non-UTF-8 files.
-    let size = fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+    let size = fs::metadata(path).map_or(0, |m| m.len());
     if size > 10 * 1024 * 1024 {
         return;
     }

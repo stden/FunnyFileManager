@@ -9,7 +9,7 @@ use serde_json::json;
 use std::collections::BTreeMap;
 use std::fs;
 
-pub(super) fn analyse_directory(
+pub fn analyse_directory(
     server: &FfmServer,
     params: &AnalyseParams,
 ) -> Result<CallToolResult, McpError> {
@@ -45,7 +45,7 @@ pub(super) fn analyse_directory(
     Ok(json_response(&result))
 }
 
-pub(super) fn find_duplicates(
+pub fn find_duplicates(
     server: &FfmServer,
     params: &DuplicatesParams,
 ) -> Result<CallToolResult, McpError> {

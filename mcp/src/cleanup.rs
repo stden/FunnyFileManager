@@ -8,7 +8,7 @@ use rmcp::{model::CallToolResult, ErrorData as McpError};
 use serde_json::json;
 use std::{fs, path::Path};
 
-pub(super) fn delete_by_pattern(
+pub fn delete_by_pattern(
     server: &FfmServer,
     params: &DeleteByPatternParams,
 ) -> Result<CallToolResult, McpError> {
@@ -63,7 +63,7 @@ impl DeleteKind {
     fn size(self, path: &Path) -> u64 {
         match self {
             Self::Directory => directory_size(path),
-            Self::File => fs::metadata(path).map(|meta| meta.len()).unwrap_or(0),
+            Self::File => fs::metadata(path).map_or(0, |meta| meta.len()),
         }
     }
 

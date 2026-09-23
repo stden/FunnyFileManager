@@ -38,9 +38,8 @@ fn grep_recursive(
     if results.len() >= max {
         return;
     }
-    let entries = match fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return,
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
     };
     for entry in entries.flatten() {
         if results.len() >= max {
@@ -98,5 +97,5 @@ fn searchable_file(path: &Path, extension: Option<&str>) -> bool {
     }) {
         return false;
     }
-    fs::metadata(path).map(|meta| meta.len()).unwrap_or(0) <= 10 * 1024 * 1024
+    fs::metadata(path).map_or(0, |meta| meta.len()) <= 10 * 1024 * 1024
 }
