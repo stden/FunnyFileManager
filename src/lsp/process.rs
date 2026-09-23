@@ -194,19 +194,19 @@ fn drain_stderr(mut stderr: impl Read) {
 }
 
 #[cfg(windows)]
-fn configure(command: &mut Command) {
+pub(super) fn configure(command: &mut Command) {
     use std::os::windows::process::CommandExt;
     command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW: only the editor owns a terminal.
 }
 
 #[cfg(unix)]
-fn configure(command: &mut Command) {
+pub(super) fn configure(command: &mut Command) {
     use std::os::unix::process::CommandExt;
     command.process_group(0);
 }
 
 #[cfg(unix)]
-fn exited(child: &mut Child) -> bool {
+pub(super) fn exited(child: &mut Child) -> bool {
     use rustix::process::{waitid, Pid, WaitId, WaitIdOptions};
     // NOWAIT retains the leader's PID until terminate has killed its entire group.
     waitid(
@@ -217,12 +217,12 @@ fn exited(child: &mut Child) -> bool {
 }
 
 #[cfg(windows)]
-fn exited(child: &mut Child) -> bool {
+pub(super) fn exited(child: &mut Child) -> bool {
     child.try_wait().is_ok_and(|status| status.is_some())
 }
 
 #[cfg(unix)]
-fn terminate(child: &mut Child) {
+pub(super) fn terminate(child: &mut Child) {
     use rustix::process::{kill_process_group, Pid, Signal};
     if let Some(pid) = i32::try_from(child.id()).ok().and_then(Pid::from_raw) {
         // The leader has not been reaped: its PID cannot belong to an unrelated group.
@@ -232,7 +232,7 @@ fn terminate(child: &mut Child) {
 }
 
 #[cfg(windows)]
-fn terminate(child: &mut Child) {
+pub(super) fn terminate(child: &mut Child) {
     reap(child);
 }
 

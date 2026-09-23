@@ -49,3 +49,40 @@ fn another_language_uses_its_own_extension_and_command() {
     assert_eq!(language, "python");
     assert_eq!(server.command, "python-language-server");
 }
+
+#[test]
+fn an_existing_rust_only_configuration_gains_other_language_defaults() {
+    let settings: LspSettings =
+        serde_json::from_str(r#"{"rust":{"command":"custom-rust"},"python":{"enabled":false}}"#)
+            .unwrap();
+    let root = TempDir::new().unwrap();
+    assert_eq!(
+        settings.for_path(&root.path().join("Main.java")).unwrap().0,
+        "java"
+    );
+    assert_eq!(
+        settings.for_path(&root.path().join("app.ts")).unwrap().0,
+        "typescript"
+    );
+    assert!(settings.for_path(&root.path().join("app.py")).is_none());
+    assert_eq!(
+        settings
+            .for_path(&root.path().join("app.rs"))
+            .unwrap()
+            .1
+            .command,
+        "custom-rust"
+    );
+}
+
+#[test]
+fn partial_language_overrides_retain_their_catalog_extensions_and_recipe() {
+    let root = TempDir::new().unwrap();
+    let settings: LspSettings =
+        serde_json::from_str(r#"{"python":{"command":"custom-python"},"java":{"install":null}}"#)
+            .unwrap();
+    let (_, python) = settings.for_path(&root.path().join("main.py")).unwrap();
+    assert_eq!(python.command, "custom-python");
+    assert!(python.install.is_some());
+    assert!(settings.0["java"].install.is_none());
+}

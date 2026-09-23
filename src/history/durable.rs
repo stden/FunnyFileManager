@@ -57,7 +57,8 @@ impl DurableLine {
             Command::Shell(_)
             | Command::NewConsole(_)
             | Command::Invalid { .. }
-            | Command::Empty => None,
+            | Command::Empty
+            | Command::Lsp => None,
         }
     }
 

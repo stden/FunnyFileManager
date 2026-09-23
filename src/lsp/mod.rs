@@ -3,6 +3,8 @@
 mod client;
 mod document;
 pub mod features;
+mod install;
+pub use install::inventory;
 pub mod manager;
 pub mod positions;
 mod process;

@@ -71,6 +71,9 @@ serde_norway = { version = "0.9.42", optional = true }
 # Text clipboard for editor selection and optional vault password copying.
 # Image support is unused; disabling it avoids image codec build dependencies.
 arboard = { version = "3.6.1", default-features = false }
+sha2 = "0.11"
+flate2 = "1.1"
+tar = "0.4"
 
 [dev-dependencies]
 regex = "1"

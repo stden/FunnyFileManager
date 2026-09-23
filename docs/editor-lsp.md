@@ -2,13 +2,13 @@
 
 # Language servers in the built-in editor
 
-Opening a Rust `.rs` file with F4 asks whether to trust the workspace. Language
+Opening a supported source file with F4 asks whether to trust the workspace. Language
 servers can execute project build scripts and macros. The default choice keeps
 LSP disabled; select **Trust** with Down and confirm with Enter only for a project
 you trust. Approval lasts until FFM exits and applies to that workspace root.
-After approval, `rust-analyzer` starts in the background.
-Install it on PATH, for example with `rustup component add rust-analyzer` when
-using rustup. Editing and saving still work if the server is unavailable.
+Approval also permits downloading a missing server using its configured installation
+recipe. Installation and startup run in the background. Editing and saving still
+work if a runtime, network connection or server is unavailable.
 The editor header reports pending trust, startup, readiness, failure, and diagnostic counts.
 Errors and warnings underline the affected text; placing the cursor there shows
 the message in the header. Information and hints are also displayed.
@@ -32,6 +32,15 @@ Multiple definitions open a selection list. Save with F2 before following a
 definition into another file when the current buffer has unsaved changes.
 
 ## Configuration
+
+Use **F9 → Commands → Language servers (LSP)**, or type `lsp` in FFM's command
+line, to inspect the catalog. The scrolling report shows enabled languages, file
+extensions, availability, configured commands, resolved executable paths, each
+launch argument and installation recipes. Java's displayed data directory belongs
+to the active panel's project. This is an availability report, not a process list;
+opening it never installs or starts a server. Close it with Esc.
+
+![LSP inventory rendered with example installation paths](images/lsp-inventory.png)
 
 The existing `ffm/settings.json` supports an `lsp` object. Its Windows location is
 `%APPDATA%\ffm\settings.json`; on Unix it is under the application's normal XDG
@@ -58,9 +67,59 @@ PATH. Set `enabled` to `false` to disable it. Restart FFM after changing setting
 The nearest ancestor containing a configured root marker is the workspace root;
 without a marker, the source file's parent directory is used.
 
-Rust is the tested language. Other stdio servers can be configured under their
-LSP language ID with their own command, extensions, and root markers. Servers
-must support UTF-16 positions and standard document/feature messages.
+Catalog entries are merged with settings field by field. For example,
+`"python": {"enabled": false}` disables Python without replacing its other
+defaults. `"install": null` disables automatic installation for one server.
+
+| Language | Server | Installation prerequisite |
+|---|---|---|
+| Rust | rust-analyzer | Install on PATH, e.g. `rustup component add rust-analyzer` |
+| Python | python-lsp-server (pylsp) | Python 3 with venv and pip |
+| Java | Eclipse JDT LS 1.61.0 | Java 21+ and curl; JAVA_HOME takes precedence for Java |
+| JavaScript / JSX / TypeScript / TSX | typescript-language-server + TypeScript 6 | Node.js and npm |
+| HTML / CSS / JSON | vscode-langservers-extracted | Node.js and npm |
+| YAML | yaml-language-server | Node.js and npm |
+| Bash | bash-language-server | Node.js and npm |
+
+Python and Java have optional real acceptance tests. Other catalog entries use
+the same tested npm installation path; their runtime behavior depends on the server.
+FFM does not install language runtimes or change global PATH. It first tries the
+configured executable. Only a missing executable triggers automatic installation.
+Packages go into `ffm/lsp/<recipe hash>` beside settings, not into the project or
+global package directories. Identical recipes reuse an installation. Python uses
+a private venv; npm uses a private prefix. Java's HTTPS archive is pinned and
+checked against its SHA-256 before extraction. Each workspace has separate JDT
+configuration and index data. Package-manager installation scripts can execute;
+use only recipes and projects you trust.
+
+Additional stdio servers can be added under their standard LSP language ID. For
+example, this installs a configured Go server into the managed directory:
+
+```json
+"go": {
+  "enabled": true,
+  "command": "gopls",
+  "args": [],
+  "extensions": ["go"],
+  "root_markers": ["go.mod", "go.work", ".git"],
+  "install": {
+    "kind": "command",
+    "steps": [{
+      "command": "go",
+      "args": ["install", "golang.org/x/tools/gopls@latest"],
+      "env": {"GOBIN": "{install_dir}/bin"}
+    }],
+    "executable": "bin/gopls.exe"
+  }
+}
+```
+
+Use `bin/gopls` on Unix and install Go separately. The example requires the Go
+version required by the chosen gopls release. Custom steps receive literal argument
+arrays and run in a staging directory; `{install_dir}` is expanded in commands,
+arguments and environment values. The executable must be a relative path inside
+the installation. Install tools must produce relocatable artifacts. Servers must
+support UTF-16 positions and standard document/feature messages.
 
 ## Behavior and troubleshooting
 
@@ -75,6 +134,17 @@ An unavailable server usually means its command cannot be found. Verify
 it or correcting PATH, restart the server with Ctrl+Alt+R. A failed server is not
 restarted automatically. A server still indexing may reject a request as content
 modified (`-32801`); request the information again when indexing settles.
+
+During installation the header shows `LSP installing`. Closing the editor or
+quitting cancels the installer and terminates its process tree. Failed partial
+installations are removed; Ctrl+Alt+R retries explicitly, without an automatic
+restart loop. A corrupt cached receipt is reported instead of overwritten: close
+FFM, remove only that server's cache directory shown by `lsp`, and reopen the file.
+Installations wait on a per-recipe lock when another FFM instance is installing.
+Commands have a ten-minute timeout; archive downloads have a five-minute timeout.
+Python needs its venv/pip components; npm must be installed beside Node.js. For
+Java, set JAVA_HOME to a JDK 21+ if PATH still selects an older Java. Package
+manager failures show a concise status without exposing captured package output.
 
 Opt-in FFM debug logging records request methods/IDs, lifecycle changes and error
 codes. Source text is not logged. Stderr is drained separately and its byte counts
@@ -117,8 +187,16 @@ On Unix, exit polling retains the child PID until its group is terminated and
 reaped, preventing a reused PID from receiving cleanup signals. A full writer
 queue retains messages for retry in order, with a bounded backlog.
 
+The worker owns a cancellable installation job in its `Preparing` state and keeps
+the latest document snapshot while installation runs. A dedicated installer thread
+owns package-manager process trees. A temporary staging directory becomes a cache
+entry only after installation and entry-point validation succeed. Atomic rename,
+a portable file lock and a launch receipt make reuse independent of editor widgets.
+No installer or recipe parsing runs in rendering code.
+
 The pure protocol client is independent of widgets and of rust-analyzer. Add
-language defaults in `config/lsp.rs`; generic server support belongs under
+language defaults in `config/lsp/catalog.json`; installation adapters live under
+`lsp/install/`; generic server support belongs under
 `src/lsp/`, editor effects under `ops/editor_lsp.rs`, and presentation in the
 editor model/input/rendering modules.
 
@@ -129,4 +207,6 @@ workspace and is excluded from ordinary test runs:
 
 ```sh
 cargo test --lib real_rust_analyzer_supports_the_complete_editor_protocol -- --ignored --nocapture
+cargo test --lib real_python_package -- --ignored --nocapture
+cargo test --lib real_java_package -- --ignored --nocapture
 ```

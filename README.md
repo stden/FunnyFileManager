@@ -20,7 +20,7 @@ experience for file system navigation and management.
 - 🔖 **Bookmarks**: Save and jump to frequently used directories.
 - 🌍 **Cross-Platform**: Seamless experience on Linux, macOS, and Windows.
 - **KeePass**: F3 views `.kdbx` / `.kbdx`; F4 opens the vault for editing.
-- **Editor language servers**: Rust diagnostics, completion, hover and definitions through background rust-analyzer. See [setup and shortcuts](docs/editor-lsp.md).
+- **Editor language servers**: Background diagnostics, completion, hover and definitions; automatic installation for Java, Python and common web languages. Inspect servers through F9 → Commands → Language servers (LSP). See [setup and shortcuts](docs/editor-lsp.md).
 - **System tools**: F9 → Commands includes package updates, user/system PATH editors,
   and action waiting statistics. See [the guide](docs/session-tools.md).
 

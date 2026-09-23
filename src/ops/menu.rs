@@ -86,6 +86,10 @@ fn execute_tools(app: &mut App, command: MenuCommand) -> io::Result<()> {
             super::packages::open(app);
             Ok(())
         }
+        MenuCommand::LanguageServers => {
+            super::lsp_status::open(app);
+            Ok(())
+        }
         MenuCommand::UserMenu | MenuCommand::Associations => user::edit(app, command),
         _ => Err(io::Error::other("Unknown tool")),
     }

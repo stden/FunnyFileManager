@@ -173,6 +173,7 @@ fn requested_query(editor: &mut crate::models::Editor, context: Context) -> Opti
         editor.lsp.state,
         ServerState::Unavailable
             | ServerState::Failed
+            | ServerState::InstallationFailed
             | ServerState::Stopped
             | ServerState::Untrusted
     ) {
@@ -192,6 +193,23 @@ fn apply_event(app: &mut App, Envelope(owner, event): Envelope) -> bool {
     let Some(editor) = app.get_editor_mut().filter(|editor| editor.lsp.id == owner) else {
         return false;
     };
+    match editor_event(editor, event) {
+        EventEffect::Ignored => false,
+        EventEffect::Changed => true,
+        EventEffect::Definition(target) => {
+            crate::ops::editor_lsp::definition(app, &target);
+            true
+        }
+    }
+}
+
+enum EventEffect {
+    Ignored,
+    Changed,
+    Definition(crate::lsp::features::Definition),
+}
+
+fn editor_event(editor: &mut crate::models::Editor, event: Event) -> EventEffect {
     let target = match event {
         Event::TrustRequired(root) => {
             editor.lsp.ask_trust(root);
@@ -199,6 +217,11 @@ fn apply_event(app: &mut App, Envelope(owner, event): Envelope) -> bool {
         }
         Event::State(state) => {
             editor.lsp.state = state;
+            None
+        }
+        Event::InstallationFailed(message) => {
+            editor.lsp.state = ServerState::InstallationFailed;
+            editor.notice = Some(message.into());
             None
         }
         Event::Diagnostics(stamp, diagnostics) if stamp == editor.lsp_stamp() => {
@@ -213,12 +236,9 @@ fn apply_event(app: &mut App, Envelope(owner, event): Envelope) -> bool {
             editor.notice = Some(format!("Language-server request failed ({})", error.code));
             None
         }
-        _ => return false, // Stale diagnostics and errors belong to an older editor context.
+        _ => return EventEffect::Ignored, // Stale replies belong to an older editor context.
     };
-    if let Some(target) = target {
-        crate::ops::editor_lsp::definition(app, &target);
-    }
-    true
+    target.map_or(EventEffect::Changed, EventEffect::Definition)
 }
 
 #[cfg(test)]

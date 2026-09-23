@@ -4,7 +4,7 @@ use super::*;
 use std::sync::mpsc;
 use tempfile::TempDir;
 
-fn snapshot(root: &Path) -> Snapshot {
+pub(super) fn snapshot(root: &Path) -> Snapshot {
     Snapshot {
         stamp: crate::lsp::types::Stamp {
             id: DocumentId::default(),
@@ -14,6 +14,19 @@ fn snapshot(root: &Path) -> Snapshot {
         text: "original".into(),
         saved: 0,
     }
+}
+
+#[test]
+fn existing_documents_use_normalized_file_identities_for_server_uris() {
+    let root = TempDir::new().unwrap();
+    let snapshot = snapshot(root.path());
+    std::fs::write(&snapshot.path, &snapshot.text).unwrap();
+    let normalized = snapshot.path.canonicalize().unwrap();
+    let start = Start::prepare("rust".into(), ServerSettings::default(), snapshot).unwrap();
+    assert_eq!(
+        start.snapshot.path,
+        PathBuf::from(crate::path_display::label(&normalized).as_ref())
+    );
 }
 
 #[test]

@@ -35,6 +35,7 @@ struct Connection {
 
 pub(super) fn run(commands: &Receiver<Command>, events: &SyncSender<Envelope>, stop: &AtomicBool) {
     let mut host = lifecycle::Host::default();
+    host.cache = super::install::cache_dir();
     while !stop.load(Ordering::Acquire) {
         while let Ok(command) = commands.try_recv() {
             host.command(command, events);
@@ -201,7 +202,7 @@ fn report(events: &SyncSender<Envelope>, owner: DocumentId, event: Event) {
     let _ = events.send(Envelope(owner, event));
 }
 
-fn workspace_root(path: &Path, markers: &[String]) -> PathBuf {
+pub(super) fn workspace_root(path: &Path, markers: &[String]) -> PathBuf {
     let parent = path.parent().unwrap_or(path);
     parent
         .ancestors()
