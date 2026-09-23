@@ -154,6 +154,8 @@ pub enum Overlay {
     Tasks(Box<TaskList>),
     /// Commands menu: Hotplug devices list.
     Hotplug(Box<DeviceList>),
+    /// Commands menu: Install MCP server.
+    McpInstall(Box<super::McpInstallDialog>),
     /// Ctrl+F12: Sort modes.
     SortModes(SortMenu),
     /// Options menu: one settings page.

@@ -42,7 +42,7 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 | F9        | Menu bar                       | ✅         |       |
 | Alt+F9    | Video mode (25 / 50 rows)      | ⚠️         | Asks the terminal to resize (`CSI 8 t`); many terminals, tmux among them, ignore it. The status bar says the height asked for and the height the terminal has |
 | F10       | Quit                           | ✅         | Also Ctrl+C and the `quit` command |
-| F11       | Plugin commands                | ✅         | Far's list: MCP status, NetBox: stored sessions, NetBox: import from `.netbox` file… |
+| F11       | Plugin commands                | ✅         | Far's list: MCP status (the server, then Claude Code, Codex, Junie and Kiro at both scopes), NetBox: stored sessions, NetBox: import from `.netbox` file… |
 | F12       | Switch screens                 | ✅         | The same list as F9 Screens: file panels or the console transcript. Ctrl+O toggles the console directly |
 | Alt+F1/F2 | Drive selection                | ✅         | Under the rule, with digit keys from 0: every S3 profile, then `NetBox` (the stored-sessions panel on that side) and `Process list` (the Task list, as Ctrl+W). Del, Shift+Del, F3, F4, F9 and Ctrl+R of Far's dialog are not implemented |
 | Ctrl+O    | Toggle console (hide panels)   | ✅         |       |
@@ -179,6 +179,7 @@ those terminals.
 
 - F4 opens the built-in editor, with syntax highlighting and optional language servers. Alt+F4 delegates to the external editor.
 - Some advanced Far plugins and menu systems have no equivalent.
+- F9 → Commands → `Install MCP server` (hotkey `e`) is an FFM extra with no Far counterpart: it registers `ffm-mcp` with AI clients. See [session tools](../../session-tools.md#mcp-server-setup).
 - Drive letters on Unix are simulated as `/`.
 - With the `s3` feature, credential-file profiles appear as extra drive-menu rows. Selecting one does not open a bucket. See [S3](../../tutorials/s3.md).
 

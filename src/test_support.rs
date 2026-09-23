@@ -12,6 +12,10 @@ pub use environment::*;
 mod settings;
 #[cfg(any(test, feature = "test-helpers"))]
 pub use settings::restore_settings;
+#[cfg(any(test, feature = "test-helpers"))]
+mod mcp_install;
+#[cfg(any(test, feature = "test-helpers"))]
+pub use mcp_install::{file_identity, ClaudeBehaviour, ClaudeEmulator, FakeMachine};
 
 #[cfg(test)]
 pub(crate) mod disk_cleanup;

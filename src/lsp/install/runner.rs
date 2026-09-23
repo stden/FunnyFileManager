@@ -31,7 +31,7 @@ impl ChildTree {
     fn attach(mut self) -> Result<Self, InstallError> {
         // `start` has just spawned the child, so it is always there.
         let child = self.child.as_ref().ok_or(InstallError::Worker)?;
-        self.job = Some(crate::windows::lsp_job(child)?);
+        self.job = Some(crate::windows::process_tree_job(child)?);
         Ok(self)
     }
 

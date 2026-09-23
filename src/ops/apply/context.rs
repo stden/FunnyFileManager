@@ -101,11 +101,7 @@ fn path_names(path: &Path) -> Names {
 }
 
 pub(super) fn display_path(path: &Path) -> String {
-    let text = path.to_string_lossy();
-    if let Some(unc) = text.strip_prefix("\\\\?\\UNC\\") {
-        return format!("\\\\{unc}");
-    }
-    text.strip_prefix("\\\\?\\").unwrap_or(&text).to_owned()
+    crate::path_display::without_verbatim_prefix(&path.to_string_lossy()).into_owned()
 }
 
 fn drive(path: &Path) -> String {

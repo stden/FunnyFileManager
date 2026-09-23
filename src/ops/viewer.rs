@@ -1,12 +1,11 @@
 //! Viewer-producing operations.
 //!
-use std::{
-    fs, io,
-    path::{Path, PathBuf},
-};
+use std::{io, path::PathBuf};
 
 use crate::fileload::{read_for_text_ui, Loaded};
+use crate::mcp_clients::{server_lines, Host, ProjectDir, Scope};
 use crate::models::{App, FileSize, Overlay, Viewer};
+use crate::ops::mcp_install::survey;
 use crate::status::Status;
 use crate::utils::MAX_FILE_SIZE;
 
@@ -32,91 +31,68 @@ fn tool_list_lines() -> Vec<String> {
         .collect()
 }
 
-/// Show MCP server status and installation info (F11 / `:mcp`).
+/// Show MCP server status and installation info (F11 → MCP status, or
+/// `:mcp`).
+///
+/// The same survey the Install MCP server dialog makes, for both scopes, on
+/// the machine `app.live.mcp_host` describes and the active panel's folder.
 pub fn open_mcp_status(app: &mut App) -> io::Result<()> {
-    let project = std::env::current_dir().unwrap_or_default();
-    let home = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .unwrap_or_default();
-    open_mcp_status_in(app, &project, Path::new(&home));
-    Ok(())
-}
-
-fn open_mcp_status_in(app: &mut App, project: &Path, home: &Path) {
-    let mut lines = mcp_status_header(project);
-    lines.extend(mcp_config_lines(project, home));
-
-    lines.push(String::new());
-    lines.push("Commands:".to_owned());
-    lines.push("  ./install_mcp.py    Install for all IDEs".to_owned());
-    lines.push("  :mcp                Show this screen".to_owned());
-    lines.push(String::new());
-    lines.push("Tools:".to_owned());
+    let folder = crate::ops::mcp_install::active_folder(app);
+    let mut lines = vec![
+        // Counted from the list itself, never written out by hand.
+        format!("FFM MCP Server — {} AI Tools", TOOL_NAMES.len()),
+        String::new(),
+    ];
+    lines.extend(mcp_client_lines(&app.live.mcp_host, folder));
+    lines.extend([
+        String::new(),
+        "Commands:".to_owned(),
+        "  F9 Commands > Install MCP server   Register ffm-mcp with these clients".to_owned(),
+        "  :mcp                               Show this screen".to_owned(),
+        String::new(),
+        "Tools:".to_owned(),
+    ]);
     lines.extend(tool_list_lines());
 
     app.set_overlay(Overlay::Viewer(Viewer::report("MCP Server Status", lines)));
     app.set_status(Status::CommandOutput(
         "MCP Server — press Esc to close".to_owned(),
     ));
+    Ok(())
 }
 
-fn mcp_status_header(project: &Path) -> Vec<String> {
-    let binary = project
-        .join("mcp")
-        .join("target")
-        .join("release")
-        .join("ffm-mcp");
-    let binary_exists = binary.exists();
-
-    vec![
-        // Counted from the list itself, never written out by hand.
-        format!("FFM MCP Server — {} AI Tools", TOOL_NAMES.len()),
-        String::new(),
-        format!(
-            "Binary: {} {}",
-            binary.display(),
-            if binary_exists {
-                "(found)"
-            } else {
-                "(not built)"
-            }
-        ),
-        String::new(),
-        "Supported IDEs:".to_owned(),
-    ]
-}
-
-fn mcp_config_lines(project: &Path, home: &Path) -> Vec<String> {
-    let configs = mcp_configs(project, home);
-    let mut lines = Vec::new();
-    for (name, path) in &configs {
-        let has_ffm =
-            path.exists() && fs::read_to_string(path).is_ok_and(|c| c.contains("ffm-mcp"));
-        let status = if has_ffm {
-            "✓ installed"
-        } else if path.exists() {
-            "⊘ not configured"
-        } else {
-            "— no config"
-        };
-        lines.push(format!("  {name:<16} {status}"));
+/// The server, the folder, and one line per client with its state at both
+/// scopes, in the words the Install MCP server dialog uses.
+fn mcp_client_lines(host: &Host, folder: Option<ProjectDir>) -> Vec<String> {
+    let everywhere = survey(host, Scope::AllProjects, folder.clone());
+    let here = folder
+        .is_some()
+        .then(|| survey(host, Scope::CurrentFolder, folder));
+    let mut lines = server_lines(&everywhere.server);
+    lines.push(everywhere.folder.as_ref().map_or_else(
+        || "Folder: the active panel is not a local folder".to_owned(),
+        |folder| format!("Folder: {}", crate::path_display::label(folder.as_path())),
+    ));
+    lines.push(String::new());
+    lines.push(format!(
+        "{:<32}{:<25}{}",
+        "Supported IDEs:",
+        Scope::AllProjects.label(),
+        Scope::CurrentFolder.label()
+    ));
+    for (index, status) in everywhere.clients.iter().enumerate() {
+        let in_folder = here
+            .as_ref()
+            .and_then(|here| here.clients.get(index))
+            .map_or_else(|| "— no folder".to_owned(), |status| status.state.label());
+        lines.push(format!(
+            "  {:<15} {:<13} {:<24} {in_folder}",
+            status.client.name(),
+            status.presence.label(),
+            status.state.label()
+        ));
     }
-
     lines
-}
-
-fn mcp_configs(project: &Path, home: &Path) -> Vec<(&'static str, PathBuf)> {
-    vec![
-        ("Claude Code", home.join(".claude.json")),
-        ("Codex", home.join(".codex").join("mcp_config.json")),
-        ("Gemini", project.join(".gemini").join("settings.json")),
-        ("Junie", project.join(".junie").join("mcp.json")),
-        (
-            "Kiro",
-            project.join(".kiro").join("settings").join("mcp.json"),
-        ),
-        ("VS Code/Cursor", project.join(".mcp.json")),
-    ]
 }
 
 pub fn handle_view(app: &mut App) -> io::Result<()> {

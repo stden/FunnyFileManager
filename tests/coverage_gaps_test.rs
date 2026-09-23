@@ -44,14 +44,14 @@ fn test_open_mcp_status_sets_viewer() -> io::Result<()> {
     // Check key content
     let all_text = viewer.lines.join("\n");
     assert!(all_text.contains("FFM MCP Server"));
-    assert!(all_text.contains("Binary:"));
+    assert!(all_text.contains("Server:"));
     assert!(all_text.contains("Supported IDEs:"));
-    assert!(all_text.contains("Claude Code"));
-    assert!(all_text.contains("Codex"));
-    assert!(all_text.contains("Gemini"));
-    assert!(all_text.contains("Junie"));
-    assert!(all_text.contains("Kiro"));
-    assert!(all_text.contains("VS Code/Cursor"));
+    for client in ["Claude Code", "Codex", "Junie", "Kiro"] {
+        assert!(all_text.contains(client), "{client} is listed");
+    }
+    // FFM cannot register with these, so the screen no longer lists them.
+    assert!(!all_text.contains("Gemini"));
+    assert!(!all_text.contains("VS Code/Cursor"));
     assert!(all_text.contains("Commands:"));
     assert!(all_text.contains("Tools:"));
     assert!(all_text.contains("list_directory"));
@@ -72,8 +72,8 @@ fn test_open_mcp_status_binary_not_found() -> io::Result<()> {
     open_mcp_status(&mut app)?;
 
     let all_text = app.get_viewer().unwrap().lines.join("\n");
-    // Since we're not in the project dir, binary won't exist
-    assert!(all_text.contains("not built") || all_text.contains("found"));
+    // A new `App` looks at no machine, so no server is found anywhere.
+    assert!(all_text.contains("ffm-mcp was not found next to ffm or on PATH."));
 
     Ok(())
 }
@@ -439,30 +439,22 @@ fn test_ui_render_delete_confirm_with_root_path() -> io::Result<()> {
 fn test_open_mcp_status_ide_config_not_configured() -> io::Result<()> {
     let temp = TempDir::new()?;
 
-    // Create .mcp.json without "ffm-mcp" to trigger "not configured" branch
+    // Claude Code's project config, without "ffm-mcp": "not configured".
+    // The screen reads the active panel's folder, so no working directory
+    // has to change for it to be found.
     let mcp_json = temp.path().join(".mcp.json");
     let mut f = File::create(&mcp_json)?;
     write!(f, r#"{{"some_other_tool": true}}"#)?;
-
-    // Also create .gemini/settings.json without ffm-mcp
-    let gemini_dir = temp.path().join(".gemini");
-    fs::create_dir(&gemini_dir)?;
-    let mut f = File::create(gemini_dir.join("settings.json"))?;
-    write!(f, r#"{{"other": true}}"#)?;
-
-    // cd to temp dir so open_mcp_status finds our config files
-    let previous_cwd = std::env::current_dir()?;
-    std::env::set_current_dir(temp.path())?;
 
     let mut app = make_app(temp.path())?;
     open_mcp_status(&mut app)?;
 
     let all_text = app.get_viewer().unwrap().lines.join("\n");
-    // Should contain "not configured" for configs that exist but don't have ffm-mcp
-    assert!(all_text.contains("not configured") || all_text.contains("no config"));
-
-    // Restore cwd
-    std::env::set_current_dir(previous_cwd)?;
+    let claude = all_text
+        .lines()
+        .find(|line| line.trim_start().starts_with("Claude Code"))
+        .expect("a Claude Code row");
+    assert!(claude.ends_with("⊘ not configured"), "{claude}");
 
     Ok(())
 }

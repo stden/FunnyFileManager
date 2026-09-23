@@ -299,3 +299,19 @@ fn tool_rule_reports_validation_that_is_not_the_first_statement() {
         ["mcp/src/grep.rs:1: `grep` is handed the server but does not start with `server.safe_path*`"]
     );
 }
+
+/// The installer writes the server's root variable into client configs, but
+/// may not compile `paths.rs` (see [`shared_source_violations`]), so it keeps
+/// its own copy of the name. This reads the server's declaration as text and
+/// holds the two together.
+#[test]
+fn the_installer_names_the_root_variable_the_server_reads() {
+    let declaration = format!(
+        "pub const ROOT_ENV: &str = \"{}\";",
+        funny_file_manager::mcp_clients::ROOT_ENV
+    );
+    assert!(
+        read(CONFINEMENT).contains(&declaration),
+        "{CONFINEMENT} must still declare `{declaration}`"
+    );
+}

@@ -57,6 +57,8 @@ struct FfmWorld {
     unique_name: Option<String>,
     aws_profiles: Vec<String>,
     original_left_path: Option<PathBuf>,
+    // For F9 Commands > Install MCP server scenarios
+    mcp: Option<mcp_install::McpScenario>,
 }
 
 impl std::fmt::Debug for FfmWorld {
@@ -72,6 +74,7 @@ impl std::fmt::Debug for FfmWorld {
             .field("unique_name", &self.unique_name)
             .field("aws_profiles", &self.aws_profiles)
             .field("original_left_path", &self.original_left_path)
+            .field("mcp", &self.mcp)
             .finish()
     }
 }
@@ -1855,6 +1858,8 @@ fn then_source_description(world: &mut FfmWorld, name: String, expected: String)
 
 #[path = "support/bdd_runner.rs"]
 mod bdd_runner;
+#[path = "bdd/mcp_install.rs"]
+mod mcp_install;
 
 fn main() -> io::Result<()> {
     bdd_runner::run(|| futures::executor::block_on(Box::pin(FfmWorld::run("tests/features"))))

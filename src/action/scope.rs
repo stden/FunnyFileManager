@@ -65,6 +65,7 @@ pub const fn menu_scope(command: MenuCommand) -> ActionScope {
         MenuCommand::Performance
         | MenuCommand::LanguageServers
         | MenuCommand::UpdatePackages
+        | MenuCommand::McpInstall
         | MenuCommand::Path(_)
         | MenuCommand::Tree
         | MenuCommand::QuickView

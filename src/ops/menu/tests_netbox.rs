@@ -6,6 +6,7 @@ use tempfile::TempDir;
 
 use super::activate;
 use crate::menu::{Entry, Heading, Menu, MenuCommand};
+use crate::models::Overlay;
 use crate::sessions::SessionStore;
 use crate::test_support::netbox::app_on_sessions;
 
@@ -38,6 +39,22 @@ fn a_row_of_the_programs_own_still_runs_over_the_sessions_list() {
     let mut app = app_on_sessions(dir.path(), SessionStore::default());
     activate(&mut app, row(Heading::Commands, MenuCommand::Tasks));
     assert!(app.is_overlay_active(), "the task list opened");
+}
+
+/// Registering the MCP server at All projects touches no entry of the
+/// hidden file list, so its row runs over a `NetBox` panel too.
+#[test]
+fn the_install_mcp_server_row_runs_over_the_sessions_list() {
+    let dir = TempDir::new().expect("temp dir");
+    let mut app = app_on_sessions(dir.path(), SessionStore::default());
+    activate(&mut app, row(Heading::Commands, MenuCommand::McpInstall));
+    let Overlay::McpInstall(dialog) = &app.overlay else {
+        panic!(
+            "the Install MCP server dialog opened: {}",
+            app.status_text()
+        );
+    };
+    assert_eq!(dialog.folder, None, "the hidden folder is not offered");
 }
 
 #[test]

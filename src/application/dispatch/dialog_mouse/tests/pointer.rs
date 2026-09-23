@@ -103,10 +103,11 @@ fn clicking_a_menu_command_row_runs_its_key_and_closes_the_menu() {
     let mut term = terminal();
     let menu = Menu::open(Heading::Commands);
     app.set_menu(menu);
-    // Tall enough that the whole drop-down fits: the Commands menu has 22
-    // rows, and a screen no taller than the drop-down would clip the last
-    // one — "Go to root" — off the bottom before a click could ever land on it.
-    let screen = ratatui::layout::Rect::new(0, 0, 80, 30);
+    // Tall enough that the whole drop-down fits: the Commands menu has 28
+    // entries, separators included, under the menu bar and inside a frame,
+    // and a screen no taller than the drop-down would clip the last one —
+    // "Go to root" — off the bottom before a click could ever land on it.
+    let screen = ratatui::layout::Rect::new(0, 0, 80, 31);
     app.dialog_mouse.screen = screen;
 
     let (column, row) = menu_command_position(&menu, screen, "Go to root");

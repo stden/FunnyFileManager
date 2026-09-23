@@ -76,7 +76,6 @@ const UNEXERCISED: &[&str] = &[
     "read_catalog",
     "remember_marks",
     "run_command",
-    "run_pending",
     "save_session",
     "show_tree",
     "symlink_dir",

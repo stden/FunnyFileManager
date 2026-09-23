@@ -161,6 +161,7 @@ impl LoopState {
             self.redraw = Redraw::Needed;
             handle_event(terminal, app, event, &mut self.clicks)?;
             crate::ops::packages::run_pending(terminal, app)?;
+            run_after_frame(terminal, app)?;
         }
         Ok(())
     }
@@ -250,6 +251,21 @@ fn handle_event<B: Backend + Write>(
 
         dispatch_key(terminal, app, key);
     }
+    Ok(())
+}
+
+/// Work that has to be seen starting: Register in the Install MCP server
+/// dialog may wait on `claude` for up to a minute, so the frame in which the
+/// dialog says so is drawn before it runs.
+fn run_after_frame<B: Backend + Write>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+) -> io::Result<()> {
+    if !crate::ops::mcp_install::is_pending(app) {
+        return Ok(());
+    }
+    draw_frame(terminal, app)?;
+    crate::ops::mcp_install::run_pending(app);
     Ok(())
 }
 

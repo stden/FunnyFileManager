@@ -53,6 +53,8 @@ The variant list changes as dialogs are added. Read `src/models/overlay.rs` rath
   NetBox panels ask with; each carries its purpose (`InputPurpose`,
   `QuestionPurpose`) and `ops::prompts` is the one match from a purpose to
   its operation
+- **McpInstall** (F9 Commands > Install MCP server) — the scope radio, one
+  checkbox per AI client, and Register / Cancel
 - **Kdbx** when the `keepass` feature is on
 
 `Ctrl+O` is `ViewMode::Console`, not an overlay.

@@ -47,7 +47,7 @@ impl Process {
         };
         #[cfg(windows)]
         {
-            process.job = Some(crate::windows::lsp_job(&process.child)?);
+            process.job = Some(crate::windows::process_tree_job(&process.child)?);
         }
         process.start_threads()?;
         crate::diagnostics::log_action("LSP process started");

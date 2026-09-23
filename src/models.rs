@@ -30,6 +30,8 @@ mod findfile;
 mod histlist;
 mod histories;
 mod hotplug;
+mod mcp_install;
+pub use mcp_install::{ClientRow, Mark, McpInstallDialog, McpInstallField, McpInstallProgress};
 mod overlay;
 mod panel;
 mod panelview;
@@ -56,7 +58,7 @@ mod viewer;
 mod viewport;
 mod wsl;
 
-pub use app::{App, ProgramPause};
+pub use app::{App, LiveInput, ProgramPause};
 pub use apply::ApplyPrompt;
 pub use archive::{
     ArchiveCommand, ArchiveField, ArchiveFormat, ArchiveMenu, ArchivePrompt, ExtractField,

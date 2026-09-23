@@ -38,7 +38,7 @@ where
         .record_command(&directory, &path.display().to_string());
     let suspension = TerminalSuspension::suspend(terminal, terminal_ops)?;
     let result = run(&path, &directory);
-    let restored = match (&result, app.program_pause) {
+    let restored = match (&result, app.live.program_pause) {
         // What the program printed is on the terminal's own screen, which
         // the panels are about to cover; it stays readable until a key.
         (Ok(status), ProgramPause::UntilKey) => suspension.resume_after_key(&pause_prompt(*status)),

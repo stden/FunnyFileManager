@@ -89,6 +89,109 @@ these values. The editor refuses an external change made since it opened.
 Open a new terminal/login session to pick up saved PATH; an already-running
 process keeps its inherited environment.
 
+## MCP server setup
+
+**F9 → Commands → Install MCP server** (hotkey **e**) registers `ffm-mcp`,
+FFM's MCP server, with Claude Code, Codex, Junie and Kiro. The dialog shows
+where the server was found, a scope switch, one checkbox per client (whether
+the client was detected, and what its config says now), and notes for the
+chosen scope.
+
+Keys: **Tab / Down** and **Shift+Tab / Up** move between the scope switch,
+the client rows and the buttons; **Left / Right** on the scope switch change
+scope; **Space** ticks or clears a client; **Enter** registers the ticked
+clients (on **Cancel** it cancels); **Esc / F10** close without changes. A
+click on Register or Cancel does the same as Enter on it.
+
+The server is looked for next to the running `ffm` first — where
+`cargo install --path mcp` puts it — then on PATH. When it is not found, the
+dialog says so, every row is dimmed, and nothing can be registered; FFM never
+builds it.
+
+Two scopes:
+
+- **All projects** (the default) writes each client's user-level config. The
+  entry carries no `FFM_MCP_ROOT`, so the server confines itself to whichever
+  folder the client starts it in.
+- **Current folder** writes project-level configs inside the active panel's
+  folder, with `FFM_MCP_ROOT` set to that folder. It is not available when the
+  active panel is not a local folder (a NetBox panel, an S3 listing, a folder
+  that has gone).
+
+| Client | All projects | Current folder |
+|---|---|---|
+| Claude Code | `claude mcp add --scope user --transport stdio ffm-mcp -- <server>`, run in Claude's home folder. An entry that differs is replaced with `claude mcp remove --scope user ffm-mcp`, then `claude mcp add-json --scope user ffm-mcp '<entry>'` carrying the old entry's `env` and other keys. The user config is only read, found where the CLI finds it: a legacy `.config.json` in `$CLAUDE_CONFIG_DIR` (else `~/.claude`) when there is one, else `.claude.json` in `$CLAUDE_CONFIG_DIR` (else the home) | `<folder>/.mcp.json`, edited by FFM |
+| Codex | `$CODEX_HOME/config.toml`, else `~/.codex/config.toml` | `<folder>/.codex/config.toml` |
+| Junie | `~/.junie/mcp/mcp.json` | `<folder>/.junie/mcp/mcp.json` |
+| Kiro | `$KIRO_HOME/settings/mcp.json`, else `~/.kiro/settings/mcp.json` | `<folder>/.kiro/settings/mcp.json` |
+
+JSON configs get `{"mcpServers": {"ffm-mcp": {"command": "<server>", "args": [],
+"env": {}}}}`; Codex gets `[mcp_servers.ffm-mcp]` with `command` and
+`args = []`, plus `[mcp_servers.ffm-mcp.env]` in a folder. An entry counts as
+registered when its command is this server, it passes no arguments, nothing
+starts it another way (no `url`, no `cwd`, no `type` but `stdio`), and its
+`FFM_MCP_ROOT` matches the scope; its other keys are its owner's. Registering
+over a different entry removes `url`, `cwd` and a non-stdio `type`, and keeps
+the rest. An entry switched off (`"disabled": true`, `enabled = false`) shows
+as "registered (disabled)" and stays off. When the server is not found, an
+entry shows only as present — or as running a missing program, when its
+command is an absolute path to nothing.
+
+Current folder is refused for a client whose project config there is its
+user-level config: with the panel on the home folder, `~/.codex/config.toml`,
+`~/.junie/mcp/mcp.json` and `~/.kiro/settings/mcp.json` are both at once, and
+an entry confined to the home would reach every project. Those rows read
+"same file as All projects".
+
+Configs are never clobbered:
+
+- A config that does not parse, or has an unexpected shape, is dimmed in the
+  dialog, left untouched, and named in the report with the parser's line and
+  column. Fix or remove it, then register again.
+- Every other server, key, comment and (in JSON) key order is kept. In JSON
+  every value but the `ffm-mcp` entry keeps its exact text — `1e3` stays
+  `1e3` — the file's indentation and CRLF line ends are kept too. Codex's
+  file is edited with `toml_edit`, so inline tables and dotted keys keep their
+  form.
+- Only a regular file of at most 64 MiB is read: a FIFO or a device where a
+  config should be is reported, not opened.
+- The new text is complete before anything is replaced, and the file is
+  replaced in one atomic rename that keeps its permissions; a symlinked
+  dotfile keeps its link. A new file is created owner-only. No `.bak` is left
+  (beside `.mcp.json` it would land in the repository). If the client saves
+  the file between FFM's last read and the rename, the rename is dropped and
+  the report asks to register again.
+- Registering again when nothing changed writes nothing.
+- The `claude` CLI runs without a terminal, bounded to 30 seconds a call,
+  output captured, and never against a `.claude.json` that does not parse.
+  While it runs, the dialog says so in place of its notes. At the time limit
+  the CLI is stopped with everything it started (its process group on Unix,
+  a job on Windows), so a shim cannot leave the real CLI running. Its
+  success is checked by reading the user config again. Without `claude` on
+  PATH, Claude Code's All projects row cannot be changed. When a step fails,
+  the report gives the command to finish by hand.
+- One client failing does not stop the others. The "MCP server registration"
+  report lists each client's outcome (added, updated, unchanged, failed) with
+  the file or the command, and the status line sums it up.
+- A registered row is shown ticked and dimmed: this dialog never removes a
+  registration.
+
+Client notes:
+
+- **Junie and Kiro**, All projects: they may start the server outside the
+  project, where it confines itself to the wrong folder; prefer Current
+  folder.
+- **Claude Code**, Current folder: it asks once before it starts a server
+  from `.mcp.json`.
+- **Codex**, Current folder: it reads `.codex/config.toml` only in folders it
+  trusts.
+- Claude Code's local scope (`projects[<folder>]` in `~/.claude.json`, what
+  `claude mcp add` without `--scope` writes) overrides the user entry in that
+  folder; FFM neither reads nor writes it.
+
+Restart running clients, or reload their MCP servers, to pick up a change.
+**F11 → MCP status** (or `:mcp`) shows the same states for both scopes.
+
 ## KeePass
 
 KeePass is enabled in default builds. Both `.kdbx` and `.kbdx` are accepted,

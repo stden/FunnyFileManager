@@ -218,7 +218,7 @@ fn test_run_powershell_report_failure_status_only() {
 }
 #[cfg(windows)]
 #[test]
-fn dropping_the_lsp_job_terminates_its_owned_process() {
+fn dropping_the_process_tree_job_terminates_its_owned_process() {
     use std::os::windows::process::CommandExt;
     use std::time::{Duration, Instant};
     let root = tempfile::TempDir::new().unwrap();
@@ -228,7 +228,7 @@ fn dropping_the_lsp_job_terminates_its_owned_process() {
         .creation_flags(0x0800_0000)
         .spawn()
         .unwrap();
-    let job = lsp_job(&child).unwrap();
+    let job = process_tree_job(&child).unwrap();
     assert!(child.try_wait().unwrap().is_none());
     drop(job);
     let deadline = Instant::now() + Duration::from_secs(3);

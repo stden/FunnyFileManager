@@ -136,6 +136,9 @@ pub(super) enum Row<'a> {
     Text(&'a str),
     /// A field's caption, left-aligned above it.
     Label(&'a str),
+    /// Text left-aligned exactly as given, with no hotkey: a path or a note,
+    /// where `&` is a character like any other.
+    Plain(&'a str),
     /// A text field, sunk into the dialog on its own ground.
     ///
     /// `history` draws Far's `↓` marker at the right edge, which is how a
@@ -236,6 +239,7 @@ impl Row<'_> {
         let plain = |text: &str| Cells::of(&text.replace(HOTKEY_MARK, ""));
         match self {
             Self::Text(text) | Self::Label(text) => plain(text),
+            Self::Plain(text) => Cells::of(text),
             // The field is given room to grow rather than sized to what has
             // been typed, or the dialog would resize on every keystroke.
             Self::Input { value, .. } => Cells::of(value).max(Cells::new(INPUT_WIDTH)),
@@ -534,6 +538,7 @@ fn render_row(
         }
         Row::Text(text) => Line::from(hotkey_spans(text, style, accent)).centered(),
         Row::Label(text) => Line::from(hotkey_spans(text, style, accent)),
+        Row::Plain(text) => Line::from(Span::styled((*text).to_owned(), style)),
         Row::Input { value, history, .. } => input_line(value, focused, *history, style, width),
         Row::Radio {
             caption,
@@ -559,7 +564,7 @@ impl Row<'_> {
             | Self::Choice { focused, .. }
             | Self::Field { focused, .. }
             | Self::Checkbox { focused, .. } => *focused,
-            Self::Text(_) | Self::Label(_) | Self::Divider => false,
+            Self::Text(_) | Self::Label(_) | Self::Plain(_) | Self::Divider => false,
         }
     }
 

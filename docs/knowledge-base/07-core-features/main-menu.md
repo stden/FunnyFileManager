@@ -6,10 +6,11 @@ behavior is tailored to FunnyFileManager rather than reproducing every Far
 Manager dialog.
 
 The Commands menu also provides action timing statistics, installed-package
-updates, and separate user/system PATH editors. Their owners are
-`performance` / `ops/performance`, `packages` / `ops/packages`, and
-`path_env` / `ops/path_env`. See [session tools](../../session-tools.md) for
-keyboard controls, persistence, and platform behavior.
+updates, separate user/system PATH editors, and Install MCP server. Their
+owners are `performance` / `ops/performance`, `packages` / `ops/packages`,
+`path_env` / `ops/path_env`, and `mcp_clients` / `ops/mcp_install`. See
+[session tools](../../session-tools.md) for keyboard controls, persistence,
+and platform behavior.
 
 ## Panels
 
@@ -89,6 +90,7 @@ with their shortcuts. Additional operations are:
 | Screens | Chooses file panels or console transcript. F9 from the console returns to panels and opens the menu. |
 | Tasks / hotplug devices | Shows host process information or currently mounted drives. |
 | Plugin commands | Far's F11 list: MCP status, NetBox's stored sessions, and the NetBox `.netbox` import (which asks for the file). |
+| Install MCP server | Registers ffm-mcp with Claude Code, Codex, Junie and Kiro, for all projects or the active panel's folder; see [session tools](../../session-tools.md#mcp-server-setup). |
 
 The F9 row and its shortcut call the same `ops/menu` operation. Alt+F7 opens the Find file dialog, whose containing-text field narrows the name search. See [overlays](../../06-ui-and-interaction/overlays-and-modals.md).
 

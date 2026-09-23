@@ -88,6 +88,23 @@ impl Session {
         )
     }
 
+    /// The same, looking at a fake machine for the MCP installer.
+    pub(super) fn start_on(
+        left: PathBuf,
+        right: PathBuf,
+        size: Size,
+        host: funny_file_manager::mcp_clients::Host,
+    ) -> Self {
+        Self::start_app(
+            move || {
+                let mut app = App::with_panels(Panel::new(left)?, Panel::new(right)?);
+                app.live.mcp_host = host;
+                Ok(app)
+            },
+            size,
+        )
+    }
+
     pub(super) fn resume(directory: &std::path::Path, file: PathBuf, size: Size) -> Self {
         let directory = directory.to_owned();
         Self::start_app(

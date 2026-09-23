@@ -231,8 +231,8 @@ fn test_plugin_commands_action_opens_the_list_whose_first_row_is_mcp_status() ->
     let viewer = app.get_viewer().expect("MCP status must open the viewer");
     assert_eq!(viewer.title(), "MCP Server Status");
     assert!(
-        viewer.lines.iter().any(|line| line.starts_with("Binary: ")),
-        "the viewer must report where the MCP binary is looked for: {:?}",
+        viewer.lines.iter().any(|line| line.starts_with("Server: ")),
+        "the viewer must report where the MCP server is looked for: {:?}",
         viewer.lines
     );
     assert_eq!(app.status_text(), "MCP Server — press Esc to close");

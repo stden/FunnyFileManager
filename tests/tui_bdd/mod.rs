@@ -34,6 +34,8 @@ pub struct TuiWorld {
     pub name: String,
     workspace: Option<TempDir>,
     session: Option<Session>,
+    /// The machine the MCP installer sees, when a scenario brings one.
+    mcp: Option<funny_file_manager::test_support::FakeMachine>,
 }
 
 impl TuiWorld {
@@ -97,13 +99,30 @@ fn fixture(world: &mut TuiWorld, side: String, file: String, contents: String) {
     fs::write(world.path(&side, &file), contents).expect("fixture file");
 }
 
+#[given("a TUI workspace with a fake MCP machine")]
+#[expect(
+    clippy::expect_used,
+    reason = "a Cucumber step fails by panicking, as a #[test] does"
+)]
+fn mcp_workspace(world: &mut TuiWorld) {
+    workspace(world);
+    let machine = funny_file_manager::test_support::FakeMachine::new().expect("fake machine");
+    machine.install_clients().expect("clients on PATH");
+    machine.install_server().expect("ffm-mcp next to ffm");
+    world.mcp = Some(machine);
+}
+
 #[when(expr = "I open the TUI at {int} by {int}")]
 fn open(world: &mut TuiWorld, width: u16, height: u16) {
-    world.session = Some(Session::start(
+    let (left, right, size) = (
         world.path("left", ""),
         world.path("right", ""),
         Size::new(width, height),
-    ));
+    );
+    world.session = Some(match &world.mcp {
+        Some(machine) => Session::start_on(left, right, size, machine.host()),
+        None => Session::start(left, right, size),
+    });
 }
 
 #[when("I open the LSP inventory fixture")]

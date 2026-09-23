@@ -48,6 +48,7 @@ pub(super) fn dialog_button_key(app: &mut App, index: usize) -> Option<KeyEvent>
         // like the name dialog's.
         Overlay::ArchivePrompt(prompt) => Some(archive_button_key(prompt, index)),
         Overlay::ExtractPrompt(prompt) => Some(extract_button_key(prompt, index)),
+        Overlay::McpInstall(dialog) => mcp_install_button_key(dialog, index),
         // Copy / Filter / Cancel. A click selects the named button before
         // Enter, so an old keyboard focus cannot make Copy act as Cancel.
         Overlay::CopyPrompt(prompt) => copy_button_key(prompt, index),
@@ -147,6 +148,20 @@ fn extract_button_key(prompt: &mut crate::models::ExtractPrompt, index: usize) -
         crate::models::ExtractField::Cancel
     };
     KeyEvent::new(KeyCode::Enter, KeyModifiers::empty())
+}
+
+/// Register / Cancel. A click on a dimmed Register does nothing: there is no
+/// server to register.
+fn mcp_install_button_key(
+    dialog: &mut crate::models::McpInstallDialog,
+    index: usize,
+) -> Option<KeyEvent> {
+    dialog.field = match index {
+        0 if dialog.can_register() => crate::models::McpInstallField::Register,
+        0 => return None,
+        _ => crate::models::McpInstallField::Cancel,
+    };
+    Some(plain(KeyCode::Enter))
 }
 
 fn copy_button_key(prompt: &mut crate::copy::CopyPrompt, index: usize) -> Option<KeyEvent> {

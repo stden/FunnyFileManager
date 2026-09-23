@@ -107,7 +107,27 @@ second.
 
 ## ⚙️ Configuration
 
-### 🤖 Claude Desktop / Claude Code
+### 🧭 From FFM: F9 → Commands → Install MCP server
+
+Install the server next to `ffm` (`cargo install --path mcp` from the FFM
+sources), then use **F9 → Commands → Install MCP server** in FFM. It registers
+`ffm-mcp` with Claude Code, Codex, Junie and Kiro, either for all projects
+(user level) or for the active panel's folder (project level, with
+`FFM_MCP_ROOT` set to that folder), and never rewrites a config it cannot
+parse. The files it writes:
+
+| Client | All projects | Current folder |
+|---|---|---|
+| Claude Code | via `claude mcp add --scope user`, or `add-json` to replace an entry (the user config the CLI uses: `~/.claude.json`, `$CLAUDE_CONFIG_DIR/.claude.json`, or a legacy `.config.json`) | `<folder>/.mcp.json` |
+| Codex | `$CODEX_HOME/config.toml`, else `~/.codex/config.toml` | `<folder>/.codex/config.toml` |
+| Junie | `~/.junie/mcp/mcp.json` | `<folder>/.junie/mcp/mcp.json` |
+| Kiro | `$KIRO_HOME/settings/mcp.json`, else `~/.kiro/settings/mcp.json` | `<folder>/.kiro/settings/mcp.json` |
+
+The keys, the two scopes and the rules for leaving files alone are in
+[session tools](../docs/session-tools.md#mcp-server-setup). **F11 → MCP
+status** (or `:mcp`) shows each client's state at both scopes.
+
+### 🤖 Claude Desktop / Claude Code by hand
 
 Add to `claude_desktop_config.json`:
 

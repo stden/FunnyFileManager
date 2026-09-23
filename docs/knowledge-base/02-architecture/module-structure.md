@@ -100,7 +100,9 @@ still invoke it through a model type.
 | `src/ops/editor/clipboard.rs` | Editor copy/paste effects and clipboard outcome reporting |
 | `src/ops/shell.rs` | Bounded shell-process execution and output capture |
 | `src/ops/shell/console.rs` | Independent Windows console launch with fresh input/output handles |
-| `src/ops/viewer.rs` | File viewer and MCP-status opening |
+| `src/ops/viewer.rs` | File viewer and MCP-status opening; the status screen surveys both scopes through `ops/mcp_install` and the shared client table |
+| `src/mcp_clients.rs` | The one client table (Claude Code, Codex, Junie, Kiro) the installer and the `:mcp` screen share; pure JSON/TOML state and upsert logic, the `Host` seam and its newtypes |
+| `src/ops/mcp_install.rs` | F9 Commands > Install MCP server: `open`, `switch_scope`, `register`; children survey the machine (`survey`), write configs atomically (`config_file`), run `claude mcp` (`claude`), build the report (`report`) and read the real machine (`system`) |
 | `src/ops/vault.rs` | KeePass file detection and vault-browser opening |
 | `src/ops/wsl.rs` | WSL request creation, completion interpretation, and panel navigation |
 | `src/ops/tree.rs`, `quickview.rs`, `panels.rs`, `longnames.rs`, `panelview.rs` | Left/Right menu toggles (`Ctrl+T`, `Ctrl+Q`, `Ctrl+F1/F2`, `Ctrl+N`) and the view-mode switch (`Ctrl+1` … `Ctrl+0`) |

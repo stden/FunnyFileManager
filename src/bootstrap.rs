@@ -45,9 +45,14 @@ fn run_session(input: &mut crate::recording::Input) -> Result<(), Box<dyn Error>
 
     app.clipboard
         .install(input.clipboard(Box::new(crate::clipboard::SystemClipboard::with_stdout())));
-    // The pause reads a live key; a replay has none to give it.
+    // The pause reads a live key; a replay has none to give it. Nor does a
+    // replay get the real machine: replaying a session never edits an MCP
+    // client's config.
     if matches!(input, crate::recording::Input::Live(_)) {
-        app.program_pause = crate::models::ProgramPause::UntilKey;
+        app.live = crate::models::LiveInput {
+            program_pause: crate::models::ProgramPause::UntilKey,
+            mcp_host: crate::ops::mcp_install::system_host(),
+        };
     }
 
     let run_result = crate::application::run_loop(

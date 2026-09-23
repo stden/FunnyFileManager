@@ -20,6 +20,21 @@ pub enum ProgramPause {
     UntilKey,
 }
 
+/// What the production entry point switches on for live input only.
+///
+/// A test's or a replayed recording's `App` keeps both off: nobody is at its
+/// terminal to end a pause, and replaying a session must never edit a real
+/// MCP client's config or start a real client.
+#[derive(Clone, Default)]
+pub struct LiveInput {
+    /// Whether a finished program's output waits for a key before the panels
+    /// return.
+    pub program_pause: ProgramPause,
+    /// The machine the MCP installer and the `:mcp` screen look at. Inert by
+    /// default: no home folder, no PATH, no program runner.
+    pub mcp_host: crate::mcp_clients::Host,
+}
+
 /// Main application state: two panels, overlays, bookmarks, etc.
 #[derive(Clone)]
 pub struct App {
@@ -93,10 +108,8 @@ pub struct App {
     /// The backend stays alive across overlays; constructors leave it absent
     /// and production bootstrap installs the real adapter.
     pub clipboard: ClipboardSlot,
-    /// Whether a finished program's output waits for a key before the panels
-    /// return. Off by default: nobody is at a test's terminal to press one.
-    /// The production entry point turns it on for live input.
-    pub program_pause: ProgramPause,
+    /// What only live input gets; see [`LiveInput`].
+    pub live: LiveInput,
     #[cfg(feature = "keepass")]
     pub(crate) vault_cache: crate::kdbx::cache::SessionCache,
     /// Requests awaiting interpretation by the background WSL worker.
@@ -159,7 +172,7 @@ impl App {
             // put an X11/Wayland connection inside every test's `App::new()`.
             // The production entry point installs the real backend.
             clipboard: ClipboardSlot::default(),
-            program_pause: ProgramPause::default(),
+            live: LiveInput::default(),
             #[cfg(feature = "keepass")]
             vault_cache: crate::kdbx::cache::SessionCache::default(),
             wsl_requests: WslRequests::default(),

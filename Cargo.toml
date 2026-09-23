@@ -71,11 +71,26 @@ keepass = { version = "0.15.0", default-features = false, features = ["save_kdbx
 # export. serde_norway is a maintained serde_yaml fork; serde_yaml itself is
 # archived.
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
+# `preserve_order` keeps a rewritten MCP client config (F9 Commands > Install
+# MCP server) in the key order its owner wrote. Without it the shipped binary
+# would sort a user's `.mcp.json`, while tests keep order through a
+# dev-dependency's copy of the feature and never see the difference.
+# `raw_value` lets that rewrite carry every value but the ffm-mcp entry as
+# the exact text it was read in: a `Value` round trip turns `1e3` into
+# `1000.0` and rounds a 24-digit integer.
+serde_json = { version = "1.0.151", features = ["preserve_order", "raw_value"] }
+# The ordered map those raw values are read into (already in the tree through
+# serde_json and toml_edit; `serde` reads a JSON object straight into it).
+indexmap = { version = "2.14.2", features = ["serde"] }
 serde_norway = "0.9.42"
 # Names the setting a load rejects (`system.history_size: invalid type …`):
 # the settings are read from a parsed YAML value, which carries no line numbers.
 serde_path_to_error = "0.1.20"
+# Codex keeps its MCP servers in TOML (`config.toml`). The installer reads its
+# status at both scopes and edits the file in place, keeping the comments and
+# layout the user wrote: a hand-rolled scan would break on inline tables and
+# dotted keys. Only the parser and the writer; no serde.
+toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }
 # File URI encoding/decoding, including Windows drive and UNC paths.
 url = "2.5.8"
 # Text clipboard for editor selection and optional vault password copying.

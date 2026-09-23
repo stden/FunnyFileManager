@@ -125,6 +125,10 @@ fn execute_tools(app: &mut App, command: MenuCommand) -> io::Result<()> {
             super::lsp_status::open(app);
             Ok(())
         }
+        MenuCommand::McpInstall => {
+            super::mcp_install::open(app);
+            Ok(())
+        }
         MenuCommand::UserMenu | MenuCommand::Associations => user::edit(app, command),
         _ => Err(io::Error::other("Unknown tool")),
     }

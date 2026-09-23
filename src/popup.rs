@@ -79,6 +79,7 @@ fn process_commands_dialog(app: &mut App, code: KeyCode, modifiers: KeyModifiers
         Overlay::Screens(_) => screens::process(app, code, modifiers),
         Overlay::Tasks(_) => tasks::process(app, code, modifiers),
         Overlay::Hotplug(_) => hotplug::process(app, code, modifiers),
+        Overlay::McpInstall(_) => mcp_install::process(app, code, modifiers),
         Overlay::SortModes(_) => sortmenu::process(app, code, modifiers),
         Overlay::Settings(_) => settings::process(app, code, modifiers),
         Overlay::SessionEdit(_) => session_edit::process(app, code, modifiers),
@@ -189,6 +190,7 @@ mod history_list;
 mod hotplug;
 mod input_prompt;
 mod mask_prompt;
+mod mcp_install;
 mod menu;
 mod name_prompt;
 mod netbox;

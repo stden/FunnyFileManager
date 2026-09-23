@@ -123,15 +123,22 @@ pub fn persist_over(
     target: &Path,
     content: &[u8],
 ) -> io::Result<()> {
+    fill(&mut temp, target, content)?;
+    temp.persist(target).map_err(|err| err.error)?;
+    Ok(())
+}
+
+/// Everything [`persist_over`] does but the rename: the target's
+/// permissions, the content, the flush. A writer that must look at the
+/// target once more before replacing it renames afterwards itself.
+pub fn fill(temp: &mut tempfile::NamedTempFile, target: &Path, content: &[u8]) -> io::Result<()> {
     // Temp files are created 0600 and the rename carries the mode onto the
     // target, so the original's permissions have to be copied over first.
     if let Ok(metadata) = fs::metadata(target) {
         temp.as_file().set_permissions(metadata.permissions())?;
     }
     temp.write_all(content)?;
-    temp.as_file().sync_all()?;
-    temp.persist(target).map_err(|err| err.error)?;
-    Ok(())
+    temp.as_file().sync_all()
 }
 
 #[cfg(test)]

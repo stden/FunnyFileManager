@@ -98,3 +98,55 @@ fn a_missing_program_is_named() {
         "{error}"
     );
 }
+
+/// A kill or a reap that fails is said, not dropped.
+#[test]
+fn a_failed_stop_step_is_named() {
+    let error = io::Error::other("no such process");
+    assert_eq!(
+        failed("stopping it", Err(error)).as_deref(),
+        Some("stopping it failed: no such process")
+    );
+    assert_eq!(failed("waiting for it", Ok(())), None);
+}
+
+/// Review finding: a stop at the time limit killed only the direct child.
+/// An npm or Volta shim is that child, and the real CLI under it ran on. The
+/// child now leads a process group, and the whole group is stopped.
+#[cfg(target_os = "linux")]
+#[test]
+fn a_timeout_stops_what_the_command_started_too() -> io::Result<()> {
+    let directory = tempfile::TempDir::new()?;
+    let pid_file = directory.path().join("grandchild");
+    let mut command = Command::new("sh");
+    command
+        .args(["-c", "sleep 60 & echo $! > \"$0\"; wait"])
+        .arg(&pid_file)
+        .current_dir(directory.path());
+    let result = capture_with_timeout(&mut command, Duration::from_secs(2), &std::env::temp_dir());
+    assert_eq!(result.unwrap_err().kind(), io::ErrorKind::TimedOut);
+    let pid = std::fs::read_to_string(&pid_file)?;
+    let stat = format!("/proc/{}/stat", pid.trim());
+    // Killed, then reaped by init: gone, or at worst a zombie waiting for it.
+    let stopped = || {
+        std::fs::read_to_string(&stat)
+            .map_or(true, |line| line.split_whitespace().nth(2) == Some("Z"))
+    };
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !stopped() && Instant::now() < deadline {
+        thread::sleep(Duration::from_millis(20));
+    }
+    assert!(stopped(), "the grandchild {} still runs", pid.trim());
+    Ok(())
+}
+
+/// A child that leads no group of its own is still stopped: the group kill
+/// finds nothing, and the child itself is killed instead.
+#[cfg(unix)]
+#[test]
+fn a_child_outside_a_group_of_its_own_is_still_stopped() -> io::Result<()> {
+    let mut child = Command::new("sleep").arg("30").spawn()?;
+    Tree::of(&child).kill(&mut child)?;
+    assert!(!child.wait()?.success());
+    Ok(())
+}

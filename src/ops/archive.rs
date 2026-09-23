@@ -219,7 +219,11 @@ impl Run {
     /// The shell line that stands for this run in the console transcript.
     fn command_line(&self) -> String {
         std::iter::once(self.program.to_owned())
-            .chain(self.args.iter().map(|arg| quote(&arg.to_string_lossy())))
+            .chain(
+                self.args
+                    .iter()
+                    .map(|arg| crate::console::shell_word(&arg.to_string_lossy())),
+            )
             .collect::<Vec<_>>()
             .join(" ")
     }
@@ -261,26 +265,6 @@ fn complaint(output: &Output) -> String {
         .map(str::trim)
         .find(|line| !line.is_empty() && !is_heading(line))
         .map_or_else(|| output.status.to_string(), crate::console::printable)
-}
-
-/// `argument` as one word of the platform shell, for the transcript.
-///
-/// A plain word passes as it is. Anything else is single-quoted on Unix,
-/// where the quotes protect everything but themselves, and double-quoted for
-/// `cmd`, which knows no other kind — and a Windows name cannot hold one.
-fn quote(argument: &str) -> String {
-    let plain = !argument.is_empty()
-        && argument
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || "-_./=:+,@%".contains(ch));
-    if plain {
-        return argument.to_owned();
-    }
-    if cfg!(windows) {
-        format!("\"{argument}\"")
-    } else {
-        format!("'{}'", argument.replace('\'', "'\\''"))
-    }
 }
 
 /// Refuse an archive that would write outside its destination or leave a

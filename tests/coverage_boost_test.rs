@@ -90,9 +90,11 @@ fn test_open_mcp_status_lists_ides() -> io::Result<()> {
     let mut app = App::new()?;
     open_mcp_status(&mut app)?;
     let text = app.get_viewer().unwrap().lines.join("\n");
-    assert!(text.contains("Claude Code"));
-    assert!(text.contains("VS Code"));
+    for client in ["Claude Code", "Codex", "Junie", "Kiro"] {
+        assert!(text.contains(client), "{client} is listed");
+    }
     assert!(text.contains("Supported IDEs"));
+    assert!(text.contains("Commands:"));
     Ok(())
 }
 

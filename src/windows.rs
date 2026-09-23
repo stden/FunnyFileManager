@@ -16,13 +16,15 @@ const PERFORMANCE_TITLE: &str = "Windows Performance";
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-/// Own an LSP process tree so a crashed or unresponsive server cannot orphan children.
+/// Own a child's process tree: closing the returned handle kills every
+/// process in it, so a crashed or unresponsive LSP server, or a CLI stopped
+/// at its time limit, cannot orphan children.
 #[cfg(windows)]
 #[allow(
     unsafe_code,
     reason = "std has no job objects, the only way to end a process tree with its handle"
 )]
-pub(crate) fn lsp_job(
+pub(crate) fn process_tree_job(
     child: &std::process::Child,
 ) -> io::Result<std::os::windows::io::OwnedHandle> {
     use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
@@ -34,7 +36,7 @@ pub(crate) fn lsp_job(
     }
     // SAFETY: CreateJobObjectW returned a unique live handle; ownership transfers once.
     let job = unsafe { OwnedHandle::from_raw_handle(raw) };
-    configure_lsp_job(raw)?;
+    configure_kill_on_close(raw)?;
     // SAFETY: both handles remain live throughout the call; the child is owned by the caller.
     if unsafe { AssignProcessToJobObject(raw, child.as_raw_handle()) } == 0 {
         return Err(io::Error::last_os_error());
@@ -47,7 +49,7 @@ pub(crate) fn lsp_job(
     unsafe_code,
     reason = "std has no job objects, the only way to end a process tree with its handle"
 )]
-fn configure_lsp_job(handle: windows_sys::Win32::Foundation::HANDLE) -> io::Result<()> {
+fn configure_kill_on_close(handle: windows_sys::Win32::Foundation::HANDLE) -> io::Result<()> {
     use windows_sys::Win32::System::JobObjects::{
         JobObjectExtendedLimitInformation, SetInformationJobObject,
         JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,

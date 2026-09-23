@@ -316,6 +316,7 @@ fn render_commands_dialog(
         Overlay::Screens(dialog) => super::screens::render(f, tracker, dialog),
         Overlay::Tasks(dialog) => super::tasks::render(f, tracker, dialog),
         Overlay::Hotplug(dialog) => super::hotplug::render(f, tracker, dialog),
+        Overlay::McpInstall(dialog) => super::mcp_install::render(f, tracker, dialog),
         Overlay::SortModes(dialog) => super::sortmenu::render(f, tracker, dialog),
         Overlay::Settings(dialog) => super::settings::render(f, tracker, dialog),
         Overlay::DiskCleanup(dialog) => super::disk_cleanup::render(f, tracker, dialog),

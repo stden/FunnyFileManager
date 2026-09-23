@@ -104,6 +104,7 @@ pub mod keepass;
 pub mod lineedit;
 pub(crate) mod lsp;
 pub mod mask;
+pub mod mcp_clients;
 pub mod menu;
 pub mod models;
 pub mod mouse;
