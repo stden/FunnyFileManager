@@ -85,6 +85,8 @@ fn is_vault_file(path: &std::path::Path) -> bool {
 
 #[cfg(all(test, feature = "keepass"))]
 mod tests;
+#[cfg(all(test, feature = "keepass"))]
+mod tests_maintenance;
 
 pub fn maintenance(app: &mut App) -> bool {
     #[cfg(feature = "keepass")]
