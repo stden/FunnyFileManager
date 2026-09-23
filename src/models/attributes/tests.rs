@@ -138,6 +138,28 @@ fn only_changed_boxes_ask_for_a_bit() {
     );
 }
 
+/// With a folder selected, a box moved on to [?] means "leave it": no file
+/// in the selection has that bit set or cleared.
+#[test]
+fn a_box_moved_to_leave_as_is_asks_for_nothing() {
+    let bits = SET_FLAG.bit();
+    let mut dialog = AttributesDialog::from_snapshots(&[snapshot("d", bits, true)]);
+    let index = dialog
+        .flags
+        .iter()
+        .position(|it| it.flag == CLEAR_FLAG)
+        .expect("clear platform flag");
+    dialog.field = AttributesField::Flag(index);
+    dialog.toggle();
+
+    assert_eq!(dialog.flags[index].initial, Check::Clear);
+    assert_eq!(dialog.flags[index].current, Check::Mixed);
+    assert_eq!(dialog.flags[index].request(), None);
+    assert_eq!(dialog.new_bits(bits), bits);
+    let with_flag = bits | CLEAR_FLAG.bit();
+    assert_eq!(dialog.new_bits(with_flag), with_flag);
+}
+
 /// Tab walks the boxes, the two time fields, the subfolders box and the
 /// buttons, then wraps; Shift+Tab walks back.
 #[test]

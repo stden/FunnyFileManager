@@ -304,3 +304,27 @@ fn system_backend_reports_unavailable_on_other_platforms() {
         );
     }
 }
+
+#[test]
+fn completed_updates_with_undecodable_output_are_errors_not_successes() {
+    for operation in [
+        WslOperation::Update,
+        WslOperation::UpdatePackages(distribution("Ubuntu")),
+    ] {
+        let error = execute_with(&operation, |_, _| Ok(success(vec![0xff]))).unwrap_err();
+        assert_eq!(error, "WSL returned invalid text encoding");
+    }
+}
+
+#[test]
+fn a_failure_without_an_exit_code_says_the_status_is_unknown() {
+    let result = execute_with(&WslOperation::Update, |_, _| {
+        let mut captured = success("");
+        captured.exit = Exit::Failed(None);
+        Ok(captured)
+    });
+    assert_eq!(
+        result.unwrap_err(),
+        "WSL update failed (unknown exit status)."
+    );
+}

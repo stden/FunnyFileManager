@@ -22,3 +22,21 @@ fn edits_invalidate_multiline_state_and_paths_change_the_language() {
         vec![(lines[1].as_str(), Token::Normal)]
     );
 }
+
+#[test]
+fn a_cloned_cache_starts_empty_and_leaves_the_original_intact() {
+    let root = tempfile::TempDir::new().expect("directory");
+    let rust = root.path().join("source.rs");
+    let lines = vec!["let answer = 42;".to_owned()];
+    let mut cache = HighlightCache::default();
+    cache.prepare(&rust, &lines, 1);
+
+    let copy = cache.clone();
+
+    assert_eq!(
+        copy.runs(0, &lines[0]),
+        vec![(lines[0].as_str(), Token::Normal)],
+        "the copy holds no spans until it is prepared itself"
+    );
+    assert!(cache.runs(0, &lines[0]).contains(&("let", Token::Keyword)));
+}

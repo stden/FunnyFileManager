@@ -49,7 +49,6 @@ const UNEXERCISED: &[&str] = &[
     "changes_bits",
     "clear_with_lock",
     "close_dialog",
-    "close_vault_dialog",
     "copy_dir_all_with",
     "copy_edit_password",
     "cursor_column",

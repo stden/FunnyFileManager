@@ -96,3 +96,33 @@ fn recheck_recognizes_a_directory_created_while_the_editor_is_open() {
     key(&mut app, KeyCode::End);
     assert_eq!(dialog(&app).selected, 1);
 }
+
+#[test]
+fn confirmations_ignore_unrelated_keys_and_esc_returns_to_the_draft() {
+    let (temp, mut app) = fixture();
+    add(&mut app, &temp.path().to_string_lossy());
+
+    key(&mut app, KeyCode::F(2));
+    key(&mut app, KeyCode::Char('x'));
+    assert!(matches!(dialog(&app).mode, Mode::ConfirmSave));
+    key(&mut app, KeyCode::Esc);
+    assert!(matches!(dialog(&app).mode, Mode::Browse));
+
+    key(&mut app, KeyCode::Esc);
+    assert!(matches!(dialog(&app).mode, Mode::ConfirmDiscard));
+    key(&mut app, KeyCode::Char('x'));
+    assert!(matches!(dialog(&app).mode, Mode::ConfirmDiscard));
+    key(&mut app, KeyCode::Esc);
+    assert!(matches!(dialog(&app).mode, Mode::Browse));
+
+    key(&mut app, KeyCode::Char('x'));
+    assert!(matches!(dialog(&app).mode, Mode::Browse));
+    assert_eq!(dialog(&app).entries.len(), 1, "the draft survives");
+}
+
+#[test]
+fn keys_are_left_for_others_when_the_path_dialog_is_not_open() {
+    let (_temp, mut app) = fixture();
+    app.close_overlay();
+    assert!(!process(&mut app, KeyCode::Esc, KeyModifiers::NONE));
+}

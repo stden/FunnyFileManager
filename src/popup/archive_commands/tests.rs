@@ -378,3 +378,28 @@ fn list_and_test_read_a_zip_through_unzip() {
         "a damaged zip fails the test"
     );
 }
+
+#[test]
+fn a_row_run_on_the_parent_entry_closes_the_menu_and_asks_for_an_archive() {
+    let home = TempDir::new().expect("home");
+    let other = TempDir::new().expect("other");
+    let left = Panel::new(home.path().to_path_buf()).expect("left panel");
+    let right = Panel::new(other.path().to_path_buf()).expect("right panel");
+    let mut app = App::with_panels(left, right);
+    let parent = app
+        .get_active_panel_ref()
+        .entries
+        .iter()
+        .position(|entry| entry.name == "..")
+        .expect("a temporary folder lists its parent");
+    app.get_active_panel().select(Some(parent));
+    crate::ops::archive::open_commands(&mut app);
+
+    press(&mut app, KeyCode::Enter);
+
+    assert!(matches!(app.overlay, Overlay::None), "the menu closes");
+    assert_eq!(
+        app.status,
+        Status::Error("Archive commands: put the cursor on an archive".to_owned())
+    );
+}

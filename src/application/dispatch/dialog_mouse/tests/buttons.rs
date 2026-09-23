@@ -187,6 +187,25 @@ fn unlocked_vault_does_not_activate_stale_unlock_buttons() {
     assert_eq!(kdbx_button_key(&session, 0), None);
     assert_eq!(kdbx_button_key(&session, 1), None);
 }
+
+/// The unlocked vault's own dialogs (password, delete confirmation) answer
+/// OK with Enter and every other button with Esc.
+#[cfg(feature = "keepass")]
+#[test]
+fn unlocked_vault_dialog_buttons_confirm_or_cancel() {
+    let (_dir, mut session, now) = crate::kdbx::tests_support::unlocked_sample();
+    let codes = |session: &crate::kdbx::KdbxSession| {
+        [0, 1, 2].map(|index| kdbx_button_key(session, index).map(|key| key.code))
+    };
+    let confirm_or_cancel = [Some(KeyCode::Enter), Some(KeyCode::Esc), Some(KeyCode::Esc)];
+
+    session.reveal(now).expect("password dialog");
+    assert_eq!(codes(&session), confirm_or_cancel);
+
+    session.close_vault_dialog(now);
+    session.request_delete(now).expect("delete confirmation");
+    assert_eq!(codes(&session), confirm_or_cancel);
+}
 #[test]
 fn zz_probe_extract_buttons_name_extract_and_cancel_before_enter() {
     use crate::models::{ExtractField, ExtractPrompt};
