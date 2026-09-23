@@ -8,6 +8,10 @@ mod environment;
 pub use backend::WritableTestBackend;
 #[cfg(any(test, feature = "test-helpers"))]
 pub use environment::*;
+#[cfg(any(test, feature = "test-helpers"))]
+mod settings;
+#[cfg(any(test, feature = "test-helpers"))]
+pub use settings::restore_settings;
 
 #[cfg(test)]
 pub(crate) mod disk_cleanup;

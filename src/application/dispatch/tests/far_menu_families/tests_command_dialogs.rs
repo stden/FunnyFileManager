@@ -176,7 +176,8 @@ fn wsl_management_opens_the_manager() {
 #[test]
 fn save_setup_reports_where_the_file_went() {
     let temp = tempfile::TempDir::new().expect("dir");
-    let _home = crate::test_support::EnvVarGuard::set("XDG_CONFIG_HOME", temp.path());
+    let _home =
+        crate::test_support::EnvVarGuard::set(crate::test_support::CONFIG_HOME, temp.path());
     let mut app = App::new().expect("app");
     apply_action(
         &mut terminal(),

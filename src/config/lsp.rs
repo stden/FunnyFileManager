@@ -1,4 +1,5 @@
-//! Purpose: Declarative language-server commands using the existing JSON settings format.
+//! Purpose: Declarative language-server commands, as the `lsp` key of the
+//! settings file stores them.
 
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};

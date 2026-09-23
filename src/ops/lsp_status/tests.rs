@@ -79,7 +79,7 @@ fn capture_lsp_inventory_review_screen() {
 fn inventory_lines() -> Vec<String> {
     [
         "Configured servers; availability does not mean a server is running.",
-        "Settings: C:/Users/bob/AppData/Roaming/ffm/settings.json",
+        "Settings: C:/Users/bob/AppData/Roaming/ffm/settings.yaml",
         "Open a source file with F4 to start its server. Esc closes this report.",
         "",
         "python [enabled] .py .pyi",

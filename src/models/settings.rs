@@ -3,9 +3,15 @@
 use crate::menu::SettingsPage;
 use std::collections::BTreeMap;
 
+mod page_values;
+pub use page_values::{nest_legacy_pages, OptionsSection, PageValues};
+
 #[derive(Debug, Clone, Default)]
 pub struct Settings {
     values: BTreeMap<SettingsPage, String>,
+    /// The values as of the last load or save of the settings file: a save
+    /// writes only the pages changed since, and keeps the file's others.
+    saved: BTreeMap<SettingsPage, String>,
     pub translations: BTreeMap<String, String>,
     pub persistence: crate::history::Persistence,
 }
@@ -49,6 +55,18 @@ impl Settings {
     #[must_use]
     pub fn values(&self) -> &BTreeMap<SettingsPage, String> {
         &self.values
+    }
+
+    /// The values as of the last load or save of the settings file.
+    #[must_use]
+    pub fn saved_values(&self) -> &BTreeMap<SettingsPage, String> {
+        &self.saved
+    }
+
+    /// Record that the settings file now holds these values: call after a
+    /// load or a save.
+    pub fn mark_saved(&mut self) {
+        self.saved.clone_from(&self.values);
     }
 }
 

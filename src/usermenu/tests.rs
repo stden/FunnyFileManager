@@ -13,6 +13,6 @@ fn the_menu_file_lives_in_the_ffm_config_directory() {
         crate::config::Settings::path()
             .as_deref()
             .and_then(std::path::Path::parent),
-        "beside settings.json"
+        "beside settings.yaml"
     );
 }

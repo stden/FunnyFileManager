@@ -1,19 +1,25 @@
 //! Purpose: Persistent user settings — one struct per page of Far's Options
-//! menu, saved as JSON under the user's config directory.
+//! menu, saved as YAML under the user's config directory.
 //!
 //! The page structs and their fields are fixed by the design spec (§5 D) so
 //! that the dialog that edits a page and the code that consumes a setting
 //! agree on the name. Every field here is read somewhere; a setting nothing
 //! reads is not added. Loading never fails — a corrupt file is the defaults
 //! plus a line in the error log — and saving is atomic, so a crash mid-write
-//! leaves the previous file intact.
+//! leaves the previous file intact. How the file is shared with the Options
+//! pages, migrated from JSON and protected from a save is in [`document`].
 
-use std::{fs, io, path::PathBuf};
+use std::{
+    ffi::OsString,
+    io,
+    path::{Path, PathBuf},
+};
 
 use serde::{Deserialize, Serialize};
 
 use crate::models::PanelView;
 
+pub(crate) mod document;
 mod lsp;
 mod pages;
 pub use lsp::{InstallCommand, InstallRecipe, LspSettings, ServerSettings};
@@ -26,9 +32,6 @@ pub use pages::{
     PanelSettings, PluginsConfigurationSettings, PluginsManagerSettings, SystemSettings, Theme,
     TreeSettings, ViewerSettings,
 };
-
-/// The settings file's name under the `ffm` config directory.
-const FILE_NAME: &str = "settings.json";
 
 /// Everything the Options menu edits, plus the folder shortcuts.
 ///
@@ -63,16 +66,36 @@ pub struct Settings {
     pub highlighting: HighlightingSettings,
     /// `Ctrl+Shift+0` … `9`: the ten folder shortcuts, `None` where unset.
     pub shortcuts: [Option<PathBuf>; 10],
+    /// The settings as [`Self::load`] read them, which a save compares with
+    /// the file so that it writes only what this session changed.
+    #[serde(skip)]
+    loaded: Loaded,
 }
 
+/// The settings a save compares against: those loaded, or `None` for the
+/// defaults when nothing was loaded — no file, or one that failed to load.
+///
+/// Bookkeeping rather than a setting, so any two are equal: settings holding
+/// the same values are the same settings however they were loaded.
+#[derive(Debug, Clone, Default)]
+struct Loaded(Option<Box<Settings>>);
+
+impl PartialEq for Loaded {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+
+impl Eq for Loaded {}
+
 impl Settings {
-    /// `$XDG_CONFIG_HOME/ffm/settings.json`, defaulting to `~/.config/…`;
-    /// `%APPDATA%\ffm\settings.json` on Windows. `None` when the environment
+    /// `$XDG_CONFIG_HOME/ffm/settings.yaml`, defaulting to `~/.config/…`;
+    /// `%APPDATA%\ffm\settings.yaml` on Windows. `None` when the environment
     /// names no home at all — a relative `$XDG_CONFIG_HOME` is ignored, as the
     /// XDG spec says, so settings never land in the launch directory.
     #[must_use]
     pub fn path() -> Option<PathBuf> {
-        dir().map(|dir| dir.join(FILE_NAME))
+        dir().map(|dir| dir.join(document::FILE_NAME))
     }
 
     /// The saved settings, or the defaults when there is no file, it cannot be
@@ -83,30 +106,41 @@ impl Settings {
         let Some(path) = Self::path() else {
             return Self::default();
         };
-        let text = match fs::read_to_string(&path) {
-            Ok(text) => text,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Self::default(),
-            Err(error) => {
-                crate::diagnostics::log_error(&format!("settings: {}: {error}", path.display()));
-                return Self::default();
-            }
-        };
-        serde_json::from_str(&text).unwrap_or_else(|error| {
+        Self::load_from(&path).unwrap_or_else(|error| {
             crate::diagnostics::log_error(&format!("settings: {}: {error}", path.display()));
             Self::default()
         })
     }
 
+    /// The settings stored at `path`, or in the legacy JSON file beside it;
+    /// the defaults when neither file exists.
+    fn load_from(path: &Path) -> io::Result<Self> {
+        let Some(stored) = document::read(path)? else {
+            return Ok(Self::default());
+        };
+        let mut settings: Self = stored.parse()?;
+        settings.loaded = Loaded(Some(Box::new(settings.clone())));
+        Ok(settings)
+    }
+
     /// Write the settings where [`Self::load`] reads them, atomically: a
-    /// sibling temp file replaces the old one in a single rename.
+    /// sibling temp file replaces the old one in a single rename. Refused,
+    /// with the file untouched, when the stored file does not parse or
+    /// changed a page this session changed too. The comparison is always with
+    /// what was loaded, so after a save of a change, a hand edit of the same
+    /// value refuses the next save rather than being overwritten.
     pub fn save(&self) -> io::Result<()> {
         let path = Self::path()
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no configuration directory"))?;
-        if let Some(dir) = path.parent() {
-            fs::create_dir_all(dir)?;
-        }
-        let text = serde_json::to_string_pretty(self).map_err(io::Error::other)?;
-        crate::history::write_owner_only(&path, &text)
+        self.save_to(&path)
+    }
+
+    /// Write the pages this session changed into the settings file at
+    /// `path`, keeping the Options pages, hand edits and every other key.
+    fn save_to(&self, path: &Path) -> io::Result<()> {
+        let defaults = Self::default();
+        let loaded = self.loaded.0.as_deref().unwrap_or(&defaults);
+        document::update(path, loaded, self)
     }
 
     /// The column layout and fullscreen flag configured for `view`.
@@ -121,20 +155,41 @@ impl Settings {
 /// one. `None` when the environment names no home at all.
 #[must_use]
 pub fn dir() -> Option<PathBuf> {
-    config_dir().map(|dir| dir.join("ffm"))
+    Platform::CURRENT.dir(std::env::var_os::<&str>)
 }
 
-#[cfg(windows)]
-fn config_dir() -> Option<PathBuf> {
-    std::env::var_os("APPDATA").map(PathBuf::from)
+/// Whose rule names the configuration home. A value rather than two
+/// `#[cfg]` functions, so that both rules run in every build's tests.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Platform {
+    /// `%APPDATA%`.
+    Windows,
+    /// `$XDG_CONFIG_HOME` when it is absolute, else `$HOME/.config`.
+    Unix,
 }
 
-#[cfg(not(windows))]
-fn config_dir() -> Option<PathBuf> {
-    std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .filter(|path| path.is_absolute())
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
+impl Platform {
+    /// The platform this build runs on.
+    const CURRENT: Self = if cfg!(windows) {
+        Self::Windows
+    } else {
+        Self::Unix
+    };
+
+    /// The `ffm` directory under this platform's configuration home, reading
+    /// the environment through `variable`. A relative `$XDG_CONFIG_HOME` is
+    /// ignored, as the XDG spec says, so settings never land in the launch
+    /// directory.
+    fn dir(self, variable: impl Fn(&'static str) -> Option<OsString>) -> Option<PathBuf> {
+        let home = match self {
+            Self::Windows => variable("APPDATA").map(PathBuf::from),
+            Self::Unix => variable("XDG_CONFIG_HOME")
+                .map(PathBuf::from)
+                .filter(|path| path.is_absolute())
+                .or_else(|| variable("HOME").map(|home| PathBuf::from(home).join(".config"))),
+        };
+        home.map(|home| home.join("ffm"))
+    }
 }
 
 #[cfg(test)]

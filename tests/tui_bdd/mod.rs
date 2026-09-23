@@ -11,6 +11,7 @@ use tempfile::TempDir;
 
 mod restart;
 mod session;
+mod settings;
 #[then(expr = "the clipboard contains {string}")]
 fn clipboard(world: &mut TuiWorld, text: String) {
     assert_eq!(world.ui().clipboard(), text);

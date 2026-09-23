@@ -70,6 +70,24 @@ impl Session {
         )
     }
 
+    /// Start as production does, with the Options pages loaded from
+    /// `settings` instead of the user's config home.
+    pub(super) fn with_settings(
+        left: PathBuf,
+        right: PathBuf,
+        settings: PathBuf,
+        size: Size,
+    ) -> Self {
+        Self::start_app(
+            move || {
+                let mut app = App::with_panels(Panel::new(left)?, Panel::new(right)?);
+                funny_file_manager::test_support::restore_settings(&mut app, settings);
+                Ok(app)
+            },
+            size,
+        )
+    }
+
     pub(super) fn resume(directory: &std::path::Path, file: PathBuf, size: Size) -> Self {
         let directory = directory.to_owned();
         Self::start_app(

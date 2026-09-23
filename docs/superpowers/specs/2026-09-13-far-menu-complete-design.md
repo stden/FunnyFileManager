@@ -164,6 +164,9 @@ itself. `crate::diagnostics::action_label` keeps working through `Debug`.
   any error); `save()` writes atomically. Loaded in `bootstrap.rs` like
   history, never in `App::new()`. Page structs and their fields are fixed
   by §5 D so that the dialog agents and the consumer agents agree.
+  _Since 2026-09-23 the file is `settings.yaml` in the same directory, shared
+  with the Options pages; `settings.json` is read only until the first save.
+  See `docs/knowledge-base/07-core-features/main-menu.md` § The settings file._
 - `src/models/histories.rs` (new): `ViewHistory` and `FolderHistory` — bounded
   lists (Far's default 512 → 200 here), persisted beside the command history
   (`view_history`, `folder_history`), recorded by `ops/viewer.rs`,

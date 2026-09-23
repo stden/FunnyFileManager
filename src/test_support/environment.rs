@@ -73,6 +73,14 @@ impl Drop for EditorEnvGuard {
     }
 }
 
+/// The variable that names the configuration home on this platform: point it
+/// at a temp dir, and the settings, user menu and associations go there.
+pub const CONFIG_HOME: &str = if cfg!(windows) {
+    "APPDATA"
+} else {
+    "XDG_CONFIG_HOME"
+};
+
 /// RAII override of any one environment variable.
 ///
 /// Holds the crate-wide env lock until dropped and restores the previous value

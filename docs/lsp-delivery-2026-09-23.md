@@ -53,7 +53,8 @@ not repository artifacts.
 
 ## Configuration and ownership
 
-- Windows settings: `%APPDATA%\ffm\settings.json`, under the `lsp` object.
+- Windows settings: `%APPDATA%\ffm\settings.yaml`, under the `lsp` key. (Delivered
+  as `settings.json`; the YAML switch reads that file until the first save.)
 - Cache: `ffm/lsp/<recipe hash>` beside settings; Python uses an isolated venv,
   npm a private prefix, and Java separate configuration/index data per workspace.
 - Catalog: `src/config/lsp/catalog.json`; omitted fields retain catalog defaults.

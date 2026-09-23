@@ -4,7 +4,7 @@ use super::*;
 fn user_menu_and_associations_read_saved_configuration() -> io::Result<()> {
     let temp = tempfile::TempDir::new()?;
     let mut app = App::new()?;
-    app.settings = crate::models::settings::Settings::with_file(temp.path().join("settings.json"));
+    app.settings = crate::models::settings::Settings::with_file(temp.path().join("settings.yaml"));
     fs::write(temp.path().join("user-menu.txt"), "Show directory\tpwd\n")?;
     open(&mut app)?;
     let Overlay::MenuDialog(dialog) = &app.overlay else {

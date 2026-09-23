@@ -144,7 +144,8 @@ flowchart LR
 |---|---|
 | `src/directory.rs`, `src/directory/owner.rs` | Local directory loading, entry metadata (links, owner via a per-listing uid cache, allocation, three timestamps, attributes, description), hidden names, and free-space snapshot |
 | `src/description.rs` | Far-format description files (`Descript.ion`): read per listing, rewritten by `set_description` |
-| `src/config.rs`, `src/config/pages.rs` | `Settings` — one struct per Options page, JSON under the config directory, loaded in `bootstrap` and saved at exit |
+| `src/config.rs`, `src/config/pages.rs` | `Settings` — one struct per Options page, YAML under the config directory, loaded in `bootstrap` and saved at exit |
+| `src/config/document.rs` | The settings file on disk: `settings.yaml`, one YAML mapping that `config::Settings` and the Options pages (`models::settings::OptionsSection`, under `options`) share. Parsed once into a YAML value that both read from; refuses YAML tags. A save merges three ways (`document/merge.rs`: as loaded, as held, as on disk) under a `settings.yaml.lock` lock, writes only what the session changed, and refuses a value changed both on disk and in the session; reads a legacy `settings.json` until the first save and never writes it; refuses to save over a file that does not parse |
 | `src/diskfree.rs`, `src/windows.rs` | Platform disk/drive information and diagnostics |
 | `src/platform.rs`, `src/platform/` | Safe wrappers for OS calls std lacks: uids, write access, process-group kill, Windows drives and attributes |
 | `src/fileload.rs` | Bounded regular-file loading shared by viewer and editor |

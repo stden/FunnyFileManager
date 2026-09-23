@@ -1,4 +1,5 @@
-//! Purpose: Verify server discovery precedence, language selection, and JSON compatibility.
+//! Purpose: Verify server discovery precedence, language selection, and that
+//! partial overrides merge the same way from YAML and from legacy JSON.
 
 use super::*;
 use tempfile::TempDir;
@@ -85,4 +86,28 @@ fn partial_language_overrides_retain_their_catalog_extensions_and_recipe() {
     assert_eq!(python.command, "custom-python");
     assert!(python.install.is_some());
     assert!(settings.0["java"].install.is_none());
+}
+
+/// The overrides the docs show, written as a person writes YAML: a partial
+/// entry keeps its catalog fields, `install: null` turns auto-install off,
+/// and an `env` value that starts with `{` must be quoted.
+#[test]
+fn partial_overrides_written_in_yaml_merge_onto_the_catalog() {
+    let root = TempDir::new().unwrap();
+    let yaml = "python:\n  enabled: false\njava:\n  install: null\ngo:\n  command: gopls\n  extensions: [go]\n  install:\n    kind: command\n    executable: '{install_dir}/bin/gopls'\n    steps:\n      - command: go\n        args: [install, golang.org/x/tools/gopls@latest]\n        env:\n          GOBIN: '{install_dir}/bin'\n";
+    let settings: LspSettings = serde_norway::from_str(yaml).unwrap();
+    assert!(settings.for_path(&root.path().join("app.py")).is_none());
+    assert!(
+        settings.0["python"].install.is_some(),
+        "catalog fields stay"
+    );
+    assert!(settings.0["java"].install.is_none());
+    let (_, go) = settings.for_path(&root.path().join("main.go")).unwrap();
+    let Some(InstallRecipe::Command { steps, executable }) = &go.install else {
+        panic!("a command recipe: {:?}", go.install);
+    };
+    assert_eq!(executable, "{install_dir}/bin/gopls");
+    assert_eq!(steps[0].env["GOBIN"], "{install_dir}/bin");
+    let unquoted = yaml.replace("'{install_dir}/bin'", "{install_dir}/bin");
+    assert!(serde_norway::from_str::<LspSettings>(&unquoted).is_err());
 }

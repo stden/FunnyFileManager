@@ -45,22 +45,21 @@ opening it never installs or starts a server. Close it with Esc.
 
 ![LSP inventory rendered with example installation paths](images/lsp-inventory.png)
 
-The existing `ffm/settings.json` supports an `lsp` object. Its Windows location is
-`%APPDATA%\ffm\settings.json`; on Unix it is under the application's normal XDG
-configuration directory. Existing settings files retain their defaults.
+Language servers live under the `lsp` key of the settings file,
+`ffm/settings.yaml` in the configuration directory: `%APPDATA%\ffm\settings.yaml`
+on Windows, `$XDG_CONFIG_HOME/ffm/settings.yaml` (by default
+`~/.config/ffm/settings.yaml`) elsewhere. Anything the file leaves out keeps its
+default. See [The settings file](knowledge-base/07-core-features/main-menu.md#the-settings-file)
+for how FFM saves it and how it reads a `settings.json` from an older FFM.
 
-```json
-{
-  "lsp": {
-    "rust": {
-      "enabled": true,
-      "command": "rust-analyzer",
-      "args": [],
-      "extensions": ["rs"],
-      "root_markers": ["Cargo.toml", ".git"]
-    }
-  }
-}
+```yaml
+lsp:
+  rust:
+    enabled: true
+    command: rust-analyzer
+    args: []
+    extensions: [rs]
+    root_markers: [Cargo.toml, .git]
 ```
 
 An explicit command is used as configured; otherwise the default executable is
@@ -71,8 +70,8 @@ The nearest ancestor containing a configured root marker is the workspace root;
 without a marker, the source file's parent directory is used.
 
 Catalog entries are merged with settings field by field. For example,
-`"python": {"enabled": false}` disables Python without replacing its other
-defaults. `"install": null` disables automatic installation for one server.
+`python: {enabled: false}` disables Python without replacing its other
+defaults. `install: null` disables automatic installation for one server.
 
 | Language | Server | Installation prerequisite |
 |---|---|---|
@@ -98,24 +97,36 @@ use only recipes and projects you trust.
 Additional stdio servers can be added under their standard LSP language ID. For
 example, this installs a configured Go server into the managed directory:
 
-```json
-"go": {
-  "enabled": true,
-  "command": "gopls",
-  "args": [],
-  "extensions": ["go"],
-  "root_markers": ["go.mod", "go.work", ".git"],
-  "install": {
-    "kind": "command",
-    "steps": [{
-      "command": "go",
-      "args": ["install", "golang.org/x/tools/gopls@latest"],
-      "env": {"GOBIN": "{install_dir}/bin"}
-    }],
-    "executable": "bin/gopls.exe"
-  }
-}
+```yaml
+lsp:
+  go:
+    enabled: true
+    command: gopls
+    args: []
+    extensions: [go]
+    root_markers: [go.mod, go.work, .git]
+    install:
+      kind: command
+      steps:
+        - command: go
+          args: [install, golang.org/x/tools/gopls@latest]
+          env:
+            GOBIN: '{install_dir}/bin'
+      executable: bin/gopls.exe
 ```
+
+Quote a value that starts with `{`, as `'{install_dir}/bin'` is here: unquoted,
+YAML reads `{` as the start of a mapping and the file no longer parses. Use
+single quotes for any value that is not a plain word, path or number: some
+unquoted values do not fail but change without a word. A value that starts
+with `[`, `@`, `%` or a backquote does not parse; one that starts with `!` is a
+YAML tag, which FFM refuses as `lsp.go.command: !x is a YAML tag`; one that
+starts with `&` or `*` is an anchor or an alias; ` #` starts a comment, so the
+rest of the line is dropped; and `: ` inside a value starts a mapping. An empty
+value or `~` is no text at all, and FFM reports it rather than reading it as an
+empty string. Inside double quotes a backslash starts an escape, so
+`"C:\tools\new"` holds a TAB and a line break: write Windows paths in single
+quotes (`'C:\tools\new'`).
 
 Use `bin/gopls` on Unix and install Go separately. The example requires the Go
 version required by the chosen gopls release. Custom steps receive literal argument

@@ -121,11 +121,81 @@ validates and applies it. Escape cancels when enabled; F10 always cancels.
 | Colors / Highlighting | Panel background / file-type colors |
 | Save setup | Atomically persists settings for future sessions |
 
-Settings are stored at `ffm/settings.json` beneath `APPDATA`, `XDG_CONFIG_HOME`,
-or `HOME/.config`, in that order. User-menu and association files live beside
-it. Sessions constructed without a configuration location use `.ffm` under the
-active directory for command files. Settings are only persisted by Save setup.
 Invalid settings loads preserve the existing settings and both panels.
+
+### The settings file
+
+Settings are stored in `ffm/settings.yaml` in the configuration directory:
+`%APPDATA%` on Windows; elsewhere `$XDG_CONFIG_HOME` when it is an absolute
+path, otherwise `~/.config`. User-menu and association files live beside it.
+Sessions constructed without a configuration location use `.ffm` under the
+active directory for command files.
+
+The file is one YAML mapping with two owners. Save setup writes the Options
+entries under `options`, one key per entry named after it:
+
+```yaml
+options:
+  Panel: off
+  Editor: '8'
+```
+
+The typed settings (`lsp`, `system`, `panel`, `editor`, …) are top-level keys,
+written at exit, and only when `system.auto_save_setup` is `true`. The entries
+have a key of their own so that none sits beside a typed key that differs from
+it only in case: the built-in editor reads `options.Editor`, not
+`editor.tab_size`. Nothing else writes the file.
+
+- **What a save writes.** Each writer remembers what it loaded (the Options
+  entries: what they held at the last Save setup). A save writes only what
+  changed since then and keeps every other value as the file holds it: the
+  other writer's keys, keys a newer FFM wrote, and anything edited by hand
+  while FFM runs, including in its own editor. A save with nothing to change
+  leaves the file alone, comments included. The first save to a new file
+  writes all of the writer's settings.
+- **Hand edits.** YAML reads `Editor: 8` and `Panel: on` without quotes. Quote
+  any other value with single quotes (`Masks: '!*.tmp'`,
+  `Plugins: 'make # all'`): YAML changes some plain values without an error.
+  In an Options entry an empty value, `~` and `null` are empty (a typed
+  setting that expects text reports them instead); `#` after a space starts
+  a comment, so `README.md #notes` is `README.md`; `0x10` is `16` and `+32`
+  is `32`.
+  Inside double quotes a backslash starts an escape (`"C:\temp"` holds a TAB),
+  so write Windows paths in single quotes. A value that starts with `!` is a
+  YAML tag, which the file refuses (see below); one that starts with `&` or `*`
+  is an anchor or an alias. A save that writes the file rewrites all of it
+  under a one-line header, so comments are then lost. An empty or
+  comment-only file holds no settings.
+- **A change made both by hand and in FFM** to the same value while FFM runs is
+  not merged: Save setup stops with `Not saved: settings.yaml changed on disk:
+  options.Editor was edited there and in this session`, and the exit auto-save
+  logs the same line and writes nothing. Restart FFM to load the file as it is.
+- **A file that does not parse** is never overwritten. A syntax error, a tab
+  indent, a duplicate key or a YAML tag is reported at startup as `Settings:
+  settings.yaml does not parse: …`, with the line and column of a syntax error
+  and the path of the value otherwise (`options.Masks: !*.tmp is a YAML tag`).
+  A value of the wrong type in an Options entry is reported the same way, and
+  so is an empty value where a typed setting expects text
+  (`command_line.prompt_format: invalid type: unit value, expected a string`).
+  Save setup then stops with `Not saved: settings.yaml does not parse: …` and
+  the exit auto-save writes nothing. A wrong value in a typed setting (`lsp`,
+  `system`, …) makes FFM use the defaults for all typed settings and is only
+  logged (with `FFM_LOG=1`); no save replaces it. Fix or remove the file, and
+  the next save writes it again.
+- **Migration from `settings.json`.** Older releases wrote `settings.json`, with
+  the Options entries beside the typed keys. While there is no `settings.yaml`,
+  FFM reads `settings.json` in its place with the entries moved under
+  `options`, and the first save writes everything it held to `settings.yaml`.
+  FFM never changes or removes `settings.json`; once `settings.yaml` exists, it
+  is ignored. A save that cannot read `settings.json` names it:
+  `Not saved: settings.json is not a regular file`.
+- **Safety.** A save writes a temp file beside the settings and renames it over
+  them, so a crash leaves the previous file whole; the file is readable by its
+  owner only. A save holds a lock on `settings.yaml.lock` beside the file from
+  reading it to the rename, so two FFMs saving at once keep each other's
+  changes; while one saves, the other stops with `Not saved: another FFM is
+  saving settings.yaml`. The empty lock file stays. FFM reads the file only
+  when it is a regular file of at most 1 MiB.
 
 ## Verification
 

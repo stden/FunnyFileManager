@@ -17,7 +17,7 @@ fn fixture() -> (TempDir, App) {
     let panel = Panel::new(temp.path().to_owned()).unwrap();
     let mut app = App::from_panels(panel.clone(), panel);
     app.settings =
-        crate::models::settings::Settings::with_file(temp.path().join("config/settings.json"));
+        crate::models::settings::Settings::with_file(temp.path().join("config/settings.yaml"));
     select(&mut app, "alpha.txt");
     (temp, app)
 }
