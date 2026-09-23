@@ -74,3 +74,6 @@ fn ensure_private(path: &Path) -> io::Result<()> {
 const fn ensure_private(_path: &Path) -> io::Result<()> {
     Ok(())
 }
+
+#[cfg(all(test, unix))]
+mod tests;

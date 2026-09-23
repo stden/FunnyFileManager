@@ -96,6 +96,8 @@ fn file_uris_round_trip_spaces_unicode_and_reserved_characters() {
     let uri = uri::from_path(&path).unwrap();
     assert!(uri.contains("%20") && uri.contains("%23"));
     assert_eq!(uri::to_path(&uri), Some(path));
+    assert!(uri::same(&uri, &uri));
+    assert!(!uri::same(&uri, "https://example.com/file"));
     for invalid in [
         "not a URI",
         "https://example.com/a.rs",

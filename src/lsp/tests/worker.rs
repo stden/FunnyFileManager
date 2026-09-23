@@ -140,6 +140,19 @@ fn uncooperative_server_shutdown_is_bounded() {
     drop(manager);
     assert!(started.elapsed() < Duration::from_secs(4));
 }
+
+#[test]
+fn a_crash_during_shutdown_is_reaped_without_waiting_for_a_response() {
+    let (_root, settings, snapshot) = fixture("shutdown-crash");
+    let manager = Manager::start().unwrap();
+    send(&manager, Command::Open("rust".into(), settings, snapshot));
+    wait(&manager, |event| {
+        matches!(event, Event::State(ServerState::Ready))
+    });
+    let started = Instant::now();
+    drop(manager);
+    assert!(started.elapsed() < Duration::from_secs(4));
+}
 #[test]
 fn unsupported_server_features_return_errors_without_stopping_the_session() {
     let (_root, settings, snapshot) = fixture("unsupported");

@@ -43,6 +43,9 @@ fn another_file_opens_at_the_utf16_target() {
     assert_eq!((editor.cursor_line, editor.cursor_col), (0, 5));
     definition(&mut app, &target);
     assert_eq!(app.get_editor().unwrap().cursor_col, 5);
+    app.close_overlay();
+    definition(&mut app, &target);
+    assert!(matches!(app.overlay, Overlay::None));
 }
 
 #[test]

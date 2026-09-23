@@ -96,6 +96,9 @@ fn invalid_stale_snippet_and_overlapping_completions_leave_text_untouched() {
     editor.insert_char('a');
     assert!(editor.complete_lsp(stale, &item).is_err());
     assert!(!editor.accepts_lsp_reply(stale));
+    assert!(editor
+        .show_lsp_reply(stale, Reply::Hover("stale".into()))
+        .is_none());
 }
 
 #[test]

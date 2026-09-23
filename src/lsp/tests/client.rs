@@ -155,6 +155,18 @@ fn saves_follow_negotiated_text_options_and_shutdown_closes_documents_first() {
         .unwrap();
     assert!(client.shutdown_complete);
 }
+
+#[test]
+fn saves_without_text_include_only_the_document_uri() {
+    let mut client = initialized(json!({"openClose":true,"change":2,"save":true}));
+    let mut document = open(&mut client);
+    document.saved += 1;
+    client.synchronize(document).unwrap();
+    let message = client.rpc.outbox.last().unwrap();
+    assert_eq!(message["method"], "textDocument/didSave");
+    assert_eq!(message["params"].as_object().unwrap().len(), 1);
+    assert!(message["params"]["textDocument"]["uri"].is_string());
+}
 #[test]
 fn server_requests_receive_supported_responses_and_unknown_methods_receive_errors() {
     let mut client = initialized(json!({"openClose":false,"change":0}));

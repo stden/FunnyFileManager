@@ -105,3 +105,37 @@ fn disabled_and_failed_servers_explain_why_queries_cannot_run() {
     assert!(requested_query(editor, Context::from_editor(editor)).is_none());
     assert!(editor.notice.as_ref().unwrap().contains("restart"));
 }
+
+#[test]
+fn request_errors_are_visible_only_for_the_current_cursor_and_revision() {
+    let root = TempDir::new().unwrap();
+    let mut app = app(&root);
+    let editor = app.get_editor_mut().unwrap();
+    let query = Query {
+        stamp: editor.lsp_stamp(),
+        position: Position::default(),
+        feature: Feature::Hover,
+    };
+    let reply = Event::Reply(
+        query,
+        Err(serde_json::from_value(serde_json::json!({
+            "code": -32001, "message": "failure"
+        }))
+        .unwrap()),
+    );
+    assert!(apply_event(
+        &mut app,
+        Envelope(query.stamp.id, reply.clone())
+    ));
+    assert_eq!(
+        app.get_editor().unwrap().notice.as_deref(),
+        Some("Language-server request failed (-32001)")
+    );
+    app.get_editor_mut().unwrap().move_right();
+    app.get_editor_mut().unwrap().notice = Some("newer feedback".into());
+    assert!(!apply_event(&mut app, Envelope(query.stamp.id, reply)));
+    assert_eq!(
+        app.get_editor().unwrap().notice.as_deref(),
+        Some("newer feedback")
+    );
+}

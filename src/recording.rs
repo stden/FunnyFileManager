@@ -215,6 +215,8 @@ pub fn stopped_reason() -> Option<String> {
 mod tests;
 #[cfg(test)]
 mod tests_cli;
+#[cfg(test)]
+mod tests_failure;
 
 impl Input {
     pub(crate) fn terminal_options(&self) -> ratatui::TerminalOptions {

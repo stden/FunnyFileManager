@@ -14,6 +14,30 @@ fn extend(editor: &mut Editor, motion: EditorMotion) {
 }
 
 #[test]
+fn extending_select_all_preserves_its_start_without_changing_the_document() {
+    let mut editor = editor("first\nlast");
+    editor.select_all();
+    assert_eq!(
+        editor.selection_range(),
+        Some(Caret::new(0, 0)..Caret::new(1, 4))
+    );
+    extend(&mut editor, EditorMotion::Left);
+    assert_eq!(editor.selected_text().as_deref(), Some("first\nlas"));
+    assert_eq!(editor.state, EditState::Clean);
+}
+
+#[test]
+fn deleting_an_empty_selection_keeps_the_editor_clean() {
+    let mut editor = Editor::default();
+    editor.select_all();
+    assert_eq!(editor.selection_range(), None);
+    assert!(!editor.delete_selection());
+    assert_eq!(editor.lines, [""]);
+    assert_eq!(editor.state, EditState::Clean);
+    assert_eq!(editor.caret(), Caret::new(0, 0));
+}
+
+#[test]
 fn shift_motion_reduces_and_reverses_around_the_original_anchor() {
     let mut editor = editor("a界🙂z");
     editor.cursor_col = 1;
