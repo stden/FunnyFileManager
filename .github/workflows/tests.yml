@@ -54,6 +54,9 @@ jobs:
       - name: Readability gate self-test
         run: ./ffm.sh lint self-test
 
+      - name: Lint policy self-test
+        run: python3 scripts/test_lint_policy.py
+
       - name: Architecture contracts
         run: cargo test --locked --test module_boundaries_test
 
@@ -292,3 +295,106 @@ jobs:
         run: |
           cargo clippy --features colorer --all-targets -- -D warnings
           cargo test --features colorer --lib highlight
+
+  # ── Dependency policy: licences, advisories, bans, sources ──
+  # One policy (deny.toml) for all three manifests, each with every feature on
+  # so optional dependencies (s3, keepass, colorer) are judged too. Every step
+  # runs even when an earlier one fails, so each manifest reports its own
+  # result. colorer-sys is a library without a lockfile, so it resolves fresh
+  # and cannot pass --locked.
+  deny:
+    name: Dependencies (cargo-deny)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-deny (prebuilt)
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+
+      - name: cargo deny — application
+        run: cargo deny --locked --all-features --manifest-path Cargo.toml --config deny.toml check
+
+      - name: cargo deny — MCP server
+        if: ${{ !cancelled() }}
+        run: cargo deny --locked --all-features --manifest-path mcp/Cargo.toml --config deny.toml check
+
+      - name: cargo deny — colorer-sys
+        if: ${{ !cancelled() }}
+        run: cargo deny --all-features --manifest-path colorer-sys/Cargo.toml --config deny.toml check
+
+  # ── Mutation testing of the lines a pull request changes ────
+  # cargo mutants --in-diff mutates only code the PR touched and runs the
+  # suite against each mutant. The application uses .cargo/mutants.toml
+  # (exclusions, features, nextest). MCP has no config and keeps cargo test:
+  # its cucumber suite is harness = false, which nextest cannot run. Its diff
+  # is taken with --relative, because cargo-mutants run inside mcp/ matches
+  # paths like src/paths.rs; an mcp/src/paths.rs diff matches nothing and
+  # passes silently.
+  #
+  # A surviving (missed) mutant FAILS the job: a line this PR changed can be
+  # broken without any test noticing. Kill it with a test that observes the
+  # behaviour; only a mutant no test can observe by construction (see
+  # `is_root`) is excluded in .cargo/mutants.toml, with the reason. Exit code 3
+  # (timeouts, no survivors) passes: the mutant hung the suite, which the
+  # timeout detected. The baseline failing (4) or a diff that does not match
+  # the tree (5, 6) fails. mutants.out is uploaded in every case.
+  mutants:
+    name: Mutation testing (PR diff)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The base branch must be present to diff against it.
+          fetch-depth: 0
+
+      - name: Install mold (fast linker)
+        uses: rui314/setup-mold@v1
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install mutation + test tools (prebuilt)
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants,cargo-nextest
+
+      - name: Diff of this pull request
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git diff "origin/$BASE_REF...HEAD" > "$RUNNER_TEMP/pr.diff"
+          git -C mcp diff --relative "origin/$BASE_REF...HEAD" > "$RUNNER_TEMP/pr-mcp.diff"
+
+      - name: Mutants in changed application code
+        timeout-minutes: 60
+        run: |
+          status=0
+          cargo mutants --in-diff "$RUNNER_TEMP/pr.diff" --jobs 2 \
+            --output "$RUNNER_TEMP/mutants-app" || status=$?
+          case "$status" in 0 | 3) ;; *) exit "$status" ;; esac
+
+      - name: Mutants in changed MCP code
+        if: ${{ !cancelled() }}
+        timeout-minutes: 20
+        working-directory: mcp
+        run: |
+          status=0
+          cargo mutants --in-diff "$RUNNER_TEMP/pr-mcp.diff" --jobs 2 \
+            --output "$RUNNER_TEMP/mutants-mcp" || status=$?
+          case "$status" in 0 | 3) ;; *) exit "$status" ;; esac
+
+      - name: Upload mutants.out
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutants-out
+          path: |
+            ${{ runner.temp }}/mutants-app/mutants.out
+            ${{ runner.temp }}/mutants-mcp/mutants.out
+          if-no-files-found: ignore
