@@ -191,6 +191,7 @@ impl crate::terminal::TerminalOps<WritableTestBackend> for PauseOps {
 #[test]
 fn the_panels_come_back_only_after_a_key_once_the_program_has_run() {
     let (_root, mut app, mut terminal) = fixture();
+    app.program_pause = crate::models::ProgramPause::UntilKey;
     let mut ops = PauseOps::default();
     launch_with(&mut terminal, &mut app, &mut ops, |_, _| {
         Ok(ExitStatus::default())
@@ -217,4 +218,19 @@ fn a_launch_failure_returns_to_the_panels_at_once() {
         transcript(&app).last().map(String::as_str),
         Some(app.status_text().as_str())
     );
+}
+
+/// Without a person at the terminal (every test's `App::new()`, a replay)
+/// nothing could answer the pause, so the panels return at once. On Windows
+/// the pause used to wait for a console key that CI never sends.
+#[test]
+fn without_a_pause_the_panels_return_as_soon_as_the_program_ends() {
+    let (_root, mut app, mut terminal) = fixture();
+    assert_eq!(app.program_pause, crate::models::ProgramPause::None);
+    let mut ops = PauseOps::default();
+    launch_with(&mut terminal, &mut app, &mut ops, |_, _| {
+        Ok(ExitStatus::default())
+    })
+    .expect("terminal restored");
+    assert!(ops.prompts.is_empty(), "{:?}", ops.prompts);
 }

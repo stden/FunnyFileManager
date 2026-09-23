@@ -45,6 +45,10 @@ fn run_session(input: &mut crate::recording::Input) -> Result<(), Box<dyn Error>
 
     app.clipboard
         .install(input.clipboard(Box::new(crate::clipboard::SystemClipboard::with_stdout())));
+    // The pause reads a live key; a replay has none to give it.
+    if matches!(input, crate::recording::Input::Live(_)) {
+        app.program_pause = crate::models::ProgramPause::UntilKey;
+    }
 
     let run_result = crate::application::run_loop(
         session.terminal_mut(),

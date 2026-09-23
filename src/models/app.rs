@@ -10,6 +10,16 @@ use super::{
     PanelsShown, ViewHistory, ViewMode, Viewport, WslRequests,
 };
 
+/// What happens on the terminal after a program started from a panel ends.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ProgramPause {
+    /// The panels return at once.
+    #[default]
+    None,
+    /// The output stays on screen until a key is pressed.
+    UntilKey,
+}
+
 /// Main application state: two panels, overlays, bookmarks, etc.
 #[derive(Clone)]
 pub struct App {
@@ -80,6 +90,10 @@ pub struct App {
     /// The backend stays alive across overlays; constructors leave it absent
     /// and production bootstrap installs the real adapter.
     pub clipboard: ClipboardSlot,
+    /// Whether a finished program's output waits for a key before the panels
+    /// return. Off by default: nobody is at a test's terminal to press one.
+    /// The production entry point turns it on for live input.
+    pub program_pause: ProgramPause,
     #[cfg(feature = "keepass")]
     pub(crate) vault_cache: crate::kdbx::cache::SessionCache,
     /// Requests awaiting interpretation by the background WSL worker.
@@ -137,6 +151,7 @@ impl App {
             // put an X11/Wayland connection inside every test's `App::new()`.
             // The production entry point installs the real backend.
             clipboard: ClipboardSlot::default(),
+            program_pause: ProgramPause::default(),
             #[cfg(feature = "keepass")]
             vault_cache: crate::kdbx::cache::SessionCache::default(),
             wsl_requests: WslRequests::default(),

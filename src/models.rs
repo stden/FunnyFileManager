@@ -48,7 +48,7 @@ mod viewer;
 mod viewport;
 mod wsl;
 
-pub use app::App;
+pub use app::{App, ProgramPause};
 pub use apply::ApplyPrompt;
 pub use archive::{
     ArchiveCommand, ArchiveField, ArchiveFormat, ArchiveMenu, ArchivePrompt, ExtractField,

@@ -1,7 +1,7 @@
 //! Launch panel programs with the host terminal available for interactive input.
 
 use crate::{
-    models::App,
+    models::{App, ProgramPause},
     status::Status,
     terminal::{CrosstermOps, TerminalOps, TerminalSuspension},
 };
@@ -38,11 +38,11 @@ where
         .record_command(&directory, &path.display().to_string());
     let suspension = TerminalSuspension::suspend(terminal, terminal_ops)?;
     let result = run(&path, &directory);
-    let restored = match &result {
+    let restored = match (&result, app.program_pause) {
         // What the program printed is on the terminal's own screen, which
         // the panels are about to cover; it stays readable until a key.
-        Ok(status) => suspension.resume_after_key(&pause_prompt(*status)),
-        Err(_) => suspension.resume(),
+        (Ok(status), ProgramPause::UntilKey) => suspension.resume_after_key(&pause_prompt(*status)),
+        _ => suspension.resume(),
     };
     app.record_run_outcome(match result {
         Ok(status) => Status::CommandOutput(format!("{}: {status}", path.display())),
