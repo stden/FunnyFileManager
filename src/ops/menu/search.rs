@@ -10,19 +10,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub(super) fn find(
-    app: &mut App,
-    pattern: &str,
-    folders: bool,
-    containing: &str,
-) -> io::Result<()> {
+pub(super) fn find(app: &mut App, pattern: &str, folders: bool, containing: &str) {
     let root = app.get_active_panel_ref().path.clone();
     let mut search = Search::prepare(app, pattern, folders, containing);
     search.walk(&root);
     let title = if folders { "Find folder" } else { "Find file" };
     super::choices(app, title, search.rows);
     report(app, search.truncated, search.skipped);
-    Ok(())
 }
 
 struct Search {
@@ -79,7 +73,7 @@ impl Search {
             if !self.take() {
                 return;
             }
-            self.consider(root, entry, depth, pending);
+            self.consider(root, &entry, depth, pending);
         }
     }
 
@@ -95,7 +89,7 @@ impl Search {
     fn consider(
         &mut self,
         root: &Path,
-        entry: fs::DirEntry,
+        entry: &fs::DirEntry,
         depth: usize,
         pending: &mut Vec<(PathBuf, usize)>,
     ) {

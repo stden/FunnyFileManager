@@ -1,6 +1,7 @@
 //! Purpose: Verify installation cannot run before trust and reports missing storage gracefully.
 
 use super::*;
+use crate::lsp::manager::Command;
 use tempfile::TempDir;
 
 mod transitions;

@@ -1,7 +1,8 @@
 //! Purpose: Verify edits survive installation, failures allow retry, and close cancels installation.
 
 use super::super::*;
-use crate::config::{InstallCommand, InstallRecipe};
+use crate::config::{InstallCommand, InstallRecipe, ServerSettings};
+use crate::lsp::{manager::Command, types::Snapshot};
 use std::{
     collections::BTreeMap,
     fs,

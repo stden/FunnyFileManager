@@ -149,6 +149,10 @@ fn permissions(file: &File, mode: u32) -> std::io::Result<()> {
 }
 
 #[cfg(windows)]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "shares the Unix signature, where the operation can fail"
+)]
 fn permissions(_file: &File, _mode: u32) -> std::io::Result<()> {
     Ok(())
 }

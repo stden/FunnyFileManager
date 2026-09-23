@@ -14,6 +14,10 @@ fn permissions(path: &Path) -> io::Result<()> {
 }
 
 #[cfg(windows)]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "shares the Unix signature, where the operation can fail"
+)]
 fn permissions(_path: &Path) -> io::Result<()> {
     Ok(())
 }

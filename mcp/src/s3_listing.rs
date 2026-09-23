@@ -3,14 +3,14 @@
 use aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Output;
 use aws_sdk_s3::Client;
 
-pub(super) struct ListedObject {
+pub struct ListedObject {
     pub key: String,
     pub folder: bool,
     pub size: i64,
     pub modified: Option<String>,
 }
 
-pub(super) async fn list_level(
+pub async fn list_level(
     client: &Client,
     bucket: &str,
     prefix: &str,
@@ -78,7 +78,7 @@ fn file(object: &aws_sdk_s3::types::Object) -> ListedObject {
         key: object.key().unwrap_or("").to_owned(),
         folder: false,
         size: object.size().unwrap_or(0).max(0),
-        modified: object.last_modified().map(|stamp| stamp.to_string()),
+        modified: object.last_modified().map(std::string::ToString::to_string),
     }
 }
 

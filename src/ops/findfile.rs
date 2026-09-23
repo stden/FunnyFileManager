@@ -12,7 +12,7 @@ pub fn accept(app: &mut App) {
     let Some((mask, containing)) = query(app) else {
         return;
     };
-    let _ = crate::ops::menu::find_files(app, &mask, &containing);
+    crate::ops::menu::find_files(app, &mask, &containing);
 }
 
 fn query(app: &App) -> Option<(String, String)> {

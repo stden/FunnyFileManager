@@ -36,6 +36,10 @@ impl ChildTree {
     }
 
     #[cfg(unix)]
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "shares the Windows signature, where assigning the job object can fail"
+    )]
     fn attach(self) -> Result<Self, InstallError> {
         Ok(self)
     }

@@ -119,14 +119,20 @@ pub fn choose(app: &mut App, target: ChoiceTarget) -> io::Result<()> {
 
 /// Alt+F7: the dialog has a mask and a containing-text field. The menu prompt
 /// has only the mask and calls [`submit`].
-pub fn find_files(app: &mut App, mask: &str, containing: &str) -> io::Result<()> {
-    search::find(app, mask, false, containing)
+pub fn find_files(app: &mut App, mask: &str, containing: &str) {
+    search::find(app, mask, false, containing);
 }
 
 pub fn submit(app: &mut App, command: MenuCommand, text: &str) -> io::Result<()> {
     match command {
-        MenuCommand::FindFile => search::find(app, text, false, ""),
-        MenuCommand::FindFolder => search::find(app, text, true, ""),
+        MenuCommand::FindFile => {
+            search::find(app, text, false, "");
+            Ok(())
+        }
+        MenuCommand::FindFolder => {
+            search::find(app, text, true, "");
+            Ok(())
+        }
         MenuCommand::Settings(page) => settings::submit(app, page, text),
         MenuCommand::Filter => workflows::filter(app, text),
 

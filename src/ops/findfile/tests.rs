@@ -58,7 +58,7 @@ fn find_files_keeps_only_files_whose_text_contains_the_query() {
     fs::write(dir.path().join("no.txt"), "nothing here").expect("file");
     let panel = Panel::new(dir.path().to_path_buf()).expect("panel");
     let mut app = App::from_panels(panel.clone(), panel);
-    crate::ops::menu::find_files(&mut app, "*", "todo").expect("search");
+    crate::ops::menu::find_files(&mut app, "*", "todo");
     let Overlay::MenuDialog(dialog) = &app.overlay else {
         panic!("results list");
     };

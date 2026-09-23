@@ -1,6 +1,6 @@
 //! Purpose: Keep installation responsive to document edits, close, and application shutdown.
 
-use super::*;
+use super::{report, DocumentId, Envelope, Event, Host, ServerState, Session, Start, SyncSender};
 use crate::lsp::install::{InstallError, Job};
 
 pub(super) struct Preparation {
