@@ -54,9 +54,10 @@ cron.log
 .env.*.local
 !.env.example
 .rustup/
-# A CARGO_HOME inside the checkout, but not the tracked project config.
+# A CARGO_HOME inside the checkout, but not the tracked project configs.
 **/.cargo/*
 !/.cargo/config.toml
+!/.cargo/mutants.toml
 .cargo-*/
 node_modules/
 .npm/

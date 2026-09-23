@@ -27,9 +27,14 @@ multiple-versions = "warn"
 wildcards = "deny"
 
 [advisories]
-# `unmaintained` and `unsound` are warnings: they are worth seeing, but they
-# are not reasons to fail a build on a transitive dependency nobody here can
-# upgrade. An actual vulnerability still fails.
+# Every advisory cargo-deny reports is an error; there is no warning level for
+# advisories. The two keys below are cargo-deny's own defaults, written out so
+# this file says what the check does: an `unmaintained` advisory fails for any
+# crate in the graph, an `unsound` one only when this crate depends on the
+# unsound crate directly (a transitive one is dropped, not reported).
+# A finding is fixed by a dependency update, never by adding it to `ignore`.
+unmaintained = "all"
+unsound = "workspace"
 ignore = []
 
 [sources]

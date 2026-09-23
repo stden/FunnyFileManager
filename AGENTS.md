@@ -441,7 +441,7 @@ what each buys, is in `docs/knowledge-base/03-rust-best-practices/type-system.md
 - Filesystem isolation via `tempfile::TempDir`.
 - **Fault-injection points**: cfg-gated in-memory controls `FORCE_RENAME_FAILURE` (move fallback), `FORCE_COPY_DIR_ALL_STEP` (recursive-copy steps), and `FORCE_REFRESH_ERROR` (panel refresh). They are not environment variables.
 - Logging tests pass explicit paths inside their own temporary directories; do not change process-wide `cwd` to redirect logs.
-- Coverage: `cargo tarpaulin --out Html --output-dir coverage`. Mutation testing: `cargo mutants` (`.cargo-mutants.toml`).
+- Coverage: `cargo tarpaulin --out Html --output-dir coverage`. Mutation testing: `cargo mutants` (`.cargo/mutants.toml`, read automatically; runs tests with `cargo-nextest`).
 
 ## Dependencies
 

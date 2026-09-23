@@ -99,7 +99,7 @@ The project uses the standard Rust toolchain (`cargo`).
 
 -   **Logging**: Runtime logging is disabled by default. With `FFM_LOG=1`, payload-redacted actions and errors are written to `ffm_actions.log` and `ffm_errors.log` in the system temporary directory; Unix files are created owner-only.
 
--   **Mutation Testing**: The presence of `.cargo-mutants.toml` and related files indicates that the project uses mutation testing via `cargo-mutants` to ensure the quality and robustness of its test suite.
+-   **Mutation Testing**: The presence of `.cargo/mutants.toml` and related files indicates that the project uses mutation testing via `cargo-mutants` to ensure the quality and robustness of its test suite.
 
 -   **UI Library**: The UI is built with `ratatui`, a popular library for creating terminal interfaces in Rust. The code in `src/ui.rs` demonstrates the use of widgets, layouts, and styling to create the application's interface.
 

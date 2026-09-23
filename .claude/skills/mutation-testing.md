@@ -11,7 +11,7 @@ description: Use when running or writing mutation tests for FFM. Covers cargo-mu
 FFM uses `cargo-mutants` for mutation testing to ensure tests catch real bugs, not just exercise code paths.
 
 ## Key Files
-- `.cargo-mutants.toml` — Mutation testing config
+- `.cargo/mutants.toml` — Mutation testing config (the only path `cargo mutants` reads)
 - `src/mutation_test.rs` — Injection points (`FORCE_RENAME_FAILURE`, etc.)
 - `src/mutation_killer_tests.rs` — Tests specifically designed to kill mutants
 - `tests/handlers_mutation_tests.rs` — Handler mutation killers
