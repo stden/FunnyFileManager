@@ -51,11 +51,9 @@ jobs:
       - name: Format and Clippy (all crates, -D warnings)
         run: ./ffm.sh lint
 
-      - name: Readability gate self-test
+      # Readability fixtures, then the manifest lint policy (scripts/test_lint_policy.py).
+      - name: Lint gate self-tests (readability, lint policy)
         run: ./ffm.sh lint self-test
-
-      - name: Lint policy self-test
-        run: python3 scripts/test_lint_policy.py
 
       - name: Architecture contracts
         run: cargo test --locked --test module_boundaries_test
