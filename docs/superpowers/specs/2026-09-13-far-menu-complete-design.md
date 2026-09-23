@@ -2,7 +2,7 @@
 
 # Far Manager menu, complete: design
 
-_2026-09-13. Status: approved for implementation (autonomous run)._
+_2026-09-13. Status: open plan. The F9 command path implements many rows. Alt+F8, Alt+F9, Alt+F10, Alt+F11, Alt+F12, Ctrl+I, F12, and Ctrl+W still open a placeholder. This file is the plan, not a description of current behavior. See `docs/knowledge-base/06-ui-and-interaction/overlays-and-modals.md`._
 
 ## 1. Goal
 

@@ -4,7 +4,8 @@ use funny_file_manager::handlers::{
 };
 use funny_file_manager::models::ViewMode;
 use funny_file_manager::models::{App, Overlay, Panel, PanelSide, Viewer};
-/// Comprehensive tests for every ✅-implemented Far Manager hotkey listed in CLAUDE.md.
+/// Hotkey tests. Parity status lives in
+/// `docs/knowledge-base/09-far-manager-compatibility/hotkeys-and-parity.md`.
 /// One test per hotkey (or small group of related keys).
 /// Strategy:
 ///   - Overlay keys   → call `process_popup_input` directly, assert App state

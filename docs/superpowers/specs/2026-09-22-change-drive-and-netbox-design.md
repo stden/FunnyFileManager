@@ -2,7 +2,7 @@
 
 # Change drive parity and NetBox connections: design
 
-_2026-09-22. Status: approved for implementation (autonomous run)._
+_2026-09-22. Status: open plan. The drive dialog already draws Far's table. Stored NetBox connections are not in the tree yet. This file is the plan, not a description of current behavior._
 
 ## 1. What the user asked for
 

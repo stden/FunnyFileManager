@@ -2,6 +2,8 @@
 
 # 🏛️ Smart Autocomplete for the `:` Command Line — Design
 
+> Status: implemented. This file is the original design record. The problem statement describes the command line before this work. Current behavior is in `docs/knowledge-base/07-core-features/command-line.md`.
+
 **Date:** 2026-07-25
 **Problem:** Tab completion on the `:` command line (`src/complete.rs`) is
 prefix-only, offers no visible candidate list beyond a space-joined status-bar

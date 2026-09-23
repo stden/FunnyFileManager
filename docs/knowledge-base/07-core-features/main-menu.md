@@ -24,7 +24,7 @@ and readable sizes. Description modes read the configured description sidecar;
 Long descriptions reserves more width for that text. Owners and Links show
 cached filesystem ownership and link information, refreshed during navigation.
 
-Tree opens a bounded recursive folder chooser. Quick view (Ctrl+Q) turns the
+`Ctrl+T` turns the active panel into a folder tree, rooted at the filesystem root and opened on that panel's folder. Enter turns it back into a file panel there. Folders are listed as they are opened. Quick view (Ctrl+Q) turns the
 passive panel into a preview of the entry under the active cursor — a text file
 decoded and highlighted as the viewer would, a folder's description or totals —
 and follows the cursor on every event; from inside the preview it turns that panel back into a
@@ -42,9 +42,7 @@ information use the existing operations.
 The sort chooser uses Far's compact vertical-menu appearance: a white double
 frame and text on teal (`#008080`), a black selection bar, yellow mnemonic
 letters, aligned shortcut hints, a shadow, and an arrow for the active order.
-It opens beside the active panel. Name, Extension and Size remain the supported
-sort criteria; N/X/S or Ctrl+F3/F4/F6 choose them within the menu. Arrow keys
-wrap, Enter applies, and a mouse click activates the clicked criterion.
+It opens beside the active panel. The rows are the nine sort modes — name, extension, modification time, size, unsorted, creation time, access time, description, and owner — plus Reverse order. `Ctrl+F3` through `Ctrl+F11` choose those modes directly, and pressing the key of the mode already in force reverses it. `+`, `-`, and `*` set direct, reversed, and flipped order. Arrow keys wrap, Enter applies, and a mouse click activates the clicked row.
 The visual reference is Far's [default menu palette](https://github.com/FarGroup/FarManager/blob/master/far/palette.cpp)
 and [sort-menu layout](https://github.com/FarGroup/FarManager/blob/master/far/filelist.cpp).
 
@@ -83,6 +81,8 @@ with their shortcuts. Additional operations are:
 | Screens | Chooses file panels or console transcript. F9 from the console returns to panels and opens the menu. |
 | Tasks / hotplug devices | Shows host process information or currently mounted drives. |
 | Plugin commands | Opens the existing MCP status interface. |
+
+The table describes the F9 row, which runs `ops/menu`. The matching hotkey does not always take that path. Alt+F8, Alt+F9, Alt+F10, Alt+F11, Alt+F12, Ctrl+I, F12, and Ctrl+W still open a placeholder frame (`src/ui/stub.rs`). Choosing the same name from F9 performs the operation. Alt+F7 opens the real Find file dialog. See [overlays](../../06-ui-and-interaction/overlays-and-modals.md).
 
 User-menu files contain `Label<TAB>command` lines. Association files contain
 `extension<TAB>command`; extension matching ignores case and `{}` expands to

@@ -24,6 +24,6 @@ FunnyFileManager (FFM) is a terminal-based dual-panel file manager written in Ru
 
 - Not trying to be a full graphical file manager.
 - Not aiming for maximum feature parity with every Far plugin.
-- Internal editor is intentionally kept simple (or delegated externally) to avoid scope creep.
+- F4 is a built-in text editor with syntax highlighting and optional language servers. Alt+F4 still opens an external editor. The editor is not a second application with its own file manager.
 
 The project values correctness, maintainability, and excellent developer/agent experience over raw feature count.

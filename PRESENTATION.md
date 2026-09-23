@@ -33,10 +33,11 @@ paginate: true
 
 ## 🏛️ Architecture
 
-- **Models**: Clean separation of state (Panels, Entries, App)
-- **Handlers**: Modular logic for file operations and inputs
-- **UI**: Declarative rendering using Ratatui widgets
-- **Virtual Drives**: Extensible system for S3 and other backends
+- **Models**: Application state (panels, entries, one `Overlay`)
+- **application**: Event loop and action effects
+- **ops**: File, command, and dialog operations
+- **ui**: Rendering with Ratatui. It does not run operations
+- **handlers**: Compatibility re-exports, not the implementation
 
 ---
 
@@ -52,19 +53,19 @@ paginate: true
 
 ## ✅ Quality Assurance
 
-- **83%+ Code Coverage**
-- **Integration Tests** for all Far Manager hotkeys
-- **Mutation Testing** with `cargo-mutants`
-- **Tarpaulin` for coverage reporting
+- **Line coverage gate**: 98% of the measured root set, 75% for MCP (`cargo llvm-cov` in CI)
+- **Integration tests** for hotkeys, menus, and file operations
+- **Targeted mutation testing** with `cargo-mutants`
 
 ---
 
-## 🗺️ Future Roadmap
+## ✨ Also in the tree
 
-- Archive support (.zip, .tar.gz)
-- Syntax highlighting in viewer
-- Plugin system (Lua or WASM)
-- Built-in terminal emulator
+- Built-in editor (F4), syntax highlighting, and optional language servers
+- tar and zip archive dialogs
+- KeePass vault browser (`keepass` feature)
+- MCP server for agents (`mcp/`)
+- Console transcript (`Ctrl+O`), separate from an embedded shell
 
 ---
 

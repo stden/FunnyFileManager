@@ -1,29 +1,17 @@
 <!-- Purpose: Collects the Rust testing checklist used before integration or release. -->
 
-# 🧪 TESTING_CHECKLIST_RUST.md
+# Testing checklist
 
-## 🚦 Before merge
-- [ ] `cargo fmt --all -- --check`
-- [ ] `cargo clippy --all-targets --all-features -- -D warnings`
-- [ ] `cargo test`
-- [ ] New business logic has unit tests
-- [ ] Bug fixes include regression tests
-- [ ] Integration tests cover DB / HTTP / queue boundaries where relevant
-- [ ] No ignored flaky tests left behind
-- [ ] Error paths are tested, not only happy paths
+The strategy and the seam table are in `docs/knowledge-base/05-testing/testing-strategy.md`. The workflow is in `TESTING_TDD_GUIDE.md`.
 
-## ✅ Rust-specific best practices
-- [ ] Small unit tests live near code with `#[cfg(test)]`
-- [ ] Cross-module / black-box tests live in `tests/`
-- [ ] Prefer deterministic assertions over log-based checks
-- [ ] Avoid network access in unit tests
-- [ ] Use temp dirs / fixtures for filesystem tests
-- [ ] Use table-driven cases for parser / validator logic
-- [ ] Avoid `unwrap()` in production paths unless justified
-- [ ] Test serde / parsing round-trips when serialization matters
+## Before a change is finished
 
-## 🚦 CI minimum
-- [ ] fmt
-- [ ] clippy
-- [ ] unit/integration tests
-- [ ] release/debug build for critical crates
+- [ ] `./ffm.sh lint` passes (format, Clippy `-D warnings`, the shared feature matrix).
+- [ ] `cargo test --features test-helpers` passes for the behavior you touched.
+- [ ] New behavior and bug fixes have a test that failed before the fix.
+- [ ] Filesystem tests use `tempfile::TempDir` and do not read the checkout or the home directory.
+- [ ] Rendering checks use a `TestBackend` buffer when the style or the text is the behavior.
+- [ ] Cucumber changes run with `cargo test --test bdd` (and `bdd_ru` when those steps changed). Nextest does not run `harness = false` suites.
+- [ ] Optional `s3` or `keepass` behavior was tested with that feature enabled.
+- [ ] Coverage exclusions and the 98% / 75% line gates were not weakened to hide a miss.
+- [ ] No secrets, personal paths, or machine-specific hosts were added. The private-data lint enforces this.

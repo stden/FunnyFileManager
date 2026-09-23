@@ -2,6 +2,8 @@
 
 # 🏛️ Bash-Grade `:` Command Line — Design
 
+> Status: implemented. This file is the original design record. Current command-line behavior is in `docs/knowledge-base/07-core-features/command-line.md`.
+
 **Date:** 2026-08-10
 **Supersedes nothing;** extends `2026-07-25-smart-autocomplete-design.md`, which
 shipped fuzzy matching, the dropdown, ghost text and bookmark sources.
