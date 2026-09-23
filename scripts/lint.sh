@@ -8,7 +8,7 @@
 #   scripts/lint.sh clippy-fast  # clippy all targets (default features)
 #   scripts/lint.sh fix          # auto-format, then full clippy gate
 #   scripts/lint.sh self-test    # prove readability limits and the manifest lint policy
-#   scripts/lint.sh architecture # dependency ownership, layering, and file limits
+#   scripts/lint.sh architecture # dependency ownership, layering, unsafe allowlist, file limits
 #
 # Exit non-zero on the first failure. Matches `.github/workflows/tests.yml` lint job.
 set -euo pipefail
@@ -77,8 +77,8 @@ run_clippy_matrix() {
 }
 
 run_architecture() {
-    echo "→ architecture contracts (ownership, dependencies, test separation, file limits)"
-    cargo test --test module_boundaries_test --test file_line_limit_test
+    echo "→ architecture contracts (ownership, dependencies, unsafe allowlist, test separation, file limits)"
+    cargo test --test module_boundaries_test --test unsafe_boundary_test --test file_line_limit_test
     "$PYTHON" scripts/test_readability.py
     "$PYTHON" scripts/test_recording.py
 }
