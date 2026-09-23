@@ -148,10 +148,10 @@ fn handle_view_records_the_file_behind_the_viewer() -> io::Result<()> {
     let viewer = app.get_viewer().expect("viewer open");
     assert_eq!(viewer.title(), "latin1.txt");
     assert_eq!(viewer.lines, vec!["caf\u{fffd}"]);
-    let viewed = viewer.viewed_file().expect("a file viewer knows its file");
-    assert_eq!(viewed.path, file);
-    assert_eq!(viewed.size.bytes(), 5);
-    assert_eq!(viewed.encoding, crate::models::Encoding::Ansi);
+    let opened = viewer.viewed_file().expect("a file viewer knows its file");
+    assert_eq!(opened.path, file);
+    assert_eq!(opened.size.bytes(), 5);
+    assert_eq!(opened.encoding, crate::models::Encoding::Ansi);
     assert_eq!(app.status_text(), format!("Viewing {}", file.display()));
     Ok(())
 }
