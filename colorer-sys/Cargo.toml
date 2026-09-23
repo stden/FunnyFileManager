@@ -23,6 +23,9 @@ cc = "1.4.5"
 unfulfilled_lint_expectations = "deny"
 
 [lints.clippy]
+all = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
 cognitive_complexity = "warn"
 excessive_nesting = "warn"
 too_many_lines = "warn"

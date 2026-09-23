@@ -1,4 +1,4 @@
-//! Purpose: Raw FFI to Colorer-library — the engine behind Far's FarColorer.
+//! Purpose: Raw FFI to Colorer-library — the engine behind Far's `FarColorer`.
 //!
 //! Nothing here is safe or idiomatic; it is the C surface `shim.cpp` exposes
 //! and no more. The safe wrapper lives in the file manager, so that this crate
@@ -54,6 +54,11 @@ extern "C" {
 /// Stubs for a build with no Colorer-library. Every one answers "nothing here",
 /// which is exactly what the safe wrapper already handles.
 #[cfg(not(colorer))]
+#[expect(
+    clippy::missing_const_for_fn,
+    clippy::must_use_candidate,
+    reason = "stubs keep the exact signatures of the extern \"C\" declarations they replace"
+)]
 mod stub {
     use super::{c_char, c_int, c_void, RegionCallback};
 
