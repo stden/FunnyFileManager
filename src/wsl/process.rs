@@ -44,13 +44,13 @@ fn read_pipe(reader: impl Read + Send + 'static) -> Result<Pipe, String> {
     let (sender, receiver) = mpsc::sync_channel(4);
     thread::Builder::new()
         .name("wsl-output".to_owned())
-        .spawn(move || pump_pipe(reader, sender))
+        .spawn(move || pump_pipe(reader, &sender))
         .map_err(|error| format!("Cannot capture WSL output: {error}"))?;
     Ok(receiver)
 }
 
 /// Drain one stream into the bounded queue until EOF or its consumer closes.
-fn pump_pipe(mut reader: impl Read, sender: mpsc::SyncSender<Result<Vec<u8>, String>>) {
+fn pump_pipe(mut reader: impl Read, sender: &mpsc::SyncSender<Result<Vec<u8>, String>>) {
     let mut buffer = [0; PIPE_CHUNK];
     loop {
         let bytes = match reader.read(&mut buffer) {
@@ -113,8 +113,8 @@ trait ManagedProcess {
 
 fn capture(
     child: &mut impl ManagedProcess,
-    stdout_pipe: Pipe,
-    stderr_pipe: Pipe,
+    stdout_pipe: &Pipe,
+    stderr_pipe: &Pipe,
     timeout: Duration,
 ) -> Result<Captured, String> {
     let deadline = Instant::now() + timeout;
@@ -123,8 +123,8 @@ fn capture(
     let mut stdout = StreamOutput::default();
     let mut stderr = StreamOutput::default();
     loop {
-        let out_progress = drain_pipe(&stdout_pipe, &mut stdout)?;
-        let err_progress = drain_pipe(&stderr_pipe, &mut stderr)?;
+        let out_progress = drain_pipe(stdout_pipe, &mut stdout)?;
+        let err_progress = drain_pipe(stderr_pipe, &mut stderr)?;
         poll_exit(child, &mut exit, &mut drain_deadline)?;
         if out_progress.closed() && err_progress.closed() {
             if let Some(exit) = exit {
@@ -219,8 +219,9 @@ fn windows_directory() -> Result<std::path::PathBuf, String> {
 
     let mut buffer = vec![0; 260];
     loop {
+        let capacity = u32::try_from(buffer.len()).map_err(|error| error.to_string())?;
         // SAFETY: the buffer is writable for the exact capacity passed to Win32.
-        let length = unsafe { GetWindowsDirectoryW(buffer.as_mut_ptr(), buffer.len() as u32) };
+        let length = unsafe { GetWindowsDirectoryW(buffer.as_mut_ptr(), capacity) };
         if length == 0 {
             return Err(format!(
                 "Cannot locate Windows: {}",
@@ -266,7 +267,7 @@ pub(super) fn run(args: &[&str], timeout: Duration) -> Result<Captured, String> 
     );
     let stdout = read_pipe(child.0.stdout.take().ok_or("WSL stdout pipe is missing")?)?;
     let stderr = read_pipe(child.0.stderr.take().ok_or("WSL stderr pipe is missing")?)?;
-    capture(&mut child, stdout, stderr, timeout)
+    capture(&mut child, &stdout, &stderr, timeout)
 }
 
 #[cfg(test)]

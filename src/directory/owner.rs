@@ -37,6 +37,10 @@ impl Owners {
 }
 
 #[cfg(unix)]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "shares the signature of the non-Unix variant, which has no ids to return"
+)]
 fn identifiers(metadata: &std::fs::Metadata) -> Option<(u32, u32)> {
     use std::os::unix::fs::MetadataExt;
     Some((metadata.uid(), metadata.gid()))

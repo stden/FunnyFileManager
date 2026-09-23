@@ -11,7 +11,7 @@ use ratatui::{
 use crate::models::{App, CommandLine, Overlay};
 
 use super::command_prompt::{command_prompt, prompt_spans, prompt_width, window_prompt};
-use super::{tail_cells, take_cells, Cells};
+use super::{screen_u16, tail_cells, take_cells, Cells};
 
 /// Separates the command line's path from the typed command.
 const PROMPT_SUFFIX: &str = "> ";
@@ -194,9 +194,7 @@ fn command_cursor(area: Rect, caret_column: Cells, caret: &str) -> Option<(u16, 
     if caret.is_empty() || area.width == 0 || area.height == 0 {
         None
     } else {
-        let column = caret_column
-            .get()
-            .min(usize::from(area.width.saturating_sub(1))) as u16;
+        let column = screen_u16(caret_column.get()).min(area.width.saturating_sub(1));
         Some((area.x.saturating_add(column), area.y))
     }
 }

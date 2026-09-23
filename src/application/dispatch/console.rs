@@ -19,7 +19,7 @@ use super::prompts::{open_command_line_with, open_menu};
 /// that would touch the panels is swallowed: they are not on screen to act on,
 /// and F8 silently deleting a file behind a full-screen console is exactly the
 /// kind of thing the old modal `Overlay::Console` was protecting against.
-pub(super) fn console_action<B>(terminal: &mut Terminal<B>, app: &mut App, action: Action)
+pub(super) fn console_action<B>(terminal: &Terminal<B>, app: &mut App, action: Action)
 where
     B: Backend + Write,
 {

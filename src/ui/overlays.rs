@@ -11,7 +11,9 @@ use ratatui::{
 use super::code::editor_window;
 use super::dialog;
 use super::palette;
-use super::{cells_before, centered_rect, far_block, head_cells, skip_cells, Cells, FAR_BLUE};
+use super::{
+    cells_before, centered_rect, far_block, head_cells, screen_u16, skip_cells, Cells, FAR_BLUE,
+};
 use crate::models::{App, ExitChoice, Overlay};
 use crate::search::SearchPrompt;
 
@@ -403,8 +405,11 @@ fn render_editor(
         // `scroll_x`: a double-width glyph straddling the cut is
         // dropped whole, so the two can differ by one.
         let dropped = skip_cells(cursor_line_text, scroll_x).1;
-        let cursor_x = area.x + cursor_cell.saturating_sub(dropped).get() as u16;
-        let cursor_y = area.y + EDITOR_BAR_HEIGHT + (editor.cursor_line - scroll_y) as u16;
+        let cursor_x = area
+            .x
+            .saturating_add(screen_u16(cursor_cell.saturating_sub(dropped).get()));
+        let cursor_y =
+            (area.y + EDITOR_BAR_HEIGHT).saturating_add(screen_u16(editor.cursor_line - scroll_y));
         f.set_cursor_position((cursor_x, cursor_y));
     }
 }

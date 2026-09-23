@@ -35,7 +35,7 @@ pub fn open(app: &mut App) {
         .file_name()
         .map(|name| app.get_inactive_panel_ref().path.join(name))
         .unwrap_or_default();
-    let prompt = NamePrompt::link_to(target, suggested.display().to_string());
+    let prompt = NamePrompt::link_to(&target, suggested.display().to_string());
     app.set_overlay(Overlay::NamePrompt(prompt));
 }
 

@@ -1,6 +1,9 @@
 //! Purpose: Require explicit session-scoped workspace trust before launching any server process.
 
-use super::*;
+use super::{
+    report, workspace_root, Command, Connection, DocumentId, Envelope, Event, PathBuf,
+    ServerSettings, ServerState, Snapshot, SyncSender,
+};
 
 #[derive(Default)]
 enum Session {

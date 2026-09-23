@@ -68,7 +68,7 @@ fn modal_paste_labels_identify_the_context_without_recording_private_text() {
     use crate::models::{ApplyPrompt, ArchiveMenu, DescribePrompt};
     let temp = tempfile::TempDir::new().unwrap();
     let mut app = app(&temp);
-    let description = DescribePrompt::new("private name".into(), "private text".into(), vec![]);
+    let description = DescribePrompt::new("private name".into(), "private text", vec![]);
     for (overlay, expected) in [
         (Overlay::ArchivePrompt(Box::default()), "Archive"),
         (Overlay::ExtractPrompt(Box::default()), "Extract"),

@@ -55,7 +55,7 @@ impl crate::clipboard::ClipboardBackend for TextClipboard {
 fn replay_pastes_recorded_clipboard_text_instead_of_the_current_clipboard() {
     let root = TempDir::new().expect("directory");
     let script = root.path().join("session.py");
-    let input = Input::open_recorder(script.clone(), (80, 24)).expect("record");
+    let input = Input::open_recorder(&script, (80, 24)).expect("record");
     let mut clipboard = input.clipboard(Box::new(TextClipboard("recorded Ж🙂")));
     assert_eq!(clipboard.get_native().expect("read"), "recorded Ж🙂");
     let json = std::fs::read_to_string(script)
@@ -81,7 +81,7 @@ fn replay_pastes_recorded_clipboard_text_instead_of_the_current_clipboard() {
 #[test]
 fn live_clipboard_writes_reach_the_host_backend() {
     let root = TempDir::new().expect("directory");
-    let recorded = Input::open_recorder(root.path().join("session.py"), (80, 24)).expect("record");
+    let recorded = Input::open_recorder(&root.path().join("session.py"), (80, 24)).expect("record");
     let mut clipboard = recorded.clipboard(Box::new(TextClipboard("host")));
     assert!(clipboard.set_native("copied").is_ok());
     assert!(clipboard.emit_osc52("copied").is_ok());

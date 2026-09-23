@@ -21,6 +21,10 @@ fn finish_cleanup(first_error: Option<io::Error>) -> io::Result<()> {
     first_error.map_or(Ok(()), Err)
 }
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "one flag per terminal mode still to undo; restore retries each alone, so every combination occurs"
+)]
 pub(crate) struct TerminalSession<'a, B, O>
 where
     B: Backend + Write,
@@ -101,6 +105,10 @@ where
     }
 }
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "one flag per terminal mode still to resume; each is retried alone, so every combination occurs"
+)]
 pub(crate) struct TerminalSuspension<'a, B, O>
 where
     B: Backend + Write,

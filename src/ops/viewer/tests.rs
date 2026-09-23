@@ -23,7 +23,7 @@ fn open_mcp_status_reports_binary_found_when_present() -> io::Result<()> {
     fs::write(&binary, b"fake-mcp-binary")?;
 
     let mut app = App::new()?;
-    open_mcp_status_in(&mut app, temp.path(), temp.path())?;
+    open_mcp_status_in(&mut app, temp.path(), temp.path());
     let text = app.get_viewer().expect("viewer").lines.join("\n");
 
     assert!(
@@ -44,7 +44,7 @@ fn open_mcp_status_reports_not_configured_when_a_config_exists_without_ffm_mcp()
     fs::write(temp.path().join(".mcp.json"), b"{}")?;
 
     let mut app = App::new()?;
-    open_mcp_status_in(&mut app, temp.path(), temp.path())?;
+    open_mcp_status_in(&mut app, temp.path(), temp.path());
     let text = app.get_viewer().expect("viewer").lines.join("\n");
 
     assert!(
@@ -148,10 +148,10 @@ fn handle_view_records_the_file_behind_the_viewer() -> io::Result<()> {
     let viewer = app.get_viewer().expect("viewer open");
     assert_eq!(viewer.title(), "latin1.txt");
     assert_eq!(viewer.lines, vec!["caf\u{fffd}"]);
-    let viewed = viewer.viewed_file().expect("a file viewer knows its file");
-    assert_eq!(viewed.path, file);
-    assert_eq!(viewed.size.bytes(), 5);
-    assert_eq!(viewed.encoding, crate::models::Encoding::Ansi);
+    let opened = viewer.viewed_file().expect("a file viewer knows its file");
+    assert_eq!(opened.path, file);
+    assert_eq!(opened.size.bytes(), 5);
+    assert_eq!(opened.encoding, crate::models::Encoding::Ansi);
     assert_eq!(app.status_text(), format!("Viewing {}", file.display()));
     Ok(())
 }

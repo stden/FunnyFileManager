@@ -58,8 +58,8 @@ impl Client {
             Incoming::Response(Pending::Initialize, result) => self.initialized(result)?,
             Incoming::Response(Pending::Query(query), result) => self.answer(query, result),
             Incoming::Response(Pending::Shutdown, _) => self.shutdown_complete = true,
-            Incoming::Notification(method, params) => self.notification(&method, params)?,
-            Incoming::Request(id, method, params) => self.server_request(id, &method, &params),
+            Incoming::Notification(method, params) => self.notification(&method, &params)?,
+            Incoming::Request(id, method, params) => self.server_request(&id, &method, &params),
             Incoming::Unknown => {}
         }
         Ok(())
@@ -166,7 +166,7 @@ impl Client {
         self.events.push(Event::Reply(query, result));
     }
 
-    fn notification(&mut self, method: &str, params: Value) -> Result<(), &'static str> {
+    fn notification(&mut self, method: &str, params: &Value) -> Result<(), &'static str> {
         if method != "textDocument/publishDiagnostics" {
             return Ok(());
         }
@@ -192,7 +192,7 @@ impl Client {
         Ok(())
     }
 
-    fn server_request(&mut self, id: Value, method: &str, params: &Value) {
+    fn server_request(&mut self, id: &Value, method: &str, params: &Value) {
         let result = match method {
             "workspace/configuration" => json!(vec![
                 Value::Null;

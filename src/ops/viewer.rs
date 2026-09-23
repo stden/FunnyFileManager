@@ -38,10 +38,11 @@ pub fn open_mcp_status(app: &mut App) -> io::Result<()> {
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .unwrap_or_default();
-    open_mcp_status_in(app, &project, Path::new(&home))
+    open_mcp_status_in(app, &project, Path::new(&home));
+    Ok(())
 }
 
-fn open_mcp_status_in(app: &mut App, project: &Path, home: &Path) -> io::Result<()> {
+fn open_mcp_status_in(app: &mut App, project: &Path, home: &Path) {
     let mut lines = mcp_status_header(project);
     lines.extend(mcp_config_lines(project, home));
 
@@ -57,7 +58,6 @@ fn open_mcp_status_in(app: &mut App, project: &Path, home: &Path) -> io::Result<
     app.set_status(Status::CommandOutput(
         "MCP Server — press Esc to close".to_owned(),
     ));
-    Ok(())
 }
 
 fn mcp_status_header(project: &Path) -> Vec<String> {

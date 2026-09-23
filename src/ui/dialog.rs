@@ -792,9 +792,6 @@ fn focused_control_style(ground: Style) -> Style {
 /// Drawn before the dialog and never over it: the two rectangles overlap, and
 /// painting the shadow second would darken the dialog's own right edge.
 pub(super) fn render_shadow(f: &mut Frame, area: Rect, screen: Rect) {
-    /// How much of the original colour survives, out of eight.
-    const KEPT: u16 = 3;
-
     let x = area.x + SHADOW_X;
     let y = area.y + SHADOW_Y;
     if x >= screen.right() || y >= screen.bottom() {
@@ -805,9 +802,9 @@ pub(super) fn render_shadow(f: &mut Frame, area: Rect, screen: Rect) {
 
     let dim = |colour: Color| match colour {
         Color::Rgb(red, green, blue) => Color::Rgb(
-            (u16::from(red) * KEPT / 8) as u8,
-            (u16::from(green) * KEPT / 8) as u8,
-            (u16::from(blue) * KEPT / 8) as u8,
+            shadowed_component(red),
+            shadowed_component(green),
+            shadowed_component(blue),
         ),
         // A named colour has no components to scale, so it goes to the
         // shadow's own darkness rather than being left at full brightness.
@@ -823,3 +820,14 @@ pub(super) fn render_shadow(f: &mut Frame, area: Rect, screen: Rect) {
         }
     }
 }
+
+/// One RGB component of a shadowed cell: three eighths of it survive.
+fn shadowed_component(value: u8) -> u8 {
+    /// How much of the original colour survives, out of eight.
+    const KEPT: u16 = 3;
+    // At most 255 * 3 / 8 = 95, so the saturating fallback is never reached.
+    u8::try_from(u16::from(value) * KEPT / 8).unwrap_or(u8::MAX)
+}
+
+#[cfg(test)]
+mod tests;

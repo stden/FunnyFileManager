@@ -30,7 +30,7 @@ fn losing_write_access_stops_recording_without_ending_the_input_session() {
 fn successful_live_recording_keeps_the_recorder_and_preserves_the_input() {
     let root = TempDir::new().unwrap();
     let script = root.path().join("session.py");
-    let mut input = Input::open_recorder(script.clone(), (80, 24)).unwrap();
+    let mut input = Input::open_recorder(&script, (80, 24)).unwrap();
     let Input::Live(active) = &mut input else {
         panic!()
     };

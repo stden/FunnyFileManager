@@ -60,6 +60,13 @@ fn listing(panel: &PanelContext, options: ListOptions) -> String {
     text
 }
 
+#[cfg_attr(
+    not(windows),
+    expect(
+        clippy::unnecessary_wraps,
+        reason = "only the Windows code-page conversion can fail"
+    )
+)]
 fn encode(text: &str, encoding: ListEncoding) -> io::Result<Vec<u8>> {
     match encoding {
         ListEncoding::Utf8 => Ok(text.as_bytes().to_vec()),
@@ -117,7 +124,7 @@ fn native_convert(wide: &[u16], code_page: u32, bytes: &mut [u8]) -> io::Result<
     if written == 0 {
         return Err(io::Error::last_os_error());
     }
-    Ok(written as usize)
+    usize::try_from(written).map_err(io::Error::other)
 }
 
 #[cfg(test)]

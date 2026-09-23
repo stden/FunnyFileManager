@@ -36,9 +36,9 @@ impl App {
 #[cfg(windows)]
 pub(super) fn windows_drive_paths_from_mask(mask: u32) -> Vec<PathBuf> {
     let mut drives = Vec::new();
-    for bit in 0..26 {
+    for bit in 0..26_u8 {
         if (mask & (1 << bit)) != 0 {
-            let drive_letter = (b'A' + bit as u8) as char;
+            let drive_letter = char::from(b'A' + bit);
             drives.push(PathBuf::from(format!("{drive_letter}:\\")));
         }
     }

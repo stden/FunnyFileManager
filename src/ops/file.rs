@@ -675,6 +675,10 @@ fn apply_rights(source: &Path, dest: &Path, rights: crate::copy::AccessRights) -
 }
 
 #[cfg(not(unix))]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "shares the Unix signature, where the operation can fail"
+)]
 fn apply_rights(
     _source: &Path,
     _dest: &Path,

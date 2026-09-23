@@ -1,6 +1,6 @@
 //! Purpose: Render language-server popups, diagnostic ranges, and compact editor feedback.
 
-use super::{cells_before, skip_cells, Cells};
+use super::{cells_before, screen_u16, skip_cells, Cells};
 use crate::lsp::{features::Diagnostic, positions};
 use crate::models::{lsp::Dialog, CharColumn, Editor, ServerState};
 use ratatui::{
@@ -159,7 +159,7 @@ pub(super) fn diagnostics(frame: &mut Frame, editor: &Editor, area: Rect, top: u
                 paint(
                     frame,
                     area.x,
-                    area.y + (row - top) as u16,
+                    area.y.saturating_add(screen_u16(row - top)),
                     columns,
                     diagnostic.severity,
                 );
@@ -217,7 +217,7 @@ fn paint(
         .fg(color)
         .add_modifier(Modifier::UNDERLINED);
     for column in columns {
-        frame.buffer_mut()[(x + column as u16, y)].set_style(style);
+        frame.buffer_mut()[(x.saturating_add(screen_u16(column)), y)].set_style(style);
     }
 }
 

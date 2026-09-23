@@ -43,6 +43,8 @@ impl Bookmarks {
     }
 }
 
+const SLOT_OUT_OF_RANGE: &str = "bookmark slot must be 0-9";
+
 /// Domain-specific type for a bookmark slot (0-9).
 /// Replaces raw `usize` / magic numbers for bookmark operations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -59,17 +61,13 @@ impl BookmarkSlot {
         if n <= Self::MAX {
             Ok(Self(n))
         } else {
-            Err("bookmark slot must be 0-9")
+            Err(SLOT_OUT_OF_RANGE)
         }
     }
 
     /// Create from usize (common in parsing). Returns error if out of range.
-    pub const fn from_usize(n: usize) -> Result<Self, &'static str> {
-        if n <= Self::MAX as usize {
-            Ok(Self(n as u8))
-        } else {
-            Err("bookmark slot must be 0-9")
-        }
+    pub fn from_usize(n: usize) -> Result<Self, &'static str> {
+        u8::try_from(n).map_or(Err(SLOT_OUT_OF_RANGE), Self::new)
     }
 
     pub const fn as_u8(self) -> u8 {

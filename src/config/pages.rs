@@ -40,7 +40,7 @@ impl Default for SystemSettings {
         Self {
             auto_save_setup: false,
             wipe_on_delete: false,
-            history_size: crate::history::HISTORY_CAP as u32,
+            history_size: u32::try_from(crate::history::HISTORY_CAP).unwrap_or(u32::MAX),
         }
     }
 }

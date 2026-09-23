@@ -8,7 +8,7 @@ use super::*;
 fn describe_buttons_move_the_cursor_and_press_enter() {
     let dir = TempDir::new().expect("temp");
     let mut app = app_at(&dir);
-    let mut prompt = crate::models::DescribePrompt::new("a.txt".into(), String::new(), Vec::new());
+    let mut prompt = crate::models::DescribePrompt::new("a.txt".into(), "", Vec::new());
     prompt.toggle_button();
     app.set_overlay(Overlay::Describe(prompt));
     assert_eq!(code(&mut app, 0), KeyCode::Enter);

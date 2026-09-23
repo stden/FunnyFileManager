@@ -72,6 +72,7 @@ pub use editor::{
     CharColumn, EditState, Editor, EditorMotion, EditorSelection, ExitChoice, FileFormat,
     LineEnding, SelectionMode,
 };
+pub(crate) use entry::divide_rounded;
 pub use entry::{Attributes, DirEntry, EntryKind, FileSize, Modified};
 pub use file_name::FileName;
 pub use filter::{FilterPrompt, PanelFilter};

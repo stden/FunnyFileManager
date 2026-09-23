@@ -23,6 +23,10 @@ pub use purpose::Purpose;
 
 /// Everything the Copy dialog is editing.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "the Copy dialog's independent Far checkboxes; every combination is a valid request"
+)]
 pub struct CopyPrompt {
     /// Where the files are going. Free text: it may be typed, and it may name
     /// somewhere neither panel is showing.

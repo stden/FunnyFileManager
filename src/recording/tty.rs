@@ -70,6 +70,10 @@ pub fn wait(timeout: Duration) -> io::Result<Duration> {
 /// Windows tears its console's processes down with it and the console API has
 /// no equivalent spin, so nothing is owed: crossterm keeps the whole wait.
 #[cfg(not(unix))]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "shares the Unix signature, where the operation can fail"
+)]
 pub fn wait(_timeout: Duration) -> io::Result<Duration> {
     Ok(Duration::ZERO)
 }

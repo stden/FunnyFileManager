@@ -6,7 +6,7 @@
 //! `Shift+F1` dialogs with their one obvious answer filled in, so the same
 //! code unpacks and packs whichever way the user arrived.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::models::{App, ArchiveCommand, ArchiveFormat, ArchivePrompt, Overlay, Viewer};
 use crate::status::Status;
@@ -28,11 +28,11 @@ pub fn run_command(app: &mut App, command: ArchiveCommand) {
         ArchiveCommand::List => list(app, &archive),
         ArchiveCommand::ExtractHere => {
             let here = app.get_active_panel_ref().path.clone();
-            extract_to(app, here);
+            extract_to(app, &here);
         }
         ArchiveCommand::ExtractToOtherPanel => {
             let other = app.get_inactive_panel_ref().path.clone();
-            extract_to(app, other);
+            extract_to(app, &other);
         }
         ArchiveCommand::AddSelected => add_to(app, &archive),
     }
@@ -64,7 +64,7 @@ fn list(app: &mut App, archive: &Path) {
 }
 
 /// The Shift+F2 dialog, with the destination this row stands for.
-fn extract_to(app: &mut App, destination: PathBuf) {
+fn extract_to(app: &mut App, destination: &Path) {
     super::open_extract(app);
     if let Overlay::ExtractPrompt(prompt) = &mut app.overlay {
         prompt.destination = destination.display().to_string();

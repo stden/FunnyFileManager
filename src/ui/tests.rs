@@ -750,7 +750,7 @@ fn column_of(buf: &ratatui::buffer::Buffer, y: u16, text: &str) -> Option<u16> {
         .map(|x| buf[(x, y)].symbol().to_string())
         .collect();
     row.find(text)
-        .map(|byte| row[..byte].chars().count() as u16)
+        .map(|byte| u16::try_from(row[..byte].chars().count()).expect("column fits u16"))
 }
 
 /// A leading dot is a Unix naming convention, not a hidden attribute, so a

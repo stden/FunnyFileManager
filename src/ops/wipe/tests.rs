@@ -96,7 +96,7 @@ fn the_zero_pass_covers_files_longer_than_one_buffer() {
     let dir = TempDir::new().expect("temp dir");
     let file = dir.path().join("large.bin");
     let payload: Vec<u8> = (0..(super::ZERO_CHUNK * 3 + 7))
-        .map(|i| (i % 251) as u8 + 1)
+        .map(|i| u8::try_from(i % 251).expect("below 251") + 1)
         .collect();
     fs::write(&file, &payload).expect("write");
     let witness = Witness::install();

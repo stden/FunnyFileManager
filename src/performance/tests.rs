@@ -86,3 +86,14 @@ fn separate_sessions_keep_separate_reports_and_directory_errors_are_returned() {
         )
         .is_err());
 }
+
+#[test]
+fn the_action_count_saturates_instead_of_wrapping_to_zero() {
+    let mut stats = Performance::default();
+    stats.record("Tab", Duration::from_millis(4), Duration::ZERO);
+    stats.actions.get_mut("Tab").expect("recorded").count = u32::MAX;
+    stats.record("Tab", Duration::from_millis(4), Duration::ZERO);
+    let rows = stats.rows();
+    assert_eq!(rows[0].count, u32::MAX);
+    assert!((rows[0].mean_ms - 8.0 / f64::from(u32::MAX)).abs() < 1e-12);
+}

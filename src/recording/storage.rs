@@ -67,6 +67,10 @@ fn ensure_private(path: &Path) -> io::Result<()> {
 /// Windows has no equivalent of the shared, world-writable temporary
 /// directory this guards against: each user's is their own.
 #[cfg(not(unix))]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "shares the Unix signature, where the operation can fail"
+)]
 const fn ensure_private(_path: &Path) -> io::Result<()> {
     Ok(())
 }

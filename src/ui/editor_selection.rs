@@ -4,7 +4,7 @@ use ratatui::{layout::Rect, style::Style, Frame};
 
 use crate::models::{CharColumn, Editor};
 
-use super::{cells_before, palette, skip_cells, Cells};
+use super::{cells_before, palette, screen_u16, skip_cells, Cells};
 
 pub(super) fn render(f: &mut Frame, editor: &Editor, area: Rect, top: usize, skip: Cells) {
     let Some(selection) = editor.selection_range() else {
@@ -33,7 +33,7 @@ pub(super) fn render(f: &mut Frame, editor: &Editor, area: Rect, top: usize, ski
             .saturating_sub(dropped)
             .get()
             .min(usize::from(area.width));
-        let y = area.y + (row - top) as u16;
+        let y = area.y.saturating_add(screen_u16(row - top));
         paint_selection(f, area.x, y, first..last, style);
     }
 }
@@ -69,6 +69,6 @@ fn paint_selection(
     style: Style,
 ) {
     for x in columns {
-        f.buffer_mut()[(left + x as u16, y)].set_style(style);
+        f.buffer_mut()[(left.saturating_add(screen_u16(x)), y)].set_style(style);
     }
 }
