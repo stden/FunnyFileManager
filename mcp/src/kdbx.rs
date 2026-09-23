@@ -1,4 +1,4 @@
-//! Read-only KeePass export support for the `kbdx` MCP tool.
+//! Read-only `KeePass` export support for the `kbdx` MCP tool.
 //!
 //! JSON and YAML serialize the complete decrypted model exposed by the
 //! `keepass` crate. Protected values are therefore plaintext in the returned
@@ -13,15 +13,15 @@ use std::path::Path;
 
 /// A generous ceiling that prevents an untrusted MCP request from making the
 /// server parse an arbitrarily large encrypted container in memory.
-pub(crate) const MAX_DATABASE_BYTES: u64 = 64 * 1024 * 1024;
+pub const MAX_DATABASE_BYTES: u64 = 64 * 1024 * 1024;
 
 /// Do not place an unbounded plaintext secret document on the stdio transport.
 /// The export is rejected, never truncated, so a successful response is whole.
-pub(crate) const MAX_OUTPUT_BYTES: usize = 64 * 1024 * 1024;
+pub const MAX_OUTPUT_BYTES: usize = 64 * 1024 * 1024;
 
 /// Text encodings offered by the MCP boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum OutputFormat {
+pub enum OutputFormat {
     Json,
     Yaml,
     Env,
@@ -30,7 +30,7 @@ pub(crate) enum OutputFormat {
 /// Failures are intentionally coarse: decryption errors must never echo the
 /// supplied password, key material, or decrypted database data.
 #[derive(Debug)]
-pub(crate) enum ExportError {
+pub enum ExportError {
     Read(std::io::Error),
     InvalidKeyFile,
     Decrypt,
@@ -39,8 +39,8 @@ pub(crate) enum ExportError {
     OutputTooLarge(usize),
 }
 
-/// Open a KeePass database and return one complete text representation.
-pub(crate) fn export(
+/// Open a `KeePass` database and return one complete text representation.
+pub fn export(
     path: &Path,
     password: Option<&str>,
     keyfile: Option<&Path>,

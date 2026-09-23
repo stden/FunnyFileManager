@@ -11,7 +11,7 @@
 //!   2. `~/.local/share/ffm/Colorer-library` — where `ffm.sh colorer` puts one.
 //!   3. `/usr/local` and `/usr` — a system install.
 //!
-//! Network and CMake are deliberately not used here. A build script that clones
+//! Network and `CMake` are deliberately not used here. A build script that clones
 //! a C++ repository turns `cargo build` into something that needs the internet
 //! and can take ten minutes; `ffm.sh colorer` does that once, on purpose.
 
@@ -42,7 +42,7 @@ const ARCHIVES: [&str; 3] = ["libcolorer.a", "libcolorer.so", "colorer.lib"];
 /// ones do not.
 const LIB_SUBDIRS: [&str; 3] = ["", "Release", "Debug"];
 
-fn probe(include: PathBuf, generated: PathBuf, lib_dir: PathBuf) -> Option<Found> {
+fn probe(include: PathBuf, generated: PathBuf, lib_dir: &Path) -> Option<Found> {
     let headers = include.join("colorer/ParserFactory.h").is_file()
         && generated.join("colorer/common/Features.h").is_file();
     if !headers {
@@ -59,9 +59,9 @@ fn probe(include: PathBuf, generated: PathBuf, lib_dir: PathBuf) -> Option<Found
     })
 }
 
-/// A CMake build tree, whose generated headers and archive sit under `src/`.
+/// A `CMake` build tree, whose generated headers and archive sit under `src/`.
 fn from_build_tree(root: &Path, build: &Path) -> Option<Found> {
-    probe(root.join("src"), build.join("src"), build.join("src"))
+    probe(root.join("src"), build.join("src"), &build.join("src"))
 }
 
 fn locate() -> Option<Found> {
@@ -76,7 +76,7 @@ fn locate() -> Option<Found> {
         if let Some(found) = probe(
             PathBuf::from(&include),
             build.join("src"),
-            build.join("src"),
+            &build.join("src"),
         ) {
             return Some(found);
         }
@@ -92,7 +92,7 @@ fn locate() -> Option<Found> {
         if let Some(found) = probe(
             prefix.join("include"),
             prefix.join("include"),
-            prefix.join("lib"),
+            &prefix.join("lib"),
         ) {
             return Some(found);
         }

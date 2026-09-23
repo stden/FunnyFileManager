@@ -1,28 +1,22 @@
 //! Read local AWS profile names and merge optional region metadata.
 
-use rmcp::{
-    model::{CallToolResult, ContentBlock},
-    ErrorData as McpError,
-};
+use rmcp::model::CallToolResult;
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
 
-use crate::dirs_home;
+use crate::{dirs_home, json_response};
 
 /// List credential profiles without contacting AWS or exposing credentials.
-pub(super) fn list() -> Result<CallToolResult, McpError> {
+pub fn list() -> CallToolResult {
     let profiles = dirs_home()
         .map(|home| read_profiles(&home.join(".aws")))
         .unwrap_or_default();
-    let result = json!({ "count": profiles.len(), "profiles": profiles });
-    Ok(CallToolResult::success(vec![ContentBlock::text(
-        serde_json::to_string_pretty(&result).unwrap_or_default(),
-    )]))
+    json_response(&json!({ "count": profiles.len(), "profiles": profiles }))
 }
 
 /// Read profile names in credential-file order for the drive listing.
-pub(super) fn names() -> Vec<String> {
+pub fn names() -> Vec<String> {
     dirs_home()
         .map(|home| read_names(&home.join(".aws")))
         .unwrap_or_default()

@@ -2,10 +2,11 @@
 //! Benchmark all FFM MCP server tools via JSON-RPC over stdio.
 //!
 //! Usage:
-//!   cargo build --release -j1 && cargo run --example bench_mcp
+//!   `cargo build --release -j1 && cargo run --example bench_mcp`
 //! Or standalone:
-//!   rustc bench_mcp.rs -o bench_mcp && ./bench_mcp
+//!   `rustc bench_mcp.rs -o bench_mcp && ./bench_mcp`
 
+use std::fmt::Write as _;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -87,8 +88,7 @@ fn benchmark_tools(
     let mut bench = |name: &'static str, arguments: String| {
         request_id += 1;
         let request = format!(
-            r#"{{"jsonrpc":"2.0","id":{},"method":"tools/call","params":{{"name":"{}","arguments":{}}}}}"#,
-            request_id, name, arguments
+            r#"{{"jsonrpc":"2.0","id":{request_id},"method":"tools/call","params":{{"name":"{name}","arguments":{arguments}}}}}"#
         );
         let start = Instant::now();
         send(stdin, &request);
@@ -113,7 +113,8 @@ fn json_path(path: &Path) -> String {
             '\\' => escaped.push_str("\\\\"),
             '"' => escaped.push_str("\\\""),
             control if control.is_control() => {
-                escaped.push_str(&format!("\\u{:04x}", u32::from(control)))
+                // Writing into a `String` cannot fail.
+                let _ = write!(escaped, "\\u{:04x}", u32::from(control));
             }
             other => escaped.push(other),
         }
@@ -127,22 +128,19 @@ fn file_operations(bench: &mut impl FnMut(&'static str, String), tmp: &Path) {
     let test_dir_str = json_path(&tmp.join("subdir"));
 
     // ── 1. list_directory ────────────────────────────────────────
-    bench("list_directory", format!(r#"{{"path":"{}"}}"#, tmp_str));
+    bench("list_directory", format!(r#"{{"path":"{tmp_str}"}}"#));
 
     // ── 2. sort_directory ────────────────────────────────────────
     bench(
         "sort_directory",
-        format!(r#"{{"path":"{}","sort":"size"}}"#, test_dir_str),
+        format!(r#"{{"path":"{test_dir_str}","sort":"size"}}"#),
     );
 
     // ── 3. get_file_info ─────────────────────────────────────────
-    bench(
-        "get_file_info",
-        format!(r#"{{"path":"{}"}}"#, test_file_str),
-    );
+    bench("get_file_info", format!(r#"{{"path":"{test_file_str}"}}"#));
 
     // ── 4. view_file ─────────────────────────────────────────────
-    bench("view_file", format!(r#"{{"path":"{}"}}"#, test_file_str));
+    bench("view_file", format!(r#"{{"path":"{test_file_str}"}}"#));
 
     write_operations(bench, tmp);
 }
@@ -154,31 +152,28 @@ fn search_operations(bench: &mut impl FnMut(&'static str, String), tmp: &Path) {
     // ── 12. search ───────────────────────────────────────────────
     bench(
         "search",
-        format!(r#"{{"path":"{}","pattern":"txt"}}"#, tmp_str),
+        format!(r#"{{"path":"{tmp_str}","pattern":"txt"}}"#),
     );
 
     // ── 13. grep ─────────────────────────────────────────────────
     bench(
         "grep",
-        format!(r#"{{"path":"{}","pattern":"content"}}"#, test_dir_str),
+        format!(r#"{{"path":"{test_dir_str}","pattern":"content"}}"#),
     );
 
     // ── 14. tree ─────────────────────────────────────────────────
-    bench("tree", format!(r#"{{"path":"{}","depth":2}}"#, tmp_str));
+    bench("tree", format!(r#"{{"path":"{tmp_str}","depth":2}}"#));
 
     // ── 15. glob ─────────────────────────────────────────────────
     bench(
         "glob",
-        format!(r#"{{"path":"{}","pattern":"*.txt"}}"#, tmp_str),
+        format!(r#"{{"path":"{tmp_str}","pattern":"*.txt"}}"#),
     );
 
     // ── 16. find ─────────────────────────────────────────────────
     bench(
         "find",
-        format!(
-            r#"{{"path":"{}","name":"*.txt","file_type":"file"}}"#,
-            tmp_str
-        ),
+        format!(r#"{{"path":"{tmp_str}","name":"*.txt","file_type":"file"}}"#),
     );
 
     replace_and_delete_operations(bench, tmp);
@@ -193,19 +188,16 @@ fn metadata_operations(bench: &mut impl FnMut(&'static str, String), tmp: &Path)
     bench("list_drives", "{}".to_string());
 
     // ── 20. disk_usage ───────────────────────────────────────────
-    bench("disk_usage", format!(r#"{{"path":"{}"}}"#, test_dir_str));
+    bench("disk_usage", format!(r#"{{"path":"{test_dir_str}"}}"#));
 
     // ── 21. unique_name ──────────────────────────────────────────
     bench(
         "unique_name",
-        format!(r#"{{"directory":"{}","filename":"test.txt"}}"#, tmp_str),
+        format!(r#"{{"directory":"{tmp_str}","filename":"test.txt"}}"#),
     );
 
     // ── 22. file_checksum ────────────────────────────────────────
-    bench(
-        "file_checksum",
-        format!(r#"{{"path":"{}"}}"#, test_file_str),
-    );
+    bench("file_checksum", format!(r#"{{"path":"{test_file_str}"}}"#));
 
     // ── 23. format_size_tool ───────────────────────────────────────
     bench("format_size_tool", r#"{"bytes":1048576}"#.to_string());
@@ -249,12 +241,12 @@ fn system_operations(bench: &mut impl FnMut(&'static str, String), tmp: &Path) {
     let test_file_str = json_path(&tmp.join("test.txt"));
 
     // ── 29. permissions ──────────────────────────────────────────
-    bench("permissions", format!(r#"{{"path":"{}"}}"#, test_file_str));
+    bench("permissions", format!(r#"{{"path":"{test_file_str}"}}"#));
 
     // ── 30. set_bookmark ─────────────────────────────────────────
     bench(
         "set_bookmark",
-        format!(r#"{{"name":"bench_test","path":"{}"}}"#, tmp_str),
+        format!(r#"{{"name":"bench_test","path":"{tmp_str}"}}"#),
     );
 
     // ── 31. get_bookmark ─────────────────────────────────────────
@@ -285,7 +277,7 @@ fn print_results(results: &[(&str, Duration, bool)]) {
     for (name, dur, ok) in results {
         let status = if *ok { "  OK  " } else { " FAIL " };
         let time_str = format_duration(*dur);
-        println!("│ {:<23} │ {:>9} │{}│", name, time_str, status);
+        println!("│ {name:<23} │ {time_str:>9} │{status}│");
         total += *dur;
         if *ok {
             pass_count += 1;
@@ -329,7 +321,7 @@ fn format_duration(d: Duration) -> String {
     if ms < 1.0 {
         format!("{:.0} µs", ms * 1000.0)
     } else if ms < 1000.0 {
-        format!("{:.2} ms", ms)
+        format!("{ms:.2} ms")
     } else {
         format!("{:.2} s", ms / 1000.0)
     }
@@ -517,16 +509,17 @@ fn print_statistics(results: &[(&str, Duration, bool)], total: Duration) {
             .iter()
             .map(|(_, d, _)| d.as_secs_f64() * 1000.0)
             .collect();
-        let avg = times.iter().sum::<f64>() / times.len() as f64;
-        let min = times.iter().cloned().fold(f64::INFINITY, f64::min);
-        let max = times.iter().cloned().fold(0.0f64, f64::max);
+        let count = u32::try_from(times.len()).unwrap_or(u32::MAX);
+        let avg = times.iter().sum::<f64>() / f64::from(count);
+        let min = times.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = times.iter().copied().fold(0.0f64, f64::max);
         let min_name = results.iter().min_by_key(|(_, d, _)| *d).unwrap().0;
         let max_name = results.iter().max_by_key(|(_, d, _)| *d).unwrap().0;
         println!();
         println!("Stats:");
-        println!("  Avg: {:.2} ms", avg);
-        println!("  Min: {:.2} ms ({})", min, min_name);
-        println!("  Max: {:.2} ms ({})", max, max_name);
+        println!("  Avg: {avg:.2} ms");
+        println!("  Min: {min:.2} ms ({min_name})");
+        println!("  Max: {max:.2} ms ({max_name})");
         println!("  Total: {:.2} ms", total.as_secs_f64() * 1000.0);
     }
 }
@@ -537,7 +530,7 @@ fn print_failures(results: &[(&str, Duration, bool)]) {
         println!("FAILURES:");
         for (name, _, ok) in results {
             if !ok {
-                println!("  - {}", name);
+                println!("  - {name}");
             }
         }
     }
@@ -571,6 +564,6 @@ fn print_skipped_tools() {
     ];
 
     for name in &s3_skipped {
-        println!("│ {:<23} │   skipped │  S3   │", name);
+        println!("│ {name:<23} │   skipped │  S3   │");
     }
 }

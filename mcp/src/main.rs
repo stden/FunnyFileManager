@@ -1,7 +1,7 @@
-//! FFM MCP Server — Model Context Protocol server for FunnyFileManager.
+//! FFM MCP Server — Model Context Protocol server for `FunnyFileManager`.
 //!
 //! Exposes file management operations as MCP tools so that AI assistants
-//! (Claude, ChatGPT, etc.) can manage files, directories, and S3 objects.
+//! (Claude, `ChatGPT`, etc.) can manage files, directories, and S3 objects.
 //!
 //! Built on the official `rmcp` SDK with stdio transport.
 
@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom, Write as IoWrite};
 use std::path::{Component, Path, PathBuf};
@@ -43,6 +44,8 @@ pub use tool_names::TOOL_NAMES;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_conversions;
+#[cfg(test)]
 mod tests_kdbx;
 #[cfg(test)]
 mod tests_tools;
@@ -54,14 +57,50 @@ fn format_size(size: u64) -> String {
     const MB: u64 = 1024 * 1024;
     const GB: u64 = 1024 * 1024 * 1024;
     if size >= GB {
-        format!("{:.2} GB", size as f64 / GB as f64)
+        format!("{} GB", two_decimals(size, GB))
     } else if size >= MB {
-        format!("{:.2} MB", size as f64 / MB as f64)
+        format!("{} MB", two_decimals(size, MB))
     } else if size >= KB {
-        format!("{:.2} KB", size as f64 / KB as f64)
+        format!("{} KB", two_decimals(size, KB))
     } else {
         format!("{size} B")
     }
+}
+
+/// `size / unit` to two decimals, rounded half to even as `{:.2}` rounds.
+///
+/// Integer maths in `u128`: exact for every `u64`, where an `f64` quotient
+/// would lose the low bits of any size above 2^53.
+fn two_decimals(size: u64, unit: u64) -> String {
+    let unit = u128::from(unit);
+    let scaled = u128::from(size) * 100;
+    let (mut hundredths, remainder) = (scaled / unit, scaled % unit);
+    if remainder * 2 > unit || (remainder * 2 == unit && hundredths % 2 == 1) {
+        hundredths += 1;
+    }
+    format!("{}.{:02}", hundredths / 100, hundredths % 100)
+}
+
+/// A client-supplied `u64` count as a `usize`, saturating where `usize` is
+/// narrower: a line offset or limit past `usize::MAX` means "all of them".
+fn saturating_usize(value: u64) -> usize {
+    usize::try_from(value).unwrap_or(usize::MAX)
+}
+
+/// An S3 object size as bytes. The SDK models it as `i64`; a missing or
+/// negative size reports as zero rather than wrapping to 16 EiB.
+fn object_size(size: Option<i64>) -> u64 {
+    size.and_then(|bytes| u64::try_from(bytes).ok())
+        .unwrap_or(0)
+}
+
+/// How many times `needle` occurs in `haystack`.
+#[expect(
+    clippy::naive_bytecount,
+    reason = "a SIMD byte-count crate is not worth a dependency for line-ending tallies"
+)]
+fn count_byte(haystack: &[u8], needle: u8) -> usize {
+    haystack.iter().filter(|byte| **byte == needle).count()
 }
 
 /// Copy one entry, preserving what it *is* — the single place that decides how
@@ -295,8 +334,8 @@ impl TextFormat {
         // A CR is only a lone CR when no LF follows it, which is the same rule
         // that makes a CRLF one ending rather than two.
         let crlf = bytes.windows(2).filter(|pair| pair == b"\r\n").count();
-        let lf = bytes.iter().filter(|byte| **byte == b'\n').count() - crlf;
-        let cr = bytes.iter().filter(|byte| **byte == b'\r').count() - crlf;
+        let lf = count_byte(bytes, b'\n') - crlf;
+        let cr = count_byte(bytes, b'\r') - crlf;
         let endings = match (crlf > 0, lf > 0, cr > 0) {
             (true, false, false) => "crlf",
             (false, true, false) => "lf",
@@ -373,7 +412,7 @@ fn which_all(name: &str, path_list: &std::ffi::OsStr) -> Vec<PathBuf> {
 }
 
 /// Whether `path` carries any execute bit. That is a permission-bit test,
-/// not an access(X_OK) answer for the current user — but without it a plain
+/// not an `access(X_OK)` answer for the current user — but without it a plain
 /// file named like the command — a README, a data file — shadows the real
 /// binary, and `which` names something no shell would ever run.
 #[cfg(unix)]
@@ -418,11 +457,14 @@ fn checksum_file(path: &Path) -> io::Result<String> {
         }
         hasher.update(&buffer[..read]);
     }
-    Ok(hasher
-        .finalize()
+    let digest = hasher.finalize();
+    Ok(digest
         .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect())
+        .fold(String::with_capacity(digest.len() * 2), |mut hex, byte| {
+            // Writing into a `String` cannot fail.
+            let _ = write!(hex, "{byte:02x}");
+            hex
+        }))
 }
 
 /// The last `wanted` lines of a file, and its size.
@@ -476,16 +518,15 @@ fn search_recursive(
     if results.len() >= max {
         return;
     }
-    let entries = match fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return,
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
     };
     for entry in entries.flatten() {
         if results.len() >= max {
             return;
         }
         let name = entry.file_name().to_string_lossy().to_string();
-        let is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        let is_dir = entry.file_type().is_ok_and(|t| t.is_dir());
 
         if name.to_lowercase().contains(pattern) {
             let include = (!files_only || !is_dir) && (!dirs_only || is_dir);
@@ -541,8 +582,9 @@ fn join_child(base: &Path, name: &str) -> Result<PathBuf, String> {
 }
 
 /// Generate a unique file path to avoid overwriting existing files.
-/// If "test.txt" already exists, returns "test_1.txt", "test_2.txt", etc.
+/// If `test.txt` already exists, returns `test_1.txt`, `test_2.txt`, etc.
 fn unique_destination(base: &Path, file_name: &str) -> Result<PathBuf, String> {
+    const MAX_ATTEMPTS: u32 = 9999;
     // The counter suffixes below are derived from this one validated component,
     // so `{stem}_{n}[.{ext}]` can never grow a separator or a `..` of its own.
     let mut dest = join_child(base, file_name)?;
@@ -554,11 +596,10 @@ fn unique_destination(base: &Path, file_name: &str) -> Result<PathBuf, String> {
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
     let extension = path.extension().and_then(|e| e.to_str());
 
-    const MAX_ATTEMPTS: u32 = 9999;
     for counter in 1..=MAX_ATTEMPTS {
         let new_name = match extension {
-            Some(ext) if !ext.is_empty() => format!("{}_{}.{}", stem, counter, ext),
-            _ => format!("{}_{}", stem, counter),
+            Some(ext) if !ext.is_empty() => format!("{stem}_{counter}.{ext}"),
+            _ => format!("{stem}_{counter}"),
         };
         dest = base.join(new_name);
         if !dest.exists() {
@@ -566,8 +607,7 @@ fn unique_destination(base: &Path, file_name: &str) -> Result<PathBuf, String> {
         }
     }
     Err(format!(
-        "could not find unique name for '{}' after {} attempts",
-        file_name, MAX_ATTEMPTS
+        "could not find unique name for '{file_name}' after {MAX_ATTEMPTS} attempts"
     ))
 }
 
@@ -745,7 +785,7 @@ struct KdbxParams {
     /// Master password. Omit only for a key-file-only database. Never logged.
     #[serde(default)]
     password: Option<String>,
-    /// Optional KeePass key file; it must also be inside the allowed root.
+    /// Optional `KeePass` key file; it must also be inside the allowed root.
     #[serde(default)]
     keyfile: Option<String>,
     /// Output format: `json` (default), `yaml`, or password-only `env`.
@@ -882,7 +922,7 @@ struct PermissionsParams {
 struct BookmarkParams {
     /// Bookmark name/key
     name: String,
-    /// Path to bookmark (required for set_bookmark)
+    /// Path to bookmark (required for `set_bookmark`)
     #[serde(default)]
     path: Option<String>,
 }
@@ -1113,6 +1153,7 @@ impl FfmServer {
 
 #[tool_router]
 impl FfmServer {
+    #[must_use]
     pub fn new(root: PathBuf) -> Self {
         Self {
             tool_router: Self::tool_router(),
@@ -1159,7 +1200,7 @@ impl FfmServer {
             "count": entries.len(),
             "entries": entries,
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// List directory sorted by name, extension, or size (like Panel sort modes).
@@ -1170,7 +1211,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<SortDirectoryParams>,
     ) -> Result<CallToolResult, McpError> {
-        directory_tools::sort_directory(self, params)
+        directory_tools::sort_directory(self, &params)
     }
 
     /// Get detailed info about a file or directory.
@@ -1211,7 +1252,7 @@ impl FfmServer {
 
         append_file_metadata(&mut info, &path, &meta, modified);
 
-        json_response(&info)
+        Ok(json_response(&info))
     }
 
     /// Read and return the contents of a text file. Max 10 MB.
@@ -1240,8 +1281,8 @@ impl FfmServer {
         let lines: Vec<&str> = content.lines().collect();
         let total_lines = lines.len();
 
-        let offset = params.offset.unwrap_or(0) as usize;
-        let limit = params.limit.map(|l| l as usize).unwrap_or(total_lines);
+        let offset = params.offset.map_or(0, saturating_usize);
+        let limit = params.limit.map_or(total_lines, saturating_usize);
 
         let selected: Vec<&str> = lines.into_iter().skip(offset).take(limit).collect();
 
@@ -1252,10 +1293,10 @@ impl FfmServer {
             "lines_returned": selected.len(),
             "content": selected.join("\n"),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
-    /// Decrypt a KeePass database and return its contents as JSON, YAML, or dotenv text.
+    /// Decrypt a `KeePass` database and return its contents as JSON, YAML, or dotenv text.
     /// JSON/YAML contain the complete model, including plaintext protected values;
     /// dotenv contains current password fields only. Nothing is written to disk.
     #[tool(
@@ -1335,7 +1376,7 @@ impl FfmServer {
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let result = json!({ "created": path.display().to_string(), "size": content.len() });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Write content to a file, creating or overwriting it.
@@ -1355,7 +1396,7 @@ impl FfmServer {
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let result = json!({ "written": path.display().to_string(), "size": params.content.len() });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Append content to an existing file.
@@ -1373,7 +1414,6 @@ impl FfmServer {
                 .map_err(|e| McpError::internal_error(e.to_string(), None))?;
         }
 
-        use std::io::Write;
         let mut file = fs::OpenOptions::new()
             .create(true)
             .append(true)
@@ -1385,7 +1425,7 @@ impl FfmServer {
 
         let result =
             json!({ "appended": path.display().to_string(), "bytes_added": params.content.len() });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Create a new directory (and parent directories if needed).
@@ -1402,7 +1442,7 @@ impl FfmServer {
             .canonicalize()
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
         let result = json!({ "created": canonical.display().to_string() });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Copy a file or directory to a destination. Directories are copied recursively.
@@ -1436,7 +1476,7 @@ impl FfmServer {
 
         let result =
             json!({ "copied": source.display().to_string(), "to": dest.display().to_string() });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Move or rename a file or directory.
@@ -1479,7 +1519,7 @@ impl FfmServer {
 
         let result =
             json!({ "moved": source.display().to_string(), "to": dest.display().to_string() });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Delete a file or directory (recursively for directories).
@@ -1503,7 +1543,7 @@ impl FfmServer {
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let result = json!({ "deleted": path.display().to_string() });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1537,7 +1577,7 @@ impl FfmServer {
             "count": results.len(),
             "results": results,
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Search file contents for a text pattern (like grep).
@@ -1545,7 +1585,7 @@ impl FfmServer {
         description = "Search file contents for a text pattern (case-insensitive grep). Returns matching lines with file paths and line numbers."
     )]
     fn grep(&self, Parameters(params): Parameters<GrepParams>) -> Result<CallToolResult, McpError> {
-        content_search::grep(self, params)
+        content_search::grep(self, &params)
     }
 
     /// Show directory tree structure up to a given depth.
@@ -1560,7 +1600,7 @@ impl FfmServer {
             "depth": params.depth,
             "tree": tree,
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1572,7 +1612,7 @@ impl FfmServer {
         description = "Find files matching a glob pattern, relative to the search root (e.g. '*.rs', '**/*.txt', 'src/**/*.json'). '**' spans directories, '*' and '?' stay within one path component."
     )]
     fn glob(&self, Parameters(params): Parameters<GlobParams>) -> Result<CallToolResult, McpError> {
-        pattern_search::glob(self, params)
+        pattern_search::glob(self, &params)
     }
 
     /// Advanced find with filters: name pattern, file type, size range, depth, modification time.
@@ -1580,7 +1620,7 @@ impl FfmServer {
         description = "Advanced file finder with filters: name glob, type (file/dir/symlink), size range, max depth, modification time."
     )]
     fn find(&self, Parameters(params): Parameters<FindParams>) -> Result<CallToolResult, McpError> {
-        pattern_search::find(self, params)
+        pattern_search::find(self, &params)
     }
 
     /// Find and replace text across files in a directory tree.
@@ -1591,7 +1631,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<ReplaceParams>,
     ) -> Result<CallToolResult, McpError> {
-        replace::replace(self, params)
+        replace::replace(self, &params)
     }
 
     /// Delete files matching a glob pattern (e.g. "*.tmp", "*.bak").
@@ -1602,7 +1642,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<DeleteByPatternParams>,
     ) -> Result<CallToolResult, McpError> {
-        cleanup::delete_by_pattern(self, params)
+        cleanup::delete_by_pattern(self, &params)
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1611,7 +1651,7 @@ impl FfmServer {
 
     /// List available drives/mount points and S3 profiles.
     #[tool(description = "List available drives, mount points, and S3 profiles.")]
-    fn list_drives(&self) -> Result<CallToolResult, McpError> {
+    fn list_drives() -> CallToolResult {
         directory_tools::list_drives()
     }
 
@@ -1636,7 +1676,7 @@ impl FfmServer {
             "size": size,
             "size_human": format_size(size),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Generate a unique filename that doesn't conflict with existing files.
@@ -1667,7 +1707,7 @@ impl FfmServer {
             "unique_path": dest.display().to_string(),
             "unique_name": dest.file_name().unwrap_or_default().to_string_lossy(),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Compute SHA-256 checksum of a file.
@@ -1690,15 +1730,12 @@ impl FfmServer {
             "size": meta.len(),
             "size_human": format_size(meta.len()),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Get human-readable size format for a byte count.
     #[tool(description = "Convert a byte count to human-readable format (e.g. 1536 → '1.50 KB').")]
-    fn format_size_tool(
-        &self,
-        Parameters(params): Parameters<FormatSizeParams>,
-    ) -> Result<CallToolResult, McpError> {
+    fn format_size_tool(Parameters(params): Parameters<FormatSizeParams>) -> CallToolResult {
         let result = json!({
             "bytes": params.bytes,
             "formatted": format_size(params.bytes),
@@ -1752,7 +1789,7 @@ impl FfmServer {
             "total_copied": copied.len(),
             "total_errors": errors.len(),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Move multiple files/directories to a destination directory.
@@ -1789,15 +1826,12 @@ impl FfmServer {
             "total_moved": moved.len(),
             "total_errors": errors.len(),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Delete multiple files/directories.
     #[tool(description = "Delete multiple files/directories at once.")]
-    fn batch_delete(
-        &self,
-        Parameters(params): Parameters<BatchParams>,
-    ) -> Result<CallToolResult, McpError> {
+    fn batch_delete(&self, Parameters(params): Parameters<BatchParams>) -> CallToolResult {
         let mut deleted = Vec::new();
         let mut errors = Vec::new();
 
@@ -1861,7 +1895,7 @@ impl FfmServer {
             "link": link.display().to_string(),
             "target": target.display().to_string(),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Read the target of a symbolic link.
@@ -1882,7 +1916,7 @@ impl FfmServer {
             "target": target.display().to_string(),
             "target_exists": target.exists(),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Get or set file permissions.
@@ -1924,7 +1958,7 @@ impl FfmServer {
 
         let result = permissions_report(&path)?;
 
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1951,13 +1985,12 @@ impl FfmServer {
             "bookmark": params.name,
             "path": path.display().to_string(),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Get the path for a named bookmark.
     #[tool(description = "Get the saved path for a named bookmark.")]
     fn get_bookmark(
-        &self,
         Parameters(params): Parameters<BookmarkParams>,
     ) -> Result<CallToolResult, McpError> {
         let bookmarks = load_bookmarks();
@@ -1968,9 +2001,7 @@ impl FfmServer {
                     "path": path,
                     "exists": Path::new(path.as_str().unwrap_or("")).exists(),
                 });
-                Ok(CallToolResult::success(vec![ContentBlock::text(
-                    serde_json::to_string_pretty(&result).unwrap_or_default(),
-                )]))
+                Ok(json_response(&result))
             }
             None => Err(McpError::invalid_params(
                 format!("bookmark not found: {}", params.name),
@@ -1981,7 +2012,7 @@ impl FfmServer {
 
     /// List all saved bookmarks.
     #[tool(description = "List all saved bookmarks with their paths.")]
-    fn list_bookmarks(&self) -> Result<CallToolResult, McpError> {
+    fn list_bookmarks() -> CallToolResult {
         let bookmarks = load_bookmarks();
         let entries: Vec<serde_json::Value> = bookmarks
             .iter()
@@ -2004,7 +2035,6 @@ impl FfmServer {
     /// Delete a named bookmark.
     #[tool(description = "Delete a named bookmark.")]
     fn delete_bookmark(
-        &self,
         Parameters(params): Parameters<BookmarkParams>,
     ) -> Result<CallToolResult, McpError> {
         let mut bookmarks = load_bookmarks();
@@ -2017,7 +2047,7 @@ impl FfmServer {
         save_bookmarks(&bookmarks).map_err(|e| McpError::internal_error(e, None))?;
 
         let result = json!({ "deleted_bookmark": params.name });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     // NOTE: there is deliberately no "open editor" tool. This server speaks
@@ -2034,7 +2064,7 @@ impl FfmServer {
     #[tool(
         description = "Get system information: hostname, OS, architecture, home directory, current directory."
     )]
-    fn system_info(&self) -> Result<CallToolResult, McpError> {
+    fn system_info() -> CallToolResult {
         let mut info = json!({
             "os": std::env::consts::OS,
             "arch": std::env::consts::ARCH,
@@ -2085,7 +2115,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<AnalyseParams>,
     ) -> Result<CallToolResult, McpError> {
-        reports::analyse_directory(self, params)
+        reports::analyse_directory(self, &params)
     }
 
     /// Files with identical content, grouped.
@@ -2096,7 +2126,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<DuplicatesParams>,
     ) -> Result<CallToolResult, McpError> {
-        reports::find_duplicates(self, params)
+        reports::find_duplicates(self, &params)
     }
 
     /// The end of a file, without reading the front of it.
@@ -2118,7 +2148,7 @@ impl FfmServer {
             "lines_returned": lines.len(),
             "content": lines.join("\n"),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// What two directories disagree about.
@@ -2160,7 +2190,7 @@ impl FfmServer {
             "only_in_right": only_right,
             "differing_size": differing,
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// What changed lately.
@@ -2198,7 +2228,7 @@ impl FfmServer {
                 }))
                 .collect::<Vec<_>>(),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -2224,7 +2254,7 @@ impl FfmServer {
             "reached_end": reached_end,
             "content": lines.join("\n"),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// A window of lines out of the middle of a file.
@@ -2255,7 +2285,7 @@ impl FfmServer {
             "reached_end": reached_end,
             "content": lines.join("\n"),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// How a text file is punctuated, which is what an editor has to preserve.
@@ -2300,7 +2330,7 @@ impl FfmServer {
             "binary": format.binary,
             "bytes_examined": bytes.len(),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// `wc`, for a caller that wants the shape of a file before opening it.
@@ -2330,7 +2360,7 @@ impl FfmServer {
             "longest_line_chars": counts.longest,
             "longest_line_number": counts.longest_at,
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -2375,7 +2405,7 @@ impl FfmServer {
             difference,
             left_size == right_size,
         )?;
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// What is taking up the space, which `disk_usage` totals but does not name.
@@ -2424,17 +2454,14 @@ impl FfmServer {
                 }))
                 .collect::<Vec<_>>(),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Where a command would come from, before running it.
     #[tool(
         description = "Find an executable on PATH, as `which`/`where` does. Returns every match in PATH order, so a shadowed binary is visible. On Unix only a file with an execute bit counts."
     )]
-    fn which(
-        &self,
-        Parameters(params): Parameters<WhichParams>,
-    ) -> Result<CallToolResult, McpError> {
+    fn which(Parameters(params): Parameters<WhichParams>) -> Result<CallToolResult, McpError> {
         if params.name.is_empty() || params.name.contains(['/', '\\']) {
             return Err(McpError::invalid_params(
                 "name must be a bare executable name, with no directory part".to_string(),
@@ -2453,7 +2480,7 @@ impl FfmServer {
                 .map(|p| p.display().to_string())
                 .collect::<Vec<_>>(),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -2462,7 +2489,7 @@ impl FfmServer {
 
     /// List AWS profiles from ~/.aws/credentials.
     #[tool(description = "List AWS profiles from ~/.aws/credentials file.")]
-    fn s3_list_profiles(&self) -> Result<CallToolResult, McpError> {
+    fn s3_list_profiles() -> CallToolResult {
         s3_profiles::list()
     }
 
@@ -2486,7 +2513,7 @@ impl FfmServer {
             .map(|b| {
                 json!({
                     "name": b.name().unwrap_or(""),
-                    "creation_date": b.creation_date().map(|d| d.to_string()),
+                    "creation_date": b.creation_date().map(std::string::ToString::to_string),
                 })
             })
             .collect();
@@ -2496,7 +2523,7 @@ impl FfmServer {
             "count": buckets.len(),
             "buckets": buckets,
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// List objects in an S3 bucket.
@@ -2541,8 +2568,8 @@ impl FfmServer {
                 "key": obj.key().unwrap_or(""),
                 "type": "file",
                 "size": obj.size().unwrap_or(0),
-                "size_human": format_size(obj.size().unwrap_or(0) as u64),
-                "last_modified": obj.last_modified().map(|d| d.to_string()),
+                "size_human": format_size(object_size(obj.size())),
+                "last_modified": obj.last_modified().map(std::string::ToString::to_string),
             }));
         }
 
@@ -2553,7 +2580,7 @@ impl FfmServer {
             "count": objects.len(),
             "objects": objects,
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Download a file from S3 to a local path.
@@ -2595,7 +2622,7 @@ impl FfmServer {
             "size": bytes.len(),
             "size_human": format_size(bytes.len() as u64),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Upload a local file to S3.
@@ -2627,7 +2654,7 @@ impl FfmServer {
             "size": bytes.len(),
             "size_human": format_size(bytes.len() as u64),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Delete an object from S3.
@@ -2650,7 +2677,7 @@ impl FfmServer {
             "bucket": params.bucket,
             "deleted": params.key,
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 
     /// Copy an object within S3 (same or different bucket).
@@ -2675,7 +2702,7 @@ impl FfmServer {
             "source": format!("s3://{}/{}", params.source_bucket, params.source_key),
             "destination": format!("s3://{}/{}", params.dest_bucket, params.dest_key),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 }
 
@@ -2691,6 +2718,10 @@ struct FormatSizeParams {
 // `Self::tool_router()` would rebuild it on every call and leaves the field
 // unread (a `dead_code` warning that `clippy -D warnings` turns into an error).
 #[tool_handler(router = self.tool_router)]
+#[expect(
+    clippy::unused_async_trait_impl,
+    reason = "rmcp's tool_handler macro generates the async dispatch methods"
+)]
 impl ServerHandler for FfmServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
@@ -2732,10 +2763,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn json_response(value: &serde_json::Value) -> Result<CallToolResult, McpError> {
-    Ok(CallToolResult::success(vec![ContentBlock::text(
+fn json_response(value: &serde_json::Value) -> CallToolResult {
+    CallToolResult::success(vec![ContentBlock::text(
         serde_json::to_string_pretty(value).unwrap_or_default(),
-    )]))
+    )])
 }
 
 fn read_tail_bytes(file: &mut fs::File, size: u64, wanted: usize) -> io::Result<Vec<u8>> {
@@ -2757,7 +2788,7 @@ fn read_tail_bytes(file: &mut fs::File, size: u64, wanted: usize) -> io::Result<
         file.seek(SeekFrom::Start(position))?;
         let mut block = vec![0u8; usize::try_from(step).unwrap_or(BLOCK)];
         file.read_exact(&mut block)?;
-        newlines += block.iter().filter(|byte| **byte == b'\n').count();
+        newlines += count_byte(&block, b'\n');
         block.extend_from_slice(&buffer);
         buffer = block;
     }
