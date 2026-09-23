@@ -28,8 +28,8 @@ pub(super) const FKEY_LABELS: [(&str, &str); FKEY_COUNT] = [
     ("8", "Delete"),
     ("9", "ConfMn"),
     ("10", "Quit"),
-    // Far's F11 lists plugin commands; MCP servers are this program's plugin
-    // surface, so the label is Far's and the key opens what there is to open.
+    // Far's F11 lists plugin commands: here the MCP status screen and
+    // `NetBox`'s stored sessions and their import.
     ("11", "Plugin"),
     // Far's F12 switches between open screens. There are two here — the panels
     // and the console behind them — and F12 moves between them.

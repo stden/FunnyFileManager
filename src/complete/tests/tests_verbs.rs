@@ -126,3 +126,34 @@ fn built_in_verbs_outrank_path_executables() {
         "a built-in must lead, candidates were {names:?}"
     );
 }
+
+// ── sessions ──────────────────────────────────────────────────────
+
+#[test]
+fn sessions_completes_its_subcommand_and_source() {
+    let tmp = empty_cwd();
+    let c = complete("sessions im", tmp.path()).expect("the subcommand");
+    assert_eq!(c.line, "sessions import ");
+    let c = complete("sessions import ne", tmp.path()).expect("the source");
+    assert_eq!(c.line, "sessions import netbox ");
+    assert!(complete("sessions x", tmp.path()).is_none());
+}
+
+#[test]
+fn sessions_import_netbox_completes_the_file_as_a_path() {
+    let tmp = cwd_with(&["demo.netbox"]);
+    let c = complete("sessions import netbox de", tmp.path()).expect("the file");
+    assert_eq!(texts(&c), vec!["demo.netbox".to_string()]);
+    assert!(
+        c.line.starts_with("sessions import netbox demo.netbox"),
+        "{}",
+        c.line
+    );
+}
+
+#[test]
+fn a_sessions_word_out_of_place_offers_nothing() {
+    let tmp = cwd_with(&["far.txt"]);
+    assert!(complete("sessions import far f", tmp.path()).is_none());
+    assert!(complete("sessions open f", tmp.path()).is_none());
+}

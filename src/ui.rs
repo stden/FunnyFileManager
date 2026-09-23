@@ -44,8 +44,13 @@ mod overlays;
 mod palette;
 mod panel;
 mod path_env;
+mod plugin_commands;
+mod prompts;
 mod quickview;
+mod remote;
 mod screens;
+mod session_edit;
+mod sessions;
 mod settings;
 mod shortcuts;
 mod sortmenu;
@@ -266,6 +271,8 @@ fn render_one_panel(
         PanelKind::Files => render_panel(f, panel, area, is_active, footer.filter(|_| is_active)),
         PanelKind::Tree(_) => tree::render(f, panel, area, is_active),
         PanelKind::QuickView(_) => quickview::render(f, panel, area, is_active),
+        PanelKind::Sessions(_) => sessions::render(f, panel, area, is_active),
+        PanelKind::Remote(_) => remote::render(f, panel, area, is_active),
     }
 }
 
@@ -281,6 +288,10 @@ mod tests_editor_confirm_exit;
 mod tests_editor_tabs;
 #[cfg(test)]
 mod tests_info_row_messages;
+#[cfg(test)]
+mod tests_netbox;
+#[cfg(test)]
+mod tests_netbox_layout;
 #[cfg(test)]
 mod tests_overlay_dialogs;
 #[cfg(test)]

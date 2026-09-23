@@ -42,9 +42,9 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 | F9        | Menu bar                       | ✅         |       |
 | Alt+F9    | Video mode (25 / 50 rows)      | ⚠️         | Asks the terminal to resize (`CSI 8 t`); many terminals, tmux among them, ignore it. The status bar says the height asked for and the height the terminal has |
 | F10       | Quit                           | ✅         | Also Ctrl+C and the `quit` command |
-| F11       | Plugin commands                | ✅         | Opens MCP/plugin status |
+| F11       | Plugin commands                | ✅         | Far's list: MCP status, NetBox: stored sessions, NetBox: import from `.netbox` file… |
 | F12       | Switch screens                 | ✅         | The same list as F9 Screens: file panels or the console transcript. Ctrl+O toggles the console directly |
-| Alt+F1/F2 | Drive selection                | ✅         |       |
+| Alt+F1/F2 | Drive selection                | ✅         | Under the rule, with digit keys from 0: every S3 profile, then `NetBox` (the stored-sessions panel on that side) and `Process list` (the Task list, as Ctrl+W). Del, Shift+Del, F3, F4, F9 and Ctrl+R of Far's dialog are not implemented |
 | Ctrl+O    | Toggle console (hide panels)   | ✅         |       |
 | Ctrl+U    | Swap panels                    | ✅         | Ignored while a panel is hidden (Ctrl+F1 / Ctrl+F2), as in Far; the status line says so |
 | Ctrl+Z    | Describe files                 | ✅         | One prompt per marked entry (else the cursor), opening on the current text; writes Far's `name text` line (name quoted when it holds a space) to the first of `Settings.descriptions.names`, an empty text removes it, and the panel is re-listed |
@@ -98,6 +98,7 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 | `bookmark set/go`    | ✅        | Uses `BookmarkSlot` type; the only way to reach bookmarks — F2 opens Commands and there is no bookmark overlay |
 | `mark all`, `unmark` | ✅        |       |
 | `mcp`, `winmsg`, etc.| ✅        |       |
+| `sessions`           | ✅        | NetBox's stored-sessions panel; `sessions import netbox [path]` imports a `.netbox` export (the file under a file panel's cursor when no path is given) |
 | Shell fallback       | ✅        | Any unknown command runs in shell |
 
 ## 🧭 Panel Kinds (Left / Right menu)
@@ -105,6 +106,28 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 | Key     | Far Manager Action      | FFM Status | Notes |
 |---------|-------------------------|------------|-------|
 | Ctrl+Q  | Toggle quick view panel | ✅         | As in Far, the *passive* panel becomes the preview and the cursor stays on the file list; pressed inside the preview it turns that panel back into a file list. A file shows its first screen through the viewer's decoder and highlighter (the encoding label, size and percent in the info row; binary, oversized and non-regular files are declined with a one-line reason); a folder shows its first readable configured description (`README.md`, then `README.txt` by default) while InfoPanel settings is on, otherwise `crate::stats` totals (size, files, folders) — a folder that cannot be read says `Cannot read: <reason>`, and folders inside it that could not be read mark the totals as lower bounds, as F3's Information box does. Unusable descriptions are skipped; changing the description settings updates the open preview. The preview follows the cursor of a file or tree panel on every event. With the preview panel active, Up/Down, PgUp/PgDn, Home/End, Left/Right and Ctrl+Left/Ctrl+Right scroll it like the viewer; every other key falls through. The key and the Left/Right menu row share one path: `MenuCommand::QuickView` → `ops::quickview::toggle`. |
+
+## 🌐 NetBox Panels
+
+Far's NetBox plugin keeps SFTP/SCP/FTP connections as stored sessions. FFM
+stores the sessions and imports NetBox's `.netbox` export; it has no network
+transport yet, so connecting says so. See
+`docs/knowledge-base/07-core-features/netbox-sessions.md`.
+
+| Key (sessions panel) | Far NetBox Action        | FFM Status | Notes |
+|----------------------|--------------------------|------------|-------|
+| Enter on `..`        | Back to the file list    | ✅         |       |
+| Enter on a session   | Connect                  | ⚠️         | This build has no SFTP/SCP/FTP transport: the status bar says so and the session stays stored |
+| F3                   | Show the session         | ✅         | Its settings in the viewer; there is never a password to show |
+| F4 / Shift+F4        | Edit / new session       | ✅         | Name, protocol, host, port, user, login (password / key file / agent), start directory. No password field: a password is asked for when connecting, never stored |
+| F5                   | Copy session             | ✅         | Asks for the copy's name |
+| F8                   | Delete session           | ✅         | Asks first |
+| Alt+Letter           | Quick search             | ❌         | Refused with the other keys that act on files |
+| Other file keys      | —                        | ✅         | F5–F8, marking, Alt+Del, Ctrl+A … are refused with a status line instead of acting on the file list hidden beneath; Tab, Alt+F1/F2, F9–F12 and the command line still work. F5/F6 from a file panel refuse a sessions or remote panel as the destination |
+
+A remote panel (the seam the transport will fill; reached in this build only
+through tests) moves with the list keys, Enter enters a directory, and `..`
+at the host's root returns to the files.
 
 ## 🪟 Overlay / Dialog Keys
 

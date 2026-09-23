@@ -6,7 +6,7 @@
 //! everything here answers "how does this panel look", and `models.rs` keeps
 //! what the program *is*.
 
-use super::{FolderTree, PanelSide, QuickView};
+use super::{FolderTree, PanelSide, QuickView, RemotePanel, SessionsPanel};
 
 /// What a panel is, beyond a list of files.
 ///
@@ -23,6 +23,10 @@ pub enum PanelKind {
     Tree(Box<FolderTree>),
     /// `Ctrl+Q`: the file under the other panel's cursor.
     QuickView(Box<QuickView>),
+    /// Alt+F1 → `NetBox`: the stored sessions.
+    Sessions(Box<SessionsPanel>),
+    /// Enter on a session: a directory on the remote host.
+    Remote(Box<RemotePanel>),
 }
 
 impl PanelKind {
@@ -34,6 +38,24 @@ impl PanelKind {
     #[must_use]
     pub const fn is_quick_view(&self) -> bool {
         matches!(self, Self::QuickView(_))
+    }
+
+    /// Whether the panel shows a `NetBox` surface — the sessions or a host —
+    /// rather than local files.
+    #[must_use]
+    pub const fn is_netbox(&self) -> bool {
+        matches!(self, Self::Sessions(_) | Self::Remote(_))
+    }
+
+    /// A click on the `row`th row a `NetBox` panel draws: its cursor moves
+    /// there. The row's index, or `None` below the last row and for every
+    /// other kind of panel.
+    pub fn select_visible_row(&mut self, row: usize) -> Option<usize> {
+        match self {
+            Self::Sessions(sessions) => sessions.select_visible(row),
+            Self::Remote(remote) => remote.select_visible(row),
+            Self::Files | Self::Tree(_) | Self::QuickView(_) => None,
+        }
     }
 }
 

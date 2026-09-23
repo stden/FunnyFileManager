@@ -32,7 +32,10 @@ The variant list changes as dialogs are added. Read `src/models/overlay.rs` rath
 - **CommandLine** (`:`) — modal buffer plus fuzzy command/path dropdown
 - **DriveSelection** (Alt+F1 / Alt+F2) — a drive remembers its current
   directory, as in Far: picking the drive a panel is already on opens that
-  panel's folder (the active panel's first), not the drive's root.
+  panel's folder (the active panel's first), not the drive's root. Under the
+  rule: the S3 profiles, `NetBox` (the stored-sessions panel on that side) and
+  `Process list` (the Task list); the dialog closes before a row acts, so a
+  row that opens a window of its own keeps it.
 - **DeleteConfirm** (F8)
 - **NewFileInput** (Shift+F4)
 - **NamePrompt** (Shift+F6 rename, F7 mkdir, Alt+F6 link)
@@ -42,6 +45,14 @@ The variant list changes as dialogs are added. Read `src/models/overlay.rs` rath
 - **CopyPrompt**, **WipeConfirm**, archive dialogs, **Attributes**, **ApplyCommand**, **Describe**
 - **FindFile** (Alt+F7)
 - **SortModes** (Ctrl+F12)
+- **PluginCommands** (F11) — Far's Plugin commands list: MCP status, NetBox's
+  stored sessions, the NetBox `.netbox` import
+- **SessionEdit** (F4 / Shift+F4 on the sessions panel) — one stored session's
+  fields; no password field
+- **InputPrompt** and **Question** — the one-line input and the yes/no the
+  NetBox panels ask with; each carries its purpose (`InputPurpose`,
+  `QuestionPurpose`) and `ops::prompts` is the one match from a purpose to
+  its operation
 - **Kdbx** when the `keepass` feature is on
 
 `Ctrl+O` is `ViewMode::Console`, not an overlay.

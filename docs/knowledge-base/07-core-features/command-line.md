@@ -71,6 +71,8 @@ status with an ambiguity report.
 | `unmark` | Clear active-panel marks | `unmark` |
 | `help` | Open the help overlay | `help` |
 | `mcp` | Open MCP status in the viewer overlay | `mcp` |
+| `sessions` | Show NetBox's stored-sessions panel in the active panel | `sessions` |
+| `sessions import netbox [path]` | Import a `.netbox` session export; the path is the rest of the line (relative to a file panel, `~` expanded), else the `.netbox` file under a file panel's cursor. Counts go to the status bar, each skipped entry and its reason to the console transcript | `sessions import netbox ~/demo.netbox` |
 | `winmsg` / aliases | Open Windows system-message diagnostics | `winmsg` |
 | `winperf` / `wincheck` | Open Windows performance diagnostics | `winperf` |
 | `wsl` | Open the WSL manager on Windows | `wsl` |

@@ -55,6 +55,11 @@ aws-sdk-s3 = { version = "1.148.0", default-features = false, features = [
 ], optional = true }
 tokio = { version = "1.53.1", features = ["full"], optional = true }
 
+# NetBox stored sessions: the `.netbox` import is WinSCP's XML. A DOM over a
+# small, size-bounded file is simpler than a streaming parser; its default
+# options refuse a DTD, so no entity is ever expanded or fetched.
+roxmltree = "0.21.1"
+
 # KeePass .kdbx read/edit (optional — enable with --features keepass).
 # default-features = false drops CLI extras; save_kdbx4 unlocks Database::save.
 # NOTE: keepass >= 0.13 declares rust-version 1.85, below the crate's 1.95 floor.

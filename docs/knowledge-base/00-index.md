@@ -43,6 +43,7 @@ This is the structured knowledge base for FunnyFileManager, designed for use by 
 - `07-core-features/apply-command.md` — Ctrl+G, Far substitutions, panel prefixes and selection lists
 - `07-core-features/main-menu.md` — F9 operations, panel modes, options, and configuration
 - `07-core-features/keepass-vault.md` — `.kdbx` browser, lock/unlock state machine, secret-handling rules
+- `07-core-features/netbox-sessions.md` — NetBox stored sessions: the panel, the dialog, the `.netbox` import, the password policy
 
 ### 🌍 08. Platform Support
 - `08-platform-support/windows-behavior.md`

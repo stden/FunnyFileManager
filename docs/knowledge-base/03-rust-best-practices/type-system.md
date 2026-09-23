@@ -104,8 +104,19 @@ Rust's exhaustive `match` is a superpower. Adding a new variant to an enum force
 - `QuickSearch` — `Active` never holds an empty query
 - `Persistence` — a history that writes to a file, or deliberately nowhere
 - `ConsoleLine`, `DriveEntry`, `SortMode`, `PanelSide`, `VirtualPath`, `Status`
+- `Auth` — a session logs in by password, key file or agent; the password
+  variant carries nothing, because no password is ever stored
+- `ActionScope` — whether an action reaches for the active panel's entries or
+  the program at large, which is what a NetBox panel refuses or lets through
 
 **Newtypes (a named unit instead of a bare primitive):**
+
+- `SessionName`, `HostName`, `Port`, `UserName`, `KeyFile`, `RemotePath` —
+  one checking constructor each, which `serde` also goes through, so a value
+  from the dialog, `sessions.json` or an imported `.netbox` file is refused
+  by the same rule; the refusal (`InvalidField`) names the field and the
+  reason, never the value
+- `RowCursor` — a list cursor that every move clamps to its list
 
 - `BookmarkSlot` (0..=9) and `Bookmarks` (one entry per slot, so indexing is
   total and needs no bounds check)

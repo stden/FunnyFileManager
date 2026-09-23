@@ -47,15 +47,19 @@ pub(super) fn process(app: &mut App, code: KeyCode) -> bool {
     true
 }
 
+/// The menu closes before the row acts: a row that opens a window of its
+/// own — the process list — must not have it closed again behind it.
 fn finish_selection(app: &mut App, side: PanelSide, entry: DriveEntry) {
+    app.close_overlay();
     let status = select_drive(app, side, entry);
     app.set_status(status);
-    app.close_overlay();
 }
 
 /// Apply the drive picked in the Alt+F1 / Alt+F2 menu to `side`'s panel and
 /// describe the outcome. An S3 profile is only acknowledged — the S3 browser is
 /// not implemented yet, so the panel keeps showing its local directory.
+/// `NetBox` turns the panel into the stored-sessions list; the process list
+/// is the Task list dialog, which reports nothing of its own.
 fn select_drive(app: &mut App, side: PanelSide, drive: DriveEntry) -> Status {
     match drive {
         DriveEntry::Local(root) => {
@@ -66,6 +70,11 @@ fn select_drive(app: &mut App, side: PanelSide, drive: DriveEntry) -> Status {
             }
         }
         DriveEntry::S3Profile(profile) => Status::S3ProfileSelected(profile),
+        DriveEntry::NetBox => crate::ops::sessions::open_on(app, side),
+        DriveEntry::ProcessList => {
+            crate::ops::tasks::open(app);
+            Status::Cleared
+        }
     }
 }
 
@@ -116,6 +125,10 @@ const fn drive_index_down(index: usize, count: usize) -> usize {
 /// entries of the directory being left and, on an unreadable drive, rolls the
 /// panel back instead of parking it on a path it cannot list.
 fn open_drive(app: &mut App, side: PanelSide, path: PathBuf) -> Result<PathBuf, String> {
+    // A local drive means local files: a sessions list or a host drawn over
+    // the panel goes first, a remote panel's connection with it — so even a
+    // drive that cannot be read leaves the panel showing its files.
+    crate::ops::sessions::back_to_files_on(app, side);
     let panel = match side {
         PanelSide::Left => &mut app.left_panel,
         PanelSide::Right => &mut app.right_panel,

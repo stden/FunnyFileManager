@@ -18,8 +18,8 @@ use std::path::PathBuf;
 use super::{
     ApplyPrompt, ArchiveMenu, ArchivePrompt, AssociationList, AttributesDialog, CommandLine,
     DescribePrompt, DeviceList, DriveRow, Editor, ExtractPrompt, FilterPrompt, FindFile,
-    FolderTree, HistoryList, PanelSide, ScreenList, SettingsDialog, ShortcutList, SortMenu,
-    TaskList, UserMenu, Viewer,
+    FolderTree, HistoryList, InputPrompt, PanelSide, PluginCommands, Question, ScreenList,
+    SessionEdit, SettingsDialog, ShortcutList, SortMenu, TaskList, UserMenu, Viewer,
 };
 
 /// Which button a two-answer dialog has focus on.
@@ -158,6 +158,15 @@ pub enum Overlay {
     SortModes(SortMenu),
     /// Options menu: one settings page.
     Settings(Box<SettingsDialog>),
+    /// F4 / Shift+F4 on the sessions panel: one stored session's fields.
+    SessionEdit(Box<SessionEdit>),
+    /// F11: Far's Plugin commands list.
+    PluginCommands(PluginCommands),
+    /// One line of text — a path, a name, a password — asked for by a
+    /// feature that names what it is for in [`super::InputPurpose`].
+    InputPrompt(Box<InputPrompt>),
+    /// A yes/no question whose Yes is named in [`super::QuestionPurpose`].
+    Question(Question),
 
     /// `:cleanup` — the disk cleanup checklist.
     DiskCleanup(Box<super::DiskCleanupDialog>),

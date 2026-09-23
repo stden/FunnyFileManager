@@ -19,4 +19,5 @@ mod dispatch_errors;
 mod event_loop_keys;
 mod event_loop_toggles;
 mod far_menu_families;
+mod netbox_panels;
 mod panel_views;

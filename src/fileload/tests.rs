@@ -1,6 +1,6 @@
 //! Unit tests: the bounded, regular-file-only read shared by F3 and F4.
 
-use super::{read_for_text_ui, Loaded};
+use super::{read_for_text_ui, read_regular, Loaded};
 // Only the endless-stream test needs the raw bounded read, and /dev/zero is
 // Unix-only.
 #[cfg(unix)]
@@ -136,7 +136,7 @@ fn the_read_is_bounded_even_for_an_endless_file() {
     }
 
     let read = crate::test_support::run_with_timeout(GUARD_TIMEOUT, || {
-        read_bounded(File::open("/dev/zero")?).map(|bytes| bytes.len())
+        read_bounded(File::open("/dev/zero")?, MAX_FILE_SIZE.bytes()).map(|bytes| bytes.len())
     })
     .expect("a bounded read of /dev/zero must finish promptly");
 
@@ -243,4 +243,18 @@ fn spawn_growth_writer(
         }
         let _ = file.flush();
     })
+}
+
+/// The limit is the caller's: the same guards, a smaller budget.
+#[test]
+fn read_regular_holds_to_the_limit_it_is_given() {
+    let dir = TempDir::new().expect("temp dir");
+    let file = dir.path().join("f");
+    fs::write(&file, "four").expect("write");
+    assert!(matches!(read_regular(&file, 4), Ok(Loaded::Bytes(bytes)) if bytes == b"four"));
+    assert!(matches!(read_regular(&file, 3), Ok(Loaded::TooLarge(4))));
+    assert!(matches!(
+        read_regular(dir.path(), 4),
+        Ok(Loaded::NotRegular)
+    ));
 }

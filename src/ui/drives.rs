@@ -279,7 +279,7 @@ fn styled(text: String) -> Line<'static> {
 /// The dialog's own rectangle: its natural size, clamped to the screen and
 /// centred, rather than a percentage of it — a one-drive machine should not
 /// get a half-empty box.
-fn centered(screen: Rect, width: usize, height: usize) -> Rect {
+pub(super) fn centered(screen: Rect, width: usize, height: usize) -> Rect {
     let width = u16::try_from(width).unwrap_or(u16::MAX).min(screen.width);
     let height = u16::try_from(height).unwrap_or(u16::MAX).min(screen.height);
     Rect {

@@ -112,8 +112,9 @@ fn report_at_exit(app: &App, run_result: &io::Result<()>) {
     }
 }
 
-/// Load the command history, the settings, the view and folder histories and
-/// the bookmarks at the production entry point. `App::new()` scans the initial panels but
+/// Load the command history, the settings, the view and folder histories,
+/// the bookmarks and the stored sessions at the production entry point.
+/// `App::new()` scans the initial panels but
 /// creates only session-local state, so constructing an App cannot pollute
 /// the user's real files. Tests exercise the application with explicitly
 /// injected state and event sources; persistence is covered in each store's
@@ -125,6 +126,7 @@ fn load_persisted(app: &mut App) {
     app.view_history = crate::models::ViewHistory::load();
     app.folder_history = crate::models::FolderHistory::load();
     app.bookmarks = crate::models::Bookmarks::load();
+    crate::ops::sessions::install(app, crate::sessions::SessionStore::load());
 }
 
 /// Write the histories, and the settings when "Auto save setup" is on, after
@@ -144,3 +146,6 @@ fn persist_at_exit(app: &App) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

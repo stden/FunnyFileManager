@@ -219,14 +219,17 @@ fn test_edit_external_on_a_directory_is_refused_without_opening_the_editor() -> 
     Ok(())
 }
 
-/// F11 opens the MCP status screen in the read-only viewer.
+/// F11 opens Far's Plugin commands list; its first row is the MCP status
+/// screen in the read-only viewer, which F11 used to open outright.
 #[test]
-fn test_mcp_status_action_opens_the_mcp_viewer() -> io::Result<()> {
+fn test_plugin_commands_action_opens_the_list_whose_first_row_is_mcp_status() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
     fs::write(temp_dir.path().join("file.txt"), "data")?;
     let mut app = app_at(temp_dir.path(), "file.txt")?;
 
-    dispatch(&mut app, Action::McpStatus)?;
+    dispatch(&mut app, Action::PluginCommands)?;
+    assert!(matches!(app.overlay, Overlay::PluginCommands(_)));
+    crate::ops::plugin_commands::run(&mut app, crate::models::PluginCommand::McpStatus)?;
 
     let viewer = app.get_viewer().expect("MCP status must open the viewer");
     assert_eq!(viewer.title(), "MCP Server Status");

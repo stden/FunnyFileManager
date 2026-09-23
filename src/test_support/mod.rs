@@ -14,6 +14,8 @@ pub(crate) mod disk_cleanup;
 #[cfg(test)]
 mod events;
 #[cfg(test)]
+pub(crate) mod netbox;
+#[cfg(test)]
 pub(crate) use events::*;
 
 #[cfg(coverage)]

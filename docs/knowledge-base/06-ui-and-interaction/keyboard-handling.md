@@ -21,6 +21,14 @@ Keyboard and mouse dispatch live in `src/application/dispatch.rs`:
 - `dispatch_key` first checks `app.is_overlay_active()`. If true, it sends the
   key to `popup::process_popup_input` and returns without calling
   `action::resolve`.
+- With no overlay, a panel that is not a file list — a tree, a quick view,
+  NetBox's sessions list or a remote host — is asked about the key first
+  (`panel_kind_consumes`). The two NetBox panels claim their list keys and
+  their own F-keys; any other key is resolved, and when `Action::scope()`
+  says it acts on the active panel's `Entries` it is refused with a status
+  line rather than acting on the file list hidden beneath. `Program` keys
+  (Tab, Alt+F1/F2, F9–F12, the command line) fall through. F9 menu rows run
+  through `ops::menu::activate` are asked the same through `menu_scope`.
 
 ## 🪟 Modal Routing (`src/popup.rs`)
 
@@ -91,7 +99,7 @@ dropdown rather than being reported through application status.
 - F8 — delete (with confirmation)
 - F9 — open the menu bar
 - F10 — quit
-- F11 — MCP/plugin status (reuses viewer)
+- F11 — Far's Plugin commands list: MCP status (reuses viewer), NetBox's stored sessions, the NetBox `.netbox` import
 - F12 — switch between panels and console
 
 **Other:**

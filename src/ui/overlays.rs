@@ -319,6 +319,10 @@ fn render_commands_dialog(
         Overlay::SortModes(dialog) => super::sortmenu::render(f, tracker, dialog),
         Overlay::Settings(dialog) => super::settings::render(f, tracker, dialog),
         Overlay::DiskCleanup(dialog) => super::disk_cleanup::render(f, tracker, dialog),
+        Overlay::SessionEdit(dialog) => super::session_edit::render(f, tracker, dialog),
+        Overlay::PluginCommands(dialog) => super::plugin_commands::render(f, tracker, dialog),
+        Overlay::InputPrompt(prompt) => super::prompts::render_input(f, tracker, prompt),
+        Overlay::Question(question) => super::prompts::render_question(f, tracker, question),
         _ => {}
     }
 }
@@ -337,7 +341,7 @@ const HELP_LINES: &[&str] = &[
     "F8: Delete selected entry",
     "F9: Open the menu bar",
     "F10: Quit (or type `quit`)",
-    "F11: MCP Server status (AI tools)",
+    "F11: Plugin commands (MCP status, NetBox sessions and imports)",
     "F12: Switch panels / console screen",
     "Ctrl+O: Show the console screen (press again for the panels)",
     "Tab: switch active panel",

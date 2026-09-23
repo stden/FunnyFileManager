@@ -59,7 +59,7 @@ where
         Action::Move => open_transfer_prompt(app, copy::Purpose::Move),
         Action::Rename => open_rename_prompt(app),
         Action::DeleteConfirm => report(app, handle_delete_confirm),
-        Action::McpStatus => report(app, ops::open_mcp_status),
+        Action::PluginCommands => ops::plugin_commands::open(app),
         Action::ToggleConsole => app.view = app.view.toggled(),
         Action::Refresh => refresh(app),
         Action::CommandLine => app.set_overlay(Overlay::CommandLine(CommandLine::default())),

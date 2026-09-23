@@ -13,7 +13,7 @@
 /// records that the entry is a link, which the raw `is_dir` flag would
 /// otherwise lose. Both are needed: a broken link is neither a directory nor a
 /// plain file.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DirEntry {
     pub name: String,
     pub kind: EntryKind,

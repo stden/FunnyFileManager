@@ -80,6 +80,9 @@ pub struct App {
     pub folder_history: FolderHistory,
     /// Last displayed directories; bootstrap explicitly enables persistence.
     pub(crate) panel_session: crate::panel_session::PanelSession,
+    /// `NetBox`'s stored sessions. Session-only here; bootstrap loads the
+    /// file, the way it does the settings, so no test reads the user's own.
+    pub sessions: crate::sessions::SessionStore,
     /// The terminal's height, refreshed at dispatch time — the one answer for
     /// every consumer that pages by the screen (panels, console, viewer).
     /// Stored through [`Self::set_viewport`], which keeps an open viewer
@@ -122,6 +125,10 @@ impl App {
     /// listed, so a new field cannot be initialised differently by `new()`
     /// and by a test that brings its own panels.
     #[must_use]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one line per App field: splitting it would list the defaults in two places"
+    )]
     pub fn with_panels(left_panel: Panel, right_panel: Panel) -> Self {
         Self {
             left_panel,
@@ -146,6 +153,7 @@ impl App {
             view_history: ViewHistory::default(),
             folder_history: FolderHistory::default(),
             panel_session: crate::panel_session::PanelSession::default(),
+            sessions: crate::sessions::SessionStore::default(),
             viewport: Viewport::default(),
             // Default is backend-less: installing the OS clipboard here would
             // put an X11/Wayland connection inside every test's `App::new()`.

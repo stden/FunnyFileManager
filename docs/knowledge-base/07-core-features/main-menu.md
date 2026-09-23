@@ -88,7 +88,7 @@ with their shortcuts. Additional operations are:
 | Panel filter | Filters files by mask; directories remain available for navigation. |
 | Screens | Chooses file panels or console transcript. F9 from the console returns to panels and opens the menu. |
 | Tasks / hotplug devices | Shows host process information or currently mounted drives. |
-| Plugin commands | Opens the existing MCP status interface. |
+| Plugin commands | Far's F11 list: MCP status, NetBox's stored sessions, and the NetBox `.netbox` import (which asks for the file). |
 
 The F9 row and its shortcut call the same `ops/menu` operation. Alt+F7 opens the Find file dialog, whose containing-text field narrows the name search. See [overlays](../../06-ui-and-interaction/overlays-and-modals.md).
 

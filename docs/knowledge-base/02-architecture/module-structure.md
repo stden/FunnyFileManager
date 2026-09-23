@@ -53,7 +53,13 @@ and application modules.
 | `src/models/archive.rs`, `attributes.rs`, `apply.rs`, `describe.rs` | Files-menu dialog state (archives, attributes, apply command, descriptions) |
 | `src/models/findfile.rs`, `histlist.rs`, `usermenu.rs`, `associations.rs`, `shortcuts.rs`, `screens.rs`, `tasks.rs`, `hotplug.rs` | Commands-menu dialog state |
 | `src/models/sortmenu.rs`, `src/models/settings_dialog.rs` | Sort-modes menu and the one settings dialog for every Options page |
+| `src/models/session.rs`, `src/models/session/fields.rs` | `Session` — a NetBox-style stored connection — with `Protocol`, `Auth`/`AuthKind` (password asked at connect, key file, agent; never a stored password) and `Origin`; the checked values `SessionName`, `HostName`, `Port`, `UserName`, `KeyFile` and their one error, `InvalidField` (`Field` + `Problem`, never the refused value). `serde` goes through the same checks |
+| `src/models/remote_path.rs`, `src/models/row_cursor.rs` | `RemotePath` (absolute, normalised, joins only single names) and `RowCursor`/`RowMotion`, the clamped cursor of the sessions list, the remote panel and the F11 list |
+| `src/models/sessions_panel.rs`, `src/models/remote_panel.rs` | NetBox panel state carried by `PanelKind::Sessions` / `PanelKind::Remote`: the session rows under their `..`, and a remote directory's `DirEntry` listing (names that are not one path part left out) with the `RemoteLink` it came through |
+| `src/models/session_edit.rs`, `src/models/plugin_commands.rs`, `src/models/prompts.rs` | The session dialog's fields (`Overlay::SessionEdit`), the rows of Far's F11 list (`Overlay::PluginCommands`), and the input / yes-no dialogs with their purposes (`Overlay::InputPrompt`, `Overlay::Question`) |
 | `src/ui/tree.rs`, `src/ui/quickview.rs` | Panel renderers chosen by `PanelKind` in `ui.rs::render_one_panel` |
+| `src/ui/sessions.rs`, `src/ui/remote.rs` | Panel renderers for the NetBox panel kinds, chosen in `ui.rs::render_one_panel` |
+| `src/ui/session_edit.rs`, `src/ui/plugin_commands.rs`, `src/ui/prompts.rs` | The session dialog, the F11 Plugin commands list, and the input / yes-no dialogs |
 | `src/ui/stub.rs`, `src/ui/<feature>.rs` | Placeholder dialog frame and one renderer per F9 menu dialog, routed by `ui/overlays.rs` |
 | `src/ui.rs`, `src/ui/` | Ratatui composition, panels, console, prompt, menus, overlays, and shared text rendering |
 | `src/ui/console.rs` | Console layer: black ground, transcript rows, the Ctrl+O screen with its output-following prompt, and the scrollback note |
@@ -99,6 +105,12 @@ still invoke it through a model type.
 | `src/ops/wsl.rs` | WSL request creation, completion interpretation, and panel navigation |
 | `src/ops/tree.rs`, `quickview.rs`, `panels.rs`, `longnames.rs`, `panelview.rs` | Left/Right menu toggles (`Ctrl+T`, `Ctrl+Q`, `Ctrl+F1/F2`, `Ctrl+N`) and the view-mode switch (`Ctrl+1` … `Ctrl+0`) |
 | `src/popup/tree.rs`, `src/popup/quickview.rs` | Keys of a tree or quick-view panel, asked by `dispatch_key` before the file-panel actions while `Panel.kind` is one of them |
+| `src/popup/sessions.rs`, `src/popup/remote.rs`, `src/popup/netbox.rs` | Keys of a sessions or remote panel, asked the same way while `Panel.kind` is `Sessions` or `Remote`; `netbox.rs` holds their list keys and refuses a key whose `Action::scope()` is `Entries` |
+| `src/popup/session_edit.rs`, `src/popup/plugin_commands.rs`, `src/popup/input_prompt.rs`, `src/popup/question.rs` | Keys of the session dialog, the F11 list, and the input / yes-no dialogs |
+| `src/ops/sessions.rs`, `src/ops/sessions/import.rs`, `src/ops/remote.rs`, `src/ops/prompts.rs`, `src/ops/plugin_commands.rs` | The sessions panel and every change to the store (`change` saves a copy before it takes effect), `:sessions` (`execute`) and the `.netbox` import (`import::run`); browsing a host through a `RemoteFs` (`connect`, `open_with`, `enter`, `leave`); the answers of the input / yes-no dialogs; running an F11 row |
+| `src/sessions.rs`, `src/sessions/import.rs`, `src/sessions/import/netbox.rs` | `SessionStore` (`<config>/ffm/sessions.json`, owner-only, atomic, size-bounded; a file that did not load is never written over; `adopt` keeps the user's own entries) and `read_text`; what an import found (`Imported`, `Skipped`, `SkipReason`, `ImportReport`, `ImportError`); the `.netbox` importer — size-bounded, no DTD, node and session limits, every value URL-decoded and checked, saved passwords counted and never read |
+| `src/remote.rs`, `src/remote/fake.rs` | The `RemoteFs` trait, `RemoteError`, `RemoteLink` and `connect` — which in this build reports `NoTransport` for every protocol; the in-memory fake for tests (`test`/`test-helpers`) |
+| `src/action/scope.rs` | `ActionScope` and `Action::scope` / `menu_scope`: whether an action acts on the active panel's entries or on the program — what the NetBox panels refuse |
 | `src/usermenu.rs`, `src/associations.rs`, `src/i18n.rs` | Where the user menu and the associations files live (`config::dir()`), and the interface-string lookup for `Settings.languages` |
 | `src/ops/link.rs`, `wipe.rs`, `archive.rs`, `attributes.rs`, `apply.rs`, `describe.rs` | Files-menu `open` functions, one dialog each |
 | `src/ops/findfile.rs`, `history_list.rs`, `videomode.rs`, `findfolder.rs`, `view_history.rs`, `folder_history.rs`, `compare.rs`, `usermenu.rs`, `associations.rs`, `shortcuts.rs`, `filter.rs`, `screens.rs`, `tasks.rs`, `hotplug.rs` | Commands-menu `open`/`run`/`toggle` functions; `associations::association_command` is consulted by `Enter` before the executable rule |
@@ -188,6 +200,8 @@ using the compatibility facade as a test container.
 | `src/action/editor/tests.rs` | Pure editor command resolution, binding order, and modifier policies |
 | `src/popup/editor/tests.rs` | Editor command interpretation, modal precedence, and operation outcomes |
 | `src/popup/drives/tests.rs` | Drive-selection behavior and private helper regressions |
+| `src/sessions/tests.rs`, `src/sessions/import/tests.rs`, `src/sessions/import/netbox/tests.rs`, `src/remote/tests.rs`, `src/remote/fake/tests.rs` | The sessions file in temporary directories, the `.netbox` importer against made-up and hostile exports, and the fake remote filesystem |
+| `src/ops/sessions/tests.rs`, `src/ops/sessions/import/tests.rs`, `src/ops/remote/tests.rs`, `src/popup/{sessions,remote,netbox,plugin_commands,session_edit,input_prompt,question}/tests.rs`, `src/ui/tests_netbox.rs` | The NetBox panels over the store and a fake host, their keys, and what they draw; shared fixtures in `src/test_support/netbox.rs` |
 | `src/diagnostics/tests/` | Logging and lifecycle wrappers with temporary paths |
 | `src/ops/tests/` | Operation regressions moved from the historical handlers facade; explicit popup imports for mixed workflows |
 | `src/ops/editor/tests.rs` | Filesystem save regression tests |

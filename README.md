@@ -71,7 +71,7 @@ cargo build --release
 | **F8**                  | Delete marked or selected files                         |
 | **F9**                  | Open the menu bar                                       |
 | **F10**                 | Quit application (or type `quit`)                       |
-| **F11**                 | Show MCP/plugin status                                  |
+| **F11**                 | Plugin commands: MCP status, NetBox stored sessions     |
 | **F12**                 | Switch between panels and console                       |
 | **Alt+F1**              | Select drive/S3 for Left panel                          |
 | **Alt+F2**              | Select drive/S3 for Right panel                         |
@@ -121,6 +121,7 @@ Press `:` to enter command mode. Supported commands:
 - `mark all`: Mark all visible entries
 - `unmark`: Clear all marks
 - `help`, `mcp`, `winmsg`, `winperf`: Open built-in reports or help
+- `sessions`, `sessions import netbox [path]`: NetBox stored sessions, and importing NetBox's `.netbox` export
 - `stats`: Rank actions by accumulated waiting time in this session
 - `wsl`: Open the WSL manager on Windows
 - `quit` or `exit`: Close ffm

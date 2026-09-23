@@ -117,10 +117,12 @@ mod platform;
 pub mod popup;
 pub mod prompt;
 pub mod quicksearch;
+pub mod remote;
 #[cfg(feature = "s3")]
 pub mod s3;
 pub mod scroll;
 pub mod search;
+pub mod sessions;
 pub mod stats;
 pub mod status;
 mod terminal;

@@ -120,6 +120,7 @@ fn execute_command_with_console(
         Command::WinPerf => return open_windows_performance_checker(app),
         Command::DiskCleanup => return crate::ops::disk_cleanup::open(app),
         Command::Mcp => return open_mcp_status(app),
+        Command::Sessions(command) => return super::sessions::execute(app, command),
         Command::Shell(shell) => return cmd_shell(app, &shell),
         Command::NewConsole(shell) => return cmd_new_console(app, &shell, spawn_console),
         Command::Invalid { usage, .. } => {

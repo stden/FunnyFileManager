@@ -81,6 +81,10 @@ fn process_commands_dialog(app: &mut App, code: KeyCode, modifiers: KeyModifiers
         Overlay::Hotplug(_) => hotplug::process(app, code, modifiers),
         Overlay::SortModes(_) => sortmenu::process(app, code, modifiers),
         Overlay::Settings(_) => settings::process(app, code, modifiers),
+        Overlay::SessionEdit(_) => session_edit::process(app, code, modifiers),
+        Overlay::PluginCommands(_) => plugin_commands::process(app, code, modifiers),
+        Overlay::InputPrompt(_) => input_prompt::process(app, code, modifiers),
+        Overlay::Question(_) => question::process(app, code, modifiers),
         _ => false,
     }
 }
@@ -183,12 +187,19 @@ mod findfolder;
 mod folder_history;
 mod history_list;
 mod hotplug;
+mod input_prompt;
 mod mask_prompt;
 mod menu;
 mod name_prompt;
+mod netbox;
 mod new_file;
+mod plugin_commands;
+mod question;
 pub(crate) mod quickview;
+pub(crate) mod remote;
 mod screens;
+mod session_edit;
+pub(crate) mod sessions;
 mod settings;
 mod shortcuts;
 mod sortmenu;

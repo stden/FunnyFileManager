@@ -29,10 +29,14 @@ pub mod panels;
 pub mod panelview;
 pub mod path_env;
 pub mod performance;
+pub mod plugin_commands;
 pub(crate) mod program;
+pub mod prompts;
 pub mod quickview;
+pub mod remote;
 pub mod savesetup;
 pub mod screens;
+pub mod sessions;
 pub mod settings;
 #[allow(clippy::redundant_pub_crate)]
 mod shell;

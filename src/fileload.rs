@@ -1,9 +1,11 @@
-//! Purpose: One bounded, regular-file-only read shared by the F3 viewer and the F4 editor.
+//! Purpose: One bounded, regular-file-only read shared by the F3 viewer, the
+//! F4 editor and the `NetBox` session files.
 //!
-//! Both entry points need the exact same three answers before they may load a
-//! file into a text UI — "is this even a file?", "is it small enough?", "give
-//! me its bytes" — so the rule lives here once instead of being re-derived at
-//! each call site.
+//! Every entry point needs the exact same three answers before it may load a
+//! file — "is this even a file?", "is it small enough?", "give me its bytes" —
+//! so the rule lives here once instead of being re-derived at each call site.
+//! Only the limit differs: a text UI takes [`MAX_FILE_SIZE`], a sessions file
+//! far less.
 
 use std::fs::{self, File};
 use std::io::{self, Read};
@@ -17,7 +19,7 @@ use crate::utils::MAX_FILE_SIZE;
 /// about which cases exist; they differ only in how each case reads in the
 /// status bar.
 pub enum Loaded {
-    /// The file's bytes, never more than [`MAX_FILE_SIZE`] of them.
+    /// The file's bytes, never more than the limit asked for.
     Bytes(Vec<u8>),
     /// A directory, FIFO, socket, or device node — nothing a line-oriented UI
     /// can show, and several of them are actively dangerous to open.
@@ -46,19 +48,25 @@ pub enum Loaded {
 /// `take` would silently present the first 10 MB of a 4 GB log as if that were
 /// the whole file.
 pub fn read_for_text_ui(path: &Path) -> io::Result<Loaded> {
+    read_regular(path, MAX_FILE_SIZE.bytes())
+}
+
+/// [`read_for_text_ui`] with the limit given: at most `limit` bytes of a
+/// regular file, under the same two guards.
+pub fn read_regular(path: &Path, limit: u64) -> io::Result<Loaded> {
     // Follows symlinks on purpose: a link to a regular file is viewable, and
     // it is the *target*'s type that decides whether opening it is safe.
     let meta = fs::metadata(path)?;
     if !meta.is_file() {
         return Ok(Loaded::NotRegular);
     }
-    if meta.len() > MAX_FILE_SIZE.bytes() {
+    if meta.len() > limit {
         return Ok(Loaded::TooLarge(meta.len()));
     }
 
-    let bytes = read_bounded(File::open(path)?)?;
+    let bytes = read_bounded(File::open(path)?, limit)?;
     let read_len = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
-    if read_len > MAX_FILE_SIZE.bytes() {
+    if read_len > limit {
         return Ok(Loaded::TooLarge(read_len));
     }
     Ok(Loaded::Bytes(bytes))
@@ -73,10 +81,9 @@ pub fn read_for_text_ui(path: &Path) -> io::Result<Loaded> {
 ///
 /// The extra byte is what keeps "exactly at the limit" loadable while still
 /// making "over the limit" detectable without reading all of it.
-fn read_bounded(file: File) -> io::Result<Vec<u8>> {
+fn read_bounded(file: File, limit: u64) -> io::Result<Vec<u8>> {
     let mut bytes = Vec::new();
-    file.take(MAX_FILE_SIZE.bytes() + 1)
-        .read_to_end(&mut bytes)?;
+    file.take(limit.saturating_add(1)).read_to_end(&mut bytes)?;
     Ok(bytes)
 }
 

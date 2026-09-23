@@ -23,7 +23,8 @@ pub enum RowKind {
         device: DriveKind,
         space: Option<Capacity>,
     },
-    /// Everything Far lists below the rule as a plugin. Here: the S3 profiles.
+    /// Everything Far lists below the rule as a plugin: the S3 profiles,
+    /// `NetBox`, the process list.
     Plugin { name: String },
 }
 
@@ -65,9 +66,11 @@ fn keys(entries: &[DriveEntry]) -> Vec<Option<char>> {
         .iter()
         .map(|entry| match entry {
             DriveEntry::Local(path) => Some(drive_key(path)),
-            // Past ten profiles the rows are still listed and still selectable
-            // with the cursor; only the shortcut runs out.
-            DriveEntry::S3Profile(_) => plugin_keys.next(),
+            // Past ten plugin rows the rest are still listed and still
+            // selectable with the cursor; only the shortcut runs out.
+            DriveEntry::S3Profile(_) | DriveEntry::NetBox | DriveEntry::ProcessList => {
+                plugin_keys.next()
+            }
         })
         .collect()
 }
@@ -107,9 +110,11 @@ fn row_for((key, entry): (Option<char>, DriveEntry)) -> DriveRow {
             device: drive_kind(path),
             space: capacity(path),
         },
-        DriveEntry::S3Profile(name) => RowKind::Plugin {
-            name: format!("S3: {name}"),
-        },
+        DriveEntry::S3Profile(_) | DriveEntry::NetBox | DriveEntry::ProcessList => {
+            RowKind::Plugin {
+                name: entry.display(),
+            }
+        }
     };
     DriveRow { key, kind, entry }
 }

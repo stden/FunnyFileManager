@@ -33,8 +33,16 @@ mod hotplug;
 mod overlay;
 mod panel;
 mod panelview;
+mod plugin_commands;
+mod prompts;
 mod quickview;
+pub mod remote_panel;
+mod remote_path;
+mod row_cursor;
 mod screens;
+mod session;
+mod session_edit;
+pub mod sessions_panel;
 mod settings_dialog;
 mod shortcuts;
 mod shortname;
@@ -86,8 +94,19 @@ pub use overlay::{
 pub(crate) use panel::{DirectoryListing, PanelMetadata};
 pub use panel::{Panel, PanelDetails, PanelOptions, PanelView};
 pub use panelview::{PanelKind, PanelsShown, SortMode};
+pub use plugin_commands::{PluginCommand, PluginCommands};
+pub use prompts::{InputPrompt, InputPurpose, Question, QuestionPurpose};
 pub use quickview::{Preview, QuickView, Refusal, TextPreview};
+pub use remote_panel::RemotePanel;
+pub use remote_path::RemotePath;
+pub use row_cursor::{RowCursor, RowMotion};
 pub use screens::ScreenList;
+pub use session::{
+    Auth, AuthKind, Field, HostName, InvalidField, KeyFile, Origin, Port, Problem, Protocol,
+    Session, SessionName, UserName,
+};
+pub use session_edit::{EditPurpose, SessionEdit, SessionField};
+pub use sessions_panel::{SessionRow, SessionsPanel};
 pub use settings_dialog::SettingsDialog;
 pub use shortcuts::ShortcutList;
 pub use shortname::{ShortName, ShortNames};

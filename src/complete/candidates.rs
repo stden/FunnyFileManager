@@ -35,6 +35,7 @@ pub(super) fn candidates_for(head: &str, token: &str, ctx: &CompletionContext) -
         Some(&"mark") if head_words.len() == 1 => {
             plain_candidates(match_filter(&["all"], token), CandidateKind::Word)
         }
+        Some(&"sessions") => sessions_candidates(&head_words, token, ctx),
         // A built-in verb in a position it does not model: nothing to offer,
         // and guessing a path there would be worse than silence.
         Some(verb) if VERBS.contains(verb) => Vec::new(),
@@ -42,6 +43,23 @@ pub(super) fn candidates_for(head: &str, token: &str, ctx: &CompletionContext) -
         // path until proven otherwise — which is what makes `cat src/ma<Tab>`
         // and `ls /usr/l<Tab>` work at all.
         _ => shell_path_candidates(token, ctx.cwd),
+    }
+}
+
+/// `sessions import netbox <path>`: the subcommand, the source, then the
+/// file, whole-rest like `cd`'s. A word out of place offers nothing.
+fn sessions_candidates(
+    head_words: &[&str],
+    token: &str,
+    ctx: &CompletionContext,
+) -> Vec<Candidate> {
+    match head_words {
+        [_] => plain_candidates(match_filter(&["import"], token), CandidateKind::Word),
+        [_, "import"] => plain_candidates(match_filter(&["netbox"], token), CandidateKind::Word),
+        [_, "import", "netbox", ..] => {
+            plain_candidates(path_complete(token, ctx.cwd), CandidateKind::Path)
+        }
+        _ => Vec::new(),
     }
 }
 
