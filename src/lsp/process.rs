@@ -113,12 +113,11 @@ impl Process {
         Ok(())
     }
 
-    pub fn send(&self, value: Value) -> io::Result<()> {
-        self.outgoing
-            .as_ref()
-            .ok_or_else(|| io::Error::from(io::ErrorKind::BrokenPipe))?
-            .try_send(value)
-            .map_err(|_| io::Error::from(io::ErrorKind::BrokenPipe))
+    pub fn send(&self, value: Value) -> Result<(), mpsc::TrySendError<Value>> {
+        match &self.outgoing {
+            Some(sender) => sender.try_send(value),
+            None => Err(mpsc::TrySendError::Disconnected(value)),
+        }
     }
 
     pub fn poll(&self) -> Option<Signal> {
@@ -130,7 +129,7 @@ impl Process {
     }
 
     pub fn exited(&mut self) -> bool {
-        self.child.try_wait().is_ok_and(|status| status.is_some())
+        exited(&mut self.child)
     }
 }
 
@@ -207,10 +206,26 @@ fn configure(command: &mut Command) {
 }
 
 #[cfg(unix)]
+fn exited(child: &mut Child) -> bool {
+    use rustix::process::{waitid, Pid, WaitId, WaitIdOptions};
+    // NOWAIT retains the leader's PID until terminate has killed its entire group.
+    waitid(
+        WaitId::Pid(Pid::from_child(child)),
+        WaitIdOptions::EXITED | WaitIdOptions::NOHANG | WaitIdOptions::NOWAIT,
+    )
+    .is_ok_and(|status| status.is_some())
+}
+
+#[cfg(windows)]
+fn exited(child: &mut Child) -> bool {
+    child.try_wait().is_ok_and(|status| status.is_some())
+}
+
+#[cfg(unix)]
 fn terminate(child: &mut Child) {
     use rustix::process::{kill_process_group, Pid, Signal};
     if let Some(pid) = i32::try_from(child.id()).ok().and_then(Pid::from_raw) {
-        // An exited process group is already cleaned up; direct reap still follows.
+        // The leader has not been reaped: its PID cannot belong to an unrelated group.
         let _ = kill_process_group(pid, Signal::KILL);
     }
     reap(child);

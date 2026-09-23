@@ -36,7 +36,21 @@ fn completion_replaces_unicode_prefix_and_preserves_file_line_endings() {
     editor.complete_lsp(query(&editor), &item).unwrap();
     assert_eq!(editor.content(), "// 😀\r\nпривет\r\n");
     assert_eq!(editor.cursor_col, 6);
+    assert_eq!(editor.lines.len(), 2);
+    assert!(editor.format.trailing_newline);
     assert_eq!(editor.lsp.revision, Revision(1));
+}
+
+#[test]
+fn completion_normalizes_server_crlf_and_keeps_an_editable_caret_after_newline() {
+    let root = TempDir::new().unwrap();
+    let mut editor = editor(&root, "fo\r\n");
+    editor.cursor_col = 2;
+    let item = completion(json!({"label":"foo", "insertText":"foo\r\n"}));
+    editor.complete_lsp(query(&editor), &item).unwrap();
+    assert_eq!(editor.content(), "foo\r\n\r\n");
+    assert_eq!(editor.lines, ["foo", ""]);
+    assert_eq!((editor.cursor_line, editor.cursor_col), (1, 0));
 }
 
 #[test]

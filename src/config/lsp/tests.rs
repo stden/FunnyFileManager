@@ -9,6 +9,10 @@ fn default_command_uses_path_and_explicit_configuration_is_preserved() {
     let mut settings = LspSettings::default();
     let path = root.path().join("source.rs");
     assert_eq!(settings.for_path(&path).unwrap().1.command, "rust-analyzer");
+    assert_eq!(
+        settings.for_path(&root.path().join("source.Rs")).unwrap().0,
+        "rust"
+    );
     let custom = root
         .path()
         .join("server.exe")
@@ -27,4 +31,21 @@ fn default_command_uses_path_and_explicit_configuration_is_preserved() {
     assert!(settings.for_path(&path).is_none());
     assert!(settings.for_path(&root.path().join("notes.txt")).is_none());
     assert!(settings.for_path(root.path()).is_none());
+}
+
+#[test]
+fn another_language_uses_its_own_extension_and_command() {
+    let root = TempDir::new().unwrap();
+    let mut settings = LspSettings::default();
+    settings.0.insert(
+        "python".into(),
+        ServerSettings {
+            command: "python-language-server".into(),
+            extensions: vec!["py".into()],
+            ..ServerSettings::default()
+        },
+    );
+    let (language, server) = settings.for_path(&root.path().join("test.py")).unwrap();
+    assert_eq!(language, "python");
+    assert_eq!(server.command, "python-language-server");
 }

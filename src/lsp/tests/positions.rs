@@ -57,6 +57,18 @@ fn surrogate_interiors_and_invalid_ranges_are_rejected() {
 
 #[test]
 fn reversed_ranges_are_rejected_and_crlf_offsets_are_correct() {
+    assert_eq!(
+        at_byte("a\r\nb", 2),
+        None,
+        "CRLF interiors have no LSP position"
+    );
+    assert_eq!(
+        at_byte("a\r\nb", 1),
+        Some(Position {
+            line: 0,
+            character: 1
+        })
+    );
     let reversed = Range {
         start: Position {
             line: 0,
@@ -80,7 +92,7 @@ fn reversed_ranges_are_rejected_and_crlf_offsets_are_correct() {
 #[test]
 fn file_uris_round_trip_spaces_unicode_and_reserved_characters() {
     let temp = TempDir::new().unwrap();
-    let path = temp.path().join("a # Я😀.rs");
+    let path = temp.path().join("a # %00 Я😀.rs");
     let uri = uri::from_path(&path).unwrap();
     assert!(uri.contains("%20") && uri.contains("%23"));
     assert_eq!(uri::to_path(&uri), Some(path));

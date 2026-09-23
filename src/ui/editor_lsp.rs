@@ -17,7 +17,11 @@ pub(super) fn status(editor: &Editor) -> String {
     }
     let cursor = editor.lsp_position();
     let diagnostic = editor.lsp.diagnostics.iter().find(|diagnostic| {
-        cursor.is_some_and(|at| diagnostic.range.start <= at && at <= diagnostic.range.end)
+        cursor.is_some_and(|at| {
+            diagnostic.range.start <= at
+                && (at < diagnostic.range.end
+                    || diagnostic.range.start == diagnostic.range.end && at == diagnostic.range.end)
+        })
     });
     diagnostic.map_or_else(
         || {
@@ -69,6 +73,12 @@ pub(super) fn popup(frame: &mut Frame, editor: &Editor) -> bool {
 
 fn contents(dialog: &Dialog) -> (&'static str, String, u16) {
     match dialog {
+        Dialog::Trust { root, allow } => (
+            " Language-server workspace trust ",
+            format!("The language server can execute this project's build scripts and macros.\n\n{}\n\n{} Keep LSP disabled\n{} Trust for this FFM session\n\nUp/Down selects; Enter confirms; Esc cancels.",
+                crate::path_display::label(root), marker(usize::from(*allow), 0), marker(usize::from(*allow), 1)),
+            0,
+        ),
         Dialog::Hover { text, scroll } => (" Hover — ↑↓ scroll, Esc close ", text.clone(), *scroll),
         Dialog::Completion {
             items, selected, ..

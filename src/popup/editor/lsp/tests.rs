@@ -75,17 +75,21 @@ fn hover_scrolls_and_definition_picker_opens_the_selected_target() {
         Some(Dialog::Hover { scroll: 1, .. })
     ));
     process(&mut app, KeyCode::Enter);
+    assert!(app.get_editor().unwrap().lsp.popup.is_none());
     let target = features::Definition {
         path: app.get_editor().unwrap().path.clone(),
         range: crate::lsp::positions::Range::default(),
     };
+    let mut second = target.clone();
+    second.range.start.character = 1;
+    second.range.end.character = 1;
     app.get_editor_mut().unwrap().lsp.popup = Some(Dialog::Definitions {
-        items: vec![target.clone(), target],
+        items: vec![target, second],
         selected: 0,
     });
     process(&mut app, KeyCode::Down);
     process(&mut app, KeyCode::Enter);
-    assert_eq!(app.get_editor().unwrap().cursor_col, 0);
+    assert_eq!(app.get_editor().unwrap().cursor_col, 1);
     app.close_overlay();
     assert!(!process(&mut app, KeyCode::Enter));
 }
@@ -133,4 +137,23 @@ fn snippet_completions_report_a_notice() {
         app.get_editor().unwrap().notice.as_deref(),
         Some("Snippet completion is not supported")
     );
+}
+
+#[test]
+fn workspace_trust_defaults_to_denial_and_requires_selecting_trust() {
+    let root = TempDir::new().unwrap();
+    let mut app = fixture(&root);
+    for accept in [false, true] {
+        app.get_editor_mut()
+            .unwrap()
+            .lsp
+            .ask_trust(root.path().to_path_buf());
+        if accept {
+            process(&mut app, KeyCode::Down);
+        }
+        process(&mut app, KeyCode::Enter);
+        let intent = app.get_editor().unwrap().lsp.intent;
+        assert_eq!(intent == crate::models::lsp::Intent::Trust, accept);
+        assert!(app.get_editor().unwrap().lsp.popup.is_none());
+    }
 }

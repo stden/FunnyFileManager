@@ -99,6 +99,9 @@ fn definition_accepts_location_arrays_and_location_links() {
 
 #[test]
 fn malformed_edits_and_non_file_definitions_are_errors() {
+    for value in [json!({}), json!(42), json!({"contents":42})] {
+        assert!(parse(Feature::Hover, &value).is_err());
+    }
     for value in [
         json!(42),
         json!([{}]),

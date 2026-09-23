@@ -21,16 +21,28 @@ pub struct EditorLspState {
     pub(crate) popup: Option<Dialog>,
 }
 
+impl EditorLspState {
+    pub(crate) fn ask_trust(&mut self, root: std::path::PathBuf) {
+        self.state = ServerState::Untrusted;
+        self.popup = Some(Dialog::Trust { root, allow: false });
+    }
+}
+
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub enum Intent {
     #[default]
     None,
     Query(LspFeature),
     Restart,
+    Trust,
 }
 
 #[derive(Clone)]
 pub enum Dialog {
+    Trust {
+        root: std::path::PathBuf,
+        allow: bool,
+    },
     Completion {
         query: Query,
         items: Vec<Completion>,

@@ -12,7 +12,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
-        mpsc::{Receiver, SyncSender},
+        mpsc::{Receiver, SyncSender, TrySendError},
     },
     thread,
     time::{Duration, Instant},
@@ -21,6 +21,8 @@ use std::{
 const TICK: Duration = Duration::from_millis(5);
 const INITIALIZE_TIMEOUT: Duration = Duration::from_secs(30);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_millis(750);
+
+mod lifecycle;
 
 struct Connection {
     owner: DocumentId,
@@ -32,52 +34,13 @@ struct Connection {
 }
 
 pub(super) fn run(commands: &Receiver<Command>, events: &SyncSender<Envelope>, stop: &AtomicBool) {
-    let mut connection = None;
+    let mut host = lifecycle::Host::default();
     while !stop.load(Ordering::Acquire) {
         while let Ok(command) = commands.try_recv() {
-            dispatch(&mut connection, command, events);
+            host.command(command, events);
         }
-        if let Some(active) = &mut connection {
-            if let Err(message) = active.pump(events) {
-                crate::diagnostics::log_error(message);
-                report(events, active.owner, Event::State(ServerState::Failed));
-                connection.take();
-            }
-        }
+        host.pump(events);
         thread::sleep(TICK);
-    }
-}
-
-fn dispatch(connection: &mut Option<Connection>, command: Command, events: &SyncSender<Envelope>) {
-    match command {
-        Command::Open(language, settings, snapshot) => {
-            connection.take();
-            let owner = snapshot.stamp.id;
-            report(events, owner, Event::State(ServerState::Starting));
-            match Connection::start(language, &settings, snapshot) {
-                Ok(active) => {
-                    *connection = Some(active);
-                    report(events, owner, Event::State(ServerState::Initializing));
-                }
-                Err(error) => {
-                    crate::diagnostics::log_error(&format!("LSP start failed: {:?}", error.kind()));
-                    let state = if error.kind() == std::io::ErrorKind::NotFound {
-                        ServerState::Unavailable
-                    } else {
-                        ServerState::Failed
-                    };
-                    report(events, owner, Event::State(state));
-                }
-            }
-        }
-        Command::Close => {
-            connection.take();
-        }
-        command => {
-            if let Some(active) = connection {
-                active.command(command);
-            }
-        }
     }
 }
 
@@ -85,13 +48,12 @@ impl Connection {
     fn start(
         language: String,
         settings: &ServerSettings,
-        mut snapshot: Snapshot,
+        snapshot: Snapshot,
+        root: &Path,
     ) -> std::io::Result<Self> {
-        snapshot.path = std::path::absolute(&snapshot.path)?;
-        let root = workspace_root(&snapshot.path, &settings.root_markers);
-        let root_uri = uri::from_path(&root)
+        let root_uri = uri::from_path(root)
             .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::InvalidInput))?;
-        let process = Process::start(settings, &root)?;
+        let process = Process::start(settings, root)?;
         Ok(Self {
             owner: snapshot.stamp.id,
             process,
@@ -155,12 +117,9 @@ impl Connection {
     }
 
     fn flush(&mut self) -> Result<(), &'static str> {
-        for message in self.client.rpc.outbox.drain(..) {
-            self.process
-                .send(message)
-                .map_err(|_| "LSP writer unavailable")?;
-        }
-        Ok(())
+        flush_messages(&mut self.client.rpc.outbox, |message| {
+            self.process.send(message)
+        })
     }
 
     fn shutdown(&mut self) {
@@ -173,7 +132,11 @@ impl Connection {
         }
         let deadline = Instant::now() + SHUTDOWN_TIMEOUT;
         while Instant::now() < deadline && !self.client.shutdown_complete {
-            if self.shutdown_response().is_err() {
+            if self
+                .flush()
+                .and_then(|()| self.shutdown_response())
+                .is_err()
+            {
                 return;
             }
         }
@@ -183,6 +146,9 @@ impl Connection {
         }
         let deadline = Instant::now() + SHUTDOWN_TIMEOUT;
         while Instant::now() < deadline && !self.process.exited() {
+            if self.flush().is_err() {
+                return;
+            }
             thread::sleep(TICK);
         }
     }
@@ -198,6 +164,31 @@ impl Connection {
         Ok(())
     }
 }
+
+fn flush_messages(
+    outbox: &mut Vec<serde_json::Value>,
+    mut send: impl FnMut(serde_json::Value) -> Result<(), TrySendError<serde_json::Value>>,
+) -> Result<(), &'static str> {
+    if outbox.len() > 1024 {
+        return Err("LSP writer backlog exceeded its limit");
+    }
+    let mut messages = std::mem::take(outbox).into_iter();
+    while let Some(message) = messages.next() {
+        match send(message) {
+            Ok(()) => {}
+            Err(TrySendError::Full(message)) => {
+                outbox.push(message);
+                outbox.extend(messages);
+                break;
+            }
+            Err(TrySendError::Disconnected(_)) => return Err("LSP writer unavailable"),
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests;
 
 impl Drop for Connection {
     fn drop(&mut self) {

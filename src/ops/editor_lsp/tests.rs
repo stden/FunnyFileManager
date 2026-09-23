@@ -48,9 +48,14 @@ fn another_file_opens_at_the_utf16_target() {
 #[test]
 fn modified_source_and_invalid_targets_remain_open_with_an_explanation() {
     let root = TempDir::new().unwrap();
-    let (mut app, mut target) = fixture(&root);
+    let (mut app, target) = fixture(&root);
     app.get_editor_mut().unwrap().insert_char('x');
     definition(&mut app, &target);
+    assert_eq!(
+        app.get_editor().unwrap().path,
+        root.path().join("source.rs")
+    );
+    assert_eq!(app.get_editor().unwrap().content(), "xsource");
     assert!(app
         .get_editor()
         .unwrap()
@@ -58,6 +63,12 @@ fn modified_source_and_invalid_targets_remain_open_with_an_explanation() {
         .as_ref()
         .unwrap()
         .contains("Save"));
+}
+
+#[test]
+fn invalid_definition_targets_leave_the_source_open_with_an_explanation() {
+    let root = TempDir::new().unwrap();
+    let (mut app, mut target) = fixture(&root);
     app.get_editor_mut().unwrap().save().unwrap();
     target.range.start.character = 1;
     definition(&mut app, &target);
@@ -76,5 +87,31 @@ fn modified_source_and_invalid_targets_remain_open_with_an_explanation() {
     assert_eq!(
         app.get_editor().unwrap().notice.as_deref(),
         Some("Definition target is not an editable text file")
+    );
+}
+
+#[test]
+fn empty_definition_targets_keep_the_configured_encoding() {
+    let root = TempDir::new().unwrap();
+    let (mut app, mut target) = fixture(&root);
+    std::fs::write(&target.path, "").unwrap();
+    target.range = Range::default();
+    app.settings
+        .set(crate::menu::SettingsPage::CodePages, "Windows-1251")
+        .unwrap();
+    let expected = crate::editor::editor_for(
+        &app,
+        target.path.clone(),
+        "",
+        crate::encoding::TextEncoding::Utf8,
+    );
+    assert_eq!(
+        expected.format.encoding,
+        crate::encoding::TextEncoding::Windows1251
+    );
+    definition(&mut app, &target);
+    assert_eq!(
+        app.get_editor().unwrap().format.encoding,
+        crate::encoding::TextEncoding::Windows1251
     );
 }

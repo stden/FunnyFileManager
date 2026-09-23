@@ -32,10 +32,15 @@ fn click_label(app: &mut App, terminal: &mut Terminal<WritableTestBackend>, labe
             let text: String = (0..area.width)
                 .map(|column| buffer[(column, row)].symbol())
                 .collect();
-            text.find(label).map(|byte| {
-                let column = u16::try_from(text[..byte].width()).expect("screen column");
-                (column, row)
-            })
+            text.find(label)
+                .map(|byte| {
+                    let column = u16::try_from(text[..byte].width()).expect("screen column");
+                    (column, row)
+                })
+                .filter(|&(column, row)| {
+                    // Only dialog buttons, not a random "F5" in the background panel path.
+                    buffer[(column, row)].bg == ratatui::style::Color::Rgb(0, 128, 128)
+                })
         })
         .expect("button label must be rendered");
     dispatch_mouse(

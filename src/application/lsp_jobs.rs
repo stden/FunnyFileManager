@@ -73,6 +73,10 @@ impl EditorLspController {
     }
 
     fn update(&mut self, editor: &mut crate::models::Editor, context: Context, now: Instant) {
+        if editor.lsp.intent == Intent::Trust {
+            editor.lsp.intent = Intent::None;
+            self.pending.push_back(Command::Trust(context.stamp.id));
+        }
         if self.observed != Some(context) {
             self.pending.push_back(Command::Cancel);
             self.changed = Some(now);
@@ -167,7 +171,10 @@ fn requested_query(editor: &mut crate::models::Editor, context: Context) -> Opti
     editor.lsp.intent = Intent::None;
     if matches!(
         editor.lsp.state,
-        ServerState::Unavailable | ServerState::Failed | ServerState::Stopped
+        ServerState::Unavailable
+            | ServerState::Failed
+            | ServerState::Stopped
+            | ServerState::Untrusted
     ) {
         editor.notice = Some(editor.lsp.state.label().into());
         return None;
@@ -186,6 +193,10 @@ fn apply_event(app: &mut App, Envelope(owner, event): Envelope) -> bool {
         return false;
     };
     let target = match event {
+        Event::TrustRequired(root) => {
+            editor.lsp.ask_trust(root);
+            None
+        }
         Event::State(state) => {
             editor.lsp.state = state;
             None
@@ -194,7 +205,7 @@ fn apply_event(app: &mut App, Envelope(owner, event): Envelope) -> bool {
             editor.lsp.diagnostics = diagnostics;
             None
         }
-        Event::Reply(query, Ok(reply)) => {
+        Event::Reply(query, Ok(reply)) if editor.accepts_lsp_reply(query) => {
             editor.notice = None;
             editor.show_lsp_reply(query, reply)
         }

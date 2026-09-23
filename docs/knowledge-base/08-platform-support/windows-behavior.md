@@ -113,3 +113,6 @@ Interactive commands such as `codex` start in the active panel directory.
 The Windows console launcher converts canonical directory names to the spelling
 understood by `cmd.exe`; otherwise cmd treats the extended prefix as a UNC path
 and silently falls back to the Windows directory.
+
+For UNC shares, use a mapped drive before launching a new interactive console:
+`cmd.exe` does not accept a UNC path as its working directory.

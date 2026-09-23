@@ -95,7 +95,10 @@ fn diagnostics_accept_equivalent_windows_drive_spelling() {
     let mut client = initialized(json!(2));
     open(&mut client);
     let uri = client.document.as_ref().unwrap().uri.clone();
-    let lower = uri.replacen("file:///C:", "file:///c:", 1);
+    let lower = uri.to_ascii_lowercase();
+    let upper = uri.to_ascii_uppercase();
+    assert_ne!(lower, upper);
+    client.document.as_mut().unwrap().uri = upper;
     client.receive(json!({"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":lower,"version":1,"diagnostics":[]}})).unwrap();
     assert!(matches!(
         client.events.last(),
@@ -247,4 +250,33 @@ fn malformed_feature_payloads_and_jsonrpc_errors_reach_the_editor() {
         .outbox
         .iter()
         .any(|message| message["method"] == "textDocument/didClose"));
+}
+
+#[test]
+fn an_unsupported_query_cancels_the_previous_supported_request() {
+    let mut client = Client::new("rust".into(), "file:///workspace".into());
+    client
+        .receive(json!({"jsonrpc":"2.0","id":1,"result":{"capabilities":{
+            "textDocumentSync":2,"completionProvider":{}
+        }}}))
+        .unwrap();
+    let document = open(&mut client);
+    let mut query = Query {
+        stamp: document.stamp,
+        position: Position::default(),
+        feature: Feature::Completion,
+    };
+    client.query(query).unwrap();
+    let id = client.rpc.outbox.last().unwrap()["id"].clone();
+    query.feature = Feature::Hover;
+    assert!(client.query(query).is_err());
+    assert_eq!(
+        client.rpc.outbox.last().unwrap()["method"],
+        "$/cancelRequest"
+    );
+    let events = client.events.len();
+    client
+        .receive(json!({"jsonrpc":"2.0","id":id,"result":[{"label":"late"}]}))
+        .unwrap();
+    assert_eq!(client.events.len(), events);
 }

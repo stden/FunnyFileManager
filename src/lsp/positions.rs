@@ -63,6 +63,9 @@ pub fn byte_offset(text: &str, position: Position) -> Option<usize> {
 
 pub fn at_byte(text: &str, offset: usize) -> Option<Position> {
     let prefix = text.get(..offset)?;
+    if prefix.ends_with('\r') && text[offset..].starts_with('\n') {
+        return None;
+    }
     let line = prefix.bytes().filter(|byte| *byte == b'\n').count();
     let column = prefix.rsplit('\n').next()?;
     from_chars(line, column, column.chars().count())

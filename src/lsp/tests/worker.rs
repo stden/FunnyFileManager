@@ -45,10 +45,30 @@ fn wait(manager: &Manager, predicate: impl Fn(&Event) -> bool) -> Event {
             if predicate(&event.1) {
                 return event.1;
             }
+            if matches!(event.1, Event::TrustRequired(_)) {
+                send(manager, Command::Trust(event.0)); // The test owns this temporary project.
+            }
         }
         assert!(Instant::now() < deadline, "LSP event timed out");
         thread::sleep(Duration::from_millis(5));
     }
+}
+
+#[test]
+fn untrusted_workspaces_never_start_a_child_and_stale_trust_cannot_approve_them() {
+    let (root, settings, snapshot) = fixture("normal");
+    let manager = Manager::start().unwrap();
+    send(&manager, Command::Open("rust".into(), settings, snapshot));
+    let Event::TrustRequired(path) =
+        wait(&manager, |event| matches!(event, Event::TrustRequired(_)))
+    else {
+        panic!()
+    };
+    assert_eq!(path, root.path().canonicalize().unwrap());
+    send(&manager, Command::Trust(DocumentId::default()));
+    drop(manager);
+    assert!(!root.path().join("methods").exists());
+    assert!(!root.path().join("pid").exists());
 }
 
 #[test]

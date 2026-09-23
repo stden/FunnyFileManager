@@ -58,9 +58,30 @@ pub enum Reply {
 pub fn parse(feature: Feature, value: &Value) -> Result<Reply, &'static str> {
     match feature {
         Feature::Completion => completions(value).map(Reply::Completions),
-        Feature::Hover => Ok(Reply::Hover(markup(&value["contents"]))),
+        Feature::Hover => hover(value).map(Reply::Hover),
         Feature::Definition => definitions(value).map(Reply::Definitions),
     }
+}
+
+fn hover(value: &Value) -> Result<String, &'static str> {
+    if value.is_null() {
+        return Ok(String::new());
+    }
+    let contents = value.get("contents").ok_or("Missing hover contents")?;
+    if !valid_markup(contents) {
+        return Err("Invalid hover contents");
+    }
+    Ok(markup(contents))
+}
+
+fn valid_markup(value: &Value) -> bool {
+    value.is_string()
+        || value
+            .as_array()
+            .is_some_and(|items| items.iter().all(valid_markup))
+        || value.get("value").is_some_and(Value::is_string)
+            && (value.get("language").is_some_and(Value::is_string)
+                || matches!(value["kind"].as_str(), Some("plaintext" | "markdown")))
 }
 
 fn completions(value: &Value) -> Result<Vec<Completion>, &'static str> {

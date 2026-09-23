@@ -48,11 +48,21 @@ fn pump_until(
     }
 }
 
+fn trust_fixture(controller: &mut EditorLspController, app: &mut App) {
+    pump_until(controller, app, |editor| {
+        matches!(editor.lsp.popup, Some(Dialog::Trust { .. }))
+    });
+    let editor = app.get_editor_mut().unwrap();
+    editor.lsp.popup = None;
+    editor.lsp.intent = Intent::Trust; // Explicit approval of a workspace created by this test.
+}
+
 #[test]
 fn editor_debounces_changes_saves_and_restarts_without_losing_text() {
     let root = TempDir::new().unwrap();
     let mut app = fixture(&root);
     let mut controller = EditorLspController::default();
+    trust_fixture(&mut controller, &mut app);
     pump_until(&mut controller, &mut app, |editor| {
         !editor.lsp.diagnostics.is_empty()
     });
@@ -68,18 +78,22 @@ fn editor_debounces_changes_saves_and_restarts_without_losing_text() {
     app.get_editor_mut().unwrap().save().unwrap();
     controller.pump(&mut app);
     assert_eq!(controller.sent.unwrap().1, 1);
-    let text = app.get_editor().unwrap().content();
-    app.get_editor_mut().unwrap().lsp.intent = Intent::Restart;
-    controller.pump(&mut app);
-    pump_until(&mut controller, &mut app, |editor| {
-        editor.lsp.state == ServerState::Ready
-    });
-    assert_eq!(app.get_editor().unwrap().content(), text);
+    restart_without_another_trust_prompt(&mut controller, &mut app);
     close(&mut controller, &mut app);
     drop(controller);
     assert!(fs::read_to_string(root.path().join("methods"))
         .unwrap()
         .ends_with("exit\n"));
+}
+
+fn restart_without_another_trust_prompt(controller: &mut EditorLspController, app: &mut App) {
+    let text = app.get_editor().unwrap().content();
+    app.get_editor_mut().unwrap().lsp.intent = Intent::Restart;
+    controller.pump(app);
+    pump_until(controller, app, |editor| {
+        editor.lsp.state == ServerState::Ready
+    });
+    assert_eq!(app.get_editor().unwrap().content(), text);
 }
 
 fn close(controller: &mut EditorLspController, app: &mut App) {
@@ -93,6 +107,7 @@ fn editor_receives_completion_hover_and_definition_from_the_background_worker() 
     let root = TempDir::new().unwrap();
     let mut app = fixture(&root);
     let mut controller = EditorLspController::default();
+    trust_fixture(&mut controller, &mut app);
     pump_until(&mut controller, &mut app, |editor| {
         editor.lsp.state == ServerState::Ready
     });
@@ -125,7 +140,10 @@ fn measure_editor_startup_and_typing_while_the_server_is_busy() {
     let settings = app.config.lsp.0.get_mut("rust").unwrap();
     settings.enabled = true;
     settings.args.push("busy".into());
-    controller.pump(&mut app);
+    trust_fixture(&mut controller, &mut app);
+    pump_until(&mut controller, &mut app, |editor| {
+        editor.lsp.state == ServerState::Initializing
+    });
     let typing = Instant::now();
     for _ in 0..1000 {
         app.get_editor_mut().unwrap().insert_char('x');

@@ -4,7 +4,11 @@ use super::*;
 
 #[test]
 fn feature_flags_accept_provider_options_and_reject_missing_support() {
-    let capabilities = Capabilities::parse(&json!({"completionProvider":{},"hoverProvider":true,"definitionProvider":false,"textDocumentSync":1})).unwrap();
+    let capabilities = Capabilities::parse(&json!({
+        "completionProvider": {}, "hoverProvider": true,
+        "definitionProvider": false, "textDocumentSync": 1
+    }))
+    .unwrap();
     assert!(capabilities.supports(Feature::Completion));
     assert!(capabilities.supports(Feature::Hover));
     assert!(!capabilities.supports(Feature::Definition));

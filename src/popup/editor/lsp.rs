@@ -26,6 +26,7 @@ pub(super) fn process(app: &mut App, code: KeyCode) -> bool {
 
 fn navigate(dialog: &mut Dialog, next: bool) {
     match dialog {
+        Dialog::Trust { allow, .. } => *allow = next,
         Dialog::Completion {
             selected, items, ..
         } => move_selection(selected, items.len(), next),
@@ -50,6 +51,13 @@ fn move_selection(selected: &mut usize, len: usize, next: bool) {
 
 fn accept(app: &mut App, dialog: Dialog) {
     match dialog {
+        Dialog::Trust { allow, .. } => {
+            if allow {
+                if let Some(editor) = app.get_editor_mut() {
+                    editor.lsp.intent = crate::models::lsp::Intent::Trust;
+                }
+            }
+        }
         Dialog::Completion {
             query,
             items,

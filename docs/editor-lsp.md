@@ -2,10 +2,14 @@
 
 # Language servers in the built-in editor
 
-Opening a Rust `.rs` file with F4 starts `rust-analyzer` in the background.
+Opening a Rust `.rs` file with F4 asks whether to trust the workspace. Language
+servers can execute project build scripts and macros. The default choice keeps
+LSP disabled; select **Trust** with Down and confirm with Enter only for a project
+you trust. Approval lasts until FFM exits and applies to that workspace root.
+After approval, `rust-analyzer` starts in the background.
 Install it on PATH, for example with `rustup component add rust-analyzer` when
 using rustup. Editing and saving still work if the server is unavailable.
-The editor header reports startup, readiness, failure, and diagnostic counts.
+The editor header reports pending trust, startup, readiness, failure, and diagnostic counts.
 Errors and warnings underline the affected text; placing the cursor there shows
 the message in the header. Information and hints are also displayed.
 
@@ -16,7 +20,7 @@ the message in the header. Information and hints are also displayed.
 | Ctrl+Space | Request completions |
 | Ctrl+K | Show hover information |
 | Ctrl+] | Go to definition |
-| Ctrl+Alt+R | Restart the language server |
+| Ctrl+Alt+R | Restart the language server or reopen the trust prompt |
 | Up / Down | Select a popup result or scroll hover text |
 | Enter / Esc | Accept / dismiss the popup |
 
@@ -100,15 +104,18 @@ document identity, revision and request position; stale results are discarded.
 Cancellation removes superseded request IDs and sends `$/cancelRequest`.
 
 Local debug-build measurements for the small acceptance workspace: background
-startup handoff 0.26 ms, diagnostics after 2.43 s, completion 10.54 ms, an edit
-handoff 0.007 ms, shutdown 34.79 ms. With a busy fake server, 1,000 editor edits
-and controller pumps took 6.42 ms; controller startup with LSP disabled took
-0.046 ms. These are observations, not portable performance thresholds.
+startup handoff 0.26 ms, diagnostics after 2.42 s, completion 42.15 ms, an edit
+handoff 0.006 ms, shutdown 40.14 ms. With a busy fake server, 1,000 editor edits
+and controller pumps took 6.13 ms; controller startup with LSP disabled took
+0.361 ms. These are observations, not portable performance thresholds.
 
 Closing the editor sends `didClose` and shuts down its server. Application exit
 joins the worker: `shutdown` has a bounded response wait, then `exit` has a bounded
 process wait. Remaining processes are terminated and reaped; Windows job objects
 and Unix process groups include descendants. No async runtime is required.
+On Unix, exit polling retains the child PID until its group is terminated and
+reaped, preventing a reused PID from receiving cleanup signals. A full writer
+queue retains messages for retry in order, with a bounded backlog.
 
 The pure protocol client is independent of widgets and of rust-analyzer. Add
 language defaults in `config/lsp.rs`; generic server support belongs under
