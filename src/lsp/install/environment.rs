@@ -28,14 +28,14 @@ impl Environment for System {
             .ok_or(InstallError::Missing(missing))
     }
 
+    fn run(&self, command: &mut Command, stop: &AtomicBool) -> Result<Vec<u8>, InstallError> {
+        runner::run(command, stop)
+    }
+
     fn runtimes(&self, names: &[&str]) -> Vec<PathBuf> {
         let paths = std::env::var_os("PATH").unwrap_or_default();
         let java_home = std::env::var_os("JAVA_HOME").map(PathBuf::from);
         candidates(names, std::env::split_paths(&paths), java_home.as_deref())
-    }
-
-    fn run(&self, command: &mut Command, stop: &AtomicBool) -> Result<Vec<u8>, InstallError> {
-        runner::run(command, stop)
     }
 }
 

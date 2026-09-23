@@ -468,12 +468,12 @@ fn render_delete_confirm(
         1 => "Do you wish to delete the file?".to_owned(),
         count => format!("Do you wish to delete {count} items?"),
     }];
-    message.extend(files.iter().take(DELETE_PREVIEW).map(|path| {
-        path.file_name().map_or_else(
-            || crate::ui::printable_name(&path.display().to_string()).into_owned(),
-            |name| crate::ui::printable_name(&name.to_string_lossy()).into_owned(),
-        )
-    }));
+    message.extend(
+        files
+            .iter()
+            .take(DELETE_PREVIEW)
+            .map(|path| super::entry_label(path)),
+    );
     if files.len() > DELETE_PREVIEW {
         message.push(format!("… and {} more", files.len() - DELETE_PREVIEW));
     }

@@ -40,7 +40,7 @@ fn quit() -> Event {
 
 struct QueuedText(std::collections::VecDeque<Event>);
 
-impl super::super::input::EventSource for QueuedText {
+impl super::input::EventSource for QueuedText {
     fn read(&mut self) -> io::Result<Option<Event>> {
         Ok(Some(self.0.pop_front().expect("script must quit")))
     }
@@ -73,7 +73,7 @@ fn a_queued_paste_renders_once_before_saving_and_closing() -> io::Result<()> {
         .chain([key(KeyCode::F(2)), key(KeyCode::Esc), quit()]);
     let screen = CountingBackend::new();
     let mut terminal = Terminal::new(screen.clone())?;
-    super::super::run_loop(
+    super::run_loop(
         &mut terminal,
         &mut app,
         QueuedText(events.collect()),

@@ -49,7 +49,7 @@ fn a_failed_entry_takes_its_reason_from_any_error() {
 fn free_form_output_still_travels_as_a_status() {
     assert_eq!(Status::Cleared.to_string(), "");
     assert_eq!(
-        Status::Path(std::path::PathBuf::from("/srv/work")).to_string(),
+        Status::Path(PathBuf::from("/srv/work")).to_string(),
         "/srv/work"
     );
     assert_eq!(

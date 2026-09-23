@@ -41,7 +41,7 @@ impl CountingBackend {
             .buffer()
             .content
             .iter()
-            .map(ratatui::buffer::Cell::symbol)
+            .map(Cell::symbol)
             .collect()
     }
 }
@@ -97,11 +97,11 @@ impl Backend for CountingBackend {
         self.0.borrow().backend.size()
     }
 
-    fn flush(&mut self) -> io::Result<()> {
-        Backend::flush(&mut self.0.borrow_mut().backend)
-    }
-
     fn window_size(&mut self) -> io::Result<WindowSize> {
         self.0.borrow_mut().backend.window_size()
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Backend::flush(&mut self.0.borrow_mut().backend)
     }
 }

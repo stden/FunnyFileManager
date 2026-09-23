@@ -32,7 +32,7 @@ fn test_drive_selection_end() -> io::Result<()> {
         rows: crate::models::drive_rows(),
     });
 
-    let drive_count = crate::models::App::get_all_drives().len();
+    let drive_count = App::get_all_drives().len();
     if drive_count == 0 {
         return Ok(());
     }
@@ -55,7 +55,7 @@ fn test_drive_selection_enter_right_panel() -> io::Result<()> {
         rows: crate::models::drive_rows(),
     });
 
-    let drives = crate::models::App::get_all_drives();
+    let drives = App::get_all_drives();
     if drives.is_empty() {
         return Ok(());
     }
@@ -139,7 +139,7 @@ fn test_drive_selection_enter_s3_profile() -> io::Result<()> {
     });
 
     // Find an S3 profile entry in get_all_drives(); if none configured, skip.
-    let drives = crate::models::App::get_all_drives();
+    let drives = App::get_all_drives();
     let s3_index = drives
         .iter()
         .position(|d| matches!(d, DriveEntry::S3Profile(_)));

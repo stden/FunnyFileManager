@@ -68,12 +68,12 @@ impl Backend for FailingDrawBackend {
         self.0.size()
     }
 
-    fn flush(&mut self) -> io::Result<()> {
-        Backend::flush(&mut self.0)
-    }
-
     fn window_size(&mut self) -> io::Result<WindowSize> {
         self.0.window_size()
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Backend::flush(&mut self.0)
     }
 }
 
@@ -171,7 +171,7 @@ fn a_lost_terminal_ends_the_loop_cleanly() -> io::Result<()> {
                 _ => panic!("the loop must not read past a lost terminal"),
             }
         },
-        std::sync::Arc::new(crate::wsl::SystemWslBackend),
+        Arc::new(crate::wsl::SystemWslBackend),
     )?;
 
     assert_eq!(reads.get(), 2, "the loop read on after the hang-up");
@@ -198,7 +198,7 @@ fn other_read_errors_are_still_fatal() -> io::Result<()> {
         &mut terminal,
         &mut app,
         || Err(io::Error::new(io::ErrorKind::UnexpectedEof, "done")),
-        std::sync::Arc::new(crate::wsl::SystemWslBackend),
+        Arc::new(crate::wsl::SystemWslBackend),
     )
     .expect_err("a read failure that is not a hang-up must stay fatal");
 

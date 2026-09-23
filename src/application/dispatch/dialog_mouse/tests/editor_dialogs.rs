@@ -8,8 +8,7 @@ fn encoding_dialog_rows_and_buttons_route_to_encoding_actions() {
     use crate::encoding::TextEncoding;
     let dir = TempDir::new().expect("temp");
     let mut app = app_at(&dir);
-    let mut editor =
-        crate::models::Editor::from_content("text".to_owned(), dir.path().join("text"), "hello");
+    let mut editor = Editor::from_content("text".to_owned(), dir.path().join("text"), "hello");
     editor.encoding_choice = Some(TextEncoding::Utf8);
     app.set_overlay(Overlay::Editor(editor));
     click_dialog_row(&mut app, 4);

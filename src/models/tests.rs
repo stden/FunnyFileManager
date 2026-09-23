@@ -158,7 +158,7 @@ fn test_editor_from_content_round_trip() {
 #[test]
 fn test_editor_keeps_crlf_while_editing() {
     let mut editor = editor_from("alpha\r\nbeta\r\n");
-    assert_eq!(editor.format.line_ending, super::editor::LineEnding::Crlf);
+    assert_eq!(editor.format.line_ending, LineEnding::Crlf);
     editor.move_end();
     editor.insert_newline();
     assert_eq!(editor.content(), "alpha\r\n\r\nbeta\r\n");
@@ -169,11 +169,11 @@ fn test_editor_line_ending_follows_the_majority() {
     // A single stray CRLF must not convert an otherwise LF file.
     assert_eq!(
         editor_from("a\r\nb\nc\nd\n").format.line_ending,
-        super::editor::LineEnding::Lf
+        LineEnding::Lf
     );
     assert_eq!(
         editor_from("a\r\nb\r\nc\n").format.line_ending,
-        super::editor::LineEnding::Crlf
+        LineEnding::Crlf
     );
 }
 
@@ -276,7 +276,7 @@ fn test_editor_cursor_movement_and_clamping() {
 fn test_editor_save_writes_file_and_clears_modified() -> io::Result<()> {
     let temp_dir = TempDir::new().expect("test setup");
     let path = temp_dir.path().join("save.txt");
-    std::fs::write(&path, "hello\n").expect("test setup");
+    fs::write(&path, "hello\n").expect("test setup");
 
     let mut editor = Editor::from_content("save.txt".to_string(), path.clone(), "hello\n");
     editor.cursor_col = 5;
@@ -285,7 +285,7 @@ fn test_editor_save_writes_file_and_clears_modified() -> io::Result<()> {
 
     editor.save()?;
     assert!(!editor.state.is_modified());
-    assert_eq!(std::fs::read_to_string(&path)?, "hello!\n");
+    assert_eq!(fs::read_to_string(&path)?, "hello!\n");
     Ok(())
 }
 
@@ -564,7 +564,7 @@ fn test_panel_load_entries_stays_put_when_selected_missing() -> io::Result<()> {
 }
 
 #[test]
-fn test_uncovered_models_methods() -> std::io::Result<()> {
+fn test_uncovered_models_methods() -> io::Result<()> {
     assert!(BookmarkSlot::new(10).is_err());
     assert!(BookmarkSlot::from_usize(11).is_err());
 
@@ -641,8 +641,8 @@ fn a_file_name_orders_like_the_string_it_wraps() {
 fn a_file_name_joins_onto_a_directory_as_one_component() {
     // `AsRef<Path>` is the one correct way to turn a mark into a path, and a
     // name is always exactly one component.
-    let joined = std::path::Path::new("/srv/work").join(FileName::from("notes.txt"));
-    assert_eq!(joined, std::path::Path::new("/srv/work/notes.txt"));
+    let joined = Path::new("/srv/work").join(FileName::from("notes.txt"));
+    assert_eq!(joined, Path::new("/srv/work/notes.txt"));
     assert_eq!(FileName::from("notes.txt").to_string(), "notes.txt");
 }
 
@@ -667,11 +667,8 @@ fn every_slot_has_somewhere_to_go() {
     for n in 0..=BookmarkSlot::MAX {
         let slot = BookmarkSlot::new(n).expect("legal slot");
         assert_eq!(bookmarks.get(slot), None);
-        bookmarks.set(slot, std::path::PathBuf::from(format!("/slot{n}")));
-        assert_eq!(
-            bookmarks.get(slot),
-            Some(std::path::Path::new(&format!("/slot{n}")))
-        );
+        bookmarks.set(slot, PathBuf::from(format!("/slot{n}")));
+        assert_eq!(bookmarks.get(slot), Some(Path::new(&format!("/slot{n}"))));
         bookmarks.clear(slot);
         assert_eq!(bookmarks.get(slot), None);
     }

@@ -100,7 +100,7 @@ fn test_panel_marking_and_action_names() -> io::Result<()> {
     assert!(panel.toggle_mark_selected());
     assert!(panel.marked.contains("beta.txt"));
 
-    std::fs::remove_file(temp_dir.path().join("beta.txt")).expect("test setup");
+    fs::remove_file(temp_dir.path().join("beta.txt")).expect("test setup");
     panel.load_entries().expect("test setup");
     assert!(!panel.marked.contains("beta.txt"));
 
@@ -118,7 +118,7 @@ fn test_panel_marking_and_action_names() -> io::Result<()> {
 #[test]
 fn test_panel_load_entries_sort_modes() -> io::Result<()> {
     let temp_dir = TempDir::new().expect("test setup");
-    std::fs::create_dir(temp_dir.path().join("dir")).expect("test setup");
+    fs::create_dir(temp_dir.path().join("dir")).expect("test setup");
     File::create(temp_dir.path().join("b.txt"))
         .expect("test setup")
         .write_all(b"1")

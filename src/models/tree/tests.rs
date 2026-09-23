@@ -164,9 +164,9 @@ fn parent_child_and_sibling_moves_follow_the_structure_not_the_rows() {
     tree.reveal(Path::new("/home/bob"), &mut lister);
     // rows: / etc home ann bob var
     tree.cursor = 4; // bob
-    assert!(tree.to_parent());
+    assert!(tree.move_to_parent());
     assert_eq!(tree.selected(), Some(Path::new("/home")));
-    assert!(tree.to_first_child());
+    assert!(tree.move_to_first_child());
     assert_eq!(tree.selected(), Some(Path::new("/home/ann")));
     assert!(tree.next_sibling());
     assert_eq!(tree.selected(), Some(Path::new("/home/bob")));
@@ -175,7 +175,7 @@ fn parent_child_and_sibling_moves_follow_the_structure_not_the_rows() {
     assert_eq!(tree.selected(), Some(Path::new("/home/ann")));
     tree.cursor = 1; // etc, collapsed
     assert!(
-        !tree.to_first_child(),
+        !tree.move_to_first_child(),
         "nothing shown under a collapsed row"
     );
     assert!(
@@ -190,7 +190,7 @@ fn parent_child_and_sibling_moves_follow_the_structure_not_the_rows() {
         "skips home's kids"
     );
     tree.cursor = 0;
-    assert!(!tree.to_parent(), "the root has no parent on screen");
+    assert!(!tree.move_to_parent(), "the root has no parent on screen");
 }
 
 #[test]
@@ -257,7 +257,7 @@ fn reveal_and_search_refuse_paths_and_prefixes_that_cannot_match() {
     assert!(!empty.find_next("a"));
     assert!(!empty.next_sibling());
     assert!(!empty.previous_sibling());
-    assert!(!empty.to_first_child());
+    assert!(!empty.move_to_first_child());
 }
 
 #[test]

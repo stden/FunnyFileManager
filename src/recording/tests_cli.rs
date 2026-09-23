@@ -131,7 +131,7 @@ fn bare_record_uses_the_default_path() {
 }
 
 /// The session files under the auto-named root, as full paths.
-fn session_files() -> Vec<std::path::PathBuf> {
+fn session_files() -> Vec<PathBuf> {
     std::fs::read_dir(default_root())
         .into_iter()
         .flatten()
@@ -157,7 +157,7 @@ fn live_read_without_a_tty_does_not_panic() {
     let _ = input.read();
 }
 
-fn write_replay(dir: &TempDir, delay_ms: u64) -> std::path::PathBuf {
+fn write_replay(dir: &TempDir, delay_ms: u64) -> PathBuf {
     let path = dir.path().join("events.jsonl");
     let header = Header {
         version: 1,

@@ -27,7 +27,7 @@ fn test_render_overlays_drive_selection_left_panel() {
 
     let mut app = App::new().unwrap();
     app.set_overlay(Overlay::DriveSelection {
-        side: crate::models::PanelSide::Left,
+        side: PanelSide::Left,
         selected_index: 0,
         rows: crate::models::drive_rows(),
     });
@@ -42,7 +42,7 @@ fn test_render_overlays_drive_selection_right_panel() {
 
     let mut app = App::new().unwrap();
     app.set_overlay(Overlay::DriveSelection {
-        side: crate::models::PanelSide::Right,
+        side: PanelSide::Right,
         selected_index: 0,
         rows: crate::models::drive_rows(),
     });
@@ -57,7 +57,7 @@ fn test_ui_render_drive_selection_right() {
 
     let mut app = App::new().unwrap();
     app.set_overlay(Overlay::DriveSelection {
-        side: crate::models::PanelSide::Right,
+        side: PanelSide::Right,
         selected_index: 0,
         rows: crate::models::drive_rows(),
     });
@@ -74,7 +74,7 @@ fn test_render_overlays_drive_selection_highlighted_entry() {
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).unwrap();
 
-    let drives = crate::models::App::get_all_drives();
+    let drives = App::get_all_drives();
     let mut app = App::new().unwrap();
     let selected_index = if drives.is_empty() {
         0
@@ -82,7 +82,7 @@ fn test_render_overlays_drive_selection_highlighted_entry() {
         drives.len() - 1
     };
     app.set_overlay(Overlay::DriveSelection {
-        side: crate::models::PanelSide::Left,
+        side: PanelSide::Left,
         selected_index,
         rows: crate::models::drive_rows(),
     });
@@ -101,8 +101,8 @@ fn test_render_overlays_delete_confirm_many_files() {
 
     let mut app = App::new().unwrap();
     // Create more than 5 paths to trigger the "... and N more" branch.
-    let paths: Vec<std::path::PathBuf> = (0..8)
-        .map(|i| std::path::PathBuf::from(format!("/tmp/file{i}.txt")))
+    let paths: Vec<PathBuf> = (0..8)
+        .map(|i| PathBuf::from(format!("/tmp/file{i}.txt")))
         .collect();
     app.set_overlay(Overlay::DeleteConfirm(paths));
 
@@ -138,8 +138,8 @@ fn test_render_overlays_delete_confirm_few_files() {
 
     let mut app = App::new().unwrap();
     // Exactly 3 paths – stays within the first 5 branch (no "... and N more").
-    let paths: Vec<std::path::PathBuf> = (0..3)
-        .map(|i| std::path::PathBuf::from(format!("/tmp/file{i}.txt")))
+    let paths: Vec<PathBuf> = (0..3)
+        .map(|i| PathBuf::from(format!("/tmp/file{i}.txt")))
         .collect();
     app.set_overlay(Overlay::DeleteConfirm(paths));
 
@@ -168,8 +168,8 @@ fn test_render_overlays_new_file_input() {
         .iter()
         .find(|cell| cell.symbol() == "y")
         .unwrap();
-    assert_eq!(cell.fg, ratatui::style::Color::Rgb(0, 0, 0));
-    assert_eq!(cell.bg, ratatui::style::Color::Rgb(0, 128, 128));
+    assert_eq!(cell.fg, Color::Rgb(0, 0, 0));
+    assert_eq!(cell.bg, Color::Rgb(0, 128, 128));
 }
 
 #[test]
@@ -190,7 +190,7 @@ fn test_render_overlays_new_file_input_empty() {
 #[test]
 fn test_render_status_with_directory_selection() {
     let mut app = App::new().unwrap();
-    app.left_panel.entries = vec![crate::models::DirEntry {
+    app.left_panel.entries = vec![DirEntry {
         name: "subdir".to_string(),
         kind: EntryKind::Directory,
         size: FileSize::from_bytes(0),
@@ -220,13 +220,13 @@ fn test_render_status_dotdot_selected() {
     let mut app = App::new().unwrap();
     // ".." entry produces None from get_selected_entry in status (selected_path).
     // But get_selected_entry itself returns the ".." entry.
-    app.left_panel.entries = vec![crate::models::DirEntry {
+    app.left_panel.entries = vec![DirEntry {
         name: "..".to_string(),
         kind: EntryKind::Directory,
         size: FileSize::from_bytes(0),
         modified: Modified::UNKNOWN,
         executable: false,
-        ..crate::models::DirEntry::default()
+        ..DirEntry::default()
     }];
     app.left_panel.select(Some(0));
 
@@ -246,7 +246,7 @@ fn test_render_status_dotdot_selected() {
 #[test]
 fn test_render_command_line_narrow_terminal() {
     let mut app = App::new().unwrap();
-    app.left_panel.path = std::path::PathBuf::from("/a/very/long/path/that/is/wider/than/terminal");
+    app.left_panel.path = PathBuf::from("/a/very/long/path/that/is/wider/than/terminal");
     app.set_overlay(Overlay::CommandLine("ls".into()));
 
     // Use a very narrow terminal so prompt + text > width
@@ -385,7 +385,7 @@ fn test_editor_overlay_erases_the_panels_behind_it() {
 #[test]
 fn test_viewer_overlay_erases_the_panels_behind_it() {
     let mut app = app_with_loud_panels();
-    app.set_overlay(Overlay::Viewer(crate::models::Viewer::report(
+    app.set_overlay(Overlay::Viewer(Viewer::report(
         "log",
         vec!["hi".to_string()],
     )));
@@ -438,7 +438,7 @@ fn the_mask_dialog_draws_its_title_mask_and_buttons() {
             "*.rs".to_owned(),
         )));
 
-        terminal.draw(|f| crate::ui::ui(f, &mut app)).unwrap();
+        terminal.draw(|f| ui(f, &mut app)).unwrap();
         let screen = screen_text(&terminal);
 
         assert!(screen.contains(title), "the title says which way: {screen}");
@@ -464,22 +464,14 @@ fn the_mask_dialog_shows_which_button_has_the_cursor() {
     prompt.focus_cancel(true);
     app.set_overlay(Overlay::MaskPrompt(prompt));
 
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).unwrap();
+    terminal.draw(|f| ui(f, &mut app)).unwrap();
     assert!(screen_text(&terminal).contains("Cancel"));
 }
 
 /// The whole screen as one string, for the dialogs whose content matters more
 /// than which row it landed on.
 fn screen_text(terminal: &Terminal<TestBackend>) -> String {
-    let buffer = terminal.backend().buffer();
-    let mut out = String::new();
-    for y in 0..buffer.area.height {
-        for x in 0..buffer.area.width {
-            out.push_str(buffer[(x, y)].symbol());
-        }
-        out.push('\n');
-    }
-    out
+    crate::test_support::buffer_string(terminal.backend().buffer())
 }
 
 // -----------------------------------------------------------------------
@@ -499,7 +491,7 @@ fn a_search_that_found_nothing_names_what_it_looked_for() {
     editor.search.not_found = Some("needle".to_owned());
     app.set_overlay(Overlay::Editor(editor));
 
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).unwrap();
+    terminal.draw(|f| ui(f, &mut app)).unwrap();
     let screen = screen_text(&terminal);
 
     assert!(screen.contains("Search"), "{screen}");
@@ -522,7 +514,7 @@ fn the_make_folder_dialog_draws_fars_whole_box() {
     let mut app = App::new().unwrap();
     app.set_overlay(Overlay::NamePrompt(NamePrompt::make_folder()));
 
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).unwrap();
+    terminal.draw(|f| ui(f, &mut app)).unwrap();
     let screen = screen_text(&terminal);
 
     for expected in [
@@ -557,7 +549,7 @@ fn choosing_a_link_lights_up_the_target_field() {
     }
     app.set_overlay(Overlay::NamePrompt(prompt));
 
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).unwrap();
+    terminal.draw(|f| ui(f, &mut app)).unwrap();
     let screen = screen_text(&terminal);
 
     assert!(screen.contains("symbolic link"), "{screen}");
@@ -580,7 +572,7 @@ fn the_rename_box_leaves_the_link_group_out_altogether() {
         "notes.txt",
     ))));
 
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).unwrap();
+    terminal.draw(|f| ui(f, &mut app)).unwrap();
     let screen = screen_text(&terminal);
 
     assert!(screen.contains("Rename notes.txt to:"), "{screen}");
@@ -602,7 +594,7 @@ fn a_dialog_taller_than_the_screen_draws_what_fits() {
     let mut app = App::new().unwrap();
     app.set_overlay(Overlay::NamePrompt(NamePrompt::make_folder()));
 
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).unwrap();
+    terminal.draw(|f| ui(f, &mut app)).unwrap();
     assert!(screen_text(&terminal).contains("Make folder"));
 }
 
@@ -671,7 +663,7 @@ fn a_row_label_ending_in_the_hotkey_marker_keeps_its_text() {
     assert!(screen_text(&terminal).contains("Trailing marker"));
 }
 
-fn draw_dialog_controls(ground: super::dialog::Ground) -> Terminal<TestBackend> {
+fn draw_dialog_controls(ground: dialog::Ground) -> Terminal<TestBackend> {
     use super::dialog::{self, Button, Row};
     let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
     terminal
@@ -692,7 +684,7 @@ fn draw_dialog_controls(ground: super::dialog::Ground) -> Terminal<TestBackend> 
     terminal
 }
 
-fn assert_dialog_control_colors(ground: super::dialog::Ground, button_bg: ratatui::style::Color) {
+fn assert_dialog_control_colors(ground: dialog::Ground, button_bg: Color) {
     use ratatui::style::Color;
     let terminal = draw_dialog_controls(ground);
     let buffer = terminal.backend().buffer();
@@ -718,18 +710,14 @@ fn assert_dialog_control_colors(ground: super::dialog::Ground, button_bg: ratatu
         .unwrap();
     assert_eq!(hotkey.fg, Color::Rgb(255, 255, 0));
     let background = match ground {
-        super::dialog::Ground::Prompt => Color::Rgb(192, 192, 192),
-        super::dialog::Ground::Warning => Color::Rgb(128, 0, 0),
+        dialog::Ground::Prompt => Color::Rgb(192, 192, 192),
+        dialog::Ground::Warning => Color::Rgb(128, 0, 0),
     };
     assert_eq!(hotkey.bg, background);
     assert_button_accents(buffer, button_bg, background);
 }
 
-fn assert_button_accents(
-    buffer: &ratatui::buffer::Buffer,
-    focused: ratatui::style::Color,
-    ground: ratatui::style::Color,
-) {
+fn assert_button_accents(buffer: &ratatui::buffer::Buffer, focused: Color, ground: Color) {
     use ratatui::style::Color;
     let hotkey = buffer
         .content
@@ -750,18 +738,12 @@ fn assert_button_accents(
 
 #[test]
 fn prompt_controls_use_far_black_on_cyan() {
-    assert_dialog_control_colors(
-        super::dialog::Ground::Prompt,
-        ratatui::style::Color::Rgb(0, 128, 128),
-    );
+    assert_dialog_control_colors(dialog::Ground::Prompt, Color::Rgb(0, 128, 128));
 }
 
 #[test]
 fn warning_controls_use_far_gray_selected_button() {
-    assert_dialog_control_colors(
-        super::dialog::Ground::Warning,
-        ratatui::style::Color::Rgb(192, 192, 192),
-    );
+    assert_dialog_control_colors(dialog::Ground::Warning, Color::Rgb(192, 192, 192));
 }
 
 #[test]
@@ -779,8 +761,8 @@ fn help_uses_fixed_far_console_colors() {
         .iter()
         .find(|cell| cell.symbol() == "H")
         .unwrap();
-    assert_eq!(cell.fg, ratatui::style::Color::Rgb(0, 0, 0));
-    assert_eq!(cell.bg, ratatui::style::Color::Rgb(0, 128, 128));
+    assert_eq!(cell.fg, Color::Rgb(0, 0, 0));
+    assert_eq!(cell.bg, Color::Rgb(0, 128, 128));
 }
 
 #[test]

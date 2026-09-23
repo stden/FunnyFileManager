@@ -725,7 +725,7 @@ fn a_link_loop_is_refused_instead_of_walked_forever() {
     // The copy failed, and it failed quickly: what matters is that the walk
     // came back at all, and left no runaway tree behind.
     assert!(
-        matches!(app.status, crate::status::Status::CopiedWithErrors { .. }),
+        matches!(app.status, Status::CopiedWithErrors { .. }),
         "the loop must be reported, not silently truncated: {:?}",
         app.status
     );
@@ -753,7 +753,7 @@ fn a_link_into_the_destination_is_refused() {
     copy_with(&mut app, &dialog);
 
     assert!(
-        matches!(app.status, crate::status::Status::CopiedWithErrors { .. }),
+        matches!(app.status, Status::CopiedWithErrors { .. }),
         "reaching the destination must be reported: {:?}",
         app.status
     );
@@ -844,7 +844,7 @@ fn copying_a_fifo_reports_it_instead_of_waiting_for_a_writer() {
     copy_with(&mut app, &settings(to.path()));
 
     assert!(
-        matches!(app.status, crate::status::Status::CopiedWithErrors { .. }),
+        matches!(app.status, Status::CopiedWithErrors { .. }),
         "a pipe must be reported: {:?}",
         app.status
     );
@@ -852,7 +852,7 @@ fn copying_a_fifo_reports_it_instead_of_waiting_for_a_writer() {
 
 /// Make a FIFO at `path`, or `None` where the platform will not have one.
 #[cfg(unix)]
-fn make_fifo(path: &Path) -> Option<std::path::PathBuf> {
+fn make_fifo(path: &Path) -> Option<PathBuf> {
     let name = std::ffi::CString::new(path.as_os_str().as_encoded_bytes()).expect("a path");
     // SAFETY: a NUL-terminated path that outlives the call; mkfifo reads
     // nothing else and only reports whether the node was made.
@@ -862,7 +862,7 @@ fn make_fifo(path: &Path) -> Option<std::path::PathBuf> {
 /// How deep the tree under `root` goes, so a runaway walk is visible as a
 /// number rather than as a test that never ends.
 #[cfg(unix)]
-fn walk_depth(root: &std::path::Path) -> usize {
+fn walk_depth(root: &Path) -> usize {
     let Ok(entries) = fs::read_dir(root) else {
         return 0;
     };
@@ -913,7 +913,7 @@ fn zz_probe_readonly_target_dir_permission_denied() {
     mark(&mut app, "notes.txt");
     fs::set_permissions(to.path(), fs::Permissions::from_mode(0o555)).expect("setup");
     let euid = unsafe { libc::geteuid() };
-    let result = super::handle_copy(&mut app);
+    let result = handle_copy(&mut app);
     fs::set_permissions(to.path(), fs::Permissions::from_mode(0o755)).expect("cleanup");
     let status = app.status.to_string();
     eprintln!("euid={euid} result={result:?} status={status}");

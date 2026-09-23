@@ -10,12 +10,12 @@ use ratatui::{
     layout::Rect,
     style::Style,
     text::{Line, Span},
-    widgets::{Clear, Padding, Paragraph},
+    widgets::{Clear, Paragraph},
     Frame,
 };
 
 use super::panel::pad_cells;
-use super::{far_block, palette, Cells};
+use super::{palette, Cells};
 use crate::models::{ArchiveCommand, ArchiveMenu};
 
 /// Written into the top border, as Far titles the plugin's menu.
@@ -46,12 +46,7 @@ pub(super) fn render(f: &mut Frame, tracker: &mut crate::mouse::DialogMouse, dia
     );
     let ground = Style::default().bg(palette::MENU_BG).fg(palette::DRIVE_FG);
 
-    let block = far_block()
-        .title(Line::from(TITLE).centered())
-        .title_bottom(Line::from(FOOTER).centered())
-        .border_style(Style::default().fg(palette::DRIVE_FG))
-        .padding(Padding::horizontal(1))
-        .style(ground);
+    let block = super::dialog_frame(TITLE, FOOTER, ground);
 
     f.render_widget(Clear, area);
     f.render_widget(Paragraph::new(lines).block(block), area);

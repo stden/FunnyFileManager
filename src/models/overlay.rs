@@ -445,7 +445,7 @@ impl NamePrompt {
     /// own name: Far puts a link there unless told otherwise, and showing the
     /// whole path is what lets the user tell it otherwise.
     #[must_use]
-    pub fn link_to(target: std::path::PathBuf, name: String) -> Self {
+    pub fn link_to(target: PathBuf, name: String) -> Self {
         Self {
             purpose: NamePurpose::Link,
             original: FileName::new(String::new()),

@@ -579,17 +579,17 @@ fn cells_ignores_what_the_terminal_will_not_draw() {
 #[test]
 fn printable_name_replaces_the_undrawable_and_borrows_otherwise() {
     assert!(matches!(
-        crate::ui::printable_name("ordinary.txt"),
+        printable_name("ordinary.txt"),
         std::borrow::Cow::Borrowed("ordinary.txt")
     ));
-    assert_eq!(crate::ui::printable_name("tab\there"), "tab\u{FFFD}here");
+    assert_eq!(printable_name("tab\there"), "tab\u{FFFD}here");
     assert_eq!(
-        crate::ui::printable_name("bel\u{7}-cr\r"),
-        format!("bel{u}-cr{u}", u = crate::ui::UNPRINTABLE)
+        printable_name("bel\u{7}-cr\r"),
+        format!("bel{UNPRINTABLE}-cr{UNPRINTABLE}")
     );
     // The replacement is one cell wide, so the row measures what it draws.
     assert_eq!(
-        Cells::of(&crate::ui::printable_name("tab\there")).get(),
+        Cells::of(&printable_name("tab\there")).get(),
         "tab?here".len()
     );
 }
@@ -599,20 +599,20 @@ fn printable_name_replaces_the_undrawable_and_borrows_otherwise() {
 /// same row, and the bidi overrides can reverse an extension on screen.
 #[test]
 fn printable_name_shows_the_characters_that_draw_nothing() {
-    let marker = crate::ui::UNPRINTABLE;
+    let marker = UNPRINTABLE;
     for hidden in [
         '\u{00AD}', '\u{200B}', '\u{200E}', '\u{202E}', '\u{2060}', '\u{FEFF}',
     ] {
         let name = format!("cc{hidden}dd.txt");
         assert_eq!(
-            crate::ui::printable_name(&name),
+            printable_name(&name),
             format!("cc{marker}dd.txt"),
             "{hidden:?} passed through unseen"
         );
     }
     // A name that only looks similar is left exactly as it is.
     assert!(matches!(
-        crate::ui::printable_name("ccdd.txt"),
+        printable_name("ccdd.txt"),
         std::borrow::Cow::Borrowed("ccdd.txt")
     ));
 }
@@ -851,7 +851,7 @@ fn prompt_spans_colours_the_at_between_user_and_host() {
         .iter()
         .find(|span| span.content.as_ref() == "@")
         .expect("the '@' segment is drawn");
-    assert_eq!(at.style.fg, Some(super::palette::PROMPT_AT));
+    assert_eq!(at.style.fg, Some(palette::PROMPT_AT));
 }
 
 /// A 20-column bar gives the last four keys a one-column cell. The key number

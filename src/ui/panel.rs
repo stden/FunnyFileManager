@@ -532,13 +532,7 @@ fn panel_block(
 fn panel_title(panel: &Panel, interior: Cells, is_active: bool) -> Line<'static> {
     // Far highlights the active panel's path; an unhighlighted title is how
     // the inactive panel says so even when neither has a visible cursor bar.
-    let title_style = if is_active {
-        Style::default()
-            .fg(palette::HIGHLIGHT_FG)
-            .bg(palette::HIGHLIGHT_BG)
-    } else {
-        Style::default().fg(palette::FRAME).bg(FAR_BLUE)
-    };
+    let title_style = super::active_title_style(is_active);
 
     // Far's `*` before the path: the listing is not the whole directory.
     let filtered = if panel.filter.is_active() { "*" } else { "" };

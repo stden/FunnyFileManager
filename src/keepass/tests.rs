@@ -625,13 +625,13 @@ fn export_times_reports_expiry_only_when_the_flag_is_set() {
     times.expires = Some(false);
     times.expiry = times.creation;
     assert_eq!(
-        super::export_times(&times).expires,
+        export_times(&times).expires,
         None,
         "an expiry date without the flag means 'does not expire'"
     );
 
     times.expires = Some(true);
-    let exported = super::export_times(&times);
+    let exported = export_times(&times);
     assert_eq!(
         exported.expires.is_some(),
         times.expiry.is_some(),
@@ -639,7 +639,7 @@ fn export_times_reports_expiry_only_when_the_flag_is_set() {
     );
 }
 
-fn save_backdated_entry(path: &std::path::Path) {
+fn save_backdated_entry(path: &Path) {
     let mut db = cheap_db();
     {
         let mut root = db.root_mut();
@@ -651,7 +651,7 @@ fn save_backdated_entry(path: &std::path::Path) {
     save_atomic(&db, path, key).expect("save");
 }
 
-fn save_distinct_group_paths(path: &std::path::Path) {
+fn save_distinct_group_paths(path: &Path) {
     let mut db = cheap_db();
     {
         let mut root = db.root_mut();
@@ -673,7 +673,7 @@ fn save_distinct_group_paths(path: &std::path::Path) {
     save_atomic(&db, path, key).expect("save");
 }
 
-fn save_custom_field_vault(path: &std::path::Path) {
+fn save_custom_field_vault(path: &Path) {
     let mut db = cheap_db();
     db.meta.database_name = Some("My Vault".to_string());
     {
@@ -688,7 +688,7 @@ fn save_custom_field_vault(path: &std::path::Path) {
     save_atomic(&db, path, key).expect("save");
 }
 
-fn save_nested_deploy_entry(path: &std::path::Path) {
+fn save_nested_deploy_entry(path: &Path) {
     let mut db = cheap_db();
     {
         let mut root = db.root_mut();
@@ -702,7 +702,7 @@ fn save_nested_deploy_entry(path: &std::path::Path) {
     save_atomic(&db, path, key).expect("save");
 }
 
-fn assert_previous_password_in_history(path: &std::path::Path) {
+fn assert_previous_password_in_history(path: &Path) {
     let reopened = open_db(path, "pw", None).expect("reopen");
     let root = reopened.root();
     let stored = root.entry_by_name("Existing").expect("entry");

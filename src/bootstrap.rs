@@ -54,8 +54,7 @@ fn run_session(input: &mut crate::recording::Input) -> Result<(), Box<dyn Error>
     let cleanup_result = session.finish();
     report_at_exit(&app, &run_result);
 
-    crate::terminal::merge_run_and_cleanup(run_result, cleanup_result)
-        .map_err(std::convert::Into::into)
+    crate::terminal::merge_run_and_cleanup(run_result, cleanup_result).map_err(Into::into)
 }
 
 fn load_app() -> io::Result<App> {

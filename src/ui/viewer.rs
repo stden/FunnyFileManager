@@ -94,18 +94,6 @@ fn render_viewer_bar(f: &mut Frame, viewer: &Viewer, area: Rect, page: usize) {
     );
 }
 
-/// 100 once the last line is on screen, else how far down the top row is.
-///
-/// The first test also covers an empty `lines`, which would otherwise divide
-/// by zero.
-const fn percent(top: usize, rows: usize, total: usize) -> usize {
-    if top.saturating_add(rows) >= total {
-        100
-    } else {
-        top * 100 / total
-    }
-}
-
 /// The status line's text, exactly `width` cells of it.
 ///
 /// A pure function of the viewer and the clock so the tests can pin the row
@@ -125,7 +113,7 @@ fn bar_row(viewer: &Viewer, width: Cells, clock: &str, page: usize) -> String {
                 viewer.col.cells(),
                 format!(
                     "{}%",
-                    percent(viewer.scroll.lines(), page, viewer.lines.len())
+                    super::scroll_percent(viewer.scroll.lines(), page, viewer.lines.len())
                 ),
             ),
         ),

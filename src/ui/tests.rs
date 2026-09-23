@@ -135,7 +135,7 @@ fn test_ui_render_with_viewer_overlay() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let mut app = App::new().unwrap();
-    app.set_overlay(Overlay::Viewer(crate::models::Viewer::report(
+    app.set_overlay(Overlay::Viewer(Viewer::report(
         "test.txt",
         vec!["Line 1".to_string(), "Line 2".to_string()],
     )));
@@ -250,8 +250,8 @@ fn test_centered_rect_small_base() {
 #[test]
 fn test_ui_render_with_minimal_terminal_size() {
     let mut app = App::new().unwrap();
-    app.left_panel.path = std::path::PathBuf::from("/test");
-    app.right_panel.path = std::path::PathBuf::from("/test2");
+    app.left_panel.path = PathBuf::from("/test");
+    app.right_panel.path = PathBuf::from("/test2");
 
     let backend = TestBackend::new(40, 10);
     let mut terminal = Terminal::new(backend).unwrap();
@@ -263,8 +263,8 @@ fn test_ui_render_with_minimal_terminal_size() {
 fn test_ui_render_with_very_long_paths() {
     let mut app = App::new().unwrap();
     let long_path = "/very/long/path/that/exceeds/normal/display/width/in/terminal/window";
-    app.left_panel.path = std::path::PathBuf::from(long_path);
-    app.right_panel.path = std::path::PathBuf::from(long_path);
+    app.left_panel.path = PathBuf::from(long_path);
+    app.right_panel.path = PathBuf::from(long_path);
     app.set_status(Status::CommandOutput("x".repeat(200)));
 
     let backend = TestBackend::new(80, 24);
@@ -349,7 +349,7 @@ fn test_render_status_with_extreme_values() {
 
 #[test]
 fn test_centered_rect_edge_cases() {
-    let base = ratatui::layout::Rect::new(0, 0, 100, 50);
+    let base = Rect::new(0, 0, 100, 50);
 
     let rect1 = centered_rect(0, 0, base);
     assert_eq!(rect1.width, 0);
@@ -363,7 +363,7 @@ fn test_centered_rect_edge_cases() {
     assert_eq!(rect3.width, 1);
     assert_eq!(rect3.height, 0);
 
-    let tiny_base = ratatui::layout::Rect::new(0, 0, 1, 1);
+    let tiny_base = Rect::new(0, 0, 1, 1);
     let rect4 = centered_rect(50, 50, tiny_base);
     assert_eq!(rect4.width, 1);
     assert_eq!(rect4.height, 1);
@@ -440,7 +440,7 @@ fn test_panel_footer_prefers_quick_search() {
 fn test_panel_footer_is_none_when_idle() {
     let mut app = App::new().unwrap();
     app.quick_search = QuickSearch::Idle;
-    app.set_status(crate::status::Status::Cleared);
+    app.set_status(Status::Cleared);
 
     assert_eq!(panel_footer(&app), None);
 }
@@ -772,5 +772,5 @@ fn test_a_dot_directory_is_painted_as_a_directory_not_dimmed() {
     let (x, y) = (0..24)
         .find_map(|y| column_of(buf, y, ".dotdir").map(|x| (x, y)))
         .expect("the entry is on screen");
-    assert_eq!(buf[(x, y)].fg, super::palette::DIRECTORY);
+    assert_eq!(buf[(x, y)].fg, palette::DIRECTORY);
 }

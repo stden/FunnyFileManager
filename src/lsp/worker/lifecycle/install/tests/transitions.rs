@@ -90,7 +90,7 @@ fn installer_failure_is_reported_and_leaves_a_closed_session() {
 fn pump(
     host: &mut Host,
     events: &SyncSender<Envelope>,
-    received: &std::sync::mpsc::Receiver<Envelope>,
+    received: &Receiver<Envelope>,
     predicate: impl Fn(&Event) -> bool,
 ) {
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -100,11 +100,11 @@ fn pump(
             return;
         }
         assert!(Instant::now() < deadline);
-        std::thread::sleep(Duration::from_millis(5));
+        thread::sleep(Duration::from_millis(5));
     }
 }
 
-fn cached(root: &std::path::Path, settings: &ServerSettings) {
+fn cached(root: &Path, settings: &ServerSettings) {
     use sha2::{Digest, Sha256};
     use std::fmt::Write;
     let recipe = serde_json::to_vec(settings.install.as_ref().unwrap()).unwrap();

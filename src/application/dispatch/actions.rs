@@ -59,7 +59,7 @@ where
         Action::Move => open_transfer_prompt(app, copy::Purpose::Move),
         Action::Rename => open_rename_prompt(app),
         Action::DeleteConfirm => report(app, handle_delete_confirm),
-        Action::McpStatus => report(app, crate::ops::open_mcp_status),
+        Action::McpStatus => report(app, ops::open_mcp_status),
         Action::ToggleConsole => app.view = app.view.toggled(),
         Action::Refresh => refresh(app),
         Action::CommandLine => app.set_overlay(Overlay::CommandLine(CommandLine::default())),
@@ -159,7 +159,7 @@ fn open_dialog(app: &mut App, command: crate::action::DialogCommand) {
     use crate::action::DialogCommand;
     match command {
         DialogCommand::ConfirmQuit => {
-            app.set_overlay(Overlay::QuitConfirm(crate::models::Confirm::default()));
+            app.set_overlay(Overlay::QuitConfirm(models::Confirm::default()));
         }
         DialogCommand::NewFile => app.set_overlay(Overlay::NewFileInput(String::new())),
         DialogCommand::ToggleHelp => toggle_help(app),

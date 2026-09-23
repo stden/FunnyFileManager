@@ -275,7 +275,7 @@ fn zeroizing_a_vault_wipes_the_master_key_and_the_revealed_password() {
 
 #[test]
 fn popping_an_empty_master_key_is_a_no_op() {
-    let mut key = crate::kdbx::MasterKey::typing();
+    let mut key = MasterKey::typing();
     key.pop();
     assert!(key.is_empty());
     assert_eq!(key.char_count(), 0);

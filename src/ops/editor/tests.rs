@@ -202,16 +202,16 @@ fn a_save_replaces_the_file_and_keeps_its_permissions() {
 
     use crate::models::Editor;
 
-    let dir = tempfile::TempDir::new().expect("test setup");
+    let dir = TempDir::new().expect("test setup");
     let path = dir.path().join("notes.txt");
-    std::fs::write(&path, "old\n").expect("test setup");
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).expect("test setup");
+    fs::write(&path, "old\n").expect("test setup");
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).expect("test setup");
 
     let mut editor = Editor::from_content("notes.txt".to_owned(), path.clone(), "new\n");
     editor.save().expect("save");
 
-    assert_eq!(std::fs::read_to_string(&path).unwrap(), "new\n");
-    let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+    assert_eq!(fs::read_to_string(&path).unwrap(), "new\n");
+    let mode = fs::metadata(&path).unwrap().permissions().mode();
     assert_eq!(
         mode & 0o777,
         0o640,
@@ -227,18 +227,18 @@ fn a_save_replaces_the_file_and_keeps_its_permissions() {
 fn a_hard_linked_file_is_rewritten_in_place_so_the_other_name_survives() {
     use crate::models::Editor;
 
-    let dir = tempfile::TempDir::new().expect("test setup");
+    let dir = TempDir::new().expect("test setup");
     let path = dir.path().join("notes.txt");
     let other = dir.path().join("also-notes.txt");
-    std::fs::write(&path, "old\n").expect("test setup");
-    std::fs::hard_link(&path, &other).expect("test setup");
+    fs::write(&path, "old\n").expect("test setup");
+    fs::hard_link(&path, &other).expect("test setup");
 
     let mut editor = Editor::from_content("notes.txt".to_owned(), path.clone(), "new\n");
     editor.save().expect("save");
 
-    assert_eq!(std::fs::read_to_string(&path).unwrap(), "new\n");
+    assert_eq!(fs::read_to_string(&path).unwrap(), "new\n");
     assert_eq!(
-        std::fs::read_to_string(&other).unwrap(),
+        fs::read_to_string(&other).unwrap(),
         "new\n",
         "the other name sees the change, which a rename would have broken"
     );
@@ -250,7 +250,7 @@ fn a_hard_linked_file_is_rewritten_in_place_so_the_other_name_survives() {
 fn a_save_that_cannot_be_written_leaves_the_buffer_modified() {
     use crate::models::{EditState, Editor};
 
-    let dir = tempfile::TempDir::new().expect("test setup");
+    let dir = TempDir::new().expect("test setup");
     let path = dir.path().join("gone/notes.txt");
     let mut editor = Editor::from_content("notes.txt".to_owned(), path, "new\n");
     editor.state = EditState::Modified;
@@ -273,9 +273,9 @@ impl crate::clipboard::ClipboardBackend for OscClipboard {
     }
 }
 
-fn editor_app(content: &str, path: std::path::PathBuf) -> crate::models::App {
-    let mut app = crate::models::App::new().expect("app");
-    app.set_overlay(crate::models::Overlay::Editor(Editor::from_content(
+fn editor_app(content: &str, path: std::path::PathBuf) -> App {
+    let mut app = App::new().expect("app");
+    app.set_overlay(Overlay::Editor(Editor::from_content(
         "t.txt".to_owned(),
         path,
         content,
@@ -285,7 +285,7 @@ fn editor_app(content: &str, path: std::path::PathBuf) -> crate::models::App {
 
 #[test]
 fn copying_falls_back_to_the_terminal_clipboard() {
-    let dir = tempfile::TempDir::new().expect("dir");
+    let dir = TempDir::new().expect("dir");
     let mut app = editor_app("ab", dir.path().join("t.txt"));
     app.clipboard.install(Box::new(OscClipboard));
     app.get_editor_mut().expect("editor").select_all();
@@ -301,7 +301,7 @@ fn copying_falls_back_to_the_terminal_clipboard() {
 
 #[test]
 fn paste_and_copy_do_nothing_without_an_editor() {
-    let mut app = crate::models::App::new().expect("app");
+    let mut app = App::new().expect("app");
     crate::ops::copy_editor_selection(&mut app);
     crate::ops::paste_into_editor(&mut app);
     assert!(app.get_editor().is_none());
@@ -309,7 +309,7 @@ fn paste_and_copy_do_nothing_without_an_editor() {
 
 #[test]
 fn reloading_a_directory_as_text_is_refused() {
-    let dir = tempfile::TempDir::new().expect("dir");
+    let dir = TempDir::new().expect("dir");
     let mut app = editor_app("x", dir.path().to_path_buf());
     crate::ops::reload_editor_encoding(&mut app, crate::encoding::TextEncoding::Utf8);
     let notice = app.get_editor().expect("editor").notice.clone();

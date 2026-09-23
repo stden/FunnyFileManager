@@ -102,7 +102,7 @@ fn test_resolve_fkeys() {
     // Far's F12 lists the screens; the console toggle stays on Ctrl+O.
     assert_eq!(
         resolve(key(KeyCode::F(12))),
-        Action::MenuCommand(crate::menu::MenuCommand::Screens)
+        Action::MenuCommand(MenuCommand::Screens)
     );
 }
 

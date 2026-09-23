@@ -62,10 +62,7 @@ fn split_editor_command(env_editor: &str) -> (String, Vec<String>) {
     }
     let mut parts = env_editor.split_whitespace();
     let program = parts.next().unwrap_or(DEFAULT_EDITOR).to_string();
-    (
-        program,
-        parts.map(std::string::ToString::to_string).collect(),
-    )
+    (program, parts.map(ToString::to_string).collect())
 }
 
 /// Pick the editor to launch: VS Code when installed, else `$EDITOR`.

@@ -47,7 +47,7 @@ fn report(app: &mut App, operation: impl FnOnce(&mut App) -> io::Result<()>) {
 
 /// Apply a resolved [`Action`] to the application state, performing its effect.
 ///
-/// The dispatch half of the Input→Action DSL: [`crate::action::resolve`] turns a
+/// The dispatch half of the Input→Action DSL: [`resolve`] turns a
 /// key into an [`Action`]; this turns that [`Action`] into an effect on `app`.
 /// Updates [`Lifecycle`] when an action should terminate the event loop.
 ///

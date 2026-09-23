@@ -100,8 +100,8 @@ fn malformed_rpc_envelopes_do_not_masquerade_as_success() {
 }
 #[test]
 fn response_without_an_id_is_rejected() {
-    let mut session = super::super::rpc::Session::default();
+    let mut session = Session::default();
     assert!(session
-        .receive(serde_json::json!({"jsonrpc":"2.0","result":null}))
+        .receive(json!({"jsonrpc":"2.0","result":null}))
         .is_err());
 }

@@ -61,7 +61,7 @@ fn test_format_size_gigabytes() {
 fn test_unique_destination_no_conflict() {
     let temp_dir = TempDir::new().unwrap();
     let base = temp_dir.path();
-    let file_name = std::ffi::OsStr::new("test.txt");
+    let file_name = OsStr::new("test.txt");
 
     let dest = unique_destination(base, file_name).unwrap();
     assert_eq!(dest, base.join("test.txt"));
@@ -76,7 +76,7 @@ fn test_unique_destination_with_conflicts() {
     File::create(base.join("test.txt")).unwrap();
     File::create(base.join("test_1.txt")).unwrap();
 
-    let file_name = std::ffi::OsStr::new("test.txt");
+    let file_name = OsStr::new("test.txt");
     let dest = unique_destination(base, file_name).unwrap();
     assert_eq!(dest, base.join("test_2.txt"));
 }
@@ -88,7 +88,7 @@ fn test_unique_destination_no_extension() {
 
     File::create(base.join("test")).unwrap();
 
-    let file_name = std::ffi::OsStr::new("test");
+    let file_name = OsStr::new("test");
     let dest = unique_destination(base, file_name).unwrap();
     assert_eq!(dest, base.join("test_1"));
 }
@@ -100,7 +100,7 @@ fn test_unique_destination_multiple_dots() {
 
     File::create(base.join("test.backup.txt")).unwrap();
 
-    let file_name = std::ffi::OsStr::new("test.backup.txt");
+    let file_name = OsStr::new("test.backup.txt");
     let dest = unique_destination(base, file_name).unwrap();
     assert_eq!(dest, base.join("test.backup_1.txt"));
 }
@@ -112,7 +112,7 @@ fn test_unique_destination_empty_extension() {
 
     File::create(base.join("test.")).unwrap();
 
-    let file_name = std::ffi::OsStr::new("test.");
+    let file_name = OsStr::new("test.");
     let dest = unique_destination(base, file_name).unwrap();
     // When extension is empty, it's treated as no extension
     assert_eq!(dest, base.join("test_1"));
@@ -125,7 +125,7 @@ fn test_unique_destination_dotfile() {
 
     File::create(base.join(".env")).unwrap();
 
-    let file_name = std::ffi::OsStr::new(".env");
+    let file_name = OsStr::new(".env");
     let dest = unique_destination(base, file_name).unwrap();
     assert_eq!(dest, base.join(".env_1"));
 }
@@ -230,7 +230,7 @@ fn test_copy_dir_all_src_not_exist_rebase_copy() -> io::Result<()> {
 
 #[test]
 fn test_refresh_panels_mutation_killer() -> io::Result<()> {
-    let _lock = super::refresh_panels_mutex().lock().expect("refresh mutex");
+    let _lock = refresh_panels_mutex().lock().expect("refresh mutex");
     let temp_dir = TempDir::new().expect("test setup");
     let mut app = App::new().expect("test setup");
     app.left_panel.path = temp_dir.path().to_path_buf();
@@ -379,7 +379,7 @@ fn test_copy_dir_all_copies_zero_length_file() -> io::Result<()> {
 
 #[test]
 fn test_refresh_panels() -> io::Result<()> {
-    let _lock = super::refresh_panels_mutex().lock().expect("refresh mutex");
+    let _lock = refresh_panels_mutex().lock().expect("refresh mutex");
     let temp_dir = TempDir::new().expect("test setup");
 
     // Create initial files

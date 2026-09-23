@@ -1,6 +1,6 @@
 //! Unit tests: the menu bar's geometry and its label markers.
 //!
-//! [`super::drop_down_area`] is the one place that decides where a drop-down
+//! [`drop_down_area`] is the one place that decides where a drop-down
 //! goes, and both the renderer and the mouse ask it — so its refusals matter
 //! as much as its answers. A screen too small for the box has to produce
 //! nothing rather than a rectangle off the edge.
@@ -246,7 +246,7 @@ fn render_drop_down_draws_nothing_when_the_screen_has_no_room() {
     let mut terminal = Terminal::new(backend).unwrap();
     terminal
         .draw(|f| {
-            super::render_drop_down(f, &app, Rect::new(0, 0, 3, 1));
+            render_drop_down(f, &app, Rect::new(0, 0, 3, 1));
         })
         .unwrap();
 }

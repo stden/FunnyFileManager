@@ -122,7 +122,7 @@ fn test_event_loop_ctrl_r_refresh_error() -> io::Result<()> {
 #[cfg(unix)]
 #[test]
 fn make_fifo_reports_the_tool_failure_for_an_occupied_path() {
-    let temp = tempfile::TempDir::new().expect("temp dir");
+    let temp = TempDir::new().expect("temp dir");
     let path = temp.path().join("pipe");
     crate::test_support::make_fifo(&path).expect("first fifo");
 

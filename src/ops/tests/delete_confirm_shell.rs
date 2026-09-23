@@ -298,7 +298,7 @@ fn test_drive_selection_up_at_zero_wraps_cov() {
 
     // Up at index 0 should wrap to last
     process_popup_input(&mut app, key_event(KeyCode::Up));
-    let drives = crate::models::App::get_all_drives();
+    let drives = App::get_all_drives();
     if !drives.is_empty() {
         if let Overlay::DriveSelection { selected_index, .. } = &app.overlay {
             assert_eq!(*selected_index, drives.len() - 1);
@@ -311,7 +311,7 @@ fn test_drive_selection_up_at_zero_wraps_cov() {
 #[test]
 fn test_drive_selection_up_dec_cov() {
     let mut app = App::new().expect("test setup");
-    let drives = crate::models::App::get_all_drives();
+    let drives = App::get_all_drives();
     if drives.len() > 1 {
         app.set_overlay(Overlay::DriveSelection {
             side: PanelSide::Left,
@@ -336,7 +336,7 @@ fn test_drive_selection_down_inc_cov() {
         rows: crate::models::drive_rows(),
     });
 
-    let drives = crate::models::App::get_all_drives();
+    let drives = App::get_all_drives();
     if drives.len() > 1 {
         process_popup_input(&mut app, key_event(KeyCode::Down));
         if let Overlay::DriveSelection { selected_index, .. } = &app.overlay {
@@ -350,7 +350,7 @@ fn test_drive_selection_down_inc_cov() {
 #[test]
 fn test_drive_selection_down_at_end_wraps_cov() {
     let mut app = App::new().expect("test setup");
-    let drives = crate::models::App::get_all_drives();
+    let drives = App::get_all_drives();
     if !drives.is_empty() {
         app.set_overlay(Overlay::DriveSelection {
             side: PanelSide::Left,

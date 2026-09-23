@@ -33,7 +33,7 @@ fn editor_area() -> Rect {
 }
 
 /// Far's warning ground.
-const WARNING_BG: ratatui::style::Color = ratatui::style::Color::Rgb(128, 0, 0);
+const WARNING_BG: Color = Color::Rgb(128, 0, 0);
 
 /// The rectangle the dialog actually occupies, found by its ground rather than
 /// computed: it is sized to its content, so its extent is an output of the

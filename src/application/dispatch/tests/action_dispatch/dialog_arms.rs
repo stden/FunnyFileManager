@@ -50,7 +50,7 @@ fn f9_opens_the_menu_on_whichever_panel_is_active() {
     let Overlay::Menu(menu) = &app.overlay else {
         panic!("the bar is open");
     };
-    assert_eq!(menu.heading, crate::menu::Heading::Left);
+    assert_eq!(menu.heading, menu::Heading::Left);
     press(&mut app, &mut terminal, KeyCode::F(9));
 
     app.active_panel = PanelSide::Right;
@@ -60,7 +60,7 @@ fn f9_opens_the_menu_on_whichever_panel_is_active() {
     };
     assert_eq!(
         menu.heading,
-        crate::menu::Heading::Right,
+        menu::Heading::Right,
         "the panel menus act on their own side, so it opens on the active one"
     );
 }
@@ -120,7 +120,7 @@ fn shift_f6_on_a_real_entry_opens_the_rename_dialog_prefilled() {
     };
     assert_eq!(
         prompt.purpose(),
-        crate::models::NamePurpose::Rename,
+        models::NamePurpose::Rename,
         "not the make-folder dialog"
     );
     assert_eq!(prompt.original(), "report.md");

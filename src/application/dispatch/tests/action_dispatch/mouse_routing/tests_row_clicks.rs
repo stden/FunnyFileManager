@@ -10,9 +10,7 @@ fn clicking_a_blank_row_breaks_the_pending_double_click() {
     let (mut app, mut terminal, dir) = app_and_terminal(&[]);
     fs::create_dir(dir.path().join("project")).expect("test setup");
     app.left_panel.load_entries().expect("reload");
-    terminal
-        .draw(|frame| crate::ui::ui(frame, &mut app))
-        .expect("draw");
+    terminal.draw(|frame| ui(frame, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
     let project = app
         .left_panel
@@ -45,7 +43,7 @@ fn clicking_a_blank_row_breaks_the_pending_double_click() {
 #[test]
 fn a_release_and_a_press_on_nothing_do_nothing() {
     let (mut app, mut terminal, _dir) = app_and_terminal(&["a.txt"]);
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
     let before = app.left_panel.selected();
     let mut clicks = crate::mouse::PanelClicks::default();
@@ -78,7 +76,7 @@ fn a_double_click_on_a_directory_row_opens_it() {
     let (mut app, mut terminal, dir) = app_and_terminal(&[]);
     fs::create_dir(dir.path().join("subdir")).expect("test setup");
     app.left_panel.load_entries().expect("reload");
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
     let before = app.left_panel.path.clone();
     let mut clicks = crate::mouse::PanelClicks::default();
@@ -107,7 +105,7 @@ fn a_double_click_on_a_directory_row_opens_it() {
 #[test]
 fn clicking_past_the_last_row_does_not_arm_a_double_click() {
     let (mut app, mut terminal, _dir) = app_and_terminal(&[]);
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
     let before = app.left_panel.selected();
     let mut clicks = crate::mouse::PanelClicks::default();

@@ -63,12 +63,7 @@ impl Document {
 }
 
 fn incremental(old: &str, new: &str) -> Value {
-    let mut prefix: usize = old
-        .chars()
-        .zip(new.chars())
-        .take_while(|(a, b)| a == b)
-        .map(|(a, _)| a.len_utf8())
-        .sum();
+    let mut prefix: usize = crate::complete::common_prefix_len(old, new);
     if inside_crlf(old, prefix) || inside_crlf(new, prefix) {
         prefix -= 1;
     }

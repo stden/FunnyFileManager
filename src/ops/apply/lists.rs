@@ -64,11 +64,18 @@ fn encode(text: &str, encoding: ListEncoding) -> io::Result<Vec<u8>> {
     match encoding {
         ListEncoding::Utf8 => Ok(text.as_bytes().to_vec()),
         ListEncoding::Utf16 => Ok(text.encode_utf16().flat_map(u16::to_le_bytes).collect()),
-        #[cfg(windows)]
-        ListEncoding::Oem | ListEncoding::Ansi => native_encode(text, encoding),
-        #[cfg(not(windows))]
-        ListEncoding::Oem | ListEncoding::Ansi => Ok(text.as_bytes().to_vec()),
+        ListEncoding::Oem | ListEncoding::Ansi => legacy_bytes(text, encoding),
     }
+}
+
+#[cfg(windows)]
+fn legacy_bytes(text: &str, encoding: ListEncoding) -> io::Result<Vec<u8>> {
+    native_encode(text, encoding)
+}
+
+#[cfg(not(windows))]
+fn legacy_bytes(text: &str, _encoding: ListEncoding) -> io::Result<Vec<u8>> {
+    Ok(text.as_bytes().to_vec())
 }
 
 #[cfg(windows)]

@@ -279,8 +279,8 @@ fn cancel_edit_discards() {
 }
 #[test]
 fn saving_without_an_editable_form_never_changes_the_database() {
-    let (_directory, mut session, now) = super::tests_support::unlocked_sample();
-    let original = std::fs::read(&session.path).expect("original database");
+    let (_directory, mut session, now) = unlocked_sample();
+    let original = fs::read(&session.path).expect("original database");
     assert!(!session.save_edit(now), "no form is open");
     session.access = super::Access::View;
     assert!(!session.save_edit(now), "view mode refuses writes");
@@ -288,7 +288,7 @@ fn saving_without_an_editable_form_never_changes_the_database() {
     session.access = super::Access::Edit;
     assert!(!session.save_edit(now), "locked database refuses writes");
     assert_eq!(
-        std::fs::read(&session.path).expect("unchanged database"),
+        fs::read(&session.path).expect("unchanged database"),
         original
     );
 }

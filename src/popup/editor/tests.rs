@@ -217,7 +217,7 @@ fn save_and_close_does_nothing_without_an_open_editor() {
     let mut app = App::new().expect("test app");
     let before = app.status_text();
 
-    super::save_and_close(&mut app);
+    save_and_close(&mut app);
 
     assert!(app.get_editor().is_none());
     assert_eq!(
@@ -260,7 +260,7 @@ fn encoding_arrows_walk_the_list_and_enter_keeps_utf8() {
 #[test]
 fn encoding_helpers_do_nothing_without_an_open_editor() {
     let mut app = App::new().expect("test app");
-    super::process_encoding(&mut app, KeyCode::Enter);
+    process_encoding(&mut app, KeyCode::Enter);
     crate::ops::change_editor_encoding(&mut app, crate::encoding::TextEncoding::Utf8);
     crate::ops::reload_editor_encoding(&mut app, crate::encoding::TextEncoding::Utf8);
     assert!(app.get_editor().is_none());
@@ -270,7 +270,7 @@ fn encoding_helpers_do_nothing_without_an_open_editor() {
 fn process_encoding_returns_when_the_dialog_is_not_open() {
     let temp = TempDir::new().expect("temporary directory");
     let mut app = app_with_editor("text", temp.path().join("text.txt"));
-    super::process_encoding(&mut app, KeyCode::Down);
+    process_encoding(&mut app, KeyCode::Down);
     assert_eq!(app.get_editor().expect("editor").encoding_choice, None);
 }
 

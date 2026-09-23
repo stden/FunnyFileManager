@@ -148,20 +148,10 @@ fn info_row(view: &QuickView, page: usize) -> String {
             "{} │ {} bytes │ {}%",
             text.encoding.label(),
             text.size.bytes(),
-            percent(view.scroll.lines(), page, text.lines.len())
+            super::scroll_percent(view.scroll.lines(), page, text.lines.len())
         ),
         Preview::Folder(stats) => format!("{} files, {} folders", stats.files, stats.directories),
         Preview::Nothing | Preview::Refused(_) => String::new(),
-    }
-}
-
-/// 100 once the last line is on screen, else how far down the top row is —
-/// the viewer's own rule, kept beside its one use here.
-const fn percent(top: usize, rows: usize, total: usize) -> usize {
-    if top.saturating_add(rows) >= total {
-        100
-    } else {
-        top * 100 / total
     }
 }
 

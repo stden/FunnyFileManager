@@ -47,13 +47,7 @@ pub(super) fn render(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bo
 /// Far highlights the active panel's title; the tree has no path to show
 /// there — that is the info row's job — so the title is the panel's kind.
 fn title(is_active: bool) -> Line<'static> {
-    let style = if is_active {
-        Style::default()
-            .fg(palette::HIGHLIGHT_FG)
-            .bg(palette::HIGHLIGHT_BG)
-    } else {
-        Style::default().fg(palette::FRAME).bg(FAR_BLUE)
-    };
+    let style = super::active_title_style(is_active);
     Line::from(Span::styled(" Tree ", style)).centered()
 }
 

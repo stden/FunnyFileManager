@@ -84,10 +84,6 @@ impl Backend for WritableTestBackend {
         self.inner.size().map_err(never)
     }
 
-    fn flush(&mut self) -> io::Result<()> {
-        self.inner.flush().map_err(never)
-    }
-
     fn window_size(&mut self) -> io::Result<WindowSize> {
         let size = self.size()?;
         Ok(WindowSize {
@@ -97,6 +93,10 @@ impl Backend for WritableTestBackend {
                 height: size.height * 16,
             },
         })
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush().map_err(never)
     }
 }
 

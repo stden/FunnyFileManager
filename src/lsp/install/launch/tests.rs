@@ -34,39 +34,31 @@ fn relocated(
 }
 
 struct TwoJavas {
-    old: std::path::PathBuf,
-    current: std::path::PathBuf,
+    old: PathBuf,
+    current: PathBuf,
 }
 
 impl Environment for TwoJavas {
-    fn program(
-        &self,
-        names: &[&str],
-        missing: &'static str,
-    ) -> Result<std::path::PathBuf, InstallError> {
+    fn program(&self, names: &[&str], missing: &'static str) -> Result<PathBuf, InstallError> {
         self.runtimes(names)
             .into_iter()
             .next()
             .ok_or(InstallError::Missing(missing))
     }
 
-    fn runtimes(&self, names: &[&str]) -> Vec<std::path::PathBuf> {
-        if names == ["java"] {
-            vec![self.old.clone(), self.current.clone()]
-        } else {
-            Vec::new()
-        }
-    }
-
-    fn run(
-        &self,
-        command: &mut std::process::Command,
-        _stop: &AtomicBool,
-    ) -> Result<Vec<u8>, InstallError> {
+    fn run(&self, command: &mut Command, _stop: &AtomicBool) -> Result<Vec<u8>, InstallError> {
         if command.get_program() == self.old {
             Ok(b"openjdk 17.0.1".to_vec())
         } else {
             Ok(b"openjdk 21.0.1".to_vec())
+        }
+    }
+
+    fn runtimes(&self, names: &[&str]) -> Vec<PathBuf> {
+        if names == ["java"] {
+            vec![self.old.clone(), self.current.clone()]
+        } else {
+            Vec::new()
         }
     }
 }

@@ -82,7 +82,7 @@ fn merged_completion_deduplicates_a_shared_directory() {
 
 /// fish's own candidates are merged into the built-in scan's pool: a shared
 /// entry must not be doubled, and a fish-only entry must still show up.
-/// A stub `fish` (via [`super::FISH_PROGRAM_FOR_TESTS`]) makes this
+/// A stub `fish` (via [`FISH_PROGRAM_FOR_TESTS`]) makes this
 /// deterministic without a real fish install.
 #[cfg(unix)]
 #[test]
@@ -100,9 +100,9 @@ fn path_complete_merges_new_fish_candidates_and_skips_duplicates_of_the_builtin_
     .expect("write stub");
     fs::set_permissions(&stub, fs::Permissions::from_mode(0o755)).expect("chmod");
 
-    super::FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = Some(stub));
+    FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = Some(stub));
     let result = path_complete("al", tmp.path());
-    super::FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = None);
+    FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = None);
 
     assert_eq!(
         result.iter().filter(|c| *c == "alpha/").count(),

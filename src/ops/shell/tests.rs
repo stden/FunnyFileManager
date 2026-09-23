@@ -68,7 +68,7 @@ fn test_run_shell_command_uses_current_dir() {
 
 #[test]
 fn test_run_shell_command_nonexistent_dir_fails() {
-    let bad_path = std::path::Path::new("/nonexistent_dir_99999");
+    let bad_path = Path::new("/nonexistent_dir_99999");
     let result = run_shell_command("echo hi", bad_path);
     assert!(result.is_err());
 }
@@ -197,39 +197,36 @@ fn is_cancel_event_accepts_only_pressed_esc_and_ctrl_c() {
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
     let press = |code, modifiers| Event::Key(KeyEvent::new(code, modifiers));
-    assert!(super::is_cancel_event(&press(
-        KeyCode::Esc,
-        KeyModifiers::empty()
-    )));
-    assert!(super::is_cancel_event(&press(
+    assert!(is_cancel_event(&press(KeyCode::Esc, KeyModifiers::empty())));
+    assert!(is_cancel_event(&press(
         KeyCode::Char('c'),
         KeyModifiers::CONTROL
     )));
     // A plain 'c', any other key, and non-key events are not cancel.
-    assert!(!super::is_cancel_event(&press(
+    assert!(!is_cancel_event(&press(
         KeyCode::Char('c'),
         KeyModifiers::empty()
     )));
-    assert!(!super::is_cancel_event(&press(
+    assert!(!is_cancel_event(&press(
         KeyCode::Enter,
         KeyModifiers::empty()
     )));
-    assert!(!super::is_cancel_event(&Event::FocusGained));
+    assert!(!is_cancel_event(&Event::FocusGained));
     // Key releases must not cancel: only presses count.
     let mut release = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
     release.kind = KeyEventKind::Release;
-    assert!(!super::is_cancel_event(&Event::Key(release)));
+    assert!(!is_cancel_event(&Event::Key(release)));
 }
 #[test]
 fn quoted_paths_and_shell_operators_reach_the_shell_unchanged() {
-    let temp = tempfile::TempDir::new().expect("tempdir");
+    let temp = TempDir::new().expect("tempdir");
     std::fs::write(temp.path().join("input file.txt"), "contents").expect("input");
     let command = if cfg!(windows) {
         "type \"input file.txt\" > \"output file.txt\" && echo copied"
     } else {
         "cat \"input file.txt\" > \"output file.txt\" && echo copied"
     };
-    let output = super::run_shell_command(command, temp.path()).expect("shell");
+    let output = run_shell_command(command, temp.path()).expect("shell");
     assert!(output.status.success(), "{output:?}");
     assert_eq!(
         std::fs::read_to_string(temp.path().join("output file.txt")).expect("copy"),

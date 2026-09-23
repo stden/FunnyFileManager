@@ -3,7 +3,7 @@
 use super::*;
 
 fn layout() -> PanelLayout {
-    panel_layout(crate::models::PanelView::Brief, Cells(62))
+    panel_layout(PanelView::Brief, Cells(62))
 }
 
 /// The header's leading letter names the sort mode — the only place the

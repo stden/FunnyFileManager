@@ -81,7 +81,7 @@ pub fn expand_or_descend(app: &mut App) -> bool {
     };
     let acted = match tree.selected_row().map(|row| row.expansion) {
         Some(Expansion::Collapsed) => tree.expand(&mut subfolders),
-        Some(Expansion::Expanded) => tree.to_first_child(),
+        Some(Expansion::Expanded) => tree.move_to_first_child(),
         Some(Expansion::Leaf) | None => false,
     };
     if acted {

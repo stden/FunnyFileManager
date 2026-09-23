@@ -23,7 +23,7 @@ fn dispatch(app: &mut App, action: Action) -> io::Result<()> {
     Ok(())
 }
 
-fn app_at(dir: &std::path::Path, selected: &str) -> io::Result<App> {
+fn app_at(dir: &Path, selected: &str) -> io::Result<App> {
     let mut app = App::new()?;
     app.left_panel = Panel::new(dir.to_path_buf())?;
     app.right_panel = Panel::new(dir.to_path_buf())?;
@@ -162,12 +162,12 @@ fn test_mkdir_error_is_reported_not_fatal() -> io::Result<()> {
 
     dispatch(&mut app, Action::Mkdir)?;
     for ch in "child".chars() {
-        crate::popup::process_popup_input(
+        process_popup_input(
             &mut app,
             KeyEvent::new(KeyCode::Char(ch), KeyModifiers::empty()),
         );
     }
-    crate::popup::process_popup_input(
+    process_popup_input(
         &mut app,
         KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
     );
