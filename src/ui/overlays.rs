@@ -411,17 +411,16 @@ fn render_editor(
 
     render_editor_body(f, editor, area, scroll_y, scroll_x);
 
-    if !render_editor_dialog(f, tracker, editor) {
-        // Position against the cells actually dropped, not against
-        // `scroll_x`: a double-width glyph straddling the cut is
-        // dropped whole, so the two can differ by one.
-        let dropped = cursor_line.dropped(scroll_x);
-        let cursor_x = area
-            .x
-            .saturating_add(screen_u16(cursor_cell.saturating_sub(dropped).get()));
-        let cursor_y =
-            (area.y + EDITOR_BAR_HEIGHT).saturating_add(screen_u16(editor.cursor_line - scroll_y));
-        f.set_cursor_position((cursor_x, cursor_y));
+    // Position against the cells actually dropped, not against `scroll_x`:
+    // a double-width glyph straddling the cut is dropped whole.
+    let dropped = cursor_line.dropped(scroll_x);
+    let caret = (
+        area.x
+            .saturating_add(screen_u16(cursor_cell.saturating_sub(dropped).get())),
+        (area.y + EDITOR_BAR_HEIGHT).saturating_add(screen_u16(editor.cursor_line - scroll_y)),
+    );
+    if !render_editor_dialog(f, tracker, editor, caret) {
+        f.set_cursor_position(caret);
     }
 }
 
@@ -544,6 +543,7 @@ fn render_editor_dialog(
     f: &mut Frame,
     tracker: &mut crate::mouse::DialogMouse,
     editor: &crate::models::Editor,
+    caret: (u16, u16),
 ) -> bool {
     if let Some(choice) = editor.encoding_choice {
         render_encoding_dialog(f, tracker, choice);
@@ -573,7 +573,7 @@ fn render_editor_dialog(
     } else if let Some(prompt) = editor.state.overwrite_prompt() {
         render_overwrite_prompt(f, tracker, prompt.answer);
     } else {
-        return super::editor_lsp::popup(f, editor);
+        return super::editor_lsp::popup(f, editor, caret);
     }
     true
 }
@@ -808,6 +808,7 @@ fn render_editor_body(
     );
     super::editor_selection::render(f, editor, body_area, scroll_y, scroll_x);
     super::editor_lsp::diagnostics(f, editor, body_area, scroll_y, scroll_x);
+    super::editor_brackets::render(f, editor, body_area, scroll_y, scroll_x);
 }
 fn render_encoding_dialog(
     f: &mut Frame,

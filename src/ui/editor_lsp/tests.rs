@@ -54,7 +54,7 @@ fn hover_is_rendered_as_readable_text_in_a_bounded_popup() {
     });
     let mut terminal = Terminal::new(TestBackend::new(60, 12)).unwrap();
     terminal
-        .draw(|frame| assert!(popup(frame, &editor)))
+        .draw(|frame| assert!(popup(frame, &editor, (5, 5))))
         .unwrap();
     let text: String = terminal
         .backend()

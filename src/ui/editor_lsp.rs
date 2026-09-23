@@ -45,19 +45,18 @@ pub(super) fn label(editor: &Editor, marker: &str) -> String {
     }
 }
 
-pub(super) fn popup(frame: &mut Frame, editor: &Editor) -> bool {
+pub(super) fn popup(frame: &mut Frame, editor: &Editor, caret: (u16, u16)) -> bool {
     let Some(dialog) = &editor.lsp.popup else {
         return false;
     };
     let screen = frame.area();
     let width = screen.width.min(86);
     let height = screen.height.min(18);
-    let area = Rect::new(
-        screen.x + (screen.width - width) / 2,
-        screen.y + (screen.height - height) / 2,
-        width,
-        height,
-    );
+    let area = if matches!(dialog, Dialog::Completion { .. }) {
+        completion_area(screen, caret, width, height)
+    } else {
+        centered_area(screen, width, height)
+    };
     let (title, text, scroll) = contents(dialog);
     frame.render_widget(Clear, area);
     frame.render_widget(
@@ -69,6 +68,35 @@ pub(super) fn popup(frame: &mut Frame, editor: &Editor) -> bool {
         area,
     );
     true
+}
+
+fn centered_area(screen: Rect, width: u16, height: u16) -> Rect {
+    Rect::new(
+        screen.x + (screen.width - width) / 2,
+        screen.y + (screen.height - height) / 2,
+        width,
+        height,
+    )
+}
+
+fn completion_area(screen: Rect, caret: (u16, u16), width: u16, height: u16) -> Rect {
+    let right = screen.right();
+    let bottom = screen.bottom();
+    let width = width.min(screen.width);
+    let height = height.min(screen.height);
+    let x = caret.0.min(right.saturating_sub(width)).max(screen.x);
+    let below_y = caret.1.saturating_add(1).min(bottom);
+    let below = bottom.saturating_sub(below_y);
+    let above = caret.1.saturating_sub(screen.y);
+    let place_below = below >= height || below >= above;
+    let available = if place_below { below } else { above };
+    let height = height.min(available);
+    let y = if place_below {
+        below_y
+    } else {
+        caret.1.saturating_sub(height)
+    };
+    Rect::new(x, y, width, height)
 }
 
 fn contents(dialog: &Dialog) -> (&'static str, String, u16) {
