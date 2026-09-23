@@ -456,3 +456,23 @@ const TEST_LIST_OBJECTS_MULTIPLE_FOLDERS_AND_FILES_XML: &str = r#"
             </Contents>
         </ListBucketResult>
     "#;
+
+/// S3 reports sizes as `i64`: a negative one is malformed and shows as empty,
+/// and the largest positive one converts exactly.
+#[test]
+fn test_object_size_conversion_boundaries() {
+    let size_of = |bytes: i64| {
+        let object = aws_sdk_s3::types::Object::builder()
+            .key("file.bin")
+            .size(bytes)
+            .build();
+        listing::file_from_object(&object, "").map(|row| row.size)
+    };
+    assert_eq!(size_of(-1), Some(FileSize::from_bytes(0)));
+    assert_eq!(size_of(i64::MIN), Some(FileSize::from_bytes(0)));
+    assert_eq!(size_of(0), Some(FileSize::from_bytes(0)));
+    assert_eq!(
+        size_of(i64::MAX),
+        Some(FileSize::from_bytes(i64::MAX.unsigned_abs()))
+    );
+}

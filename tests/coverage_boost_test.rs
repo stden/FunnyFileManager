@@ -1130,7 +1130,8 @@ fn test_format_size_boundaries() {
     assert_eq!(FileSize::from_bytes(1_073_741_824).to_string(), "1.00 GB");
     assert_eq!(
         FileSize::from_bytes(u64::MAX).to_string(),
-        format!("{:.2} GB", u64::MAX as f64 / 1_073_741_824.0)
+        // 2^64 - 1 bytes is a hair under 2^34 GiB, which rounds up.
+        "17179869184.00 GB"
     );
 }
 

@@ -46,13 +46,14 @@ fn configure_lsp_job(handle: windows_sys::Win32::Foundation::HANDLE) -> io::Resu
     };
     let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
     limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    let size = u32::try_from(std::mem::size_of_val(&limits)).map_err(io::Error::other)?;
     // SAFETY: limits points to an initialized structure of the supplied size for this class.
     let result = unsafe {
         SetInformationJobObject(
             handle,
             JobObjectExtendedLimitInformation,
             std::ptr::from_ref(&limits).cast(),
-            std::mem::size_of_val(&limits) as u32,
+            size,
         )
     };
     if result == 0 {

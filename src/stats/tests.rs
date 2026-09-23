@@ -12,7 +12,8 @@ fn tree(files: &[(&str, u64)]) -> TempDir {
         if let Some(parent) = full.parent() {
             fs::create_dir_all(parent).expect("parents");
         }
-        fs::write(&full, vec![b'x'; *size as usize]).expect("file");
+        let size = usize::try_from(*size).expect("fixture size fits usize");
+        fs::write(&full, vec![b'x'; size]).expect("file");
     }
     dir
 }

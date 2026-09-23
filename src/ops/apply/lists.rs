@@ -116,7 +116,7 @@ fn native_convert(wide: &[u16], code_page: u32, bytes: &mut [u8]) -> io::Result<
     if written == 0 {
         return Err(io::Error::last_os_error());
     }
-    Ok(written as usize)
+    usize::try_from(written).map_err(io::Error::other)
 }
 
 #[cfg(test)]

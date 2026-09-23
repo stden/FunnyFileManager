@@ -16,7 +16,7 @@ use ratatui::{
 use super::palette;
 use super::{far_block, head_cells, tail_cells, take_cells, Cells, FAR_BLUE, PANEL_BORDERS};
 use super::{PANEL_COLUMN_HEADER, PANEL_COLUMN_RULE, PANEL_INFO_ROW, PANEL_NON_ENTRY_ROWS};
-use crate::models::{App, DirEntry, Panel, PanelView, ShortNames, SortMode};
+use crate::models::{divide_rounded, App, DirEntry, Panel, PanelView, ShortNames, SortMode};
 
 mod modes;
 
@@ -315,19 +315,22 @@ pub(super) fn size_field(entry: &DirEntry) -> String {
 pub(super) fn abbreviate_bytes(bytes: u64) -> String {
     const UNITS: [&str; 5] = ["", "K", "M", "G", "T"];
 
-    let mut value = bytes as f64;
+    // Integer maths, exact for every u64: the value shown is `bytes / scale`.
+    let bytes = u128::from(bytes);
+    let mut scale = 1;
     let mut unit = 0;
-    while value >= 1000.0 && unit + 1 < UNITS.len() {
-        value /= 1024.0;
+    while bytes >= 1000 * scale && unit + 1 < UNITS.len() {
+        scale *= 1024;
         unit += 1;
     }
     if unit == 0 {
         return bytes.to_string();
     }
-    if value >= 100.0 {
-        format!("{value:.0} {}", UNITS[unit])
+    if bytes >= 100 * scale {
+        format!("{} {}", divide_rounded(bytes, scale), UNITS[unit])
     } else {
-        format!("{value:.1} {}", UNITS[unit])
+        let tenths = divide_rounded(bytes * 10, scale);
+        format!("{}.{} {}", tenths / 10, tenths % 10, UNITS[unit])
     }
 }
 
@@ -823,6 +826,8 @@ pub(super) fn visible_window(
 
 #[cfg(test)]
 mod tests_header;
+#[cfg(test)]
+mod tests_sizes;
 #[cfg(test)]
 mod tests_snapshot;
 #[cfg(test)]

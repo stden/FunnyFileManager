@@ -218,8 +218,9 @@ fn windows_directory() -> Result<std::path::PathBuf, String> {
 
     let mut buffer = vec![0; 260];
     loop {
+        let capacity = u32::try_from(buffer.len()).map_err(|error| error.to_string())?;
         // SAFETY: the buffer is writable for the exact capacity passed to Win32.
-        let length = unsafe { GetWindowsDirectoryW(buffer.as_mut_ptr(), buffer.len() as u32) };
+        let length = unsafe { GetWindowsDirectoryW(buffer.as_mut_ptr(), capacity) };
         if length == 0 {
             return Err(format!(
                 "Cannot locate Windows: {}",

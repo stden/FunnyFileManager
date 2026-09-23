@@ -77,7 +77,7 @@ pub(crate) use sortmenu::row_at as sort_row_at;
 #[cfg(test)]
 pub(crate) use cells::UNPRINTABLE;
 pub(crate) use cells::{cells_before, fit_name, printable_name, Cells};
-use cells::{head_cells, skip_cells, tail_cells, take_cells};
+use cells::{head_cells, screen_u16, skip_cells, tail_cells, take_cells};
 use command_line::render_command_line;
 #[cfg(test)]
 use command_prompt::prompt_spans;

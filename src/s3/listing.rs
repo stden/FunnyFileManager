@@ -69,7 +69,8 @@ pub(super) fn file_from_object(
     }
     Some(S3Object {
         key: name.to_string(),
-        size: FileSize::from_bytes(object.size().unwrap_or(0).max(0) as u64),
+        // A negative size is malformed metadata; show it as empty.
+        size: FileSize::from_bytes(u64::try_from(object.size().unwrap_or(0)).unwrap_or(0)),
         kind: EntryKind::File,
         last_modified: object.last_modified().and_then(instant_of),
     })

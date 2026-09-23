@@ -219,3 +219,15 @@ pub(super) fn tail_cells(text: &str, width: Cells) -> String {
     cut.extend(kept.into_iter().rev());
     cut
 }
+
+/// A cell count or offset as a screen coordinate, saturating at `u16::MAX`.
+///
+/// Callers pass values already bounded by a `u16`-sized area. Saturating keeps
+/// an unbounded one at the far edge; `as u16` would wrap it to a small, wrong
+/// coordinate near the top-left corner.
+pub(super) fn screen_u16(count: usize) -> u16 {
+    u16::try_from(count).unwrap_or(u16::MAX)
+}
+
+#[cfg(test)]
+mod tests;

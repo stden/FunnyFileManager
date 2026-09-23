@@ -69,7 +69,7 @@ fn new_console_has_its_own_io_and_receives_arguments_and_directory() {
     write_probe(&directory);
     let command = ShellCommand::new(r#"codex --model example "two words" "Привет мир" "a & b""#)
         .expect("command");
-    let mut startup = startup_info();
+    let mut startup = startup_info().expect("startup info");
     // Allocate the same independent console without flashing a test window.
     startup.dwFlags |= STARTF_USESHOWWINDOW;
     startup.wShowWindow = 0; // SW_HIDE
@@ -98,7 +98,7 @@ fn canonical_windows_directory_is_preserved_when_launching_codex() {
         probe.display()
     );
     let command = ShellCommand::new(&input).expect("command");
-    let mut startup = startup_info();
+    let mut startup = startup_info().expect("startup info");
     startup.dwFlags |= STARTF_USESHOWWINDOW;
     startup.wShowWindow = 0;
     let process = spawn_with_startup(&command, &canonical, &startup).expect("new console");

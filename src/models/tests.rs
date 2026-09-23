@@ -657,6 +657,26 @@ fn a_bookmark_slot_covers_exactly_zero_through_nine() {
     assert_eq!(BookmarkSlot::COUNT, usize::from(BookmarkSlot::MAX) + 1);
 }
 
+/// `from_usize` narrows through `u8`: 256 must not wrap to slot 0.
+#[test]
+fn a_bookmark_slot_from_usize_rejects_values_that_would_wrap_a_u8() {
+    assert_eq!(BookmarkSlot::from_usize(0).map(BookmarkSlot::as_u8), Ok(0));
+    assert_eq!(BookmarkSlot::from_usize(9).map(BookmarkSlot::as_u8), Ok(9));
+    for out_of_range in [
+        10,
+        usize::from(u8::MAX),
+        usize::from(u8::MAX) + 1,
+        265,
+        usize::MAX,
+    ] {
+        assert_eq!(
+            BookmarkSlot::from_usize(out_of_range),
+            Err("bookmark slot must be 0-9"),
+            "{out_of_range}"
+        );
+    }
+}
+
 #[test]
 fn every_slot_has_somewhere_to_go() {
     // The store has one entry per slot, which is what makes the lookup total
