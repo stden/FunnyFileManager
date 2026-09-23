@@ -24,6 +24,7 @@ pub const VERBS: &[&str] = &[
     "wincheck",
     "wsl",
     "mcp",
+    "lsp",
     "cleanup",
     "quit",
     "exit",
@@ -58,6 +59,8 @@ pub enum Command {
     Wsl,
     /// mcp
     Mcp,
+    /// Show installed language servers and launch parameters.
+    Lsp,
     /// cleanup — open the disk cleanup dialog.
     DiskCleanup,
     /// quit / exit
@@ -143,13 +146,7 @@ impl Command {
                 .map_or(Some(SortMode::Name), SortMode::parse)
                 .map_or_else(|| Self::invalid(input, SORT_USAGE), Self::Sort),
             "bookmark" => Self::parse_bookmark(input, &mut parts),
-            "mark" => {
-                if parts.next() == Some("all") {
-                    Self::MarkAll
-                } else {
-                    Self::invalid(input, MARK_USAGE)
-                }
-            }
+            "mark" => Self::parse_mark(input, parts.next()),
             "unmark" => Self::UnmarkAll,
             "help" => Self::Help,
             "stats" => Self::Stats,
@@ -157,6 +154,7 @@ impl Command {
             "winperf" | "wincheck" => Self::WinPerf,
             "wsl" if parts.next().is_none() => Self::Wsl,
             "mcp" => Self::Mcp,
+            "lsp" => Self::Lsp,
             "cleanup" => Self::DiskCleanup,
             "quit" | "exit" => Self::Quit,
             // `input` has a non-whitespace token — `parts.next()` just yielded
@@ -178,6 +176,14 @@ impl Command {
             Self::NewConsole(command)
         } else {
             Self::Shell(command)
+        }
+    }
+
+    fn parse_mark(input: &str, argument: Option<&str>) -> Self {
+        if argument == Some("all") {
+            Self::MarkAll
+        } else {
+            Self::invalid(input, MARK_USAGE)
         }
     }
 
@@ -239,3 +245,6 @@ pub fn expand_tilde(path: &Path) -> PathBuf {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod tests_lsp;

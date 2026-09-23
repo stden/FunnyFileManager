@@ -86,6 +86,10 @@ fn execute_tools(app: &mut App, command: MenuCommand) -> io::Result<()> {
             super::packages::open(app);
             Ok(())
         }
+        MenuCommand::LanguageServers => {
+            super::lsp_status::open(app);
+            Ok(())
+        }
         MenuCommand::UserMenu | MenuCommand::Associations => user::edit(app, command),
         _ => Err(io::Error::other("Unknown tool")),
     }
@@ -113,10 +117,16 @@ pub fn choose(app: &mut App, target: ChoiceTarget) -> io::Result<()> {
     Ok(())
 }
 
+/// Alt+F7: the dialog has a mask and a containing-text field. The menu prompt
+/// has only the mask and calls [`submit`].
+pub fn find_files(app: &mut App, mask: &str, containing: &str) -> io::Result<()> {
+    search::find(app, mask, false, containing)
+}
+
 pub fn submit(app: &mut App, command: MenuCommand, text: &str) -> io::Result<()> {
     match command {
-        MenuCommand::FindFile => search::find(app, text, false),
-        MenuCommand::FindFolder => search::find(app, text, true),
+        MenuCommand::FindFile => search::find(app, text, false, ""),
+        MenuCommand::FindFolder => search::find(app, text, true, ""),
         MenuCommand::Settings(page) => settings::submit(app, page, text),
         MenuCommand::Filter => workflows::filter(app, text),
 

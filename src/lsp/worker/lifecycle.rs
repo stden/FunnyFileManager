@@ -1,15 +1,18 @@
 //! Purpose: Require explicit session-scoped workspace trust before launching any server process.
 
 use super::{
-    report, workspace_root, Command, Connection, DocumentId, Envelope, Event, PathBuf,
+    report, workspace_root, Command, Connection, DocumentId, Envelope, Event, Path, PathBuf,
     ServerSettings, ServerState, Snapshot, SyncSender,
 };
+mod install;
+use install::Preparation;
 
 #[derive(Default)]
 enum Session {
     #[default]
     Closed,
     Untrusted(Box<Start>),
+    Preparing(Box<Preparation>),
     Running(Box<Connection>),
 }
 
@@ -26,6 +29,7 @@ struct Start {
 pub(super) struct Host {
     session: Session,
     trusted: Vec<PathBuf>,
+    pub(super) cache: Option<PathBuf>,
 }
 
 impl Host {
@@ -52,7 +56,12 @@ impl Host {
             (Session::Untrusted(start), Command::Update(snapshot))
                 if snapshot.stamp.id == start.snapshot.stamp.id =>
             {
-                start.snapshot = snapshot;
+                start.update(snapshot);
+            }
+            (Session::Preparing(preparing), Command::Update(snapshot))
+                if snapshot.stamp.id == preparing.start.snapshot.stamp.id =>
+            {
+                preparing.start.update(snapshot);
             }
             _ => {} // Closed/untrusted sessions cannot execute document requests.
         }
@@ -85,20 +94,27 @@ impl Host {
         let owner = start.snapshot.stamp.id;
         report(events, owner, Event::State(ServerState::Starting));
         match Connection::start(
-            start.language,
+            start.language.clone(),
             &start.settings,
-            start.snapshot,
+            start.snapshot.clone(),
             &start.workspace,
         ) {
             Ok(connection) => {
                 self.session = Session::Running(Box::new(connection));
                 report(events, owner, Event::State(ServerState::Initializing));
             }
+            Err(error)
+                if error.kind() == std::io::ErrorKind::NotFound
+                    && start.settings.install.is_some() =>
+            {
+                self.install(start, events);
+            }
             Err(error) => failed(events, owner, &error),
         }
     }
 
     pub fn pump(&mut self, events: &SyncSender<Envelope>) {
+        self.installation(events);
         if let Session::Running(active) = &mut self.session {
             if let Err(message) = active.pump(events) {
                 crate::diagnostics::log_error(message);
@@ -110,12 +126,17 @@ impl Host {
 }
 
 impl Start {
+    fn update(&mut self, mut snapshot: Snapshot) {
+        snapshot.path.clone_from(&self.snapshot.path);
+        self.snapshot = snapshot;
+    }
+
     fn prepare(
         language: String,
         settings: ServerSettings,
         mut snapshot: Snapshot,
     ) -> std::io::Result<Self> {
-        snapshot.path = std::path::absolute(&snapshot.path)?;
+        snapshot.path = document_path(&snapshot.path)?;
         let workspace = workspace_root(&snapshot.path, &settings.root_markers);
         let root = workspace.canonicalize()?;
         Ok(Self {
@@ -125,6 +146,15 @@ impl Start {
             root,
             workspace,
         })
+    }
+}
+
+fn document_path(path: &Path) -> std::io::Result<PathBuf> {
+    let absolute = std::path::absolute(path)?;
+    match absolute.canonicalize() {
+        Ok(path) => Ok(path),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(absolute),
+        Err(error) => Err(error),
     }
 }
 

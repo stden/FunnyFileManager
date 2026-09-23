@@ -81,6 +81,15 @@ fn open(world: &mut TuiWorld, width: u16, height: u16) {
     ));
 }
 
+#[when("I open the LSP inventory fixture")]
+fn open_inventory(world: &mut TuiWorld) {
+    world.session = Some(Session::inventory(
+        world.path("left", ""),
+        world.path("right", ""),
+        Size::new(120, 30),
+    ));
+}
+
 #[when(expr = "I press {string}")]
 fn press(world: &mut TuiWorld, keys: String) {
     for key in keys.split_whitespace() {

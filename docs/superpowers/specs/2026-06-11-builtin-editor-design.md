@@ -2,6 +2,8 @@
 
 # 🏛️ Built-in Editor (F4) — Design
 
+> Status: implemented. This file is the original design record. Current editor behavior is in the code and in `docs/editor-and-replay.md` and `docs/editor-lsp.md`.
+
 **Date:** 2026-06-11
 **Problem:** On Linux, F4 launches VS Code (or `$EDITOR`/nano) as an external
 process. Far Manager opens its own internal editor on F4; FFM should do the

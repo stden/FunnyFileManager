@@ -16,6 +16,7 @@ use capabilities::Capabilities;
 pub enum Event {
     TrustRequired(std::path::PathBuf),
     State(super::types::ServerState),
+    InstallationFailed(&'static str),
     Diagnostics(Stamp, Vec<Diagnostic>),
     Reply(Query, Result<Reply, ResponseError>),
 }

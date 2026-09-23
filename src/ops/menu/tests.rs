@@ -143,6 +143,29 @@ fn search_results_open_files_and_navigate_to_folders() {
 }
 
 #[test]
+fn search_keeps_matches_when_a_child_directory_cannot_be_read() {
+    let (temp, mut app) = fixture();
+    let blocked = temp.path().join("blocked");
+    fs::create_dir(&blocked).unwrap();
+    fs::write(blocked.join("secret.txt"), "secret").unwrap();
+    let _deny = super::search::DenyReads::named("blocked");
+    submit(&mut app, MenuCommand::FindFile, "*").unwrap();
+    let labels: Vec<_> = rows(&app).iter().map(|row| row.label.clone()).collect();
+    assert!(labels.iter().any(|label| label.contains("alpha.txt")));
+    assert!(labels.iter().all(|label| !label.contains("secret")));
+    assert!(app.status.to_string().contains("could not be read"));
+}
+
+#[test]
+fn search_says_when_the_entry_limit_stops_it() {
+    let (_temp, mut app) = fixture();
+    app.settings.set(SettingsPage::System, "1").unwrap();
+    submit(&mut app, MenuCommand::FindFile, "*").unwrap();
+    assert!(rows(&app).len() <= 1);
+    assert!(app.status.to_string().contains("entry limit"));
+}
+
+#[test]
 fn folder_search_respects_depth_and_entry_limits() {
     let (temp, mut app) = fixture();
     fs::create_dir_all(temp.path().join("folder/deep/deeper")).unwrap();

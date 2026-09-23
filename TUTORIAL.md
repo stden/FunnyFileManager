@@ -81,6 +81,9 @@ cargo run
 
 ### 🏗️ Build with S3 Support
 
+`s3` is not a default feature. This build adds the profile rows to the drive
+menu and compiles `src/s3.rs`. It does not make a panel list a bucket.
+
 ```bash
 cargo build --features s3
 ```
@@ -94,33 +97,34 @@ FFM follows a clean modular architecture. Here's how the pieces fit together:
 ```mermaid
 graph TB
     subgraph "🖥️ Terminal Layer"
-        MAIN[main.rs<br/>Entry Point] --> LIB[lib.rs<br/>Event Loop]
+        MAIN[main.rs<br/>Entry Point] --> BOOT[bootstrap.rs<br/>Terminal setup]
+        BOOT --> APP[application/<br/>Event Loop]
     end
 
     subgraph "🧠 Business Logic"
-        LIB --> ACTION[action.rs<br/>Main-view Key Map]
-        LIB --> POPUP[popup.rs<br/>Modal Input]
-        LIB --> OPS[ops/<br/>Canonical Operations]
-        LIB --> MODELS[models.rs<br/>App State]
+        APP --> ACTION[action.rs<br/>Main-view Key Map]
+        APP --> POPUP[popup.rs<br/>Modal Input]
+        APP --> OPS[ops/<br/>Canonical Operations]
+        APP --> MODELS[models.rs<br/>App State]
         POPUP --> OPS
         OPS --> UTILS[utils.rs<br/>Filesystem Helpers]
-        LIB --> EDITOR[editor.rs<br/>Built-in / External Editor]
-        LIB --> TERMINAL[terminal.rs<br/>RAII Lifecycle]
+        APP --> EDITOR[editor.rs<br/>Built-in / External Editor]
+        APP --> TERMINAL[terminal.rs<br/>RAII Lifecycle]
         HANDLERS[handlers/mod.rs<br/>Compatibility Facade] -.-> OPS
         HANDLERS -.-> POPUP
     end
 
     subgraph "🎨 Presentation"
-        LIB --> UI[ui.rs<br/>TUI Rendering]
+        APP --> UI[ui.rs<br/>TUI Rendering]
         UI --> |ratatui| TERM[Terminal Output]
     end
 
     subgraph "☁️ Cloud"
-        LIB -.-> S3[s3.rs<br/>AWS S3 Client]
+        APP -.-> S3[s3.rs<br/>AWS S3 Client]
     end
 
     style MAIN fill:#2d5016,color:#fff
-    style LIB fill:#000080,color:#00ffff
+    style APP fill:#000080,color:#00ffff
     style OPS fill:#4a0080,color:#fff
     style MODELS fill:#800000,color:#fff
     style UI fill:#006060,color:#fff
@@ -132,7 +136,8 @@ graph TB
 | Module | Job | Personality |
 |--------|-----|------------|
 | `main.rs` | Says "hello" and calls `lib::run()` | 🚪 The doorman |
-| `lib.rs` | Runs the event loop, handles all the drama | 🎪 The ringmaster |
+| `lib.rs` | Re-exports the public entry points | 🎪 The marquee |
+| `application/` | Runs the event loop and applies actions | 🎩 The ringmaster |
 | `action.rs` | Maps main-view keys to typed actions | 🎼 The score |
 | `popup.rs` | Consumes input for the active modal overlay | 🚦 The traffic controller |
 | `ops/` | Owns command, file, shell, and viewer operations | 🔧 The mechanic |
@@ -341,7 +346,7 @@ FFM supports these built-in commands:
 |---------|---------|-------------|
 | `cd <path>` | `cd /home/user/projects` | Change directory |
 | `pwd` | `pwd` | Show current path |
-| `sort <mode>` | `sort ext` | Sort by name/ext/size |
+| `sort <mode>` | `sort ext` | Same modes as Ctrl+F3…Ctrl+F11: name, ext, mtime, size, unsorted, ctime, atime, desc, owner |
 | `bookmark set <N>` | `bookmark set 3` | Save current path to slot |
 | `bookmark go <N>` | `bookmark go 3` | Jump to saved path |
 | `mark all` | `mark all` | Mark all files |
@@ -358,91 +363,53 @@ Bookmarks let you save up to **10 directory paths** (slots 0-9) and jump back to
 ```mermaid
 graph LR
     subgraph "🔖 Bookmark Slots"
-        B0["0: /home/user"]
-        B1["1: /var/log"]
-        B2["2: /etc/nginx"]
-        B3["3: (empty)"]
-        B9["9: /tmp/builds"]
+        B0["0: /home/bob"]
+        B1["1: /srv/x"]
+        B3["3: empty"]
     end
 
-    U[👤 User] -->|"Ctrl+1"| B1
-    U -->|"Press 1"| JUMP["🚀 Teleport!"]
+    U[👤 User] -->|":bookmark set 1"| B1
+    U -->|":bookmark go 1"| JUMP["🚀 Teleport!"]
     JUMP --> B1
 ```
 
 ### 🚀 How to Use
 
-1. Navigate to a directory you visit often
-2. Press `Ctrl+<0-9>` to save it to a bookmark slot
-3. Later, open the bookmarks overlay and press `<0-9>` to jump back
+1. Navigate to a directory you visit often.
+2. Press `:` and run `bookmark set 1` (slots are 0 through 9).
+3. Later, run `bookmark go 1`.
+
+There is no bookmark overlay, and `Ctrl+1` is Brief view, not a bookmark. The F9 Folder shortcuts row lists the slots you have set.
 
 ---
 
 ## ☁️ AWS S3 Integration
 
-FFM can browse AWS S3 buckets as if they were local directories! 🤯
+Panels list local directories. S3 is a separate object store: the library and
+the MCP server can list, upload, download, copy, and delete objects. Choosing
+an S3 profile in `Alt+F1` or `Alt+F2` does not open a bucket.
 
-### 🔧 Setup
+The walkthrough is in three pages:
 
-1. Configure your AWS credentials in `~/.aws/credentials`:
-
-```ini
-[default]
-aws_access_key_id = YOUR_KEY
-aws_secret_access_key = YOUR_SECRET
-
-[production]
-aws_access_key_id = PROD_KEY
-aws_secret_access_key = PROD_SECRET
-```
-
-2. Build FFM with S3 support:
-
-```bash
-cargo build --features s3
-```
-
-3. Press `Alt+F1` or `Alt+F2` to open the drive selector, then pick an S3 profile!
-
-### 🛣️ VirtualPath System
-
-```mermaid
-graph TB
-    VP[VirtualPath] --> LOCAL["Local(PathBuf)<br/>📂 /home/user/docs"]
-    VP --> S3["S3 { profile, bucket, prefix }<br/>☁️ s3://my-bucket/data/"]
-
-    subgraph "S3 Path Formats"
-        P1["s3://bucket/prefix<br/>(default profile)"]
-        P2["s3://profile@bucket/prefix<br/>(named profile)"]
-    end
-```
-
-### ☁️ Supported S3 Operations
-
-| Operation | Local | S3 |
-|-----------|-------|-----|
-| Browse | ✅ | ✅ |
-| Copy | ✅ | ✅ |
-| Move | ✅ | ✅ |
-| Delete | ✅ | ✅ |
-| Upload | — | ✅ |
-| Download | ✅ | ✅ |
+- [Local filesystems](docs/tutorials/filesystems.md)
+- [AWS profiles](docs/tutorials/aws.md)
+- [S3](docs/tutorials/s3.md)
 
 ---
 
 ## 🧪 Testing & BDD
 
-FFM takes testing seriously. Like, *really* seriously. We have **298 Cucumber BDD scenarios** across 49 feature files! 🥒
+FFM takes testing seriously. Unit tests live beside the code, integration tests live in `tests/`, and Cucumber scenarios describe what a person can do. Counts go stale the week after someone writes them down, so this page does not keep a scenario total. The layout is in `docs/knowledge-base/05-testing/testing-strategy.md`.
 
 ### 🧪 Testing Pyramid
 
 ```mermaid
 graph TB
     subgraph "🔺 Testing Pyramid"
-        E2E["🥒 E2E / BDD Tests<br/>49 feature files, 298 scenarios"]
-        INT["🔗 Integration Tests<br/>20+ test files"]
-        UNIT["⚡ Unit Tests<br/>Inline modules"]
-        MUT["🧬 Mutation Tests<br/>Kill all mutants!"]
+        E2E["🥒 Cucumber scenarios<br/>cargo test --test bdd"]
+        INT["🔗 Integration tests<br/>tests/"]
+        UNIT["⚡ Unit tests<br/>child modules beside the code"]
+        MUT["🧬 Targeted mutation runs<br/>cargo mutants"]
     end
 
     E2E --> INT --> UNIT
@@ -466,11 +433,10 @@ cargo test --test bdd --features test-helpers,s3
 # BDD tests in Russian 🇷🇺
 cargo test --test bdd_ru --features test-helpers,s3
 
-# Code coverage (97% threshold!)
-cargo tarpaulin --features test-helpers
-
-# Mutation testing (kill all mutants! 🧟)
-cargo test --test mutation_tests --features test-helpers
+# Optional local HTML report. CI's 98% / 75% gates, with their
+# filename exclusions, are the llvm-cov steps in
+# .github/workflows/tests.yml.
+./ffm.sh coverage
 ```
 
 ### ✨ BDD Feature Example
@@ -516,40 +482,36 @@ stateDiagram-v2
 
 ## 🔄 CI/CD Pipeline
 
-FFM uses **GitHub Actions** with a 6-job pipeline that runs on every push and PR:
+FFM uses **GitHub Actions** (`.github/workflows/tests.yml`) on every push to `main` and on pull requests. The jobs run in parallel. There is no mutation-testing job in that workflow.
 
 ```mermaid
 graph TB
-    PUSH["🔀 Push / PR"] --> CHECK
-
-    CHECK["✅ Check<br/>fmt + clippy + build"]
-
-    CHECK --> TEST["🧪 Tests<br/>Full test suite"]
-    CHECK --> COVERAGE["📊 Coverage<br/>97% threshold"]
-    CHECK --> BENCH["⏱️ Benchmarks<br/>Performance metrics"]
-    CHECK --> MCP["🔌 MCP Server<br/>Build + BDD tests"]
-
-    TEST --> MUTATION["🧬 Mutation<br/>Kill all mutants"]
+    PUSH["🔀 Push / PR"] --> LINT["✅ Lint<br/>fmt + clippy"]
+    PUSH --> COVERAGE["📊 Tests and coverage<br/>98% of measured lines"]
+    PUSH --> BDD["🥒 BDD<br/>Linux and Windows"]
+    PUSH --> TUIBDD["⌨️ TUI BDD"]
+    PUSH --> MCP["🔌 MCP<br/>75% line gate"]
+    PUSH --> COLORER["🎨 Colorer feature"]
 
     style PUSH fill:#333,color:#fff
-    style CHECK fill:#4caf50,color:#fff
-    style TEST fill:#2196f3,color:#fff
+    style LINT fill:#4caf50,color:#fff
     style COVERAGE fill:#9c27b0,color:#fff
-    style BENCH fill:#ff9800,color:#fff
+    style BDD fill:#2196f3,color:#fff
+    style TUIBDD fill:#ff9800,color:#fff
     style MCP fill:#00bcd4,color:#fff
-    style MUTATION fill:#f44336,color:#fff
+    style COLORER fill:#607d8b,color:#fff
 ```
 
 ### 🚦 Pipeline Jobs
 
-| Job | Depends On | What It Does | Fail = ? |
-|-----|-----------|-------------|---------|
-| **Check** | — | Format, lint, build | 🚫 Block everything |
-| **Tests** | Check | Run all tests | 🚫 Block merge |
-| **Coverage** | Check | Enforce 97% minimum | 🚫 Block merge |
-| **Mutation** | Tests | Kill surviving mutants | 🚫 Block merge |
-| **Benchmarks** | Check | Performance metrics | ℹ️ Info only |
-| **MCP Server** | Check | Build + test MCP | 🚫 Block merge |
+| Job | What it does |
+|-----|----------------|
+| **Lint** | `./ffm.sh lint`, the readability self-test, and the architecture contract test |
+| **Tests & Coverage** | `cargo llvm-cov nextest`, failing under 98% of the measured root lines |
+| **BDD** | S3 unit tests plus `bdd` and `bdd_ru`, on Linux and Windows |
+| **TUI BDD** | Keyboard scenarios through the real event loop. Windows also runs the full suite and Clippy |
+| **MCP** | Format, Clippy, tests, and a 75% line gate |
+| **Colorer** | Builds the optional C++ highlighter and runs that feature |
 
 ---
 
@@ -577,9 +539,12 @@ Make sure your terminal supports 24-bit (true color) RGB. Most modern terminals 
 
 FFM always asks for confirmation before deleting. But if you confirmed... well, this is a learning opportunity about backups. 📚
 
-### ☁️ "S3 operations are slow!" 🐢
+### ☁️ "I picked an S3 profile and the panel did not change" 🐢
 
-S3 operations go over the network. FFM uses a blocking Tokio runtime for S3 calls. For large operations, consider using the AWS CLI directly.
+That is the current behavior. The drive row only records the profile. Listing,
+upload, download, copy, and delete go through the library and the MCP tools
+in [the S3 tutorial](docs/tutorials/s3.md). Each of those calls reads or
+writes the whole object in memory, so a large object is a bad fit for them.
 
 ---
 
@@ -600,8 +565,8 @@ A: Memory safety, zero-cost abstractions, and bragging rights at meetups. Also, 
 **Q: How do I contribute?**
 A: Fork it, branch it, code it, test it, PR it! Just make sure `cargo clippy` and `cargo test` are happy before submitting. A grumpy clippy is nobody's friend. 📎😠
 
-**Q: What's with the 97% coverage threshold?**
-A: We believe in testing. We also believe that the last 3% is probably platform-specific terminal code that would require summoning a CI demon to test properly. 👿
+**Q: What's with the coverage threshold?**
+A: CI fails the root crate under 98% of the lines it measures, and the MCP crate under 75%. Host glue such as the real TTY startup is excluded from that measurement on purpose. The list is in `.github/workflows/tests.yml`. 👿
 
 ---
 

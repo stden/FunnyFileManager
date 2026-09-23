@@ -1,5 +1,7 @@
 # 🏛️ Architecture Foundation Design
 
+> Status: implemented. The living description is `docs/knowledge-base/02-architecture/` and `docs/specifications/command-popup-and-operations-modules.md`. The "before this refactor" section below is history.
+
 ## 🧐 Context
 
 Before this refactor, the event loop, modal input, and operation modules worked,

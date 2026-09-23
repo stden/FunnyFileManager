@@ -35,6 +35,7 @@ mod paths;
 mod pattern_search;
 mod replace;
 mod reports;
+mod s3_listing;
 mod s3_profiles;
 // The tool list lives in its own import-free file so the sibling crate's MCP
 // status screen can `include!` it instead of keeping a second copy.
@@ -101,6 +102,16 @@ fn object_size(size: Option<i64>) -> u64 {
 )]
 fn count_byte(haystack: &[u8], needle: u8) -> usize {
     haystack.iter().filter(|byte| **byte == needle).count()
+}
+
+fn listed_object(object: &s3_listing::ListedObject) -> serde_json::Value {
+    json!({
+        "key": object.key,
+        "type": if object.folder { "folder" } else { "file" },
+        "size": object.size,
+        "size_human": format_size(object_size(Some(object.size))),
+        "last_modified": object.modified,
+    })
 }
 
 /// Copy one entry, preserving what it *is* — the single place that decides how
@@ -2533,46 +2544,11 @@ impl FfmServer {
         Parameters(params): Parameters<S3ListObjectsParams>,
     ) -> Result<CallToolResult, McpError> {
         let client = make_s3_client(&params.profile).await?;
-
         let prefix = params.prefix.as_deref().unwrap_or("");
-        let mut request = client
-            .list_objects_v2()
-            .bucket(&params.bucket)
-            .delimiter("/");
-
-        if !prefix.is_empty() {
-            request = request.prefix(prefix);
-        }
-
-        let resp = request
-            .send()
+        let listed = s3_listing::list_level(&client, &params.bucket, prefix)
             .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let mut objects = Vec::new();
-
-        // Folders (common prefixes)
-        for prefix_obj in resp.common_prefixes() {
-            if let Some(p) = prefix_obj.prefix() {
-                objects.push(json!({
-                    "key": p,
-                    "type": "folder",
-                    "size": 0,
-                }));
-            }
-        }
-
-        // Files
-        for obj in resp.contents() {
-            objects.push(json!({
-                "key": obj.key().unwrap_or(""),
-                "type": "file",
-                "size": obj.size().unwrap_or(0),
-                "size_human": format_size(object_size(obj.size())),
-                "last_modified": obj.last_modified().map(std::string::ToString::to_string),
-            }));
-        }
-
+            .map_err(|error| McpError::internal_error(error, None))?;
+        let objects: Vec<_> = listed.iter().map(listed_object).collect();
         let result = json!({
             "profile": params.profile,
             "bucket": params.bucket,

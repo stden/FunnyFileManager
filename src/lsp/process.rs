@@ -194,13 +194,13 @@ fn drain_stderr(mut stderr: impl Read) {
 }
 
 #[cfg(windows)]
-fn configure(command: &mut Command) {
+pub(super) fn configure(command: &mut Command) {
     use std::os::windows::process::CommandExt;
     command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW: only the editor owns a terminal.
 }
 
 #[cfg(unix)]
-fn configure(command: &mut Command) {
+pub(super) fn configure(command: &mut Command) {
     use std::os::unix::process::CommandExt;
     command.process_group(0);
 }
@@ -210,7 +210,7 @@ fn configure(command: &mut Command) {
     clippy::needless_pass_by_ref_mut,
     reason = "shares the Windows signature, where `try_wait` needs `&mut`"
 )]
-fn exited(child: &mut Child) -> bool {
+pub(super) fn exited(child: &mut Child) -> bool {
     use rustix::process::{waitid, Pid, WaitId, WaitIdOptions};
     // NOWAIT retains the leader's PID until terminate has killed its entire group.
     waitid(
@@ -221,19 +221,19 @@ fn exited(child: &mut Child) -> bool {
 }
 
 #[cfg(windows)]
-fn exited(child: &mut Child) -> bool {
+pub(super) fn exited(child: &mut Child) -> bool {
     child.try_wait().is_ok_and(|status| status.is_some())
 }
 
 #[cfg(unix)]
-fn terminate(child: &mut Child) {
+pub(super) fn terminate(child: &mut Child) {
     // The leader has not been reaped: its PID cannot belong to an unrelated group.
     let _ = crate::platform::kill_process_group(child);
     reap(child);
 }
 
 #[cfg(windows)]
-fn terminate(child: &mut Child) {
+pub(super) fn terminate(child: &mut Child) {
     reap(child);
 }
 

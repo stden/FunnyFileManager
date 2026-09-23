@@ -19,6 +19,7 @@ pub mod history_list;
 pub mod hotplug;
 pub mod link;
 pub mod longnames;
+mod lsp_status;
 pub(crate) mod menu;
 pub mod packages;
 mod panel;

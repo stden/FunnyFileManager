@@ -3,6 +3,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MenuCommand {
     Performance,
+    LanguageServers,
     UpdatePackages,
     Path(crate::path_env::Scope),
     Tree,

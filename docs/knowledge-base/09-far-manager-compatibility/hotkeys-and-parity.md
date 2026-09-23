@@ -29,7 +29,7 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 | Shift+F1  | Add to archive                 | ✅         | Dialog: name (default `<stem>.tar.gz` in the other panel), format radio tar.gz / tar / zip (zip only when `zip` is on PATH), "Delete files after archiving"; runs `tar`/`zip` without a shell, echoes the command in the console, never overwrites |
 | Shift+F2  | Extract files                  | ✅         | Dialog: every marked `.tar`/`.tar.gz`/`.tgz`/`.tar.xz`/`.tar.bz2`/`.zip`, destination offered as the other panel (a relative path is taken from the active one, created if missing); members are listed and checked first — paths outside the destination and links are refused; marks are spent only on full success |
 | Shift+F3  | Archive commands               | ✅         | Menu: Test archive, List contents (viewer), Extract here, Extract to other panel, Add selected files to this archive (`.tar`/`.zip`); `tar` reads the tar family, `unzip` reads zip |
-| F2        | User menu                      | ⚠️         | Opens the available Commands menu |
+| F2        | User menu                      | ✅         | Lists `user-menu.txt` (`Label<TAB>command`) and an Edit row that opens that file |
 | F3        | View                           | ✅         | Internal viewer: Far's unwrapped text mode with its status line; no hex/dump, no key bar |
 | F4        | Edit                           | ✅         | Built-in editor (Far style); Alt+F4 = external editor |
 | Shift+F4  | Create new file                | ✅         |       |
@@ -42,7 +42,7 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 | F9        | Menu bar                       | ✅         |       |
 | F10       | Quit                           | ✅         | Also Ctrl+C and the `quit` command |
 | F11       | Plugin commands                | ✅         | Opens MCP/plugin status |
-| F12       | Switch screens                 | ✅         | Panels / console |
+| F12       | Switch screens                 | ✅         | The same list as F9 Screens: file panels or the console transcript. Ctrl+O toggles the console directly |
 | Alt+F1/F2 | Drive selection                | ✅         |       |
 | Ctrl+O    | Toggle console (hide panels)   | ✅         |       |
 | Ctrl+U    | Swap panels                    | ✅         | Ignored while a panel is hidden (Ctrl+F1 / Ctrl+F2), as in Far; the status line says so |
@@ -123,10 +123,10 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 
 ## ↔️ Known Differences (Intentional)
 
-- F4 opens the built-in editor (no Colorer/syntax highlighting yet); Alt+F4 delegates to the external editor.
+- F4 opens the built-in editor, with syntax highlighting and optional language servers. Alt+F4 delegates to the external editor.
 - Some advanced Far plugins and menu systems have no equivalent.
 - Drive letters on Unix are simulated as `/`.
-- S3 buckets appear as additional "drives".
+- With the `s3` feature, credential-file profiles appear as extra drive-menu rows. Selecting one does not open a bucket. See [S3](../../tutorials/s3.md).
 
 ## 🧑‍💻 Far Manager Reference
 

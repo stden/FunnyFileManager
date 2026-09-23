@@ -14,7 +14,7 @@ maintainable and testable.
 - Modal input handling (`src/popup.rs`)
 - Canonical operations (`src/ops/{mod,dispatch,file,shell,viewer}.rs`)
 - Compatibility re-exports (`src/handlers/mod.rs`)
-- Dispatch from the event loop in `src/lib.rs`
+- Dispatch from the event loop in `src/application/` (`run_app` is re-exported from `src/lib.rs`)
 
 Rendering, the full `App`/`Overlay` model, and low-level utilities remain in
 `ui`, `models`, and `utils`, respectively.
@@ -22,13 +22,15 @@ Rendering, the full `App`/`Overlay` model, and low-level utilities remain in
 ## 📚 Dependency Direction
 
 ```text
-lib ───────────────> ops
+application ────────> ops
  │                    ▲
  └─> popup ───────────┘
 
 handlers (compatibility facade) ──> ops
                                 └─> popup
 ```
+
+`src/lib.rs` declares modules and re-exports `run` and `run_app`. It does not route keys.
 
 `popup` may call `ops`; it must never call `handlers`. `handlers` contains no
 operation implementation.
@@ -53,7 +55,7 @@ operation implementation.
   `Overlay::None`.
 - Every key is consumed while any overlay is active. In particular, an
   unsupported `CommandLine` key returns `true` and leaves its buffer unchanged.
-- `src/lib.rs` checks for an active overlay before calling `Action::resolve`, so
+- `src/application` checks for an active overlay before calling `Action::resolve`, so
   modal input cannot trigger a main-view action.
 - `Overlay::CommandLine(CommandLine)` keeps the editable buffer and fuzzy
   completion menu together. Tab accepts a sole match or opens a dropdown for
@@ -67,14 +69,16 @@ operation implementation.
 - Popup handling still performs some synchronous I/O for transitions such as
   drive selection and editor save/refresh. Extracting all effects from `popup`
   is not part of this architecture foundation.
-- Every `Overlay` variant must be reachable from a key or `:` command and have
-  an intentional presentation in `src/ui.rs` or `src/ui/overlays.rs`. Quick
-  search and bookmarks intentionally are not overlay variants.
+- Every `Overlay` variant must be reachable from a key or a menu row and have
+  an intentional presentation under `src/ui/`. Quick search and bookmarks
+  intentionally are not overlay variants. The command hotkeys and their F9
+  rows both call `ops/menu`. See
+  `docs/knowledge-base/06-ui-and-interaction/overlays-and-modals.md`.
 
 ## 🏛️ Operations Module (`src/ops/`)
 
-`ops` is the only implementation owner for command, file, shell, viewer, and
-MCP-status operations:
+`ops` is the only implementation owner for command, file, shell, viewer,
+menu, and the other application effects. The original split is still there:
 
 - `mod.rs` — public operation facade and internal re-exports
 - `dispatch.rs` — typed `Command` execution
@@ -82,8 +86,10 @@ MCP-status operations:
 - `shell.rs` — platform shell process execution
 - `viewer.rs` — file viewer and MCP status viewer operations
 
-New command, file, shell, viewer, or MCP-status behavior belongs in the
-corresponding `ops` child module, not in `handlers`.
+Later effects live in sibling modules (`archive`, `attributes`, `apply`,
+`menu`, and the rest). The current map is
+`docs/knowledge-base/02-architecture/module-structure.md`. New behavior
+belongs in the matching `ops` child, not in `handlers`.
 
 Shell fallback is bounded to ten seconds, accepts Esc or Ctrl+C cancellation,
 and discards other keys received while the event loop is waiting for the child.
@@ -152,7 +158,7 @@ shared state could otherwise make tests race.
 - Moving all popup I/O into a pure effect layer
 - Changing copy/move transactional semantics
 - Redesigning `Panel`, `DirEntry`, bookmarks, or quick search
-- Implementing an S3-backed panel or restructuring the standalone MCP server
+- Redesigning S3 browsing (`src/s3/`) or the standalone MCP server
 
 ## 📄 Related Documents
 
