@@ -1,0 +1,37 @@
+# Purpose: Configures the spell check (`typos`) that `./ffm.sh lint` runs over
+# every tracked text file: docs, comments, strings and identifiers.
+# English only. `typos` flags known misspellings, not unknown words, so a
+# project term needs an entry here only when it looks like a misspelling.
+
+[default]
+extend-ignore-re = [
+    # A menu label marks its hotkey with `&` inside a word: "Detai&led".
+    "\\b[A-Za-z]+&[A-Za-z]+\\b",
+    # A line that holds a misspelling on purpose ends with this marker.
+    "(?Rm)^.*(#|//)\\s*spellchecker:disable-line$",
+]
+
+[default.extend-words]
+# The TUI library this program is built on.
+ratatui = "ratatui"
+
+# Test data written that way on purpose: typed prefixes ("hel", "fo"), a
+# deliberate typo the test corrects ("Frst", "Firt"), a truncated "café" in
+# a legacy code page ("caf"), tar flags ("-caf"), the host column of a zip
+# listing ("unx"), an 8.3 short name ("ARCHIV~1") and edit results.
+abd = "abd"
+archiv = "archiv"
+ba = "ba"
+caf = "caf"
+firt = "firt"
+fo = "fo"
+frst = "frst"
+hel = "hel"
+ment = "ment"
+unx = "unx"
+
+[files]
+extend-exclude = [
+    # Far Manager's own help text, kept verbatim for reference.
+    "docs/upstream/",
+]

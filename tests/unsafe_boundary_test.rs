@@ -371,7 +371,7 @@ fn every_unsafe_construct_is_found() {
 }
 
 #[test]
-fn look_alikes_are_not_findings() {
+fn lookalikes_are_not_findings() {
     let cases = [
         "#![forbid(unsafe_code)]",
         "#[deny(unsafe_code)] fn f() {}",

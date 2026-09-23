@@ -150,7 +150,7 @@ pub enum Status {
     BookmarkEmpty {
         slot: BookmarkSlot,
     },
-    /// A bookmark slot index was out of range / unparseable.
+    /// A bookmark slot index was out of range / unparsable.
     InvalidBookmarkSlot {
         slot: String,
     },

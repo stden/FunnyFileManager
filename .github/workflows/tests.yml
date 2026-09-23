@@ -47,12 +47,18 @@ jobs:
           shared-key: lint
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
+      # The spell check in ./ffm.sh lint; typos.toml holds the project words.
+      - name: Install typos
+        uses: taiki-e/install-action@v2
+        with:
+          tool: typos
+
       # Keep local and CI gates identical, including MCP/Colorer and test targets.
-      - name: Format and Clippy (all crates, -D warnings)
+      - name: Format, spelling and Clippy (all crates, -D warnings)
         run: ./ffm.sh lint
 
-      # Readability fixtures, then the manifest lint policy (scripts/test_lint_policy.py).
-      - name: Lint gate self-tests (readability, lint policy)
+      # Spelling probes, readability fixtures, then the manifest lint policy.
+      - name: Lint gate self-tests (spelling, readability, lint policy)
         run: ./ffm.sh lint self-test
 
       - name: Architecture contracts

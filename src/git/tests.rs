@@ -35,7 +35,7 @@ fn a_detached_head_shows_a_short_hash() {
 /// The branch is looked for upwards, since the panel is usually somewhere
 /// inside the repository rather than at its root.
 #[test]
-fn a_subdirectory_reports_the_repositorys_branch() {
+fn a_subdirectory_reports_the_repository_branch() {
     let dir = repo("ref: refs/heads/main\n");
     let nested = dir.path().join("src/ui/deep");
     fs::create_dir_all(&nested).expect("nested");

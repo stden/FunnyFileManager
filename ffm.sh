@@ -194,7 +194,7 @@ case "$1" in
         ;;
     lint)
         check_rust
-        print_status "Running Rust linter gate (fmt + clippy)..."
+        print_status "Running Rust linter gate (fmt + spelling + clippy)..."
         bash "$SCRIPT_DIR/scripts/lint.sh" "${2:-all}"
         ;;
     coverage)

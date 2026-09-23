@@ -2,12 +2,13 @@
 # Purpose: Run the Rust linter gate used by CI, pre-commit, and `./ffm.sh lint`.
 #
 # Usage:
-#   scripts/lint.sh              # fmt + clippy matrix + architecture contracts
+#   scripts/lint.sh              # fmt + spelling + clippy matrix + architecture contracts
 #   scripts/lint.sh fmt          # format check only
+#   scripts/lint.sh spelling     # typos over every text file (typos.toml)
 #   scripts/lint.sh clippy       # clippy and architecture (all targets, all features, fallback)
 #   scripts/lint.sh clippy-fast  # clippy all targets (default features)
 #   scripts/lint.sh fix          # auto-format, then full clippy gate
-#   scripts/lint.sh self-test    # prove readability limits and the manifest lint policy
+#   scripts/lint.sh self-test    # prove the spell check, readability limits and the lint policy
 #   scripts/lint.sh architecture # dependency ownership, layering, unsafe allowlist, file limits
 #
 # Exit non-zero on the first failure. Matches `.github/workflows/tests.yml` lint job.
@@ -52,6 +53,28 @@ run_fmt_fix() {
     fi
 }
 
+# Misspellings in docs, comments, strings and identifiers; typos.toml holds the
+# project words. A missing checker fails the gate instead of skipping it.
+run_spelling() {
+    if ! command -v typos >/dev/null; then
+        echo "typos is not installed — run: cargo install typos-cli --locked" >&2
+        exit 127
+    fi
+    echo "→ typos"
+    typos
+}
+
+# The spell check must reject a real misspelling and accept the project words.
+self_test_spelling() {
+    run_spelling >/dev/null
+    if printf 'teh\n' | typos - >/dev/null; then # spellchecker:disable-line
+        echo "spelling self-test: typos accepted a known misspelling" >&2
+        exit 1
+    fi
+    printf 'Ratatui draws a Detai&led menu\n' | typos -
+    echo "✓ spelling self-test OK"
+}
+
 # Lint levels in Cargo.toml and thresholds in clippy.toml apply to every target.
 run_clippy() {
     # Check production, tests, examples and benchmarks with the same limits.
@@ -85,19 +108,24 @@ run_architecture() {
 
 # Fail in seconds, not minutes, when the compiler wrapper has stalled.
 case "$mode" in
-    fmt | -h | --help | help) ;;
+    fmt | spelling | -h | --help | help) ;;
     *) bash "$ROOT/scripts/cargo-preflight.sh" ;;
 esac
 
 case "$mode" in
     all | "")
         run_fmt_check
+        run_spelling
         run_clippy_matrix
-        echo "✓ lint OK (fmt + clippy)"
+        echo "✓ lint OK (fmt + spelling + clippy)"
         ;;
     fmt)
         run_fmt_check
         echo "✓ fmt OK"
+        ;;
+    spelling)
+        run_spelling
+        echo "✓ spelling OK"
         ;;
     clippy)
         run_clippy_matrix
@@ -113,6 +141,7 @@ case "$mode" in
         echo "✓ lint OK after format (fmt + clippy)"
         ;;
     self-test)
+        self_test_spelling
         "$PYTHON" scripts/test_readability.py
         # Runs Cargo on throwaway crates, hence the wrapper preflight above.
         "$PYTHON" scripts/test_lint_policy.py
@@ -121,10 +150,10 @@ case "$mode" in
         run_architecture
         ;;
     -h | --help | help)
-        sed -n '2,14p' "$0"
+        sed -n '2,15p' "$0"
         ;;
     *)
-        echo "unknown mode: $mode (try: all|fmt|clippy|clippy-fast|fix|self-test|architecture|help)" >&2
+        echo "unknown mode: $mode (try: all|fmt|spelling|clippy|clippy-fast|fix|self-test|architecture|help)" >&2
         exit 2
         ;;
 esac

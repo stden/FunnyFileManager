@@ -184,11 +184,14 @@ Full module-level detail remains in
 - `cargo test -- --ignored`: Run tests marked `#[ignore]` (used for manual/interactive cases).
 - `cargo fmt`: Format code with `rustfmt`.
 - `cargo clippy -- -D warnings`: Lint and fail on warnings.
-- `./ffm.sh lint`: Run the shared local/CI format and Clippy gate: root default,
-  all features, and no-default-features with test-helpers, plus MCP and Colorer;
-  Clippy checks all targets.
-- `./ffm.sh lint self-test`: Verify readability rejection, acceptance, and
-  equivalent behavior with compiler fixtures; requires Python.
+- `./ffm.sh lint`: Run the shared local/CI format, spelling and Clippy gate:
+  `typos` over every text file (project words in `typos.toml`), then Clippy for
+  root default, all features, and no-default-features with test-helpers, plus
+  MCP and Colorer; Clippy checks all targets. Needs `cargo install typos-cli`.
+- `./ffm.sh lint spelling`: Run only the spell check.
+- `./ffm.sh lint self-test`: Prove the spell check rejects a misspelling, then
+  verify readability rejection, acceptance, and equivalent behavior with
+  compiler fixtures; requires Python.
 
 Optional coverage (tooling may be platform-dependent): `cargo tarpaulin --out Html --output-dir coverage`.
 

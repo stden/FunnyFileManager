@@ -518,7 +518,7 @@ fn test_format_size_edge_cases() {
 }
 
 #[test]
-fn test_writeable_backend_full_coverage() -> io::Result<()> {
+fn test_writable_backend_full_coverage() -> io::Result<()> {
     use funny_file_manager::WritableTestBackend;
     use ratatui::backend::Backend;
     use std::io::Write;

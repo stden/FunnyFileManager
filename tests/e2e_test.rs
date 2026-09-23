@@ -1353,7 +1353,7 @@ fn e2e_clicking_no_in_the_quit_dialog_returns_to_the_panels() {
     );
 }
 
-/// The delete dialog is the one where a mis-click costs the most, so its
+/// The delete dialog is the one where a misclick costs the most, so its
 /// buttons are worth their own test.
 #[test]
 fn e2e_clicking_cancel_in_the_delete_dialog_keeps_the_file() {
