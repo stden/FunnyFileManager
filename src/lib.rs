@@ -90,6 +90,7 @@ pub mod kdbx;
 #[cfg(feature = "keepass")]
 pub mod keepass;
 pub mod lineedit;
+mod lsp;
 pub mod mask;
 pub mod menu;
 pub mod models;

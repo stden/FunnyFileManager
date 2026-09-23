@@ -1746,12 +1746,14 @@ dependencies = [
  "libc",
  "ratatui",
  "regex",
+ "rustix",
  "serde",
  "serde_json",
  "serde_norway",
  "tempfile",
  "tokio",
  "unicode-width",
+ "url",
  "windows-sys 0.61.2",
 ]
 
