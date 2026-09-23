@@ -49,3 +49,26 @@ fn a_symlink_shows_its_target_in_the_links_view() -> io::Result<()> {
     assert!(target.contains('→'), "{target}");
     Ok(())
 }
+
+#[test]
+fn zz_probe_load_entries_propagates_set_view_failure() -> io::Result<()> {
+    let directory = TempDir::new()?;
+    fs::write(directory.path().join("a.txt"), "x")?;
+    let mut panel = Panel::new(directory.path().to_owned())?;
+    set_view(&mut panel, PanelView::Descriptions)?;
+    let before: Vec<String> = panel
+        .entries
+        .iter()
+        .map(|e| e.name.as_str().to_owned())
+        .collect();
+    fs::create_dir(directory.path().join("descript.ion"))?;
+    assert!(panel.load_entries().is_err());
+    let after: Vec<String> = panel
+        .entries
+        .iter()
+        .map(|e| e.name.as_str().to_owned())
+        .collect();
+    assert_eq!(before, after);
+    assert!(!before.iter().any(|n| n == "descript.ion"));
+    Ok(())
+}

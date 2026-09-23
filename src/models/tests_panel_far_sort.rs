@@ -119,3 +119,8 @@ fn every_mode_has_a_word_a_letter_and_a_label() {
     assert_eq!(SortMode::parse("blah"), None);
     assert_eq!(SortMode::Owner.next(), SortMode::Name);
 }
+
+#[test]
+fn zz_probe_modification_time_cycles_to_unsorted() {
+    assert_eq!(SortMode::ModificationTime.next(), SortMode::Unsorted);
+}

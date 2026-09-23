@@ -53,3 +53,16 @@ fn an_unchanged_form_closes_and_a_failed_save_retains_the_edited_form() {
     assert!(form.error().is_some());
     assert!(form.title().ends_with(" changed"));
 }
+
+#[test]
+fn probe_f6_while_locked_is_swallowed_without_a_vault() {
+    let (_dir, path) = vault_file(SAMPLE, VAULT_PASSWORD, None);
+    let mut app = App::new().expect("test app");
+    app.set_overlay(Overlay::Kdbx(KdbxOverlay(KdbxSession::new(path))));
+
+    assert!(process_popup_input(&mut app, key(KeyCode::F(6))));
+
+    let session = app.kdbx_session().expect("overlay still up");
+    assert!(session.state.is_locked());
+    assert!(session.vault().is_none());
+}

@@ -187,3 +187,27 @@ fn unlocked_vault_does_not_activate_stale_unlock_buttons() {
     assert_eq!(kdbx_button_key(&session, 0), None);
     assert_eq!(kdbx_button_key(&session, 1), None);
 }
+#[test]
+fn zz_probe_extract_buttons_name_extract_and_cancel_before_enter() {
+    use crate::models::{ExtractField, ExtractPrompt};
+    use std::path::PathBuf;
+
+    let dir = TempDir::new().expect("temp");
+    let mut app = app_at(&dir);
+    app.set_overlay(Overlay::ExtractPrompt(Box::new(ExtractPrompt::new(
+        vec![PathBuf::from("/src/a.tar.gz")],
+        Path::new("/dest"),
+    ))));
+
+    assert_eq!(code(&mut app, 1), KeyCode::Enter);
+    let Overlay::ExtractPrompt(prompt) = &app.overlay else {
+        panic!("extract prompt");
+    };
+    assert_eq!(prompt.field, ExtractField::Cancel);
+
+    assert_eq!(code(&mut app, 0), KeyCode::Enter);
+    let Overlay::ExtractPrompt(prompt) = &app.overlay else {
+        panic!("extract prompt");
+    };
+    assert_eq!(prompt.field, ExtractField::Extract);
+}

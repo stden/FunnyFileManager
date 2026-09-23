@@ -97,3 +97,24 @@ fn windows_scripts_and_installers_have_explicit_runners() {
         assert_eq!(command.get_args().collect::<Vec<_>>(), expected);
     }
 }
+
+
+#[test]
+fn zz_probe_empty_selection_absolute_error() {
+    let mut app = App::with_panels(
+        Panel::from_entries(
+            std::path::PathBuf::new(),
+            vec![crate::models::DirEntry {
+                name: String::new(),
+                ..Default::default()
+            }],
+        ),
+        Panel::from_entries(std::path::PathBuf::new(), Vec::new()),
+    );
+    let mut terminal = Terminal::new(WritableTestBackend::new(80, 24)).expect("terminal");
+    let error = launch_with(&mut terminal, &mut app, &mut NoopTerminalOps, |_, _| {
+        panic!("must not launch")
+    })
+    .expect_err("empty path cannot be made absolute");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+}

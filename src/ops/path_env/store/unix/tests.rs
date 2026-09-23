@@ -101,3 +101,14 @@ fn writes_refuse_profile_links_and_replace_backup_links_without_following_them()
         0o600
     );
 }
+
+// ZZPROBE136-BEGIN
+#[test]
+fn zz_probe136_write_at_propagates_non_notfound_read_error() {
+    let temp = TempDir::new().expect("tempdir");
+    let snapshot = read_at(&temp.path().join("profile"), Format::Profile, "/bin").expect("read");
+    let error = write_at(temp.path(), Format::Profile, &snapshot, "/bin").expect_err("is a dir");
+    assert_eq!(error.raw_os_error(), Some(21));
+}
+// ZZPROBE136-END
+

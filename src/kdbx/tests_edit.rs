@@ -292,3 +292,66 @@ fn saving_without_an_editable_form_never_changes_the_database() {
         original
     );
 }
+
+#[test]
+fn zzz_probe_confirm_delete_reloads_catalog() {
+    let (_dir, mut session, now) = unlocked_sample();
+    focus(&mut session, "GitHub", now);
+    session.request_delete(now).expect("request delete");
+    session.confirm_delete(now).expect("confirm delete");
+    session
+        .vault_mut()
+        .expect("vault is unlocked")
+        .set_filter("", now);
+    let titles = sorted_visible_titles(&session);
+    assert!(
+        !titles.contains(&"GitHub".to_owned()),
+        "delete must drop the title from the reloaded summaries: {titles:?}"
+    );
+    assert_eq!(titles.len(), 4, "the other four survive: {titles:?}");
+}
+
+#[test]
+fn zzz_tmp_probe_confirm_delete_keepass_error() {
+    let (_d, mut s, now) = unlocked_sample();
+    fs::remove_file(&s.path).expect("delete the vault file");
+    assert!(matches!(s.confirm_delete(now), Err(KdbxError::Keepass(_))));
+}
+
+#[test]
+fn zz_probe_undo_without_record_returns_false() {
+    let (_dir, mut session, now) = unlocked_sample();
+    focus(&mut session, "GitHub", now);
+    session.begin_edit(now).expect("begin edit");
+    assert!(!open_form_mut(&mut session).undo());
+}
+
+#[test]
+fn zz_probe_newline_is_refused() {
+    let (_dir, mut session, now) = unlocked_sample();
+    focus(&mut session, "GitHub", now);
+    session.begin_edit(now).expect("begin edit");
+
+    open_form_mut(&mut session).push_char('\n');
+    open_form_mut(&mut session).push_char('\r');
+    session.type_char('\n', now);
+
+    assert_eq!(open_form(&session).title(), "GitHub");
+    assert!(!open_form(&session).is_dirty());
+}
+
+#[test]
+fn zz_probe_backspace_on_empty_notes_drops_the_undo() {
+    let (_dir, mut session, now) = unlocked_sample();
+    focus(&mut session, "Jenkins", now);
+    session.begin_edit(now).expect("begin edit");
+    let form = open_form_mut(&mut session);
+    form.focus_next();
+    form.focus_next();
+    form.focus_next();
+    assert_eq!(form.focus(), EditField::Notes);
+    assert_eq!(form.notes(), "");
+    form.backspace();
+    assert!(!form.is_dirty(), "an empty-field backspace is not an edit");
+    assert!(!form.undo(), "the discarded undo leaves nothing to restore");
+}

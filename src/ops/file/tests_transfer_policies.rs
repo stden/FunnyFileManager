@@ -873,3 +873,42 @@ fn walk_depth(root: &std::path::Path) -> usize {
         .max()
         .unwrap_or(0)
 }
+
+#[test]
+fn zz_probe_create_new_already_exists() {
+    let dir = TempDir::new().expect("setup");
+    let source = dir.path().join("a.txt");
+    fs::write(&source, b"x").expect("setup");
+    let dest = dir.path().join("b.txt");
+    fs::write(&dest, b"y").expect("setup");
+    let err = copy_entry(&source, &dest, LinkPolicy::Recreate).expect_err("must fail");
+    assert_eq!(err.kind(), io::ErrorKind::AlreadyExists);
+    assert_eq!(fs::read(&dest).unwrap(), b"y", "the file in the way is untouched");
+}
+
+#[cfg(unix)]
+#[test]
+fn zz_probe_dangling_symlink_dest_via_public_copy() {
+    let (mut app, _from, to) = app_with(&[("notes.txt", b"payload")]);
+    std::os::unix::fs::symlink("nowhere-at-all", to.path().join("notes.txt")).expect("setup");
+    mark(&mut app, "notes.txt");
+    let mut dialog = settings(to.path());
+    dialog.existing = ExistingFiles::Overwrite;
+    copy_with(&mut app, &dialog);
+    let status = app.status.to_string();
+    assert!(status.contains("error") || status.contains("Error") || status.contains("exists"), "{status}");
+}
+
+#[cfg(unix)]
+#[test]
+fn zz_probe_readonly_target_dir_permission_denied() {
+    let (mut app, _from, to) = app_with(&[("notes.txt", b"payload")]);
+    mark(&mut app, "notes.txt");
+    fs::set_permissions(to.path(), fs::Permissions::from_mode(0o555)).expect("setup");
+    let euid = unsafe { libc::geteuid() };
+    let result = super::handle_copy(&mut app);
+    fs::set_permissions(to.path(), fs::Permissions::from_mode(0o755)).expect("cleanup");
+    let status = app.status.to_string();
+    eprintln!("euid={euid} result={result:?} status={status}");
+    assert!(euid == 0 || status.to_lowercase().contains("denied") || status.to_lowercase().contains("error"), "{status}");
+}

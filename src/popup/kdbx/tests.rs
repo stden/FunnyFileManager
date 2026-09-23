@@ -503,3 +503,59 @@ fn copy_with_no_working_route_reports_and_does_not_arm() {
         "a copy that reached no clipboard must not schedule a wipe"
     );
 }
+
+#[test]
+fn zzz_probe_delete_cancel_sets_status() {
+    let (_dir, mut app) = app_with_unlocked_vault();
+    focus(&mut app, "GitHub");
+    process_popup_input(&mut app, key(KeyCode::F(8)));
+    assert!(matches!(
+        app.kdbx_session().unwrap().vault().unwrap().page,
+        crate::kdbx::vault::Page::DeleteConfirm(_)
+    ));
+
+    let consumed = process_popup_input(&mut app, key(KeyCode::Char('n')));
+
+    assert!(consumed);
+    assert!(matches!(
+        app.kdbx_session().unwrap().vault().unwrap().page,
+        crate::kdbx::vault::Page::Browse(_)
+    ));
+    assert_eq!(
+        app.kdbx_session().unwrap().vault().unwrap().entries().len(),
+        5
+    );
+    assert!(
+        app.status_text().contains("Delete cancelled"),
+        "status was {:?}",
+        app.status_text()
+    );
+}
+
+#[test]
+fn zzz_probe_delete_cancel_via_esc_sets_status() {
+    let (_dir, mut app) = app_with_unlocked_vault();
+    focus(&mut app, "GitHub");
+    process_popup_input(&mut app, key(KeyCode::F(8)));
+
+    process_popup_input(&mut app, key(KeyCode::Esc));
+
+    assert!(app.kdbx_session().is_some(), "overlay must stay up");
+    assert!(app.status_text().contains("Delete cancelled"));
+}
+
+#[test]
+fn probe_confirm_edit_esc_without_form() {
+    let (_dir, mut session, now) = unlocked_sample();
+    assert!(session.vault().expect("unlocked").form().is_none());
+    super::confirm_edit_input(&mut session, KeyCode::Esc, now);
+    assert!(session.vault().expect("unlocked").form().is_none());
+}
+
+#[test]
+fn tmp_probe_begin_edit_without_a_vault_overlay_does_nothing() {
+    let mut app = App::new().expect("test app");
+    assert!(matches!(app.overlay, Overlay::None));
+    super::begin_edit(&mut app, std::time::Instant::now());
+    assert!(app.kdbx_session().is_none());
+}

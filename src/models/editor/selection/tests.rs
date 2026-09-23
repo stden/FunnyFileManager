@@ -1,119 +1,221 @@
-//! Selection direction, character boundaries, and buffer replacement regressions.
+//! Unit tests: the archive runs behind the three dialogs — the command each
+//! format builds, the transcript line that keeps a strange name one word, the
+//! archives `tar` really writes, and the members an extraction refuses.
 
-use std::path::PathBuf;
+use std::fs;
+use std::path::Path;
 
-use super::*;
+use tempfile::TempDir;
 
-fn editor(content: &str) -> Editor {
-    Editor::from_content("text".to_owned(), PathBuf::from("text.txt"), content)
-}
+#[cfg(unix)]
+use super::command_line;
+use super::{create_archive, member_type, on_path, validate_listing, ArchiveRequest};
+use crate::models::ArchiveFormat;
 
-fn extend(editor: &mut Editor, motion: EditorMotion) {
-    editor.move_cursor(motion, SelectionMode::Extend);
-}
-
-#[test]
-fn shift_motion_reduces_and_reverses_around_the_original_anchor() {
-    let mut editor = editor("a界🙂z");
-    editor.cursor_col = 1;
-    extend(&mut editor, EditorMotion::Right);
-    extend(&mut editor, EditorMotion::Right);
-    assert_eq!(editor.selected_text().as_deref(), Some("界🙂"));
-    extend(&mut editor, EditorMotion::Left);
-    assert_eq!(editor.selected_text().as_deref(), Some("界"));
-    extend(&mut editor, EditorMotion::Left);
-    assert_eq!(editor.selected_text(), None);
-    extend(&mut editor, EditorMotion::Left);
-    assert_eq!(editor.selected_text().as_deref(), Some("a"));
-    assert_eq!(
-        editor.selection_range(),
-        Some(Caret::new(0, 0)..Caret::new(0, 1))
-    );
-    assert_eq!(editor.state, EditState::Clean);
-}
-
-#[test]
-fn reverse_multiline_unicode_selection_preserves_crlf_and_replaces_as_one_range() {
-    let mut editor = editor("a界\r\nβ🙂\r\nz!");
-    editor.cursor_line = 2;
-    editor.cursor_col = 1;
-    extend(&mut editor, EditorMotion::Up(2));
-    assert_eq!(editor.selected_text().as_deref(), Some("界\r\nβ🙂\r\nz"));
-    editor.insert_text("X\r\nЖ");
-    assert_eq!(editor.lines, ["aX", "Ж!"]);
-    assert_eq!(editor.caret(), Caret::new(1, 1));
-    assert_eq!(editor.content(), "aX\r\nЖ!");
-    assert_eq!(editor.selection, EditorSelection::None);
-    assert_eq!(editor.state, EditState::Modified);
-}
-
-#[test]
-fn typing_newline_and_deletions_replace_the_selection() {
-    for edit in [Editor::backspace, Editor::delete_forward] {
-        let mut editor = editor("a界\n🙂z");
-        editor.cursor_col = 1;
-        extend(&mut editor, EditorMotion::Down(1));
-        edit(&mut editor);
-        assert_eq!(editor.lines, ["az"]);
-        assert_eq!(editor.caret(), Caret::new(0, 1));
+fn request<'a>(
+    archive: &'a Path,
+    format: ArchiveFormat,
+    sources: &'a [String],
+) -> ArchiveRequest<'a> {
+    ArchiveRequest {
+        archive,
+        format,
+        sources,
+        append: false,
     }
-    let mut typed = editor("a界z");
-    typed.cursor_col = 1;
-    extend(&mut typed, EditorMotion::Right);
-    typed.insert_char('Ж');
-    assert_eq!(typed.lines, ["aЖz"]);
-    extend(&mut typed, EditorMotion::Left);
-    typed.insert_newline();
-    assert_eq!(typed.lines, ["a", "z"]);
 }
 
+fn names(sources: &[&str]) -> Vec<String> {
+    sources.iter().map(|name| (*name).to_owned()).collect()
+}
+
+#[cfg(unix)]
 #[test]
-fn plain_movement_clears_selection_and_boundaries_remain_valid() {
-    for motion in [
-        EditorMotion::Left,
-        EditorMotion::Right,
-        EditorMotion::Up(1),
-        EditorMotion::Down(1),
-        EditorMotion::Home,
-        EditorMotion::End,
+fn each_format_builds_its_own_command() {
+    let sources = names(&["a.txt", "dir"]);
+    let archive = Path::new("/out/x.tar.gz");
+    assert_eq!(
+        command_line(&request(archive, ArchiveFormat::TarGz, &sources)),
+        "tar -czf /out/x.tar.gz -- a.txt dir"
+    );
+    assert_eq!(
+        command_line(&request(
+            Path::new("/out/x.tar"),
+            ArchiveFormat::Tar,
+            &sources
+        )),
+        "tar -cf /out/x.tar -- a.txt dir"
+    );
+    assert_eq!(
+        command_line(&request(
+            Path::new("/out/x.zip"),
+            ArchiveFormat::Zip,
+            &sources
+        )),
+        "zip -rq /out/x.zip a.txt dir"
+    );
+}
+
+/// A name with a space, a quote or a `$` is echoed as exactly one shell word,
+/// the way the transcript's reader would have to type it.
+#[cfg(unix)]
+#[test]
+fn strange_names_stay_one_argument_each() {
+    let sources = names(&["it's here.txt", "$HOME"]);
+    let line = command_line(&request(
+        Path::new("/o/a b.tar"),
+        ArchiveFormat::Tar,
+        &sources,
+    ));
+    assert_eq!(line, "tar -cf '/o/a b.tar' -- 'it'\\''s here.txt' '$HOME'");
+}
+
+#[cfg(unix)]
+#[test]
+fn tar_gz_and_tar_archives_are_really_written() {
+    let dir = TempDir::new().expect("dir");
+    fs::write(dir.path().join("it's here.txt"), "x").expect("write");
+    fs::create_dir(dir.path().join("sub")).expect("mkdir");
+    fs::write(dir.path().join("sub").join("inner.txt"), "y").expect("write");
+    let sources = names(&["it's here.txt", "sub"]);
+
+    for (format, name) in [
+        (ArchiveFormat::TarGz, "out.tar.gz"),
+        (ArchiveFormat::Tar, "out.tar"),
     ] {
-        let mut editor = editor("abc\nx\ndef");
-        extend(&mut editor, EditorMotion::Right);
-        editor.move_cursor(motion, SelectionMode::Move);
-        assert_eq!(editor.selection, EditorSelection::None);
+        let archive = dir.path().join(name);
+        let output =
+            create_archive(&request(&archive, format, &sources), dir.path()).expect("runs");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let listed = std::process::Command::new("tar")
+            .arg("tf")
+            .arg(&archive)
+            .output()
+            .expect("tar t");
+        let listing = String::from_utf8_lossy(&listed.stdout);
+        assert!(listing.contains("it's here.txt"), "{listing}");
+        assert!(listing.contains("sub/inner.txt"), "{listing}");
     }
-    let mut editor = editor("界\n");
-    extend(&mut editor, EditorMotion::Left);
-    assert_eq!(editor.selected_text(), None);
-    extend(&mut editor, EditorMotion::Down(usize::MAX));
-    extend(&mut editor, EditorMotion::End);
-    assert_eq!(editor.selected_text().as_deref(), Some("界"));
-    editor.insert_text("");
-    assert_eq!(editor.selected_text().as_deref(), Some("界"));
 }
 
+/// Only where `zip` is installed: the run goes through the same road.
+#[cfg(unix)]
 #[test]
-fn paste_preserves_empty_lines_and_trailing_line_breaks() {
-    let mut editor = Editor::default();
-    editor.insert_text("界\r\n\r\n🙂\n");
-    assert_eq!(editor.lines, ["界", "", "🙂", ""]);
-    assert_eq!(editor.caret(), Caret::new(3, 0));
+fn zip_archives_are_written_where_zip_exists() {
+    if !on_path("zip") {
+        return;
+    }
+    let dir = TempDir::new().expect("dir");
+    fs::write(dir.path().join("a.txt"), "x").expect("write");
+    let sources = names(&["a.txt"]);
+    let archive = dir.path().join("out.zip");
+    let output =
+        create_archive(&request(&archive, ArchiveFormat::Zip, &sources), dir.path()).expect("runs");
+    assert!(output.status.success());
+    assert!(archive.is_file());
 }
 
+/// `zip` is offered only where it is: a radio button that fails when pressed
+/// is worse than one that is not there.
 #[test]
-fn a_large_multiline_paste_preserves_the_document_tail_and_caret() {
-    let mut editor = editor(&format!("a界z\r\n{}", "untouched\r\n".repeat(10_000)));
-    editor.cursor_col = 1;
-    extend(&mut editor, EditorMotion::Right);
-    let text = "β\t🙂\r\n".repeat(10_000);
-    editor.insert_text(&text);
-    assert_eq!(editor.lines[0], "aβ\t🙂");
-    assert_eq!(editor.lines[9_999], "β\t🙂");
-    assert_eq!(editor.lines[10_000], "z");
-    assert_eq!(editor.caret(), Caret::new(10_000, 0));
-    assert_eq!(
-        editor.content(),
-        format!("a{text}z\r\n{}", "untouched\r\n".repeat(10_000))
+fn the_offered_formats_follow_the_path() {
+    let offered = super::offered_formats();
+    assert_eq!(&offered[..2], [ArchiveFormat::TarGz, ArchiveFormat::Tar]);
+    assert_eq!(offered.contains(&ArchiveFormat::Zip), on_path("zip"));
+    assert!(on_path("tar"));
+    assert!(!on_path("no-such-program-ffm"));
+}
+
+/// A tool that is not there is an error, not a hang or a silent nothing.
+#[test]
+fn a_missing_tool_is_an_error() {
+    let dir = TempDir::new().expect("dir");
+    let sources = names(&["a.txt"]);
+    let archive = dir.path().join("out.zip");
+    if on_path("zip") {
+        return;
+    }
+    let result = create_archive(&request(&archive, ArchiveFormat::Zip, &sources), dir.path());
+    assert!(
+        result.is_err() || !result.expect("output").status.success(),
+        "zip is absent here"
     );
-    assert_eq!(editor.selection, EditorSelection::None);
+}
+
+/// The Archive commands row adds to a plain tar with `tar -r`: the old
+/// members stay and the new one joins them.
+#[cfg(unix)]
+#[test]
+fn an_existing_tar_grows_when_appended() {
+    let dir = TempDir::new().expect("dir");
+    fs::write(dir.path().join("first.txt"), "1").expect("write");
+    fs::write(dir.path().join("second.txt"), "2").expect("write");
+    let archive = dir.path().join("out.tar");
+    let first = names(&["first.txt"]);
+    create_archive(&request(&archive, ArchiveFormat::Tar, &first), dir.path()).expect("runs");
+    let second = names(&["second.txt"]);
+    let mut appended = request(&archive, ArchiveFormat::Tar, &second);
+    appended.append = true;
+    assert_eq!(
+        command_line(&appended),
+        format!("tar -rf {} -- second.txt", archive.display())
+    );
+    let output = create_archive(&appended, dir.path()).expect("runs");
+    assert!(output.status.success());
+    let listing = super::list_archive(&archive).expect("listing").join("\n");
+    assert!(
+        listing.contains("first.txt") && listing.contains("second.txt"),
+        "{listing}"
+    );
+}
+
+/// A member that would land outside the destination, or a link, is refused
+/// before any tool writes — whichever tool listed it.
+#[test]
+fn extraction_rejects_parent_paths_and_links() {
+    assert!(validate_listing("../outside", "-rw-r--r-- file").is_err());
+    assert!(validate_listing("/outside", "-rw-r--r-- file").is_err());
+    assert!(validate_listing("C:/outside", "-rw-r--r-- file").is_err());
+    assert!(validate_listing("link", "lrwxrwxrwx link -> /outside").is_err());
+    assert!(validate_listing("directory/file", "-rw-r--r-- directory/file").is_ok());
+    let zip_details = "Archive:  a.zip\nZip file size: 363 bytes, number of entries: 2\n\
+        -rw-r--r--  2.0 unx        3 b- stor 26-Sep-17 17:16 hello.txt\n\
+        ?rw-------  2.0 unx        1 b- stor 26-Sep-17 17:16 plain.txt\n\
+        2 files, 4 bytes uncompressed, 4 bytes compressed:  0.0%";
+    assert!(validate_listing("hello.txt\nplain.txt", zip_details).is_ok());
+    let with_link =
+        format!("{zip_details}\nlrwxrwxrwx  2.0 unx       11 b- stor 80-Jan-01 00:00 link");
+    assert!(validate_listing("hello.txt\nplain.txt\nlink", &with_link).is_err());
+}
+
+/// Only a line shaped like a mode is a member; `unzip -Z`'s header and
+/// footer are not.
+#[test]
+fn a_member_line_is_told_by_its_mode() {
+    assert_eq!(
+        member_type("drwxr-xr-x root/root 0 2026-09-17 payload/"),
+        Some('d')
+    );
+    assert_eq!(member_type("lrwxrwxrwx"), Some('l'));
+    assert_eq!(member_type("Archive:  a.zip"), None);
+    assert_eq!(member_type("3 files, 15 bytes uncompressed"), None);
+    assert_eq!(member_type("short"), None);
+}
+
+/// A plain file is refused by name, with the accepted kinds spelled out.
+#[test]
+fn a_plain_file_is_not_an_archive_to_list_or_test() {
+    let dir = TempDir::new().expect("dir");
+    let plain = dir.path().join("readme.md");
+    fs::write(&plain, "# hi\n").expect("write");
+    let error = super::list_archive(&plain).expect_err("not an archive");
+    assert!(
+        error.to_string().contains(".zip"),
+        "names what is accepted: {error}"
+    );
+    assert!(super::test_archive(&plain).is_err());
 }

@@ -1,103 +1,83 @@
-//! The terminal wait: what counts as a hang-up, and how fast it is noticed.
-//!
-//! A socket pair stands in for the terminal. It reports the same `poll(2)`
-//! status bits a closed pty does, and unlike a pty it needs no controlling
-//! terminal, so these run anywhere the suite does.
+//! Persistence is atomic, private, and skips unchanged panel pairs.
 
-use std::io;
-use std::os::fd::AsRawFd;
-use std::os::unix::net::UnixStream;
-use std::time::{Duration, Instant};
+use std::{fs, io};
 
-use super::{lost, wait_for_fd, TerminalLost};
+use tempfile::TempDir;
 
-/// Long enough that a wait which really blocks would be obvious, short enough
-/// that the suite never notices.
-const BRIEF: Duration = Duration::from_millis(20);
+use super::{PanelSession, Persistence};
 
 #[test]
-fn only_the_hang_up_bits_end_the_session() {
-    assert!(!lost(0), "an idle terminal is not a lost one");
-    assert!(!lost(libc::POLLIN), "a key waiting is not a lost terminal");
-    assert!(lost(libc::POLLHUP));
-    assert!(lost(libc::POLLERR));
-    assert!(lost(libc::POLLNVAL));
-    assert!(
-        lost(libc::POLLIN | libc::POLLHUP),
-        "a hang-up counts even with unread bytes in front of it"
-    );
-}
+fn saves_both_paths_and_updates_them_together() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let file = temp.path().join("config/ffm/panel-session.json");
+    let persistence = Persistence::File(file.clone());
+    let mut session = PanelSession::load(persistence.clone());
+    let left = temp.path().join("left");
+    let right = temp.path().join("right");
+    session.save(&left, &right)?;
+    session.save(&right, &left)?;
 
-/// An idle terminal spends the whole budget here, so nothing is owed: the
-/// caller may ask again at once and the loop still runs at one poll per
-/// period.
-#[test]
-fn a_live_peer_spends_the_whole_budget() {
-    let (ours, _theirs) = UnixStream::pair().expect("a socket pair");
-
-    let started = Instant::now();
-    let unspent = wait_for_fd(ours.as_raw_fd(), BRIEF).expect("a live peer is not a hang-up");
-
-    assert!(
-        started.elapsed() >= BRIEF / 2,
-        "it returned without waiting"
-    );
-    assert!(
-        unspent < BRIEF / 2,
-        "an idle wait has nothing left over: {unspent:?}"
-    );
-}
-
-/// Input returns at once — and the budget it did not spend comes back with
-/// it. crossterm's reader is edge-triggered, so bytes it left queued fire
-/// this probe without producing an event; the caller sleeps the remainder
-/// rather than asking again immediately and pinning a core.
-#[test]
-fn bytes_waiting_return_the_budget_they_did_not_spend() {
-    let (ours, mut theirs) = UnixStream::pair().expect("a socket pair");
-    io::Write::write_all(&mut theirs, b"q").expect("send a keystroke");
-
-    let started = Instant::now();
-    let unspent = wait_for_fd(ours.as_raw_fd(), BRIEF).expect("input is not a hang-up");
-
-    assert!(
-        started.elapsed() < BRIEF / 2,
-        "input must not be waited out"
-    );
-    assert!(
-        unspent > BRIEF / 2,
-        "the caller was left nothing to sleep, so it would spin: {unspent:?}"
-    );
+    let loaded = PanelSession::load(persistence);
+    let paths = loaded.paths().expect("saved directories");
+    assert_eq!(paths.left, right);
+    assert_eq!(paths.right, left);
+    assert_eq!(fs::read_dir(file.parent().unwrap())?.count(), 1);
+    Ok(())
 }
 
 #[test]
-fn a_closed_peer_is_reported_at_once_instead_of_spinning() {
-    let (ours, theirs) = UnixStream::pair().expect("a socket pair");
-    drop(theirs);
+fn unchanged_panels_do_not_overwrite_a_newer_session() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let file = temp.path().join("panel-session.json");
+    let persistence = Persistence::File(file.clone());
+    let mut older = PanelSession::load(persistence.clone());
+    older.save(temp.path(), temp.path())?;
+    let mut newer = PanelSession::load(persistence);
+    newer.save(&temp.path().join("next"), temp.path())?;
+    let latest = fs::read(&file)?;
 
-    let started = Instant::now();
-    let error = wait_for_fd(ours.as_raw_fd(), Duration::from_secs(5))
-        .expect_err("a closed peer is a lost terminal");
+    older.save(temp.path(), temp.path())?;
 
-    assert!(TerminalLost::caused(&error), "wrong error: {error}");
-    assert!(
-        started.elapsed() < Duration::from_millis(500),
-        "the hang-up must be reported without waiting the timeout out"
-    );
+    assert_eq!(fs::read(file)?, latest);
+    Ok(())
 }
 
 #[test]
-fn the_marker_is_matched_by_type_not_by_kind_or_message() {
-    assert!(TerminalLost::caused(&TerminalLost::error()));
-    assert!(
-        !TerminalLost::caused(&io::Error::new(
-            io::ErrorKind::BrokenPipe,
-            "the controlling terminal disconnected"
-        )),
-        "an unrelated error that merely reads the same must not end the session"
-    );
-    assert!(
-        !TerminalLost::caused(&io::Error::new(io::ErrorKind::UnexpectedEof, "done")),
-        "the recording-exhausted sentinel is not a lost terminal"
-    );
+fn failed_write_can_retry_the_same_directories() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let blocked = temp.path().join("config");
+    fs::write(&blocked, "not a directory")?;
+    let file = blocked.join("panel-session.json");
+    let mut session = PanelSession::load(Persistence::File(file.clone()));
+    assert!(session.save(temp.path(), temp.path()).is_err());
+    assert!(session.paths().is_none());
+
+    fs::remove_file(blocked)?;
+    session.save(temp.path(), temp.path())?;
+
+    assert!(file.is_file());
+    Ok(())
+}
+
+#[test]
+fn session_only_never_writes_directories() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let mut session = PanelSession::default();
+    session.save(temp.path(), temp.path())?;
+    assert!(session.paths().is_none());
+    assert_eq!(fs::read_dir(temp.path())?.count(), 0);
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn stored_paths_are_readable_only_by_the_owner() -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = TempDir::new()?;
+    let file = temp.path().join("panel-session.json");
+    let mut session = PanelSession::load(Persistence::File(file.clone()));
+    session.save(temp.path(), temp.path())?;
+    assert_eq!(fs::metadata(file)?.permissions().mode() & 0o777, 0o600);
+    Ok(())
 }

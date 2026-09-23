@@ -202,3 +202,15 @@ fn logical_and_resolved_paths_keep_their_native_short_variants() {
         format!("/SHORT{slash} /real folder{slash} /REALFO~1{slash} C:")
     );
 }
+
+#[test]
+fn zz_probe_ansi_list_modifier() {
+    let context = two_panels();
+    let command = super::expand("!$A!", &context, |_, options| {
+        assert_eq!(options.encoding, super::ListEncoding::Ansi);
+        assert_eq!(options.form, super::NameForm::Short);
+        Ok::<_, ()>("ansi.lst".into())
+    })
+    .expect("list");
+    assert_eq!(command, "ansi.lst");
+}

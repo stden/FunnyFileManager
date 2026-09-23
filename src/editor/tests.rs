@@ -682,3 +682,45 @@ fn editing_records_the_file_in_the_view_history() -> io::Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn zz_probe_utf16le_setting_selects_utf16le() -> io::Result<()> {
+    let temp_dir = TempDir::new().expect("temp dir");
+    fs::write(temp_dir.path().join("empty.txt"), b"").expect("write file");
+
+    let mut app = build_app(&temp_dir);
+    app.settings
+        .set(crate::menu::SettingsPage::CodePages, "UTF-16LE")
+        .expect("valid code page");
+    assert!(select_entry(&mut app.left_panel, "empty.txt"));
+
+    handle_edit_builtin(&mut app)?;
+
+    let editor = app.get_editor().expect("editor overlay should be open");
+    assert_eq!(
+        editor.format.encoding,
+        crate::encoding::TextEncoding::Utf16Le
+    );
+    Ok(())
+}
+
+#[test]
+fn zz_probe_windows1252_setting_selects_windows1252() -> io::Result<()> {
+    let temp_dir = TempDir::new().expect("temp dir");
+    fs::write(temp_dir.path().join("empty.txt"), b"").expect("write file");
+
+    let mut app = build_app(&temp_dir);
+    app.settings
+        .set(crate::menu::SettingsPage::CodePages, "Windows-1252")
+        .expect("valid code page");
+    assert!(select_entry(&mut app.left_panel, "empty.txt"));
+
+    handle_edit_builtin(&mut app)?;
+
+    let editor = app.get_editor().expect("editor overlay should be open");
+    assert_eq!(
+        editor.format.encoding,
+        crate::encoding::TextEncoding::Windows1252
+    );
+    Ok(())
+}
