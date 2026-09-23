@@ -1,5 +1,8 @@
 //! Gherkin steps only interact with the running UI and isolated fixture files.
 
+// Cucumber dictates step signatures: captured args arrive owned and the world as `&mut`.
+#![allow(clippy::needless_pass_by_value, clippy::needless_pass_by_ref_mut)]
+
 use std::{fs, path::PathBuf};
 
 use cucumber::{given, then, when};

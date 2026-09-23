@@ -281,24 +281,22 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tarpaulin)", "cfg(coverage
 all = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
-# Allow common patterns used throughout the codebase
-module_name_repetitions = "allow"
-must_use_candidate = "allow"
-missing_errors_doc = "allow"
 cognitive_complexity = "warn"
 excessive_nesting = "warn"
 too_many_lines = "warn"
-option_if_let_else = "allow"
-# Test / cucumber ergonomics under `--all-targets` (pedantic noise, not bugs):
-# - Result-returning test helpers and trait stubs that always Ok for the trait
-# - cucumber step args taken by value / &mut World when the framework dictates the signature
-# - test helpers that could be const but are clearer as plain fns
-# - `_` match arms on single-variant enums kept open for future variants
-unnecessary_wraps = "allow"
-needless_pass_by_value = "allow"
-needless_pass_by_ref_mut = "allow"
+# Crate-wide allowances, each a deliberate style choice rather than a bug class.
+# Test-only ergonomics (unnecessary_wraps, needless_pass_by_value, ...) are
+# allowed in test scope only: src/lib.rs and the integration-test files that need them.
+# Module paths already namespace items; `panel::PanelState` reads better than `panel::State`.
+module_name_repetitions = "allow"
+# `#[must_use]` on every pure getter is noise; it is added where ignoring a result is a bug.
+must_use_candidate = "allow"
+# Errors are typed (`io::Error`, domain enums); an `# Errors` section per fn would repeat the type.
+missing_errors_doc = "allow"
+# const fn is an API promise, not a default.
 missing_const_for_fn = "allow"
-match_wildcard_for_single_variants = "allow"
+# Nursery style lint that fights `match` / `if let` readability.
+option_if_let_else = "allow"
 
 # Free space for the panel's footer, which has no std equivalent: `statvfs`
 # on Unix, `GetDiskFreeSpaceExW` on Windows. Already in the tree — crossterm

@@ -954,15 +954,11 @@ fn run_event_sequence(app: App, events: Vec<crossterm::event::Event>) -> io::Res
     let backend = WritableTestBackend::new(120, 40);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut idx = 0;
+    let mut events = events.into_iter();
     run_app_with_event_reader(&mut terminal, app, || {
-        if idx < events.len() {
-            let e = events[idx].clone();
-            idx += 1;
-            Ok(e)
-        } else {
-            Ok(crossterm::event::Event::Key(key(KeyCode::F(10))))
-        }
+        Ok(events
+            .next()
+            .unwrap_or_else(|| crossterm::event::Event::Key(key(KeyCode::F(10)))))
     })
 }
 

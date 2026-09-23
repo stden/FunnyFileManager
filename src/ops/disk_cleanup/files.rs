@@ -68,12 +68,12 @@ struct HeapDump {
 
 fn heap_dumps(path: &Path) -> io::Result<Vec<HeapDump>> {
     fs::read_dir(path)?
-        .map(|entry| heap_dump(entry?))
+        .map(|entry| heap_dump(&entry?))
         .filter_map(Result::transpose)
         .collect()
 }
 
-fn heap_dump(entry: fs::DirEntry) -> io::Result<Option<HeapDump>> {
+fn heap_dump(entry: &fs::DirEntry) -> io::Result<Option<HeapDump>> {
     if !entry.file_name().to_string_lossy().ends_with(".hprof") || !entry.file_type()?.is_file() {
         return Ok(None);
     }

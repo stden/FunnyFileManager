@@ -23,8 +23,8 @@ fn capture_preserves_both_streams_and_failure_status() {
     let mut child = FakeProcess(Ok(Some(Exit::Failed(Some(7)))));
     let output = capture(
         &mut child,
-        closed_pipe(b"out"),
-        closed_pipe(b"err"),
+        &closed_pipe(b"out"),
+        &closed_pipe(b"err"),
         Duration::from_secs(1),
     )
     .unwrap();
@@ -38,7 +38,7 @@ fn verbose_output_is_fully_drained_while_retained_memory_is_bounded() {
     let bytes = vec![b'a'; OUTPUT_LIMIT * 4];
     let pipe = read_pipe(Cursor::new(bytes)).unwrap();
     let mut child = FakeProcess(Ok(Some(Exit::Success)));
-    let output = capture(&mut child, pipe, closed_pipe(b""), Duration::from_secs(5)).unwrap();
+    let output = capture(&mut child, &pipe, &closed_pipe(b""), Duration::from_secs(5)).unwrap();
     assert_eq!(output.stdout.bytes, vec![b'a'; OUTPUT_LIMIT]);
     assert!(output.stdout.truncated);
     assert!(!output.stderr.truncated);
@@ -59,8 +59,8 @@ fn an_unfinished_process_cannot_exceed_the_deadline() {
     let mut child = FakeProcess(Ok(None));
     let error = capture(
         &mut child,
-        closed_pipe(b""),
-        closed_pipe(b""),
+        &closed_pipe(b""),
+        &closed_pipe(b""),
         Duration::ZERO,
     )
     .unwrap_err();
@@ -71,7 +71,7 @@ fn an_unfinished_process_cannot_exceed_the_deadline() {
 fn inherited_open_pipe_cannot_keep_capture_waiting_past_deadline() {
     let (_sender, receiver) = mpsc::sync_channel(1);
     let mut child = FakeProcess(Ok(Some(Exit::Success)));
-    let error = capture(&mut child, receiver, closed_pipe(b""), Duration::ZERO).unwrap_err();
+    let error = capture(&mut child, &receiver, &closed_pipe(b""), Duration::ZERO).unwrap_err();
     assert!(error.contains("timed out"));
 }
 
@@ -80,7 +80,7 @@ fn output_progress_after_exit_does_not_extend_the_total_deadline() {
     let (sender, receiver) = mpsc::sync_channel(1);
     sender.send(Ok(b"still writing".to_vec())).unwrap();
     let mut child = FakeProcess(Ok(Some(Exit::Success)));
-    let error = capture(&mut child, receiver, closed_pipe(b""), Duration::ZERO).unwrap_err();
+    let error = capture(&mut child, &receiver, &closed_pipe(b""), Duration::ZERO).unwrap_err();
     assert!(error.contains("timed out"));
 }
 
@@ -90,8 +90,8 @@ fn process_poll_failure_is_propagated() {
     assert_eq!(
         capture(
             &mut child,
-            closed_pipe(b""),
-            closed_pipe(b""),
+            &closed_pipe(b""),
+            &closed_pipe(b""),
             Duration::from_secs(1)
         )
         .unwrap_err(),
@@ -111,7 +111,7 @@ impl Read for FailedReader {
 fn pipe_read_failure_is_propagated() {
     let pipe = read_pipe(FailedReader).unwrap();
     let mut child = FakeProcess(Ok(None));
-    let error = capture(&mut child, pipe, closed_pipe(b""), Duration::from_secs(1)).unwrap_err();
+    let error = capture(&mut child, &pipe, &closed_pipe(b""), Duration::from_secs(1)).unwrap_err();
     assert!(error.contains("broken pipe fixture"));
 }
 

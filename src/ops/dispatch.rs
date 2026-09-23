@@ -56,7 +56,7 @@ pub(super) fn cmd_sort_mode(app: &mut App, sort_mode: SortMode) -> io::Result<()
     super::sortmenu::relist(app)
 }
 
-fn cmd_bookmark_set(app: &mut App, slot: BookmarkSlot) -> io::Result<()> {
+fn cmd_bookmark_set(app: &mut App, slot: BookmarkSlot) {
     // No bounds check: `BookmarkSlot` proves the index and `Bookmarks` has one
     // entry per slot, so the store cannot be missing the one being written.
     let path = app.get_active_panel().path.clone();
@@ -65,7 +65,6 @@ fn cmd_bookmark_set(app: &mut App, slot: BookmarkSlot) -> io::Result<()> {
         path: path.clone(),
     });
     app.bookmarks.set(slot, path);
-    Ok(())
 }
 
 fn cmd_bookmark_go(app: &mut App, slot: BookmarkSlot) -> io::Result<()> {
@@ -119,7 +118,6 @@ fn execute_command_with_console(
     match parsed {
         Command::Cd(path) => return cmd_cd_path(app, &path),
         Command::Sort(mode) => return cmd_sort_mode(app, mode),
-        Command::BookmarkSet(slot) => return cmd_bookmark_set(app, slot),
         Command::BookmarkGo(slot) => return cmd_bookmark_go(app, slot),
         Command::WinMsg => return open_windows_system_messages(app),
         Command::WinPerf => return open_windows_performance_checker(app),
@@ -131,6 +129,7 @@ fn execute_command_with_console(
             return Err(io::Error::new(io::ErrorKind::InvalidInput, usage))
         }
         Command::Empty => return Err(io::Error::new(io::ErrorKind::InvalidInput, "empty command")),
+        Command::BookmarkSet(slot) => cmd_bookmark_set(app, slot),
         Command::Pwd => cmd_pwd(app),
         Command::MarkAll => cmd_mark_all(app),
         Command::UnmarkAll => cmd_unmark_all(app),

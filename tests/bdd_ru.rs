@@ -4,6 +4,8 @@
     clippy::future_not_send,
     reason = "Cucumber generates a single-threaded world constructor owning the UI clipboard adapter"
 )]
+// Cucumber dictates step signatures: captured args arrive owned and the world as `&mut`.
+#![allow(clippy::needless_pass_by_value, clippy::needless_pass_by_ref_mut)]
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use cucumber::{given, then, when, World as _};
 use funny_file_manager::editor::{handle_edit_test_mode, TestEditorBehavior};
@@ -855,7 +857,7 @@ fn then_s3(world: &mut FfmWorld) {
 fn then_profile(world: &mut FfmWorld, p: String) {
     match world.parsed_path.as_ref().expect("путь") {
         VirtualPath::S3 { profile, .. } => assert_eq!(profile, &p),
-        _ => panic!("ожидался S3 путь"),
+        VirtualPath::Local(_) => panic!("ожидался S3 путь"),
     }
 }
 
@@ -863,7 +865,7 @@ fn then_profile(world: &mut FfmWorld, p: String) {
 fn then_bucket(world: &mut FfmWorld, b: String) {
     match world.parsed_path.as_ref().expect("путь") {
         VirtualPath::S3 { bucket, .. } => assert_eq!(bucket.as_deref(), Some(b.as_str())),
-        _ => panic!("ожидался S3 путь"),
+        VirtualPath::Local(_) => panic!("ожидался S3 путь"),
     }
 }
 
@@ -871,7 +873,7 @@ fn then_bucket(world: &mut FfmWorld, b: String) {
 fn then_bucket_empty(world: &mut FfmWorld) {
     match world.parsed_path.as_ref().expect("путь") {
         VirtualPath::S3 { bucket, .. } => assert!(bucket.is_none()),
-        _ => panic!("ожидался S3 путь"),
+        VirtualPath::Local(_) => panic!("ожидался S3 путь"),
     }
 }
 
@@ -879,7 +881,7 @@ fn then_bucket_empty(world: &mut FfmWorld) {
 fn then_prefix(world: &mut FfmWorld, p: String) {
     match world.parsed_path.as_ref().expect("путь") {
         VirtualPath::S3 { prefix, .. } => assert_eq!(prefix, &p),
-        _ => panic!("ожидался S3 путь"),
+        VirtualPath::Local(_) => panic!("ожидался S3 путь"),
     }
 }
 

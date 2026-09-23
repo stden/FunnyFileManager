@@ -43,15 +43,17 @@ impl Session {
         self.next += 1;
         let id = RequestId(self.next);
         self.pending.insert(id, context);
-        self.outbox
-            .push(json!({"jsonrpc":"2.0", "id":id, "method":method, "params":params}));
+        let mut message = json!({"jsonrpc":"2.0", "id":id, "method":method});
+        message["params"] = params;
+        self.outbox.push(message);
         crate::diagnostics::log_action(&format!("LSP request {} {method}", id.0));
         id
     }
 
     pub fn notify(&mut self, method: &str, params: Value) {
-        self.outbox
-            .push(json!({"jsonrpc":"2.0", "method":method, "params":params}));
+        let mut message = json!({"jsonrpc":"2.0", "method":method});
+        message["params"] = params;
+        self.outbox.push(message);
     }
 
     pub fn cancel_queries(&mut self) {
@@ -66,16 +68,18 @@ impl Session {
         }
     }
 
-    pub fn receive(&mut self, message: Value) -> Result<Incoming, &'static str> {
+    pub fn receive(&mut self, mut message: Value) -> Result<Incoming, &'static str> {
         if message["jsonrpc"] != "2.0" {
             return Err("Invalid JSON-RPC version");
         }
         if let Some(method) = message.get("method") {
             let method = method.as_str().ok_or("Invalid JSON-RPC method")?.to_owned();
-            return Ok(message.get("id").map_or_else(
-                || Incoming::Notification(method.clone(), message["params"].clone()),
-                |id| Incoming::Request(id.clone(), method.clone(), message["params"].clone()),
-            ));
+            // An object (it has a version), so indexing takes `params` or `Null`.
+            let params = message["params"].take();
+            return Ok(match message.get("id") {
+                Some(id) => Incoming::Request(id.clone(), method, params),
+                None => Incoming::Notification(method, params),
+            });
         }
         let result = response(&message)?;
         let pending = message["id"]

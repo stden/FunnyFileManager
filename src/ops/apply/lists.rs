@@ -60,6 +60,13 @@ fn listing(panel: &PanelContext, options: ListOptions) -> String {
     text
 }
 
+#[cfg_attr(
+    not(windows),
+    expect(
+        clippy::unnecessary_wraps,
+        reason = "only the Windows code-page conversion can fail"
+    )
+)]
 fn encode(text: &str, encoding: ListEncoding) -> io::Result<Vec<u8>> {
     match encoding {
         ListEncoding::Utf8 => Ok(text.as_bytes().to_vec()),

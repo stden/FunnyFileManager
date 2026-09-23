@@ -139,7 +139,7 @@ impl Input {
     /// diagnostic, never the job: a directory owned by another user, or a full
     /// disk, must not be what stops the file manager from starting.
     fn recording(path: io::Result<PathBuf>, size: (u16, u16)) -> Self {
-        match path.and_then(|path| Self::open_recorder(path, size)) {
+        match path.and_then(|path| Self::open_recorder(&path, size)) {
             Ok(input) => input,
             Err(error) => {
                 eprintln!("ffm: recording disabled: {error}");
@@ -148,14 +148,14 @@ impl Input {
         }
     }
 
-    fn open_recorder(path: PathBuf, size: (u16, u16)) -> io::Result<Self> {
+    fn open_recorder(path: &Path, size: (u16, u16)) -> io::Result<Self> {
         let header = Header {
             version: 1,
             executable: std::env::current_exe()?,
             directory: std::env::current_dir()?,
             size,
         };
-        let recorder = Recorder::create(&path, &header)?;
+        let recorder = Recorder::create(path, &header)?;
         eprintln!("Recording actions: {}", path.display());
         Ok(Self::Live(Some(Rc::new(RefCell::new(recorder)))))
     }

@@ -206,6 +206,10 @@ fn configure(command: &mut Command) {
 }
 
 #[cfg(unix)]
+#[expect(
+    clippy::needless_pass_by_ref_mut,
+    reason = "shares the Windows signature, where `try_wait` needs `&mut`"
+)]
 fn exited(child: &mut Child) -> bool {
     use rustix::process::{waitid, Pid, WaitId, WaitIdOptions};
     // NOWAIT retains the leader's PID until terminate has killed its entire group.

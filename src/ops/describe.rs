@@ -39,7 +39,7 @@ fn prompt_next(app: &mut App, mut names: Vec<String>) {
         .and_then(|entry| entry.description.clone())
         .unwrap_or_default();
     app.set_overlay(Overlay::Describe(DescribePrompt::new(
-        name, existing, names,
+        name, &existing, names,
     )));
 }
 

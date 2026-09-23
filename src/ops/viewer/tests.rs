@@ -23,7 +23,7 @@ fn open_mcp_status_reports_binary_found_when_present() -> io::Result<()> {
     fs::write(&binary, b"fake-mcp-binary")?;
 
     let mut app = App::new()?;
-    open_mcp_status_in(&mut app, temp.path(), temp.path())?;
+    open_mcp_status_in(&mut app, temp.path(), temp.path());
     let text = app.get_viewer().expect("viewer").lines.join("\n");
 
     assert!(
@@ -44,7 +44,7 @@ fn open_mcp_status_reports_not_configured_when_a_config_exists_without_ffm_mcp()
     fs::write(temp.path().join(".mcp.json"), b"{}")?;
 
     let mut app = App::new()?;
-    open_mcp_status_in(&mut app, temp.path(), temp.path())?;
+    open_mcp_status_in(&mut app, temp.path(), temp.path());
     let text = app.get_viewer().expect("viewer").lines.join("\n");
 
     assert!(

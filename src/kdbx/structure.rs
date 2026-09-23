@@ -34,7 +34,7 @@ impl Vault {
     pub(crate) fn close_dialog(&mut self) {
         self.page = match self.page {
             Page::Password(page) | Page::DeleteConfirm(page) => Page::Browse(page),
-            page => page,
+            page @ Page::Browse(_) => page,
         };
     }
 }

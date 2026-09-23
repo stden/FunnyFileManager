@@ -272,7 +272,7 @@ fn every_legal_slot_round_trips_and_only_an_empty_one_refuses() {
             cmd_bookmark_go(&mut app, slot).is_err(),
             "slot {n} is empty, so going to it must fail"
         );
-        cmd_bookmark_set(&mut app, slot).expect("set cannot fail");
+        cmd_bookmark_set(&mut app, slot);
         cmd_bookmark_go(&mut app, slot).expect("go after set");
     }
 }
