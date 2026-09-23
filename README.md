@@ -15,7 +15,7 @@ experience for file system navigation and management.
 - 🪟 **Dual Panel Interface**: Classic side-by-side view for efficient file operations.
 - ⚡ **Fast Navigation**: Instant directory browsing with keyboard shortcuts.
 - 📋 **File Operations**: Full support for Copy, Move, Rename, Mkdir, and Delete.
-- ☁️ **S3 Integration**: Browse AWS S3 buckets as if they were local drives (Alt+F1/F2).
+- ☁️ **S3**: AWS profiles can appear in the drive menu. Bucket browsing is not in the panels yet. See [the S3 tutorial](docs/tutorials/s3.md).
 - 🔍 **Quick Search**: Type to jump to files instantly (Alt+Letter).
 - 🔖 **Bookmarks**: Save and jump to frequently used directories.
 - 🌍 **Cross-Platform**: Seamless experience on Linux, macOS, and Windows.
