@@ -1,3 +1,5 @@
+#import "@preview/fletcher:0.5.8" as fletcher: diagram, node, edge
+
 #set document(
   title: "FunnyFileManager Architecture",
   author: "FunnyFileManager maintainers",
@@ -17,6 +19,22 @@
 #let cyan = rgb("#2a9d8f")
 #let pale = rgb("#edf6f9")
 #let border = rgb("#c9d7e0")
+#let muted = rgb("#52606d")
+
+// Diagram vocabulary: a step, a question, the state a step leaves behind, and
+// a small grey note under a module name.
+#let step(pos, body, ..args) = node(pos, body, shape: fletcher.shapes.rect, fill: white, stroke: 0.8pt + border, corner-radius: 3pt, inset: 6pt, ..args)
+#let question(pos, body, ..args) = node(pos, body, shape: fletcher.shapes.diamond, fill: pale, stroke: 0.8pt + blue, inset: 3pt, ..args)
+#let outcome(pos, body, ..args) = node(pos, body, shape: fletcher.shapes.rect, fill: pale, stroke: 1pt + cyan, corner-radius: 3pt, inset: 6pt, ..args)
+#let note(body) = text(size: 7.5pt, fill: muted, body)
+#let chart(..args) = align(center, block(
+  width: 100%,
+  fill: pale.lighten(40%),
+  stroke: border,
+  radius: 4pt,
+  inset: 10pt,
+  text(size: 8.5pt, diagram(spacing: (12mm, 7mm), edge-stroke: 0.8pt + navy, mark-scale: 80%, ..args)),
+))
 
 #show heading.where(level: 1): it => block(
   above: 1.4em,
@@ -73,34 +91,33 @@ positions, scroll offsets, file names, and bookmark slots.
 = Runtime Event Flow
 
 #figure(
-  block(width: 100%, fill: pale, stroke: border, radius: 4pt, inset: 9pt)[
-```text
-src/main.rs
-    |
-    v
-bootstrap::run  ---- owns host terminal and loads persisted history
-    |
-    v
-lib::run_app_with_event_reader
-    |
-    +--> ui::ui(&App) -------------------------------+
-    |                                                |
-    +--> read KeyEvent                               |
-          |                                          |
-          +--> Overlay active?                       |
-          |      yes -> popup::process_popup_input   |
-          |               -> ops/editor/state        |
-          |                                          |
-          +------ no -> action::resolve              |
-                         -> typed Action              |
-                         -> apply_action              |
-                              -> ops/editor/panel     |
-                                                     |
-          App + Status + ConsoleLog <----------------+
-                         |
-                         +--> next frame
-```
-  ],
+  chart(
+    step((1, 0), `src/main.rs`),
+    edge("-|>"),
+    step((1, 1), [`bootstrap::run` \ #note[owns the host terminal, loads history]]),
+    edge("-|>"),
+    step((1, 2), `application::run_app_with_event_reader`),
+    edge("-|>"),
+    step((1, 3), [`ui::ui` renders `App`], name: <render>),
+    edge("-|>"),
+    step((1, 4), [read the next event \ #note[injected `read_event`]]),
+    edge("-|>"),
+    question((1, 5), [`Overlay` \ active?], name: <overlay>),
+    edge(<overlay>, <popup>, "-|>", [yes], label-side: right),
+    edge(<overlay>, <panel>, "-|>", [no], label-side: left),
+    step((0, 6), [`popup::process_popup_input` \ #note[every key stays in the dialog]], name: <popup>),
+    edge(<popup>, <overlay>, "-|>", bend: 55deg, [#note[menu row: \ re-dispatch its key]], label-side: left),
+    question((2, 6), [tree or \ quick-view \ panel?], name: <panel>),
+    edge(<panel>, <resolve>, "-|>", [not taken], label-side: left),
+    step((2, 7), [`action::resolve` \ #note[pure key #sym.arrow typed `Action`]], name: <resolve>),
+    edge("-|>"),
+    step((2, 8), [`apply_action` \ #note[`application::dispatch`, effects in `ops`]], name: <apply>),
+    outcome((1, 9), [`App` · `Status` · `ConsoleLog` · `History`], name: <state>),
+    edge(<popup>, <state>, "-|>"),
+    edge(<panel>, <state>, "-|>", bend: -30deg, [taken], label-side: left),
+    edge(<apply>, <state>, "-|>"),
+    edge(<state>, (-0.6, 9), (-0.6, 3), <render>, "-|>", [next frame], label-pos: 0.12, label-side: left),
+  ),
   caption: [Modal-first input, typed dispatch, state update, and rendering.],
 )
 
@@ -110,8 +127,9 @@ The ordering is an invariant:
 2. Read an event through the injected event source.
 3. If an `Overlay` is active, send the key only to `popup`; even unsupported
    keys are consumed and never fall through.
-4. Otherwise, resolve the key through the pure `action::resolve` DSL and apply
-   the resulting `Action` in `lib.rs`.
+4. Otherwise a tree or quick-view panel may take the key; if it does not, the
+   pure `action::resolve` maps it to an `Action`, which
+   `application::dispatch` applies.
 5. Record outcomes in typed state and render the next frame.
 
 Fallible effects report through `Status`; an ordinary file-operation failure
@@ -154,7 +172,7 @@ impossible to express.
   fill: (_, row) => if row == 0 { pale } else { none },
   [*Layer*], [*Primary modules*], [*Responsibility*],
   [Entry/lifecycle], [`main`, `bootstrap`, `terminal`], [Thin binary, production startup, terminal entry/suspension/restoration, and persisted-history loading.],
-  [Coordinator], [`lib`], [Event loop, modal-first routing, `Action` effect dispatch, and render cadence.],
+  [Coordinator], [`application`], [Event loop, modal-first routing, `Action` effect dispatch, and render cadence.],
   [State], [`models`, `status`, `console`, `history`, `quicksearch`, `scroll`], [Application aggregate, domain invariants, typed outcomes, transcript, recall, and offsets.],
   [Input], [`action`, `popup`, `lineedit`, `complete`, `command`], [Pure main-view keymap, modal keys, editing/completion, and typed command parsing.],
   [Effects], [`ops`, `editor`, `utils`, `fileload`], [Canonical filesystem, shell, viewer, command, editor, and bounded-loading behavior.],
@@ -167,19 +185,24 @@ impossible to express.
 == Dependency Rules
 
 #figure(
-  block(width: 100%, fill: pale, stroke: border, radius: 4pt, inset: 9pt)[
-```text
-bootstrap --> lib --> action                 pure key mapping
-                  --> popup --> ops          modal transitions and effects
-                  --> ops                    main-view effects
-                  --> ui                     state-only rendering
-                  --> editor                 editor boundary
-                  --> models                 shared state
-
-handlers -----------------> ops + popup      compatibility facade only
-mcp/ ------------------------------------>   separate process
-```
-  ],
+  chart(
+    spacing: (6mm, 11mm),
+    step((2.5, 0), `bootstrap`),
+    edge("-|>"),
+    step((2.5, 1), [`application` \ #note[event loop and dispatch]], name: <app>),
+    step((0, 2), [`action` \ #note[pure key mapping]], name: <action>),
+    step((1, 2), [`popup` \ #note[modal transitions]], name: <popup>),
+    step((2, 2), [`ops` \ #note[effects]], name: <ops>),
+    step((3, 2), [`ui` \ #note[state-only rendering]], name: <ui>),
+    step((4, 2), [`editor` \ #note[editor boundary]], name: <editor>),
+    step((5, 2), [`models` \ #note[shared state]], name: <models>),
+    ..(<action>, <popup>, <ops>, <ui>, <editor>, <models>).map(target => edge(<app>, target, "-|>")),
+    edge(<popup>, <ops>, "-|>"),
+    step((1.5, 3), [`handlers` \ #note[compatibility facade only]], stroke: (paint: muted, dash: "dashed"), name: <handlers>),
+    edge(<handlers>, <popup>, "--|>", stroke: muted),
+    edge(<handlers>, <ops>, "--|>", stroke: muted),
+    step((4.5, 3), [`mcp/` \ #note[separate process, no TUI dependency]], stroke: (paint: muted, dash: "dashed")),
+  ),
   caption: [The principal dependency and ownership boundaries.],
 )
 
@@ -198,15 +221,24 @@ mcp/ ------------------------------------>   separate process
 Printable main-view input opens `Overlay::CommandLine`; subsequent keys are
 modal and stay inside the command-line subsystem.
 
-```text
-CommandLine state
-    -> LineEditor + completion menu
-    -> Command::parse
-    -> ops::execute_command
-         -> built-in file/navigation operation
-         -> bounded shell execution
-    -> Status + ConsoleLog + History
-```
+#figure(
+  chart(
+    spacing: (7mm, 5mm),
+    step((0, 1), [`Overlay::` \ `CommandLine`]),
+    edge("-|>"),
+    step((1, 1), [`LineEditor` \ #note[with completion menu]]),
+    edge("-|>"),
+    step((2, 1), [`ops::execute_command` \ #note[parses with `Command::parse`]], name: <execute>),
+    step((3, 0), [built-in file or \ navigation operation], name: <builtin>),
+    step((3, 2), [bounded shell \ #note[`ops::shell`]], name: <shell>),
+    edge(<execute>, <builtin>, "-|>"),
+    edge(<execute>, <shell>, "-|>"),
+    outcome((4, 1), [`Status` \ `ConsoleLog` \ `History`], name: <outcome>),
+    edge(<builtin>, <outcome>, "-|>"),
+    edge(<shell>, <outcome>, "-|>"),
+  ),
+  caption: [From the typed line to its recorded outcome.],
+)
 
 `Command::parse` is the syntax and validation authority. Completion reuses
 command metadata rather than maintaining a second grammar. The console
