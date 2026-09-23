@@ -82,6 +82,10 @@ impl Default for AutoCompleteSettings {
 /// Confirmations — each read where its question is asked.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "one independent Far confirmation per operation, each saved as its own true/false"
+)]
 pub struct ConfirmationSettings {
     pub copy_overwrite: bool,
     pub move_overwrite: bool,

@@ -8,6 +8,10 @@ use crate::models::PanelView;
 /// Panel settings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent Far panel options, each saved as its own true/false"
+)]
 pub struct PanelSettings {
     pub show_hidden: bool,
     pub dirs_first: bool,
