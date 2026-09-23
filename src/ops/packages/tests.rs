@@ -15,6 +15,27 @@ fn fixture() -> (TempDir, App, UpdatePlan) {
     (temp, app, plan)
 }
 
+/// On Windows this script runs instead of `Manager::commands`, so the two must
+/// agree (unattended `-y` included), and choco.exe goes in exactly once.
+#[test]
+fn elevated_chocolatey_script_runs_the_managers_unattended_upgrade() {
+    let upgrade = Manager::Chocolatey.commands()[0]
+        .iter()
+        .map(|arg| format!("'{arg}'"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    assert!(
+        ELEVATED_UPGRADE_SCRIPT.contains(&format!("-ArgumentList {upgrade} ")),
+        "elevated_upgrade.ps1 must pass {upgrade}"
+    );
+    assert_eq!(
+        ELEVATED_UPGRADE_SCRIPT
+            .matches(CHOCO_EXE_PLACEHOLDER)
+            .count(),
+        1
+    );
+}
+
 #[test]
 fn dialog_defaults_to_cancel_and_only_an_explicit_choice_queues_updates() {
     let (_temp, mut app, plan) = fixture();

@@ -91,14 +91,19 @@ fn command(plan: &UpdatePlan, path: &std::path::Path, args: &[&str]) -> Command 
 
 /// The elevation wrapper, kept as a real `.ps1` so it can be read, formatted
 /// and syntax-checked like any other PowerShell.
-#[cfg(windows)]
+#[cfg(any(windows, test))]
 const ELEVATED_UPGRADE_SCRIPT: &str = include_str!("packages/elevated_upgrade.ps1");
+
+/// Where the script takes choco.exe. Not `{path}`: beside a `path` binding,
+/// clippy reads that as a format argument missing its `format!`.
+#[cfg(any(windows, test))]
+const CHOCO_EXE_PLACEHOLDER: &str = "__FFM_EXECUTABLE__";
 
 #[cfg(windows)]
 fn command(_: &UpdatePlan, path: &std::path::Path, _args: &[&str]) -> Command {
     // Fixed arguments; quote the discovered executable as a PowerShell literal.
     let path = path.to_string_lossy().replace('\'', "''");
-    let script = ELEVATED_UPGRADE_SCRIPT.replace("__FFM_EXECUTABLE__", &path);
+    let script = ELEVATED_UPGRADE_SCRIPT.replace(CHOCO_EXE_PLACEHOLDER, &path);
     let mut command = Command::new("powershell.exe");
     command.args(["-NoProfile", "-Command", &script]);
     command
