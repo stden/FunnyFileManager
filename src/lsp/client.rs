@@ -13,7 +13,7 @@ mod capabilities;
 use capabilities::Capabilities;
 
 #[derive(Debug, Clone)]
-pub(crate) enum Event {
+pub enum Event {
     State(super::types::ServerState),
     Diagnostics(Stamp, Vec<Diagnostic>),
     Reply(Query, Result<Reply, ResponseError>),
@@ -169,11 +169,11 @@ impl Client {
         if method != "textDocument/publishDiagnostics" {
             return Ok(());
         }
-        let Some(doc) = self
-            .document
-            .as_ref()
-            .filter(|doc| params["uri"] == doc.uri)
-        else {
+        let Some(doc) = self.document.as_ref().filter(|doc| {
+            params["uri"]
+                .as_str()
+                .is_some_and(|value| uri::same(value, &doc.uri))
+        }) else {
             return Ok(());
         };
         if params["version"]

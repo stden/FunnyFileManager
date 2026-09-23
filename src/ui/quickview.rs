@@ -60,7 +60,7 @@ pub(super) fn render(f: &mut Frame, panel: &Panel, area: Rect, is_active: bool) 
 fn title(view: &QuickView, width: u16) -> String {
     let text = view.shown.as_ref().map_or_else(
         || "Quick view".to_owned(),
-        |path| path.display().to_string(),
+        |path| crate::path_display::label(path).into_owned(),
     );
     format!(
         " {} ",

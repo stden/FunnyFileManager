@@ -34,6 +34,9 @@ pub(super) fn initialize(root: &str) -> Value {
 
 impl Capabilities {
     pub fn parse(value: &Value) -> Result<Self, &'static str> {
+        if !value.is_object() {
+            return Err("Invalid LSP capabilities");
+        }
         if value["positionEncoding"]
             .as_str()
             .is_some_and(|encoding| encoding != "utf-16")
@@ -41,31 +44,13 @@ impl Capabilities {
             return Err("Unsupported LSP position encoding");
         }
         let sync = &value["textDocumentSync"];
-        let change = match sync
-            .as_u64()
-            .or_else(|| sync["change"].as_u64())
-            .unwrap_or(0)
-        {
-            0 => SyncKind::None,
-            1 => SyncKind::Full,
-            2 => SyncKind::Incremental,
-            _ => return Err("Invalid LSP synchronization kind"),
-        };
+        let change = sync_kind(sync)?;
         Ok(Self {
             open_close: sync["openClose"]
                 .as_bool()
-                .unwrap_or(sync.is_number() && change != SyncKind::None),
+                .unwrap_or_else(|| sync.is_number() && change != SyncKind::None),
             change,
-            save: match sync.get("save") {
-                Some(Value::Bool(true)) => Some(false),
-                Some(Value::Object(options)) => Some(
-                    options
-                        .get("includeText")
-                        .and_then(Value::as_bool)
-                        .unwrap_or(false),
-                ),
-                _ => None,
-            },
+            save: save_options(sync),
             completion: supported(&value["completionProvider"]),
             hover: supported(&value["hoverProvider"]),
             definition: supported(&value["definitionProvider"]),
@@ -94,3 +79,32 @@ impl Capabilities {
 fn supported(value: &Value) -> bool {
     value == true || value.is_object()
 }
+
+fn sync_kind(sync: &Value) -> Result<SyncKind, &'static str> {
+    match sync
+        .as_u64()
+        .or_else(|| sync["change"].as_u64())
+        .unwrap_or(0)
+    {
+        0 => Ok(SyncKind::None),
+        1 => Ok(SyncKind::Full),
+        2 => Ok(SyncKind::Incremental),
+        _ => Err("Invalid LSP synchronization kind"),
+    }
+}
+
+fn save_options(sync: &Value) -> Option<bool> {
+    match sync.get("save") {
+        Some(Value::Bool(true)) => Some(false),
+        Some(Value::Object(options)) => Some(
+            options
+                .get("includeText")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+        ),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests;

@@ -46,3 +46,6 @@ impl LspSettings {
             .map(|(language, server)| (language.as_str(), server))
     }
 }
+
+#[cfg(test)]
+mod tests;

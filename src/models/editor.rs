@@ -2,7 +2,9 @@
 
 use std::path::PathBuf;
 
+pub mod lsp;
 mod selection;
+pub use lsp::{EditorLspState, LspFeature, ServerState};
 pub use selection::{EditorMotion, EditorSelection, SelectionMode};
 
 /// End-of-line style of the file being edited.
@@ -43,6 +45,7 @@ impl LineEnding {
 /// multi-byte (Unicode) lines stays panic-free.
 #[derive(Default, Clone)]
 pub struct Editor {
+    pub lsp: EditorLspState,
     pub title: String,
     pub path: PathBuf,
     pub lines: Vec<String>,
@@ -264,7 +267,7 @@ impl Editor {
         let at = self.byte_col(self.cursor_col);
         self.lines[self.cursor_line].insert(at, ch);
         self.cursor_col += 1;
-        self.state = EditState::Modified;
+        self.mark_modified();
     }
 
     pub fn insert_newline(&mut self) {
@@ -275,7 +278,7 @@ impl Editor {
         self.lines.insert(self.cursor_line + 1, rest);
         self.cursor_line += 1;
         self.cursor_col = 0;
-        self.state = EditState::Modified;
+        self.mark_modified();
     }
 
     /// Delete the char before the cursor, joining with the previous line at column 0.
@@ -287,13 +290,13 @@ impl Editor {
             let at = self.byte_col(self.cursor_col - 1);
             self.lines[self.cursor_line].remove(at);
             self.cursor_col -= 1;
-            self.state = EditState::Modified;
+            self.mark_modified();
         } else if self.cursor_line > 0 {
             let current = self.lines.remove(self.cursor_line);
             self.cursor_line -= 1;
             self.cursor_col = self.line_char_len();
             self.lines[self.cursor_line].push_str(&current);
-            self.state = EditState::Modified;
+            self.mark_modified();
         }
     }
 
@@ -305,11 +308,11 @@ impl Editor {
         if self.cursor_col < self.line_char_len() {
             let at = self.byte_col(self.cursor_col);
             self.lines[self.cursor_line].remove(at);
-            self.state = EditState::Modified;
+            self.mark_modified();
         } else if self.cursor_line + 1 < self.lines.len() {
             let next = self.lines.remove(self.cursor_line + 1);
             self.lines[self.cursor_line].push_str(&next);
-            self.state = EditState::Modified;
+            self.mark_modified();
         }
     }
 

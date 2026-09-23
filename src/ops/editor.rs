@@ -27,6 +27,7 @@ impl Editor {
             // See `rewrite_in_place`: atomicity is the lesser thing to lose.
             fs::write(&target, content)?;
             self.state = EditState::Clean;
+            self.lsp.saved = self.lsp.saved.saturating_add(1);
             return Ok(());
         }
 
@@ -46,6 +47,7 @@ impl Editor {
         temp.as_file().sync_all()?;
         temp.persist(&target).map_err(|err| err.error)?;
         self.state = EditState::Clean;
+        self.lsp.saved = self.lsp.saved.saturating_add(1);
         Ok(())
     }
 }

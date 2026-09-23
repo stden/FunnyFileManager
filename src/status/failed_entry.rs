@@ -37,6 +37,11 @@ impl FailedEntry {
 
 impl fmt::Display for FailedEntry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}", self.path.display(), self.error)
+        write!(
+            f,
+            "{}: {}",
+            crate::path_display::label(&self.path),
+            self.error
+        )
     }
 }

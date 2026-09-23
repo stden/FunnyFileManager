@@ -1,0 +1,2 @@
+# Embedded Unix scripts must retain LF on Windows as well.
+*.sh text eol=lf

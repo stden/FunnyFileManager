@@ -53,6 +53,10 @@ fn surrogate_interiors_and_invalid_ranges_are_rejected() {
         ),
         None
     );
+}
+
+#[test]
+fn reversed_ranges_are_rejected_and_crlf_offsets_are_correct() {
     let reversed = Range {
         start: Position {
             line: 0,
@@ -105,4 +109,23 @@ fn windows_drive_and_unc_uris_are_native_paths() {
             Some(uri)
         );
     }
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_file_identity_accepts_drive_case_and_mixed_separators() {
+    use std::path::Path;
+    assert!(uri::same_path(
+        Path::new(r"C:\work\src/main.rs"),
+        Path::new(r"c:\work\src\main.rs")
+    ));
+    assert!(uri::same(
+        "file:///C:/work/a%20b.rs",
+        "file:///c:/work/a%20b.rs"
+    ));
+    assert!(!uri::same("file:///C:/work/a.rs", "file:///C:/work/b.rs"));
+    assert!(!uri::same(
+        "https://example.com/file",
+        "https://example.com/file"
+    ));
 }

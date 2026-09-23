@@ -102,3 +102,14 @@ Implementation is split between `models/wsl.rs` (state and requests),
 - S3 integration works identically on Windows and Unix.
 
 See `src/windows.rs` for the implementation of Windows-specific commands.
+## Paths and command directories
+
+Windows canonical paths can include the `\\?\` prefix. Titles, the command prompt,
+and path-based status messages display ordinary drive or UNC paths while file
+operations retain the original native paths. Device and volume names retain
+their special prefixes.
+
+Interactive commands such as `codex` start in the active panel directory.
+The Windows console launcher converts canonical directory names to the spelling
+understood by `cmd.exe`; otherwise cmd treats the extended prefix as a UNC path
+and silently falls back to the Windows directory.

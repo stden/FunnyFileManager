@@ -55,6 +55,17 @@ impl Process {
     }
 
     fn start_threads(&mut self) -> io::Result<()> {
+        let (input, output, stderr) = self.pipes();
+        self.spawn_threads(input, output, stderr)
+    }
+
+    fn pipes(
+        &mut self,
+    ) -> (
+        std::process::ChildStdout,
+        std::process::ChildStdin,
+        std::process::ChildStderr,
+    ) {
         let input = self
             .child
             .stdout
@@ -70,6 +81,15 @@ impl Process {
             .stderr
             .take()
             .expect("stderr was configured as piped");
+        (input, output, stderr)
+    }
+
+    fn spawn_threads(
+        &mut self,
+        input: std::process::ChildStdout,
+        output: std::process::ChildStdin,
+        stderr: std::process::ChildStderr,
+    ) -> io::Result<()> {
         let (events, incoming) = mpsc::sync_channel(32);
         let (outgoing, messages) = mpsc::sync_channel(8);
         self.incoming = Some(incoming);
@@ -111,11 +131,6 @@ impl Process {
 
     pub fn exited(&mut self) -> bool {
         self.child.try_wait().is_ok_and(|status| status.is_some())
-    }
-
-    #[cfg(test)]
-    pub fn id(&self) -> u32 {
-        self.child.id()
     }
 }
 
@@ -215,3 +230,6 @@ fn reap(child: &mut Child) {
         crate::diagnostics::log_error("LSP process reap failed");
     }
 }
+
+#[cfg(test)]
+mod tests;

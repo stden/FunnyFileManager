@@ -16,6 +16,7 @@ use crate::ui::ui;
 
 mod dispatch;
 mod input;
+mod lsp_jobs;
 mod timing;
 mod wsl_jobs;
 pub use dispatch::dispatch_key;
@@ -121,6 +122,7 @@ where
 struct LoopState {
     clicks: crate::mouse::PanelClicks,
     jobs: wsl_jobs::WslJobs,
+    lsp: lsp_jobs::EditorLspController,
     redraw: Redraw,
     pending: Option<timing::Pending>,
 }
@@ -130,6 +132,7 @@ impl LoopState {
         Self {
             clicks: crate::mouse::PanelClicks::default(),
             jobs: wsl_jobs::WslJobs::new(backend),
+            lsp: lsp_jobs::EditorLspController::default(),
             redraw: Redraw::Needed,
             pending: None,
         }
@@ -165,6 +168,9 @@ impl LoopState {
         app: &mut App,
     ) -> io::Result<()> {
         if self.jobs.pump(app) == Redraw::Needed {
+            self.redraw = Redraw::Needed;
+        }
+        if self.lsp.pump(app) {
             self.redraw = Redraw::Needed;
         }
         app.record_folder_visits();

@@ -91,3 +91,6 @@ an inspected subprocess boundary, checking Unicode, arguments and working direct
 TDD regressions were observed failing before implementation for clipboard
 replay and replay resize. Earlier editor regressions cover conversion without
 reinterpretation and repeated cursor highlighting work.
+
+For background Rust diagnostics, completion, hover and definitions, see
+[editor language-server setup and shortcuts](editor-lsp.md).

@@ -80,7 +80,7 @@ fn display_path(path: &std::path::Path) -> String {
     } else {
         std::env::current_dir().map_or_else(|_| path.to_path_buf(), |current| current.join(path))
     };
-    full.display().to_string()
+    crate::path_display::label(&full).into_owned()
 }
 
 fn render_locked(

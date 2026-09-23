@@ -261,13 +261,10 @@ fn backspace_and_typing_edit_the_copy_destination() {
     let Overlay::CopyPrompt(prompt) = &app.overlay else {
         panic!("still open");
     };
-    assert_eq!(
-        prompt.destination.len(),
-        original.len(),
-        "one character removed, one added"
-    );
-    assert!(prompt.destination.ends_with('x'));
-    assert_ne!(prompt.destination, original);
+    let mut expected = original;
+    expected.pop();
+    expected.push('x');
+    assert_eq!(prompt.destination, expected);
 }
 
 #[test]

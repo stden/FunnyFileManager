@@ -36,6 +36,8 @@ pub enum EditorCommand {
     Close,
     Search,
     RepeatSearch,
+    Lsp(crate::models::LspFeature),
+    RestartLsp,
     Insert(char),
     Newline,
     Backspace,
@@ -48,6 +50,21 @@ pub enum EditorCommand {
 /// Resolve a key into a typed command using the shared ordered binding DSL.
 #[must_use]
 pub fn resolve(key: KeyEvent) -> EditorCommand {
+    resolve_lsp(key).unwrap_or_else(|| resolve_editing(key))
+}
+
+fn resolve_lsp(key: KeyEvent) -> Option<EditorCommand> {
+    use crate::models::LspFeature;
+    keymap! { key;
+        KeyCode::Char(' ') if exact(CONTROL) => Some(EditorCommand::Lsp(LspFeature::Completion)),
+        KeyCode::Char('k' | 'K') if exact(CONTROL) => Some(EditorCommand::Lsp(LspFeature::Hover)),
+        KeyCode::Char(']') if exact(CONTROL) => Some(EditorCommand::Lsp(LspFeature::Definition)),
+        KeyCode::Char('r' | 'R') if exact(CONTROL + ALT) => Some(EditorCommand::RestartLsp),
+        _ => None,
+    }
+}
+
+fn resolve_editing(key: KeyEvent) -> EditorCommand {
     use EditorCommand::{Backspace, Close, Copy, Delete, Ignore, Indent, Insert, Move};
     use EditorCommand::{Newline, Paste, RepeatSearch, Save, Search};
     use EditorNavigation as Nav;

@@ -193,3 +193,22 @@ fn classify_command_output(success: bool, stdout: &str, stderr: &str) -> io::Res
 
 #[cfg(test)]
 mod tests;
+/// Convert filesystem paths to the ordinary spelling understood by cmd.exe.
+#[cfg(windows)]
+pub(crate) fn console_directory(path: &std::path::Path) -> std::path::PathBuf {
+    use std::{
+        ffi::OsString,
+        os::windows::ffi::{OsStrExt, OsStringExt},
+        path::{Component, Prefix},
+    };
+    let Some(Component::Prefix(prefix)) = path.components().next() else {
+        return path.to_path_buf();
+    };
+    let text: Vec<u16> = path.as_os_str().encode_wide().collect();
+    let normal = match prefix.kind() {
+        Prefix::VerbatimDisk(_) => text[4..].to_vec(),
+        Prefix::VerbatimUNC(_, _) => [vec![92, 92], text[8..].to_vec()].concat(),
+        _ => return path.to_path_buf(),
+    };
+    OsString::from_wide(&normal).into()
+}

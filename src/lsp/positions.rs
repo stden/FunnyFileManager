@@ -14,7 +14,7 @@ pub struct Range {
     pub end: Position,
 }
 
-pub(crate) fn from_chars(line: usize, text: &str, column: usize) -> Option<Position> {
+pub fn from_chars(line: usize, text: &str, column: usize) -> Option<Position> {
     if column > text.chars().count() {
         return None;
     }
@@ -30,7 +30,7 @@ pub(crate) fn from_chars(line: usize, text: &str, column: usize) -> Option<Posit
     })
 }
 
-pub(crate) fn to_chars(text: &str, units: u32) -> Option<usize> {
+pub fn to_chars(text: &str, units: u32) -> Option<usize> {
     let byte = column_byte(text, units)?;
     Some(text[..byte].chars().count())
 }
@@ -46,7 +46,7 @@ fn column_byte(text: &str, units: u32) -> Option<usize> {
     (remaining == 0).then_some(text.len())
 }
 
-pub(crate) fn byte_offset(text: &str, position: Position) -> Option<usize> {
+pub fn byte_offset(text: &str, position: Position) -> Option<usize> {
     let mut base = 0;
     for (line, content) in text.split('\n').enumerate() {
         if line == usize::try_from(position.line).ok()? {
@@ -61,14 +61,14 @@ pub(crate) fn byte_offset(text: &str, position: Position) -> Option<usize> {
     None
 }
 
-pub(crate) fn at_byte(text: &str, offset: usize) -> Option<Position> {
+pub fn at_byte(text: &str, offset: usize) -> Option<Position> {
     let prefix = text.get(..offset)?;
     let line = prefix.bytes().filter(|byte| *byte == b'\n').count();
     let column = prefix.rsplit('\n').next()?;
     from_chars(line, column, column.chars().count())
 }
 
-pub(crate) fn byte_range(text: &str, range: Range) -> Option<std::ops::Range<usize>> {
+pub fn byte_range(text: &str, range: Range) -> Option<std::ops::Range<usize>> {
     let start = byte_offset(text, range.start)?;
     let end = byte_offset(text, range.end)?;
     (start <= end).then_some(start..end)

@@ -105,3 +105,15 @@ fn a_filtered_panel_carries_a_star_before_its_path() -> io::Result<()> {
     );
     Ok(())
 }
+
+#[cfg(windows)]
+#[test]
+fn canonical_paths_use_ordinary_spelling_in_the_panel_title() {
+    let temp = TempDir::new().unwrap();
+    let canonical = temp.path().canonicalize().unwrap();
+    let mut panel = Panel::from_entries(canonical.clone(), Vec::new());
+    let rendered = text(&draw(&mut panel));
+    assert!(!rendered.contains(r"\\?\"));
+    assert!(rendered.contains(&crate::path_display::label(&canonical).to_string()));
+    assert_eq!(panel.path, canonical);
+}

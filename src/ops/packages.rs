@@ -98,7 +98,7 @@ const ELEVATED_UPGRADE_SCRIPT: &str = include_str!("packages/elevated_upgrade.ps
 fn command(_: &UpdatePlan, path: &std::path::Path, _args: &[&str]) -> Command {
     // Fixed arguments; quote the discovered executable as a PowerShell literal.
     let path = path.to_string_lossy().replace('\'', "''");
-    let script = ELEVATED_UPGRADE_SCRIPT.replace("{path}", &path);
+    let script = ELEVATED_UPGRADE_SCRIPT.replace("__FFM_EXECUTABLE__", &path);
     let mut command = Command::new("powershell.exe");
     command.args(["-NoProfile", "-Command", &script]);
     command

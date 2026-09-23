@@ -216,3 +216,29 @@ fn test_run_powershell_report_failure_status_only() {
         err.to_string().contains("PowerShell exited with status") || err.to_string().contains("42")
     );
 }
+#[cfg(windows)]
+#[test]
+fn dropping_the_lsp_job_terminates_its_owned_process() {
+    use std::os::windows::process::CommandExt;
+    use std::time::{Duration, Instant};
+    let root = tempfile::TempDir::new().unwrap();
+    let mut child = std::process::Command::new("powershell.exe")
+        .args(["-NoProfile", "-Command", "Start-Sleep -Seconds 30"])
+        .current_dir(root.path())
+        .creation_flags(0x0800_0000)
+        .spawn()
+        .unwrap();
+    let job = lsp_job(&child).unwrap();
+    assert!(child.try_wait().unwrap().is_none());
+    drop(job);
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while Instant::now() < deadline && child.try_wait().unwrap().is_none() {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let exited = child.try_wait().unwrap().is_some();
+    if !exited {
+        child.kill().unwrap();
+    }
+    child.wait().unwrap();
+    assert!(exited, "the job must not leave its server running");
+}

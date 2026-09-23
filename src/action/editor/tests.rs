@@ -137,3 +137,31 @@ fn text_input_accepts_unicode_and_consumes_control_sequences() {
         assert_eq!(resolve(KeyEvent::new(code, modifiers)), command);
     }
 }
+#[test]
+fn lsp_bindings_are_explicit_and_require_exact_modifiers() {
+    use crate::models::LspFeature;
+    for (key, feature) in [
+        (' ', LspFeature::Completion),
+        ('k', LspFeature::Hover),
+        (']', LspFeature::Definition),
+    ] {
+        assert_eq!(
+            resolve(KeyEvent::new(KeyCode::Char(key), KeyModifiers::CONTROL)),
+            EditorCommand::Lsp(feature)
+        );
+        assert_eq!(
+            resolve(KeyEvent::new(
+                KeyCode::Char(key),
+                KeyModifiers::CONTROL | KeyModifiers::ALT
+            )),
+            EditorCommand::Ignore
+        );
+    }
+    assert_eq!(
+        resolve(KeyEvent::new(
+            KeyCode::Char('r'),
+            KeyModifiers::CONTROL | KeyModifiers::ALT
+        )),
+        EditorCommand::RestartLsp
+    );
+}
