@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 
 #[path = "module_boundaries/popup.rs"]
 mod popup;
+#[path = "module_boundaries/resolution.rs"]
+mod resolution;
 
 fn rust_files(path: &Path, files: &mut Vec<PathBuf>) {
     for entry in fs::read_dir(path).expect("read source directory") {
@@ -192,8 +194,11 @@ fn is_test_source(path: &Path) -> bool {
 }
 
 fn compact_code(path: &Path) -> String {
-    fs::read_to_string(path)
-        .expect("read Rust source")
+    compact_source(&fs::read_to_string(path).expect("read Rust source"))
+}
+
+fn compact_source(source: &str) -> String {
+    source
         .lines()
         .map(|line| line.split_once("//").map_or(line, |(code, _)| code))
         .flat_map(str::chars)
@@ -236,6 +241,21 @@ fn crate_root_and_compatibility_facade_only_wire_modules() {
     );
 }
 
+/// Text fragments the legacy presentation guard searches for.
+const PRESENTATION_FORBIDDEN: [&str; 11] = [
+    "std::fs",
+    "std::{fs",
+    "std::process",
+    "std::{process",
+    "crate::directory",
+    "crate::diskfree",
+    "crate::ops",
+    "crate::handlers",
+    "crate::popup",
+    "crate::editor",
+    "crate::terminal",
+];
+
 #[test]
 fn presentation_has_no_storage_or_operation_dependencies() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -244,19 +264,7 @@ fn presentation_has_no_storage_or_operation_dependencies() {
     rust_files(&root.join("src/action"), &mut files);
     for path in files.iter().filter(|path| !is_test_source(path)) {
         let code = compact_code(path);
-        for forbidden in [
-            "std::fs",
-            "std::{fs",
-            "std::process",
-            "std::{process",
-            "crate::directory",
-            "crate::diskfree",
-            "crate::ops",
-            "crate::handlers",
-            "crate::popup",
-            "crate::editor",
-            "crate::terminal",
-        ] {
+        for forbidden in PRESENTATION_FORBIDDEN {
             assert!(
                 !code.contains(forbidden),
                 "{} depends on {forbidden}; rendering and key resolution must read state",
