@@ -160,20 +160,7 @@ fn set_bits(path: &Path, bits: u32) -> io::Result<()> {
 
 #[cfg(windows)]
 fn set_bits(path: &Path, bits: u32) -> io::Result<()> {
-    use std::os::windows::ffi::OsStrExt;
-    let wide: Vec<u16> = path
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect();
-    // SAFETY: `wide` is a NUL-terminated UTF-16 path that outlives the call,
-    // and the function reads nothing else.
-    let ok =
-        unsafe { windows_sys::Win32::Storage::FileSystem::SetFileAttributesW(wide.as_ptr(), bits) };
-    if ok == 0 {
-        return Err(io::Error::last_os_error());
-    }
-    Ok(())
+    crate::platform::set_file_attributes(path, bits)
 }
 
 #[cfg(not(any(unix, windows)))]

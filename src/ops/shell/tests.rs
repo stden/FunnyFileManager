@@ -146,7 +146,9 @@ fn test_timeout_kills_the_whole_process_group() {
         std::thread::sleep(Duration::from_millis(50));
     }
     // Do not leave a stray `sleep` behind if the assertion fails.
-    unsafe { libc_kill(grandchild, 9) };
+    if let Some(pid) = rustix::process::Pid::from_raw(grandchild) {
+        let _ = rustix::process::kill_process(pid, rustix::process::Signal::KILL);
+    }
     panic!("grandchild {grandchild} outlived the timeout — the group was not killed");
 }
 

@@ -169,32 +169,13 @@ fn spawn_shell(command: &str, current_dir: &Path) -> io::Result<Child> {
 
 /// Tear down a timed-out / cancelled shell, including Unix grandchildren.
 fn kill_shell_tree(child: &mut Child) {
+    // The shell leads its own group (set in `spawn_shell`), and killing a
+    // whole group has no std equivalent. It is not reaped yet, so its id
+    // cannot name a stranger's group.
     #[cfg(unix)]
-    {
-        // Negative pid = process group (set in `spawn_shell` via setpgid).
-        // `Child::id` is the real PID of a process we spawned, so it is
-        // strictly positive on every Unix (pid_max caps far below i32::MAX);
-        // the assert keeps the group kill below provably safe instead of
-        // silently skipping it on an impossible value.
-        let pid = child.id().cast_signed();
-        assert!(pid > 0, "spawned child pid must be positive, got {pid}");
-        unsafe {
-            libc_kill(-pid, 9); // SIGKILL whole group
-        }
-    }
+    let _ = crate::platform::kill_process_group(child);
     let _ = child.kill();
     let _ = child.wait();
-}
-
-// Minimal libc binding so we do not pull in the `libc` crate for one call —
-// `setpgid` is covered by `Command::process_group`, but killing a whole group
-// has no std equivalent.
-#[cfg(unix)]
-unsafe fn libc_kill(pid: i32, sig: i32) -> i32 {
-    unsafe extern "C" {
-        fn kill(pid: i32, sig: i32) -> i32;
-    }
-    unsafe { kill(pid, sig) }
 }
 
 /// Read a child pipe on a background thread, forwarding it chunk by chunk.

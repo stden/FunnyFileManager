@@ -96,7 +96,7 @@ impl Identity {
         Self {
             user: user(),
             host: host(),
-            privilege: if is_root() {
+            privilege: if crate::platform::is_root() {
                 Privilege::Root
             } else {
                 Privilege::User
@@ -210,18 +210,6 @@ fn pick_host(file: Option<&str>, variable: Option<&str>) -> Option<String> {
         .map(str::trim)
         .find(|name| !name.is_empty())
         .map(ToOwned::to_owned)
-}
-
-/// Whether this process can overwrite anything, which is what `#` means.
-#[cfg(unix)]
-fn is_root() -> bool {
-    // SAFETY: `geteuid` takes no arguments, touches no memory and cannot fail.
-    unsafe { libc::geteuid() == 0 }
-}
-
-#[cfg(not(unix))]
-fn is_root() -> bool {
-    false
 }
 
 #[cfg(test)]

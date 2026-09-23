@@ -223,11 +223,8 @@ fn exited(child: &mut Child) -> bool {
 
 #[cfg(unix)]
 fn terminate(child: &mut Child) {
-    use rustix::process::{kill_process_group, Pid, Signal};
-    if let Some(pid) = i32::try_from(child.id()).ok().and_then(Pid::from_raw) {
-        // The leader has not been reaped: its PID cannot belong to an unrelated group.
-        let _ = kill_process_group(pid, Signal::KILL);
-    }
+    // The leader has not been reaped: its PID cannot belong to an unrelated group.
+    let _ = crate::platform::kill_process_group(child);
     reap(child);
 }
 

@@ -74,6 +74,10 @@ arboard = { version = "3.6.1", default-features = false }
 
 [dev-dependencies]
 regex = "1"
+# tests/unsafe_boundary_test.rs parses every source file to find unsafe code;
+# span-locations gives its failures a line number.
+syn = { version = "2.0.119", features = ["full", "visit"] }
+proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 criterion = "0.8.2"
 cucumber = "0.23.0"
 futures = "0.3.34"
@@ -276,11 +280,18 @@ codegen-units = 16
 [lints.rust]
 unfulfilled_lint_expectations = "deny"
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tarpaulin)", "cfg(coverage)"] }
+# Unsafe code lives only in reviewed platform/FFI boundaries: each one opts in
+# with an item-level `#[allow(unsafe_code)]`, and tests/unsafe_boundary_test.rs
+# keeps those items on an explicit file allowlist.
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "deny"
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
+# Every unsafe block states why it is sound in a `// SAFETY:` comment.
+undocumented_unsafe_blocks = "deny"
 # Allow common patterns used throughout the codebase
 module_name_repetitions = "allow"
 must_use_candidate = "allow"
@@ -308,12 +319,13 @@ needless_pass_by_ref_mut = "allow"
 missing_const_for_fn = "allow"
 match_wildcard_for_single_variants = "allow"
 
-# Free space for the panel's footer, which has no std equivalent: `statvfs`
-# on Unix, `GetDiskFreeSpaceExW` on Windows. Already in the tree — crossterm
-# pulls libc through signal-hook — so declaring it costs no extra crate.
+# System calls std does not wrap. rustix covers the ones with a safe API
+# (uids, access checks, statvfs, process groups) and is what src/platform
+# uses; libc remains for poll(2), the passwd/group lookups and errno values.
+# Both are already in the tree through crossterm, so neither costs a crate.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.189"
-rustix = { version = "1.1.5", features = ["process"] }
+rustix = { version = "1.1.5", features = ["fs", "process"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = [

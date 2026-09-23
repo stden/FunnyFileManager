@@ -58,6 +58,7 @@ fn group_name(_gid: u32) -> Option<String> {
 }
 
 #[cfg(unix)]
+#[allow(unsafe_code)]
 fn user_name(uid: u32) -> Option<String> {
     lookup(
         // SAFETY: see `lookup`; the id is bound here, the storage there.
@@ -67,6 +68,7 @@ fn user_name(uid: u32) -> Option<String> {
 }
 
 #[cfg(unix)]
+#[allow(unsafe_code)]
 fn group_name(gid: u32) -> Option<String> {
     lookup(
         // SAFETY: see `lookup`; the id is bound here, the storage there.
@@ -80,6 +82,7 @@ fn group_name(gid: u32) -> Option<String> {
 /// `call` is the libc function with its id already bound; `name_of` picks the
 /// name field out of the filled record.
 #[cfg(unix)]
+#[allow(unsafe_code)]
 fn lookup<T>(
     call: impl Fn(*mut T, *mut std::ffi::c_char, usize, *mut *mut T) -> i32,
     name_of: impl Fn(&T) -> *const std::ffi::c_char,

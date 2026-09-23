@@ -101,6 +101,7 @@ mod panel_session;
 pub(crate) mod path_display;
 pub mod path_env;
 pub mod performance;
+mod platform;
 pub mod popup;
 pub mod prompt;
 pub mod quicksearch;

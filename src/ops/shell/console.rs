@@ -44,6 +44,7 @@ fn spawn_with_startup(
     create_process(&shell, &mut line, &directory, startup)
 }
 
+#[allow(unsafe_code)]
 fn create_process(
     shell: &[u16],
     line: &mut [u16],

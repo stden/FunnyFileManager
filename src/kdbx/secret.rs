@@ -11,6 +11,7 @@
 /// The writes go through `write_volatile` so the optimizer may not elide them as
 /// "stores nobody reads afterwards" — which is exactly what it would conclude
 /// about a buffer that is about to be freed.
+#[allow(unsafe_code)]
 fn zeroize_bytes(bytes: &mut [u8]) {
     for byte in bytes {
         // SAFETY: `byte` is a live, initialized, in-bounds `&mut u8`.
@@ -22,6 +23,7 @@ fn zeroize_bytes(bytes: &mut [u8]) {
 ///
 /// `String::clear` alone only moves the length to 0; the plaintext stays in the
 /// allocation.
+#[allow(unsafe_code)]
 fn zeroize_string(secret: &mut String) {
     // SAFETY: every byte is overwritten with 0, which is valid UTF-8, so the
     // `String` is still well-formed when the borrow ends.
@@ -69,6 +71,7 @@ impl MasterKey {
     }
 
     /// Remove the last typed character, zeroizing the bytes it occupied.
+    #[allow(unsafe_code)]
     pub fn pop(&mut self) {
         let Some(last) = self.0.chars().next_back() else {
             return;

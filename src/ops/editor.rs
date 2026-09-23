@@ -97,32 +97,17 @@ fn ensure_writable(target: &Path) -> io::Result<()> {
 /// save will use; plain `access(2)` would ask with the real ones.
 ///
 /// A path with nothing behind it yet (Shift+F4) answers `ENOENT`, and an
-/// unexpected errno means the question could not be put at all: both fall
-/// open, leaving the write that follows to report the real failure rather than
-/// this guard inventing one.
+/// unexpected errno — an interior NUL included — means the question could not
+/// be put at all: both fall open, leaving the write that follows to report the
+/// real failure rather than this guard inventing one.
 #[cfg(unix)]
 fn refusal(path: &Path) -> Option<&'static str> {
-    use std::ffi::CString;
-    use std::os::unix::ffi::OsStrExt;
-
-    // An interior NUL: let the write itself report it.
-    let c_path = CString::new(path.as_os_str().as_bytes()).ok()?;
-    // SAFETY: `c_path` is NUL-terminated and outlives the call; faccessat
-    // reads no other user memory and only reports a permission answer.
-    let answer = unsafe {
-        libc::faccessat(
-            libc::AT_FDCWD,
-            c_path.as_ptr(),
-            libc::W_OK,
-            libc::AT_EACCESS,
-        )
-    };
-    if answer == 0 {
+    let Err(error) = crate::platform::check_write_access(path) else {
         return None;
-    }
+    };
     // "Permission denied" would send the user to `ls -l` and a chmod that
     // cannot help, so a read-only filesystem says which it is.
-    match io::Error::last_os_error().raw_os_error() {
+    match error.raw_os_error() {
         Some(libc::EROFS) => Some("read-only file system"),
         Some(libc::EACCES | libc::EPERM) => Some("permission denied"),
         // Anything else — the file is not there yet (Shift+F4), or the
@@ -159,9 +144,7 @@ fn rewrite_in_place(path: &Path) -> bool {
 fn owned_by_us(path: &Path) -> bool {
     use std::os::unix::fs::MetadataExt;
 
-    // SAFETY: `geteuid` takes no arguments, reads no user memory and cannot
-    // fail; it reports this process's own effective user.
-    let us = unsafe { libc::geteuid() };
+    let us = crate::platform::effective_uid();
     fs::metadata(path).map_or(true, |info| info.uid() == us)
 }
 

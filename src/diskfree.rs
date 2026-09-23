@@ -67,31 +67,19 @@ pub fn available_bytes(path: &Path) -> Option<u64> {
 /// fails — an empty drive bay, a disconnected share.
 #[cfg(unix)]
 #[must_use]
-#[allow(clippy::unnecessary_cast)] // statvfs field widths differ across Unixes
 pub fn capacity(path: &Path) -> Option<Capacity> {
-    use std::ffi::CString;
-    use std::os::unix::ffi::OsStrExt;
-
-    let c_path = CString::new(path.as_os_str().as_bytes()).ok()?;
-    // SAFETY: `c_path` is NUL-terminated and outlives the call; `stats` is an
-    // owned, correctly-sized buffer that statvfs only writes into, and it is
-    // read only on the success return the check below guarantees.
-    let stats = unsafe {
-        let mut stats = std::mem::MaybeUninit::<libc::statvfs>::uninit();
-        if libc::statvfs(c_path.as_ptr(), stats.as_mut_ptr()) != 0 {
-            return None;
-        }
-        stats.assume_init()
-    };
-    let block = stats.f_frsize as u64;
+    // rustix widens every statvfs field to u64 whatever the Unix, and a path
+    // with an interior NUL fails like any other unanswerable path.
+    let stats = rustix::fs::statvfs(path).ok()?;
     Some(Capacity {
-        total: (stats.f_blocks as u64).checked_mul(block)?,
-        available: (stats.f_bavail as u64).checked_mul(block)?,
+        total: stats.f_blocks.checked_mul(stats.f_frsize)?,
+        available: stats.f_bavail.checked_mul(stats.f_frsize)?,
     })
 }
 
 #[cfg(windows)]
 #[must_use]
+#[allow(unsafe_code)]
 pub fn capacity(path: &Path) -> Option<Capacity> {
     use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
 
@@ -125,6 +113,7 @@ pub fn capacity(_path: &Path) -> Option<Capacity> {
 /// distinction the kernel does not draw.
 #[cfg(windows)]
 #[must_use]
+#[allow(unsafe_code)]
 pub fn drive_kind(path: &Path) -> DriveKind {
     use windows_sys::Win32::{
         Storage::FileSystem::GetDriveTypeW,

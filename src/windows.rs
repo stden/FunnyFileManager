@@ -18,6 +18,7 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 /// Own an LSP process tree so a crashed or unresponsive server cannot orphan children.
 #[cfg(windows)]
+#[allow(unsafe_code)]
 pub(crate) fn lsp_job(
     child: &std::process::Child,
 ) -> io::Result<std::os::windows::io::OwnedHandle> {
@@ -39,6 +40,7 @@ pub(crate) fn lsp_job(
 }
 
 #[cfg(windows)]
+#[allow(unsafe_code)]
 fn configure_lsp_job(handle: windows_sys::Win32::Foundation::HANDLE) -> io::Result<()> {
     use windows_sys::Win32::System::JobObjects::{
         JobObjectExtendedLimitInformation, SetInformationJobObject,

@@ -321,9 +321,7 @@ fn reloading_a_directory_as_text_is_refused() {
 /// under it; the tests below say so rather than passing vacuously.
 #[cfg(unix)]
 fn running_as_root() -> bool {
-    // SAFETY: `geteuid` takes no arguments, reads no user memory and cannot
-    // fail; it only reports the calling process's own effective user.
-    unsafe { libc::geteuid() == 0 }
+    crate::platform::is_root()
 }
 
 /// Renaming a fresh file over the target needs write permission on the

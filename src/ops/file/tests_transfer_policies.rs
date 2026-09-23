@@ -853,10 +853,8 @@ fn copying_a_fifo_reports_it_instead_of_waiting_for_a_writer() {
 /// Make a FIFO at `path`, or `None` where the platform will not have one.
 #[cfg(unix)]
 fn make_fifo(path: &Path) -> Option<std::path::PathBuf> {
-    let name = std::ffi::CString::new(path.as_os_str().as_encoded_bytes()).expect("a path");
-    // SAFETY: a NUL-terminated path that outlives the call; mkfifo reads
-    // nothing else and only reports whether the node was made.
-    (unsafe { libc::mkfifo(name.as_ptr(), 0o644) } == 0).then(|| path.to_path_buf())
+    crate::test_support::make_fifo(path).ok()?;
+    Some(path.to_path_buf())
 }
 
 /// How deep the tree under `root` goes, so a runaway walk is visible as a
@@ -912,7 +910,7 @@ fn zz_probe_readonly_target_dir_permission_denied() {
     let (mut app, _from, to) = app_with(&[("notes.txt", b"payload")]);
     mark(&mut app, "notes.txt");
     fs::set_permissions(to.path(), fs::Permissions::from_mode(0o555)).expect("setup");
-    let euid = unsafe { libc::geteuid() };
+    let euid = crate::platform::effective_uid();
     let result = super::handle_copy(&mut app);
     fs::set_permissions(to.path(), fs::Permissions::from_mode(0o755)).expect("cleanup");
     let status = app.status.to_string();

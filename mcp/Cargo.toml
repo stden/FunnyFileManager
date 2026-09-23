@@ -95,6 +95,8 @@ opt-level = 2
 
 [lints.rust]
 unfulfilled_lint_expectations = "deny"
+# The MCP server calls no native code; unsafe has no place in it.
+unsafe_code = "forbid"
 
 [lints.clippy]
 cognitive_complexity = "warn"
