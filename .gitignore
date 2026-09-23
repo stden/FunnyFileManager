@@ -1,7 +1,10 @@
 # Purpose: Keeps generated build outputs and local-only files out of version control.
-# Rust build artifacts
+# Rust build artifacts. `/target/` is the shared dir from .cargo/config.toml.
+# `/target-*/` is every other Cargo target dir at the repo root: clippy
+# (`target-clippy`), one-off probes (`target-probe`), and coverage
+# (`target-probe-cov`). A bare `/target/` does not match those names.
 /target/
-/target-clippy/
+/target-*/
 /mcp/target/
 # A `cargo` run from inside a workspace member builds into its own directory.
 /colorer-sys/target/
@@ -84,7 +87,9 @@ ffm.pdf
 *.kdbx.bak
 *.kbdx.bak
 
-# Claude Code worktrees (linked checkouts, never commit)
+# Linked checkouts, never commit. `git worktree add wt-…` inside this
+# repository (for example wt-nl/) would otherwise be added by `git add -A`.
+/wt-*/
 .claude/worktrees/
 .superpowers/
 
