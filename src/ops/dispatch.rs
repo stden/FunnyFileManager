@@ -240,3 +240,6 @@ mod tests;
 
 #[cfg(all(test, windows))]
 mod tests_console;
+
+#[cfg(test)]
+mod tests_console_effect;

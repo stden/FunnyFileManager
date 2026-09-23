@@ -54,6 +54,8 @@ while (message := read()) is not None:
         send(dict(id=message["id"], result=[dict(label="completed", detail="function", documentation="Test documentation", kind=3)]))
     elif method == "textDocument/definition":
         send(dict(id=message["id"], result=dict(uri=message["params"]["textDocument"]["uri"], range=dict(start=dict(line=0, character=0), end=dict(line=0, character=2)))))
+    elif method == "shutdown" and mode == "shutdown-crash":
+        sys.exit(3)
     elif method == "shutdown" and mode != "hang":
         send(dict(id=message["id"], result=None))
     elif method == "exit" and mode != "hang":

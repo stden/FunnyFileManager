@@ -134,3 +134,6 @@ fn failed(events: &SyncSender<Envelope>, owner: DocumentId, error: &std::io::Err
     };
     report(events, owner, Event::State(state));
 }
+
+#[cfg(test)]
+mod tests;

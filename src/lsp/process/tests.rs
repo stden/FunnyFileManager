@@ -48,6 +48,30 @@ fn stderr_is_drained_through_interruptions_and_stops_after_failure() {
     assert_eq!(stderr.reads, 3);
 }
 
+#[test]
+fn disconnected_pipes_preserve_unsent_payloads_and_cleanup_survives_task_panics() {
+    let root = tempfile::TempDir::new().unwrap();
+    let settings = ServerSettings {
+        command: "python".into(),
+        args: vec!["-c".into(), "pass".into()],
+        ..ServerSettings::default()
+    };
+    let mut process = Process::start(&settings, root.path()).unwrap();
+    process.outgoing.take();
+    let value = serde_json::json!({"method":"shutdown"});
+    assert!(
+        matches!(process.send(value.clone()), Err(mpsc::TrySendError::Disconnected(returned)) if returned == value)
+    );
+    let (sender, receiver) = mpsc::sync_channel(1);
+    process.incoming = Some(receiver);
+    drop(sender);
+    assert!(matches!(process.poll(), Some(Signal::Closed)));
+    process
+        .threads
+        .push(thread::spawn(|| panic!("injected task failure")));
+    drop(process); // A failed I/O task must not abort shutdown or leak the child.
+}
+
 #[cfg(unix)]
 #[test]
 fn observing_exit_keeps_the_process_id_reserved_until_group_cleanup() {

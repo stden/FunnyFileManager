@@ -52,6 +52,7 @@ fn typed_and_pasted_payloads_never_become_action_labels() {
 #[test]
 fn submitted_commands_never_persist_parameters_or_invalid_input() {
     for (text, expected) in [
+        ("pwd", "Command/Pwd"),
         ("sort size", "Command/Sort"),
         ("bookmark set 3", "Command/BookmarkSet"),
         ("bookmark go 3", "Command/BookmarkGo"),
@@ -59,6 +60,38 @@ fn submitted_commands_never_persist_parameters_or_invalid_input() {
         ("  ", "Command/Empty"),
     ] {
         assert_eq!(command_label(text), expected);
+    }
+}
+
+#[test]
+fn modal_paste_labels_identify_the_context_without_recording_private_text() {
+    use crate::models::{ApplyPrompt, ArchiveMenu, DescribePrompt};
+    let temp = tempfile::TempDir::new().unwrap();
+    let mut app = app(&temp);
+    let description = DescribePrompt::new("private name".into(), "private text".into(), vec![]);
+    for (overlay, expected) in [
+        (Overlay::ArchivePrompt(Box::default()), "Archive"),
+        (Overlay::ExtractPrompt(Box::default()), "Extract"),
+        (
+            Overlay::ArchiveCommands(ArchiveMenu::default()),
+            "ArchiveCommands",
+        ),
+        (Overlay::Attributes(Box::default()), "Attributes"),
+        (
+            Overlay::ApplyCommand(ApplyPrompt::default()),
+            "ApplyCommand",
+        ),
+        (Overlay::Describe(description), "Describe"),
+        (Overlay::FindFile(Box::default()), "FindFile"),
+        (Overlay::FindFolder(Box::default()), "FindFolder"),
+        (Overlay::Menu(Menu::open(Heading::Commands)), "Menu"),
+        (Overlay::Settings(Box::default()), "Settings"),
+    ] {
+        app.set_overlay(overlay);
+        assert_eq!(
+            label(&app, &Event::Paste("private payload".into())),
+            format!("{expected}/Paste")
+        );
     }
 }
 
