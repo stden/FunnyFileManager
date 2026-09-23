@@ -1,20 +1,17 @@
 //! Directory composition and duplicate-content reports.
 
 use super::{
-    checksum_of, collect_files, content_kind, format_size, walkable_type, AnalyseParams,
-    CollectedFile, DuplicatesParams, FfmServer, WALK_BUDGET,
+    checksum_of, collect_files, content_kind, format_size, json_response, walkable_type,
+    AnalyseParams, CollectedFile, DuplicatesParams, FfmServer, WALK_BUDGET,
 };
-use rmcp::{
-    model::{CallToolResult, ContentBlock},
-    ErrorData as McpError,
-};
+use rmcp::{model::CallToolResult, ErrorData as McpError};
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::fs;
 
 pub(super) fn analyse_directory(
     server: &FfmServer,
-    params: AnalyseParams,
+    params: &AnalyseParams,
 ) -> Result<CallToolResult, McpError> {
     let root = server.safe_path(&params.path)?;
     if !root.is_dir() {
@@ -45,14 +42,12 @@ pub(super) fn analyse_directory(
         "by_kind": kind_report(&by_kind),
         "largest_files": file_report(&largest),
     });
-    Ok(CallToolResult::success(vec![ContentBlock::text(
-        serde_json::to_string_pretty(&result).unwrap_or_default(),
-    )]))
+    Ok(json_response(&result))
 }
 
 pub(super) fn find_duplicates(
     server: &FfmServer,
-    params: DuplicatesParams,
+    params: &DuplicatesParams,
 ) -> Result<CallToolResult, McpError> {
     let root = server.safe_path(&params.path)?;
     if !root.is_dir() {
@@ -77,9 +72,7 @@ pub(super) fn find_duplicates(
         "reclaimable_human": format_size(wasted),
         "groups": groups,
     });
-    Ok(CallToolResult::success(vec![ContentBlock::text(
-        serde_json::to_string_pretty(&result).unwrap_or_default(),
-    )]))
+    Ok(json_response(&result))
 }
 
 type KindTotals = BTreeMap<&'static str, (u64, usize)>;

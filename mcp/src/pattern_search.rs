@@ -1,16 +1,14 @@
 //! Glob and metadata-filtered searches, without following directory symlinks.
 
 use super::{
-    format_size, globmatch, relative_slash_path, walkable_type, FfmServer, FindParams, GlobParams,
+    format_size, globmatch, json_response, relative_slash_path, walkable_type, FfmServer,
+    FindParams, GlobParams,
 };
-use rmcp::{
-    model::{CallToolResult, ContentBlock},
-    ErrorData as McpError,
-};
+use rmcp::{model::CallToolResult, ErrorData as McpError};
 use serde_json::json;
 use std::{fs, path::Path};
 
-pub(super) fn glob(server: &FfmServer, params: GlobParams) -> Result<CallToolResult, McpError> {
+pub fn glob(server: &FfmServer, params: &GlobParams) -> Result<CallToolResult, McpError> {
     let root = server.safe_path(&params.path)?;
     if !root.is_dir() {
         return Err(McpError::invalid_params(
@@ -34,12 +32,10 @@ pub(super) fn glob(server: &FfmServer, params: GlobParams) -> Result<CallToolRes
         "count": results.len(),
         "results": results,
     });
-    Ok(CallToolResult::success(vec![ContentBlock::text(
-        serde_json::to_string_pretty(&result).unwrap_or_default(),
-    )]))
+    Ok(json_response(&result))
 }
 
-pub(super) fn find(server: &FfmServer, params: FindParams) -> Result<CallToolResult, McpError> {
+pub fn find(server: &FfmServer, params: &FindParams) -> Result<CallToolResult, McpError> {
     let root = server.safe_path(&params.path)?;
     if !root.is_dir() {
         return Err(McpError::invalid_params(
@@ -51,16 +47,14 @@ pub(super) fn find(server: &FfmServer, params: FindParams) -> Result<CallToolRes
     let now = std::time::SystemTime::now();
     let mut results = Vec::new();
 
-    find_recursive(&root, 0, &params, &now, &mut results);
+    find_recursive(&root, 0, params, &now, &mut results);
 
     let result = json!({
         "root": root.display().to_string(),
         "count": results.len(),
         "results": results,
     });
-    Ok(CallToolResult::success(vec![ContentBlock::text(
-        serde_json::to_string_pretty(&result).unwrap_or_default(),
-    )]))
+    Ok(json_response(&result))
 }
 
 struct GlobScan<'a> {

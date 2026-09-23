@@ -1,17 +1,16 @@
 //! Pattern deletion with post-order directory handling and dry-run reports.
 
-use super::{format_size, globmatch, walkable_type, DeleteByPatternParams, FfmServer};
-use ffm_mcp::tree_walk::directory_size;
-use rmcp::{
-    model::{CallToolResult, ContentBlock},
-    ErrorData as McpError,
+use super::{
+    format_size, globmatch, json_response, walkable_type, DeleteByPatternParams, FfmServer,
 };
+use ffm_mcp::tree_walk::directory_size;
+use rmcp::{model::CallToolResult, ErrorData as McpError};
 use serde_json::json;
 use std::{fs, path::Path};
 
 pub(super) fn delete_by_pattern(
     server: &FfmServer,
-    params: DeleteByPatternParams,
+    params: &DeleteByPatternParams,
 ) -> Result<CallToolResult, McpError> {
     let root = server.safe_path(&params.path)?;
     if !root.is_dir() {
@@ -23,7 +22,7 @@ pub(super) fn delete_by_pattern(
 
     let mut run = DeleteRun::default();
 
-    delete_pattern_recursive(&root, &params, &mut run);
+    delete_pattern_recursive(&root, params, &mut run);
 
     let total_size: u64 = run.deleted.iter().filter_map(|d| d["size"].as_u64()).sum();
 
@@ -38,9 +37,7 @@ pub(super) fn delete_by_pattern(
         "deleted": run.deleted,
         "error_details": run.errors,
     });
-    Ok(CallToolResult::success(vec![ContentBlock::text(
-        serde_json::to_string_pretty(&result).unwrap_or_default(),
-    )]))
+    Ok(json_response(&result))
 }
 
 #[derive(Default)]

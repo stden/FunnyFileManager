@@ -108,13 +108,11 @@ fn batch_delete_of_a_link_to_a_directory_keeps_the_target() {
     write_file_at(&root.join("data").join("keep.txt"), "keep");
     std::os::unix::fs::symlink(root.join("data"), root.join("link")).expect("symlink");
 
-    let result = server
-        .batch_delete(Parameters(BatchParams {
-            paths: vec!["link".to_owned()],
-            destination: None,
-            recursive: true,
-        }))
-        .expect("a batch reports per-path failures instead of aborting");
+    let result = server.batch_delete(Parameters(BatchParams {
+        paths: vec!["link".to_owned()],
+        destination: None,
+        recursive: true,
+    }));
     let payload = tool_json(&result);
 
     assert_eq!(payload["total_deleted"], 1);
@@ -135,13 +133,11 @@ fn batch_delete_of_a_link_to_a_file_keeps_the_file() {
     write_file_at(&root.join("real.txt"), "payload");
     std::os::unix::fs::symlink(root.join("real.txt"), root.join("alias.txt")).expect("symlink");
 
-    let result = server
-        .batch_delete(Parameters(BatchParams {
-            paths: vec!["alias.txt".to_owned()],
-            destination: None,
-            recursive: false,
-        }))
-        .expect("a batch reports per-path failures instead of aborting");
+    let result = server.batch_delete(Parameters(BatchParams {
+        paths: vec!["alias.txt".to_owned()],
+        destination: None,
+        recursive: false,
+    }));
 
     assert_eq!(tool_json(&result)["total_deleted"], 1);
     assert_gone(&root.join("alias.txt"));
@@ -1359,16 +1355,13 @@ fn largest_files_refuses_a_file() {
 /// Something every machine running these tests has on PATH.
 #[test]
 fn which_finds_an_executable_that_is_there() {
-    let dir = TempDir::new().expect("temp dir");
-    let (server, _root) = server_at(&dir);
     let name = if cfg!(windows) { "cmd" } else { "sh" };
 
     let json = tool_json(
-        &server
-            .which(Parameters(WhichParams {
-                name: name.to_owned(),
-            }))
-            .expect("which"),
+        &FfmServer::which(Parameters(WhichParams {
+            name: name.to_owned(),
+        }))
+        .expect("which"),
     );
     assert_eq!(json["found"], true, "{name} should be on PATH");
     assert!(json["path"].is_string());
@@ -1377,15 +1370,11 @@ fn which_finds_an_executable_that_is_there() {
 
 #[test]
 fn which_says_so_when_there_is_nothing_to_find() {
-    let dir = TempDir::new().expect("temp dir");
-    let (server, _root) = server_at(&dir);
-
     let json = tool_json(
-        &server
-            .which(Parameters(WhichParams {
-                name: "ffm-no-such-executable-anywhere".to_owned(),
-            }))
-            .expect("which"),
+        &FfmServer::which(Parameters(WhichParams {
+            name: "ffm-no-such-executable-anywhere".to_owned(),
+        }))
+        .expect("which"),
     );
     assert_eq!(json["found"], false);
     assert!(json["path"].is_null());
@@ -1414,15 +1403,12 @@ fn which_skips_a_non_executable_decoy_earlier_on_path() {
 /// would quietly answer a different question.
 #[test]
 fn which_refuses_anything_with_a_directory_in_it() {
-    let dir = TempDir::new().expect("temp dir");
-    let (server, _root) = server_at(&dir);
     for name in ["", "/bin/sh", "dir\\thing"] {
         assert!(
-            server
-                .which(Parameters(WhichParams {
-                    name: name.to_owned()
-                }))
-                .is_err(),
+            FfmServer::which(Parameters(WhichParams {
+                name: name.to_owned()
+            }))
+            .is_err(),
             "{name:?} must be refused"
         );
     }

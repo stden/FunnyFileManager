@@ -109,13 +109,11 @@ fn batch_delete_refuses_a_path_outside_the_root_and_leaves_it_alone() {
     write_file_at(&victim, "keep");
     write_file_at(&root.join("inside.txt"), "gone");
 
-    let result = server
-        .batch_delete(Parameters(BatchParams {
-            paths: vec![victim.display().to_string(), "inside.txt".to_owned()],
-            destination: None,
-            recursive: true,
-        }))
-        .expect("a batch reports per-path failures instead of aborting");
+    let result = server.batch_delete(Parameters(BatchParams {
+        paths: vec![victim.display().to_string(), "inside.txt".to_owned()],
+        destination: None,
+        recursive: true,
+    }));
     let payload = tool_json(&result);
 
     assert_eq!(payload["total_deleted"], 1);
@@ -233,13 +231,11 @@ fn batch_delete_without_recursion_refuses_a_populated_directory() {
     write_file_at(&root.join("full").join("inner.txt"), "inner");
     fs::create_dir(root.join("empty")).expect("mkdir");
 
-    let result = server
-        .batch_delete(Parameters(BatchParams {
-            paths: vec!["full".to_owned(), "empty".to_owned()],
-            destination: None,
-            recursive: false,
-        }))
-        .expect("a batch reports per-path failures instead of aborting");
+    let result = server.batch_delete(Parameters(BatchParams {
+        paths: vec!["full".to_owned(), "empty".to_owned()],
+        destination: None,
+        recursive: false,
+    }));
     let payload = tool_json(&result);
 
     assert_eq!(payload["total_deleted"], 1);
@@ -1038,14 +1034,9 @@ fn view_file_refuses_a_file_over_the_size_limit() {
 
 #[test]
 fn format_size_switches_to_gigabytes() {
-    let dir = TempDir::new().expect("temp dir");
-    let (server, _root) = server_at(&dir);
-
-    let result = server
-        .format_size_tool(Parameters(FormatSizeParams {
-            bytes: 3 * 1024 * 1024 * 1024,
-        }))
-        .expect("formatting runs");
+    let result = FfmServer::format_size_tool(Parameters(FormatSizeParams {
+        bytes: 3 * 1024 * 1024 * 1024,
+    }));
 
     assert_eq!(tool_json(&result)["formatted"], "3.00 GB");
 }

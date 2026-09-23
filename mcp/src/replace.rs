@@ -1,17 +1,11 @@
 //! Filtered text replacement with dry-run and per-file outcome reporting.
 
-use super::{fsops, globmatch, walkable_type, FfmServer, ReplaceParams};
-use rmcp::{
-    model::{CallToolResult, ContentBlock},
-    ErrorData as McpError,
-};
+use super::{fsops, globmatch, json_response, walkable_type, FfmServer, ReplaceParams};
+use rmcp::{model::CallToolResult, ErrorData as McpError};
 use serde_json::json;
 use std::{fs, path::Path};
 
-pub(super) fn replace(
-    server: &FfmServer,
-    params: ReplaceParams,
-) -> Result<CallToolResult, McpError> {
+pub fn replace(server: &FfmServer, params: &ReplaceParams) -> Result<CallToolResult, McpError> {
     let root = server.safe_path(&params.path)?;
     if !root.is_dir() {
         return Err(McpError::invalid_params(
@@ -37,7 +31,7 @@ pub(super) fn replace(
     let mut run = ReplaceRun::default();
     replace_recursive(&root, &opts, &mut run);
 
-    replacement_report(&root, &params, run)
+    Ok(replacement_report(&root, params, &run))
 }
 
 struct ReplaceOpts<'a> {
@@ -123,11 +117,7 @@ fn record_replacement(path: &Path, count: usize, run: &mut ReplaceRun) {
     }));
 }
 
-fn replacement_report(
-    root: &Path,
-    params: &ReplaceParams,
-    run: ReplaceRun,
-) -> Result<CallToolResult, McpError> {
+fn replacement_report(root: &Path, params: &ReplaceParams, run: &ReplaceRun) -> CallToolResult {
     let result = json!({
         "root": root.display().to_string(),
         "find": params.find,
@@ -139,9 +129,7 @@ fn replacement_report(
         "errors": run.errors.len(),
         "error_details": run.errors,
     });
-    Ok(CallToolResult::success(vec![ContentBlock::text(
-        serde_json::to_string_pretty(&result).unwrap_or_default(),
-    )]))
+    json_response(&result)
 }
 
 fn matches_file(name: &str, opts: &ReplaceOpts<'_>) -> bool {

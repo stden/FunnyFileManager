@@ -1,15 +1,12 @@
 //! Root-confined content search and its bounded result scan.
 
-use super::{walkable_type, FfmServer, GrepParams};
-use rmcp::{
-    model::{CallToolResult, ContentBlock},
-    ErrorData as McpError,
-};
+use super::{json_response, walkable_type, FfmServer, GrepParams};
+use rmcp::{model::CallToolResult, ErrorData as McpError};
 use serde_json::json;
 use std::io;
 use std::{fs, path::Path};
 
-pub(super) fn grep(server: &FfmServer, params: GrepParams) -> Result<CallToolResult, McpError> {
+pub fn grep(server: &FfmServer, params: &GrepParams) -> Result<CallToolResult, McpError> {
     let path = server.safe_path(&params.path)?;
     let pattern_lower = params.pattern.to_lowercase();
     let mut results = Vec::new();
@@ -28,9 +25,7 @@ pub(super) fn grep(server: &FfmServer, params: GrepParams) -> Result<CallToolRes
         "count": results.len(),
         "matches": results,
     });
-    Ok(CallToolResult::success(vec![ContentBlock::text(
-        serde_json::to_string_pretty(&result).unwrap_or_default(),
-    )]))
+    Ok(json_response(&result))
 }
 
 fn grep_recursive(
