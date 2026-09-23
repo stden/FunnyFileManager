@@ -136,6 +136,7 @@ fn execute_command_with_console(
         Command::UnmarkAll => cmd_unmark_all(app),
         Command::Help => app.set_overlay(Overlay::Help),
         Command::Stats => super::performance::open(app),
+        Command::Lsp => super::lsp_status::open(app),
         Command::Wsl => super::wsl::open_manager(app),
         Command::Quit => app.lifecycle = Lifecycle::Quitting,
     }

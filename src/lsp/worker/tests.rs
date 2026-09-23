@@ -66,3 +66,17 @@ fn initialization_times_out_without_waiting_for_a_silent_process() {
     drop(connection);
     assert!(started.elapsed() < Duration::from_secs(4));
 }
+
+#[test]
+fn edits_before_initialization_preserve_the_open_document_path() {
+    let root = tempfile::TempDir::new().unwrap();
+    let mut connection = silent_connection(root.path());
+    let mut snapshot = connection.pending.clone().unwrap();
+    let original = snapshot.path.clone();
+    snapshot.path = root.path().join("alias.rs");
+    snapshot.text = "updated".into();
+    connection.command(Command::Update(snapshot));
+    let pending = connection.pending.as_ref().unwrap();
+    assert_eq!(pending.path, original);
+    assert_eq!(pending.text, "updated");
+}

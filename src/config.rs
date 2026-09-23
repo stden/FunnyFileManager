@@ -16,7 +16,7 @@ use crate::models::PanelView;
 
 mod lsp;
 mod pages;
-pub use lsp::{LspSettings, ServerSettings};
+pub use lsp::{InstallCommand, InstallRecipe, LspSettings, ServerSettings};
 
 pub use pages::{
     AutoCompleteSettings, CodePageSettings, ColorSettings, CommandLineSettings,

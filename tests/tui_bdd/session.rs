@@ -42,6 +42,27 @@ impl std::fmt::Debug for Session {
 }
 
 impl Session {
+    pub(super) fn inventory(left: PathBuf, right: PathBuf, size: Size) -> Self {
+        Self::start_app(
+            move || {
+                let executable = left.join("fixture-server");
+                funny_file_manager::test_support::write_executable(&executable, b"fixture")?;
+                let mut app = App::with_panels(Panel::new(left)?, Panel::new(right)?);
+                app.config.lsp.0.clear();
+                app.config.lsp.0.insert(
+                    "fixture".into(),
+                    funny_file_manager::config::ServerSettings {
+                        command: executable.to_string_lossy().into_owned(),
+                        args: vec!["--stdio".into()],
+                        ..Default::default()
+                    },
+                );
+                Ok(app)
+            },
+            size,
+        )
+    }
+
     pub(super) fn start(left: PathBuf, right: PathBuf, size: Size) -> Self {
         Self::start_app(
             move || Ok(App::with_panels(Panel::new(left)?, Panel::new(right)?)),

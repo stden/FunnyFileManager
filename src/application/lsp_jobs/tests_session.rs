@@ -58,6 +58,24 @@ fn trust_fixture(controller: &mut EditorLspController, app: &mut App) {
 }
 
 #[test]
+fn installation_failures_show_the_prerequisite_without_blocking_edits() {
+    let root = TempDir::new().unwrap();
+    let mut app = fixture(&root);
+    let owner = app.get_editor().unwrap().lsp.id;
+    assert!(apply_event(
+        &mut app,
+        Envelope(owner, Event::InstallationFailed("Java 21 required"))
+    ));
+    let editor = app.get_editor_mut().unwrap();
+    assert_eq!(editor.lsp.state, ServerState::InstallationFailed);
+    assert_eq!(editor.notice.as_deref(), Some("Java 21 required"));
+    editor.insert_char('x');
+    assert!(editor.lines[0].contains('x'));
+    assert!(ServerState::InstallationFailed.label().contains("retries"));
+    assert!(ServerState::Installing.label().contains("background"));
+}
+
+#[test]
 fn editor_debounces_changes_saves_and_restarts_without_losing_text() {
     let root = TempDir::new().unwrap();
     let mut app = fixture(&root);

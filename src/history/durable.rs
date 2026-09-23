@@ -48,6 +48,7 @@ impl DurableLine {
             | Command::Wsl
             | Command::WinPerf
             | Command::Mcp
+            | Command::Lsp
             | Command::DiskCleanup
             | Command::Quit => Some(Self(trimmed.to_owned())),
             // Shell fall-through and known-verb-bad-args can carry secrets

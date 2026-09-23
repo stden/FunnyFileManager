@@ -75,7 +75,7 @@ fn contents(dialog: &Dialog) -> (&'static str, String, u16) {
     match dialog {
         Dialog::Trust { root, allow } => (
             " Language-server workspace trust ",
-            format!("The language server can execute this project's build scripts and macros.\n\n{}\n\n{} Keep LSP disabled\n{} Trust for this FFM session\n\nUp/Down selects; Enter confirms; Esc cancels.",
+            format!("The language server can execute this project's build scripts and macros.\nMissing servers with an install recipe are downloaded automatically.\n\n{}\n\n{} Keep LSP disabled\n{} Trust for this FFM session\n\nUp/Down selects; Enter confirms; Esc cancels.",
                 crate::path_display::label(root), marker(usize::from(*allow), 0), marker(usize::from(*allow), 1)),
             0,
         ),

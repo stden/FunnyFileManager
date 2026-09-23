@@ -4,7 +4,7 @@ use super::*;
 use std::sync::mpsc;
 use tempfile::TempDir;
 
-fn snapshot(root: &Path) -> Snapshot {
+pub(super) fn snapshot(root: &Path) -> Snapshot {
     Snapshot {
         stamp: crate::lsp::types::Stamp {
             id: DocumentId::default(),
@@ -14,6 +14,48 @@ fn snapshot(root: &Path) -> Snapshot {
         text: "original".into(),
         saved: 0,
     }
+}
+
+#[test]
+fn existing_documents_use_normalized_file_identities_for_server_uris() {
+    let root = TempDir::new().unwrap();
+    let snapshot = snapshot(root.path());
+    std::fs::write(&snapshot.path, &snapshot.text).unwrap();
+    let normalized = snapshot.path.canonicalize().unwrap();
+    let start = Start::prepare("rust".into(), ServerSettings::default(), snapshot).unwrap();
+    assert_eq!(start.snapshot.path, normalized);
+}
+
+#[test]
+fn edits_awaiting_trust_preserve_the_normalized_document_identity() {
+    let root = TempDir::new().unwrap();
+    let mut snapshot = snapshot(root.path());
+    std::fs::write(&snapshot.path, &snapshot.text).unwrap();
+    let path = snapshot.path.canonicalize().unwrap();
+    let (events, _received) = mpsc::sync_channel(8);
+    let mut host = Host::default();
+    host.command(
+        Command::Open("rust".into(), ServerSettings::default(), snapshot.clone()),
+        &events,
+    );
+    snapshot.path = root.path().join("alias.rs");
+    snapshot.text = "updated".into();
+    host.command(Command::Update(snapshot), &events);
+    let Session::Untrusted(start) = host.session else {
+        panic!("untrusted")
+    };
+    assert_eq!(start.snapshot.path, path);
+    assert_eq!(start.snapshot.text, "updated");
+}
+
+#[cfg(unix)]
+#[test]
+fn normalization_preserves_non_unicode_filename_bytes() {
+    use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
+    let root = TempDir::new().unwrap();
+    let path = root.path().join(OsStr::from_bytes(b"source-\xff.rs"));
+    std::fs::write(&path, "source").unwrap();
+    assert_eq!(document_path(&path).unwrap(), path.canonicalize().unwrap());
 }
 
 #[test]
