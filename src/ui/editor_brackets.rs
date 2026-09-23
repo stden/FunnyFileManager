@@ -16,19 +16,12 @@ pub(super) fn render(frame: &mut Frame, editor: &Editor, area: Rect, top: usize,
         if line_index < top || line_index >= top.saturating_add(usize::from(area.height)) {
             continue;
         }
-        let Some(text) = editor.lines.get(line_index) else {
+        let Some(x) = column_on_screen(editor, line_index, column_index, skip) else {
             continue;
         };
-        let display = EditorLine {
-            text,
-            tab: editor.tab_size,
-        };
-        let cell = display.cells_before(crate::models::CharColumn::new(column_index));
-        let dropped = display.dropped(skip);
-        let x = cell.saturating_sub(dropped);
-        if x.get() < usize::from(area.width) {
+        if x < usize::from(area.width) {
             frame.buffer_mut()[(
-                area.x.saturating_add(screen_u16(x.get())),
+                area.x.saturating_add(screen_u16(x)),
                 area.y.saturating_add(screen_u16(line_index - top)),
             )]
                 .set_style(
@@ -39,6 +32,24 @@ pub(super) fn render(frame: &mut Frame, editor: &Editor, area: Rect, top: usize,
                 );
         }
     }
+}
+
+/// The screen column of the character at `column_index` on `line_index` once
+/// `skip` cells are scrolled off; `None` for a missing line or for a character
+/// scrolled off the left edge, which clamping to column 0 would paint over
+/// whatever shows there.
+fn column_on_screen(
+    editor: &Editor,
+    line_index: usize,
+    column_index: usize,
+    skip: Cells,
+) -> Option<usize> {
+    let display = EditorLine {
+        text: editor.lines.get(line_index)?,
+        tab: editor.tab_size,
+    };
+    let cell = display.cells_before(crate::models::CharColumn::new(column_index));
+    cell.get().checked_sub(display.dropped(skip).get())
 }
 
 fn matching_pair(editor: &Editor) -> Option<(usize, usize, usize, usize)> {
@@ -123,3 +134,6 @@ const fn mate(ch: char) -> Option<char> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests;
