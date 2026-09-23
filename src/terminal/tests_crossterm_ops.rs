@@ -98,14 +98,14 @@ impl Backend for SpyBackend {
         self.inner.size()
     }
 
-    fn flush(&mut self) -> io::Result<()> {
-        self.record("flush")?;
-        Backend::flush(&mut self.inner)
-    }
-
     fn window_size(&mut self) -> io::Result<WindowSize> {
         self.record("window_size")?;
         self.inner.window_size()
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.record("flush")?;
+        Backend::flush(&mut self.inner)
     }
 }
 
@@ -254,7 +254,15 @@ fn noop_terminal_ops_touch_neither_the_backend_nor_the_bytes() {
     ops.disable_mouse(&mut terminal).expect("disable mouse");
     ops.clear(&mut terminal).expect("clear");
     ops.show_cursor(&mut terminal).expect("show cursor");
+    let pushed = ops.enable_keyboard(&mut terminal).expect("enable keyboard");
+    let popped = ops
+        .disable_keyboard(&mut terminal)
+        .expect("disable keyboard");
 
+    assert_eq!(
+        (pushed, popped),
+        (KeyboardProtocol::Legacy, KeyboardProtocol::Legacy)
+    );
     assert!(
         terminal.backend().calls.is_empty(),
         "the no-op ops reached the backend: {:?}",

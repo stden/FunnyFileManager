@@ -165,19 +165,73 @@ fn current_field(app: &App) -> NameField {
 
 // ─── the mask dialog ────────────────────────────────────────────────────────
 
+fn open_mask(app: &mut App, offered: &str) {
+    app.set_overlay(Overlay::MaskPrompt(MaskPrompt::new(
+        MaskPurpose::Select,
+        offered,
+    )));
+}
+
+fn mask_prompt(app: &App) -> &MaskPrompt {
+    let Overlay::MaskPrompt(prompt) = &app.overlay else {
+        panic!("still open");
+    };
+    prompt
+}
+
 #[test]
-fn every_movement_key_in_the_mask_dialog_means_the_other_button() {
-    for code in [KeyCode::Tab, KeyCode::Left, KeyCode::Right] {
-        let (mut app, _dir) = app_over(&[]);
-        app.set_overlay(Overlay::MaskPrompt(MaskPrompt::new(
-            MaskPurpose::Select,
-            "*".to_owned(),
-        )));
+fn tab_in_the_mask_dialog_means_the_other_button() {
+    let (mut app, _dir) = app_over(&[]);
+    open_mask(&mut app, "*");
+    press(&mut app, KeyCode::Tab);
+    assert!(mask_prompt(&app).on_cancel(), "Tab moved to Cancel");
+}
+
+/// The reported case: Right used to move the cursor to Cancel while the
+/// typed `.img` still went into the field, and Enter then threw it away.
+#[test]
+fn left_and_right_in_the_mask_field_move_the_caret_not_the_focus() {
+    let (mut app, _dir) = app_over(&["sparse.img"]);
+    open_mask(&mut app, "*");
+    press(&mut app, KeyCode::Right);
+    for ch in ".img".chars() {
+        press(&mut app, KeyCode::Char(ch));
+    }
+    assert!(!mask_prompt(&app).on_cancel(), "the field keeps the cursor");
+    assert_eq!(mask_prompt(&app).mask(), "*.img");
+
+    press(&mut app, KeyCode::Enter);
+    assert!(app.left_panel.marked.contains("sparse.img"));
+}
+
+/// The caret moves inside the text, so a typo early in the mask is fixed in
+/// place rather than by deleting back to it.
+#[test]
+fn the_caret_edits_the_mask_where_it_stands() {
+    let (mut app, _dir) = app_over(&[]);
+    open_mask(&mut app, "*.txt");
+    for code in [KeyCode::Left, KeyCode::Left, KeyCode::Left] {
         press(&mut app, code);
-        let Overlay::MaskPrompt(prompt) = &app.overlay else {
-            panic!("still open");
-        };
-        assert!(prompt.on_cancel(), "{code:?} moved to Cancel");
+    }
+    press(&mut app, KeyCode::Char('x'));
+    assert_eq!(mask_prompt(&app).mask(), "*.xtxt");
+    press(&mut app, KeyCode::Delete);
+    press(&mut app, KeyCode::Home);
+    press(&mut app, KeyCode::Delete);
+    press(&mut app, KeyCode::End);
+    press(&mut app, KeyCode::Backspace);
+    assert_eq!(mask_prompt(&app).mask(), ".xx");
+}
+
+/// On a button, Left and Right walk the buttons, as in Far's dialogs.
+#[test]
+fn on_a_button_left_and_right_walk_the_buttons() {
+    for code in [KeyCode::Left, KeyCode::Right] {
+        let (mut app, _dir) = app_over(&[]);
+        open_mask(&mut app, "*");
+        press(&mut app, KeyCode::Tab);
+        press(&mut app, code);
+        assert!(!mask_prompt(&app).on_cancel(), "{code:?} went back to OK");
     }
 }
 
@@ -186,7 +240,7 @@ fn backspace_edits_the_mask() {
     let (mut app, _dir) = app_over(&[]);
     app.set_overlay(Overlay::MaskPrompt(MaskPrompt::new(
         MaskPurpose::Select,
-        "*.rs".to_owned(),
+        "*.rs",
     )));
     press(&mut app, KeyCode::Backspace);
     let Overlay::MaskPrompt(prompt) = &app.overlay else {
@@ -334,16 +388,44 @@ fn left_and_right_walk_the_bar_in_both_directions() {
     assert_eq!(menu_of(&app).heading, Heading::Files);
 }
 
-/// Opening a panel's own menu makes that panel active, because every row in it
-/// acts on "the active panel".
+/// Walking the bar past a panel's heading only shows its menu: the active
+/// panel stays put, so a Files or Commands row still acts on the panel the
+/// user was in when F9 was pressed, and Esc leaves everything as it was.
 #[test]
-fn walking_onto_a_panel_heading_selects_that_panel() {
+fn walking_across_a_panel_heading_keeps_the_active_panel() {
     let (mut app, _dir) = app_over(&[]);
-    app.active_panel = PanelSide::Left;
-    open_menu(&mut app, Heading::Options);
+    app.active_panel = PanelSide::Right;
+    open_menu(&mut app, Heading::Right);
 
     press(&mut app, KeyCode::Right);
-    assert_eq!(menu_of(&app).heading, Heading::Right);
+    assert_eq!(menu_of(&app).heading, Heading::Left);
+    press(&mut app, KeyCode::Right);
+    assert_eq!(menu_of(&app).heading, Heading::Files);
+    assert_eq!(app.active_panel, PanelSide::Right, "walked past Left");
+
+    press(&mut app, KeyCode::Left);
+    press(&mut app, KeyCode::Esc);
+    assert_eq!(
+        app.active_panel,
+        PanelSide::Right,
+        "Esc on the Left heading"
+    );
+}
+
+/// A row of the Left or Right menu acts on its own panel. The keys behind
+/// those rows follow the active panel, so choosing one — and only choosing
+/// one — makes that panel active.
+#[test]
+fn choosing_a_row_under_a_panel_heading_makes_that_panel_active() {
+    let (mut app, _dir) = app_over(&[]);
+    app.active_panel = PanelSide::Left;
+    open_menu(&mut app, Heading::Right);
+    assert_eq!(app.active_panel, PanelSide::Left, "only the menu is open");
+
+    press(&mut app, KeyCode::Enter);
+
+    assert!(!app.overlay.is_active());
+    assert!(app.pending_key.is_some(), "the row's key is handed on");
     assert_eq!(app.active_panel, PanelSide::Right);
 }
 
@@ -434,7 +516,7 @@ fn a_key_the_name_or_mask_dialog_has_no_use_for_changes_nothing() {
 
     app.set_overlay(Overlay::MaskPrompt(MaskPrompt::new(
         MaskPurpose::Select,
-        "*".to_owned(),
+        "*",
     )));
     press(&mut app, KeyCode::Insert);
     let Overlay::MaskPrompt(prompt) = &app.overlay else {

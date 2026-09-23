@@ -3,7 +3,7 @@
 use ratatui::{buffer::Buffer, Terminal};
 use tempfile::TempDir;
 
-use crate::models::{App, CleanupField, FileSize, Overlay};
+use crate::models::{App, CleanupField, CleanupKind, DiskCleanupDialog, FileSize, Overlay};
 use crate::test_support::disk_cleanup::{app, candidate};
 use crate::test_support::{buffer_text, WritableTestBackend};
 use crate::ui::{palette, Cells};
@@ -38,15 +38,16 @@ fn checklist_shows_sizes_pending_measurement_and_dimmed_missing_rows() {
     let mut app = app(temp.path(), vec![selected, missing, pending]);
     let terminal = draw(&mut app);
     let text = buffer_text(&terminal);
+    let path = temp.path().display();
     for label in [
-        "Disk Cleanup",
-        "[x] Selected  [7 B]",
-        "[ ] Missing  [not found]",
-        "Pending  [measuring…]",
-        "Clean up",
-        "Cancel",
+        "Disk Cleanup".to_owned(),
+        format!("[x] Selected ({path})  [7 B]"),
+        format!("[ ] Missing ({path})  [not found]"),
+        format!("Pending ({path})  [measuring…]"),
+        "Clean up".to_owned(),
+        "Cancel".to_owned(),
     ] {
-        assert!(text.contains(label), "missing {label}: {text}");
+        assert!(text.contains(&label), "missing {label}: {text}");
     }
     let buffer = terminal.backend().buffer();
     assert_eq!(
@@ -72,5 +73,28 @@ fn button_focus_moves_without_highlighting_the_checklist() {
         let buffer = terminal.backend().buffer();
         assert_eq!(buffer[locate(buffer, label)].bg, palette::DIALOG_FOCUS_BG);
         assert_ne!(buffer[locate(buffer, "Cache")].bg, palette::DIALOG_FOCUS_BG);
+    }
+}
+
+/// Each row names the folder it measures and deletes, so a label can never
+/// promise `~/.cache/pip` while the dialog scans somewhere else.
+#[test]
+fn every_default_row_shows_the_path_it_scans() {
+    let temp = TempDir::new().unwrap();
+    let rows = DiskCleanupDialog::new().candidates;
+    let mut app = app(temp.path(), rows.clone());
+    let text = buffer_text(&draw(&mut app));
+    for row in &rows {
+        let scanned = if row.kind == CleanupKind::HeapDumps {
+            row.path.join("*.hprof")
+        } else {
+            row.path.clone()
+        };
+        let scanned = scanned.display().to_string();
+        assert!(
+            text.contains(&scanned),
+            "{} does not show {scanned}: {text}",
+            row.label
+        );
     }
 }

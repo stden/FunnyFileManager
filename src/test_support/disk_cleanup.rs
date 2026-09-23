@@ -20,7 +20,7 @@ pub fn candidate(label: &'static str, path: &Path) -> CleanupCandidate {
 pub fn heap_dumps(path: &Path) -> CleanupCandidate {
     CleanupCandidate {
         kind: CleanupKind::HeapDumps,
-        ..candidate("JVM heap dumps (*.hprof)", path)
+        ..candidate("JVM heap dumps", path)
     }
 }
 

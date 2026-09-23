@@ -309,11 +309,11 @@ fn the_search_helpers_do_nothing_without_an_editor() {
     app.set_overlay(Overlay::Help);
 
     assert!(
-        !super::process_search_prompt(&mut app, KeyCode::Enter),
+        !process_search_prompt(&mut app, KeyCode::Enter, KeyModifiers::empty()),
         "no editor, so the prompt handled nothing"
     );
-    super::repeat_search(&mut app);
-    super::run_search(
+    repeat_search(&mut app);
+    run_search(
         &mut app,
         crate::search::Search {
             needle: crate::search::Needle::new("x").expect("non-empty"),
@@ -330,7 +330,7 @@ fn the_search_helpers_do_nothing_without_an_editor() {
 fn the_search_prompt_handler_does_nothing_while_no_dialog_is_up() {
     let mut app = editing("hello");
     assert!(
-        !super::process_search_prompt(&mut app, KeyCode::Enter),
+        !process_search_prompt(&mut app, KeyCode::Enter, KeyModifiers::empty()),
         "the editor is open but the dialog is not"
     );
 }
@@ -340,7 +340,7 @@ fn the_search_prompt_handler_does_nothing_while_no_dialog_is_up() {
 #[test]
 fn repeating_a_search_that_never_happened_opens_the_dialog() {
     let mut app = editing("hello world");
-    super::repeat_search(&mut app);
+    repeat_search(&mut app);
 
     let editor = app.get_editor().expect("editor");
     assert!(
@@ -390,4 +390,103 @@ fn search_field(app: &App) -> SearchField {
         .as_ref()
         .expect("dialog")
         .field
+}
+
+// ─── the "not found" box is modal ───────────────────────────────────────────
+
+/// Open `content`, search for something it does not hold, and return the app
+/// with the "not found" box on screen.
+fn after_a_failed_search(content: &str) -> App {
+    let mut app = editing(content);
+    press(&mut app, KeyCode::F(7));
+    type_text(&mut app, "zzz");
+    press(&mut app, KeyCode::Enter);
+    assert!(editor(&app).search.not_found.is_some(), "test setup");
+    app
+}
+
+/// The box is Far's modal warning: the key that dismisses it is spent on it.
+/// Enter used to split the line, Esc closed the editor and a letter was typed
+/// into the file, because the key fell through to the editor keymap.
+#[test]
+fn the_key_that_dismisses_the_not_found_box_never_reaches_the_document() {
+    for code in [
+        KeyCode::Enter,
+        KeyCode::Esc,
+        KeyCode::F(10),
+        KeyCode::Char('k'),
+    ] {
+        let mut app = after_a_failed_search("alpha\nbeta");
+
+        press(&mut app, code);
+
+        let editor = app
+            .get_editor()
+            .unwrap_or_else(|| panic!("{code:?} closed the editor"));
+        assert!(
+            editor.search.not_found.is_none(),
+            "{code:?} dismissed the box"
+        );
+        assert_eq!(
+            editor.lines,
+            ["alpha", "beta"],
+            "{code:?} left the text alone"
+        );
+        assert!(
+            !editor.state.is_modified(),
+            "{code:?} left the buffer clean"
+        );
+        assert_eq!(caret(&app), (0, 0), "{code:?} left the caret alone");
+    }
+}
+
+/// Text arriving while the box is up is no more the document's than a key is:
+/// neither a terminal paste nor a batched burst of typing may slip past it.
+#[test]
+fn a_paste_while_the_not_found_box_is_up_does_not_reach_the_document() {
+    let mut app = after_a_failed_search("alpha");
+
+    assert!(
+        !editor(&app).accepts_text(),
+        "the box owns the input, so typing is not batched into the buffer"
+    );
+    super::editor::paste_text(&mut app, "pasted");
+
+    assert_eq!(editor(&app).lines, ["alpha"]);
+    assert!(!editor(&app).state.is_modified());
+}
+
+// ─── chords in the search prompt ────────────────────────────────────────────
+
+/// Crossterm reports Ctrl+A as `Char('a')` with CONTROL, so the letter used to
+/// land in the query. Chords are commands, never text, as in every other
+/// prompt.
+#[test]
+fn control_and_alt_chords_do_not_type_into_the_query() {
+    let mut app = editing("hello");
+    press(&mut app, KeyCode::F(7));
+    type_text(&mut app, "zz");
+
+    for (ch, modifiers) in [
+        ('a', KeyModifiers::CONTROL),
+        ('v', KeyModifiers::CONTROL),
+        ('s', KeyModifiers::CONTROL),
+        ('x', KeyModifiers::ALT),
+    ] {
+        process_popup_input(&mut app, KeyEvent::new(KeyCode::Char(ch), modifiers));
+    }
+
+    let prompt = editor(&app)
+        .search
+        .prompt
+        .clone()
+        .expect("dialog still open");
+    assert_eq!(prompt.query, "zz");
+    press_shift(&mut app, KeyCode::Char('Q'));
+    let prompt = editor(&app)
+        .search
+        .prompt
+        .clone()
+        .expect("dialog still open");
+    assert_eq!(prompt.query, "zzQ", "Shift is how capitals are typed");
 }

@@ -84,6 +84,31 @@ fn drive_menu_enter_opens_the_highlighted_drive() {
     );
 }
 
+/// The drive's "current folder" is the panel's, and that folder may have been
+/// deleted: the drive then opens at the nearest folder above it that exists,
+/// instead of failing with "No such file or directory".
+#[test]
+fn a_drive_whose_current_folder_was_deleted_opens_at_the_nearest_existing_one() {
+    let temp = TempDir::new().expect("temp dir");
+    let inner = temp.path().join("gone").join("inner");
+    std::fs::create_dir_all(&inner).expect("mkdir");
+    let left = Panel::new(inner).expect("panel");
+    let right = Panel::new(temp.path().to_path_buf()).expect("panel");
+    let mut app = App::with_panels(left, right);
+    std::fs::remove_dir_all(temp.path().join("gone")).expect("rm");
+    let root = temp
+        .path()
+        .ancestors()
+        .last()
+        .expect("absolute")
+        .to_path_buf();
+
+    let status = select_drive(&mut app, PanelSide::Left, DriveEntry::Local(root));
+
+    assert_eq!(status, Status::ChangedTo(temp.path().to_path_buf()));
+    assert_eq!(app.left_panel.path, temp.path());
+}
+
 /// Picking a readable local drive reloads the panel there and reports the path.
 #[test]
 fn selecting_a_local_drive_moves_the_panel_and_reports_the_new_path() {

@@ -399,6 +399,24 @@ fn test_execute_command_bookmark_go_0_set_then_navigate() -> io::Result<()> {
     Ok(())
 }
 
+/// `bookmark set` writes the slot where the next run's `bookmark go` reads it.
+#[test]
+fn bookmark_set_survives_a_restart() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let data = temp.path().join("data");
+    let _xdg = crate::test_support::EnvVarGuard::set("XDG_DATA_HOME", &data);
+    let dir = temp.path().to_path_buf();
+    let mut app = App::with_panels(Panel::new(dir.clone())?, Panel::new(dir)?);
+    app.bookmarks = crate::models::Bookmarks::load();
+
+    execute_command(&mut app, "bookmark set 3")?;
+
+    let restarted = crate::models::Bookmarks::load();
+    let slot = BookmarkSlot::new(3).expect("slot");
+    assert_eq!(restarted.get(slot), Some(temp.path()));
+    Ok(())
+}
+
 // --- Viewer with single line ---
 
 #[test]

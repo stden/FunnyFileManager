@@ -266,3 +266,34 @@ fn the_cursor_stays_on_the_described_entry_after_the_relist() {
         Some("z.txt")
     );
 }
+
+/// A directory that keeps its descriptions in a lowercase `descript.ion`, as
+/// Far writes it: Ctrl+Z offers the line that is already there, Enter rewrites
+/// that same file, and the Descriptions view shows the new text.
+#[test]
+fn ctrl_z_edits_a_lowercase_descript_ion_in_place() {
+    let temp = TempDir::new().expect("temp");
+    fs::write(temp.path().join("a.txt"), "").expect("a.txt");
+    fs::write(temp.path().join("descript.ion"), "a.txt Old\n").expect("descript.ion");
+    let mut app = App::with_panels(
+        Panel::new(temp.path().to_path_buf()).expect("left"),
+        Panel::new(temp.path().to_path_buf()).expect("right"),
+    );
+    let view = crate::models::PanelView::Descriptions;
+    crate::ops::panel_details::set_view(app.get_active_panel(), view).expect("view");
+    assert!(app.get_active_panel().select_named("a.txt"));
+
+    open(&mut app);
+    assert_eq!(prompt(&app).text(), "Old");
+    type_text(&mut app, " and new");
+    accept(&mut app);
+
+    assert_eq!(
+        fs::read_to_string(temp.path().join("descript.ion")).expect("descript.ion"),
+        "a.txt Old and new\n"
+    );
+    assert!(!temp.path().join("Descript.ion").exists());
+    let shown = &app.get_active_panel_ref().details.descriptions["a.txt"];
+    assert_eq!(shown, "Old and new", "the view shows the edit");
+    assert_eq!(described(&app, "a.txt").as_deref(), Some("Old and new"));
+}

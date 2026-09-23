@@ -13,7 +13,11 @@ keyboard controls, persistence, and platform behavior.
 
 ## Panels
 
-Left and Right configure their respective panel. Brief, Medium, Full and Wide
+Left and Right configure their respective panel. Walking the bar across
+their headings (arrows, a click on the heading, Esc) never changes the active
+panel, so Files and Commands rows keep acting on the panel F9 was pressed in;
+choosing a row of the Left or Right menu makes that panel active first,
+because the keys behind those rows act on the active panel. Brief, Medium, Full and Wide
 are one table layout (`src/ui/panel.rs`): Brief and Medium flow the names down
 three and two columns, Full shows name/size/date/time and Wide name/size. Each
 column is titled, ruled and closed on the divider, and the info row adds the
@@ -21,8 +25,12 @@ current entry's size, date and time that the view leaves out. In Brief and
 Medium `Left`/`Right` move the cursor a column and the mouse maps clicks through
 the same geometry (`ui::stripe_at`). Detailed adds byte sizes and timestamps; Alternative full shows names
 and readable sizes. Description modes read the configured description sidecar;
-Long descriptions reserves more width for that text. Owners and Links show
-cached filesystem ownership and link information, refreshed during navigation.
+Long descriptions reserves more width for that text. As in Far, the sidecar's
+name ignores letter case: `descript.ion`, `Descript.ion` and `DESCRIPT.ION` are
+one file for these views, the Descriptions sort and Describe (`src/description.rs`).
+Owners and Links show cached filesystem ownership and link information,
+refreshed during navigation; on Unix the owner is `user:group` by name, with
+the number for an id that has no passwd or group entry.
 
 `Ctrl+T` turns the active panel into a folder tree, rooted at the filesystem root and opened on that panel's folder. Enter turns it back into a file panel there. Folders are listed as they are opened. Quick view (Ctrl+Q) turns the
 passive panel into a preview of the entry under the active cursor — a text file
@@ -63,26 +71,26 @@ with their shortcuts. Additional operations are:
 | Item | Behavior |
 |------|----------|
 | Link | One selected file becomes a hard link; directories use symbolic links. Existing destinations are refused. Directory links may require host privileges. |
-| Wipe | F8-style confirmation (Y/Enter wipes, N/Esc/F10 cancels); each file is overwritten with zeros, truncated, renamed to a temporary name and removed. Directories recurse; symlinks are unlinked, never followed. This does not guarantee erasure from SSDs, snapshots, or backups. |
+| Wipe | F8-style confirmation (Y/Enter wipes, N/Esc/F10 cancels); each file is overwritten with zeros, truncated, renamed to a temporary name and removed. Directories recurse; symlinks are unlinked, never followed; pipes, sockets and devices are never opened, only unlinked. A file with other hard links is only unlinked too (its data belongs to the other names), and the status bar says so. This does not guarantee erasure from SSDs, snapshots, or backups. |
 | Add to archive | Far's dialog: name, format (tar.gz / tar / zip where `zip` is installed), "Delete files after archiving". Runs the host `tar` or `zip`; an existing archive is never overwritten. |
-| Extract | Far's dialog for every marked archive, into the other panel by default (created if missing). Traversal paths, links and special archive members are refused. |
+| Extract | Far's dialog for every marked archive, into the other panel by default (created if missing). Traversal paths, links and special archive members are refused. Each archive unpacks into a private folder first and moves in only if nothing in the destination would be replaced or written through a link; otherwise it is refused and nothing is extracted (existing folders are merged into). |
 | Archive commands | Test archive, List contents, Extract here, Extract to other panel, Add selected files to this archive. |
 | Attributes | Changes read-only/writable status; Unix also accepts octal permissions. |
-| Apply command | Runs a shell template once per selected entry in panel order with [Far substitutions](apply-command.md): filenames and native short names, paths, panel prefixes and temporary selection lists. Every run is echoed into the Ctrl+O console; processed entries are unmarked and Ctrl+M restores the selection. |
-| Describe | Updates the configured description sidecar while retaining other entries. |
-| Find file/folder | Recursive name-mask search with configurable entry and depth limits. |
+| Apply command | Runs a shell template once per selected entry in panel order with [Far substitutions](apply-command.md): filenames and native short names, paths, panel prefixes and temporary selection lists. Every run is echoed into the Ctrl+O console; processed entries are unmarked and Ctrl+M restores the selection. Names are inserted unescaped, as in Far, so a crafted file name can run commands; the dialog warns ([details](apply-command.md#names-are-not-escaped)). |
+| Describe | Updates the directory's existing description sidecar, whatever its letter case, while retaining other entries; creates the first configured name when there is none. |
+| Find file/folder | Recursive name-mask search with configurable entry and depth limits. Folders that cannot be read are skipped; the status line says how many, and the matches found elsewhere are still listed. |
 | Command history | Copies the selected command into the command line for review and execution. |
-| File/folder history | Reopens a viewed file or previously visited directory. |
-| Video mode | Requests 25 or 50 terminal rows, retaining width; host-terminal support is required. |
+| File/folder history | Reopens a viewed file or previously visited directory. The file list is the persisted view history (`view_history` in the data directory, newest first), so files viewed or edited with F3, F4 or Alt+F4 in earlier sessions are listed too. |
+| Video mode | Requests 25 rows from a terminal taller than 30, else 50, retaining width, then reports in the status bar the height the terminal has after up to 300 ms: `Video mode: 25 rows`, or `Video mode: asked for 25 rows, the terminal has 40` when the terminal ignores the request (tmux and most terminal tabs do). |
 | Compare folders | Marks missing or different-sized files in both panels; this is not a recursive content comparison. |
-| Edit user menu / associations | Opens configuration text in the built-in editor. |
+| Edit user menu / associations | Opens configuration text in the built-in editor, where Tab types the TAB separator the format needs. |
 | Folder shortcuts | Opens a saved bookmark; `:bookmark set N` creates one. |
 | Panel filter | Filters files by mask; directories remain available for navigation. |
 | Screens | Chooses file panels or console transcript. F9 from the console returns to panels and opens the menu. |
 | Tasks / hotplug devices | Shows host process information or currently mounted drives. |
 | Plugin commands | Opens the existing MCP status interface. |
 
-The table describes the F9 row, which runs `ops/menu`. The matching hotkey does not always take that path. Alt+F8, Alt+F9, Alt+F10, Alt+F11, Alt+F12, Ctrl+I, F12, and Ctrl+W still open a placeholder frame (`src/ui/stub.rs`). Choosing the same name from F9 performs the operation. Alt+F7 opens the real Find file dialog. See [overlays](../../06-ui-and-interaction/overlays-and-modals.md).
+The F9 row and its shortcut call the same `ops/menu` operation. Alt+F7 opens the Find file dialog, whose containing-text field narrows the name search. See [overlays](../../06-ui-and-interaction/overlays-and-modals.md).
 
 User-menu files contain `Label<TAB>command` lines. Association files contain
 `extension<TAB>command`; extension matching ignores case and `{}` expands to
@@ -98,7 +106,7 @@ validates and applies it. Escape cancels when enabled; F10 always cancels.
 |---------------|-------------------|
 | System / Tree | Maximum visited search entries / recursion depth |
 | Panel / Interface | Hidden-file visibility / menu clock |
-| Languages | English or a JSON dictionary mapping menu row labels, including `&` mnemonic markers, to translated text |
+| Languages | English or the path of a JSON dictionary mapping menu row labels, including `&` mnemonic markers, to translated text; it must be a regular file of at most 1 MiB (a FIFO or device is refused unopened) |
 | Plugins configuration | Additional command offered from the user menu |
 | Plugins manager | Shell/plugin command timeout |
 | Dialog / Menu | Escape dismissal / wrapping row navigation |
@@ -108,7 +116,7 @@ validates and applies it. Escape cancels when enabled; F10 always cancels.
 | Confirmations | Delete confirmation |
 | File panel modes | Default panel view |
 | File / Folder descriptions | Sidecar filename / candidate folder-description filenames |
-| Viewer / Editor | Tab display width / inserted indentation width |
+| Viewer / Editor | Tab display width / editor tab size (TAB display width and spaces inserted by Tab) |
 | Code pages | Encoding for new files |
 | Colors / Highlighting | Panel background / file-type colors |
 | Save setup | Atomically persists settings for future sessions |

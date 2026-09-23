@@ -1,6 +1,6 @@
 //! Shell command execution.
 
-use std::io::Read;
+use std::io::{Read, Write};
 use std::process::{Child, Command, Output, Stdio};
 use std::sync::mpsc::{self, Receiver};
 use std::time::{Duration, Instant};
@@ -12,6 +12,9 @@ use crate::command::ShellCommand;
 
 #[cfg(windows)]
 mod console;
+mod error;
+
+pub(crate) use error::ShellError;
 
 /// Start an interactive shell without waiting for it or sharing the TUI's I/O.
 pub(super) fn spawn_console(command: &ShellCommand, current_dir: &Path) -> io::Result<()> {
@@ -43,7 +46,7 @@ const POLL_INTERVAL: Duration = Duration::from_millis(50);
 
 /// Minimum time the pipe readers get once the shell has exited, so a command
 /// that finishes right on the deadline still reports what it printed.
-const DRAIN_GRACE: Duration = Duration::from_millis(200);
+pub(super) const DRAIN_GRACE: Duration = Duration::from_millis(200);
 
 /// Pipe read granularity. Output is forwarded in chunks rather than read to
 /// EOF, so an abandoned reader still leaves everything it already sent usable.
@@ -54,7 +57,7 @@ pub(crate) const fn windows_shell_args(command: &str) -> [&str; 3] {
     ["/D", "/C", command]
 }
 
-pub(crate) fn run_shell_command(command: &str, current_dir: &Path) -> io::Result<Output> {
+pub(crate) fn run_shell_command(command: &str, current_dir: &Path) -> Result<Output, ShellError> {
     run_shell_command_with_timeout(command, current_dir, SHELL_TIMEOUT)
 }
 
@@ -64,8 +67,20 @@ pub(crate) fn run_shell_command_with_timeout(
     command: &str,
     current_dir: &Path,
     timeout: Duration,
-) -> io::Result<Output> {
-    let mut child = spawn_shell(command, current_dir)?;
+) -> Result<Output, ShellError> {
+    run_until(command, current_dir, timeout, cancel_requested)
+}
+
+/// [`run_shell_command_with_timeout`], asking `cancel_requested` rather than
+/// the keyboard whether the user wants it stopped.
+fn run_until(
+    command: &str,
+    current_dir: &Path,
+    timeout: Duration,
+    mut cancel_requested: impl FnMut() -> bool,
+) -> Result<Output, ShellError> {
+    let mut child = spawn_shell(command, current_dir)
+        .map_err(|error| ShellError::launching_in(current_dir, error))?;
     // Drain both pipes on their own threads: a child that fills the pipe buffer
     // (64 KiB on Linux) would block on write and look exactly like a hang.
     let stdout = drain(child.stdout.take());
@@ -73,21 +88,15 @@ pub(crate) fn run_shell_command_with_timeout(
 
     let deadline = Instant::now() + timeout;
     let status = loop {
-        if let Some(status) = child.try_wait()? {
+        if let Some(status) = child.try_wait().map_err(ShellError::Launch)? {
             break status;
         }
-        if Instant::now() >= deadline || cancel_requested() {
+        if let Some(reason) = stop_reason(deadline, timeout, &mut cancel_requested) {
             // Killing the whole group closes the pipe write ends the
             // grandchildren inherited, so the readers below reach EOF and end
             // on their own instead of blocking for the rest of their lifetime.
             kill_shell_tree(&mut child);
-            return Err(io::Error::new(
-                io::ErrorKind::TimedOut,
-                format!(
-                    "timed out after {}s (Esc stops it sooner)",
-                    timeout.as_secs()
-                ),
-            ));
+            return Err(reason);
         }
         std::thread::sleep(POLL_INTERVAL);
     };
@@ -108,8 +117,23 @@ pub(crate) fn run_shell_command_with_timeout(
     })
 }
 
+/// Why a still-running command has to be stopped now, if it has to.
+///
+/// Two reasons, kept apart: a user who pressed Esc one second in must not be
+/// told the command ran out of time.
+fn stop_reason(
+    deadline: Instant,
+    timeout: Duration,
+    cancel_requested: &mut impl FnMut() -> bool,
+) -> Option<ShellError> {
+    if Instant::now() >= deadline {
+        return Some(ShellError::TimedOut(timeout));
+    }
+    cancel_requested().then_some(ShellError::Cancelled)
+}
+
 /// Gather forwarded chunks until the reader finishes or `deadline` passes.
-fn collect_until(chunks: &Receiver<Vec<u8>>, deadline: Instant) -> Vec<u8> {
+pub(super) fn collect_until(chunks: &Receiver<Vec<u8>>, deadline: Instant) -> Vec<u8> {
     let mut collected = Vec::new();
     loop {
         let remaining = deadline.saturating_duration_since(Instant::now());
@@ -169,32 +193,13 @@ fn spawn_shell(command: &str, current_dir: &Path) -> io::Result<Child> {
 
 /// Tear down a timed-out / cancelled shell, including Unix grandchildren.
 fn kill_shell_tree(child: &mut Child) {
+    // The shell leads its own group (set in `spawn_shell`), and killing a
+    // whole group has no std equivalent. It is not reaped yet, so its id
+    // cannot name a stranger's group.
     #[cfg(unix)]
-    {
-        // Negative pid = process group (set in `spawn_shell` via setpgid).
-        // `Child::id` is the real PID of a process we spawned, so it is
-        // strictly positive on every Unix (pid_max caps far below i32::MAX);
-        // the assert keeps the group kill below provably safe instead of
-        // silently skipping it on an impossible value.
-        let pid = child.id().cast_signed();
-        assert!(pid > 0, "spawned child pid must be positive, got {pid}");
-        unsafe {
-            libc_kill(-pid, 9); // SIGKILL whole group
-        }
-    }
+    let _ = crate::platform::kill_process_group(child);
     let _ = child.kill();
     let _ = child.wait();
-}
-
-// Minimal libc binding so we do not pull in the `libc` crate for one call —
-// `setpgid` is covered by `Command::process_group`, but killing a whole group
-// has no std equivalent.
-#[cfg(unix)]
-unsafe fn libc_kill(pid: i32, sig: i32) -> i32 {
-    unsafe extern "C" {
-        fn kill(pid: i32, sig: i32) -> i32;
-    }
-    unsafe { kill(pid, sig) }
 }
 
 /// Read a child pipe on a background thread, forwarding it chunk by chunk.
@@ -205,12 +210,28 @@ unsafe fn libc_kill(pid: i32, sig: i32) -> i32 {
 /// receiver is gone, so an abandoned reader costs one blocked read, not a
 /// permanently spinning thread.
 fn drain<R: Read + Send + 'static>(source: Option<R>) -> Receiver<Vec<u8>> {
+    drain_echoing(source, io::sink())
+}
+
+/// [`drain`], also copying each chunk to `echo` as it arrives, so a program
+/// that owns the terminal still shows its messages live while the caller gets
+/// to keep them.
+pub(super) fn drain_echoing<R, W>(source: Option<R>, mut echo: W) -> Receiver<Vec<u8>>
+where
+    R: Read + Send + 'static,
+    W: Write + Send + 'static,
+{
     let (sender, receiver) = mpsc::channel();
     std::thread::spawn(move || {
         let Some(mut source) = source else { return };
         let mut chunk = vec![0_u8; CHUNK_SIZE];
         while let Ok(read) = source.read(&mut chunk) {
-            if read == 0 || sender.send(chunk[..read].to_vec()).is_err() {
+            if read == 0 {
+                return;
+            }
+            // Best effort: a lost echo leaves the kept copy intact.
+            let _ = echo.write_all(&chunk[..read]).and_then(|()| echo.flush());
+            if sender.send(chunk[..read].to_vec()).is_err() {
                 return;
             }
         }
@@ -240,3 +261,6 @@ pub(super) fn is_cancel_event(event: &Event) -> bool {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod tests_outcomes;

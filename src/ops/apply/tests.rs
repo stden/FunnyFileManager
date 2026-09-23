@@ -141,7 +141,8 @@ fn a_shell_that_will_not_start_is_recorded_as_an_error() {
     let mut app = app_at(&dir);
     // The entries were read from a real directory; the run then happens in
     // one that is gone, which no shell can be started in.
-    app.get_active_panel().path = dir.path().join("gone");
+    let gone = dir.path().join("gone");
+    app.get_active_panel().path = gone.clone();
     run(&mut app, "echo hi");
 
     let lines: Vec<_> = app.console.visible(10).into_iter().cloned().collect();
@@ -149,8 +150,13 @@ fn a_shell_that_will_not_start_is_recorded_as_an_error() {
         matches!(&lines[0], ConsoleLine::Command(echo) if echo.ends_with("> echo hi")),
         "{lines:?}"
     );
+    // The folder is what is missing, not `echo`: the reason says so.
+    let reason = format!(
+        "cannot run 'echo hi': folder {} no longer exists",
+        gone.display()
+    );
     assert!(
-        matches!(&lines[1], ConsoleLine::Error(why) if why.starts_with("cannot run 'echo hi': ")),
+        matches!(&lines[1], ConsoleLine::Error(why) if *why == reason),
         "{lines:?}"
     );
     assert_eq!(status_text(&app), "Apply command: 1 of 1 failed");

@@ -96,7 +96,7 @@ fn test_new_file_already_exists() -> io::Result<()> {
 #[test]
 fn test_run_shell_command_basic() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let output = run_shell_command("echo test123", temp.path())?;
+    let output = run_shell_command("echo test123", temp.path()).map_err(io::Error::other)?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("test123"));
     Ok(())

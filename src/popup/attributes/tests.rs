@@ -160,18 +160,18 @@ fn typing_edits_the_focused_time_field() {
     while dialog(&app).field != AttributesField::Accessed {
         process_popup_input(&mut app, key(KeyCode::Tab));
     }
-    let before = dialog(&app).accessed.clone();
+    let before = dialog(&app).accessed.current.clone();
     process_popup_input(&mut app, key(KeyCode::Char('7')));
-    assert_eq!(dialog(&app).accessed, format!("{before}7"));
+    assert_eq!(dialog(&app).accessed.current, format!("{before}7"));
     process_popup_input(&mut app, key(KeyCode::Backspace));
-    assert_eq!(dialog(&app).accessed, before);
+    assert_eq!(dialog(&app).accessed.current, before);
 
     // Ctrl+letter is a chord, not text.
     process_popup_input(
         &mut app,
         KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL),
     );
-    assert_eq!(dialog(&app).accessed, before);
+    assert_eq!(dialog(&app).accessed.current, before);
     assert!(app.overlay.is_active());
 }
 

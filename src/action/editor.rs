@@ -58,7 +58,12 @@ fn resolve_lsp(key: KeyEvent) -> Option<EditorCommand> {
     keymap! { key;
         KeyCode::Char(' ') if exact(CONTROL) => Some(EditorCommand::Lsp(LspFeature::Completion)),
         KeyCode::Char('k' | 'K') if exact(CONTROL) => Some(EditorCommand::Lsp(LspFeature::Hover)),
-        KeyCode::Char(']') if exact(CONTROL) => Some(EditorCommand::Lsp(LspFeature::Definition)),
+        // A terminal without the kitty protocol sends Ctrl+] as the byte it
+        // sends for Ctrl+5 (0x1D), which crossterm reports as Ctrl+5; the
+        // editor has no Ctrl+5 of its own.
+        KeyCode::Char(']' | '5') if exact(CONTROL) => {
+            Some(EditorCommand::Lsp(LspFeature::Definition))
+        },
         KeyCode::Char('r' | 'R') if exact(CONTROL + ALT) => Some(EditorCommand::RestartLsp),
         _ => None,
     }

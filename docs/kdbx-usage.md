@@ -86,6 +86,11 @@ Every save or `F8` deletion writes an encrypted `.bak` before replacing the
 database. `Ctrl+Z` in the browser restores the latest backup and refreshes the
 tree. Only one persisted change can be undone.
 
+A save, deletion or undo keeps the database file's permissions. A database you
+may not write — a 0444 file, or another user's — is refused with "The vault
+file is read-only for you: nothing was saved" before anything, the backup
+included, is written.
+
 ### Known limitation
 
 Key-file unlock is supported by the backend but cannot yet be selected from

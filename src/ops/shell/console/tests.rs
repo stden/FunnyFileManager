@@ -33,10 +33,12 @@ fn write_probe(directory: &Path) {
     .expect("console probe");
 }
 
+#[allow(unsafe_code)]
 fn wait_for_probe(process: &OwnedHandle) {
     // SAFETY: the owned handle stays live throughout these calls.
     let result = unsafe { WaitForSingleObject(process.as_raw_handle(), 15_000) };
     if result != WAIT_OBJECT_0 {
+        // SAFETY: the same live, owned process handle.
         unsafe { TerminateProcess(process.as_raw_handle(), 1) };
     }
     assert_eq!(result, WAIT_OBJECT_0, "console probe must finish");
@@ -69,7 +71,7 @@ fn new_console_has_its_own_io_and_receives_arguments_and_directory() {
     write_probe(&directory);
     let command = ShellCommand::new(r#"codex --model example "two words" "Привет мир" "a & b""#)
         .expect("command");
-    let mut startup = startup_info();
+    let mut startup = startup_info().expect("startup info");
     // Allocate the same independent console without flashing a test window.
     startup.dwFlags |= STARTF_USESHOWWINDOW;
     startup.wShowWindow = 0; // SW_HIDE
@@ -98,7 +100,7 @@ fn canonical_windows_directory_is_preserved_when_launching_codex() {
         probe.display()
     );
     let command = ShellCommand::new(&input).expect("command");
-    let mut startup = startup_info();
+    let mut startup = startup_info().expect("startup info");
     startup.dwFlags |= STARTF_USESHOWWINDOW;
     startup.wShowWindow = 0;
     let process = spawn_with_startup(&command, &canonical, &startup).expect("new console");

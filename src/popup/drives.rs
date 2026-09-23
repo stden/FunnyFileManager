@@ -74,14 +74,15 @@ fn select_drive(app: &mut App, side: PanelSide, drive: DriveEntry) -> Status {
 /// at the root: the left panel deep in a project, Alt+F2, the same drive, and
 /// the right panel shows the same folder. The active panel's folder counts
 /// first — it is the one being worked in — then the other panel's; a drive
-/// neither is on opens at `root`.
+/// neither is on opens at `root`. A panel folder deleted since counts as the
+/// nearest folder above it that still exists.
 fn drive_current_dir(app: &App, root: PathBuf) -> PathBuf {
     [app.get_active_panel_ref(), app.get_inactive_panel_ref()]
         .into_iter()
         .map(|panel| &panel.path)
         .find(|path| path.starts_with(&root))
-        .cloned()
-        .unwrap_or(root)
+        .and_then(|path| crate::directory::nearest_existing(path))
+        .map_or(root, std::path::Path::to_path_buf)
 }
 
 /// One step up the drive list, wrapping to the bottom at the top.

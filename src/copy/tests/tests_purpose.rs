@@ -160,3 +160,10 @@ fn the_link_choice_is_a_copying_choice() {
         "a move must keep the link it was given"
     );
 }
+
+/// The status line says what the key did.
+#[test]
+fn the_status_line_says_copied_or_moved() {
+    assert_eq!(Purpose::Copy.done(), "Copied");
+    assert_eq!(Purpose::Move.done(), "Moved");
+}

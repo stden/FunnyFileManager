@@ -160,7 +160,9 @@ The unlocked layer has its own `KdbxError` (`Locked`, `NoSelection`, `NoEdit`,
 never misreported as "entry not found". **No variant carries the master
 password.**
 
-Saves are atomic — see the note in `src/keepass.rs`.
+Saves are atomic — see the note in `src/keepass.rs` — and go through
+`src/file_write.rs`, shared with the F4 editor: a file this process may not
+write is refused, and the replacement keeps the original's permissions.
 
 ---
 

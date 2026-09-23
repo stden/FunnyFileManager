@@ -220,6 +220,7 @@ fn rename_collision_reports_already_exists_text() {
 }
 
 #[test]
+#[allow(unsafe_code)]
 fn lock_while_editing_drops_and_zeroizes_the_form() {
     let (_dir, mut session, now) = unlocked_sample();
     focus(&mut session, "GitHub", now);
@@ -279,8 +280,8 @@ fn cancel_edit_discards() {
 }
 #[test]
 fn saving_without_an_editable_form_never_changes_the_database() {
-    let (_directory, mut session, now) = super::tests_support::unlocked_sample();
-    let original = std::fs::read(&session.path).expect("original database");
+    let (_directory, mut session, now) = unlocked_sample();
+    let original = fs::read(&session.path).expect("original database");
     assert!(!session.save_edit(now), "no form is open");
     session.access = super::Access::View;
     assert!(!session.save_edit(now), "view mode refuses writes");
@@ -288,7 +289,7 @@ fn saving_without_an_editable_form_never_changes_the_database() {
     session.access = super::Access::Edit;
     assert!(!session.save_edit(now), "locked database refuses writes");
     assert_eq!(
-        std::fs::read(&session.path).expect("unchanged database"),
+        fs::read(&session.path).expect("unchanged database"),
         original
     );
 }
@@ -354,4 +355,33 @@ fn zz_probe_backspace_on_empty_notes_drops_the_undo() {
     form.backspace();
     assert!(!form.is_dirty(), "an empty-field backspace is not an edit");
     assert!(!form.undo(), "the discarded undo leaves nothing to restore");
+}
+
+/// A 0444 vault used to be replaced by the save (and left 0600). The save is
+/// now refused, and the form says why in words rather than as an I/O error.
+/// Root may write a read-only file, so the refusal is only observable without
+/// it.
+#[cfg(unix)]
+#[test]
+fn saving_into_a_read_only_vault_is_refused_on_the_form() {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    if crate::platform::is_root() {
+        return;
+    }
+    let (_dir, mut session, now) = unlocked_sample();
+    fs::set_permissions(&session.path, fs::Permissions::from_mode(0o444)).expect("chmod");
+    focus(&mut session, "GitHub", now);
+    session.begin_edit(now).expect("begin edit");
+    session.type_char('x', now);
+
+    assert!(!session.save_edit(now), "a read-only vault is not replaced");
+
+    let error = open_form(&session).error().expect("the refusal is shown");
+    assert!(error.contains("read-only"), "{error}");
+    let mode = fs::metadata(&session.path)
+        .expect("vault")
+        .permissions()
+        .mode();
+    assert_eq!(mode & 0o777, 0o444, "the vault keeps its mode");
 }

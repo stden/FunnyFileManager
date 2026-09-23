@@ -144,6 +144,9 @@ fn open_db(
 }
 
 /// Restore the single backup created by the latest successful KDBX write.
+///
+/// Refused, like a save, when this process may not write the vault; the
+/// restored vault keeps the vault's permissions, not the backup's 0600.
 pub(crate) fn restore_backup(db_path: &Path) -> Result<(), KeepassError> {
     let backup = PathBuf::from(format!("{}.bak", db_path.display()));
     if !backup.exists() {
@@ -152,15 +155,10 @@ pub(crate) fn restore_backup(db_path: &Path) -> Result<(), KeepassError> {
             "no KDBX change to undo",
         )));
     }
-    let dir = db_path
-        .parent()
-        .filter(|path| !path.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    let mut tmp = tempfile::NamedTempFile::new_in(dir)?;
-    std::io::copy(&mut std::fs::File::open(backup)?, tmp.as_file_mut())?;
-    tmp.as_file().sync_all()?;
-    tmp.persist(db_path)
-        .map_err(|error| KeepassError::Io(error.error))?;
+    crate::file_write::ensure_writable(db_path)?;
+    let bytes = std::fs::read(backup)?;
+    let temp = crate::file_write::temp_beside(db_path)?;
+    crate::file_write::persist_over(temp, db_path, &bytes)?;
     Ok(())
 }
 
@@ -168,21 +166,23 @@ pub(crate) fn restore_backup(db_path: &Path) -> Result<(), KeepassError> {
 /// `<db>.bak`, write to a co-located temp file, fsync, then atomically rename.
 /// The temp file shares the target's directory so the rename stays atomic
 /// (a cross-filesystem rename would not be).
+///
+/// The rename checks only the directory, so a vault this process may not
+/// write (0444, or another user's) is refused before anything is touched,
+/// and the temp file takes the vault's permissions so a save never changes
+/// them. The database is serialized first, so a serialization failure leaves
+/// the vault and its backup as they were.
 fn save_atomic(db: &Database, db_path: &Path, key: DatabaseKey) -> Result<(), KeepassError> {
-    let dir = db_path
-        .parent()
-        .filter(|p| !p.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
+    crate::file_write::ensure_writable(db_path)?;
+    let mut bytes = Vec::new();
+    db.save(&mut bytes, key)
+        .map_err(|e| KeepassError::Save(e.to_string()))?;
     if db_path.exists() {
         let backup = PathBuf::from(format!("{}.bak", db_path.display()));
         write_private_backup(db_path, &backup)?;
     }
-    let mut tmp = tempfile::NamedTempFile::new_in(dir)?;
-    db.save(tmp.as_file_mut(), key)
-        .map_err(|e| KeepassError::Save(e.to_string()))?;
-    tmp.as_file().sync_all()?;
-    tmp.persist(db_path)
-        .map_err(|e| KeepassError::Io(e.error))?;
+    let temp = crate::file_write::temp_beside(db_path)?;
+    crate::file_write::persist_over(temp, db_path, &bytes)?;
     Ok(())
 }
 
@@ -215,6 +215,8 @@ fn write_private_backup(src: &Path, dst: &Path) -> std::io::Result<()> {
 mod tests;
 #[cfg(test)]
 mod tests_external_vault;
+#[cfg(all(test, unix))]
+mod tests_permissions;
 
 #[cfg(test)]
 mod tests_read_errors;

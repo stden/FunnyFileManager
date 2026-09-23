@@ -71,6 +71,9 @@ serde_norway = { version = "0.9.42", optional = true }
 # Text clipboard for editor selection and optional vault password copying.
 # Image support is unused; disabling it avoids image codec build dependencies.
 arboard = { version = "3.6.1", default-features = false }
+sha2 = "0.11"
+flate2 = "1.1"
+tar = "0.4"
 
 [dev-dependencies]
 regex = "1"
@@ -82,6 +85,12 @@ futures = "0.3.34"
 aws-smithy-http-client = { version = "1.4.2", features = ["test-util"] }
 aws-smithy-types = "1.8.0"
 http_1x = { package = "http", version = "1.5.0" }
+# Architecture tests parse sources instead of matching text: tests/architecture/
+# (module boundaries) and tests/unsafe_boundary_test.rs (the unsafe allowlist).
+# Both crates are already in the lockfile through proc-macro dependencies;
+# `span-locations` gives the violations their line numbers.
+proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
+syn = { version = "2.0.119", features = ["full", "visit"] }
 
 [features]
 # Colorer is how the editor prefers to highlight, so it is on. The build script
@@ -276,44 +285,50 @@ codegen-units = 16
 [lints.rust]
 unfulfilled_lint_expectations = "deny"
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tarpaulin)", "cfg(coverage)"] }
+# Unsafe code lives only in reviewed platform/FFI boundaries: each one opts in
+# with an item-level `#[allow(unsafe_code)]`, and tests/unsafe_boundary_test.rs
+# keeps those items on an explicit file allowlist.
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "deny"
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
-# Allow common patterns used throughout the codebase
-module_name_repetitions = "allow"
-must_use_candidate = "allow"
-missing_errors_doc = "allow"
-missing_panics_doc = "allow"
-cast_possible_truncation = "allow"
-cast_sign_loss = "allow"
-cast_precision_loss = "allow"
-struct_excessive_bools = "allow"
+# Every unsafe block states why it is sound in a `// SAFETY:` comment.
+undocumented_unsafe_blocks = "deny"
 cognitive_complexity = "warn"
 excessive_nesting = "warn"
 too_many_lines = "warn"
-wildcard_imports = "allow"
-similar_names = "allow"
-option_if_let_else = "allow"
-items_after_test_module = "allow"
-# Test / cucumber ergonomics under `--all-targets` (pedantic noise, not bugs):
-# - Result-returning test helpers and trait stubs that always Ok for the trait
-# - cucumber step args taken by value / &mut World when the framework dictates the signature
-# - test helpers that could be const but are clearer as plain fns
-# - `_` match arms on single-variant enums kept open for future variants
-unnecessary_wraps = "allow"
-needless_pass_by_value = "allow"
-needless_pass_by_ref_mut = "allow"
+# Crate-wide allowances, each a deliberate style choice rather than a bug class.
+# Test-only ergonomics (unnecessary_wraps, needless_pass_by_value, ...) are
+# allowed in test scope only: src/lib.rs and the integration-test files that need them.
+# Module paths already namespace items; `panel::PanelState` reads better than `panel::State`.
+module_name_repetitions = "allow"
+# `#[must_use]` on every pure getter is noise; it is added where ignoring a result is a bug.
+must_use_candidate = "allow"
+# Errors are typed (`io::Error`, domain enums); an `# Errors` section per fn would repeat the type.
+missing_errors_doc = "allow"
+# const fn is an API promise, not a default.
 missing_const_for_fn = "allow"
-match_wildcard_for_single_variants = "allow"
+# Nursery style lint that fights `match` / `if let` readability.
+option_if_let_else = "allow"
 
-# Free space for the panel's footer, which has no std equivalent: `statvfs`
-# on Unix, `GetDiskFreeSpaceExW` on Windows. Already in the tree — crossterm
-# pulls libc through signal-hook — so declaring it costs no extra crate.
+# System calls std does not wrap. rustix covers the ones with a safe API
+# (uids, access checks, statvfs, process groups) and is what src/platform
+# uses; libc remains for poll(2), the passwd/group lookups and errno values.
+# Both are already in the tree through crossterm, so neither costs a crate.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.189"
-rustix = { version = "1.1.5", features = ["process"] }
+rustix = { version = "1.1.5", features = ["fs", "process"] }
+# Catches Ctrl+C / Ctrl+\ while a program owns the terminal, so the signal
+# stops that program and not FFM. Already in the tree through crossterm.
+signal-hook = "0.3.18"
+
+# The same crate, for `tests/pty_session_test.rs`: a real pseudo-terminal to
+# run the binary on, without an `unsafe` block in the test.
+[target.'cfg(unix)'.dev-dependencies]
+rustix = { version = "1.1.5", features = ["process", "pty", "termios"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = [

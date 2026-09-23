@@ -21,5 +21,6 @@ mod marking_and_panels;
 mod quick_search_debounce;
 mod quick_search_nav;
 mod replay_resize;
+mod restore_selection;
 mod run_lifecycle;
 mod selection_groups;

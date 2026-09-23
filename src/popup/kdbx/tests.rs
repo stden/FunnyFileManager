@@ -19,6 +19,7 @@ use crate::kdbx::KdbxSession;
 use crate::models::{App, KdbxOverlay, Overlay, Panel};
 use crate::popup::process_popup_input;
 
+mod errors;
 mod structure;
 
 /// Records every native-route write where the test can read it back out; the

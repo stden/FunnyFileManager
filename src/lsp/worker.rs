@@ -26,6 +26,7 @@ mod lifecycle;
 
 struct Connection {
     owner: DocumentId,
+    path: PathBuf,
     process: Process,
     client: Client,
     pending: Option<Snapshot>,
@@ -35,6 +36,7 @@ struct Connection {
 
 pub(super) fn run(commands: &Receiver<Command>, events: &SyncSender<Envelope>, stop: &AtomicBool) {
     let mut host = lifecycle::Host::default();
+    host.cache = super::install::cache_dir();
     while !stop.load(Ordering::Acquire) {
         while let Ok(command) = commands.try_recv() {
             host.command(command, events);
@@ -56,6 +58,7 @@ impl Connection {
         let process = Process::start(settings, root)?;
         Ok(Self {
             owner: snapshot.stamp.id,
+            path: snapshot.path.clone(),
             process,
             client: Client::new(language, root_uri),
             pending: Some(snapshot),
@@ -66,7 +69,8 @@ impl Connection {
 
     fn command(&mut self, command: Command) {
         match command {
-            Command::Update(snapshot) if snapshot.stamp.id == self.owner => {
+            Command::Update(mut snapshot) if snapshot.stamp.id == self.owner => {
+                snapshot.path.clone_from(&self.path);
                 self.pending = Some(snapshot);
                 self.query = None;
             }
@@ -201,7 +205,7 @@ fn report(events: &SyncSender<Envelope>, owner: DocumentId, event: Event) {
     let _ = events.send(Envelope(owner, event));
 }
 
-fn workspace_root(path: &Path, markers: &[String]) -> PathBuf {
+pub(super) fn workspace_root(path: &Path, markers: &[String]) -> PathBuf {
     let parent = path.parent().unwrap_or(path);
     parent
         .ancestors()

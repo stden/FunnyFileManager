@@ -68,6 +68,6 @@ fn oversized_and_non_utf8_headers_are_rejected_without_reading_a_body() {
         b"\xff: value\r\nContent-Length: 2\r\n\r\n{}".to_vec(),
         b"broken header\r\n\r\n".to_vec(),
     ] {
-        assert!(super::super::transport::read_frame(&mut frame.as_slice()).is_err());
+        assert!(read_frame(&mut frame.as_slice()).is_err());
     }
 }

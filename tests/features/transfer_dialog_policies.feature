@@ -67,8 +67,19 @@ Feature: Transfer dialog policies
     Given a file "notes.txt" with content "field notes" in the source
     And the app is set up with source and destination
     And I select "notes.txt" in the active panel
-    When I copy the selection through F5 to relative destination "archive/2026"
+    When I copy the selection through F5 to relative destination "archive/2026/"
     Then "archive/2026/notes.txt" in the source should have content "field notes"
+    And "notes.txt" should not exist in the destination
+
+  # Far's rule: a destination that is not an existing folder and does not end
+  # in a separator is the new name of the one item copied.
+  Scenario: A typed name without a trailing separator is the copy's new name
+    Given a file "notes.txt" with content "field notes" in the source
+    And the app is set up with source and destination
+    And I select "notes.txt" in the active panel
+    When I copy the selection through F5 to relative destination "archive/notes-2026.txt"
+    Then "archive/notes-2026.txt" in the source should have content "field notes"
+    And "notes.txt" in the source should have content "field notes"
     And "notes.txt" should not exist in the destination
 
   Scenario: Skipping a move collision keeps the source file

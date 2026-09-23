@@ -71,8 +71,8 @@ operation implementation.
   is not part of this architecture foundation.
 - Every `Overlay` variant must be reachable from a key or a menu row and have
   an intentional presentation under `src/ui/`. Quick search and bookmarks
-  intentionally are not overlay variants. A few hotkeys still paint a
-  placeholder; the F9 row for the same command uses `ops/menu`. See
+  intentionally are not overlay variants. The command hotkeys and their F9
+  rows both call `ops/menu`. See
   `docs/knowledge-base/06-ui-and-interaction/overlays-and-modals.md`.
 
 ## 🏛️ Operations Module (`src/ops/`)

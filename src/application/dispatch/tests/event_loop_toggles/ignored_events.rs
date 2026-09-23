@@ -18,7 +18,7 @@ fn test_run_app_release_event_ignored() -> io::Result<()> {
     let mut terminal = Terminal::new(backend).expect("test setup");
 
     // Build a Release key event (should be silently ignored, not quit)
-    let release_event = crossterm::event::KeyEvent {
+    let release_event = KeyEvent {
         code: KeyCode::F(10),
         modifiers: KeyModifiers::empty(),
         kind: KeyEventKind::Release,
@@ -94,7 +94,7 @@ fn test_key_release_ignored() -> io::Result<()> {
     let backend = WritableTestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).expect("test setup");
 
-    let release_event = Event::Key(crossterm::event::KeyEvent {
+    let release_event = Event::Key(KeyEvent {
         code: KeyCode::Down,
         modifiers: KeyModifiers::empty(),
         kind: KeyEventKind::Release,

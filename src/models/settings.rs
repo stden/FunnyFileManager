@@ -73,7 +73,7 @@ pub fn specification(page: SettingsPage) -> (&'static str, &'static str, &'stati
         P::Descriptions => ("File descriptions", "descript.ion", "Description sidecar filename"),
         P::FolderDescriptions => ("Folder description files", "README.md;README.txt", "Folder description filenames separated by semicolons"),
         P::Viewer => ("Viewer settings", "4", "Tab display width (1–16)"),
-        P::Editor => ("Editor settings", "4", "Spaces inserted by Tab (1–16)"),
+        P::Editor => ("Editor settings", "4", "Tab size: TAB display width and spaces inserted by Tab (1–16)"),
         P::CodePages => ("Code pages", "UTF-8", "Default encoding for new files: UTF-8, UTF-16LE, UTF-16BE, Windows-1251, Windows-1252"),
         P::Colors => ("Colors", "blue", "Panel background: blue, black, gray"),
         P::Highlighting => ("Files highlighting and sort groups", "on", "File-type colors in panels: on/off"),

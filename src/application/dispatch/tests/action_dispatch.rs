@@ -58,4 +58,5 @@ mod enter_runs_programs;
 mod mouse_hit_testing;
 mod mouse_routing;
 mod panel_navigation;
+mod quick_search_ends;
 mod selection_keys;

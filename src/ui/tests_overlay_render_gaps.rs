@@ -227,6 +227,46 @@ fn test_information_overlay_omits_partial_caveat_when_complete() {
     );
 }
 
+/// An unreadable folder has no totals to show: its zeros read as an empty
+/// folder, which is what F3 on a denied folder used to say.
+#[test]
+fn test_information_overlay_says_an_unreadable_folder_cannot_be_read() {
+    let mut app = App::new().unwrap();
+    let stats = DirectoryStats {
+        coverage: Coverage::Unreadable("Permission denied (os error 13)".to_owned()),
+        ..Default::default()
+    };
+    app.set_overlay(Overlay::Information(Box::new(stats)));
+
+    let screen = screen_text(&draw(&mut app, SCREEN_W, 24), SCREEN_W, 24);
+
+    assert!(
+        screen.contains("Cannot read this folder: Permission denied (os error 13)"),
+        "{screen}"
+    );
+    assert!(!screen.contains("0 files"), "{screen}");
+}
+
+/// Folders inside that could not be read make every total a lower bound.
+#[test]
+fn test_information_overlay_marks_totals_with_unread_folders_as_lower_bounds() {
+    let mut app = App::new().unwrap();
+    let stats = DirectoryStats {
+        files: 3,
+        coverage: Coverage::Unread(1),
+        ..Default::default()
+    };
+    app.set_overlay(Overlay::Information(Box::new(stats)));
+
+    let screen = screen_text(&draw(&mut app, SCREEN_W, 24), SCREEN_W, 24);
+
+    assert!(screen.contains("in 3 files"), "{screen}");
+    assert!(
+        screen.contains("1 folder(s) could not be read — totals are lower bounds"),
+        "{screen}"
+    );
+}
+
 fn unscrolled_rust_editor(content: &str) -> Editor {
     let editor = Editor::from_content("tokens.rs".to_string(), PathBuf::from("tokens.rs"), content);
     assert_eq!(

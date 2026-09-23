@@ -38,10 +38,11 @@ pub fn open_mcp_status(app: &mut App) -> io::Result<()> {
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .unwrap_or_default();
-    open_mcp_status_in(app, &project, Path::new(&home))
+    open_mcp_status_in(app, &project, Path::new(&home));
+    Ok(())
 }
 
-fn open_mcp_status_in(app: &mut App, project: &Path, home: &Path) -> io::Result<()> {
+fn open_mcp_status_in(app: &mut App, project: &Path, home: &Path) {
     let mut lines = mcp_status_header(project);
     lines.extend(mcp_config_lines(project, home));
 
@@ -57,7 +58,6 @@ fn open_mcp_status_in(app: &mut App, project: &Path, home: &Path) -> io::Result<
     app.set_status(Status::CommandOutput(
         "MCP Server — press Esc to close".to_owned(),
     ));
-    Ok(())
 }
 
 fn mcp_status_header(project: &Path) -> Vec<String> {
@@ -164,21 +164,14 @@ pub fn view_path(app: &mut App, selected: PathBuf) -> io::Result<()> {
 }
 
 fn show_file_bytes(app: &mut App, selected: PathBuf, bytes: &[u8]) {
-    // A NUL byte is the usual "this is binary" heuristic (git uses it too); the
-    // line-oriented viewer can only render garbage for such a file.
-    if bytes.contains(&0) {
+    // The line-oriented viewer can only render garbage for a binary file.
+    if crate::encoding::is_binary(bytes) {
         app.set_status(Status::BinaryFile(selected.display().to_string()));
         return;
     }
     app.set_status(Status::Viewing(selected.display().to_string()));
-    // Two view histories survive the menu's arrival: the persisted one the
-    // F11 overlay lists, and the session list the menu's own history reads.
+    // The one history Alt+F11 lists; F4 and Alt+F4 record into it too.
     app.view_history.touch(&selected);
-    app.viewed_files.retain(|path| path != &selected);
-    app.viewed_files.push(selected.clone());
-    if app.viewed_files.len() > 100 {
-        app.viewed_files.remove(0);
-    }
     let mut viewer = Viewer::file(selected, bytes);
     let spaces = " ".repeat(app.settings.number(crate::menu::SettingsPage::Viewer));
     for line in &mut viewer.lines {

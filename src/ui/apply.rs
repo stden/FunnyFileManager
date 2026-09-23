@@ -5,6 +5,14 @@ use ratatui::Frame;
 
 use super::{dialog, Cells};
 
+/// Far's behaviour, kept on purpose: `!.!` and friends are pasted in as they
+/// are and the platform shell parses the line, so a file named `$(rm x)` or
+/// `a;b` runs code. The dialog says so where the command is typed.
+const UNESCAPED_WARNING: [&str; 2] = [
+    "Warning: names are inserted unescaped and run by the shell;",
+    "a name containing ; $ ` or quotes can run commands.",
+];
+
 pub(super) fn render(
     f: &mut Frame,
     tracker: &mut crate::mouse::DialogMouse,
@@ -21,6 +29,8 @@ pub(super) fn render(
         &[
             dialog::Row::Label("Enter &command:"),
             dialog::Row::input(dialog.command(), on_ok, true),
+            dialog::Row::Text(UNESCAPED_WARNING[0]),
+            dialog::Row::Text(UNESCAPED_WARNING[1]),
         ],
         &[
             dialog::Button::new("&OK").default_button().focused(on_ok),

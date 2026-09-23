@@ -71,8 +71,11 @@ fn builtin_editor_refuses_a_file_over_the_size_limit() -> io::Result<()> {
 #[test]
 fn builtin_editor_opens_a_file_exactly_at_the_size_limit() -> io::Result<()> {
     // The guard is `>`, not `>=`: a file of exactly the limit still opens.
+    // Real text rather than a sparse file: a sparse file reads as NUL bytes,
+    // which the editor refuses as binary before the size would matter.
     let temp_dir = TempDir::new().expect("temp dir");
-    sparse_file(temp_dir.path(), "limit.txt", MAX_FILE_SIZE.bytes())?;
+    let limit = usize::try_from(MAX_FILE_SIZE.bytes()).expect("the limit fits in memory");
+    std::fs::write(temp_dir.path().join("limit.txt"), vec![b'a'; limit])?;
 
     let mut app = build_app(&temp_dir);
     assert!(select_entry(&mut app.left_panel, "limit.txt"));
@@ -143,8 +146,8 @@ fn test_mode_editor_ignores_an_entry_without_a_path() -> io::Result<()> {
     Ok(())
 }
 
-/// Fails on the first step of suspending the terminal, so the editor is never
-/// reached.
+/// Fails while suspending the terminal, before raw mode is left, so the
+/// editor is never reached.
 struct FailingSuspendOps;
 
 impl TerminalOps<WritableTestBackend> for FailingSuspendOps {
@@ -177,6 +180,14 @@ impl TerminalOps<WritableTestBackend> for FailingSuspendOps {
     }
 
     fn show_cursor(&mut self, _terminal: &mut Terminal<WritableTestBackend>) -> io::Result<()> {
+        Ok(())
+    }
+
+    fn wait_for_key(
+        &mut self,
+        _terminal: &mut Terminal<WritableTestBackend>,
+        _prompt: &str,
+    ) -> io::Result<()> {
         Ok(())
     }
 }

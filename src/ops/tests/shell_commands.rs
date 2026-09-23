@@ -223,6 +223,28 @@ fn test_cmd_mark_all() -> io::Result<()> {
     Ok(())
 }
 
+/// `:mark all` is a bulk change like Gray + or `:unmark`, so Restore selection
+/// must go back to what was selected before it — not to the change before that.
+#[test]
+fn restore_selection_undoes_mark_all() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    for name in ["a.txt", "b.txt", "c.md"] {
+        fs::write(temp.path().join(name), name)?;
+    }
+    let dir = temp.path().to_path_buf();
+    let mut app = App::with_panels(Panel::new(dir.clone())?, Panel::new(dir)?);
+    app.left_panel
+        .mark_matching(&crate::mask::Mask::parse("*.txt"), true);
+    execute_command(&mut app, "mark all")?;
+    assert_eq!(app.left_panel.marked.len(), 3);
+
+    app.left_panel.restore_marks();
+
+    let restored: Vec<&str> = app.left_panel.marked.iter().map(FileName::as_str).collect();
+    assert_eq!(restored, ["a.txt", "b.txt"]);
+    Ok(())
+}
+
 #[test]
 fn test_cmd_mark_invalid_subcommand() -> io::Result<()> {
     let mut app = App::new()?;

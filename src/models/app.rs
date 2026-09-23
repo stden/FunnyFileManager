@@ -1,6 +1,6 @@
 //! Purpose: `App`, the session state around two panels: constructors and panel selection.
 
-use std::{io, path::PathBuf};
+use std::io;
 
 use crate::console::ConsoleLog;
 use crate::quicksearch::QuickSearch;
@@ -29,7 +29,6 @@ pub struct App {
 
     pub bookmarks: Bookmarks,
     pub settings: settings::Settings,
-    pub viewed_files: Vec<PathBuf>,
     pub lifecycle: Lifecycle,
     pub status: crate::status::Status,
     /// Whether the message is pending, drawn at a cursor, or expired from the
@@ -118,7 +117,6 @@ impl App {
             overlay: Overlay::default(),
             bookmarks: Bookmarks::default(),
             settings: settings::Settings::default(),
-            viewed_files: Vec::new(),
             lifecycle: Lifecycle::default(),
             status: crate::status::Status::KeyHints,
             status_display: crate::status::StatusDisplay::default(),

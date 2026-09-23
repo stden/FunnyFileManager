@@ -7,11 +7,17 @@ FunnyFileManager is designed to be fully keyboard-driven, following Far Manager 
 ## 🔁 Main Event Loop (`src/application/mod.rs`)
 
 `run_app_with_wsl_backend` owns rendering, event reads, and WSL worker pumping
-in `src/application/mod.rs`. Production polls every 100 ms; the existing
+in `src/application/mod.rs`. Production hands out keys crossterm has already
+queued at once and waits up to 100 ms only when none are queued; the existing
 `run_app_with_event_reader` adapter preserves the event-only injection API.
 Keyboard and mouse dispatch live in `src/application/dispatch.rs`:
 
 - Only `KeyEventKind::Press` events are processed (ignores Release/Repeat for Windows compatibility).
+- Live key events pass `terminal::decode_input` first, in `recording::Input`,
+  so a recording holds the decoded key. Where the terminal speaks the kitty
+  keyboard protocol FFM pushes it at startup and keys arrive unambiguous;
+  otherwise the one legacy byte two bindings share (0x1C: Ctrl+\ and Ctrl+4)
+  is taken as Ctrl+\. See the parity doc's "Terminal key encoding".
 - `dispatch_key` first checks `app.is_overlay_active()`. If true, it sends the
   key to `popup::process_popup_input` and returns without calling
   `action::resolve`.
@@ -100,7 +106,8 @@ dropdown rather than being reported through application status.
   (`Action::CommandLineChar`), the way Far Manager and every shell start a
   command. This is why bare `q` no longer quits: `quit`, `qemu` and `queue`
   have to be typeable.
-- Alt+character — quick search (incremental; any otherwise-unclaimed character)
+- Alt+character — quick search (incremental; any character, including `-`,
+  `+` and `*`: only the bare keys open the group-selection dialogs)
 - Esc / Backspace — manage quick search
 - Insert / Space — toggle mark + move to next
 - Ctrl+C — quit
@@ -127,8 +134,13 @@ dropdown rather than being reported through application status.
 - The first Alt+character starts the query; later Alt+characters append.
 - If a multi-character query has no match, it falls back to the last character.
 - Backspace removes the last character.
-- Esc and unmapped *non-printable* main-view keys resolve to `QuickSearchClear`.
-  A printable key no longer clears the search — it starts a command.
+- Any other key ends the search before it acts, as Far's fast find closes on
+  any key that is not part of it: Enter, Tab, the arrows, Home/End, PgUp/PgDn,
+  Insert and a printable key (which starts a command) all do.
+  `application/dispatch.rs::apply_action` clears the query for every action
+  that is not `Action::edits_quick_search`, so a query never follows the user
+  into another folder or panel. Esc and unmapped keys resolve to
+  `QuickSearchClear`.
 
 ## 🪟 Special Windows Handling
 

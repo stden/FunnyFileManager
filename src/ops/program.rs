@@ -34,15 +34,27 @@ where
     };
     let path = std::path::absolute(path)?;
     let directory = std::path::absolute(&app.get_active_panel_ref().path)?;
+    app.console
+        .record_command(&directory, &path.display().to_string());
     let suspension = TerminalSuspension::suspend(terminal, terminal_ops)?;
     let result = run(&path, &directory);
-    let restored = suspension.resume();
-    app.set_status(match result {
+    let restored = match &result {
+        // What the program printed is on the terminal's own screen, which
+        // the panels are about to cover; it stays readable until a key.
+        Ok(status) => suspension.resume_after_key(&pause_prompt(*status)),
+        Err(_) => suspension.resume(),
+    };
+    app.record_run_outcome(match result {
         Ok(status) => Status::CommandOutput(format!("{}: {status}", path.display())),
         Err(error) => Status::Error(format!("Cannot run {}: {error}", path.display())),
     });
     let refreshed = crate::utils::refresh_panels(app);
     crate::terminal::merge_run_and_cleanup(refreshed, restored)
+}
+
+/// The line under a finished program's output: how it ended, and the way back.
+fn pause_prompt(status: ExitStatus) -> String {
+    format!("[{status}] Press any key to return to FFM")
 }
 
 #[cfg(windows)]

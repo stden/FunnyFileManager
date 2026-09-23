@@ -2,7 +2,7 @@
 
 use crate::{
     menu::{MenuCommand, SettingsPage},
-    models::{App, ChoiceTarget, Editor, MenuChoice, Overlay},
+    models::{App, ChoiceTarget, MenuChoice, Overlay},
 };
 use std::{fs, io, path::PathBuf};
 
@@ -32,12 +32,14 @@ pub fn edit(app: &mut App, command: MenuCommand) -> io::Result<()> {
     if !path.exists() {
         fs::write(&path, template)?;
     }
-    let text = fs::read_to_string(&path)?;
-    app.set_overlay(Overlay::Editor(Editor::from_content(
-        filename.to_owned(),
-        path,
-        &text,
-    )));
+    // The same loader as F4, so the editor knows what the disk held and a
+    // save notices another program's (or another instance's) write.
+    let bytes = fs::read(&path)?;
+    let mut editor = crate::editor::editor_for(app, path, &bytes)?;
+    // `Label<TAB>command` is the format: Tab types the separator even when
+    // no line holding one is left in the file.
+    editor.format.indent = crate::models::Indent::Tabs;
+    app.set_overlay(Overlay::Editor(editor));
     Ok(())
 }
 

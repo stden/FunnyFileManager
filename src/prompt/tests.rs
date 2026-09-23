@@ -283,3 +283,13 @@ fn the_hostname_is_trimmed() {
         Some("devbox")
     );
 }
+
+#[test]
+fn the_current_privilege_is_the_process_effective_user() {
+    let expected = if crate::platform::is_root() {
+        Privilege::Root
+    } else {
+        Privilege::User
+    };
+    assert_eq!(Privilege::current(), expected);
+}

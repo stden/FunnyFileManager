@@ -2,8 +2,7 @@
 
 use std::fmt::Write as _;
 use std::{
-    fs,
-    io::{self, Write},
+    fs, io,
     path::{Path, PathBuf},
 };
 
@@ -13,8 +12,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use crate::models::{App, Overlay};
 use crate::status::{FailedEntry, Status};
 use crate::utils::{
-    copy_dir_all_with, copy_symlink, refresh_panels, unique_destination, LinkPolicy,
+    copy_dir_all_with, copy_file, copy_symlink, refresh_panels, unique_destination, CopyRules,
 };
+use destination::Destination;
+
+mod destination;
 
 #[cfg(any(test, tarpaulin))]
 pub static FORCE_RENAME_FAILURE: AtomicBool = AtomicBool::new(false);
@@ -57,11 +59,11 @@ pub fn rename_or_fail(source: &Path, dest: &Path) -> io::Result<()> {
 /// time it runs, the files are already copied/moved/created/deleted and the
 /// status bar already says so. Propagating a *refresh* failure makes the caller
 /// replace that with "Delete failed: No such file or directory", telling the
-/// user their data is intact when it is gone. No race is needed to hit it: F8 on
-/// a directory the *other* panel is sitting inside makes the other panel's
-/// reload fail every time. A stale listing is fixed by the next navigation or by
-/// Ctrl+R, which reports refresh errors on purpose because there the refresh
-/// *is* the operation.
+/// user their data is intact when it is gone. F8 on a directory the *other*
+/// panel is sitting inside no longer fails that reload — the panel moves up to
+/// the nearest folder that exists — but a folder that cannot be read still
+/// does. That stale listing is for Ctrl+R to report, on purpose, because there
+/// the refresh *is* the operation.
 fn refresh_after_operation(app: &mut App) {
     let _ = refresh_panels(app);
 }
@@ -158,9 +160,9 @@ const MAX_TRANSFER_ATTEMPTS: u32 = 10_000;
 /// `create_new`. Only paths we successfully claimed are cleaned up on failure
 /// (an `AlreadyExists` means another process owns the name — leave it alone).
 /// Callers retry on [`io::ErrorKind::AlreadyExists`].
-fn copy_entry(source: &Path, dest: &Path, links: LinkPolicy) -> io::Result<()> {
+fn copy_entry(source: &Path, dest: &Path, rules: CopyRules) -> io::Result<()> {
     #[cfg(any(test, tarpaulin))]
-    if FORCE_TRANSFER_COLLISION.with(std::cell::Cell::get) {
+    if FORCE_TRANSFER_COLLISION.get() {
         return Err(io::Error::new(
             io::ErrorKind::AlreadyExists,
             "forced destination collision",
@@ -172,36 +174,24 @@ fn copy_entry(source: &Path, dest: &Path, links: LinkPolicy) -> io::Result<()> {
     // the move fallback would then delete the user's link. `copy_dir_all`
     // already recreates nested links; the top-level entry must match.
     if fs::symlink_metadata(source).is_ok_and(|metadata| metadata.is_symlink())
-        && !crate::utils::follows_link(links, source)
+        && !crate::utils::follows_link(rules.links, source)
     {
         return copy_symlink(source, dest);
     }
 
     if source.is_dir() {
-        return copy_directory_entry(source, dest, links);
+        return copy_directory_entry(source, dest, rules);
     }
 
-    let mut out = fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(dest)?;
-    let result = (|| {
-        let mut input = fs::File::open(source)?;
-        io::copy(&mut input, &mut out)?;
-        out.flush()?;
-        Ok(())
-    })();
-    if result.is_err() {
-        let _ = fs::remove_file(dest);
-    }
-    result
+    // Refuses a FIFO, socket or device before opening it or claiming `dest`.
+    copy_file(source, dest, rules.modes)
 }
 
-fn copy_directory_entry(source: &Path, dest: &Path, links: LinkPolicy) -> io::Result<()> {
+fn copy_directory_entry(source: &Path, dest: &Path, rules: CopyRules) -> io::Result<()> {
     // Exclusive claim of the directory name, then fill it. `copy_dir_all_with`
     // is happy if `dest` already exists (it `create_dir_all`s).
     fs::create_dir(dest)?;
-    let result = copy_dir_all_with(source, dest, links);
+    let result = copy_dir_all_with(source, dest, rules);
     if result.is_err() {
         let _ = fs::remove_dir_all(dest);
     }
@@ -228,7 +218,7 @@ fn copy_into(source: &Path, target_dir: &Path) -> io::Result<PathBuf> {
     let file_name = source.file_name().unwrap_or_default();
     for _ in 0..MAX_TRANSFER_ATTEMPTS {
         let dest = unique_destination(target_dir, file_name)?;
-        match copy_entry(source, &dest, LinkPolicy::Recreate) {
+        match copy_entry(source, &dest, CopyRules::PLAIN) {
             Ok(()) => return Ok(dest),
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
             Err(e) => return Err(e),
@@ -255,7 +245,7 @@ fn move_into(source: &Path, target_dir: &Path) -> io::Result<PathBuf> {
         // Cross-device rename (or forced test failure): exclusive copy + delete.
         // `?` after a successful exclusive copy so the source is only removed
         // once the whole copy has landed.
-        match copy_entry(source, &dest, LinkPolicy::Recreate) {
+        match copy_entry(source, &dest, CopyRules::PLAIN) {
             Ok(()) => {
                 remove_path(source)?;
                 return Ok(dest);
@@ -275,10 +265,25 @@ fn move_into(source: &Path, target_dir: &Path) -> io::Result<PathBuf> {
 
 /// What a batch of copies/moves achieved. One failing item must not abandon the
 /// rest of the batch, so failures are collected instead of propagated.
+#[derive(Default)]
 struct BatchOutcome {
     count: usize,
     first_dest: Option<PathBuf>,
     errors: Vec<FailedEntry>,
+}
+
+impl BatchOutcome {
+    fn record(&mut self, source: &Path, result: io::Result<PathBuf>) {
+        match result {
+            Ok(dest) => {
+                self.first_dest.get_or_insert(dest);
+                self.count += 1;
+            }
+            // Which file, and why — kept apart until something decides how to
+            // show them. Formatting here threw the two away in one string.
+            Err(error) => self.errors.push(FailedEntry::new(source, &error)),
+        }
+    }
 }
 
 fn transfer_all(
@@ -286,23 +291,9 @@ fn transfer_all(
     target_dir: &Path,
     transfer: fn(&Path, &Path) -> io::Result<PathBuf>,
 ) -> BatchOutcome {
-    let mut outcome = BatchOutcome {
-        count: 0,
-        first_dest: None,
-        errors: Vec::new(),
-    };
+    let mut outcome = BatchOutcome::default();
     for source in sources {
-        match transfer(source, target_dir) {
-            Ok(dest) => {
-                if outcome.first_dest.is_none() {
-                    outcome.first_dest = Some(dest);
-                }
-                outcome.count += 1;
-            }
-            // Which file, and why — kept apart until something decides how to
-            // show them. Formatting here threw the two away in one string.
-            Err(error) => outcome.errors.push(FailedEntry::new(source, &error)),
-        }
+        outcome.record(source, transfer(source, target_dir));
     }
     outcome
 }
@@ -452,11 +443,19 @@ pub fn handle_delete(app: &mut App) -> io::Result<()> {
 }
 
 #[cfg(test)]
+mod tests_destinations;
+#[cfg(test)]
 mod tests_exhaustion;
 #[cfg(test)]
 mod tests_mkdir_errors;
+#[cfg(all(test, unix))]
+mod tests_modes;
 #[cfg(test)]
 mod tests_refresh_failures;
+#[cfg(all(test, unix))]
+mod tests_sparse;
+#[cfg(all(test, unix))]
+mod tests_special_files;
 #[cfg(test)]
 mod tests_symlinks;
 #[cfg(test)]
@@ -465,122 +464,153 @@ mod tests_transfer_policies;
 /// Carry out what the F5/F6 dialog was filled in with.
 ///
 /// The destination is whatever was typed, which may be neither panel — that is
-/// the reason the dialog exists. A relative path is taken against the active
-/// panel, because that is where the user is looking when they type one.
+/// the reason the dialog exists — and may be a folder or a new name; see
+/// [`Destination`]. A relative path is taken against the active panel,
+/// because that is where the user is looking when they type one.
 pub fn copy_with(app: &mut App, settings: &crate::copy::CopyPrompt) {
     let sources = get_source_paths(app);
     if sources.is_empty() {
         return;
     }
 
-    let typed = Path::new(settings.destination.trim());
-    let target_dir = if typed.is_absolute() {
-        typed.to_path_buf()
-    } else {
-        app.get_active_panel_ref().path.join(typed)
-    };
-
-    let mut outcome = BatchOutcome {
-        count: 0,
-        first_dest: None,
-        errors: Vec::new(),
-    };
-    let mut skipped = 0usize;
+    let base = &app.get_active_panel_ref().path;
+    let destination = Destination::parse(&settings.destination, base, sources.len());
+    let mut outcome = DialogOutcome::default();
     for source in &sources {
-        match copy_one(source, &target_dir, settings) {
-            Ok(Some(dest)) => {
-                if outcome.first_dest.is_none() {
-                    outcome.first_dest = Some(dest);
-                }
-                outcome.count += 1;
-            }
-            // The policy said to leave this one alone. Not an error, and not a
-            // copy either, so it is counted separately or the status line
-            // would claim work that did not happen.
-            Ok(None) => skipped += 1,
-            Err(error) => outcome.errors.push(FailedEntry::new(source, &error)),
-        }
+        outcome.record(source, copy_one(source, &destination, settings));
     }
-
-    report_copy_outcome(app, &outcome, skipped, settings.existing);
+    report_copy_outcome(app, &outcome, settings.purpose);
     refresh_after_operation(app);
 }
 
-fn report_copy_outcome(
-    app: &mut App,
-    outcome: &BatchOutcome,
+/// Where one entry of a dialog transfer ended up.
+enum Placed {
+    /// Under the name it was sent to.
+    AsSent(PathBuf),
+    /// Beside something already there, under a free name.
+    Beside(PathBuf),
+    /// Left alone, as the "already existing files" choice said.
+    Skipped,
+}
+
+/// What a dialog transfer achieved, item by item.
+#[derive(Default)]
+struct DialogOutcome {
+    batch: BatchOutcome,
+    /// Left alone by the policy. Not an error and not a transfer either, so
+    /// it is counted apart, or the status line would claim work not done.
     skipped: usize,
-    existing: crate::copy::ExistingFiles,
-) {
-    use crate::copy::ExistingFiles;
-    app.get_active_panel().clear_marks();
-    if let Some(first_error) = outcome.errors.first() {
-        app.set_status(Status::CopiedWithErrors {
-            count: outcome.count,
-            error_count: outcome.errors.len(),
-            first_error: first_error.clone(),
-        });
-    } else {
-        let mut text =
-            format_operation_status(outcome.count, "Copied", outcome.first_dest.as_deref());
-        if skipped > 0 {
-            let _ = write!(text, ", {skipped} skipped");
-        }
-        if existing == ExistingFiles::Ask {
-            text.push_str(" (existing files kept, copies renamed)");
-        }
-        app.set_status(Status::CommandOutput(text));
+    /// Put beside an existing file under a new name — which the status line
+    /// has to say, because the name the user looks for is not there.
+    renamed: usize,
+}
+
+impl DialogOutcome {
+    fn record(&mut self, source: &Path, result: io::Result<Placed>) {
+        let result = match result {
+            Ok(Placed::Skipped) => {
+                self.skipped += 1;
+                return;
+            }
+            Ok(Placed::Beside(dest)) => {
+                self.renamed += 1;
+                Ok(dest)
+            }
+            Ok(Placed::AsSent(dest)) => Ok(dest),
+            Err(error) => Err(error),
+        };
+        self.batch.record(source, result);
     }
 }
 
-/// Copy one entry according to the dialog's collision policy.
-///
-/// `Ok(None)` means the policy said to leave it: skipping is a normal outcome,
-/// not a failure, and reporting it as an error would put a red count on a
-/// deliberate choice.
+fn report_copy_outcome(app: &mut App, outcome: &DialogOutcome, purpose: crate::copy::Purpose) {
+    use crate::copy::Purpose;
+
+    let batch = &outcome.batch;
+    app.get_active_panel().clear_marks();
+    if let Some(first_error) = batch.errors.first().cloned() {
+        let (count, error_count) = (batch.count, batch.errors.len());
+        app.set_status(match purpose {
+            Purpose::Copy => Status::CopiedWithErrors {
+                count,
+                error_count,
+                first_error,
+            },
+            Purpose::Move => Status::MovedWithErrors {
+                count,
+                error_count,
+                first_error,
+            },
+        });
+        return;
+    }
+    let mut text =
+        format_operation_status(batch.count, purpose.done(), batch.first_dest.as_deref());
+    if outcome.skipped > 0 {
+        let _ = write!(text, ", {} skipped", outcome.skipped);
+    }
+    if outcome.renamed > 0 {
+        text.push_str(" (existing files kept, new ones renamed)");
+    }
+    app.set_status(Status::CommandOutput(text));
+}
+
+/// Transfer one entry to where the dialog sends it.
 fn copy_one(
     source: &Path,
-    target_dir: &Path,
+    destination: &Destination,
     settings: &crate::copy::CopyPrompt,
-) -> io::Result<Option<PathBuf>> {
-    use crate::copy::ExistingFiles;
+) -> io::Result<Placed> {
+    let (folder, name) = destination.for_source(source);
+    reject_transfer_into_itself(source, folder)?;
+    fs::create_dir_all(folder)?;
 
-    reject_transfer_into_itself(source, target_dir)?;
-    fs::create_dir_all(target_dir)?;
-
-    let file_name = source.file_name().unwrap_or_default();
-    let dest = target_dir.join(file_name);
-
+    let dest = folder.join(name);
     if dest.exists() {
-        match settings.existing {
-            // Not yet a per-file prompt. Until it is, the non-destructive
-            // reading of "ask" is taken: nothing already there is touched, and
-            // the copy lands beside it under a free name.
-            ExistingFiles::Ask => {
-                let dest = unique_destination(target_dir, file_name)?;
-                place(source, &dest, settings)?;
-                return Ok(Some(dest));
-            }
-            ExistingFiles::Skip => return Ok(None),
-            ExistingFiles::OnlyNewer if !is_newer(source, &dest) => return Ok(None),
-            ExistingFiles::Overwrite | ExistingFiles::OnlyNewer => {
-                reject_transfer_onto_itself(source, &dest)?;
-                remove_existing(&dest)?;
-            }
-        }
+        return place_over_existing(source, &dest, settings);
     }
-
     place(source, &dest, settings)?;
-    Ok(Some(dest))
+    Ok(Placed::AsSent(dest))
 }
 
-/// Refuse to overwrite `dest` when it *is* `source`.
+/// `dest` is taken: do what the "already existing files" choice says.
 ///
-/// Both panels start in the same directory, so the F5 dialog's default
-/// destination is often the source's own directory. With "Overwrite" the file
-/// there would be removed first and then copied from what is no longer there,
-/// leaving an empty file — or, for a move, nothing at all. Far Manager refuses
-/// this outright.
+/// Skipping is a normal outcome, not a failure — reporting it as an error
+/// would put a red count on a deliberate choice.
+fn place_over_existing(
+    source: &Path,
+    dest: &Path,
+    settings: &crate::copy::CopyPrompt,
+) -> io::Result<Placed> {
+    use crate::copy::ExistingFiles;
+
+    match settings.existing {
+        ExistingFiles::Skip => return Ok(Placed::Skipped),
+        ExistingFiles::OnlyNewer if !is_newer(source, dest) => return Ok(Placed::Skipped),
+        _ => {}
+    }
+    reject_transfer_onto_itself(source, dest)?;
+    if settings.existing == ExistingFiles::Ask {
+        // Not yet a per-file prompt. Until it is, the non-destructive reading
+        // of "ask" is taken: nothing already there is touched, and the new one
+        // lands beside it under a free name.
+        let parent = dest.parent().unwrap_or(dest);
+        let beside = unique_destination(parent, dest.file_name().unwrap_or_default())?;
+        place(source, &beside, settings)?;
+        return Ok(Placed::Beside(beside));
+    }
+    remove_existing(dest)?;
+    place(source, dest, settings)?;
+    Ok(Placed::AsSent(dest.to_path_buf()))
+}
+
+/// Refuse a transfer whose destination *is* its source.
+///
+/// Both panels start in the same directory, so the dialog's default
+/// destination is often the source's own. Far refuses a copy or a move onto
+/// itself whatever the "already existing files" choice: "Overwrite" would
+/// remove the file and then copy from what is no longer there, and "Ask"
+/// would rename a moved file to `name_1` and call that a move.
 fn reject_transfer_onto_itself(source: &Path, dest: &Path) -> io::Result<()> {
     let same = source == dest
         || matches!(
@@ -590,7 +620,7 @@ fn reject_transfer_onto_itself(source: &Path, dest: &Path) -> io::Result<()> {
     if same {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "cannot copy a file onto itself",
+            "cannot copy or move onto itself",
         ));
     }
     Ok(())
@@ -607,7 +637,7 @@ fn place(source: &Path, dest: &Path, settings: &crate::copy::CopyPrompt) -> io::
     if settings.purpose == Purpose::Move && rename_or_fail(source, dest).is_ok() {
         return Ok(());
     }
-    copy_entry(source, dest, settings.link_policy())?;
+    copy_entry(source, dest, settings.rules())?;
     finish(source, dest, settings)?;
     if settings.purpose == Purpose::Move {
         remove_existing(source)?;
@@ -645,36 +675,26 @@ fn finish(source: &Path, dest: &Path, settings: &crate::copy::CopyPrompt) -> io:
     apply_rights(source, dest, settings.rights)
 }
 
-/// Give `dest` the permissions the dialog asked for.
+/// Restate the source's permission bits on `dest` when the dialog says Copy.
 ///
-/// `Default` leaves whatever `fs::copy` produced. `Copy` restates the source's
-/// mode explicitly — which is what `fs::copy` already does for a plain file,
-/// but not for a directory it had to create. `Inherit` drops back to what a
-/// newly created file in that directory would get, which is the umask.
+/// Every file was already given its mode as it was written (see
+/// [`crate::copy::AccessRights::file_mode`]). What is left is a copied
+/// folder, which is created afresh and can only take a read-only source's
+/// mode once its contents are in. Default and Inherit leave it as created:
+/// the kernel applied the umask then, and a `chmod` now would skip it.
 #[cfg(unix)]
 fn apply_rights(source: &Path, dest: &Path, rights: crate::copy::AccessRights) -> io::Result<()> {
-    use std::os::unix::fs::PermissionsExt;
-
-    use crate::copy::AccessRights;
-
-    /// What a new file gets before the umask is applied.
-    const FRESH: u32 = 0o666;
-
-    match rights {
-        AccessRights::Default => Ok(()),
-        AccessRights::Copy => {
-            let mode = fs::metadata(source)?.permissions().mode();
-            fs::set_permissions(dest, fs::Permissions::from_mode(mode))
-        }
-        AccessRights::Inherit => {
-            let executable = fs::metadata(dest)?.is_dir();
-            let mode = if executable { 0o777 } else { FRESH };
-            fs::set_permissions(dest, fs::Permissions::from_mode(mode))
-        }
+    if rights != crate::copy::AccessRights::Copy {
+        return Ok(());
     }
+    fs::set_permissions(dest, fs::metadata(source)?.permissions())
 }
 
 #[cfg(not(unix))]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "shares the Unix signature, where the operation can fail"
+)]
 fn apply_rights(
     _source: &Path,
     _dest: &Path,

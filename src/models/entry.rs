@@ -171,9 +171,18 @@ impl FileSize {
     }
 
     /// The size in megabytes — the unit the status bar reports in.
+    ///
+    /// Whole mebibytes and the remainder each convert to `f64` exactly, so the
+    /// result is exact; it saturates at `u32::MAX` MiB (4 PiB).
     #[must_use]
     pub fn megabytes(self) -> f64 {
-        self.0 as f64 / (1024.0 * 1024.0)
+        const MIB: u32 = 1 << 20;
+        let Ok(whole) = u32::try_from(self.0 / u64::from(MIB)) else {
+            return f64::from(u32::MAX);
+        };
+        // Below `MIB`, so it always fits; the fallback is never taken.
+        let rest = u32::try_from(self.0 % u64::from(MIB)).unwrap_or(0);
+        f64::from(whole) + f64::from(rest) / f64::from(MIB)
     }
 }
 
@@ -181,21 +190,28 @@ impl std::fmt::Display for FileSize {
     /// Human-readable, as the panel's size column shows it: "1.50 KB",
     /// "3.20 MB", or a bare byte count below a kibibyte.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        const KB: u64 = 1024;
-        const MB: u64 = KB * 1024;
-        const GB: u64 = MB * 1024;
+        const UNITS: [(u64, &str); 3] = [(1 << 30, "GB"), (1 << 20, "MB"), (1 << 10, "KB")];
 
         let size = self.0;
-        if size >= GB {
-            write!(f, "{:.2} GB", size as f64 / GB as f64)
-        } else if size >= MB {
-            write!(f, "{:.2} MB", size as f64 / MB as f64)
-        } else if size >= KB {
-            write!(f, "{:.2} KB", size as f64 / KB as f64)
-        } else {
-            write!(f, "{size} B")
-        }
+        let Some(&(unit, name)) = UNITS.iter().find(|&&(unit, _)| size >= unit) else {
+            return write!(f, "{size} B");
+        };
+        let hundredths = divide_rounded(u128::from(size) * 100, u128::from(unit));
+        write!(f, "{}.{:02} {name}", hundredths / 100, hundredths % 100)
     }
+}
+
+/// `numerator / denominator` to the nearest integer, ties to even.
+///
+/// That is the rule `format!("{:.2}", x)` applies to an exact value, so a size
+/// scaled with integers prints the digits the float formatting printed, without
+/// `u64 as f64` rounding the byte count above 2^53. `denominator` is non-zero.
+pub fn divide_rounded(numerator: u128, denominator: u128) -> u128 {
+    let quotient = numerator / denominator;
+    let remainder = numerator % denominator;
+    let to_next = denominator - remainder;
+    let rounds_up = remainder > to_next || (remainder == to_next && quotient % 2 == 1);
+    quotient + u128::from(rounds_up)
 }
 
 /// An entry's attribute word: the Unix mode (`st_mode`) or the Windows

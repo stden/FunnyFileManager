@@ -93,13 +93,16 @@ const EDITOR_PAGE: usize = 20;
 /// Tab and the arrows walk the controls, Space flips whichever checkbox the
 /// cursor is on, and Enter runs the search from wherever the cursor is — so a
 /// user who only ever types a word and presses Enter never meets the rest.
-fn process_search_prompt(app: &mut App, code: KeyCode) -> bool {
+fn process_search_prompt(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> bool {
     let Some(editor) = app.get_editor_mut() else {
         return false;
     };
     let Some(prompt) = editor.search.prompt.as_mut() else {
         return false;
     };
+    // Crossterm reports Ctrl+A as `Char('a')` with CONTROL: a chord is a
+    // command, never text, as in every other prompt.
+    let typed = !modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT);
 
     match code {
         KeyCode::Esc | KeyCode::F(10) => editor.search.prompt = None,
@@ -109,7 +112,7 @@ fn process_search_prompt(app: &mut App, code: KeyCode) -> bool {
         KeyCode::Backspace if prompt.field == SearchField::Query => {
             prompt.query.pop();
         }
-        KeyCode::Char(ch) if prompt.field == SearchField::Query => prompt.query.push(ch),
+        KeyCode::Char(ch) if typed && prompt.field == SearchField::Query => prompt.query.push(ch),
         KeyCode::Enter => submit_search(app),
         _ => {}
     }

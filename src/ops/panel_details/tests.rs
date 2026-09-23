@@ -72,3 +72,64 @@ fn zz_probe_load_entries_propagates_set_view_failure() -> io::Result<()> {
     assert!(!before.iter().any(|n| n == "descript.ion"));
     Ok(())
 }
+
+/// The Descriptions view finds the directory's description file by the same
+/// rule as the listing, the sort and Ctrl+Z: its name in any letter case.
+#[test]
+fn the_descriptions_view_reads_the_description_file_in_any_case() -> io::Result<()> {
+    let directory = TempDir::new()?;
+    fs::write(directory.path().join("a.txt"), "a")?;
+    fs::write(directory.path().join("DESCRIPT.ION"), "a.txt Shouted\n")?;
+    let mut panel = Panel::new(directory.path().to_owned())?;
+    for configured in ["", "descript.ion"] {
+        panel.options.description_file = configured.to_owned();
+        set_view(&mut panel, PanelView::Descriptions)?;
+        assert_eq!(
+            panel.details.descriptions["a.txt"], "Shouted",
+            "{configured:?}"
+        );
+    }
+    Ok(())
+}
+
+/// Far's File owners column names the owner, as the Owner sort already does;
+/// a bare `986:979` tells the user nothing.
+#[cfg(unix)]
+#[test]
+fn the_owners_view_names_the_user_and_group() -> io::Result<()> {
+    use std::os::unix::fs::MetadataExt;
+
+    let directory = TempDir::new()?;
+    let file = directory.path().join("mine.txt");
+    fs::write(&file, "x")?;
+    let mut panel = Panel::new(directory.path().to_owned())?;
+    set_view(&mut panel, PanelView::Owners)?;
+    let metadata = fs::symlink_metadata(&file)?;
+    let mut names = crate::directory::owner::Owners::default();
+    let user = names
+        .of(&metadata)
+        .unwrap_or_else(|| metadata.uid().to_string());
+    let group = names
+        .group_of(&metadata)
+        .unwrap_or_else(|| metadata.gid().to_string());
+    assert_eq!(panel.details.owners["mine.txt"], format!("{user}:{group}"));
+    Ok(())
+}
+
+/// An id with no passwd or group entry is still shown, as its number.
+#[cfg(unix)]
+#[test]
+fn the_owners_view_falls_back_to_numbers_for_unknown_ids() -> io::Result<()> {
+    const NOBODY_KNOWN: u32 = 4_242_424;
+    let directory = TempDir::new()?;
+    let file = directory.path().join("orphan.txt");
+    fs::write(&file, "x")?;
+    if std::os::unix::fs::chown(&file, Some(NOBODY_KNOWN), Some(NOBODY_KNOWN)).is_err() {
+        eprintln!("skipped: only root can give a file to an unknown user");
+        return Ok(());
+    }
+    let mut panel = Panel::new(directory.path().to_owned())?;
+    set_view(&mut panel, PanelView::Owners)?;
+    assert_eq!(panel.details.owners["orphan.txt"], "4242424:4242424");
+    Ok(())
+}

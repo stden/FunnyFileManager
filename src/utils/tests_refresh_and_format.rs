@@ -18,7 +18,7 @@ use tempfile::TempDir;
 
 #[test]
 fn test_refresh_panels_maintains_selection() -> io::Result<()> {
-    let _lock = super::refresh_panels_mutex().lock().expect("refresh mutex");
+    let _lock = refresh_panels_mutex().lock().expect("refresh mutex");
     let temp_dir = TempDir::new().expect("test setup");
 
     // Create files
@@ -47,7 +47,7 @@ fn test_refresh_panels_maintains_selection() -> io::Result<()> {
 
 #[test]
 fn test_refresh_panels_sets_selection_when_none() -> io::Result<()> {
-    let _lock = super::refresh_panels_mutex().lock().expect("refresh mutex");
+    let _lock = refresh_panels_mutex().lock().expect("refresh mutex");
     let temp_dir = TempDir::new().expect("test setup");
     File::create(temp_dir.path().join("only.txt")).expect("test setup");
 
@@ -69,7 +69,7 @@ fn test_refresh_panels_sets_selection_when_none() -> io::Result<()> {
 
 #[test]
 fn test_refresh_panels_keeps_paths_unchanged() -> io::Result<()> {
-    let _lock = super::refresh_panels_mutex().lock().expect("refresh mutex");
+    let _lock = refresh_panels_mutex().lock().expect("refresh mutex");
     let temp_dir = TempDir::new().expect("test setup");
     let left_path = temp_dir.path().join("left");
     let right_path = temp_dir.path().join("right");
@@ -91,7 +91,7 @@ fn test_refresh_panels_keeps_paths_unchanged() -> io::Result<()> {
 
 #[test]
 fn test_refresh_panels_loads_new_entries_in_both_panels() -> io::Result<()> {
-    let _lock = super::refresh_panels_mutex().lock().expect("refresh mutex");
+    let _lock = refresh_panels_mutex().lock().expect("refresh mutex");
     let temp_dir = TempDir::new().expect("test setup");
     let left_path = temp_dir.path().join("left");
     let right_path = temp_dir.path().join("right");
@@ -377,7 +377,7 @@ fn test_copy_dir_all_with_special_filenames() -> io::Result<()> {
 
 #[test]
 fn test_refresh_panels_with_deleted_directories() -> io::Result<()> {
-    let _lock = super::refresh_panels_mutex().lock().expect("refresh mutex");
+    let _lock = refresh_panels_mutex().lock().expect("refresh mutex");
     let temp_dir = TempDir::new().expect("test setup");
     let left_dir = temp_dir.path().join("left");
     let right_dir = temp_dir.path().join("right");

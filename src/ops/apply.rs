@@ -113,8 +113,7 @@ fn run_one(app: &mut App, cwd: &Path, command: &str) -> bool {
         Err(error) => {
             // A shell that would not start is still part of the transcript:
             // the echoed line with nothing under it would read as a quiet success.
-            app.console
-                .record_error(&format!("cannot run '{command}': {error}"));
+            app.console.record_error(&error.report(command));
             false
         }
     }

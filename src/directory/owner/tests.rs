@@ -34,10 +34,24 @@ fn the_running_group_resolves_and_is_cached() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn user_and_group_joins_the_two_names() {
+    let metadata = std::fs::metadata(env!("CARGO_MANIFEST_DIR")).expect("crate dir");
+    let mut owners = Owners::default();
+    let user = owners.of(&metadata).expect("the running user has a name");
+    let group = owners.group_of(&metadata).expect("and so does the group");
+    assert_eq!(
+        owners.user_and_group(&metadata),
+        Some(format!("{user}:{group}"))
+    );
+}
+
 #[cfg(not(unix))]
 #[test]
 fn off_unix_there_is_no_owner() {
     let metadata = std::fs::metadata(env!("CARGO_MANIFEST_DIR")).expect("crate dir");
     assert_eq!(Owners::default().of(&metadata), None);
     assert_eq!(Owners::default().group_of(&metadata), None);
+    assert_eq!(Owners::default().user_and_group(&metadata), None);
 }

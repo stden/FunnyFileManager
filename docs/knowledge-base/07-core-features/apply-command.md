@@ -55,13 +55,42 @@ line endings and no BOM. Each list has a unique temporary filename and is
 deleted after its command, including on failure.
 
 Other substitutions do not add quotes, including the temporary list's path.
-Quote paths in the template when they may contain spaces. Examples:
+Quote paths in the template when they may contain spaces, and read
+[Names are not escaped](#names-are-not-escaped) before choosing the quotes.
+Examples:
 
-- `copy "!.!" "!.bak"` — backup the current file on Windows (`cp` on Unix).
-- `echo "!\!.!"` — full path, replacing the former `{}` placeholder.
+- `copy "!.!" "!.bak"` — backup the current file on Windows.
+- `cp -- '!.!' '!.bak'` — the same on Unix, in single quotes.
+- `echo '!\!.!'` — full path on Unix, replacing the former `{}` placeholder
+  (`echo "!\!.!"` on Windows).
 - `copy "!#!\!.!" "!^!.bak"` — copy the passive-panel cursor file to a backup
   named after the active entry.
 - `tool --files "!@UFQ!"` — UTF-8 list of quoted full paths.
+
+## Names are not escaped
+
+As in Far, substituted names, paths and selections are pasted into the
+template exactly as they are, and the whole line then goes to the platform
+shell (`sh -c` on Unix, `cmd /D /C` on Windows). **A file name is therefore
+shell code**: with the cursor on a file called `$(touch PWNED)`, the template
+`echo "!.!"` creates `PWNED`, and with an unquoted `!.!` a file called `a;b`
+runs `b`. FFM keeps Far's
+behaviour on purpose (the template owns the quoting), and the Apply command
+dialog says so under its field.
+
+- **Unix:** double quotes do not protect a name. `sh` still expands `$VAR`,
+  `$(...)`, backticks and `\` inside them, and a `"` in the name closes the
+  quote. `!&`, `!&Q` and the `Q` list modifier quote with double quotes (the
+  Windows convention), so they are not safe on Unix either. Single quotes
+  stop every expansion: `'!.!'` is literal for every name that does not
+  itself contain `'`.
+- **Windows:** `"!.!"` keeps spaces, `&`, `|`, `<` and `>` in a name literal
+  (a Windows name cannot contain `"`), but `cmd` still expands `%VAR%` inside
+  the quotes.
+- Before running a template over names you did not choose yourself
+  (downloads, unpacked archives, shared folders), look at them, or pass a
+  `!@...!` list file, whose contents the command reads as data rather than
+  as shell text.
 
 ## Scope
 

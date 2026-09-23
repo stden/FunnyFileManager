@@ -1,5 +1,8 @@
 //! Gherkin steps only interact with the running UI and isolated fixture files.
 
+// Cucumber dictates step signatures: captured args arrive owned and the world as `&mut`.
+#![allow(clippy::needless_pass_by_value, clippy::needless_pass_by_ref_mut)]
+
 use std::{fs, path::PathBuf};
 
 use cucumber::{given, then, when};
@@ -75,6 +78,15 @@ fn open(world: &mut TuiWorld, width: u16, height: u16) {
         world.path("left", ""),
         world.path("right", ""),
         Size::new(width, height),
+    ));
+}
+
+#[when("I open the LSP inventory fixture")]
+fn open_inventory(world: &mut TuiWorld) {
+    world.session = Some(Session::inventory(
+        world.path("left", ""),
+        world.path("right", ""),
+        Size::new(120, 30),
     ));
 }
 

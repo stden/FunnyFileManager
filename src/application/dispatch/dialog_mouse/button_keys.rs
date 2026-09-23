@@ -190,6 +190,10 @@ pub(super) fn dialog_button_key_in_editor(
             _ => plain(KeyCode::Esc),
         };
     }
+    if editor.state.overwrite_prompt().is_some() {
+        // Overwrite / Cancel.
+        return Some(first_or_esc(index, KeyCode::Char('y')));
+    }
     None
 }
 

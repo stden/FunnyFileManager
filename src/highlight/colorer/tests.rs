@@ -57,18 +57,16 @@ fn catalog() -> Option<&'static Colorer> {
 fn a_real_catalog_recognises_common_languages() {
     let Some(colorer) = catalog() else { return };
     assert_eq!(
-        colorer
-            .file_type(std::path::Path::new("main.rs"))
-            .as_deref(),
+        colorer.file_type(Path::new("main.rs")).as_deref(),
         Some("rust")
     );
     assert_eq!(
-        colorer.file_type(std::path::Path::new("app.py")).as_deref(),
+        colorer.file_type(Path::new("app.py")).as_deref(),
         Some("python")
     );
     // Something with no scheme answers "no" rather than Colorer's `default`.
     assert_eq!(
-        colorer.file_type(std::path::Path::new("x.zzzz")),
+        colorer.file_type(Path::new("x.zzzz")),
         None,
         "an unrecognised extension must not report Colorer's `default` type"
     );
@@ -82,7 +80,7 @@ fn a_real_catalog_finds_the_regions_in_a_rust_file() {
         .map(|line| (*line).to_string())
         .collect();
 
-    let spans = colorer.parse(std::path::Path::new("main.rs"), &lines);
+    let spans = colorer.parse(Path::new("main.rs"), &lines);
     assert_eq!(spans.len(), lines.len(), "one entry per line");
 
     let tokens: Vec<Token> = spans.iter().flatten().map(|span| span.token).collect();
@@ -111,7 +109,7 @@ fn a_real_catalog_finds_the_regions_in_a_rust_file() {
 fn an_unknown_file_type_yields_no_regions() {
     let Some(colorer) = catalog() else { return };
     let lines = vec!["some text".to_string()];
-    let spans = colorer.parse(std::path::Path::new("notes.zzzz"), &lines);
+    let spans = colorer.parse(Path::new("notes.zzzz"), &lines);
     assert!(spans.iter().all(Vec::is_empty), "{spans:?}");
 }
 
@@ -120,7 +118,7 @@ fn an_unknown_file_type_yields_no_regions() {
 #[test]
 fn colorer_covers_languages_the_built_in_tables_do_not() {
     let Some(_) = catalog() else { return };
-    let path = std::path::Path::new("main.lua");
+    let path = Path::new("main.lua");
     // The built-in table has no entry for Lua.
     assert!(
         crate::highlight::syntax_for(path).is_none(),
@@ -151,8 +149,7 @@ fn colorer_covers_languages_the_built_in_tables_do_not() {
 fn the_painted_runs_reproduce_the_line() {
     let Some(_) = catalog() else { return };
     let lines = vec!["let mut счёт = \"значение\"; // note".to_string()];
-    let mut highlighter =
-        crate::highlight::Highlighter::for_file(std::path::Path::new("main.rs"), &lines);
+    let mut highlighter = crate::highlight::Highlighter::for_file(Path::new("main.rs"), &lines);
     let rejoined: String = highlighter
         .line(&lines[0])
         .iter()

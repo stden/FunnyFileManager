@@ -5,36 +5,14 @@
 //! already against the 1000-line cap `tests/file_line_limit_test.rs`
 //! enforces. Wired the way `models/editor.rs` is.
 
-use std::borrow::Cow;
 use std::path::PathBuf;
 
 use super::{FileSize, Viewport};
+use crate::encoding::TextEncoding;
 use crate::scroll::{ScrollLeft, ScrollTop};
 
 /// What an empty file shows, so a blank screen is not mistaken for a failure.
 const EMPTY_FILE: &str = "<empty file>";
-
-/// How the bytes were decoded — what the status line's encoding field says.
-///
-/// Far names the code page it detected. This program has no detector, only
-/// the one question `from_utf8` answers, so the label is either `UTF-8` or
-/// the `ANSI` Far shows for a single-byte file it had to guess at.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Encoding {
-    Utf8,
-    Ansi,
-}
-
-impl Encoding {
-    /// The name Far prints in the status line.
-    #[must_use]
-    pub const fn label(self) -> &'static str {
-        match self {
-            Self::Utf8 => "UTF-8",
-            Self::Ansi => "ANSI",
-        }
-    }
-}
 
 /// The file behind a viewer, when there is one — a report has none.
 ///
@@ -45,7 +23,7 @@ impl Encoding {
 pub struct ViewedFile {
     pub path: PathBuf,
     pub size: FileSize,
-    pub encoding: Encoding,
+    pub encoding: TextEncoding,
 }
 
 /// Where a viewer's lines came from: a file on disk, or a report the program
@@ -83,22 +61,18 @@ impl Viewer {
         Self::new(ViewSource::Report(title.into()), lines)
     }
 
-    /// A viewer over a file's bytes.
+    /// A viewer over a file's bytes, decoded the way F4 decodes them.
     ///
-    /// Decodes lossily, so a non-UTF-8 *text* file (cp1251, latin-1) still
-    /// opens instead of failing the whole action with "stream did not contain
-    /// valid UTF-8" — and the status line says `ANSI` so the reader knows why
-    /// some characters are replacement marks.
+    /// [`TextEncoding::detect`] is the editor's: a byte-order mark names UTF-8
+    /// or UTF-16, valid UTF-8 is UTF-8, and anything else is the single-byte
+    /// code page the editor falls back to. So F3 and F4 never show one file
+    /// two ways, and the status line names a code page that was really
+    /// applied. Lossy, because the viewer never writes back: a byte the code
+    /// page cannot map shows as a replacement mark instead of failing the view.
     #[must_use]
     pub fn file(path: PathBuf, bytes: &[u8]) -> Self {
-        let text = String::from_utf8_lossy(bytes);
-        // One pass over the bytes: the decoder already validated them, and it
-        // says so by whether it had to copy. Validating again to learn the
-        // encoding would read the file twice for one fact.
-        let encoding = match &text {
-            Cow::Borrowed(_) => Encoding::Utf8,
-            Cow::Owned(_) => Encoding::Ansi,
-        };
+        let encoding = TextEncoding::detect(bytes);
+        let text = encoding.decode_lossy(bytes);
         let mut lines: Vec<String> = text.lines().map(ToString::to_string).collect();
         if lines.is_empty() {
             lines.push(EMPTY_FILE.to_owned());

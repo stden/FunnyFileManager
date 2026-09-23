@@ -13,10 +13,12 @@ pub fn set_view(panel: &mut Panel, view: PanelView) -> io::Result<()> {
         details.descriptions = panel_descriptions(panel)?;
     }
     if matches!(view, PanelView::Owners | PanelView::Links) {
+        let mut names = crate::directory::owner::Owners::default();
         for entry in &panel.entries {
             let path = panel.path.join(&entry.name);
             if let Ok(metadata) = fs::symlink_metadata(&path) {
-                details.owners.insert(entry.name.clone(), owner(&metadata));
+                let owner = names.user_and_group(&metadata).unwrap_or_default();
+                details.owners.insert(entry.name.clone(), owner);
                 details
                     .links
                     .insert(entry.name.clone(), links(&path, &metadata));
@@ -32,50 +34,19 @@ pub fn set_view(panel: &mut Panel, view: PanelView) -> io::Result<()> {
     Ok(())
 }
 
+/// The Descriptions views read the file named in Options > File descriptions,
+/// or the panel's own search list, by the same rule as the listing and
+/// Ctrl+Z.
 fn panel_descriptions(panel: &Panel) -> io::Result<std::collections::BTreeMap<String, String>> {
-    if panel.options.description_file.is_empty() || panel.options.description_file == "descript.ion"
-    {
-        descriptions(&panel.path)
+    let chosen = &panel.options.description_file;
+    let names = if chosen.is_empty() {
+        panel.description_names.as_slice()
     } else {
-        descriptions_in(&panel.path, &panel.options.description_file)
-    }
-}
-
-pub fn descriptions(directory: &Path) -> io::Result<std::collections::BTreeMap<String, String>> {
-    descriptions_in(directory, "descript.ion")
-}
-
-pub fn descriptions_in(
-    directory: &Path,
-    filename: &str,
-) -> io::Result<std::collections::BTreeMap<String, String>> {
-    let path = directory.join(filename);
-    let text = match fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => String::new(),
-        Err(error) => return Err(error),
+        std::slice::from_ref(chosen)
     };
-    Ok(text.lines().filter_map(description).collect())
-}
-
-fn description(line: &str) -> Option<(String, String)> {
-    let (name, description) = if let Some(quoted) = line.strip_prefix('"') {
-        quoted.split_once('"')?
-    } else {
-        line.split_once(char::is_whitespace)?
-    };
-    Some((name.to_owned(), description.trim_start().to_owned()))
-}
-
-#[cfg(unix)]
-fn owner(metadata: &fs::Metadata) -> String {
-    use std::os::unix::fs::MetadataExt;
-    format!("{}:{}", metadata.uid(), metadata.gid())
-}
-
-#[cfg(not(unix))]
-fn owner(_metadata: &fs::Metadata) -> String {
-    String::new()
+    Ok(crate::description::try_read(&panel.path, names)?
+        .into_iter()
+        .collect())
 }
 
 fn links(path: &Path, metadata: &fs::Metadata) -> String {

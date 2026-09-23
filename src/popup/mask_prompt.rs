@@ -1,6 +1,6 @@
 //! Mask prompt input and mark-selection acceptance.
 
-use crate::models::{App, Overlay};
+use crate::models::{App, MaskPrompt, Overlay};
 use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::status::Status;
@@ -11,8 +11,10 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
     };
     match code {
         KeyCode::Esc | KeyCode::F(10) => app.close_overlay(),
-        KeyCode::Tab | KeyCode::Left | KeyCode::Right => prompt.toggle_button(),
-        KeyCode::Backspace => prompt.backspace(),
+        KeyCode::Tab => prompt.toggle_button(),
+        // On a button, Left and Right walk the buttons, as Far's do; in the
+        // field they move the caret — see `edit`.
+        KeyCode::Left | KeyCode::Right if prompt.on_cancel() => prompt.toggle_button(),
         KeyCode::Enter => {
             let cancelled = prompt.on_cancel();
             let purpose = prompt.purpose();
@@ -28,9 +30,25 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
         {
             prompt.push(ch);
         }
-        _ => {}
+        _ => edit(prompt, code),
     }
     true
+}
+
+/// The field is an edit control: Left goes back to the typo, not to Cancel.
+///
+/// TODO: the same key table as `describe::edit`. Share it when a third
+/// dialog field needs one (rule of three).
+fn edit(prompt: &mut MaskPrompt, code: KeyCode) {
+    match code {
+        KeyCode::Left => prompt.left(),
+        KeyCode::Right => prompt.right(),
+        KeyCode::Home => prompt.home(),
+        KeyCode::End => prompt.end(),
+        KeyCode::Backspace => prompt.backspace(),
+        KeyCode::Delete => prompt.delete_forward(),
+        _ => {}
+    }
 }
 
 /// Gray + / Gray −: add or remove every row the mask names.
@@ -47,3 +65,6 @@ fn apply_mask(app: &mut App, purpose: crate::models::MaskPurpose, mask: &crate::
         "{changed} changed, {marked} selected"
     )));
 }
+
+#[cfg(test)]
+mod tests;

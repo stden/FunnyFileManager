@@ -58,19 +58,25 @@ pub struct LargeFile {
 
 /// Whether the walk saw the whole tree.
 ///
-/// Two named answers rather than a `bool`, because the difference decides
-/// whether the numbers may be called totals.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+/// Named answers rather than a `bool`, because the difference decides
+/// whether the numbers may be called totals — and an unreadable folder's
+/// zeros are not an empty folder's.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum Coverage {
     #[default]
     Complete,
     /// The budget ran out; every number is a lower bound.
     Partial,
+    /// This many folders inside could not be read; every number is a lower
+    /// bound.
+    Unread(usize),
+    /// The folder itself could not be read, and why: there are no numbers.
+    Unreadable(String),
 }
 
 impl Coverage {
     #[must_use]
-    pub const fn is_complete(self) -> bool {
+    pub const fn is_complete(&self) -> bool {
         matches!(self, Self::Complete)
     }
 }
@@ -90,12 +96,25 @@ pub struct DirectoryStats {
     pub coverage: Coverage,
 }
 
+impl DirectoryStats {
+    /// The answer for a folder that could not be listed at all: no numbers,
+    /// only why.
+    fn unreadable(error: &std::io::Error) -> Self {
+        Self {
+            coverage: Coverage::Unreadable(error.to_string()),
+            ..Self::default()
+        }
+    }
+}
+
 /// One subtree's contribution, before it is folded into the parent's totals.
 #[derive(Default)]
 struct Tally {
     size: u64,
     files: usize,
     directories: usize,
+    /// Folders the walk could not list.
+    unread: usize,
     by_kind: HashMap<ContentKind, (u64, usize)>,
     largest: Vec<LargeFile>,
 }
@@ -105,6 +124,7 @@ impl Tally {
         self.size += other.size;
         self.files += other.files;
         self.directories += other.directories;
+        self.unread += other.unread;
         for (kind, (size, files)) in other.by_kind {
             let entry = self.by_kind.entry(kind).or_default();
             entry.0 += size;
@@ -131,7 +151,9 @@ fn keep_largest(files: &mut Vec<LargeFile>) {
 ///
 /// Never fails: an unreadable subdirectory contributes nothing and the rest of
 /// the walk carries on. A statistics view that refuses to show anything because
-/// one directory denied permission is answering a question nobody asked.
+/// one directory denied permission is answering a question nobody asked. The
+/// coverage says what was not seen, though, so a denied folder is never shown
+/// as an empty one.
 #[must_use]
 pub fn analyse(directory: &Path) -> DirectoryStats {
     analyse_within(directory, WALK_BUDGET)
@@ -146,8 +168,9 @@ fn analyse_within(directory: &Path, mut budget: usize) -> DirectoryStats {
     let mut children = Vec::new();
     let mut total = Tally::default();
 
-    let Ok(entries) = fs::read_dir(directory) else {
-        return DirectoryStats::default();
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(error) => return DirectoryStats::unreadable(&error),
     };
 
     for entry in entries.flatten() {
@@ -196,11 +219,18 @@ fn summarize(mut total: Tally, mut children: Vec<ChildSize>, budget: usize) -> D
         children,
         by_kind,
         largest: total.largest,
-        coverage: if budget == 0 {
-            Coverage::Partial
-        } else {
-            Coverage::Complete
-        },
+        coverage: coverage(budget, total.unread),
+    }
+}
+
+/// What a walk that ended with `budget` left and `unread` folders unlisted saw.
+const fn coverage(budget: usize, unread: usize) -> Coverage {
+    if budget == 0 {
+        Coverage::Partial
+    } else if unread > 0 {
+        Coverage::Unread(unread)
+    } else {
+        Coverage::Complete
     }
 }
 
@@ -235,6 +265,7 @@ fn record_file(tally: &mut Tally, name: &str, path: String, size: u64) {
 /// Walk one subtree, spending from the shared budget.
 fn walk(directory: &Path, prefix: &str, tally: &mut Tally, budget: &mut usize) {
     let Ok(entries) = fs::read_dir(directory) else {
+        tally.unread += 1;
         return;
     };
     for entry in entries.flatten() {

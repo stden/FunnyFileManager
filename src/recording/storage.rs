@@ -18,9 +18,7 @@ pub(super) fn default_path() -> io::Result<PathBuf> {
 /// create a shared name owns it, so each user gets a directory of their own.
 pub(super) fn default_root() -> PathBuf {
     #[cfg(unix)]
-    // SAFETY: `getuid` reads the calling process's own credentials. It takes
-    // no arguments, touches no user memory and cannot fail.
-    let name = format!("ffm-recordings-{}", unsafe { libc::getuid() });
+    let name = format!("ffm-recordings-{}", crate::platform::real_uid());
     #[cfg(not(unix))]
     let name = String::from("ffm-recordings");
     std::env::temp_dir().join(name)
@@ -53,9 +51,7 @@ fn ensure_private(path: &Path) -> io::Result<()> {
     // `symlink_metadata`, so a symlink pointing at somewhere agreeable cannot
     // answer for the directory it stands in front of.
     let info = std::fs::symlink_metadata(path)?;
-    // SAFETY: `getuid` reads this process's own credentials. It takes no
-    // arguments, touches no user memory and cannot fail.
-    let us = unsafe { libc::getuid() };
+    let us = crate::platform::real_uid();
     if !info.is_dir() || info.uid() != us {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
@@ -71,6 +67,10 @@ fn ensure_private(path: &Path) -> io::Result<()> {
 /// Windows has no equivalent of the shared, world-writable temporary
 /// directory this guards against: each user's is their own.
 #[cfg(not(unix))]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "shares the Unix signature, where the operation can fail"
+)]
 const fn ensure_private(_path: &Path) -> io::Result<()> {
     Ok(())
 }

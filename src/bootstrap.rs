@@ -4,6 +4,7 @@
 
 use std::error::Error;
 use std::io;
+use std::path::PathBuf;
 
 use ratatui::{backend::CrosstermBackend, Terminal};
 
@@ -52,10 +53,26 @@ fn run_session(input: &mut crate::recording::Input) -> Result<(), Box<dyn Error>
         std::sync::Arc::new(crate::wsl::SystemWslBackend),
     );
     let cleanup_result = session.finish();
-    report_at_exit(&app, &run_result);
+    end_session(&app, run_result, cleanup_result)
+}
 
-    crate::terminal::merge_run_and_cleanup(run_result, cleanup_result)
-        .map_err(std::convert::Into::into)
+/// Report how the session ended, and hand `main` its outcome.
+///
+/// A terminal that hung up can be neither drawn on nor restored, so the errors
+/// that say so are how the session ended, not a failure of it: the loop quits
+/// on a hang-up the way F10 asks. Reporting them would also write to the dead
+/// terminal, and `eprintln!` panics when that write fails.
+fn end_session(
+    app: &App,
+    run_result: io::Result<()>,
+    cleanup_result: io::Result<()>,
+) -> Result<(), Box<dyn Error>> {
+    if crate::recording::wait_for_terminal(std::time::Duration::ZERO).is_err() {
+        report_at_exit(app, &Ok(()));
+        return Ok(());
+    }
+    report_at_exit(app, &run_result);
+    crate::terminal::merge_run_and_cleanup(run_result, cleanup_result).map_err(Into::into)
 }
 
 fn load_app() -> io::Result<App> {
@@ -63,7 +80,16 @@ fn load_app() -> io::Result<App> {
         .map_or(crate::history::Persistence::SessionOnly, |dir| {
             crate::history::Persistence::File(dir.join("panel-session.json"))
         });
-    crate::ops::panel_session::load(&std::env::current_dir()?, persistence)
+    // The launch directory may have been deleted before ffm started; then
+    // `getcwd` fails and the start falls back instead of aborting.
+    let start = crate::ops::panel_session::start_directory(
+        std::env::current_dir(),
+        std::env::var_os("PWD").map(PathBuf::from),
+        std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .map(PathBuf::from),
+    )?;
+    crate::ops::panel_session::load(&start, persistence)
 }
 
 /// Everything that has to wait for the screen to be the user's again: the
@@ -82,8 +108,8 @@ fn report_at_exit(app: &App, run_result: &io::Result<()>) {
     }
 }
 
-/// Load the command history, the settings and the view and folder histories
-/// at the production entry point. `App::new()` scans the initial panels but
+/// Load the command history, the settings, the view and folder histories and
+/// the bookmarks at the production entry point. `App::new()` scans the initial panels but
 /// creates only session-local state, so constructing an App cannot pollute
 /// the user's real files. Tests exercise the application with explicitly
 /// injected state and event sources; persistence is covered in each store's
@@ -94,6 +120,7 @@ fn load_persisted(app: &mut App) {
     app.adopt_description_names();
     app.view_history = crate::models::ViewHistory::load();
     app.folder_history = crate::models::FolderHistory::load();
+    app.bookmarks = crate::models::Bookmarks::load();
 }
 
 /// Write the histories, and the settings when "Auto save setup" is on, after

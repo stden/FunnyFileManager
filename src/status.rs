@@ -22,6 +22,7 @@ mod failed_entry;
 mod seam;
 mod secret;
 
+pub use display::PathMessage;
 pub use failed_entry::FailedEntry;
 pub use secret::Secret;
 
@@ -35,13 +36,15 @@ pub enum Status {
     /// The F-key reminder a fresh session opens with.
     KeyHints,
     /// `pwd`: the active panel's path, verbatim.
-    Path(std::path::PathBuf),
+    Path(PathBuf),
     /// Free-form text a command produced — a shell command's last stdout line,
     /// or its first stderr line. No outcome name can stand in for it, so the
     /// variant carries it and says so.
     CommandOutput(String),
     /// A command was started in its own console; it may still be running.
     ConsoleStarted(crate::command::ShellCommand),
+    /// Ctrl+C or Ctrl+\ stopped Update packages while it had the terminal.
+    PackageUpdateCancelled,
 
     // ── viewing / file operations ──────────────────────────────
     /// File exceeds the *view* limit; carries its size and the limit, in MB.
@@ -83,6 +86,12 @@ pub enum Status {
     /// `count` items wiped (zeroed, truncated, renamed, removed), no errors.
     Wiped {
         count: usize,
+    },
+    /// Wiped without errors, but `shared` files had other hard links: only
+    /// their name went, and their data stays under the other names.
+    WipedSharedFiles {
+        count: usize,
+        shared: usize,
     },
     /// Some wipes failed: success count, error count, first error message.
     WipedWithErrors {
@@ -262,7 +271,7 @@ pub enum Status {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StatusCursor {
     side: crate::models::PanelSide,
-    directory: std::path::PathBuf,
+    directory: PathBuf,
     row: Option<usize>,
 }
 

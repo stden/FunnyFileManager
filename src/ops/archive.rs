@@ -8,7 +8,7 @@
 
 use std::ffi::OsString;
 use std::io;
-use std::path::{Component, Path};
+use std::path::Path;
 use std::process::{Command, Output};
 
 use crate::models::{App, ArchiveMenu, ArchivePrompt, ExtractPrompt, Overlay, ARCHIVE_SUFFIXES};
@@ -176,8 +176,9 @@ impl Tool {
         )
     }
 
-    /// Unpack into `destination`. Overwriting is the only mode: `unzip`
-    /// without `-o` asks on the terminal, which behind a TUI is a hang.
+    /// Unpack into `destination`, which `extract_archive` makes an empty
+    /// private folder. `unzip` still gets `-o`: without it, a member stored
+    /// twice makes it ask on the terminal, which behind a TUI is a hang.
     fn unpack(self, archive: &Path, destination: &Path) -> Run {
         let (flags, into) = match self {
             Self::Tar => ("-xf", "-C"),
@@ -223,11 +224,12 @@ impl Run {
 
     /// Run in `cwd`, bounded by the same time and output limits as any other
     /// captured command; a program that is not there is an error, not a hang.
+    /// The error already says which step failed: the temp files, or
+    /// starting the program.
     fn execute(&self, cwd: &Path) -> io::Result<Output> {
         let mut command = Command::new(self.program);
         command.args(&self.args).current_dir(cwd);
         super::menu::process::capture(&mut command)
-            .map_err(|error| io::Error::other(format!("cannot run {}: {error}", self.program)))
     }
 
     /// Stdout on success; the tool's first complaint as the error otherwise.
@@ -243,14 +245,19 @@ impl Run {
 /// The first thing a failed tool said. `unzip` complains on stdout, `tar` on
 /// stderr; whichever spoke first names the fault, and a silent failure is
 /// named by its exit status.
+///
+/// `unzip` and `zipinfo` head a complaint with the archive's own path in
+/// brackets, which names no fault, so such a line is passed over for the
+/// reason below it.
 fn complaint(output: &Output) -> String {
     let stderr = String::from_utf8_lossy(&output.stderr);
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let is_heading = |line: &str| line.starts_with('[') && line.ends_with(']');
     stderr
         .lines()
         .chain(stdout.lines())
         .map(str::trim)
-        .find(|line| !line.is_empty())
+        .find(|line| !line.is_empty() && !is_heading(line))
         .map_or_else(|| output.status.to_string(), crate::console::printable)
 }
 
@@ -278,21 +285,10 @@ fn quote(argument: &str) -> String {
 /// link behind: a member named with `..`, an absolute path, a drive, or any
 /// type other than a plain file or directory.
 fn validate_listing(names: &str, details: &str) -> io::Result<()> {
-    for name in names.lines() {
-        let path = Path::new(name);
-        if name.contains('\\')
-            || name.contains(':')
-            || path.components().any(|part| {
-                matches!(
-                    part,
-                    Component::ParentDir | Component::RootDir | Component::Prefix(_)
-                )
-            })
-        {
-            return Err(io::Error::other(
-                "Archive contains a path outside its destination",
-            ));
-        }
+    if names.lines().any(leaves_destination) {
+        return Err(io::Error::other(
+            "Archive contains a path outside its destination",
+        ));
     }
     if details
         .lines()
@@ -304,6 +300,32 @@ fn validate_listing(names: &str, details: &str) -> io::Result<()> {
         ));
     }
     Ok(())
+}
+
+/// Whether a listed member name reaches outside the destination: it is
+/// absolute, or one of its steps is `..`.
+///
+/// Both `/` and `\\` count as separators, because `unzip` turns a DOS-made
+/// archive's `\\` into `/`. That is also why a backslash is not refused on
+/// its own: on Unix it is an ordinary character, and `tar -tf` prints a tab,
+/// a backslash or (under `LANG=C`) any non-ASCII byte as a backslash escape,
+/// which never hides a `/` or a `.`.
+fn leaves_destination(name: &str) -> bool {
+    name.starts_with(['/', '\\'])
+        || name.split(['/', '\\']).any(|step| step == "..")
+        || names_a_drive_or_stream(name)
+}
+
+/// A colon on Windows starts a drive (`C:x`) or an alternate data stream
+/// (`file:stream`); on Unix it is an ordinary character (`meeting 10:30`).
+#[cfg(windows)]
+fn names_a_drive_or_stream(name: &str) -> bool {
+    name.contains(':')
+}
+
+#[cfg(not(windows))]
+const fn names_a_drive_or_stream(_name: &str) -> bool {
+    false
 }
 
 /// The type letter of a member line — the first of its ten-character mode.
@@ -320,5 +342,7 @@ fn member_type(line: &str) -> Option<char> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_existing;
 #[cfg(test)]
 mod tests_extract;

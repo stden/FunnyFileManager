@@ -1,6 +1,9 @@
 //! Restore the two panel directories at startup and checkpoint navigation.
 
-use std::{io, path::Path};
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
 
 use crate::{
     history::Persistence,
@@ -28,6 +31,32 @@ fn load_panel(saved: Option<&Path>, fallback: &Path) -> io::Result<Panel> {
         }
     }
     Panel::new(fallback.to_owned())
+}
+
+/// Where a panel opens when the saved session has nothing usable for it.
+///
+/// The launch directory, as `getcwd` reports it. When that folder was deleted
+/// before ffm started, `getcwd` fails, but the shell's `PWD` still names it:
+/// the nearest folder above it that exists is used instead, then the home
+/// folder. Only with none of them known is the original failure reported.
+pub fn start_directory(
+    current: io::Result<PathBuf>,
+    shell_directory: Option<PathBuf>,
+    home: Option<PathBuf>,
+) -> io::Result<PathBuf> {
+    let error = match current {
+        Ok(directory) => return Ok(directory),
+        Err(error) => error,
+    };
+    [shell_directory, home]
+        .into_iter()
+        .flatten()
+        .filter(|directory| directory.is_absolute())
+        .find_map(|directory| crate::directory::nearest_existing(&directory).map(Path::to_path_buf))
+        .ok_or_else(|| {
+            let reason = format!("the launch folder is gone and no home folder is set: {error}");
+            io::Error::new(error.kind(), reason)
+        })
 }
 
 /// A failed checkpoint must not prevent navigation or a clean exit.

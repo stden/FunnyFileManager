@@ -7,7 +7,7 @@ use std::{
 
 use tempfile::TempDir;
 
-use super::{checkpoint, load};
+use super::{checkpoint, load, start_directory};
 use crate::history::Persistence;
 
 fn directory(parent: &Path, name: &str) -> io::Result<PathBuf> {
@@ -134,5 +134,66 @@ fn session_only_and_write_failure_do_not_prevent_navigation() -> io::Result<()> 
         assert!(app.lifecycle.is_running());
     }
     assert_eq!(fs::read_to_string(blocked)?, "file");
+    Ok(())
+}
+
+/// ffm started from a folder deleted before it ran: `getcwd` fails, but the
+/// shell's `PWD` still names the folder, and the nearest folder above it that
+/// exists is where an unrestorable panel opens.
+#[test]
+fn a_deleted_launch_directory_starts_at_its_nearest_existing_parent() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let launch = temp.path().join("gone").join("deeper");
+    let home = directory(temp.path(), "home")?;
+    let deleted = Err(io::Error::from(io::ErrorKind::NotFound));
+
+    let start = start_directory(deleted, Some(launch), Some(home))?;
+
+    assert_eq!(start, temp.path());
+    Ok(())
+}
+
+/// Without a `PWD` to go by, the home folder is the next place to start.
+#[test]
+fn an_unknown_launch_directory_starts_at_home() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let home = directory(temp.path(), "home")?;
+    for shell_directory in [None, Some(PathBuf::from("relative/dir"))] {
+        let deleted = Err(io::Error::from(io::ErrorKind::NotFound));
+        let start = start_directory(deleted, shell_directory, Some(home.clone()))?;
+        assert_eq!(start, home);
+    }
+    Ok(())
+}
+
+/// A launch directory that is there is used as it is, and with nothing to go
+/// by the original failure is reported.
+#[test]
+fn a_readable_launch_directory_wins_and_nothing_known_is_an_error() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let home = directory(temp.path(), "home")?;
+    let start = start_directory(Ok(temp.path().to_path_buf()), None, Some(home))?;
+    assert_eq!(start, temp.path());
+
+    let deleted = Err(io::Error::from(io::ErrorKind::NotFound));
+    let error = start_directory(deleted, None, None).expect_err("nowhere to start");
+    assert_eq!(error.kind(), io::ErrorKind::NotFound);
+    Ok(())
+}
+
+/// The whole startup order: the saved session first, then the fallback.
+#[test]
+fn a_saved_session_still_wins_over_the_fallback_for_a_deleted_launch_directory() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let left = directory(temp.path(), "left")?;
+    let right = directory(temp.path(), "right")?;
+    let file = saved_session(temp.path(), &left, &right)?;
+    let launch = temp.path().join("predeleted");
+    let deleted = Err(io::Error::from(io::ErrorKind::NotFound));
+
+    let start = start_directory(deleted, Some(launch), None)?;
+    let app = load(&start, Persistence::File(file))?;
+
+    assert_eq!((app.left_panel.path, app.right_panel.path), (left, right));
     Ok(())
 }

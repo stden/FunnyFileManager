@@ -15,10 +15,10 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 |--------------|-----------------------------|----------------|-------|
 | Up / Down    | Move cursor                 | ✅             |       |
 | Home / End   | First / Last entry          | ✅             |       |
-| Enter        | Enter directory / execute   | ✅             |       |
+| Enter        | Enter directory / execute   | ✅             | A program keeps the real terminal; its output stays on screen under `[exit status: N] Press any key to return to FFM` until a key, and Ctrl+O's transcript records the run and its exit status |
 | Tab          | Switch panels               | ✅             | Ignored while a panel is hidden (Ctrl+F1 / Ctrl+F2), as in Far |
 | Alt+Letter   | Quick search                | ✅             |       |
-| Ctrl+\       | Go to root                  | ✅             |       |
+| Ctrl+\       | Go to root                  | ✅             | Also on terminals that send it as Ctrl+4's byte; see Terminal Key Encoding below |
 | Backspace    | Go to parent                | ❌             | Not implemented |
 
 ## 📋 File Operations (F-keys)
@@ -27,10 +27,10 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 |-----------|--------------------------------|------------|-------|
 | F1        | Help                           | ✅         |       |
 | Shift+F1  | Add to archive                 | ✅         | Dialog: name (default `<stem>.tar.gz` in the other panel), format radio tar.gz / tar / zip (zip only when `zip` is on PATH), "Delete files after archiving"; runs `tar`/`zip` without a shell, echoes the command in the console, never overwrites |
-| Shift+F2  | Extract files                  | ✅         | Dialog: every marked `.tar`/`.tar.gz`/`.tgz`/`.tar.xz`/`.tar.bz2`/`.zip`, destination offered as the other panel (a relative path is taken from the active one, created if missing); members are listed and checked first — paths outside the destination and links are refused; marks are spent only on full success |
+| Shift+F2  | Extract files                  | ✅         | Dialog: every marked `.tar`/`.tar.gz`/`.tgz`/`.tar.xz`/`.tar.bz2`/`.zip`, destination offered as the other panel (a relative path is taken from the active one, created if missing); members are listed and checked first — paths outside the destination and links are refused; an archive that would replace an existing file or write through a link already in the destination is refused and extracts nothing (Far's Overwrite / Skip / Rename prompt is not offered yet); marks are spent only on full success |
 | Shift+F3  | Archive commands               | ✅         | Menu: Test archive, List contents (viewer), Extract here, Extract to other panel, Add selected files to this archive (`.tar`/`.zip`); `tar` reads the tar family, `unzip` reads zip |
 | F2        | User menu                      | ✅         | Lists `user-menu.txt` (`Label<TAB>command`) and an Edit row that opens that file |
-| F3        | View                           | ✅         | Internal viewer: Far's unwrapped text mode with its status line; no hex/dump, no key bar |
+| F3        | View                           | ✅         | Internal viewer: Far's unwrapped text mode with its status line; no hex/dump, no key bar. Decodes as F4 does (`TextEncoding::detect`: a BOM's UTF-8/UTF-16, then UTF-8, else Windows-1251) and names that encoding; no F8/Shift+F8 code-page switch yet |
 | F4        | Edit                           | ✅         | Built-in editor (Far style); Alt+F4 = external editor |
 | Shift+F4  | Create new file                | ✅         |       |
 | F5        | Copy                           | ✅         |       |
@@ -38,16 +38,17 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 | Alt+F6    | Link                           | ✅         | Name prompt titled Link: link name (the other panel's directory + the entry's name by default; a bare name is relative to the other panel), Link type symbolic ⇄ hard (hard for files only — the arrows never stop on it for a folder), Target = the entry under the cursor, absolute. No directory junction: a Windows-only kind. Never overwrites an existing name |
 | F7        | Mkdir                          | ✅         |       |
 | F8        | Delete                         | ✅         | With confirmation dialog |
-| Alt+Del   | Wipe                           | ✅         | Confirmation titled Wipe; each file is zero-filled, truncated, renamed to a temporary name and removed; directories recurse; symlinks are unlinked, never followed. Far's `System.WipeSymbol` filler is not offered (always zeros) |
+| Alt+Del   | Wipe                           | ✅         | Confirmation titled Wipe; each file is zero-filled, truncated, renamed to a temporary name and removed; directories recurse; symlinks are unlinked, never followed; pipes, sockets and devices are never opened, only unlinked; a file with other hard links is only unlinked and the status bar says so. Far's `System.WipeSymbol` filler is not offered (always zeros) |
 | F9        | Menu bar                       | ✅         |       |
+| Alt+F9    | Video mode (25 / 50 rows)      | ⚠️         | Asks the terminal to resize (`CSI 8 t`); many terminals, tmux among them, ignore it. The status bar says the height asked for and the height the terminal has |
 | F10       | Quit                           | ✅         | Also Ctrl+C and the `quit` command |
 | F11       | Plugin commands                | ✅         | Opens MCP/plugin status |
-| F12       | Switch screens                 | ⚠️         | The key opens a placeholder list. Ctrl+O toggles the console. The F9 Screens row chooses file panels or the console transcript |
+| F12       | Switch screens                 | ✅         | The same list as F9 Screens: file panels or the console transcript. Ctrl+O toggles the console directly |
 | Alt+F1/F2 | Drive selection                | ✅         |       |
 | Ctrl+O    | Toggle console (hide panels)   | ✅         |       |
 | Ctrl+U    | Swap panels                    | ✅         | Ignored while a panel is hidden (Ctrl+F1 / Ctrl+F2), as in Far; the status line says so |
 | Ctrl+Z    | Describe files                 | ✅         | One prompt per marked entry (else the cursor), opening on the current text; writes Far's `name text` line (name quoted when it holds a space) to the first of `Settings.descriptions.names`, an empty text removes it, and the panel is re-listed |
-| Ctrl+G    | Apply command                  | ✅         | Far file/path/selection substitutions, native short names, active/passive/left/right panel prefixes and `!@...!` / `!$...!` list modifiers; runs in panel order and unmarks processed entries (Ctrl+M restores). See [syntax and scope](../07-core-features/apply-command.md); interactive parameter dialogs are not implemented |
+| Ctrl+G    | Apply command                  | ✅         | Far file/path/selection substitutions, native short names, active/passive/left/right panel prefixes and `!@...!` / `!$...!` list modifiers; runs in panel order and unmarks processed entries (Ctrl+M restores). As in Far, names are inserted unescaped and the shell parses the line, so a crafted file name can run commands; the dialog warns, see [names are not escaped](../07-core-features/apply-command.md#names-are-not-escaped). See [syntax and scope](../07-core-features/apply-command.md); interactive parameter dialogs are not implemented |
 | Ctrl+F1 / Ctrl+F2 | Hide / show left / right panel | ✅ | The visible panel takes the whole width (Far leaves the console in the freed half); hiding the active panel makes the other active; Tab, Left / Right and the F9 bar never land on a hidden panel; the last panel cannot be hidden — the status line says so (Ctrl+O hides both) |
 | Ctrl+T    | Tree panel                     | ✅         | The active panel becomes the folder tree, rooted at the filesystem root and opened on the panel's own folder; Enter turns it back into a file panel there. No `tree3.far` cache: folders are listed as they are opened |
 
@@ -69,7 +70,7 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 | Key          | Far Action              | FFM Status | Notes |
 |--------------|-------------------------|------------|-------|
 | Insert / Space | Toggle mark + move next | ✅         |       |
-| Ctrl+A       | File attributes         | ✅         | Far's dialog for the marked entries (or the cursor): three-state permission boxes, modification/access times, Process subfolders |
+| Ctrl+A       | File attributes         | ✅         | Far's dialog for the marked entries (or the cursor): three-state permission boxes, modification/access times, Process subfolders; only the boxes and time fields the user changed are applied, and Process subfolders never follows a link |
 
 ## 🔃 Sort Modes
 
@@ -103,7 +104,7 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 
 | Key     | Far Manager Action      | FFM Status | Notes |
 |---------|-------------------------|------------|-------|
-| Ctrl+Q  | Toggle quick view panel | ✅         | As in Far, the *passive* panel becomes the preview and the cursor stays on the file list; pressed inside the preview it turns that panel back into a file list. A file shows its first screen through the viewer's decoder and highlighter (UTF-8/ANSI label, size and percent in the info row; binary, oversized and non-regular files are declined with a one-line reason); a folder shows its first readable configured description (`README.md`, then `README.txt` by default) while InfoPanel settings is on, otherwise `crate::stats` totals (size, files, folders). Unusable descriptions are skipped; changing the description settings updates the open preview. The preview follows the cursor of a file or tree panel on every event. With the preview panel active, Up/Down, PgUp/PgDn, Home/End, Left/Right and Ctrl+Left/Ctrl+Right scroll it like the viewer; every other key falls through. The key and the Left/Right menu row share one path: `MenuCommand::QuickView` → `ops::quickview::toggle`. |
+| Ctrl+Q  | Toggle quick view panel | ✅         | As in Far, the *passive* panel becomes the preview and the cursor stays on the file list; pressed inside the preview it turns that panel back into a file list. A file shows its first screen through the viewer's decoder and highlighter (the encoding label, size and percent in the info row; binary, oversized and non-regular files are declined with a one-line reason); a folder shows its first readable configured description (`README.md`, then `README.txt` by default) while InfoPanel settings is on, otherwise `crate::stats` totals (size, files, folders) — a folder that cannot be read says `Cannot read: <reason>`, and folders inside it that could not be read mark the totals as lower bounds, as F3's Information box does. Unusable descriptions are skipped; changing the description settings updates the open preview. The preview follows the cursor of a file or tree panel on every event. With the preview panel active, Up/Down, PgUp/PgDn, Home/End, Left/Right and Ctrl+Left/Ctrl+Right scroll it like the viewer; every other key falls through. The key and the Left/Right menu row share one path: `MenuCommand::QuickView` → `ops::quickview::toggle`. |
 
 ## 🪟 Overlay / Dialog Keys
 
@@ -121,13 +122,42 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 |--------|-----------------|------------|-------|
 | Ctrl+N | Show long names | ✅         | Far reads the 8.3 name from FAT/NTFS; FFM computes it Windows's way on every platform (`ShortNames` in `src/models/shortname.rs`): spaces and leading dots dropped, uppercased, `+,;=[]` and non-ASCII become `_`, a name that then fits 8+3 is kept, anything longer becomes `LONGNA~1.EXT` with the number unique within the listing. The panel rows show the short form; the info row, marks and every operation keep the real name. |
 
+## 🖥️ Terminal Key Encoding
+
+Terminals send keys as bytes, and without help some combinations share a
+byte. At startup FFM asks the terminal whether it speaks the kitty keyboard
+protocol (`CSI ? u`). Where it does — kitty, foot, WezTerm with
+`enable_kitty_keyboard`, Alacritty, Ghostty — FFM pushes
+it (`CSI > 5 u`: disambiguated escape codes and alternate keys) and every
+combination below arrives as itself. The flags are popped before the
+alternate screen is left: on exit, before an external program or editor
+runs (pushed again afterwards), and from the panic hook. The Windows console
+reports key codes, not bytes, and is not affected.
+
+On a terminal without the protocol — xterm, tmux, GNOME Terminal / VTE,
+Konsole, the Linux console — these limits remain:
+
+| Key | What the terminal sends | What FFM does | Use instead |
+|-----|-------------------------|---------------|-------------|
+| Ctrl+\ and Ctrl+4 | One byte, 0x1C, which crossterm reports as Ctrl+4 | Go to root: `terminal::decode_input` rewrites it before any keymap sees it, so Ctrl+\ never switches to Wide view | Wide view: F9 → Left / Right → Wide |
+| Ctrl+] and Ctrl+5 | One byte, 0x1D, reported as Ctrl+5 | Panels: Detailed view (Ctrl+5). Editor: Go to definition (Ctrl+]), which has no Ctrl+5 of its own | — |
+| Ctrl+I | Tab's byte (0x09) | Tab: switch panels | F9 → Commands → File panel filter |
+| Ctrl+M | Enter's byte (0x0D) | Enter | F9 → Files → Restore selection |
+| Ctrl+F3, Shift+F3, Alt+F3 | xterm's `CSI 1;5R` / `1;2R` / `1;3R`, which crossterm 0.29 reads as a cursor-position report | Nothing: the key never reaches FFM | Ctrl+F12 then `N` (sort by name); F9 → Files → Archive commands |
+| Ctrl+1 … Ctrl+0 | xterm and VTE: the bare digit (1, 9, 0), NUL (2), Esc (3), DEL (8), or the bytes above (4 – 7) | Only Ctrl+5 … Ctrl+7 reach their view mode | F9 → Left / Right → the view mode rows |
+
+Non-Latin layouts: with the protocol pushed, a Ctrl+letter pressed in a
+Cyrillic (or other non-Latin) layout arrives as that letter — for example
+Ctrl+С rather than Ctrl+C — because crossterm 0.29 does not read the
+protocol's base-layout key. Switch to the Latin layout for Ctrl shortcuts on
+those terminals.
+
 ## ↔️ Known Differences (Intentional)
 
 - F4 opens the built-in editor, with syntax highlighting and optional language servers. Alt+F4 delegates to the external editor.
-- Alt+F8, Alt+F9, Alt+F10, Alt+F11, Alt+F12, Ctrl+I, and Ctrl+W open a placeholder frame. The F9 row of the same name runs the operation. See [overlays](../06-ui-and-interaction/overlays-and-modals.md).
 - Some advanced Far plugins and menu systems have no equivalent.
 - Drive letters on Unix are simulated as `/`.
-- S3 buckets appear as additional "drives".
+- With the `s3` feature, credential-file profiles appear as extra drive-menu rows. Selecting one does not open a bucket. See [S3](../../tutorials/s3.md).
 
 ## 🧑‍💻 Far Manager Reference
 

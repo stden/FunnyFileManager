@@ -83,3 +83,24 @@ fn unsupported_characters_and_malformed_unicode_are_errors() {
         .decode(&[0xfe, 0xff, 0xd8, 0])
         .is_err());
 }
+
+#[test]
+fn a_lossy_decode_replaces_what_the_strict_one_refuses_and_drops_the_bom() {
+    let damaged = b"\xff\xfeO\x00K\x00!";
+    assert!(TextEncoding::Utf16Le.decode(damaged).is_err());
+    assert_eq!(TextEncoding::Utf16Le.decode_lossy(damaged), "OK\u{fffd}");
+    assert_eq!(TextEncoding::Utf8Bom.decode_lossy(b"\xef\xbb\xbfhi"), "hi");
+}
+
+#[test]
+fn a_nul_byte_is_binary_unless_a_utf16_byte_order_mark_explains_it() {
+    assert!(is_binary(b"MZ\x00\x01"));
+    assert!(!is_binary(b"plain text"));
+    assert!(!is_binary(b"\xff\xfeH\x00i\x00"));
+    assert!(!is_binary(b"\xfe\xff\x00H\x00i"));
+    // UTF-16 without a mark is indistinguishable from a binary here.
+    assert!(is_binary(b"H\x00i\x00"));
+    // Behind the mark, a NUL character is still a binary's.
+    assert!(is_binary(b"\xff\xfeH\x00\x00\x00i\x00"));
+    assert!(!is_binary(b"\xff\xfe\x00\x01"), "U+0100 is text");
+}

@@ -47,6 +47,7 @@ fn every_minute_of_the_day_formats() {
 /// offset by chrono's own definition of local time.
 #[test]
 fn the_clock_reads_local_time_not_utc() {
+    super::set_test_time(None);
     let at = Local::now();
     let expected = format(u64::from(at.num_seconds_from_midnight()));
     // A minute may tick over between the two reads; either side is correct.

@@ -34,9 +34,22 @@ impl Owners {
             .or_insert_with(|| group_name(gid))
             .clone()
     }
+
+    /// `user:group` by name, for the File owners column; an id without a
+    /// passwd or group entry shows as its number. `None` off Unix.
+    pub fn user_and_group(&mut self, metadata: &std::fs::Metadata) -> Option<String> {
+        let (uid, gid) = identifiers(metadata)?;
+        let user = self.of(metadata).unwrap_or_else(|| uid.to_string());
+        let group = self.group_of(metadata).unwrap_or_else(|| gid.to_string());
+        Some(format!("{user}:{group}"))
+    }
 }
 
 #[cfg(unix)]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "shares the signature of the non-Unix variant, which has no ids to return"
+)]
 fn identifiers(metadata: &std::fs::Metadata) -> Option<(u32, u32)> {
     use std::os::unix::fs::MetadataExt;
     Some((metadata.uid(), metadata.gid()))
@@ -58,6 +71,7 @@ fn group_name(_gid: u32) -> Option<String> {
 }
 
 #[cfg(unix)]
+#[allow(unsafe_code)]
 fn user_name(uid: u32) -> Option<String> {
     lookup(
         // SAFETY: see `lookup`; the id is bound here, the storage there.
@@ -67,6 +81,7 @@ fn user_name(uid: u32) -> Option<String> {
 }
 
 #[cfg(unix)]
+#[allow(unsafe_code)]
 fn group_name(gid: u32) -> Option<String> {
     lookup(
         // SAFETY: see `lookup`; the id is bound here, the storage there.
@@ -80,6 +95,7 @@ fn group_name(gid: u32) -> Option<String> {
 /// `call` is the libc function with its id already bound; `name_of` picks the
 /// name field out of the filled record.
 #[cfg(unix)]
+#[allow(unsafe_code)]
 fn lookup<T>(
     call: impl Fn(*mut T, *mut std::ffi::c_char, usize, *mut *mut T) -> i32,
     name_of: impl Fn(&T) -> *const std::ffi::c_char,

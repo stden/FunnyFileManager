@@ -158,22 +158,28 @@ fn test_editor_from_content_round_trip() {
 #[test]
 fn test_editor_keeps_crlf_while_editing() {
     let mut editor = editor_from("alpha\r\nbeta\r\n");
-    assert_eq!(editor.format.line_ending, super::editor::LineEnding::Crlf);
+    assert_eq!(editor.format.line_ending, LineEnding::Crlf);
     editor.move_end();
     editor.insert_newline();
     assert_eq!(editor.content(), "alpha\r\n\r\nbeta\r\n");
 }
 
 #[test]
-fn test_editor_line_ending_follows_the_majority() {
-    // A single stray CRLF must not convert an otherwise LF file.
+fn test_editor_is_crlf_only_when_every_line_is() {
+    // A single stray CRLF must not convert an otherwise LF file, and a single
+    // LF must not convert a CRLF-majority one either: a mixed file is split
+    // on LF, and each CRLF line keeps its CR as text.
     assert_eq!(
         editor_from("a\r\nb\nc\nd\n").format.line_ending,
-        super::editor::LineEnding::Lf
+        LineEnding::Lf
     );
     assert_eq!(
         editor_from("a\r\nb\r\nc\n").format.line_ending,
-        super::editor::LineEnding::Crlf
+        LineEnding::Lf
+    );
+    assert_eq!(
+        editor_from("a\r\nb\r\n").format.line_ending,
+        LineEnding::Crlf
     );
 }
 
@@ -276,7 +282,7 @@ fn test_editor_cursor_movement_and_clamping() {
 fn test_editor_save_writes_file_and_clears_modified() -> io::Result<()> {
     let temp_dir = TempDir::new().expect("test setup");
     let path = temp_dir.path().join("save.txt");
-    std::fs::write(&path, "hello\n").expect("test setup");
+    fs::write(&path, "hello\n").expect("test setup");
 
     let mut editor = Editor::from_content("save.txt".to_string(), path.clone(), "hello\n");
     editor.cursor_col = 5;
@@ -285,7 +291,7 @@ fn test_editor_save_writes_file_and_clears_modified() -> io::Result<()> {
 
     editor.save()?;
     assert!(!editor.state.is_modified());
-    assert_eq!(std::fs::read_to_string(&path)?, "hello!\n");
+    assert_eq!(fs::read_to_string(&path)?, "hello!\n");
     Ok(())
 }
 
@@ -564,7 +570,7 @@ fn test_panel_load_entries_stays_put_when_selected_missing() -> io::Result<()> {
 }
 
 #[test]
-fn test_uncovered_models_methods() -> std::io::Result<()> {
+fn test_uncovered_models_methods() -> io::Result<()> {
     assert!(BookmarkSlot::new(10).is_err());
     assert!(BookmarkSlot::from_usize(11).is_err());
 
@@ -641,8 +647,8 @@ fn a_file_name_orders_like_the_string_it_wraps() {
 fn a_file_name_joins_onto_a_directory_as_one_component() {
     // `AsRef<Path>` is the one correct way to turn a mark into a path, and a
     // name is always exactly one component.
-    let joined = std::path::Path::new("/srv/work").join(FileName::from("notes.txt"));
-    assert_eq!(joined, std::path::Path::new("/srv/work/notes.txt"));
+    let joined = Path::new("/srv/work").join(FileName::from("notes.txt"));
+    assert_eq!(joined, Path::new("/srv/work/notes.txt"));
     assert_eq!(FileName::from("notes.txt").to_string(), "notes.txt");
 }
 
@@ -657,6 +663,26 @@ fn a_bookmark_slot_covers_exactly_zero_through_nine() {
     assert_eq!(BookmarkSlot::COUNT, usize::from(BookmarkSlot::MAX) + 1);
 }
 
+/// `from_usize` narrows through `u8`: 256 must not wrap to slot 0.
+#[test]
+fn a_bookmark_slot_from_usize_rejects_values_that_would_wrap_a_u8() {
+    assert_eq!(BookmarkSlot::from_usize(0).map(BookmarkSlot::as_u8), Ok(0));
+    assert_eq!(BookmarkSlot::from_usize(9).map(BookmarkSlot::as_u8), Ok(9));
+    for out_of_range in [
+        10,
+        usize::from(u8::MAX),
+        usize::from(u8::MAX) + 1,
+        265,
+        usize::MAX,
+    ] {
+        assert_eq!(
+            BookmarkSlot::from_usize(out_of_range),
+            Err("bookmark slot must be 0-9"),
+            "{out_of_range}"
+        );
+    }
+}
+
 #[test]
 fn every_slot_has_somewhere_to_go() {
     // The store has one entry per slot, which is what makes the lookup total
@@ -667,11 +693,8 @@ fn every_slot_has_somewhere_to_go() {
     for n in 0..=BookmarkSlot::MAX {
         let slot = BookmarkSlot::new(n).expect("legal slot");
         assert_eq!(bookmarks.get(slot), None);
-        bookmarks.set(slot, std::path::PathBuf::from(format!("/slot{n}")));
-        assert_eq!(
-            bookmarks.get(slot),
-            Some(std::path::Path::new(&format!("/slot{n}")))
-        );
+        bookmarks.set(slot, PathBuf::from(format!("/slot{n}")));
+        assert_eq!(bookmarks.get(slot), Some(Path::new(&format!("/slot{n}"))));
         bookmarks.clear(slot);
         assert_eq!(bookmarks.get(slot), None);
     }

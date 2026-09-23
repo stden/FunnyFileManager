@@ -130,6 +130,56 @@ fn test_list_objects_skips_prefix_itself() -> io::Result<()> {
 }
 
 #[test]
+fn test_list_objects_strips_a_prefix_without_a_trailing_slash() -> io::Result<()> {
+    let xml = r#"
+        <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+            <Name>mybucket</Name>
+            <Prefix>data/</Prefix>
+            <Delimiter>/</Delimiter>
+            <Contents>
+                <Key>data/notes.txt</Key>
+                <Size>4</Size>
+            </Contents>
+        </ListBucketResult>
+    "#;
+    let client = build_test_client(vec![replay_event(xml)]);
+    let objects = client.list_objects("mybucket", "data")?;
+    assert_eq!(objects.len(), 1);
+    assert_eq!(objects[0].key, "notes.txt");
+    Ok(())
+}
+
+#[test]
+fn test_list_objects_follows_the_continuation_token() -> io::Result<()> {
+    let first = r#"
+        <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+            <Name>mybucket</Name>
+            <IsTruncated>true</IsTruncated>
+            <NextContinuationToken>page-2</NextContinuationToken>
+            <Contents>
+                <Key>a.txt</Key>
+                <Size>1</Size>
+            </Contents>
+        </ListBucketResult>
+    "#;
+    let second = r#"
+        <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+            <Name>mybucket</Name>
+            <IsTruncated>false</IsTruncated>
+            <Contents>
+                <Key>b.txt</Key>
+                <Size>2</Size>
+            </Contents>
+        </ListBucketResult>
+    "#;
+    let client = build_test_client(vec![replay_event(first), replay_event(second)]);
+    let objects = client.list_objects("mybucket", "")?;
+    let names: Vec<_> = objects.iter().map(|object| object.key.as_str()).collect();
+    assert_eq!(names, ["a.txt", "b.txt"]);
+    Ok(())
+}
+
+#[test]
 fn test_list_objects_skips_slash_name() -> io::Result<()> {
     // After stripping prefix, if name is "/" it should be skipped
     let xml = r#"
@@ -456,3 +506,23 @@ const TEST_LIST_OBJECTS_MULTIPLE_FOLDERS_AND_FILES_XML: &str = r#"
             </Contents>
         </ListBucketResult>
     "#;
+
+/// S3 reports sizes as `i64`: a negative one is malformed and shows as empty,
+/// and the largest positive one converts exactly.
+#[test]
+fn test_object_size_conversion_boundaries() {
+    let size_of = |bytes: i64| {
+        let object = aws_sdk_s3::types::Object::builder()
+            .key("file.bin")
+            .size(bytes)
+            .build();
+        listing::file_from_object(&object, "").map(|row| row.size)
+    };
+    assert_eq!(size_of(-1), Some(FileSize::from_bytes(0)));
+    assert_eq!(size_of(i64::MIN), Some(FileSize::from_bytes(0)));
+    assert_eq!(size_of(0), Some(FileSize::from_bytes(0)));
+    assert_eq!(
+        size_of(i64::MAX),
+        Some(FileSize::from_bytes(i64::MAX.unsigned_abs()))
+    );
+}

@@ -6,6 +6,10 @@ use serde::{Deserialize, Serialize};
 /// Interface settings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent Far interface toggles, each saved as its own true/false"
+)]
 pub struct InterfaceSettings {
     pub clock: bool,
     pub key_bar: bool,

@@ -3,7 +3,8 @@
 use std::path::PathBuf;
 
 use super::{Preview, QuickView, Refusal, TextPreview};
-use crate::models::{Encoding, Viewport};
+use crate::encoding::TextEncoding;
+use crate::models::Viewport;
 
 fn text(lines: &[&str]) -> Preview {
     Preview::Text(TextPreview::decoded(
@@ -16,11 +17,12 @@ fn text(lines: &[&str]) -> Preview {
 fn decoding_follows_the_viewer_rules() {
     let utf8 = TextPreview::decoded(&PathBuf::from("a.txt"), b"one\ntwo\n");
     assert_eq!(utf8.lines, vec!["one", "two"]);
-    assert_eq!(utf8.encoding, Encoding::Utf8);
+    assert_eq!(utf8.encoding, TextEncoding::Utf8);
     assert_eq!(utf8.size.bytes(), 8);
 
-    let ansi = TextPreview::decoded(&PathBuf::from("a.txt"), &[0xE9, b'\n']);
-    assert_eq!(ansi.encoding, Encoding::Ansi);
+    let single_byte = TextPreview::decoded(&PathBuf::from("a.txt"), &[0xE9, b'\n']);
+    assert_eq!(single_byte.lines, vec!["\u{439}"]);
+    assert_eq!(single_byte.encoding, TextEncoding::Windows1251);
 
     let empty = TextPreview::decoded(&PathBuf::from("a.txt"), b"");
     assert_eq!(empty.lines, vec!["<empty file>"]);

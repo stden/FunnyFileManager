@@ -16,9 +16,9 @@ use ratatui::{
 };
 
 use super::code::highlighted_window;
-use super::{fit_name, head_cells, palette, Cells, FAR_BLUE};
+use super::{fit_name, head_cells, palette, tail_cells, Cells, FAR_BLUE};
 use crate::highlight::Highlighter;
-use crate::models::{ViewSource, Viewer};
+use crate::models::{ViewSource, ViewedFile, Viewer};
 
 /// Rows the viewer spends on chrome: its status line, and nothing else.
 const VIEWER_BAR_HEIGHT: u16 = 1;
@@ -94,50 +94,53 @@ fn render_viewer_bar(f: &mut Frame, viewer: &Viewer, area: Rect, page: usize) {
     );
 }
 
-/// 100 once the last line is on screen, else how far down the top row is.
-///
-/// The first test also covers an empty `lines`, which would otherwise divide
-/// by zero.
-const fn percent(top: usize, rows: usize, total: usize) -> usize {
-    if top.saturating_add(rows) >= total {
-        100
-    } else {
-        top * 100 / total
-    }
-}
-
 /// The status line's text, exactly `width` cells of it.
 ///
 /// A pure function of the viewer and the clock so the tests can pin the row
 /// to the character; `crate::clock::now()` would drift under them.
 ///
-/// The path gives way first, cut with an ellipsis as the editor bar cuts its
-/// name; when even the fields do not fit, the row is cut as a whole rather
+/// The path gives way first, cut from its head as Far cuts it — the file name
+/// at its tail is what says which file this is; a report's title keeps its
+/// head. When even the fields do not fit, the row is cut as a whole rather
 /// than wrapped.
 fn bar_row(viewer: &Viewer, width: Cells, clock: &str, page: usize) -> String {
     let (left, right) = match &viewer.source {
-        ViewSource::File(file) => (
-            crate::path_display::label(&file.path).into_owned(),
-            format!(
-                "│{TEXT_MODE}│{:<5}│{:<8}│Col {:<4}│{:<5}│{clock}",
-                file.encoding.label(),
-                file.size.bytes(),
-                viewer.col.cells(),
-                format!(
-                    "{}%",
-                    percent(viewer.scroll.lines(), page, viewer.lines.len())
-                ),
-            ),
-        ),
-        ViewSource::Report(title) => (title.clone(), format!("│{clock}")),
+        ViewSource::File(file) => {
+            let right = file_fields(viewer, file, clock, page);
+            let path = crate::path_display::label(&file.path);
+            (
+                tail_cells(&path, width.saturating_sub(Cells::of(&right))),
+                right,
+            )
+        }
+        ViewSource::Report(title) => {
+            let right = format!("│{clock}");
+            (
+                head_cells(title, width.saturating_sub(Cells::of(&right))),
+                right,
+            )
+        }
     };
-    let left = head_cells(&left, width.saturating_sub(Cells::of(&right)));
     let gap = " ".repeat(
         width
             .saturating_sub(Cells::of(&left) + Cells::of(&right))
             .get(),
     );
     fit_name(&format!("{left}{gap}{right}"), width)
+}
+
+/// Far's fields for a file, flush right on the status line.
+fn file_fields(viewer: &Viewer, file: &ViewedFile, clock: &str, page: usize) -> String {
+    let percent = format!(
+        "{}%",
+        super::scroll_percent(viewer.scroll.lines(), page, viewer.lines.len())
+    );
+    format!(
+        "│{TEXT_MODE}│{:<5}│{:<8}│Col {:<4}│{percent:<5}│{clock}",
+        file.encoding.label(),
+        file.size.bytes(),
+        viewer.col.cells(),
+    )
 }
 
 #[cfg(test)]

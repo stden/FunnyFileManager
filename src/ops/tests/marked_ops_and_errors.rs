@@ -48,7 +48,7 @@ fn test_handle_view_error_paths() -> io::Result<()> {
 
     // View a directory (that exists)
     let subdir = temp_dir_outer.path().join("subdir");
-    std::fs::create_dir(&subdir).expect("test setup");
+    fs::create_dir(&subdir).expect("test setup");
     app.left_panel.load_entries().expect("test setup");
 
     // Find subdir in entries and select it
@@ -268,7 +268,7 @@ fn test_drive_selection_up_wraps_to_last() -> io::Result<()> {
         rows: crate::models::drive_rows(),
     });
 
-    let drive_count = crate::models::App::get_all_drives().len();
+    let drive_count = App::get_all_drives().len();
     if drive_count == 0 {
         return Ok(());
     }
@@ -291,7 +291,7 @@ fn test_drive_selection_down_wraps_to_first() -> io::Result<()> {
         rows: crate::models::drive_rows(),
     });
 
-    let drive_count = crate::models::App::get_all_drives().len();
+    let drive_count = App::get_all_drives().len();
     if drive_count == 0 {
         return Ok(());
     }
@@ -387,7 +387,7 @@ fn test_process_popup_input_drive_selection_wrap_down() -> io::Result<()> {
 #[test]
 fn test_drive_selection_home() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
-    let drive_count = crate::models::App::get_all_drives().len();
+    let drive_count = App::get_all_drives().len();
     let last_idx = if drive_count == 0 { 0 } else { drive_count - 1 };
     app.set_overlay(Overlay::DriveSelection {
         side: PanelSide::Right,

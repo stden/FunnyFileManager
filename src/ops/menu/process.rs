@@ -3,7 +3,8 @@
 use std::{
     fs::File,
     io::{self, Read, Seek},
-    process::{Command, Output, Stdio},
+    path::Path,
+    process::{Child, Command, Output, Stdio},
     thread,
     time::{Duration, Instant},
 };
@@ -11,18 +12,23 @@ use std::{
 const MAX_OUTPUT: u64 = 8 * 1024 * 1024;
 
 pub fn capture(command: &mut Command) -> io::Result<Output> {
-    capture_with_timeout(command, Duration::from_mins(1))
+    capture_with_timeout(command, Duration::from_mins(1), &std::env::temp_dir())
 }
 
-fn capture_with_timeout(command: &mut Command, timeout: Duration) -> io::Result<Output> {
-    let mut stdout = tempfile::tempfile()?;
-    let mut stderr = tempfile::tempfile()?;
+/// Run `command`, its two streams spooled to files in `spool`.
+fn capture_with_timeout(
+    command: &mut Command,
+    timeout: Duration,
+    spool: &Path,
+) -> io::Result<Output> {
+    let mut stdout = spool_file(spool)?;
+    let mut stderr = spool_file(spool)?;
     command
         .stdin(Stdio::null())
         .stdout(stdout.try_clone()?)
         .stderr(stderr.try_clone()?);
     hide_window(command);
-    let mut child = command.spawn()?;
+    let mut child = spawn(command)?;
     let deadline = Instant::now() + timeout;
     let status = loop {
         if let Some(status) = child.try_wait()? {
@@ -44,6 +50,28 @@ fn capture_with_timeout(command: &mut Command, timeout: Duration) -> io::Result<
         status,
         stdout: read_output(&mut stdout)?,
         stderr: read_output(&mut stderr)?,
+    })
+}
+
+/// A file in `spool` to catch one stream in. The OS error names no path, so
+/// the directory is named here: a missing or read-only temp directory must
+/// not read as a program that failed to start.
+fn spool_file(spool: &Path) -> io::Result<File> {
+    tempfile::tempfile_in(spool).map_err(|error| {
+        let message = format!(
+            "cannot create a temporary file in {}: {error}",
+            spool.display()
+        );
+        io::Error::new(error.kind(), message)
+    })
+}
+
+/// Start `command`; a failure names the program, which the OS error leaves
+/// out.
+fn spawn(command: &mut Command) -> io::Result<Child> {
+    command.spawn().map_err(|error| {
+        let program = command.get_program().to_string_lossy();
+        io::Error::new(error.kind(), format!("cannot run {program}: {error}"))
     })
 }
 

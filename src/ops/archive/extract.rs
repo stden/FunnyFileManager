@@ -1,7 +1,14 @@
 //! Purpose: `Shift+F2` — unpack every archive the Extract files dialog holds
 //! into its destination, each one checked before `tar` or `unzip` touches the
 //! disk.
+//!
+//! Neither tool is trusted with the destination itself: `tar` replaces an
+//! existing file, `unzip -o` too, and `unzip` follows a link it finds there
+//! to wherever it points. Each archive unpacks into an empty private folder
+//! inside the destination instead, and its entries move in only when none of
+//! them would replace something or pass through a link.
 
+use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Output;
@@ -10,13 +17,18 @@ use super::{complaint, validate_listing, Tool};
 use crate::models::{App, Overlay};
 use crate::status::Status;
 
+/// The name of the private folder an archive unpacks into first. A dotfile,
+/// so a listing refreshed meanwhile does not show it as the user's.
+const STAGING_PREFIX: &str = ".ffm-extract";
+
 /// Unpack `archive` into `destination`, creating the folder if needed.
 ///
 /// The members are listed and checked first: an archive that would write
 /// outside `destination`, or leave a link in it, is refused before anything
-/// is written. The error carries the archive's name and the tool's first
-/// complaint, so a status line built from it says which of several archives
-/// went wrong.
+/// is written. What unpacked then moves in only as a whole — never
+/// replacing an existing entry, never through a link — or not at all. The
+/// error carries the archive's name and the reason, so a status line built
+/// from it says which of several archives went wrong.
 pub fn extract_archive(archive: &Path, destination: &Path) -> io::Result<Output> {
     let name = archive.file_name().unwrap_or_default().to_string_lossy();
     let named = |error: io::Error| io::Error::other(format!("{name}: {error}"));
@@ -26,15 +38,105 @@ pub fn extract_archive(archive: &Path, destination: &Path) -> io::Result<Output>
         &tool.details(archive).text().map_err(named)?,
     )
     .map_err(named)?;
-    std::fs::create_dir_all(destination)?;
-    let output = tool
-        .unpack(archive, destination)
-        .execute(destination)
+    fs::create_dir_all(destination)?;
+    let staging = tempfile::Builder::new()
+        .prefix(STAGING_PREFIX)
+        .tempdir_in(destination)
         .map_err(named)?;
-    if output.status.success() {
-        return Ok(output);
+    let output = tool
+        .unpack(archive, staging.path())
+        .execute(staging.path())
+        .map_err(named)?;
+    if !output.status.success() {
+        return Err(named(io::Error::other(complaint(&output))));
     }
-    Err(named(io::Error::other(complaint(&output))))
+    settle(staging.path(), destination).map_err(named)?;
+    Ok(output)
+}
+
+/// Move what unpacked in `staging` into `destination`, or nothing at all.
+fn settle(staging: &Path, destination: &Path) -> io::Result<()> {
+    plain_tree(staging)?;
+    check_clashes(staging, destination, Path::new(""))?;
+    move_in(staging, destination)
+}
+
+/// Refuse a staged tree holding anything but plain files and folders. The
+/// listing already refused links; this is what stands if one got past it,
+/// because every later entry could be written through it.
+pub(super) fn plain_tree(staging: &Path) -> io::Result<()> {
+    plain_below(staging, Path::new(""))
+}
+
+fn plain_below(staging: &Path, relative: &Path) -> io::Result<()> {
+    for entry in fs::read_dir(staging.join(relative))? {
+        let entry = entry?;
+        let relative = relative.join(entry.file_name());
+        let kind = entry.file_type()?;
+        if kind.is_dir() {
+            plain_below(staging, &relative)?;
+        } else if !kind.is_file() {
+            return Err(io::Error::other(format!(
+                "{} is not a plain file or folder; nothing was extracted",
+                relative.display()
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Refuse the first staged entry the destination already has, unless both
+/// are real folders: those are merged, so what is inside them is compared
+/// in turn. A link in the destination is never a real folder.
+fn check_clashes(staging: &Path, destination: &Path, relative: &Path) -> io::Result<()> {
+    for entry in fs::read_dir(staging.join(relative))? {
+        let entry = entry?;
+        let relative = relative.join(entry.file_name());
+        let Some(existing) = existing(&destination.join(&relative))? else {
+            continue;
+        };
+        if !(existing.is_dir() && entry.file_type()?.is_dir()) {
+            return Err(clash(&relative, &existing));
+        }
+        check_clashes(staging, destination, &relative)?;
+    }
+    Ok(())
+}
+
+fn clash(relative: &Path, existing: &fs::Metadata) -> io::Error {
+    let why = if existing.is_symlink() {
+        "is a link, and extraction never writes through one"
+    } else {
+        "already exists"
+    };
+    io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        format!("{} {why}; nothing was extracted", relative.display()),
+    )
+}
+
+/// What is at `path`, the link itself when it is one; `None` when nothing.
+fn existing(path: &Path) -> io::Result<Option<fs::Metadata>> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) => Ok(Some(metadata)),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+/// Rename each staged entry into place, going down only into the folders
+/// both sides have; `check_clashes` has made sure nothing is replaced.
+fn move_in(staged: &Path, destination: &Path) -> io::Result<()> {
+    for entry in fs::read_dir(staged)? {
+        let entry = entry?;
+        let target = destination.join(entry.file_name());
+        if existing(&target)?.is_some_and(|metadata| metadata.is_dir()) {
+            move_in(&entry.path(), &target)?;
+        } else {
+            fs::rename(entry.path(), &target)?;
+        }
+    }
+    Ok(())
 }
 
 /// Enter in the Extract files dialog: unpack every archive it holds into its

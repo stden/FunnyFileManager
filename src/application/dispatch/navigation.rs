@@ -45,7 +45,6 @@ fn select_last(app: &mut App) {
 fn go_root(app: &mut App) {
     let root = filesystem_root(&app.get_active_panel_ref().path);
     report(app, |app| app.get_active_panel().navigate_to(root));
-    app.quick_search.clear();
 }
 
 pub(super) fn shorten_quick_search(app: &mut App) {
@@ -94,7 +93,7 @@ fn panel_page<B: Backend>(terminal: &Terminal<B>) -> usize {
 
 fn open_panel_entry<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut App) {
     // Vault interpretation takes priority over executable flags on FAT mounts.
-    if crate::ops::vault::open_vault_if_kdbx(app) {
+    if ops::vault::open_vault_if_kdbx(app) {
         return;
     }
     match ops::menu::user::associated_command(app) {
@@ -113,7 +112,7 @@ fn open_panel_entry<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut Ap
         .get_selected_entry()
         .is_some_and(|entry| entry.executable && !entry.kind.is_dir());
     if executable {
-        report(app, |app| crate::ops::program::launch(terminal, app));
+        report(app, |app| ops::program::launch(terminal, app));
     } else {
         report(app, |app| app.get_active_panel().enter());
     }

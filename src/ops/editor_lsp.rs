@@ -28,11 +28,8 @@ fn navigate(app: &mut App, target: &Definition) -> Result<(), &'static str> {
     let crate::fileload::Loaded::Bytes(bytes) = loaded else {
         return Err("Definition target is not an editable text file");
     };
-    let encoding = crate::encoding::TextEncoding::detect(&bytes);
-    let text = encoding
-        .decode(&bytes)
-        .map_err(|_| "Cannot decode definition target")?;
-    let mut editor = crate::editor::editor_for(app, target.path.clone(), &text, encoding);
+    let mut editor = crate::editor::editor_for(app, target.path.clone(), &bytes)
+        .map_err(|_| "Definition target is not an editable text file")?;
     move_cursor(&mut editor, target)?;
     app.set_overlay(Overlay::Editor(editor));
     Ok(())

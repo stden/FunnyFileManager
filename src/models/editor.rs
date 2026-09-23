@@ -2,10 +2,14 @@
 
 use std::path::PathBuf;
 
+mod disk;
 pub mod lsp;
 mod selection;
+pub use disk::{AfterSave, Fingerprint, OverwritePrompt};
 pub use lsp::{EditorLspState, LspFeature, ServerState};
 pub use selection::{EditorMotion, EditorSelection, SelectionMode};
+#[cfg(test)]
+mod tests;
 
 /// End-of-line style of the file being edited.
 ///
@@ -26,12 +30,15 @@ impl LineEnding {
         }
     }
 
-    /// The dominant terminator in `content`: CRLF only when it is the majority,
-    /// so a stray `\r\n` inside an LF file does not convert the whole file.
+    /// CRLF only when *every* line break in `content` is one.
+    ///
+    /// A file that mixes the two is split on LF alone, and the CR of each
+    /// CRLF line stays part of that line's text, as Vim keeps it. Choosing
+    /// the majority instead wrote that one ending after every line, so the
+    /// minority lines were rewritten although nobody had touched them.
     fn detect(content: &str) -> Self {
-        let crlf = content.matches("\r\n").count();
-        let lf = content.matches('\n').count();
-        if crlf * 2 > lf {
+        let breaks = content.matches('\n').count();
+        if breaks > 0 && content.matches("\r\n").count() == breaks {
             Self::Crlf
         } else {
             Self::Lf
@@ -57,6 +64,12 @@ pub struct Editor {
     pub state: EditState,
     /// How the file was written on disk, restored verbatim on save.
     pub format: FileFormat,
+    /// Where the tab stops are, for drawing TABs and for the Tab key.
+    pub tab_size: TabSize,
+    /// What the disk held when the file was last read or saved, so a save
+    /// can notice another program's write in between; `None` for a buffer
+    /// that was not read from a file, whose saves do not ask.
+    pub disk: Option<Fingerprint>,
     /// F7's search: the dialog while it is open, and what Shift+F7 repeats.
     pub search: crate::search::SearchState,
     /// Stream selection anchored independently from the moving caret.
@@ -83,6 +96,8 @@ pub struct FileFormat {
     pub line_ending: LineEnding,
     /// Whether the original file ended with a newline.
     pub trailing_newline: bool,
+    /// What the Tab key types into it.
+    pub indent: Indent,
 }
 
 impl FileFormat {
@@ -93,7 +108,62 @@ impl FileFormat {
             encoding: crate::encoding::TextEncoding::default(),
             line_ending: LineEnding::detect(content),
             trailing_newline: content.ends_with('\n'),
+            indent: Indent::detect(content),
         }
+    }
+}
+
+/// What the Tab key types into a file: the file's own convention.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Indent {
+    /// [`TabSize`] spaces, the editor's setting, for a file with no TABs.
+    #[default]
+    Spaces,
+    /// A TAB character, for a file that already contains them: spaces there
+    /// would change its format — a Makefile recipe, a TSV column, the user
+    /// menu's `Label<TAB>command` separator.
+    Tabs,
+}
+
+impl Indent {
+    fn detect(content: &str) -> Self {
+        if content.contains('\t') {
+            Self::Tabs
+        } else {
+            Self::Spaces
+        }
+    }
+}
+
+/// Columns from one tab stop to the next: how wide the editor draws a TAB,
+/// and how many spaces the Tab key types into a file that does not use TABs.
+///
+/// It is the Options menu's "Editor settings" value, taken when the file is
+/// opened. A byte, because the editor is the largest overlay and the value is
+/// validated to 1–16; never zero, because a zero-wide stop would draw a TAB
+/// as nothing again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TabSize(u8);
+
+impl TabSize {
+    /// The Options menu's default.
+    pub const DEFAULT: Self = Self(4);
+
+    /// A tab size of `columns`, kept to at least one column.
+    #[must_use]
+    pub fn new(columns: usize) -> Self {
+        Self(u8::try_from(columns).unwrap_or(u8::MAX).max(1))
+    }
+
+    #[must_use]
+    pub const fn columns(self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Default for TabSize {
+    fn default() -> Self {
+        Self::DEFAULT
     }
 }
 
@@ -105,7 +175,7 @@ impl FileFormat {
 /// editor the column is plain arithmetic on a `usize`, and wrapping every
 /// `+= 1` would make that code harder to read for no gain, since nothing else
 /// in there measures anything else. What needed a name is the value that
-/// leaves: `ui::cells_before` converts it to a column, and handing that
+/// leaves: `ui::EditorLine::cells_before` converts it to a column, and handing that
 /// function a byte offset or a cell count would silently misplace the caret.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CharColumn(usize);
@@ -141,6 +211,9 @@ pub enum EditState {
     /// have states naming no button at all, and every caller would then have to
     /// defend against them; three named answers cannot be out of range.
     ConfirmingExit(ExitChoice),
+    /// A save found the file changed on disk since it was read; awaiting
+    /// Overwrite or Cancel.
+    ConfirmingOverwrite(OverwritePrompt),
 }
 
 /// The button focused in the editor's unsaved-changes dialog.
@@ -181,7 +254,10 @@ impl EditState {
     /// Whether the buffer differs from the file — true in both edited stages.
     #[must_use]
     pub const fn is_modified(self) -> bool {
-        matches!(self, Self::Modified | Self::ConfirmingExit(_))
+        matches!(
+            self,
+            Self::Modified | Self::ConfirmingExit(_) | Self::ConfirmingOverwrite(_)
+        )
     }
 
     #[must_use]
@@ -197,6 +273,15 @@ impl EditState {
             _ => None,
         }
     }
+
+    /// The "changed on disk" question, if it is open.
+    #[must_use]
+    pub const fn overwrite_prompt(self) -> Option<OverwritePrompt> {
+        match self {
+            Self::ConfirmingOverwrite(prompt) => Some(prompt),
+            _ => None,
+        }
+    }
 }
 
 impl Editor {
@@ -207,17 +292,25 @@ impl Editor {
     }
 
     /// Build an editor from raw file content.
+    ///
+    /// Splits on the file's own [`LineEnding`] and nothing else, so that
+    /// [`Self::content`] gives back exactly `content` until something is
+    /// edited. `str::lines` could not: it also strips the CR of a CRLF line in
+    /// an LF file, which the save then never wrote back.
     #[must_use]
     pub fn from_content(title: String, path: PathBuf, content: &str) -> Self {
-        let mut lines: Vec<String> = content.lines().map(ToString::to_string).collect();
-        if lines.is_empty() {
-            lines.push(String::new());
-        }
+        let format = FileFormat::detect(content);
+        let eol = format.line_ending.as_str();
+        let body = if format.trailing_newline {
+            content.strip_suffix(eol).unwrap_or(content)
+        } else {
+            content
+        };
         Self {
             title,
             path,
-            lines,
-            format: FileFormat::detect(content),
+            lines: body.split(eol).map(str::to_owned).collect(),
+            format,
             ..Self::default()
         }
     }

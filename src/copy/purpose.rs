@@ -35,6 +35,15 @@ impl Purpose {
         }
     }
 
+    /// What the status line says was done: `Copied to …`, `Moved 3 item(s)`.
+    #[must_use]
+    pub const fn done(self) -> &'static str {
+        match self {
+            Self::Copy => "Copied",
+            Self::Move => "Moved",
+        }
+    }
+
     /// How the dialog's first line begins.
     #[must_use]
     pub const fn question(self) -> &'static str {

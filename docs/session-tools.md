@@ -50,8 +50,19 @@ apt-get (then Homebrew) on Linux. It shows the commands and defaults to Cancel:
 
 Select Run to update all installed packages managed by that tool. The terminal
 is handed to the package manager for progress and prompts, then restored.
-Chocolatey requests Windows elevation; apt-get uses sudo when needed. A failed
-step stops the sequence and reports its exit code. This does not install a
+Chocolatey requests Windows elevation. apt-get run by a user other than root
+goes through sudo, and the Run row says so: `Run: sudo apt-get update && sudo
+apt-get upgrade -y`. Each step is echoed into the Ctrl+O transcript with what it
+wrote to stderr, which also still appears on the terminal as it runs.
+
+A failed step stops the sequence. The status names the program that failed,
+its exit code and the last line it wrote to stderr, for example
+`apt-get update exited with code 100: E: Could not get lock ...`. When sudo
+itself refuses (wrong or missing password, not in sudoers, no terminal) it
+exits 1, which apt-get never uses, and the status says so:
+`sudo did not run apt-get update (exit code 1): sudo: a password is required`.
+Ctrl+C at sudo's password prompt, or during the update, stops the package
+manager and not FFM: the panels come back with "Package update cancelled". This does not install a
 missing package manager or assume that FunnyFileManager itself was installed
 through one.
 

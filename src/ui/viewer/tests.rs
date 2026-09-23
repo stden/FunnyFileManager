@@ -67,11 +67,11 @@ fn the_bar_is_the_path_then_the_far_fields_flush_right() {
 }
 
 #[test]
-fn a_lossy_file_says_ansi_in_the_same_column() {
+fn a_single_byte_file_names_its_code_page_in_the_same_column() {
     let viewer = file_viewer("/tmp/x/a.txt", b"caf\xe9");
     let row = bar_row(&viewer, Cells::new(60), CLOCK, 23);
     assert!(
-        row.ends_with("│t│ANSI │4       │Col 0   │100% │ 1:34 PM"),
+        row.ends_with("│t│Windows-1251│4       │Col 0   │100% │ 1:34 PM"),
         "{row:?}"
     );
 }
@@ -92,11 +92,34 @@ fn the_percent_is_where_the_top_row_is_until_the_last_line_shows() {
     assert!(bar_row(&viewer, Cells::new(80), CLOCK, page).contains("│100% │"));
 }
 
+/// The path gives way from its head, as Far cuts it: the file name at its
+/// tail is what says which file this is.
 #[test]
-fn a_narrow_bar_cuts_the_path_and_keeps_the_fields_whole() {
+fn a_narrow_bar_cuts_the_path_from_the_left_and_keeps_the_fields_whole() {
     let viewer = file_viewer("/tmp/x/main.rs", b"fn main() {}");
     let row = bar_row(&viewer, Cells::new(50), CLOCK, 23);
-    assert_eq!(row, "/tmp/x/m…│t│UTF-8│12      │Col 0   │100% │ 1:34 PM");
+    assert_eq!(row, "…/main.rs│t│UTF-8│12      │Col 0   │100% │ 1:34 PM");
+}
+
+/// The reported case: a deep path on an 80-column terminal kept its head and
+/// lost the name of the file being viewed.
+#[test]
+fn a_deep_path_at_80_columns_still_shows_the_file_name() {
+    let viewer = file_viewer("/srv/x/agents/v-viewer-7/work/docs/medium.txt", b"text");
+    let row = bar_row(&viewer, Cells::new(80), CLOCK, 23);
+    assert!(
+        row.starts_with("…") && row.contains("/docs/medium.txt│t│UTF-8│4 "),
+        "{row:?}"
+    );
+    assert_eq!(Cells::of(&row).get(), 80);
+}
+
+/// A report has no path to cut: its title keeps its head.
+#[test]
+fn a_narrow_report_bar_keeps_the_head_of_its_title() {
+    let viewer = Viewer::report("MCP Server Status", Vec::new());
+    let row = bar_row(&viewer, Cells::new(15), CLOCK, 23);
+    assert_eq!(row, "MCP S…│ 1:34 PM");
 }
 
 #[test]

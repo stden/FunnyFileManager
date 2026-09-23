@@ -18,7 +18,7 @@ pub(super) fn execute(app: &mut App, command: MenuCommand) -> io::Result<()> {
         MenuCommand::Screens => screens(app),
         MenuCommand::Tasks => tasks(app)?,
         MenuCommand::Devices => devices(app),
-        MenuCommand::VideoMode => crate::terminal::toggle_video_mode()?,
+        MenuCommand::VideoMode => crate::ops::videomode::toggle(app)?,
         _ => return Err(io::Error::other("Not a navigation command")),
     }
     Ok(())
@@ -60,14 +60,16 @@ fn folder_history(app: &mut App) {
     super::choices(app, "Folders history", rows);
 }
 
+/// Far's Alt+F11: the files viewed (F3) and edited (F4, Alt+F4), newest
+/// first — the persisted history every one of those keys records, so the
+/// list also reaches back into earlier sessions.
 fn view_history(app: &mut App) {
     let rows = app
-        .viewed_files
-        .iter()
-        .rev()
+        .view_history
+        .newest_first()
         .map(|path| MenuChoice {
             label: path.display().to_string(),
-            target: ChoiceTarget::File(path.clone()),
+            target: ChoiceTarget::File(path.to_path_buf()),
         })
         .collect();
     super::choices(app, "File view history", rows);

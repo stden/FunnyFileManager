@@ -2,8 +2,9 @@
 //!
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::Color,
-    widgets::{Block, BorderType, Borders},
+    style::{Color, Style},
+    text::Line,
+    widgets::{Block, BorderType, Borders, Padding},
     Frame,
 };
 
@@ -76,8 +77,11 @@ pub(crate) use sortmenu::row_at as sort_row_at;
 
 #[cfg(test)]
 pub(crate) use cells::UNPRINTABLE;
-pub(crate) use cells::{cells_before, fit_name, printable_name, Cells};
-use cells::{head_cells, skip_cells, tail_cells, take_cells};
+use cells::{
+    expand_tabs, fit_quoting_path, head_cells, screen_u16, skip_cells, tail_cells, take_cells,
+    EditorLine,
+};
+pub(crate) use cells::{fit_name, printable_name, Cells};
 use command_line::render_command_line;
 #[cfg(test)]
 use command_prompt::prompt_spans;
@@ -103,6 +107,40 @@ pub(super) fn far_block() -> Block<'static> {
     Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Double)
+}
+
+pub(super) fn dialog_frame<'a>(title: &'a str, footer: &'a str, ground: Style) -> Block<'a> {
+    far_block()
+        .title(Line::from(title).centered())
+        .title_bottom(Line::from(footer).centered())
+        .border_style(Style::default().fg(palette::DRIVE_FG))
+        .padding(Padding::horizontal(1))
+        .style(ground)
+}
+
+pub(super) fn entry_label(path: &std::path::Path) -> String {
+    path.file_name().map_or_else(
+        || printable_name(&path.display().to_string()).into_owned(),
+        |name| printable_name(&name.to_string_lossy()).into_owned(),
+    )
+}
+
+pub(super) fn active_title_style(is_active: bool) -> Style {
+    if is_active {
+        Style::default()
+            .fg(palette::HIGHLIGHT_FG)
+            .bg(palette::HIGHLIGHT_BG)
+    } else {
+        Style::default().fg(palette::FRAME).bg(FAR_BLUE)
+    }
+}
+
+pub(super) const fn scroll_percent(top: usize, rows: usize, total: usize) -> usize {
+    if top.saturating_add(rows) >= total {
+        100
+    } else {
+        top * 100 / total
+    }
 }
 
 /// Draw the entire user interface: two file panels, status bar, and overlays.
@@ -184,10 +222,10 @@ fn render_both_panels(f: &mut Frame, app: &mut App, area: Rect) {
     let footer = panel_footer(app);
     let (left, right) = panel_areas(app, area);
     if let Some(area) = left {
-        render_one_panel(f, app, PanelSide::Left, area, footer.as_deref());
+        render_one_panel(f, app, PanelSide::Left, area, footer.as_ref());
     }
     if let Some(area) = right {
-        render_one_panel(f, app, PanelSide::Right, area, footer.as_deref());
+        render_one_panel(f, app, PanelSide::Right, area, footer.as_ref());
     }
 }
 
@@ -219,7 +257,7 @@ fn render_one_panel(
     app: &mut App,
     side: PanelSide,
     area: Rect,
-    footer: Option<&str>,
+    footer: Option<&crate::status::PathMessage<'_>>,
 ) {
     let is_active = app.active_panel == side;
     let panel = app.panel_mut(side);
@@ -238,6 +276,10 @@ mod tests_console;
 mod tests_delete_confirm_paths;
 #[cfg(test)]
 mod tests_editor_confirm_exit;
+#[cfg(test)]
+mod tests_editor_tabs;
+#[cfg(test)]
+mod tests_info_row_messages;
 #[cfg(test)]
 mod tests_overlay_dialogs;
 #[cfg(test)]

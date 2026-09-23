@@ -363,8 +363,8 @@ fn every_far_menu_is_present_in_full() {
     );
     assert_eq!(
         rows(Heading::Commands),
-        22 + usize::from(cfg!(windows)),
-        "Far commands, root navigation, statistics, package updates, two PATH scopes and Windows WSL",
+        23 + usize::from(cfg!(windows)),
+        "Far commands, root navigation, statistics, LSP, package updates, two PATH scopes and Windows WSL",
     );
     assert_eq!(rows(Heading::Options), 23, "Far's Options menu");
 }

@@ -5,6 +5,7 @@ use std::io::Write;
 use ratatui::{backend::Backend, Terminal};
 
 use crate::action::{Action, ToolCommand};
+use crate::menu::MenuCommand;
 use crate::models::{App, CommandLine, Lifecycle, Overlay, ViewMode};
 use crate::ops;
 
@@ -19,7 +20,7 @@ use super::prompts::{open_command_line_with, open_menu};
 /// that would touch the panels is swallowed: they are not on screen to act on,
 /// and F8 silently deleting a file behind a full-screen console is exactly the
 /// kind of thing the old modal `Overlay::Console` was protecting against.
-pub(super) fn console_action<B>(terminal: &mut Terminal<B>, app: &mut App, action: Action)
+pub(super) fn console_action<B>(terminal: &Terminal<B>, app: &mut App, action: Action)
 where
     B: Backend + Write,
 {
@@ -37,8 +38,8 @@ where
             open_menu(app);
         }
         Action::ToggleConsole => app.view = app.view.toggled(),
-        // F12 lists the screens from either of them.
-        Action::Tool(ToolCommand::Screens) => ops::screens::open(app),
+        // F12 lists the screens from either of them, the same list F9 shows.
+        Action::Tool(ToolCommand::Screens) => ops::menu::execute(app, MenuCommand::Screens),
         Action::NavUp => app.console.scroll_up(1),
         Action::NavDown => app.console.scroll_down(1),
         Action::PageUp => app.console.scroll_up(page),

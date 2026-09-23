@@ -49,7 +49,7 @@ fn a_failed_entry_takes_its_reason_from_any_error() {
 fn free_form_output_still_travels_as_a_status() {
     assert_eq!(Status::Cleared.to_string(), "");
     assert_eq!(
-        Status::Path(std::path::PathBuf::from("/srv/work")).to_string(),
+        Status::Path(PathBuf::from("/srv/work")).to_string(),
         "/srv/work"
     );
     assert_eq!(
@@ -133,6 +133,14 @@ fn delete_statuses_match_legacy_strings() {
             "Deleted 2 item(s), 1 error(s): /srv/x: boom",
         ),
         (Status::Wiped { count: 3 }, "Wiped 3 item(s)"),
+        (
+            Status::WipedSharedFiles {
+                count: 3,
+                shared: 1,
+            },
+            "Wiped 3 item(s); 1 hard-linked file(s) only unlinked, \
+             their data stays under the other names",
+        ),
         (
             Status::WipedWithErrors {
                 count: 2,
@@ -492,5 +500,74 @@ fn a_message_raised_under_a_quick_search_is_not_thrown_away() {
     assert!(
         app.status_news().is_some(),
         "the refresh result was discarded while the search hid it"
+    );
+}
+
+/// Every message that quotes a path reads the same whole as in parts: the
+/// info row cuts the parts, and must not be showing a different sentence.
+#[test]
+fn a_path_message_is_the_display_text_in_three_parts() {
+    let path = std::path::PathBuf::from("/srv/x/perms/unreadable.txt");
+    let statuses = [
+        Status::CannotEdit {
+            path: path.clone(),
+            error: "Permission denied (os error 13)".to_owned(),
+        },
+        Status::NotRegularFile("/srv/x/fifo".to_owned()),
+        Status::BinaryFile("/srv/x/a.bin".to_owned()),
+        Status::Viewing("/srv/x/a.txt".to_owned()),
+        Status::Saved(path.clone()),
+        Status::Opened(path),
+    ];
+    for status in statuses {
+        let message = status.path_message().expect("quotes a path");
+        assert_eq!(message.to_string(), status.to_string());
+        assert!(message.path.starts_with("/srv/x/"), "{message:?}");
+    }
+    let status = Status::CannotEdit {
+        path: "/srv/x/u.txt".into(),
+        error: "denied".to_owned(),
+    };
+    let edit = status.path_message().expect("quotes a path");
+    assert_eq!(
+        (
+            edit.before.as_ref(),
+            edit.path.as_ref(),
+            edit.after.as_ref()
+        ),
+        ("Cannot edit ", "/srv/x/u.txt", ": denied")
+    );
+}
+
+#[test]
+fn a_message_without_a_path_has_no_path_parts() {
+    assert_eq!(Status::UnmarkedAll.path_message(), None);
+    let plain = PathMessage::from("Copied".to_owned());
+    assert_eq!(plain.to_string(), "Copied");
+    assert!(plain.path.is_empty() && plain.after.is_empty());
+}
+
+/// A program that had the terminal ends its part of the Ctrl+O transcript
+/// with the same words the status bar shows: output when it ran, an error
+/// line otherwise.
+#[test]
+fn a_run_outcome_reaches_the_status_and_closes_the_transcript() {
+    use crate::console::ConsoleLine;
+    use crate::models::Panel;
+    let empty = || Panel::from_entries(PathBuf::from("/srv/x"), Vec::new());
+    let mut app = App::with_panels(empty(), empty());
+
+    app.record_run_outcome(Status::CommandOutput(
+        "/srv/x/run.sh: exit status: 0".into(),
+    ));
+    app.record_run_outcome(Status::PackageUpdateCancelled);
+
+    assert_eq!(app.status, Status::PackageUpdateCancelled);
+    assert_eq!(
+        app.console.visible(usize::MAX),
+        [
+            &ConsoleLine::Output("/srv/x/run.sh: exit status: 0".to_owned()),
+            &ConsoleLine::Error("Package update cancelled".to_owned()),
+        ]
     );
 }

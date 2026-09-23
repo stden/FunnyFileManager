@@ -165,3 +165,14 @@ fn lsp_bindings_are_explicit_and_require_exact_modifiers() {
         EditorCommand::RestartLsp
     );
 }
+
+/// A terminal without the kitty protocol sends Ctrl+] as byte 0x1D, which
+/// crossterm reports as Ctrl+5. The editor has no Ctrl+5 of its own, so that
+/// is go to definition too.
+#[test]
+fn ctrl_5_is_a_legacy_terminals_ctrl_bracket_and_goes_to_definition() {
+    assert_eq!(
+        resolve(KeyEvent::new(KeyCode::Char('5'), KeyModifiers::CONTROL)),
+        EditorCommand::Lsp(crate::models::LspFeature::Definition)
+    );
+}

@@ -1,5 +1,12 @@
 //! Purpose: Runs BDD coverage for the MCP server JSON-RPC tool behavior.
 //!
+#![allow(
+    clippy::unused_async,
+    clippy::needless_pass_by_ref_mut,
+    clippy::needless_pass_by_value,
+    reason = "cucumber dictates async steps over `&mut World`; the harness passes JSON by value"
+)]
+
 use cucumber::{given, then, when, World as _};
 use keepass::config::KdfConfig;
 use keepass::db::fields;
@@ -97,8 +104,7 @@ impl McpWorld {
                     found = true;
                     break;
                 }
-                Ok(_) => continue,
-                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                Ok(_) | Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
                 Err(_) => break,
             }
         }
@@ -169,7 +175,7 @@ impl McpWorld {
             self.last_error = Some(text.to_owned());
         } else {
             // Structured JSON and plain text results remain equally inspectable by steps.
-            self.last_result = serde_json::from_str(text).ok().or(Some(json!(text)));
+            self.last_result = Some(serde_json::from_str(text).unwrap_or_else(|_| json!(text)));
         }
     }
 
@@ -192,7 +198,7 @@ fn wait_for_exit(child: &mut Child) -> ExitStatus {
         match child.try_wait() {
             Ok(Some(status)) => return status,
             Ok(None) => std::thread::sleep(EXIT_POLL_INTERVAL),
-            Err(e) => panic!("try_wait on server: {}", e),
+            Err(e) => panic!("try_wait on server: {e}"),
         }
     }
     let _ = child.kill();
@@ -448,37 +454,43 @@ async fn when_tree(w: &mut McpWorld, depth: usize) {
 
 #[when(expr = "I copy {string} to {string}")]
 async fn when_copy(w: &mut McpWorld, source: String, dest: String) {
-    let src = w.resolve(&source);
-    let dst = w.resolve(&dest);
-    w.call_tool("copy", json!({"source": src, "destination": dst}));
+    let source = w.resolve(&source);
+    let dest = w.resolve(&dest);
+    w.call_tool("copy", json!({"source": source, "destination": dest}));
 }
 
 #[when(expr = "I copy directory {string} to {string}")]
 async fn when_copy_dir(w: &mut McpWorld, source: String, dest: String) {
-    let src = w.resolve(&source);
-    let dst = w.resolve(&dest);
-    w.call_tool("copy", json!({"source": src, "destination": dst}));
+    let source = w.resolve(&source);
+    let dest = w.resolve(&dest);
+    w.call_tool("copy", json!({"source": source, "destination": dest}));
 }
 
 #[when(expr = "I move {string} to {string}")]
 async fn when_move(w: &mut McpWorld, source: String, dest: String) {
-    let src = w.resolve(&source);
-    let dst = w.resolve(&dest);
-    w.call_tool("move_rename", json!({"source": src, "destination": dst}));
+    let source = w.resolve(&source);
+    let dest = w.resolve(&dest);
+    w.call_tool(
+        "move_rename",
+        json!({"source": source, "destination": dest}),
+    );
 }
 
 #[when(expr = "I try to copy {string} to {string}")]
 async fn when_try_copy(w: &mut McpWorld, source: String, dest: String) {
-    let src = w.resolve(&source);
-    let dst = w.resolve(&dest);
-    w.call_tool("copy", json!({"source": src, "destination": dst}));
+    let source = w.resolve(&source);
+    let dest = w.resolve(&dest);
+    w.call_tool("copy", json!({"source": source, "destination": dest}));
 }
 
 #[when(expr = "I try to move {string} to {string}")]
 async fn when_try_move(w: &mut McpWorld, source: String, dest: String) {
-    let src = w.resolve(&source);
-    let dst = w.resolve(&dest);
-    w.call_tool("move_rename", json!({"source": src, "destination": dst}));
+    let source = w.resolve(&source);
+    let dest = w.resolve(&dest);
+    w.call_tool(
+        "move_rename",
+        json!({"source": source, "destination": dest}),
+    );
 }
 
 #[when(expr = "I search for {string}")]
@@ -746,10 +758,7 @@ async fn then_file_contains(w: &mut McpWorld, name: String, expected: String) {
         fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {}", path.display(), e));
     assert!(
         content.contains(&expected),
-        "file '{}' should contain '{}', got '{}'",
-        name,
-        expected,
-        content
+        "file '{name}' should contain '{expected}', got '{content}'"
     );
 }
 
@@ -760,10 +769,7 @@ async fn then_file_not_contains(w: &mut McpWorld, name: String, unexpected: Stri
         fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {}", path.display(), e));
     assert!(
         !content.contains(&unexpected),
-        "file '{}' should NOT contain '{}', got '{}'",
-        name,
-        unexpected,
-        content
+        "file '{name}' should NOT contain '{unexpected}', got '{content}'"
     );
 }
 
@@ -799,7 +805,7 @@ async fn then_result_field_is(w: &mut McpWorld, field: String, expected: u64) {
     let actual = result[&field]
         .as_u64()
         .unwrap_or_else(|| panic!("no numeric field '{}' in {}", field, w.result_text()));
-    assert_eq!(actual, expected, "field '{}' mismatch", field);
+    assert_eq!(actual, expected, "field '{field}' mismatch");
 }
 
 #[then(expr = "the directory {string} should exist")]
@@ -833,16 +839,11 @@ async fn then_result_not_contains(w: &mut McpWorld, expected: String) {
 #[then(expr = "the operation should fail with {string}")]
 async fn then_error_contains(w: &mut McpWorld, expected: String) {
     let err = w.last_error.as_ref().unwrap_or_else(|| {
-        panic!(
-            "expected error containing '{}', but operation succeeded",
-            expected
-        )
+        panic!("expected error containing '{expected}', but operation succeeded")
     });
     assert!(
         err.to_lowercase().contains(&expected.to_lowercase()),
-        "error should contain '{}', got: {}",
-        expected,
-        err
+        "error should contain '{expected}', got: {err}"
     );
 }
 
@@ -858,11 +859,11 @@ async fn then_error(w: &mut McpWorld) {
 #[then(expr = "the search should return {int} results")]
 async fn then_search_count(w: &mut McpWorld, count: usize) {
     let result = w.last_result.as_ref().expect("no result");
-    let actual = result["count"].as_u64().expect("no count field") as usize;
+    let actual = usize::try_from(result["count"].as_u64().expect("no count field"))
+        .expect("count fits in usize");
     assert_eq!(
         actual, count,
-        "expected {} search results, got {}",
-        count, actual
+        "expected {count} search results, got {actual}"
     );
 }
 
@@ -870,11 +871,7 @@ async fn then_search_count(w: &mut McpWorld, count: usize) {
 async fn then_size_is(w: &mut McpWorld, expected: u64) {
     let result = w.last_result.as_ref().expect("no result");
     let actual = result["size"].as_u64().expect("no size field");
-    assert_eq!(
-        actual, expected,
-        "expected size {}, got {}",
-        expected, actual
-    );
+    assert_eq!(actual, expected, "expected size {expected}, got {actual}");
 }
 
 #[then(expr = "the result field {string} should equal {string}")]
@@ -883,14 +880,14 @@ async fn then_result_field_equals(w: &mut McpWorld, field: String, expected: Str
     let actual = result[&field]
         .as_str()
         .unwrap_or_else(|| panic!("no string field '{}' in {}", field, w.result_text()));
-    assert_eq!(actual, expected, "field '{}' mismatch", field);
+    assert_eq!(actual, expected, "field '{field}' mismatch");
 }
 
 /// The `name` of every object in the array under `field`.
 fn entry_names<'a>(result: &'a Value, field: &str) -> Vec<&'a str> {
     result[field]
         .as_array()
-        .unwrap_or_else(|| panic!("no array field '{}'", field))
+        .unwrap_or_else(|| panic!("no array field '{field}'"))
         .iter()
         .filter_map(|e| e["name"].as_str())
         .collect()
@@ -907,8 +904,7 @@ async fn then_named_in_order(w: &mut McpWorld, field: String, expected: String) 
     assert_eq!(
         entry_names(result, &field),
         expected_names(&expected),
-        "order of '{}' mismatch",
-        field
+        "order of '{field}' mismatch"
     );
 }
 
@@ -921,7 +917,7 @@ async fn then_named_any_order(w: &mut McpWorld, field: String, expected: String)
     names.sort_unstable();
     let mut want = expected_names(&expected);
     want.sort_unstable();
-    assert_eq!(names, want, "contents of '{}' mismatch", field);
+    assert_eq!(names, want, "contents of '{field}' mismatch");
 }
 
 /// Compares a reported path against the scenario's temp directory. The server
@@ -934,7 +930,7 @@ async fn then_field_is_temp_dir(w: &mut McpWorld, field: String) {
     let result = w.last_result.as_ref().expect("no result");
     let actual = result[&field]
         .as_str()
-        .unwrap_or_else(|| panic!("no string field '{}' in {}", field, text));
+        .unwrap_or_else(|| panic!("no string field '{field}' in {text}"));
     assert!(
         Path::new(actual) == temp || Path::new(actual) == canonical,
         "field '{}' is '{}', expected the temp dir '{}'",
@@ -959,8 +955,8 @@ fn assert_flag(w: &McpWorld, field: &str, expected: bool) {
     let result = w.last_result.as_ref().expect("no result");
     let actual = result[field]
         .as_bool()
-        .unwrap_or_else(|| panic!("no boolean field '{}' in {}", field, text));
-    assert_eq!(actual, expected, "flag '{}' mismatch", field);
+        .unwrap_or_else(|| panic!("no boolean field '{field}' in {text}"));
+    assert_eq!(actual, expected, "flag '{field}' mismatch");
 }
 
 #[then(expr = "profile {int} should be {string} in region {string}")]
@@ -970,13 +966,12 @@ async fn then_profile_region(w: &mut McpWorld, index: usize, name: String, regio
     let profiles = result["profiles"].as_array().expect("no profiles array");
     let profile = profiles
         .get(index - 1)
-        .unwrap_or_else(|| panic!("no profile #{} in {}", index, text));
+        .unwrap_or_else(|| panic!("no profile #{index} in {text}"));
     assert_eq!(profile["name"].as_str(), Some(name.as_str()));
     assert_eq!(
         profile["region"].as_str(),
         Some(region.as_str()),
-        "region attached to the wrong profile in {}",
-        text
+        "region attached to the wrong profile in {text}"
     );
 }
 
@@ -989,7 +984,7 @@ async fn then_result_list_is(w: &mut McpWorld, field: String, expected: String) 
         .unwrap_or_else(|| panic!("no array field '{}' in {}", field, w.result_text()));
     let names: Vec<&str> = items.iter().filter_map(Value::as_str).collect();
     let want: Vec<&str> = expected.split(',').map(str::trim).collect();
-    assert_eq!(names, want, "list '{}' mismatch", field);
+    assert_eq!(names, want, "list '{field}' mismatch");
 }
 
 #[then(expr = "match {int} should be {string} at line {int}")]
@@ -1011,8 +1006,7 @@ async fn then_server_exits_cleanly(w: &mut McpWorld) {
     let status = w.server_exit.expect("no server process was started");
     assert!(
         status.success(),
-        "server should exit 0 once stdin closes, got {:?}",
-        status
+        "server should exit 0 once stdin closes, got {status:?}"
     );
 }
 
@@ -1025,12 +1019,7 @@ async fn then_order(w: &mut McpWorld, first: String, second: String) {
     let pos_second = names.iter().position(|n| *n == second);
     assert!(
         pos_first < pos_second,
-        "'{}' (pos {:?}) should appear before '{}' (pos {:?}) in {:?}",
-        first,
-        pos_first,
-        second,
-        pos_second,
-        names
+        "'{first}' (pos {pos_first:?}) should appear before '{second}' (pos {pos_second:?}) in {names:?}"
     );
 }
 
@@ -1063,7 +1052,7 @@ fn send_tool_request(stdin: &mut impl Write, name: &str, args: Value) {
     ];
 
     for msg in &msgs {
-        writeln!(stdin, "{}", msg).expect("write to stdin");
+        writeln!(stdin, "{msg}").expect("write to stdin");
     }
     stdin.flush().expect("flush stdin");
 }

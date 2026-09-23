@@ -6,9 +6,8 @@ use std::path::PathBuf;
 use ratatui::Terminal;
 
 use super::render;
-use crate::models::{
-    App, Encoding, FileSize, Panel, PanelKind, Preview, QuickView, Refusal, TextPreview,
-};
+use crate::encoding::TextEncoding;
+use crate::models::{App, FileSize, Panel, PanelKind, Preview, QuickView, Refusal, TextPreview};
 use crate::stats::{Coverage, DirectoryStats};
 use crate::test_support::{buffer_text, WritableTestBackend};
 
@@ -112,6 +111,40 @@ fn a_folder_preview_lists_its_totals() {
     assert!(screen.contains("lower bounds"), "{screen}");
 }
 
+/// A folder that could not be read says so, in the words an unreadable file
+/// gets, instead of "Files: 0" — and its footer claims no counts either.
+#[test]
+fn an_unreadable_folder_says_it_cannot_be_read() {
+    let mut view = QuickView::default();
+    view.show(
+        Some(PathBuf::from("/srv/x/no-access")),
+        Preview::Folder(Box::new(DirectoryStats {
+            coverage: Coverage::Unreadable("Permission denied (os error 13)".to_owned()),
+            ..DirectoryStats::default()
+        })),
+    );
+    let screen = draw(view, false);
+    assert!(screen.contains("Cannot read: Permission"), "{screen}");
+    assert!(!screen.contains("Files"), "{screen}");
+    assert!(!screen.contains("0 files"), "{screen}");
+}
+
+#[test]
+fn a_folder_with_unread_folders_inside_marks_its_totals_as_lower_bounds() {
+    let mut view = QuickView::default();
+    view.show(
+        Some(PathBuf::from("/srv/x/perms")),
+        Preview::Folder(Box::new(DirectoryStats {
+            files: 2,
+            coverage: Coverage::Unread(1),
+            ..DirectoryStats::default()
+        })),
+    );
+    let screen = draw(view, false);
+    assert!(screen.contains("unreadable folder"), "{screen}");
+    assert!(screen.contains("lower bounds"), "{screen}");
+}
+
 #[test]
 fn a_refusal_says_why_and_an_empty_view_says_nothing() {
     let mut view = QuickView::default();
@@ -128,13 +161,13 @@ fn a_refusal_says_why_and_an_empty_view_says_nothing() {
 }
 
 #[test]
-fn an_ansi_file_is_labelled_like_the_viewer_does() {
+fn a_single_byte_file_is_labelled_like_the_viewer_does() {
     let mut view = QuickView::default();
     let text = TextPreview::decoded(&PathBuf::from("/tmp/cp.txt"), &[0xE9, b'\n']);
-    assert_eq!(text.encoding, Encoding::Ansi);
+    assert_eq!(text.encoding, TextEncoding::Windows1251);
     view.show(Some(PathBuf::from("/tmp/cp.txt")), Preview::Text(text));
     let screen = draw(view, false);
-    assert!(screen.contains("ANSI"), "{screen}");
+    assert!(screen.contains("Windows-1251"), "{screen}");
 }
 
 #[test]

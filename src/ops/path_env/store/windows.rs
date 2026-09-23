@@ -6,7 +6,7 @@ use std::{
 };
 
 pub fn read(scope: Scope) -> io::Result<Snapshot> {
-    let result = invoke(json!({"action": "read", "scope": scope_name(scope)}))?;
+    let result = invoke(&json!({"action": "read", "scope": scope_name(scope)}))?;
     Ok(Snapshot {
         value: field(&result, "value")?,
         revision: field(&result, "revision")?,
@@ -15,7 +15,7 @@ pub fn read(scope: Scope) -> io::Result<Snapshot> {
 }
 
 pub fn write(scope: Scope, previous: &Snapshot, value: &str) -> io::Result<()> {
-    invoke(json!({"action": "write", "scope": scope_name(scope), "expected": previous.revision, "value": value})).map(|_| ())
+    invoke(&json!({"action": "write", "scope": scope_name(scope), "expected": previous.revision, "value": value})).map(|_| ())
 }
 
 fn scope_name(scope: Scope) -> &'static str {
@@ -32,7 +32,7 @@ fn field(result: &Value, name: &str) -> io::Result<String> {
         .ok_or_else(|| io::Error::other("Invalid PATH response"))
 }
 
-fn invoke(input: Value) -> io::Result<Value> {
+fn invoke(input: &Value) -> io::Result<Value> {
     use std::os::windows::process::CommandExt;
     let system =
         std::env::var_os("SystemRoot").ok_or_else(|| io::Error::other("SystemRoot is missing"))?;

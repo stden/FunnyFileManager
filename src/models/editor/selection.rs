@@ -37,7 +37,9 @@ impl Editor {
     /// Text belongs to the document only while no editor subdialog owns input.
     pub(crate) fn accepts_text(&self) -> bool {
         self.state.exit_choice().is_none()
+            && self.state.overwrite_prompt().is_none()
             && self.search.prompt.is_none()
+            && self.search.not_found.is_none()
             && self.encoding_choice.is_none()
             && self.lsp.popup.is_none()
     }

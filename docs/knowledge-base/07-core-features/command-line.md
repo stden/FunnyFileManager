@@ -130,13 +130,22 @@ Unknown commands run in the active panel directory:
 - Unix: `sh -c <command>`
 - Windows: `cmd /D /C <command>` with `CREATE_NO_WINDOW`
 
-Execution is capped at ten seconds and can be cancelled sooner with `Esc` or
-Ctrl+C. Other keys read while the command is running are discarded so they
-cannot replay against the panels afterward.
+Execution is capped at ten seconds (F9 Options, Plugins manager settings) and
+can be cancelled sooner with `Esc` or Ctrl+C. Either way the whole process
+group is killed. The two endings are reported apart, in the status bar and the
+transcript: `cancelled: <command>` for a cancel, which is not an error, and
+`stopped '<command>': timed out after Ns` for the limit. Only a shell that
+could not be started reads `cannot run '<command>': <reason>`; when that is
+because the panel folder was deleted, the reason is `folder <path> no longer
+exists` rather than the OS's "No such file or directory". Other keys read
+while the command is running are discarded so they cannot replay against the
+panels afterward.
 
-After a process is launched, status uses the last stdout line when present,
-otherwise the first stderr line, otherwise `OK: ...` for success or the exit
-status for failure.
+After a process is launched, status uses the last stdout line that still shows
+something once escape sequences are stripped, otherwise the first such stderr
+line, otherwise `OK: ...` for success or the exit status for failure. CSI, OSC
+and ECMA-35 sequences such as the `ESC ( B` charset switch from `tput sgr0`
+and ncurses programs are removed from both the status and the transcript.
 
 Everything the command wrote goes to the **console transcript** (`src/console.rs`)
 — the layer drawn behind the panels, revealed with `Ctrl+O`, where the prompt
@@ -169,6 +178,9 @@ buffer simply closes without dispatch.
 - `docs/knowledge-base/03-rust-best-practices/type-system.md`
 
 The `:` command line is the only bookmark interface; there is no bookmark
-overlay and no F2 binding. MCP and Windows diagnostic commands reuse
+overlay and no F2 binding. `bookmark set` writes the slot at once to
+`ffm/bookmarks` in the data directory, beside the histories — one
+`<slot> <path>` line per saved slot, owner-only, re-read before each write so
+two running instances keep each other's slots — and startup loads it. MCP and Windows diagnostic commands reuse
 `Overlay::Viewer` for rich output; ordinary shell output does not — it goes to
 the console transcript instead.

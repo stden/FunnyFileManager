@@ -148,12 +148,17 @@ fn measure_pre_ticks_the_temp_folder() {
     fs::create_dir(&cache).expect("test setup");
     fs::write(cache.join("stale.log"), b"stale").expect("test setup");
 
-    let mut dialog = dialog_with(vec![candidate("Windows Temp (%TEMP%)", cache)]);
+    let row = CleanupCandidate {
+        kind: CleanupKind::Contents,
+        ..candidate("Temp files", cache)
+    };
+    let mut dialog = dialog_with(vec![row]);
     disk_cleanup::measure(&mut dialog, temp.path());
 
     assert!(
         dialog.candidates[0].checked,
-        "the Temp folder is always safe to clear, so it starts ticked"
+        "emptying the Temp folder keeps the folder and other users' files, \
+         so it starts ticked"
     );
     assert_eq!(dialog.selected_bytes(), 5);
 }
@@ -168,7 +173,7 @@ fn measure_sizes_only_the_heap_dumps_inside_the_home_directory() {
     // Sizing the whole home directory instead would sweep this in too.
     fs::write(home.join("notes.txt"), vec![0_u8; 9_000]).expect("test setup");
 
-    let mut row = candidate("JVM heap dumps (*.hprof)", home);
+    let mut row = candidate("JVM heap dumps", home);
     row.kind = CleanupKind::HeapDumps;
     let mut dialog = dialog_with(vec![row]);
     disk_cleanup::measure(&mut dialog, temp.path());
@@ -352,4 +357,28 @@ fn measure_is_reported_against_the_active_panel_directory() {
         from_second.candidates[0].size.map(FileSize::bytes),
         Some(256)
     );
+}
+
+/// On Linux, pip and Playwright keep their caches in the XDG cache folder
+/// (`~/.cache`), which is where the rows must look — not in a Windows-style
+/// `AppData` folder that no Linux tool creates.
+#[cfg(all(unix, not(target_os = "macos")))]
+#[test]
+fn linux_cache_rows_scan_the_xdg_cache_folder() {
+    let dialog = DiskCleanupDialog::new();
+    for folder in ["pip", "ms-playwright", "JetBrains"] {
+        let row = dialog
+            .candidates
+            .iter()
+            .find(|row| row.path.ends_with(folder))
+            .unwrap_or_else(|| panic!("no row scans a {folder} folder"));
+        assert!(
+            !row.path
+                .components()
+                .any(|part| part.as_os_str() == "AppData"),
+            "{} scans {}",
+            row.label,
+            row.path.display()
+        );
+    }
 }

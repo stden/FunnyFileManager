@@ -59,30 +59,22 @@ pub fn panel_page_size(terminal_height: u16) -> usize {
 }
 
 pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
-    let percent_y = percent_y.min(100);
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(
-            [
-                Constraint::Percentage((100 - percent_y) / 2),
-                Constraint::Percentage(percent_y),
-                Constraint::Percentage((100 - percent_y) / 2),
-            ]
-            .as_ref(),
-        )
+        .constraints(bands(percent_y).as_ref())
         .split(r);
-
-    let percent_x = percent_x.min(100);
-
     Layout::default()
         .direction(Direction::Horizontal)
-        .constraints(
-            [
-                Constraint::Percentage((100 - percent_x) / 2),
-                Constraint::Percentage(percent_x),
-                Constraint::Percentage((100 - percent_x) / 2),
-            ]
-            .as_ref(),
-        )
+        .constraints(bands(percent_x).as_ref())
         .split(popup_layout[1])[1]
+}
+
+fn bands(percent: u16) -> [Constraint; 3] {
+    let percent = percent.min(100);
+    let margin = (100 - percent) / 2;
+    [
+        Constraint::Percentage(margin),
+        Constraint::Percentage(percent),
+        Constraint::Percentage(margin),
+    ]
 }

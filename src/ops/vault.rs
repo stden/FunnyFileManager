@@ -44,6 +44,13 @@ fn open(app: &mut App, access: crate::kdbx::Access) -> bool {
     true
 }
 
+#[cfg_attr(
+    not(feature = "keepass"),
+    expect(
+        clippy::needless_pass_by_ref_mut,
+        reason = "one signature for both builds; only the keepass build mutates the app"
+    )
+)]
 pub fn edit_vault_if_kdbx(app: &mut App) -> bool {
     #[cfg(feature = "keepass")]
     {
@@ -85,7 +92,16 @@ fn is_vault_file(path: &std::path::Path) -> bool {
 
 #[cfg(all(test, feature = "keepass"))]
 mod tests;
+#[cfg(all(test, feature = "keepass"))]
+mod tests_maintenance;
 
+#[cfg_attr(
+    not(feature = "keepass"),
+    expect(
+        clippy::needless_pass_by_ref_mut,
+        reason = "one signature for both builds; only the keepass build mutates the app"
+    )
+)]
 pub fn maintenance(app: &mut App) -> bool {
     #[cfg(feature = "keepass")]
     {

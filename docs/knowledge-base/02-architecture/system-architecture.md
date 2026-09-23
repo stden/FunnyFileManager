@@ -92,7 +92,9 @@ The enforced boundaries are specific:
   compatibility paths; production code calls the canonical owner.
 - `ui` draws application state. Panel rendering reads cached filesystem
   facts; it never refreshes a directory or queries free space while drawing.
-- `terminal` owns terminal mode transitions. `bootstrap` composes production
+- `terminal` owns terminal mode transitions: raw mode, the alternate
+  screen, mouse capture and the kitty keyboard protocol, each undone in
+  reverse order on every way out. `bootstrap` composes production
   dependencies, chooses the real history location, and installs restoration
   before entering the TUI.
 
@@ -196,13 +198,26 @@ mathematically pure would be inaccurate.
 
 ## Runtime and input flow
 
-The main loop processes input and draws on the UI thread. Production polls
-crossterm at 100 ms intervals so WSL worker completions can update the
-application even without a key press; tests inject events into the same loop.
-The initial frame, real input events, and background completion/error outcomes
-request a redraw. An idle `None` poll pumps background work again without
-redrawing unchanged state. `Redraw::Needed` and `Redraw::Unchanged` make this
-decision explicit; `draw_frame` updates the viewport and renders when needed.
+The main loop processes input and draws on the UI thread. Production first
+hands out the events crossterm has already parsed: a burst (a paste, fast
+typing, key repeat) arrives in one read and waits in crossterm's own queue,
+where a wait on the terminal cannot see it. Only when that queue is empty does
+the reader wait on the terminal, for up to 100 ms, so WSL worker completions
+can update the application even without a key press; tests inject events into
+the same loop. That wait is a `poll(2)` in `recording::tty`, not crossterm's:
+a terminal that hangs up shows there as `POLLHUP`, where crossterm's reader
+would read the dead terminal forever. The loop then quits the way F10 does,
+and a `:` or Ctrl+G command polling the same probe kills its process group.
+Whether crossterm reads stdin is decided once, as crossterm decides it,
+because a hung-up terminal fails `isatty`. Drawing on or restoring a hung-up
+terminal fails too; bootstrap treats that as the end of the session, not an
+error to print on it.
+The initial frame, real input events, background completion/error outcomes,
+and the clock's minute turning over request a redraw (the menu bar and the
+viewer's status line read the clock at draw time). An idle `None` poll pumps
+background work again without redrawing unchanged state. `Redraw::Needed` and
+`Redraw::Unchanged` make this decision explicit; `draw_frame` updates the
+viewport and renders when needed.
 WSL system jobs run on a serial background worker. Ordinary directory scans,
 copies, and other synchronous operations still occupy the UI thread.
 
@@ -368,13 +383,16 @@ session-only: it does not discover or persist the user's history file.
 `bootstrap` selects persisted history for a production session.
 It also loads each saved panel directory independently through
 `ops/panel_session`; a missing or unreadable directory falls back to the launch
-directory. The event loop checkpoints changed directory pairs before rendering
+directory. When the launch directory itself was deleted before ffm started,
+`getcwd` fails and the fallback is the nearest existing folder above the
+shell's `PWD`, then the home folder (`panel_session::start_directory`). The event loop checkpoints changed directory pairs before rendering
 and once when it returns. A default `App` never enables this persistence.
 
 | Store | Owner and lifetime | Boundary |
 |---|---|---|
-| Command history | `history`, optionally persisted | `DurableLine` admits supported durable commands and rejects shell/invalid lines |
+| Command history | `history`, optionally persisted | `DurableLine` admits supported durable commands and rejects shell/invalid lines; each save re-reads the file first, so running instances merge rather than overwrite |
 | Command transcript | `console`, process memory | Shell output is not written as history |
+| Bookmarks | `models/bookmarks`, data directory | `ffm/bookmarks`, one `<slot> <path>` line per saved slot; written on `bookmark set` after re-reading the file |
 | Panel directories | `panel_session`, config directory | Atomic `panel-session.json`; unchanged paths cause no writes; independent of setup autosave |
 | Diagnostic logs | `diagnostics`, opt-in with `FFM_LOG=1` | Character key payloads are redacted; tests supply temporary paths |
 | Editor clipboard | `models/clipboard` owns the session backend | `ops/editor/clipboard` coordinates copy/paste; UI only renders selection and feedback |
@@ -464,7 +482,20 @@ The event loop receives the same event type in live and replay sessions.
 Bootstrap chooses input and clipboard adapters and the replay viewport.
 Recorded resize events update the frame; mouse hit testing uses that frame.
 External program launch belongs to `ops/program`, which suspends the terminal
-through its RAII boundary and restores it after the process exits.
+through its RAII boundary and restores it after the process exits. The program
+writes to the terminal's own screen, which the panels cover again on return, so
+`ops/program` resumes with `TerminalSuspension::resume_after_key`: raw mode
+comes back, `TerminalOps::wait_for_key` prints how the program ended and waits
+for one key, and only then does the alternate screen return. The run and its
+exit status are also recorded in the console transcript.
+`TerminalSuspension` (used by `ops/program`, Update packages and the Alt+F4
+editor) also raises `terminal::interrupts::InterruptShield` for the hand-off:
+with raw mode off the terminal turns Ctrl+C and Ctrl+\ into SIGINT/SIGQUIT for
+the whole foreground process group, FFM included. The shield catches them, so
+FFM keeps running while the program, whose `exec` reset them to the default,
+still gets them; `interrupted()` tells the caller that the key was pressed.
+Outside a hand-off the default action is emulated, so an interrupt still ends
+FFM as before.
 
 See [editor and replay usage](../../editor-and-replay.md),
 [cursor benchmark](../../editor-performance.md), and

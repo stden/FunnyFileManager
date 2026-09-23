@@ -63,6 +63,18 @@ impl TextEncoding {
             })
     }
 
+    /// Decode for reading only: a byte this encoding cannot map becomes U+FFFD
+    /// instead of failing the whole file. Never for text that will be written
+    /// back — the editor uses [`Self::decode`], which refuses rather than let a
+    /// save replace those bytes with replacement marks.
+    pub fn decode_lossy(self, bytes: &[u8]) -> String {
+        let bytes = bytes.strip_prefix(self.bom()).unwrap_or(bytes);
+        self.codec()
+            .decode_without_bom_handling(bytes)
+            .0
+            .into_owned()
+    }
+
     pub fn encode(self, text: &str) -> io::Result<Vec<u8>> {
         let mut bytes = self.bom().to_vec();
         if matches!(self, Self::Utf16Le | Self::Utf16Be) {
@@ -99,6 +111,22 @@ impl TextEncoding {
             Self::Utf8 | Self::Windows1251 | Self::Oem866 | Self::Windows1252 => b"",
         }
     }
+}
+
+/// Whether `bytes` are binary rather than text.
+///
+/// A NUL is git's heuristic. Behind a UTF-16 byte-order mark a NUL byte is
+/// only the high half of an ASCII character, so there the test is a NUL
+/// *character*: a code unit of two zero bytes.
+pub fn is_binary(bytes: &[u8]) -> bool {
+    let utf16 = [TextEncoding::Utf16Le, TextEncoding::Utf16Be]
+        .into_iter()
+        .any(|encoding| bytes.starts_with(encoding.bom()));
+    if utf16 {
+        let (units, _) = bytes[2..].as_chunks::<2>();
+        return units.contains(&[0, 0]);
+    }
+    bytes.contains(&0)
 }
 
 #[cfg(test)]

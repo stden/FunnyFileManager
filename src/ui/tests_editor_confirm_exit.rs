@@ -33,7 +33,7 @@ fn editor_area() -> Rect {
 }
 
 /// Far's warning ground.
-const WARNING_BG: ratatui::style::Color = ratatui::style::Color::Rgb(128, 0, 0);
+const WARNING_BG: Color = Color::Rgb(128, 0, 0);
 
 /// The rectangle the dialog actually occupies, found by its ground rather than
 /// computed: it is sized to its content, so its extent is an output of the
@@ -381,4 +381,30 @@ fn alphabet_line(length: usize) -> String {
         .cycle()
         .take(length)
         .collect()
+}
+
+// -----------------------------------------------------------------------
+// "Changed on disk" question (a save found another program's write)
+// -----------------------------------------------------------------------
+
+#[test]
+fn a_save_over_another_programs_write_asks_with_the_cursor_on_cancel() {
+    let (mut app, _left, _right) = app_on_empty_dirs();
+    let mut editor = editor_with_numbered_body("notes.txt");
+    editor.state = EditState::ConfirmingOverwrite(crate::models::OverwritePrompt::new(
+        crate::models::AfterSave::Stay,
+    ));
+    app.set_overlay(Overlay::Editor(editor));
+
+    let terminal = draw(&mut app);
+    let screen = screen_text(&terminal);
+
+    assert!(
+        screen.contains("changed by another program"),
+        "the question:\n{screen}"
+    );
+    assert!(screen.contains("Overwrite"), "its buttons:\n{screen}");
+    assert!(screen.contains("Cancel"), "its buttons:\n{screen}");
+    let area = dialog_area(&terminal);
+    assert!(area.width > 0, "drawn on the warning ground");
 }

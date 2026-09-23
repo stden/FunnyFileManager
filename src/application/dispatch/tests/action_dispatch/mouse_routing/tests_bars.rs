@@ -7,7 +7,7 @@ use super::*;
 #[test]
 fn clicking_the_command_line_row_opens_it_once() {
     let (mut app, mut terminal, _dir) = app_and_terminal(&["a.txt"]);
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let mut clicks = crate::mouse::PanelClicks::default();
     let command_row = 22;
 
@@ -35,11 +35,11 @@ fn clicking_the_command_line_row_opens_it_once() {
 #[test]
 fn clicking_a_heading_on_the_bar_opens_its_menu() {
     let (mut app, mut terminal, _dir) = app_and_terminal(&["a.txt"]);
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
     let bar = ratatui::layout::Rect { height: 1, ..area };
     let column = (0..area.width)
-        .find(|&c| crate::ui::heading_at(bar, c) == Some(crate::menu::Heading::Files))
+        .find(|&c| crate::ui::heading_at(bar, c) == Some(menu::Heading::Files))
         .expect("the Files heading is drawn on the bar");
 
     dispatch_mouse(
@@ -53,7 +53,7 @@ fn clicking_a_heading_on_the_bar_opens_its_menu() {
     let Overlay::Menu(menu) = &app.overlay else {
         panic!("clicking a heading opens its drop-down");
     };
-    assert_eq!(menu.heading, crate::menu::Heading::Files);
+    assert_eq!(menu.heading, menu::Heading::Files);
 }
 
 /// The bottom bar's cells are the F-keys; clicking one runs it exactly as the
@@ -61,7 +61,7 @@ fn clicking_a_heading_on_the_bar_opens_its_menu() {
 #[test]
 fn clicking_an_f_key_cell_runs_that_f_key() {
     let (mut app, mut terminal, _dir) = app_and_terminal(&["a.txt"]);
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
     assert!(!app.overlay.is_active());
 
@@ -100,7 +100,7 @@ fn the_event_loop_routes_a_mouse_click_through_dispatch_mouse() {
     .expect_err("the loop reads on after handling the click");
 
     assert_eq!(err.kind(), io::ErrorKind::UnexpectedEof);
-    let screen = crate::test_support::buffer_text(&terminal);
+    let screen = buffer_text(&terminal);
     assert!(
         screen.contains("Far Manager style navigation:"),
         "a click on the F1 cell reached the help overlay through the mouse path: {screen}"

@@ -4,8 +4,8 @@
 use crate::models::{DirEntry, Modified, Panel, PanelView};
 
 use super::super::{
-    abbreviate_bytes, center_cells, clip_name, head_cells, pad_cells, right_cells, size_field,
-    Cells,
+    abbreviate_bytes, center_cells, clip_name, group_digits, head_cells, pad_cells, right_cells,
+    size_field, Cells,
 };
 
 #[derive(Clone, Copy)]
@@ -208,14 +208,7 @@ fn fitted_bytes(bytes: u64) -> String {
 }
 
 fn grouped_bytes(bytes: u64) -> String {
-    let digits = bytes.to_string();
-    let mut grouped = String::new();
-    for (index, digit) in digits.chars().enumerate() {
-        if index > 0 && (digits.len() - index).is_multiple_of(3) {
-            grouped.push(',');
-        }
-        grouped.push(digit);
-    }
+    let grouped = group_digits(bytes);
     if grouped.len() <= 10 {
         grouped
     } else {

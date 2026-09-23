@@ -1,6 +1,7 @@
 //! Purpose: Cleanup size and availability edge cases without touching host caches.
 
 use super::*;
+use crate::models::{CleanupCandidate, CleanupKind};
 
 #[test]
 fn zero_byte_heap_dumps_remain_available_for_cleanup() {
@@ -22,7 +23,11 @@ fn remeasuring_a_removed_cache_clears_its_size_and_selection() {
     let cache = temp.path().join("Temp");
     fs::create_dir(&cache).unwrap();
     fs::write(cache.join("old.bin"), b"old").unwrap();
-    let mut dialog = dialog(vec![candidate("Windows Temp (%TEMP%)", &cache)]);
+    let temp_row = CleanupCandidate {
+        kind: CleanupKind::Contents,
+        ..candidate("Temp files", &cache)
+    };
+    let mut dialog = dialog(vec![temp_row]);
     super::super::measure(&mut dialog, temp.path());
     assert_eq!(dialog.selected_bytes(), 3);
     fs::remove_dir_all(cache).unwrap();

@@ -12,17 +12,58 @@ Copy, move, and delete act on all marked names when the active panel has marks.
 Otherwise they act on the selected entry. With neither marks nor a selection,
 they return without changing the filesystem.
 
+## 🎯 Destination (F5/F6 dialog)
+
+The dialog offers the other panel's folder; the field may be edited to any
+path, relative to the active panel. What was typed means, following Far
+(`ops/file/destination.rs`):
+
+- an existing folder, a path ending in a separator (Far: "append backslash
+  to create the destination folder"), or the destination of several marked
+  items is a folder: each item goes inside it under its own name, and a
+  missing folder is created on the way;
+- anything else is the new name of the one item. F6 to `renamed.txt`
+  renames the file, F5 to `run-copy.sh` makes a copy with that name, and a
+  folder sent to a new name becomes that folder (its contents land directly
+  in it). A name already taken goes through "Already existing files".
+
 ## 📋 Copy (F5)
 
 - Copies from the active panel to the inactive panel directory.
 - Calls `unique_destination` for every source, so an existing destination is
   not overwritten.
-- Uses `copy_dir_all` for directories and `fs::copy` for files.
+- Uses `copy_dir_all` for directories and `utils::copy_file` for files. Like
+  `fs::copy` it gives the copy the source's permission bits (a script stays
+  executable, a private file stays private), but it claims the destination
+  with an exclusive create and removes a copy that failed half-way.
+- Keeps the holes of a sparse file (one with fewer blocks allocated than its
+  length, `cp --sparse=auto`'s test): it is copied in 64 KiB blocks and a
+  block of zeros is skipped with a seek instead of written, so a 5 GiB disk
+  image that allocates nothing still allocates nothing once copied. Other
+  files go through `io::copy`, which lets the kernel copy (or share) the
+  blocks. The copy itself still runs on the event-loop thread.
 - Refuses to copy a directory into itself or one of its descendants, even
   when the nested destination does not exist yet.
-- With the "Overwrite" policy, refuses to copy or move a file onto itself:
-  both panels start in the same directory, and removing the destination
-  first would empty the source before it was read.
+- Refuses a FIFO, socket or device node with "not a regular file", whether it
+  is the entry under the cursor or inside a copied folder. The type is checked
+  before the source is opened and before the destination is created, because
+  `open` on a FIFO waits for a writer and the copy runs on the event-loop
+  thread (`utils::copy_file`).
+- Refuses to copy or move a file or folder onto itself, whatever the
+  "Already existing files" choice (Far's "copy/move onto itself" error): both
+  panels start in the same directory, so this is the dialog's default.
+  "Overwrite" would empty the source before reading it, and "Ask" would
+  rename a moved file to `name_1`.
+- The status line says "Copied" or "Moved", and adds "(existing files kept,
+  new ones renamed)" only when an item was put beside an existing one under
+  a new name.
+- "Access rights" (`copy::AccessRights`): Default gives every copied file its
+  source's permission bits and creates folders like any new folder there;
+  Copy also restates the copied folder's own mode once its contents are in;
+  Inherit leaves every file and folder the copy creates with the mode the
+  kernel gave it at creation (the umask, or the folder's default ACL). No
+  choice ever sets a bare 0666/0777 with `chmod`, which would skip the umask.
+  A same-filesystem move is a rename and keeps the mode it had.
 - "Preserve timestamps" applies to directories as well as files; the copied
   directory gets the source's modification time once its contents are in.
 - Removes a partially written destination when an individual copy fails.
@@ -73,6 +114,10 @@ fails. Earlier successful items in a multi-item operation also remain changed.
   is found.
 - `copy_dir_all(src, dst)` — recursive directory copy.
 - `refresh_panels(app)` — reloads both panels and restores valid selections.
+  A panel whose folder has been deleted moves to the nearest folder above it
+  that still exists (`Panel::reload`), as Far's does; Enter on `..` and the
+  drive menu walk up the same way. Any other reload failure keeps the last
+  listing and is reported.
 
 ## 🧩 Error and Refresh Semantics
 

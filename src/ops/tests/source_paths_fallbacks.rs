@@ -311,7 +311,7 @@ fn test_drive_selection_up_wraps_around() -> io::Result<()> {
 
     // Up from 0 should wrap to last
     process_popup_input(&mut app, key_event(KeyCode::Up));
-    let drives = crate::models::App::get_all_drives();
+    let drives = App::get_all_drives();
     if let Overlay::DriveSelection { selected_index, .. } = &app.overlay {
         assert_eq!(*selected_index, drives.len() - 1);
     } else {
@@ -323,7 +323,7 @@ fn test_drive_selection_up_wraps_around() -> io::Result<()> {
 #[test]
 fn test_drive_selection_down_wraps_around() -> io::Result<()> {
     let mut app = App::new()?;
-    let drives = crate::models::App::get_all_drives();
+    let drives = App::get_all_drives();
     app.set_overlay(Overlay::DriveSelection {
         side: PanelSide::Left,
         selected_index: drives.len() - 1,
@@ -372,7 +372,7 @@ fn test_drive_selection_enter_local_drive() -> io::Result<()> {
 #[test]
 fn test_drive_selection_enter_s3_profile_overlay() -> io::Result<()> {
     let mut app = App::new()?;
-    let drives = crate::models::App::get_all_drives();
+    let drives = App::get_all_drives();
     // Find an S3 profile entry if it exists
     if let Some(pos) = drives
         .iter()
@@ -396,7 +396,7 @@ fn test_drive_selection_enter_s3_profile_overlay() -> io::Result<()> {
 #[test]
 fn test_drive_selection_up_decrements() -> io::Result<()> {
     let mut app = App::new()?;
-    let drives = crate::models::App::get_all_drives();
+    let drives = App::get_all_drives();
     if drives.len() >= 2 {
         app.set_overlay(Overlay::DriveSelection {
             side: PanelSide::Left,
@@ -416,7 +416,7 @@ fn test_drive_selection_up_decrements() -> io::Result<()> {
 #[test]
 fn test_drive_selection_down_increments() -> io::Result<()> {
     let mut app = App::new()?;
-    let drives = crate::models::App::get_all_drives();
+    let drives = App::get_all_drives();
     if drives.len() >= 2 {
         app.set_overlay(Overlay::DriveSelection {
             side: PanelSide::Left,

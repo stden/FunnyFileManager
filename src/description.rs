@@ -1,6 +1,10 @@
 //! Purpose: Far-format file description files (`Descript.ion`): read once per
 //! listing for the Descriptions columns, rewritten line by line by `Ctrl+Z`.
 //!
+//! One rule finds the file for every reader and the writer: the listing (and
+//! so the Descriptions sort), the Descriptions views and `Ctrl+Z` all go
+//! through [`existing_file`], which ignores letter case as Far does.
+//!
 //! The format is one entry per line — the file name, quoted when it holds a
 //! space, then whitespace, then the description. Lines that name files which
 //! no longer exist are kept on write, as Far does: the description outlives
@@ -24,23 +28,67 @@ pub fn default_names() -> Vec<String> {
         .collect()
 }
 
-/// The first description file in `names` that exists in `dir`.
+/// The description file `dir` holds: the first of `names`, in their order,
+/// present there. Names match without regard to ASCII case, as in Far, so
+/// `descript.ion`, `Descript.ion` and `DESCRIPT.ION` are the same file on a
+/// case-sensitive filesystem too; the exact spelling wins a tie.
 fn existing_file(dir: &Path, names: &[String]) -> Option<PathBuf> {
+    fs::read_dir(dir)
+        .ok()?
+        .flatten()
+        .filter_map(|entry| {
+            let rank = search_rank(names, entry.file_name().to_str()?)?;
+            Some((rank, entry.path()))
+        })
+        .min_by_key(|(rank, _)| *rank)
+        .map(|(_, path)| path)
+}
+
+/// Where `file` falls in the search order: the index of the name it
+/// matches, then whether its spelling differs from that name.
+fn search_rank(names: &[String], file: &str) -> Option<(usize, bool)> {
     names
         .iter()
-        .map(|name| dir.join(name))
-        .find(|path| path.is_file())
+        .enumerate()
+        .find(|(_, name)| name.eq_ignore_ascii_case(file))
+        .map(|(index, name)| (index, name != file))
+}
+
+/// The text of the description file at `path`, empty when there is none.
+///
+/// Anything but a regular file is refused before it is opened: opening a
+/// FIFO blocks until something writes to it, and a listing runs on the
+/// event loop.
+fn text_of(path: &Path) -> io::Result<String> {
+    let metadata = match fs::metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(String::new()),
+        Err(error) => return Err(error),
+    };
+    if !metadata.is_file() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "the description file is not a regular file",
+        ));
+    }
+    Ok(String::from_utf8_lossy(&fs::read(path)?).into_owned())
 }
 
 /// Every description `dir` carries, keyed by file name; empty when none of
-/// `names` exists there. A read failure is an empty map as well — a listing
-/// must never fail over its descriptions.
+/// `names` exists there. A description file that exists but cannot be read
+/// is an error, for views that report it.
+pub fn try_read(dir: &Path, names: &[String]) -> io::Result<HashMap<String, String>> {
+    let Some(path) = existing_file(dir, names) else {
+        return Ok(HashMap::new());
+    };
+    Ok(parse(&text_of(&path)?))
+}
+
+/// [`try_read`] for a listing, which must never fail over its descriptions:
+/// a file that cannot be read gives no descriptions.
 #[must_use]
 pub fn read(dir: &Path, names: &[String]) -> HashMap<String, String> {
-    existing_file(dir, names)
-        .and_then(|path| fs::read(path).ok())
-        .map(|bytes| parse(&String::from_utf8_lossy(&bytes)))
-        .unwrap_or_default()
+    try_read(dir, names).unwrap_or_default()
 }
 
 /// The `(name, description)` pairs in `text`, in file order; malformed lines
@@ -75,8 +123,8 @@ fn format_line(name: &str, text: &str) -> String {
 /// Give `name` the description `text` in `dir`.
 ///
 /// The description file is rewritten with every other line untouched. An
-/// empty `text` removes the line. The file written is the first of `names`
-/// that exists, else the first name.
+/// empty `text` removes the line. The file written is the one the directory
+/// already has, found as [`existing_file`] finds it, else the first name.
 pub fn set_description(dir: &Path, names: &[String], name: &str, text: &str) -> io::Result<()> {
     let Some(first) = names.first() else {
         return Err(io::Error::new(
@@ -85,11 +133,7 @@ pub fn set_description(dir: &Path, names: &[String], name: &str, text: &str) -> 
         ));
     };
     let path = existing_file(dir, names).unwrap_or_else(|| dir.join(first));
-    let existing = match fs::read(&path) {
-        Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => String::new(),
-        Err(error) => return Err(error),
-    };
+    let existing = text_of(&path)?;
     let mut lines: Vec<String> = existing
         .lines()
         .filter(|line| parse_line(line).is_none_or(|(existing_name, _)| existing_name != name))

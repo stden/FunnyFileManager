@@ -25,6 +25,15 @@ fn tool_json(result: &CallToolResult) -> serde_json::Value {
     serde_json::from_str(&text.text).expect("a tool payload is JSON")
 }
 
+/// `line 1` through `line {last}`, one per line, newline-terminated.
+fn numbered_lines(last: u32) -> String {
+    (1..=last).fold(String::new(), |mut body, n| {
+        // Writing into a `String` cannot fail.
+        let _ = writeln!(body, "line {n}");
+        body
+    })
+}
+
 fn write_file_at(path: &Path, content: &str) {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).expect("create parent directory");
@@ -108,13 +117,11 @@ fn batch_delete_of_a_link_to_a_directory_keeps_the_target() {
     write_file_at(&root.join("data").join("keep.txt"), "keep");
     std::os::unix::fs::symlink(root.join("data"), root.join("link")).expect("symlink");
 
-    let result = server
-        .batch_delete(Parameters(BatchParams {
-            paths: vec!["link".to_owned()],
-            destination: None,
-            recursive: true,
-        }))
-        .expect("a batch reports per-path failures instead of aborting");
+    let result = server.batch_delete(Parameters(BatchParams {
+        paths: vec!["link".to_owned()],
+        destination: None,
+        recursive: true,
+    }));
     let payload = tool_json(&result);
 
     assert_eq!(payload["total_deleted"], 1);
@@ -135,13 +142,11 @@ fn batch_delete_of_a_link_to_a_file_keeps_the_file() {
     write_file_at(&root.join("real.txt"), "payload");
     std::os::unix::fs::symlink(root.join("real.txt"), root.join("alias.txt")).expect("symlink");
 
-    let result = server
-        .batch_delete(Parameters(BatchParams {
-            paths: vec!["alias.txt".to_owned()],
-            destination: None,
-            recursive: false,
-        }))
-        .expect("a batch reports per-path failures instead of aborting");
+    let result = server.batch_delete(Parameters(BatchParams {
+        paths: vec!["alias.txt".to_owned()],
+        destination: None,
+        recursive: false,
+    }));
 
     assert_eq!(tool_json(&result)["total_deleted"], 1);
     assert_gone(&root.join("alias.txt"));
@@ -647,7 +652,7 @@ fn find_duplicates_can_ignore_small_files() {
 fn tail_file_returns_the_last_lines() {
     let dir = TempDir::new().expect("temp dir");
     let (server, root) = server_at(&dir);
-    let body: String = (1..=100).map(|n| format!("line {n}\n")).collect();
+    let body = numbered_lines(100);
     write_file_at(&root.join("log.txt"), &body);
 
     let json = tool_json(
@@ -688,7 +693,7 @@ fn tail_file_reads_the_end_of_a_large_file() {
     let dir = TempDir::new().expect("temp dir");
     let (server, root) = server_at(&dir);
     // Comfortably more than the 8 KiB block the tail reads backwards in.
-    let body: String = (1..=20_000).map(|n| format!("line {n}\n")).collect();
+    let body = numbered_lines(20_000);
     write_file_at(&root.join("big.log"), &body);
 
     let json = tool_json(
@@ -1070,7 +1075,7 @@ fn read_lines_to_the_last_line_reports_the_end() {
 fn line_readers_refuse_past_the_read_cap() {
     let dir = TempDir::new().expect("temp dir");
     let (server, root) = server_at(&dir);
-    let blob = "x".repeat(MAX_READ_BYTES as usize + 16);
+    let blob = "x".repeat(usize::try_from(MAX_READ_BYTES).expect("the cap fits in usize") + 16);
     write_file_at(&root.join("blob.txt"), &blob);
 
     assert!(server
@@ -1248,7 +1253,7 @@ fn compare_files_reports_the_first_differing_offset() {
     );
     assert_eq!(json["identical"], false);
     assert_eq!(json["first_difference_at"], 3);
-    assert!(json["left_sha256"] != json["right_sha256"]);
+    assert_ne!(json["left_sha256"], json["right_sha256"]);
 }
 
 /// Different sizes settle "identical" without hashing — but the offset is
@@ -1359,16 +1364,13 @@ fn largest_files_refuses_a_file() {
 /// Something every machine running these tests has on PATH.
 #[test]
 fn which_finds_an_executable_that_is_there() {
-    let dir = TempDir::new().expect("temp dir");
-    let (server, _root) = server_at(&dir);
     let name = if cfg!(windows) { "cmd" } else { "sh" };
 
     let json = tool_json(
-        &server
-            .which(Parameters(WhichParams {
-                name: name.to_owned(),
-            }))
-            .expect("which"),
+        &FfmServer::which(Parameters(WhichParams {
+            name: name.to_owned(),
+        }))
+        .expect("which"),
     );
     assert_eq!(json["found"], true, "{name} should be on PATH");
     assert!(json["path"].is_string());
@@ -1377,15 +1379,11 @@ fn which_finds_an_executable_that_is_there() {
 
 #[test]
 fn which_says_so_when_there_is_nothing_to_find() {
-    let dir = TempDir::new().expect("temp dir");
-    let (server, _root) = server_at(&dir);
-
     let json = tool_json(
-        &server
-            .which(Parameters(WhichParams {
-                name: "ffm-no-such-executable-anywhere".to_owned(),
-            }))
-            .expect("which"),
+        &FfmServer::which(Parameters(WhichParams {
+            name: "ffm-no-such-executable-anywhere".to_owned(),
+        }))
+        .expect("which"),
     );
     assert_eq!(json["found"], false);
     assert!(json["path"].is_null());
@@ -1414,15 +1412,12 @@ fn which_skips_a_non_executable_decoy_earlier_on_path() {
 /// would quietly answer a different question.
 #[test]
 fn which_refuses_anything_with_a_directory_in_it() {
-    let dir = TempDir::new().expect("temp dir");
-    let (server, _root) = server_at(&dir);
     for name in ["", "/bin/sh", "dir\\thing"] {
         assert!(
-            server
-                .which(Parameters(WhichParams {
-                    name: name.to_owned()
-                }))
-                .is_err(),
+            FfmServer::which(Parameters(WhichParams {
+                name: name.to_owned()
+            }))
+            .is_err(),
             "{name:?} must be refused"
         );
     }

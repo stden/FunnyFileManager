@@ -235,7 +235,7 @@ fn the_mask_dialog_opens_on_the_extension_under_the_cursor() {
 fn the_mask_dialog_moves_between_its_two_buttons() {
     use super::{MaskPrompt, MaskPurpose};
 
-    let mut prompt = MaskPrompt::new(MaskPurpose::Select, "*".to_owned());
+    let mut prompt = MaskPrompt::new(MaskPurpose::Select, "*");
     assert!(!prompt.on_cancel(), "opens on OK");
     prompt.toggle_button();
     assert!(prompt.on_cancel());

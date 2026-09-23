@@ -390,7 +390,8 @@ fn test_copy_dir_all_permission_errors() -> io::Result<()> {
     Ok(())
 }
 
-// Test to cover error path in refresh_panels
+// A panel whose folder was deleted is not a refresh error: it moves to the
+// nearest folder above that still exists, as Far's panel does.
 #[test]
 fn test_refresh_panels_with_deleted_directories() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
@@ -404,12 +405,10 @@ fn test_refresh_panels_with_deleted_directories() -> io::Result<()> {
     app.left_panel = Panel::new(left_dir.clone())?;
     app.right_panel = Panel::new(right_dir)?;
 
-    // Delete the left directory to trigger an error
     fs::remove_dir_all(&left_dir)?;
 
-    // This should handle the error
-    let result = refresh_panels(&mut app);
-    assert!(result.is_err());
+    refresh_panels(&mut app)?;
+    assert_eq!(app.left_panel.path, temp_dir.path());
 
     Ok(())
 }

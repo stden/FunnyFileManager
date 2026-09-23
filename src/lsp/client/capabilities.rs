@@ -7,6 +7,10 @@ use crate::lsp::{
 };
 use serde_json::{json, Value};
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is a separate server capability; every combination is valid"
+)]
 pub(super) struct Capabilities {
     pub open_close: bool,
     pub change: SyncKind,

@@ -51,18 +51,38 @@ impl ExistingFiles {
 }
 
 /// What permissions the copy ends up with.
+///
+/// None of them can give a copy more than the source had or more than the
+/// umask allows: a mode is only ever the source's, or the one the kernel
+/// gave the file when the copy created it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AccessRights {
-    /// Whatever the platform's own copy does.
+    /// Whatever the platform's own copy does: a file keeps its source's
+    /// permission bits, as with `cp` and `fs::copy`, and a folder is created
+    /// like any new folder there.
     #[default]
     Default,
-    /// The source's mode bits, carried over.
+    /// The source's mode bits, carried over — onto the folder being copied
+    /// as well as onto every file.
     Copy,
-    /// The destination directory's, as a newly created file would get.
+    /// What a file or folder newly created in the destination gets: the
+    /// umask (or the folder's default ACL), applied by the kernel as each one
+    /// is created, for everything the copy creates.
     Inherit,
 }
 
 impl AccessRights {
+    /// The permission bits each copied file is given as it is written.
+    /// Copy's restating of a folder's own mode waits until the folder's
+    /// contents are in, and so is left to the caller.
+    #[must_use]
+    pub const fn file_mode(self) -> crate::utils::FileMode {
+        match self {
+            Self::Default | Self::Copy => crate::utils::FileMode::Source,
+            Self::Inherit => crate::utils::FileMode::Fresh,
+        }
+    }
+
     /// The three options in the order Far draws them.
     pub const ALL: [Self; 3] = [Self::Default, Self::Copy, Self::Inherit];
 

@@ -80,16 +80,18 @@ pub fn measure(dialog: &mut DiskCleanupDialog, base: &Path) {
         if !candidate.path.is_absolute() {
             candidate.path = base.join(&candidate.path);
         }
-        candidate.size = match files::measure(candidate) {
-            Ok(size) => size,
-            Err(error) => {
-                crate::diagnostics::log_error(&format!("Cleanup scan failed: {error}"));
-                None
-            }
-        };
+        candidate.size = files::measure(candidate).unwrap_or_else(|error| {
+            crate::diagnostics::log_error(&format!("Cleanup scan failed: {error}"));
+            None
+        });
         candidate.exists = candidate.size.is_some();
+        // What the row removes decides the default, never its label: emptying
+        // the temporary folder and deleting heap dumps are safe to offer.
         candidate.checked = candidate.exists
-            && (candidate.kind == CleanupKind::HeapDumps || candidate.label.contains("Temp"));
+            && matches!(
+                candidate.kind,
+                CleanupKind::Contents | CleanupKind::HeapDumps
+            );
     }
 }
 

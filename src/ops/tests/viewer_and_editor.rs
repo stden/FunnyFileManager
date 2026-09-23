@@ -243,10 +243,11 @@ fn test_handle_view_invalid_utf8() -> io::Result<()> {
         }
     }
 
-    // Non-UTF-8 *text* is decoded lossily rather than failing the whole action.
-    handle_view(&mut app).expect("lossy decode must not fail");
+    // Non-UTF-8 *text* is read in the editor's single-byte code page rather
+    // than failing the whole action.
+    handle_view(&mut app).expect("a non-UTF-8 decode must not fail");
     let viewer = app.get_viewer().expect("viewer must open");
-    assert_eq!(viewer.lines, vec!["\u{fffd}".to_owned()]);
+    assert_eq!(viewer.lines, vec!["\u{44f}".to_owned()]);
 
     Ok(())
 }

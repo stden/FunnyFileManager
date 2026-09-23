@@ -34,16 +34,13 @@ fn a_refresh_failure_is_reported_after_successful_cleanup() {
 }
 
 #[test]
-fn the_temp_candidate_removes_ordinary_files_and_nested_directories() {
+fn a_path_candidate_removes_the_directory_with_its_nested_contents() {
     let temp = TempDir::new().unwrap();
-    let cache = temp.path().join("Temp");
+    let cache = temp.path().join("cache");
     fs::create_dir_all(cache.join("nested")).unwrap();
     fs::write(cache.join("stale.log"), b"abc").unwrap();
     fs::write(cache.join("nested/data.bin"), b"12345").unwrap();
-    let mut app = app(
-        temp.path(),
-        vec![candidate("Windows Temp (%TEMP%)", &cache)],
-    );
+    let mut app = app(temp.path(), vec![candidate("Gradle caches", &cache)]);
 
     run(&mut app);
 

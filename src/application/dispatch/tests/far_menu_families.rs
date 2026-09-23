@@ -103,12 +103,9 @@ fn a_panel_view_action_sets_the_active_listing() {
     apply_action(
         &mut terminal(),
         &mut app,
-        Action::PanelView(crate::models::PanelView::Wide),
+        Action::PanelView(PanelView::Wide),
     );
-    assert_eq!(
-        app.get_active_panel_ref().view,
-        crate::models::PanelView::Wide
-    );
+    assert_eq!(app.get_active_panel_ref().view, PanelView::Wide);
 }
 
 #[test]
@@ -142,15 +139,8 @@ fn a_quick_view_panel_consumes_its_own_keys() {
 fn plain_dispatch_still_names_grouped_actions() {
     let mut app = App::new().expect("test app");
     let mut terminal = terminal();
-    apply_plain_action(
-        &mut terminal,
-        &mut app,
-        Action::PanelView(crate::models::PanelView::Brief),
-    );
-    assert_eq!(
-        app.get_active_panel_ref().view,
-        crate::models::PanelView::Brief
-    );
+    apply_plain_action(&mut terminal, &mut app, Action::PanelView(PanelView::Brief));
+    assert_eq!(app.get_active_panel_ref().view, PanelView::Brief);
     apply_plain_action(&mut terminal, &mut app, Action::File(FileCommand::Link));
     apply_plain_action(&mut terminal, &mut app, Action::Menu(MenuCommand::FindFile));
 }

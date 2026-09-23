@@ -117,6 +117,7 @@ pub(super) const FILES: [Entry; 24] = [
 /// Everything that is not about one file.
 pub(super) const COMMANDS: &[Entry] = &[
     Entry::command("Action statistics (stats)", "", MenuCommand::Performance),
+    Entry::command("Language servers (LSP)", "", MenuCommand::LanguageServers),
     Entry::command("Update pac&kages", "", MenuCommand::UpdatePackages),
     Entry::command(
         "Edit PATH (current user)",

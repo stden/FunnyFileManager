@@ -8,7 +8,7 @@
 //! does, and `[?]` when they disagree — and only a box the user *moved* asks
 //! for anything, so applying to ten files with different modes changes one
 //! bit on each and leaves the other eight alone. Each box therefore remembers
-//! what it showed when the dialog opened.
+//! what it showed when the dialog opened, and so does each time field.
 
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -226,6 +226,35 @@ pub struct EntrySnapshot {
     pub accessed: Option<SystemTime>,
 }
 
+/// One time field: the text it opened with, and the text it shows now.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TimeField {
+    pub initial: String,
+    pub current: String,
+}
+
+impl TimeField {
+    fn offering(text: String) -> Self {
+        Self {
+            initial: text.clone(),
+            current: text,
+        }
+    }
+
+    /// The time this field asks for, parsed.
+    ///
+    /// `None` both for a blank field and for one left as it opened, like an
+    /// unmoved box: the offered text is the first target's own time, and
+    /// with Process subfolders on it would otherwise land on everything
+    /// inside.
+    fn request(&self, field: &'static str) -> Result<Option<SystemTime>, InvalidTime> {
+        if self.current == self.initial {
+            return Ok(None);
+        }
+        parse_time(field, &self.current)
+    }
+}
+
 /// The times the user asked for; `None` leaves that time as it is.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct RequestedTimes {
@@ -266,9 +295,9 @@ pub struct AttributesDialog {
     pub group: String,
     /// One per platform flag, in [`Flag::GROUPS`] order.
     pub flags: Vec<FlagBox>,
-    /// Text of the two time fields; empty leaves that time alone.
-    pub modified: String,
-    pub accessed: String,
+    /// The two time fields; empty or untouched leaves that time alone.
+    pub modified: TimeField,
+    pub accessed: TimeField,
     /// Far's "Process subfolders": apply to what is inside a directory too.
     pub process_subfolders: bool,
     /// Whether the selection holds a directory, which is what makes the
@@ -291,14 +320,18 @@ impl AttributesDialog {
             owner: shared_name(entries.iter().map(|entry| entry.owner.as_deref())),
             group: shared_name(entries.iter().map(|entry| entry.group.as_deref())),
             flags,
-            modified: single
-                .and_then(|e| e.modified)
-                .map(format_time)
-                .unwrap_or_default(),
-            accessed: single
-                .and_then(|e| e.accessed)
-                .map(format_time)
-                .unwrap_or_default(),
+            modified: TimeField::offering(
+                single
+                    .and_then(|e| e.modified)
+                    .map(format_time)
+                    .unwrap_or_default(),
+            ),
+            accessed: TimeField::offering(
+                single
+                    .and_then(|e| e.accessed)
+                    .map(format_time)
+                    .unwrap_or_default(),
+            ),
             process_subfolders: false,
             has_directories,
             field: AttributesField::Flag(0),
@@ -353,8 +386,8 @@ impl AttributesDialog {
     /// The time field under the cursor, if the cursor is on one.
     fn time_field_mut(&mut self) -> Option<&mut String> {
         match self.field {
-            AttributesField::Modified => Some(&mut self.modified),
-            AttributesField::Accessed => Some(&mut self.accessed),
+            AttributesField::Modified => Some(&mut self.modified.current),
+            AttributesField::Accessed => Some(&mut self.accessed.current),
             _ => None,
         }
     }
@@ -401,11 +434,12 @@ impl AttributesDialog {
             .any(|flag_box| flag_box.request().is_some())
     }
 
-    /// The two time fields, parsed; a blank field asks for nothing.
+    /// The two time fields, parsed; a blank or untouched field asks for
+    /// nothing.
     pub fn requested_times(&self) -> Result<RequestedTimes, InvalidTime> {
         Ok(RequestedTimes {
-            modified: parse_time("Modification time", &self.modified)?,
-            accessed: parse_time("Access time", &self.accessed)?,
+            modified: self.modified.request("Modification time")?,
+            accessed: self.accessed.request("Access time")?,
         })
     }
 }

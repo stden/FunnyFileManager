@@ -4,12 +4,12 @@ use crate::models::Lifecycle;
 use std::{io, path::Path};
 
 use crate::command::{Command, ShellCommand};
-use crate::models::{App, BookmarkSlot, FileName, Overlay, SortMode};
+use crate::models::{App, BookmarkSlot, Overlay, SortMode};
 use crate::status::Status;
 use crate::utils::refresh_panels;
 use crate::windows::{open_windows_performance_checker, open_windows_system_messages};
 
-use super::shell::run_shell_command_with_timeout;
+use super::shell::{run_shell_command_with_timeout, ShellError};
 use super::viewer::open_mcp_status;
 
 fn cmd_cd_path(app: &mut App, requested: &Path) -> io::Result<()> {
@@ -45,7 +45,7 @@ fn cmd_cd_path(app: &mut App, requested: &Path) -> io::Result<()> {
     // user) passes every check here and only fails at `read_dir`.
     app.get_active_panel().navigate_to(new_path)?;
     let opened = app.get_active_panel().path.clone();
-    app.set_status(crate::status::Status::Opened(opened));
+    app.set_status(Status::Opened(opened));
     Ok(())
 }
 
@@ -56,16 +56,19 @@ pub(super) fn cmd_sort_mode(app: &mut App, sort_mode: SortMode) -> io::Result<()
     super::sortmenu::relist(app)
 }
 
-fn cmd_bookmark_set(app: &mut App, slot: BookmarkSlot) -> io::Result<()> {
+fn cmd_bookmark_set(app: &mut App, slot: BookmarkSlot) {
     // No bounds check: `BookmarkSlot` proves the index and `Bookmarks` has one
     // entry per slot, so the store cannot be missing the one being written.
     let path = app.get_active_panel().path.clone();
-    app.set_status(crate::status::Status::BookmarkSet {
+    app.set_status(Status::BookmarkSet {
         slot,
         path: path.clone(),
     });
-    app.bookmarks.set(slot, path);
-    Ok(())
+    // The slot is set for this run either way; a file that cannot be written
+    // goes to the log, as the other stores' failures do.
+    if let Err(error) = app.bookmarks.remember(slot, path) {
+        crate::diagnostics::log_error(&format!("saving bookmarks: {error}"));
+    }
 }
 
 fn cmd_bookmark_go(app: &mut App, slot: BookmarkSlot) -> io::Result<()> {
@@ -81,22 +84,15 @@ fn cmd_bookmark_go(app: &mut App, slot: BookmarkSlot) -> io::Result<()> {
     // cannot list.
     app.get_active_panel().navigate_to(path)?;
     let path = app.get_active_panel().path.clone();
-    app.set_status(crate::status::Status::OpenedBookmark { slot, path });
+    app.set_status(Status::OpenedBookmark { slot, path });
     Ok(())
 }
 
 fn cmd_mark_all(app: &mut App) {
-    let names: Vec<FileName> = app
-        .get_active_panel()
-        .entries
-        .iter()
-        .filter(|entry| entry.name != "..")
-        .map(|entry| FileName::new(entry.name.clone()))
-        .collect();
     let panel = app.get_active_panel();
-    panel.marked.extend(names);
+    panel.mark_all();
     let count = panel.marked.len();
-    app.set_status(crate::status::Status::Marked { count });
+    app.set_status(Status::Marked { count });
 }
 
 pub fn execute_command(app: &mut App, command: &str) -> io::Result<()> {
@@ -119,7 +115,6 @@ fn execute_command_with_console(
     match parsed {
         Command::Cd(path) => return cmd_cd_path(app, &path),
         Command::Sort(mode) => return cmd_sort_mode(app, mode),
-        Command::BookmarkSet(slot) => return cmd_bookmark_set(app, slot),
         Command::BookmarkGo(slot) => return cmd_bookmark_go(app, slot),
         Command::WinMsg => return open_windows_system_messages(app),
         Command::WinPerf => return open_windows_performance_checker(app),
@@ -131,11 +126,13 @@ fn execute_command_with_console(
             return Err(io::Error::new(io::ErrorKind::InvalidInput, usage))
         }
         Command::Empty => return Err(io::Error::new(io::ErrorKind::InvalidInput, "empty command")),
+        Command::BookmarkSet(slot) => cmd_bookmark_set(app, slot),
         Command::Pwd => cmd_pwd(app),
         Command::MarkAll => cmd_mark_all(app),
         Command::UnmarkAll => cmd_unmark_all(app),
         Command::Help => app.set_overlay(Overlay::Help),
         Command::Stats => super::performance::open(app),
+        Command::Lsp => super::lsp_status::open(app),
         Command::Wsl => super::wsl::open_manager(app),
         Command::Quit => app.lifecycle = Lifecycle::Quitting,
     }
@@ -157,16 +154,19 @@ fn cmd_new_console(
     command: &ShellCommand,
     spawn: impl FnOnce(&ShellCommand, &Path) -> io::Result<()>,
 ) -> io::Result<()> {
-    spawn(command, &app.get_active_panel_ref().path)
-        .map_err(|error| command_launch_error(app, command.as_str(), &error))?;
+    let folder = app.get_active_panel_ref().path.clone();
+    spawn(command, &folder).map_err(|error| {
+        let error = ShellError::launching_in(&folder, error);
+        command_launch_error(app, command.as_str(), &error)
+    })?;
     let status = Status::ConsoleStarted(command.clone());
     app.console.record_output(&status.to_string());
     app.set_status(status);
     Ok(())
 }
 
-fn command_launch_error(app: &mut App, command: &str, error: &io::Error) -> io::Error {
-    let message = format!("cannot run '{command}': {error}");
+fn command_launch_error(app: &mut App, command: &str, error: &ShellError) -> io::Error {
+    let message = error.report(command);
     app.console.record_error(&message);
     io::Error::other(message)
 }
@@ -186,23 +186,34 @@ fn cmd_shell(app: &mut App, command: &ShellCommand) -> io::Result<()> {
         app.settings
             .number(crate::menu::SettingsPage::PluginManager) as u64,
     );
-    let output =
-        run_shell_command_with_timeout(command, &panel_path, timeout).map_err(|error| {
-            // A shell that would not start is still part of the transcript: the
-            // echoed command with nothing under it reads as "it worked silently".
-            command_launch_error(app, command, &error)
-        })?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    app.console.record_output(&stdout);
-    app.console.record_error(&stderr);
-    app.set_status(shell_summary(&stdout, &stderr, output.status, command));
+    match run_shell_command_with_timeout(command, &panel_path, timeout) {
+        Ok(output) => record_shell_output(app, command, &output),
+        Err(ShellError::Cancelled) => record_cancel(app, command),
+        // A shell that would not start is still part of the transcript: the
+        // echoed command with nothing under it reads as "it worked silently".
+        Err(error) => return Err(command_launch_error(app, command, &error)),
+    }
 
     // The command may have created or removed files; a refresh failure is not
     // the command's failure, so it is deliberately not propagated.
     let _ = refresh_panels(app);
     Ok(())
+}
+
+fn record_shell_output(app: &mut App, command: &str, output: &std::process::Output) {
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    app.console.record_output(&stdout);
+    app.console.record_error(&stderr);
+    app.set_status(shell_summary(&stdout, &stderr, output.status, command));
+}
+
+/// Esc / Ctrl+C stopped `command`. The user asked for that, so it is an
+/// outcome to report, not an error.
+fn record_cancel(app: &mut App, command: &str) {
+    let message = ShellError::Cancelled.report(command);
+    app.console.record_error(&message);
+    app.set_status(Status::CommandOutput(message));
 }
 
 /// The one line the status bar shows for a finished command.
@@ -214,17 +225,13 @@ fn shell_summary(
 ) -> Status {
     // Through the same sanitiser the transcript uses: a `ls --color` summary
     // would otherwise read `[31mred[0m` in the status bar while the console
-    // two keystrokes away shows `red`.
-    if !stdout.trim().is_empty() {
-        return Status::CommandOutput(crate::console::printable(
-            stdout.lines().last().unwrap_or(""),
-        ));
+    // two keystrokes away shows `red`. A line that is nothing but escapes —
+    // `tput sgr0` — has nothing to show, so it does not count as output.
+    if let Some(last) = crate::console::first_drawable(stdout.lines().rev()) {
+        return Status::CommandOutput(last);
     }
-    if !stderr.trim().is_empty() {
-        return Status::CommandOutput(format!(
-            "Err: {}",
-            crate::console::printable(stderr.lines().next().unwrap_or(""))
-        ));
+    if let Some(first) = crate::console::first_drawable(stderr.lines()) {
+        return Status::CommandOutput(format!("Err: {first}"));
     }
     if status.success() {
         return Status::CommandOutput(format!("OK: {command}"));
@@ -243,3 +250,6 @@ mod tests_console;
 
 #[cfg(test)]
 mod tests_console_effect;
+
+#[cfg(test)]
+mod tests_shell_outcomes;

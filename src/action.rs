@@ -37,9 +37,9 @@ use function_keys::resolve_function_key;
 /// [`App`](crate::models::App); the mapping from keys to actions is [`resolve`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
-    MenuCommand(crate::menu::MenuCommand),
+    MenuCommand(MenuCommand),
     /// Select the active panel's file presentation mode.
-    PanelView(crate::models::PanelView),
+    PanelView(PanelView),
     /// Typed dialog intent, dispatched by its own owner.
     Dialog(DialogCommand),
     /// Typed selection intent, dispatched by its own owner.
@@ -98,8 +98,19 @@ pub enum Action {
     QuickSearch(char),
     /// `Backspace` — drop the last quick-search character.
     QuickSearchBackspace,
-    /// `Esc` or any other key — cancel the quick search.
+    /// `Esc` or any unmapped key — cancel the quick search. Every other
+    /// action ends it too; see [`Action::edits_quick_search`].
     QuickSearchClear,
+}
+
+impl Action {
+    /// Whether this is one of the quick search's own keys — `Alt+<character>`
+    /// or `Backspace`. Any other action ends the search before it acts, as
+    /// Far's fast find closes on any key that is not part of it.
+    #[must_use]
+    pub const fn edits_quick_search(self) -> bool {
+        matches!(self, Self::QuickSearch(_) | Self::QuickSearchBackspace)
+    }
 }
 
 /// Translate a raw key event into the [`Action`] it triggers in the main view.
@@ -142,10 +153,12 @@ const fn resolve_main(key: KeyEvent) -> Action {
         // terminals do not report which pad a key came from, so these are the
         // plain characters. Nothing is lost: a command starting with `+`, `-`
         // or `*` is not a thing, and `:` still opens the command line for one.
+        // With Alt they are quick-search characters like any other, so a name
+        // starting with `-` or `+` can be found.
         KeyCode::Insert | KeyCode::Char(' ') => Action::ToggleMark,
-        KeyCode::Char('+') => Action::SelectGroup,
-        KeyCode::Char('-') => Action::UnselectGroup,
-        KeyCode::Char('*') => Action::InvertSelection,
+        KeyCode::Char('+') if without(ALT) => Action::SelectGroup,
+        KeyCode::Char('-') if without(ALT) => Action::UnselectGroup,
+        KeyCode::Char('*') if without(ALT) => Action::InvertSelection,
 
         // Ctrl combos. WSL wants both modifiers, so it goes first.
         KeyCode::Char('w' | 'W') if has(CONTROL + ALT) => Action::WslManagement,

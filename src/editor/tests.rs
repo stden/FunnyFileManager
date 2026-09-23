@@ -87,6 +87,14 @@ impl TerminalOps<WritableTestBackend> for FailingResumeOps {
     fn show_cursor(&mut self, _terminal: &mut Terminal<WritableTestBackend>) -> io::Result<()> {
         Ok(())
     }
+
+    fn wait_for_key(
+        &mut self,
+        _terminal: &mut Terminal<WritableTestBackend>,
+        _prompt: &str,
+    ) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 #[cfg(unix)]
@@ -268,7 +276,7 @@ fn test_handle_edit_impl_propagates_reload_error() -> io::Result<()> {
     app.active_panel = PanelSide::Right;
     app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("create right panel");
     assert!(select_entry(&mut app.right_panel, "file.txt"));
-    app.left_panel.path = temp_dir.path().join("missing-left-panel");
+    app.left_panel.path = unreachable_folder();
 
     let backend = WritableTestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).expect("terminal");
@@ -278,7 +286,7 @@ fn test_handle_edit_impl_propagates_reload_error() -> io::Result<()> {
         assert_eq!(path, file_path.as_path());
         run_editor_success(editor, path)
     })
-    .expect_err("missing left panel path should fail reload");
+    .expect_err("a left panel with nowhere to go should fail reload");
 
     assert_eq!(err.kind(), io::ErrorKind::NotFound);
     assert!(app.status_text().contains("Edited"));
@@ -357,7 +365,7 @@ fn test_handle_edit_with_refresh_error_wins_over_resume_error() -> io::Result<()
     let mut app = build_app(&temp_dir);
     app.active_panel = PanelSide::Right;
     assert!(select_entry(&mut app.right_panel, "file.txt"));
-    app.left_panel.path = temp_dir.path().join("missing-left-panel");
+    app.left_panel.path = unreachable_folder();
 
     let backend = WritableTestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).expect("terminal");
@@ -371,6 +379,15 @@ fn test_handle_edit_with_refresh_error_wins_over_resume_error() -> io::Result<()
     assert_eq!(error.kind(), io::ErrorKind::NotFound);
     assert!(app.status_text().contains("Edited"));
     Ok(())
+}
+
+/// A panel folder whose reload fails with nowhere to go. A deleted absolute
+/// folder no longer fails: the panel moves to the nearest folder above it. A
+/// relative path that does not exist has no folder above it at all, and it
+/// fails without the process-wide `FORCE_REFRESH_ERROR`, which would also
+/// fail the reloads of every other test running beside this one.
+fn unreachable_folder() -> PathBuf {
+    PathBuf::from("no-such-folder-for-an-editor-test")
 }
 
 /// A non-zero exit from the spawned editor is reported, not swallowed.

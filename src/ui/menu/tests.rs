@@ -1,6 +1,6 @@
 //! Unit tests: the menu bar's geometry and its label markers.
 //!
-//! [`super::drop_down_area`] is the one place that decides where a drop-down
+//! [`drop_down_area`] is the one place that decides where a drop-down
 //! goes, and both the renderer and the mouse ask it — so its refusals matter
 //! as much as its answers. A screen too small for the box has to produce
 //! nothing rather than a rectangle off the edge.
@@ -246,7 +246,45 @@ fn render_drop_down_draws_nothing_when_the_screen_has_no_room() {
     let mut terminal = Terminal::new(backend).unwrap();
     terminal
         .draw(|f| {
-            super::render_drop_down(f, &app, Rect::new(0, 0, 3, 1));
+            render_drop_down(f, &app, Rect::new(0, 0, 3, 1));
         })
         .unwrap();
+}
+
+// ─── shortcuts ──────────────────────────────────────────────────────────────
+
+/// The widest row of a drop-down used to print its label flush against its
+/// shortcut — "Long descriptionsCtrl+7", "Archive commandsShift+F3" — because
+/// the box was sized with no room for a gap. Every row keeps two blanks.
+#[test]
+fn every_shortcut_keeps_a_gap_after_its_label() {
+    let temp = tempfile::TempDir::new().unwrap();
+    let panel = crate::models::Panel::new(temp.path().to_owned()).unwrap();
+    for heading in Heading::ALL {
+        let mut app = App::from_panels(panel.clone(), panel.clone());
+        let menu = Menu::open(heading);
+        app.set_menu(menu);
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 40)).unwrap();
+        terminal
+            .draw(|frame| crate::ui::ui(frame, &mut app))
+            .unwrap();
+        let area = drop_down_area(&menu, bar(120), screen(120, 40)).unwrap();
+        let buffer = terminal.backend().buffer();
+        for (row, entry) in (area.y + 1..).zip(menu.entries()) {
+            let Entry::Item { shortcut, .. } = entry else {
+                continue;
+            };
+            if shortcut.is_empty() {
+                continue;
+            }
+            let text: String = (area.x + 1..area.right() - 1)
+                .map(|x| buffer[(x, row)].symbol())
+                .collect();
+            assert!(
+                text.trim_end().ends_with(&format!("  {shortcut}")),
+                "{heading:?}: {text:?}"
+            );
+        }
+    }
 }

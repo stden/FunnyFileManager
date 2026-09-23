@@ -38,7 +38,7 @@ This is the structured knowledge base for FunnyFileManager, designed for use by 
 
 ### ✨ 07. Core Features
 - `07-core-features/file-operations.md` — Copy, move, delete, mkdir, unique names
-- `07-core-features/s3-integration.md` — VirtualPath and S3 client
+- `07-core-features/s3-integration.md` — S3 client, and the tutorials under `docs/tutorials/`
 - `07-core-features/command-line.md` — Built-in commands and shell fallback
 - `07-core-features/apply-command.md` — Ctrl+G, Far substitutions, panel prefixes and selection lists
 - `07-core-features/main-menu.md` — F9 operations, panel modes, options, and configuration

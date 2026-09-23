@@ -17,7 +17,7 @@ use tempfile::TempDir;
 #[test]
 fn test_enter_parent_from_root_fallback() -> io::Result<()> {
     let root = if cfg!(windows) { "C:\\" } else { "/" };
-    let mut panel = Panel::new(std::path::PathBuf::from(root))?;
+    let mut panel = Panel::new(PathBuf::from(root))?;
 
     // ".." should be the first entry (or root has no "..")
     if let Some(dotdot_pos) = panel.entries.iter().position(|e| e.name == "..") {
@@ -184,7 +184,7 @@ fn test_dir_entry_properties() {
 /// `Panel::new` on nonexistent path returns error
 #[test]
 fn test_panel_new_nonexistent_path() {
-    let result = Panel::new(std::path::PathBuf::from("/nonexistent_path_12345"));
+    let result = Panel::new(PathBuf::from("/nonexistent_path_12345"));
     assert!(result.is_err());
 }
 

@@ -169,3 +169,33 @@ fn open_puts_the_current_value_in_a_prompt() {
     open(&mut app, SettingsPage::Editor);
     assert!(matches!(app.overlay, crate::models::Overlay::MenuDialog(_)));
 }
+
+/// Opening a FIFO blocks until something writes to it, and this runs on the
+/// event loop: the whole UI froze. A dictionary or settings file that is not
+/// a regular file is refused before it is opened.
+#[cfg(unix)]
+#[test]
+fn a_fifo_is_refused_as_a_language_or_settings_file_without_blocking() {
+    let temp = tempfile::TempDir::new().expect("dir");
+    let fifo = temp.path().join("fifo");
+    crate::test_support::make_fifo(&fifo).expect("mkfifo");
+    let language = fifo.display().to_string();
+    let refused =
+        crate::test_support::run_with_timeout(std::time::Duration::from_secs(5), move || {
+            translations(&language).map_err(|error| error.to_string())
+        })
+        .expect("Options > Languages must not block on a FIFO");
+    let error = refused.expect_err("a FIFO is not a dictionary");
+    assert!(error.contains("not a regular file"), "{error}");
+
+    let settings =
+        crate::test_support::run_with_timeout(std::time::Duration::from_secs(5), move || {
+            let panel =
+                crate::models::Panel::from_entries(std::path::PathBuf::from("/"), Vec::new());
+            let mut app = App::with_panels(panel.clone(), panel);
+            load(&mut app, &fifo).map_err(|error| error.to_string())
+        })
+        .expect("loading settings must not block on a FIFO");
+    let error = settings.expect_err("a FIFO is not a settings file");
+    assert!(error.contains("not a regular file"), "{error}");
+}

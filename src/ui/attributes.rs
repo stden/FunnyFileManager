@@ -95,13 +95,13 @@ fn rows<'a>(
         dialog::Row::Divider,
         dialog::Row::Field {
             caption: "&Modification:",
-            value: &dialog.modified,
+            value: &dialog.modified.current,
             focused: on(AttributesField::Modified),
             enabled: true,
         },
         dialog::Row::Field {
             caption: "&Access time:",
-            value: &dialog.accessed,
+            value: &dialog.accessed.current,
             focused: on(AttributesField::Accessed),
             enabled: true,
         },

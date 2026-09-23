@@ -23,7 +23,7 @@ fn dispatch(app: &mut App, action: Action) -> io::Result<()> {
     Ok(())
 }
 
-fn app_at(dir: &std::path::Path, selected: &str) -> io::Result<App> {
+fn app_at(dir: &Path, selected: &str) -> io::Result<App> {
     let mut app = App::new()?;
     app.left_panel = Panel::new(dir.to_path_buf())?;
     app.right_panel = Panel::new(dir.to_path_buf())?;
@@ -50,7 +50,7 @@ fn app_at(dir: &std::path::Path, selected: &str) -> io::Result<App> {
 #[test]
 fn test_view_binary_file_shows_the_refusal_in_the_status_bar() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
-    fs::write(temp_dir.path().join("photo.bin"), [0xff, 0xfe, 0x00, 0x01])?;
+    fs::write(temp_dir.path().join("photo.bin"), [0xff, 0xd8, 0x00, 0x01])?;
     let app = app_at(temp_dir.path(), "photo.bin")?;
 
     let backend = WritableTestBackend::new(120, 24);
@@ -84,7 +84,7 @@ fn test_view_binary_file_shows_the_refusal_in_the_status_bar() -> io::Result<()>
 #[test]
 fn test_view_binary_file_sets_binary_status_and_opens_no_viewer() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
-    fs::write(temp_dir.path().join("photo.bin"), [0xff, 0xfe, 0x00, 0x01])?;
+    fs::write(temp_dir.path().join("photo.bin"), [0xff, 0xd8, 0x00, 0x01])?;
     let mut app = app_at(temp_dir.path(), "photo.bin")?;
 
     dispatch(&mut app, Action::View)?;
@@ -162,12 +162,12 @@ fn test_mkdir_error_is_reported_not_fatal() -> io::Result<()> {
 
     dispatch(&mut app, Action::Mkdir)?;
     for ch in "child".chars() {
-        crate::popup::process_popup_input(
+        process_popup_input(
             &mut app,
             KeyEvent::new(KeyCode::Char(ch), KeyModifiers::empty()),
         );
     }
-    crate::popup::process_popup_input(
+    process_popup_input(
         &mut app,
         KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
     );

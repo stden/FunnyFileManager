@@ -66,8 +66,10 @@ Windows also runs the complete default-feature test suite and Clippy.
 | WSL system jobs | Use `run_app_with_wsl_backend` with a fake `WslBackend`; `None` events model polling wake-ups so completion can be tested without a key press |
 | Event input | Supply a scripted closure to `run_app_with_event_reader`; the production loop still runs |
 | Terminal drawing | Use ratatui `TestBackend` or `WritableTestBackend` for APIs requiring `Write + Backend` |
-| Idle redraw policy | `src/application/tests/idle_render.rs` uses `CountingBackend` from `idle_render/backend.rs` to count real draws: idle polls preserve the frame, keys/resize repaint, and a background completion repaints once without input |
+| Idle redraw policy | `src/application/tests/idle_render.rs` uses `CountingBackend` from `idle_render/backend.rs` to count real draws: idle polls preserve the frame, keys/resize repaint, a background completion repaints once without input, and a minute turning over repaints once |
+| Clock | Unit tests read a clock standing still at noon; `clock::set_test_time` moves it, so no minute turns over by accident in a test that counts frames |
 | Terminal lifecycle | Implement `TerminalOps` to record transitions and force setup/cleanup failures without a TTY |
+| Real terminal (Linux) | `tests/pty_session_test.rs` runs the `ffm` binary on a pseudo-terminal: a burst typed in one write, and a terminal that hangs up |
 | Panel state | Construct entries with `Panel::from_entries` for sorting, selection, and rendering tests |
 | Directory loading and operations | Use `tempfile::TempDir` and real files for metadata, refresh, transfer, and failure behavior |
 | Exceptional filesystem paths | Use cfg-gated in-memory fault injection in operation/helper modules |
@@ -111,7 +113,8 @@ verify actual buffer changes, save/clipboard outcomes, and modal consumption.
 This keeps a keymap refactor from silently changing editor behavior.
 
 For snapshot-backed panel rendering, verify that a successful refresh updates
-entries and metadata together, a failed refresh preserves the existing state,
+entries and metadata together, a failed refresh preserves the existing state
+(a deleted folder is not a failure: the panel moves up to an existing one),
 and rendering uses that stored state. For modal input, verify unsupported keys
 cannot escape into panel operations. Cover useful error paths and public
 functions; avoid tests that merely duplicate implementation statements.

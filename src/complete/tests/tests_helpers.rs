@@ -52,6 +52,7 @@ fn split_target_keeps_the_whole_cd_argument() {
 fn longest_common_prefix_is_char_safe() {
     let v = vec!["caña".to_string(), "cañon".to_string()];
     assert_eq!(longest_common_prefix(&v), "cañ");
+    assert_eq!(common_prefix_len("caña", "cañon"), "cañ".len());
 }
 
 #[test]

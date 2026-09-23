@@ -41,7 +41,6 @@ use std::path::{Path, PathBuf};
 /// exemption. This list may only shrink — [`the_baseline_has_no_stale_entries`]
 /// fails when an entry becomes testable and is left here.
 const UNEXERCISED: &[&str] = &[
-    "accepts_text",
     "after_caret",
     "apply_navigation",
     "association_command",
@@ -49,14 +48,11 @@ const UNEXERCISED: &[&str] = &[
     "changes_bits",
     "clear_with_lock",
     "close_dialog",
-    "close_vault_dialog",
     "copy_dir_all_with",
     "copy_edit_password",
     "cursor_column",
     "data_file",
     "default_mode",
-    "descriptions",
-    "descriptions_in",
     "edit_vault_if_kdbx",
     "expire",
     "finish_word",
@@ -74,7 +70,6 @@ const UNEXERCISED: &[&str] = &[
     "origin_id",
     "panel_areas",
     "panel_mut",
-    "paste_text",
     "pop_char",
     "pop_filter_char",
     "push_filter_char",
@@ -90,7 +85,6 @@ const UNEXERCISED: &[&str] = &[
     "to_yaml",
     "toggle_video_mode",
     "undo_last_change",
-    "view_path",
     "visible_text",
     "with_stdout",
     "write_owner_only",

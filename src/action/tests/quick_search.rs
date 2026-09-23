@@ -39,3 +39,38 @@ fn test_alt_q_is_quick_search_not_quit() {
         Action::QuickSearch('q')
     );
 }
+
+/// Alt+'-', Alt+'+' and Alt+'*' extend the quick search like any other
+/// Alt+character, so a name starting with one of them can be found. Only the
+/// bare keys (Far's Gray -, Gray +, Gray *) open the mask dialogs.
+#[test]
+fn alt_minus_plus_and_star_quick_search_instead_of_opening_the_mask_dialogs() {
+    for character in ['-', '+', '*'] {
+        assert_eq!(
+            resolve(key_mod(KeyCode::Char(character), KeyModifiers::ALT)),
+            Action::QuickSearch(character),
+            "Alt+{character}"
+        );
+    }
+    assert_eq!(resolve(key(KeyCode::Char('+'))), Action::SelectGroup);
+    assert_eq!(resolve(key(KeyCode::Char('-'))), Action::UnselectGroup);
+    assert_eq!(resolve(key(KeyCode::Char('*'))), Action::InvertSelection);
+}
+
+/// Only Alt+character and Backspace belong to the search; everything else,
+/// navigation included, ends it.
+#[test]
+fn only_alt_characters_and_backspace_edit_the_quick_search() {
+    assert!(Action::QuickSearch('a').edits_quick_search());
+    assert!(Action::QuickSearchBackspace.edits_quick_search());
+    for other in [
+        Action::NavDown,
+        Action::Open,
+        Action::SwitchPanel,
+        Action::ToggleMark,
+        Action::QuickSearchClear,
+        Action::CommandLineChar('a'),
+    ] {
+        assert!(!other.edits_quick_search(), "{other:?}");
+    }
+}

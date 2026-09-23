@@ -14,16 +14,16 @@ use windows_sys::Win32::System::Threading::{
 use crate::command::ShellCommand;
 
 pub(super) fn spawn(command: &ShellCommand, current_dir: &Path) -> io::Result<OwnedHandle> {
-    spawn_with_startup(command, current_dir, &startup_info())
+    spawn_with_startup(command, current_dir, &startup_info()?)
 }
 
-fn startup_info() -> STARTUPINFOW {
+fn startup_info() -> io::Result<STARTUPINFOW> {
     // No STARTF_USESTDHANDLES: Windows must create console handles instead of
     // inheriting FFM's raw input, output pipes, or alternate screen buffer.
-    STARTUPINFOW {
-        cb: std::mem::size_of::<STARTUPINFOW>() as u32,
+    Ok(STARTUPINFOW {
+        cb: u32::try_from(std::mem::size_of::<STARTUPINFOW>()).map_err(io::Error::other)?,
         ..STARTUPINFOW::default()
-    }
+    })
 }
 
 fn spawn_with_startup(
@@ -44,6 +44,7 @@ fn spawn_with_startup(
     create_process(&shell, &mut line, &directory, startup)
 }
 
+#[allow(unsafe_code)]
 fn create_process(
     shell: &[u16],
     line: &mut [u16],

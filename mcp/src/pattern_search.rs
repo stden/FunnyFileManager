@@ -1,16 +1,14 @@
 //! Glob and metadata-filtered searches, without following directory symlinks.
 
 use super::{
-    format_size, globmatch, relative_slash_path, walkable_type, FfmServer, FindParams, GlobParams,
+    format_size, globmatch, json_response, relative_slash_path, walkable_type, FfmServer,
+    FindParams, GlobParams,
 };
-use rmcp::{
-    model::{CallToolResult, ContentBlock},
-    ErrorData as McpError,
-};
+use rmcp::{model::CallToolResult, ErrorData as McpError};
 use serde_json::json;
 use std::{fs, path::Path};
 
-pub(super) fn glob(server: &FfmServer, params: GlobParams) -> Result<CallToolResult, McpError> {
+pub fn glob(server: &FfmServer, params: &GlobParams) -> Result<CallToolResult, McpError> {
     let root = server.safe_path(&params.path)?;
     if !root.is_dir() {
         return Err(McpError::invalid_params(
@@ -34,12 +32,10 @@ pub(super) fn glob(server: &FfmServer, params: GlobParams) -> Result<CallToolRes
         "count": results.len(),
         "results": results,
     });
-    Ok(CallToolResult::success(vec![ContentBlock::text(
-        serde_json::to_string_pretty(&result).unwrap_or_default(),
-    )]))
+    Ok(json_response(&result))
 }
 
-pub(super) fn find(server: &FfmServer, params: FindParams) -> Result<CallToolResult, McpError> {
+pub fn find(server: &FfmServer, params: &FindParams) -> Result<CallToolResult, McpError> {
     let root = server.safe_path(&params.path)?;
     if !root.is_dir() {
         return Err(McpError::invalid_params(
@@ -51,16 +47,14 @@ pub(super) fn find(server: &FfmServer, params: FindParams) -> Result<CallToolRes
     let now = std::time::SystemTime::now();
     let mut results = Vec::new();
 
-    find_recursive(&root, 0, &params, &now, &mut results);
+    find_recursive(&root, 0, params, now, &mut results);
 
     let result = json!({
         "root": root.display().to_string(),
         "count": results.len(),
         "results": results,
     });
-    Ok(CallToolResult::success(vec![ContentBlock::text(
-        serde_json::to_string_pretty(&result).unwrap_or_default(),
-    )]))
+    Ok(json_response(&result))
 }
 
 struct GlobScan<'a> {
@@ -80,9 +74,8 @@ fn glob_recursive(
     if results.len() >= scan.max_results {
         return;
     }
-    let entries = match fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return,
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
     };
     for entry in entries.flatten() {
         if results.len() >= scan.max_results {
@@ -102,7 +95,7 @@ fn find_recursive(
     dir: &Path,
     depth: usize,
     params: &FindParams,
-    now: &std::time::SystemTime,
+    now: std::time::SystemTime,
     results: &mut Vec<serde_json::Value>,
 ) {
     if results.len() >= params.max_results {
@@ -112,9 +105,8 @@ fn find_recursive(
         return;
     }
 
-    let entries = match fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return,
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
     };
 
     for entry in entries.flatten() {
@@ -132,7 +124,7 @@ fn matches_filters(
     kind: &str,
     meta: &fs::Metadata,
     params: &FindParams,
-    now: &std::time::SystemTime,
+    now: std::time::SystemTime,
 ) -> bool {
     if params
         .name
@@ -182,7 +174,7 @@ fn visit_glob_entry(
             "name": entry.file_name().to_string_lossy(),
             "relative_path": relative,
             "type": if is_dir { "dir" } else { "file" },
-            "size": meta.as_ref().map(|m| m.len()).unwrap_or(0),
+            "size": meta.as_ref().map_or(0, std::fs::Metadata::len),
         }));
     }
 
@@ -199,13 +191,12 @@ fn visit_find_entry(
     entry: &fs::DirEntry,
     depth: usize,
     params: &FindParams,
-    now: &std::time::SystemTime,
+    now: std::time::SystemTime,
     results: &mut Vec<serde_json::Value>,
 ) {
     let name = entry.file_name().to_string_lossy().to_string();
-    let meta = match fs::symlink_metadata(entry.path()) {
-        Ok(m) => m,
-        Err(_) => return,
+    let Ok(meta) = fs::symlink_metadata(entry.path()) else {
+        return;
     };
 
     let is_dir = meta.is_dir();

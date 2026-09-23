@@ -19,6 +19,20 @@ impl App {
         self.status_display = StatusDisplay::Pending;
     }
 
+    /// Report how a program FFM handed the terminal to ended: in the status
+    /// bar, and as the closing line of that run in the Ctrl+O transcript, in
+    /// the same words. Plain command output reads as output; anything else
+    /// (an error, a cancel) as an error line.
+    pub(crate) fn record_run_outcome(&mut self, status: Status) {
+        let text = status.to_string();
+        if matches!(status, Status::CommandOutput(_)) {
+            self.console.record_output(&text);
+        } else {
+            self.console.record_error(&text);
+        }
+        self.set_status(status);
+    }
+
     /// The message the active panel's info row should show, or `None` when
     /// there is no news and the entry's own name belongs there.
     ///

@@ -51,8 +51,16 @@ Inside the frame, top to bottom:
 1. **Column header** — the sort-mode letter (`n`ame / `e`xtension / `s`ize) in
    the corner, then `Name`, `Size`, `Date`, `Time` centred over their columns.
 2. **Entry rows** — the name column, then each remaining column behind a `│`.
-3. **Info row** — the current entry's full name, or the message that used to go
-   to the status bar (quick search wins over both).
+3. **Divider** — the rule that closes the column separators. While entries are
+   marked, Far's selection summary is written over its middle in the marked
+   colour: `29 bytes in 2 files` (a marked folder is counted, not summed:
+   `…, 1 folder`), shortened to `5.0 G in 2 files` where the exact count does
+   not fit (`src/ui/panel/selection.rs`).
+4. **Info row** — the current entry's full name, or the message that used to go
+   to the status bar (quick search wins over both). A message too wide for
+   the row gives up the head of the path it quotes first, down to the file
+   name (`Cannot edit …/unreadable.txt: Permission denied`), and only then is
+   cut at its end: `Status::path_message` keeps the path apart from the words.
 
 The bottom border carries the panel totals and the filesystem's free space;
 `src/diskfree.rs` wraps the platform call std has no equivalent for.
@@ -76,7 +84,8 @@ Rules worth knowing:
 - On a narrow panel the columns are dropped from the **right** — Time, then
   Date, then Size — so the panel loses a column rather than its file names.
 - Only the active panel draws a cursor bar: two would give the screen two
-  answers to "what does Enter act on".
+  answers to "what does Enter act on". A marked entry under it keeps the
+  marked yellow as the bar's text colour, so the bar never hides a mark.
 - Hidden entries are dimmed — and only Windows has any: the
   `FILE_ATTRIBUTE_HIDDEN` bit. A leading dot on Unix is a naming convention,
   not an attribute, so `.cargo` is painted like any other directory, as Far
@@ -107,6 +116,14 @@ transcript is kept in `ConsoleLog` (`src/console.rs`) and painted by
    stderr LightRed. Returns the row count it filled.
 3. Panels, status bar, command line and F-key bar are drawn on top,
    covering it completely in normal operation.
+
+Programs that own the terminal (Enter on an executable, Update packages) are
+not captured: they keep the real terminal so they can prompt and draw. Their
+command line and how they ended go into the transcript; what they printed stays
+on the terminal's own screen. After a program started with Enter, FFM therefore
+prints `[exit status: N] Press any key to return to FFM` under its output and
+brings the panels back on the next key, where Far would leave the output on its
+console screen. Update packages keeps each step's stderr in the transcript too.
 
 `Ctrl+O` sets `App.view` to `ViewMode::Console` (**not** an overlay — see
 below) and `console::render_view` takes the frame, so the panels are never drawn

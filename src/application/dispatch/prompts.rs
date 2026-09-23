@@ -18,7 +18,7 @@ pub(super) fn open_drive_menu(app: &mut App, side: models::PanelSide) {
     app.set_overlay(Overlay::DriveSelection {
         side,
         selected_index: 0,
-        rows: crate::models::drive_rows(),
+        rows: models::drive_rows(),
     });
 }
 
@@ -30,7 +30,7 @@ pub(super) fn open_rename_prompt(app: &mut App) {
         .filter(|name| name != "..");
     match name {
         Some(name) => app.set_overlay(Overlay::NamePrompt(NamePrompt::rename(
-            crate::models::FileName::new(name),
+            models::FileName::new(name),
         ))),
         None => app.set_status(crate::status::Status::CommandOutput(
             "Nothing to rename".to_owned(),
@@ -57,7 +57,7 @@ pub(super) fn open_command_line_with(app: &mut App, ch: char) {
 /// and before the dialog the only way to say "somewhere else" was to go and
 /// point the other panel at it first. F6 gets the same dialog because moving
 /// within a directory *is* renaming, and Far treats them as one question.
-pub(super) fn open_transfer_prompt(app: &mut models::App, purpose: copy::Purpose) {
+pub(super) fn open_transfer_prompt(app: &mut App, purpose: copy::Purpose) {
     let sources = ops::get_source_paths(app);
     let what = match sources.as_slice() {
         [] => return,
@@ -68,7 +68,7 @@ pub(super) fn open_transfer_prompt(app: &mut models::App, purpose: copy::Purpose
         many => format!("{} files", many.len()),
     };
     let destination = app.get_inactive_panel().path.clone();
-    app.set_overlay(models::Overlay::CopyPrompt(Box::new(
+    app.set_overlay(Overlay::CopyPrompt(Box::new(
         copy::CopyPrompt::for_purpose(purpose, what, &destination),
     )));
 }
@@ -86,7 +86,8 @@ pub(super) fn open_mask_prompt(app: &mut App, purpose: models::MaskPurpose) {
         configured.to_owned()
     };
     app.set_overlay(Overlay::MaskPrompt(models::MaskPrompt::new(
-        purpose, suggestion,
+        purpose,
+        &suggestion,
     )));
 }
 

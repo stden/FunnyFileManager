@@ -8,8 +8,7 @@ fn encoding_dialog_rows_and_buttons_route_to_encoding_actions() {
     use crate::encoding::TextEncoding;
     let dir = TempDir::new().expect("temp");
     let mut app = app_at(&dir);
-    let mut editor =
-        crate::models::Editor::from_content("text".to_owned(), dir.path().join("text"), "hello");
+    let mut editor = Editor::from_content("text".to_owned(), dir.path().join("text"), "hello");
     editor.encoding_choice = Some(TextEncoding::Utf8);
     app.set_overlay(Overlay::Editor(editor));
     click_dialog_row(&mut app, 4);
@@ -80,4 +79,19 @@ fn editor_not_found_and_exit_dialogs_map_their_buttons() {
     assert_eq!(code(&mut app, 0), KeyCode::Char('y'));
     assert_eq!(code(&mut app, 1), KeyCode::Char('n'));
     assert_eq!(code(&mut app, 2), KeyCode::Esc);
+}
+
+#[test]
+fn the_changed_on_disk_question_maps_overwrite_and_cancel() {
+    let dir = TempDir::new().expect("temp");
+    let mut app = app_at(&dir);
+    let editor = Editor {
+        state: EditState::ConfirmingOverwrite(crate::models::OverwritePrompt::new(
+            crate::models::AfterSave::Stay,
+        )),
+        ..Default::default()
+    };
+    app.set_overlay(Overlay::Editor(editor));
+    assert_eq!(code(&mut app, 0), KeyCode::Char('y'));
+    assert_eq!(code(&mut app, 1), KeyCode::Esc);
 }

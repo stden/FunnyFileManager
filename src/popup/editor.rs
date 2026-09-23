@@ -2,83 +2,62 @@
 
 use super::{process_search_prompt, repeat_search, EDITOR_PAGE};
 use crate::action::editor::{self as editor_keymap, EditorCommand, EditorNavigation};
-use crate::models::{App, EditState, EditorMotion, ExitChoice};
+use crate::models::{AfterSave, App, EditState, EditorMotion, ExitChoice};
 use crate::search::SearchPrompt;
-use crate::utils::refresh_panels;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-
-/// Save the open editor and close it, or report why it could not be saved.
-///
-/// Split out because the borrow of the editor has to end before `app` can be
-/// told about the outcome, and inlining it put a mutable borrow of `app` inside
-/// one of `app.get_editor_mut()`.
-fn save_and_close(app: &mut App) {
-    let Some(editor) = app.get_editor_mut() else {
-        return;
-    };
-    let result = editor.save();
-    let path = editor.path.clone();
-    match result {
-        Ok(()) => {
-            app.close_overlay();
-            app.set_status(crate::status::Status::Saved(path));
-            let _ = refresh_panels(app);
-        }
-        Err(err) => {
-            if let Some(editor) = app.get_editor_mut() {
-                editor.state = EditState::Modified;
-                // The editor covers the panel's message row, so the status
-                // line alone would report the failure to a screen nobody can
-                // see. The bar is the one place the user is looking.
-                editor.notice = Some(format!("Cannot save: {err}"));
-            }
-            app.set_status(crate::status::Status::SaveFailed {
-                error: err.to_string(),
-            });
-        }
-    }
-}
 
 /// A terminal paste is document text, never a sequence of editor shortcuts.
 pub fn paste_text(app: &mut App, text: &str) {
     if let Some(editor) = app.get_editor_mut().filter(|editor| editor.accepts_text()) {
-        editor.search.not_found = None;
         editor.notice = None;
         editor.insert_text(text);
     }
 }
 
 pub(super) fn process_editor_input(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> bool {
-    let Some(editor) = app.get_editor_mut() else {
+    if app.get_editor().is_none() {
         return false;
-    };
-
-    if let Some(choice) = editor.state.exit_choice() {
-        confirm_exit(app, code, choice);
-        return true;
     }
-
-    if editor.search.prompt.is_some() {
-        return process_search_prompt(app, code);
-    }
-    if editor.encoding_choice.is_some() {
-        process_encoding(app, code);
-        return true;
-    }
-    if lsp::process(app, code) {
-        return true;
+    if let Some(consumed) = process_editor_dialog(app, code, modifiers) {
+        return consumed;
     }
     let Some(editor) = app.get_editor_mut() else {
         return false;
     };
-    // Any keystroke clears a stale "not found": it belongs to the search the
-    // user has now moved on from.
-    editor.search.not_found = None;
     editor.notice = None;
 
     let command = editor_keymap::resolve(KeyEvent::new(code, modifiers));
     apply_editor_command(app, command);
     true
+}
+
+/// The key for whichever editor dialog is up, which owns the keyboard; `None`
+/// when none is and the key belongs to the document.
+fn process_editor_dialog(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> Option<bool> {
+    let editor = app.get_editor_mut()?;
+    if let Some(choice) = editor.state.exit_choice() {
+        confirm_exit(app, code, choice);
+        return Some(true);
+    }
+    if let Some(prompt) = editor.state.overwrite_prompt() {
+        save::confirm_overwrite(app, code, prompt);
+        return Some(true);
+    }
+    if editor.search.prompt.is_some() {
+        return Some(process_search_prompt(app, code, modifiers));
+    }
+    if editor.search.not_found.is_some() {
+        // The miss is drawn as Far's modal warning box, so the key that
+        // dismisses it is spent on it: Enter must not also split the line,
+        // nor Esc close the editor, nor a letter land in the text.
+        editor.search.not_found = None;
+        return Some(true);
+    }
+    if editor.encoding_choice.is_some() {
+        process_encoding(app, code);
+        return Some(true);
+    }
+    lsp::process(app, code).then_some(true)
 }
 
 fn confirm_exit(app: &mut App, code: KeyCode, choice: ExitChoice) {
@@ -104,7 +83,7 @@ fn confirm_exit(app: &mut App, code: KeyCode, choice: ExitChoice) {
     };
 
     match acted {
-        ExitChoice::Save => save_and_close(app),
+        ExitChoice::Save => save::request_save(app, AfterSave::Close),
         ExitChoice::Discard => {
             app.close_overlay();
             app.set_status(crate::status::Status::ChangesDiscarded);
@@ -115,7 +94,6 @@ fn confirm_exit(app: &mut App, code: KeyCode, choice: ExitChoice) {
 
 /// Interpret the editor command language after modal input has been handled.
 fn apply_editor_command(app: &mut App, command: EditorCommand) {
-    let tab_width = app.settings.number(crate::menu::SettingsPage::Editor);
     let Some(editor) = app.get_editor_mut() else {
         return;
     };
@@ -137,19 +115,26 @@ fn apply_editor_command(app: &mut App, command: EditorCommand) {
             editor.search.prompt = Some(SearchPrompt::from_last(editor.search.last.as_ref()));
         }
         EditorCommand::Close => close_editor(app),
-        EditorCommand::Save => save_editor(app),
+        EditorCommand::Save => save::save_editor(app),
         EditorCommand::Newline => editor.insert_newline(),
         EditorCommand::Backspace => editor.backspace(),
         EditorCommand::Delete => editor.delete_forward(),
-        EditorCommand::Indent => insert_indent(editor, tab_width),
+        EditorCommand::Indent => insert_indent(editor),
         EditorCommand::Insert(ch) => editor.insert_char(ch),
         EditorCommand::Ignore => {}
     }
 }
 
-fn insert_indent(editor: &mut crate::models::Editor, width: usize) {
-    for _ in 0..width {
-        editor.insert_char(' ');
+/// Tab: the file's own indentation — a TAB character in a file that uses
+/// them, otherwise the tab size in spaces.
+fn insert_indent(editor: &mut crate::models::Editor) {
+    match editor.format.indent {
+        crate::models::Indent::Tabs => editor.insert_char('\t'),
+        crate::models::Indent::Spaces => {
+            for _ in 0..editor.tab_size.columns() {
+                editor.insert_char(' ');
+            }
+        }
     }
 }
 
@@ -166,30 +151,14 @@ const fn editor_motion(motion: EditorNavigation) -> EditorMotion {
     }
 }
 
-fn save_editor(app: &mut App) {
-    let Some(editor) = app.get_editor_mut() else {
-        return;
-    };
-    let result = editor.save();
-    let path = editor.path.clone();
-    // The editor covers the panel's message row, so the status line alone
-    // would report a refusal to a screen nobody can see. The bar is where the
-    // user is already looking, and the next keystroke clears it.
-    if let Err(ref err) = result {
-        editor.notice = Some(format!("Cannot save: {err}"));
-    }
-    app.set_status(match result {
-        Ok(()) => crate::status::Status::Saved(path),
-        Err(err) => crate::status::Status::SaveFailed {
-            error: err.to_string(),
-        },
-    });
-    let _ = refresh_panels(app);
-}
-
 mod lsp;
+mod save;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_save;
+#[cfg(test)]
+mod tests_tab;
 
 fn close_editor(app: &mut App) {
     let Some(editor) = app.get_editor_mut() else {

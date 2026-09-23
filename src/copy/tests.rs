@@ -191,3 +191,27 @@ fn every_existing_files_choice_has_a_label() {
     .collect();
     assert_eq!(labels, vec!["Ask", "Overwrite", "Skip", "Only newer files"]);
 }
+
+/// "Access rights" decide each copied file's mode as it is written: only
+/// Inherit leaves the file as the kernel created it, umask and all.
+#[test]
+fn only_inherit_leaves_a_copied_file_as_it_was_created() {
+    use crate::utils::FileMode;
+
+    assert_eq!(AccessRights::Default.file_mode(), FileMode::Source);
+    assert_eq!(AccessRights::Copy.file_mode(), FileMode::Source);
+    assert_eq!(AccessRights::Inherit.file_mode(), FileMode::Fresh);
+}
+
+/// The rules handed to the copy carry both of the dialog's choices that
+/// reach the files: the link box and the access rights.
+#[test]
+fn the_copy_rules_carry_the_link_choice_and_the_rights() {
+    use crate::utils::{FileMode, LinkPolicy};
+
+    let mut dialog = prompt();
+    dialog.rights = AccessRights::Inherit;
+    let rules = dialog.rules();
+    assert_eq!(rules.links, LinkPolicy::Recreate);
+    assert_eq!(rules.modes, FileMode::Fresh);
+}

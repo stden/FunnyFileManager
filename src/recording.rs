@@ -110,9 +110,7 @@ impl Input {
         if !event::poll(Duration::ZERO)? {
             return Ok(None);
         }
-        let event = event::read()?;
-        record_live(recorder, &event);
-        Ok(Some(event))
+        read_live(recorder).map(Some)
     }
 
     pub(crate) fn from_args(args: &[std::ffi::OsString], size: (u16, u16)) -> io::Result<Self> {
@@ -139,28 +137,33 @@ impl Input {
     /// diagnostic, never the job: a directory owned by another user, or a full
     /// disk, must not be what stops the file manager from starting.
     fn recording(path: io::Result<PathBuf>, size: (u16, u16)) -> Self {
-        match path.and_then(|path| Self::open_recorder(path, size)) {
-            Ok(input) => input,
-            Err(error) => {
+        path.and_then(|path| Self::open_recorder(&path, size))
+            .unwrap_or_else(|error| {
                 eprintln!("ffm: recording disabled: {error}");
                 Self::Live(None)
-            }
-        }
+            })
     }
 
-    fn open_recorder(path: PathBuf, size: (u16, u16)) -> io::Result<Self> {
+    fn open_recorder(path: &Path, size: (u16, u16)) -> io::Result<Self> {
         let header = Header {
             version: 1,
             executable: std::env::current_exe()?,
             directory: std::env::current_dir()?,
             size,
         };
-        let recorder = Recorder::create(&path, &header)?;
+        let recorder = Recorder::create(path, &header)?;
         eprintln!("Recording actions: {}", path.display());
         Ok(Self::Live(Some(Rc::new(RefCell::new(recorder)))))
     }
 
     pub(crate) fn read(&mut self) -> io::Result<Option<Event>> {
+        // crossterm parses a whole burst — a paste, fast typing, key repeat —
+        // in one read and keeps the rest in its own queue, not on the
+        // terminal. The wait below watches the terminal, so it would sit out
+        // the whole poll for every queued key. Hand those out first.
+        if let Some(event) = self.read_pending()? {
+            return Ok(Some(event));
+        }
         match self {
             Self::Replay(replay) => replay.read(),
             Self::Live(recorder) => {
@@ -176,12 +179,19 @@ impl Input {
                     std::thread::sleep(unspent);
                     return Ok(None);
                 }
-                let event = event::read()?;
-                record_live(recorder, &event);
-                Ok(Some(event))
+                read_live(recorder).map(Some)
             }
         }
     }
+}
+
+/// Read one live event as the user typed it — see
+/// [`crate::terminal::decode_input`] — and record it that way, so a replay
+/// does what the session did.
+fn read_live(recorder: &mut Option<Rc<RefCell<Recorder>>>) -> io::Result<Event> {
+    let event = crate::terminal::decode_input(event::read()?);
+    record_live(recorder, &event);
+    Ok(event)
 }
 
 /// Append one event, or stop recording. A full disk or a revoked file ends the
@@ -203,7 +213,7 @@ fn record_live(recorder: &mut Option<Rc<RefCell<Recorder>>>, event: &Event) {
 thread_local! {
     /// Why the recording stopped, for the exit to report once the terminal is
     /// the user's again. See [`stopped_reason`].
-    static STOPPED: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+    static STOPPED: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
 /// Why a recording stopped mid-session, taken so it is reported once.

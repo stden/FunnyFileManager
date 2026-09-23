@@ -132,29 +132,35 @@ fn fixtures() -> Vec<(String, TreeFixture)> {
 
 fn bench_directory_tree_readers(c: &mut Criterion) {
     let fixtures = fixtures();
+    bench_directory_size(c, &fixtures);
+    bench_render_directory_tree(c, &fixtures);
+}
 
-    let mut size_group = c.benchmark_group("directory_size");
-    size_group.sample_size(30);
-    size_group.measurement_time(Duration::from_secs(5));
-    for (shape, fixture) in &fixtures {
+fn bench_directory_size(c: &mut Criterion, fixtures: &[(String, TreeFixture)]) {
+    let mut group = c.benchmark_group("directory_size");
+    group.sample_size(30);
+    group.measurement_time(Duration::from_secs(5));
+    for (shape, fixture) in fixtures {
         // Logical bytes accounted for per second; file contents are not read.
-        size_group.throughput(Throughput::Bytes(fixture.bytes.max(1)));
-        size_group.bench_with_input(BenchmarkId::from_parameter(shape), fixture, |b, fixture| {
+        group.throughput(Throughput::Bytes(fixture.bytes.max(1)));
+        group.bench_with_input(BenchmarkId::from_parameter(shape), fixture, |b, fixture| {
             b.iter(|| black_box(directory_size(black_box(fixture.path()))));
         });
     }
-    size_group.finish();
+    group.finish();
+}
 
-    let mut tree_group = c.benchmark_group("render_directory_tree");
-    tree_group.sample_size(30);
-    tree_group.measurement_time(Duration::from_secs(5));
-    for (shape, fixture) in &fixtures {
-        tree_group.throughput(Throughput::Elements(fixture.entries));
-        tree_group.bench_with_input(BenchmarkId::from_parameter(shape), fixture, |b, fixture| {
+fn bench_render_directory_tree(c: &mut Criterion, fixtures: &[(String, TreeFixture)]) {
+    let mut group = c.benchmark_group("render_directory_tree");
+    group.sample_size(30);
+    group.measurement_time(Duration::from_secs(5));
+    for (shape, fixture) in fixtures {
+        group.throughput(Throughput::Elements(fixture.entries));
+        group.bench_with_input(BenchmarkId::from_parameter(shape), fixture, |b, fixture| {
             b.iter(|| black_box(render_directory_tree(black_box(fixture.path()), usize::MAX)));
         });
     }
-    tree_group.finish();
+    group.finish();
 }
 
 criterion_group!(benches, bench_directory_tree_readers);

@@ -13,6 +13,10 @@ use super::FileSize;
 pub enum CleanupKind {
     /// Remove this file or directory, including directory contents.
     Path,
+    /// Empty this directory but keep it: remove only what the current user
+    /// owns inside it, and leave sockets and pipes of running programs alone.
+    /// For shared folders such as the temporary directory.
+    Contents,
     /// Remove only regular `*.hprof` files directly inside this directory.
     HeapDumps,
 }
@@ -20,7 +24,8 @@ pub enum CleanupKind {
 /// One item in the cleanup checklist.
 #[derive(Debug, Clone)]
 pub struct CleanupCandidate {
-    /// Short human-readable label shown in the dialog.
+    /// What the row cleans, shown in the dialog beside `path`. It names the
+    /// tool only, so it cannot disagree with the folder actually scanned.
     pub label: &'static str,
     /// Absolute path of the directory or file to remove.
     pub path: PathBuf,
@@ -92,61 +97,72 @@ impl Default for DiskCleanupDialog {
 }
 
 // ── candidate list ────────────────────────────────────────────────────────────
+//
+// A label names the tool, never a folder: the dialog prints each row's path
+// beside its label, so the text cannot promise one folder while the row
+// measures and deletes another.
 
 fn build_candidates() -> Vec<CleanupCandidate> {
     let home = home_dir();
-    let [jetbrains, docker, playwright, pip] = appdata_candidates();
-
-    vec![
-        candidate("Windows Temp (%TEMP%)", temp_dir()),
-        candidate(
-            "Gradle caches (~/.gradle/caches)",
-            home.join(".gradle").join("caches"),
-        ),
-        candidate(
-            "npm cache (~/.npm/_cacache)",
-            home.join(".npm").join("_cacache"),
-        ),
-        jetbrains,
-        docker,
-        playwright,
-        candidate(
-            "Cargo build artifacts (./target)",
-            // Relative — ops resolves this against the active panel path.
-            PathBuf::from("target"),
-        ),
-        candidate(
-            "Gradle wrapper cache (~/.gradle/wrapper)",
-            home.join(".gradle").join("wrapper"),
-        ),
-        pip,
+    let mut rows = vec![
+        CleanupCandidate {
+            kind: CleanupKind::Contents,
+            ..candidate("Temp files", std::env::temp_dir())
+        },
+        candidate("Gradle caches", home.join(".gradle").join("caches")),
+        candidate("npm cache", home.join(".npm").join("_cacache")),
+    ];
+    rows.extend(platform_caches());
+    rows.extend([
+        // Relative — ops resolves this against the active panel path.
+        candidate("Cargo build artifacts", PathBuf::from("target")),
+        candidate("Gradle wrapper cache", home.join(".gradle").join("wrapper")),
         // The operations layer handles individual heap dumps, not the directory.
         CleanupCandidate {
             kind: CleanupKind::HeapDumps,
-            ..candidate("JVM heap dumps (~/*.hprof)", home)
+            ..candidate("JVM heap dumps", home)
         },
+    ]);
+    rows
+}
+
+/// Caches that live in `%LOCALAPPDATA%` on Windows.
+#[cfg(windows)]
+fn platform_caches() -> Vec<CleanupCandidate> {
+    let local = std::env::var_os("LOCALAPPDATA")
+        .map_or_else(|| home_dir().join("AppData").join("Local"), PathBuf::from);
+    vec![
+        candidate("JetBrains caches", local.join("JetBrains")),
+        candidate("Docker WSL disk", local.join("Docker").join("wsl")),
+        candidate("Playwright browsers", local.join("ms-playwright")),
+        candidate("pip cache", local.join("pip").join("Cache")),
     ]
 }
 
-fn appdata_candidates() -> [CleanupCandidate; 4] {
-    [
-        candidate(
-            "JetBrains caches (AppData/Local/JetBrains)",
-            local_appdata().join("JetBrains"),
-        ),
-        candidate(
-            "Docker WSL disk (AppData/Local/Docker)",
-            local_appdata().join("Docker").join("wsl"),
-        ),
-        candidate(
-            "Playwright browsers (~/.cache/ms-playwright)",
-            local_appdata().join("ms-playwright"),
-        ),
-        candidate(
-            "pip cache (~/.cache/pip)",
-            local_appdata().join("pip").join("Cache"),
-        ),
+/// The same tools keep their caches in the user cache folder elsewhere.
+#[cfg(not(windows))]
+fn platform_caches() -> Vec<CleanupCandidate> {
+    let caches = cache_dir();
+    vec![
+        candidate("JetBrains caches", caches.join("JetBrains")),
+        candidate("Playwright browsers", caches.join("ms-playwright")),
+        candidate("pip cache", caches.join("pip")),
     ]
+}
+
+#[cfg(target_os = "macos")]
+fn cache_dir() -> PathBuf {
+    home_dir().join("Library").join("Caches")
+}
+
+/// The XDG base directory rule: `$XDG_CACHE_HOME` when it is an absolute
+/// path, else `~/.cache`.
+#[cfg(not(any(windows, target_os = "macos")))]
+fn cache_dir() -> PathBuf {
+    std::env::var_os("XDG_CACHE_HOME")
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute())
+        .unwrap_or_else(|| home_dir().join(".cache"))
 }
 
 fn candidate(label: &'static str, path: PathBuf) -> CleanupCandidate {
@@ -164,18 +180,4 @@ fn home_dir() -> PathBuf {
     std::env::var_os("USERPROFILE")
         .or_else(|| std::env::var_os("HOME"))
         .map_or_else(|| PathBuf::from("."), PathBuf::from)
-}
-
-fn temp_dir() -> PathBuf {
-    std::env::var_os("TEMP")
-        .or_else(|| std::env::var_os("TMP"))
-        .map_or_else(
-            || home_dir().join("AppData").join("Local").join("Temp"),
-            PathBuf::from,
-        )
-}
-
-fn local_appdata() -> PathBuf {
-    std::env::var_os("LOCALAPPDATA")
-        .map_or_else(|| home_dir().join("AppData").join("Local"), PathBuf::from)
 }

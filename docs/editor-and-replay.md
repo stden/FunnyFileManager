@@ -2,7 +2,23 @@
 
 The built-in F4 editor supports Shift+arrow stream selection, Ctrl+C / Ctrl+Insert copy,
 Ctrl+V / Shift+Insert paste, and Ctrl+A to select the complete document, including its
-final newline. Typing or pasting replaces the selection. F2 saves.
+final newline. Typing or pasting replaces the selection. F2 saves; with nothing
+edited it writes nothing and says so.
+
+A TAB character is drawn as the spaces up to the next tab stop, and the caret,
+the selection and diagnostics underlines line up with what is drawn. The tab
+size is the Options menu's **Editor settings** value (4 by default), taken when
+the file is opened. Tab types that many spaces — except in a file that already
+contains TAB characters (a Makefile, a TSV file), and always in the user-menu
+and associations files, whose `Label<TAB>command` format needs one: there it
+types a TAB.
+
+The editor remembers a fingerprint of what the file held when it was opened
+(or last saved). If another program — or another FFM — has written the file
+since, F2 and the exit dialog's Save ask "The file was changed by another
+program after it was opened. Overwrite it?" before replacing that write. The
+question opens on **Cancel**, so a reflexive Enter keeps the other change;
+**Overwrite** (Y or O, or the arrows then Enter) writes the buffer anyway.
 
 Clipboard and terminal paste events insert whole text blocks. When a terminal
 sends pasted text as individual keys, the editor groups already queued text
@@ -16,10 +32,18 @@ changes the output encoding while keeping the current Unicode text. **Reload**
 (R) decodes the original file again with the selected encoding; it refuses to
 discard unsaved edits. Mouse clicks select encodings and activate buttons.
 
+F4 refuses a binary file — one whose decoded text holds a NUL character, the
+test F3 and Quick view use — rather than open it as text; UTF-16 text, whose
+BOM accounts for its NUL bytes, still opens.
+
 Unicode BOMs take precedence during opening. Valid UTF-8 is detected directly;
 other input initially uses Windows-1251. Legacy code pages cannot be identified
 unambiguously from arbitrary bytes: use Reload for OEM 866 or Windows-1252.
-Saving preserves the selected encoding and original line endings. Characters
+Saving preserves the selected encoding and every line's original ending. A file
+whose lines all end in CRLF is edited without the carriage returns and saved
+with them; in a file that mixes CRLF and LF, each CRLF line keeps its carriage
+return as the last character of its text (as Vim does), so lines nobody edited
+are written back byte for byte and new lines get LF. Characters
 that cannot be represented cause a save error before the original file is
 changed. Malformed Unicode is rejected rather than silently replaced.
 

@@ -213,6 +213,33 @@ fn a_two_character_escape_is_stripped() {
     assert_eq!(printable("\u{1b}=text"), "text");
 }
 
+/// `ESC ( B` (select US-ASCII) is what `tput sgr0` and every ncurses program
+/// emit; its final byte used to survive as a stray `B`.
+#[test]
+fn charset_and_other_intermediate_escapes_are_stripped_whole() {
+    assert_eq!(printable("\u{1b}(Bhello"), "hello");
+    assert_eq!(printable("\u{1b}(B\u{1b}[m"), "");
+    assert_eq!(
+        printable("a\u{1b})0b\u{1b}(Bc\u{1b}#8d\u{1b}%Ge"),
+        "abcde",
+        "G0/G1 designation, DECALN and the UTF-8 switch"
+    );
+    assert_eq!(
+        printable("\u{1b}(B\u{1b}(B[ New File ]\u{1b}(B"),
+        "[ New File ]"
+    );
+}
+
+/// A one-line summary of some output skips lines with nothing to show, from
+/// either end.
+#[test]
+fn the_first_drawable_line_skips_blank_and_escape_only_lines() {
+    let text = "first\n\u{1b}(B\u{1b}[m\n  \nlast\n\u{1b}[0m";
+    assert_eq!(first_drawable(text.lines()), Some("first".to_owned()));
+    assert_eq!(first_drawable(text.lines().rev()), Some("last".to_owned()));
+    assert_eq!(first_drawable("\u{1b}(B\n \n".lines()), None);
+}
+
 #[test]
 fn an_unterminated_escape_swallows_the_rest_of_the_line() {
     // Output cut off by the shell timeout. Half a sequence as visible noise

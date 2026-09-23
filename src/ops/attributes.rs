@@ -107,6 +107,12 @@ pub fn apply(app: &mut App, dialog: &AttributesDialog) {
 }
 
 /// One target, and what is inside it when the dialog asked for that.
+///
+/// The walk goes down real folders only. A link met on the way is left
+/// alone, neither followed nor changed through, the way `chmod -R` treats
+/// the links it was not given: its target can be anywhere, the folder
+/// itself included. A link the user selected is still changed through,
+/// as `chmod` does for one it is given.
 fn apply_path(
     path: &Path,
     dialog: &AttributesDialog,
@@ -114,7 +120,8 @@ fn apply_path(
     outcome: &mut Outcome,
 ) {
     outcome.record(path, apply_one(path, dialog, times));
-    if !dialog.process_subfolders || !path.is_dir() {
+    let is_real_dir = fs::symlink_metadata(path).is_ok_and(|metadata| metadata.is_dir());
+    if !dialog.process_subfolders || !is_real_dir {
         return;
     }
     let children = match fs::read_dir(path) {
@@ -122,34 +129,30 @@ fn apply_path(
         Err(error) => return outcome.record(path, Err(error)),
     };
     for child in children.flatten() {
+        if child.file_type().is_ok_and(|kind| kind.is_symlink()) {
+            continue;
+        }
         apply_path(&child.path(), dialog, times, outcome);
     }
 }
 
-/// Times first, then bits. The dialog always offers the current stamps, so
-/// Set opens the file to write them; a chmod that drops owner-read would make
-/// that open fail for anyone who is not root.
+/// Bits first, then times. The times are written without opening the entry
+/// (`timestamps::set_times`), so neither the mode it had nor the one it now
+/// has can refuse them — and the owner of a mode-0000 file gets their read
+/// back before anything else is tried.
 fn apply_one(path: &Path, dialog: &AttributesDialog, times: RequestedTimes) -> io::Result<()> {
-    stamp(path, times)?;
-    if !dialog.changes_bits() {
-        return Ok(());
+    if dialog.changes_bits() {
+        let bits = Attributes::from_metadata(&fs::metadata(path)?).bits();
+        set_bits(path, dialog.new_bits(bits))?;
     }
-    let bits = Attributes::from_metadata(&fs::metadata(path)?).bits();
-    set_bits(path, dialog.new_bits(bits))
+    stamp(path, times)
 }
 
 fn stamp(path: &Path, times: RequestedTimes) -> io::Result<()> {
     if times.modified.is_none() && times.accessed.is_none() {
         return Ok(());
     }
-    let mut file_times = fs::FileTimes::new();
-    if let Some(modified) = times.modified {
-        file_times = file_times.set_modified(modified);
-    }
-    if let Some(accessed) = times.accessed {
-        file_times = file_times.set_accessed(accessed);
-    }
-    super::timestamps::open(path)?.set_times(file_times)
+    super::timestamps::set_times(path, times)
 }
 
 #[cfg(unix)]
@@ -160,20 +163,7 @@ fn set_bits(path: &Path, bits: u32) -> io::Result<()> {
 
 #[cfg(windows)]
 fn set_bits(path: &Path, bits: u32) -> io::Result<()> {
-    use std::os::windows::ffi::OsStrExt;
-    let wide: Vec<u16> = path
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect();
-    // SAFETY: `wide` is a NUL-terminated UTF-16 path that outlives the call,
-    // and the function reads nothing else.
-    let ok =
-        unsafe { windows_sys::Win32::Storage::FileSystem::SetFileAttributesW(wide.as_ptr(), bits) };
-    if ok == 0 {
-        return Err(io::Error::last_os_error());
-    }
-    Ok(())
+    crate::platform::set_file_attributes(path, bits)
 }
 
 #[cfg(not(any(unix, windows)))]

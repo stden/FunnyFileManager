@@ -21,8 +21,16 @@ cc = "1.4.5"
 
 [lints.rust]
 unfulfilled_lint_expectations = "deny"
+# This crate IS the FFI boundary, so unsafe is allowed crate-wide — but every
+# unsafe operation still needs its own block and every block its reason.
+unsafe_op_in_unsafe_fn = "deny"
 
 [lints.clippy]
+all = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+undocumented_unsafe_blocks = "deny"
+missing_safety_doc = "deny"
 cognitive_complexity = "warn"
 excessive_nesting = "warn"
 too_many_lines = "warn"

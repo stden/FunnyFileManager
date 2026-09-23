@@ -117,3 +117,104 @@ fn zz_probe_empty_selection_absolute_error() {
     .expect_err("empty path cannot be made absolute");
     assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
 }
+
+fn transcript(app: &App) -> Vec<String> {
+    app.console
+        .visible(usize::MAX)
+        .into_iter()
+        .map(|line| line.text().to_owned())
+        .collect()
+}
+
+/// A program started with Enter is part of the session record like a `:`
+/// command: Ctrl+O shows what ran, where, and how it ended.
+#[test]
+fn a_program_started_with_enter_is_recorded_in_the_transcript() {
+    let (root, mut app, mut terminal) = fixture();
+    launch_with(&mut terminal, &mut app, &mut NoopTerminalOps, |_, _| {
+        Ok(ExitStatus::default())
+    })
+    .expect("terminal restored");
+    let program = root.path().join("my program.exe");
+    assert_eq!(
+        transcript(&app),
+        [
+            format!("{}> {}", root.path().display(), program.display()),
+            format!("{}: exit status: 0", program.display()),
+        ]
+    );
+}
+
+/// Remembers every pause prompt; otherwise does nothing.
+#[derive(Default)]
+struct PauseOps {
+    prompts: Vec<String>,
+}
+
+impl crate::terminal::TerminalOps<WritableTestBackend> for PauseOps {
+    fn enable_raw(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+    fn disable_raw(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+    fn enter_alternate(&mut self, _: &mut Terminal<WritableTestBackend>) -> io::Result<()> {
+        Ok(())
+    }
+    fn leave_alternate(&mut self, _: &mut Terminal<WritableTestBackend>) -> io::Result<()> {
+        Ok(())
+    }
+    fn enable_mouse(&mut self, _: &mut Terminal<WritableTestBackend>) -> io::Result<()> {
+        Ok(())
+    }
+    fn disable_mouse(&mut self, _: &mut Terminal<WritableTestBackend>) -> io::Result<()> {
+        Ok(())
+    }
+    fn clear(&mut self, _: &mut Terminal<WritableTestBackend>) -> io::Result<()> {
+        Ok(())
+    }
+    fn show_cursor(&mut self, _: &mut Terminal<WritableTestBackend>) -> io::Result<()> {
+        Ok(())
+    }
+    fn wait_for_key(
+        &mut self,
+        _: &mut Terminal<WritableTestBackend>,
+        prompt: &str,
+    ) -> io::Result<()> {
+        self.prompts.push(prompt.to_owned());
+        Ok(())
+    }
+}
+
+/// What the program printed sits on the terminal's own screen; the panels
+/// would cover it at once, so they wait for a key, as the output's last line.
+#[test]
+fn the_panels_come_back_only_after_a_key_once_the_program_has_run() {
+    let (_root, mut app, mut terminal) = fixture();
+    let mut ops = PauseOps::default();
+    launch_with(&mut terminal, &mut app, &mut ops, |_, _| {
+        Ok(ExitStatus::default())
+    })
+    .expect("terminal restored");
+    assert_eq!(
+        ops.prompts,
+        ["[exit status: 0] Press any key to return to FFM"]
+    );
+}
+
+/// A program that never started printed nothing worth pausing for; the
+/// status bar has the reason.
+#[test]
+fn a_launch_failure_returns_to_the_panels_at_once() {
+    let (_root, mut app, mut terminal) = fixture();
+    let mut ops = PauseOps::default();
+    launch_with(&mut terminal, &mut app, &mut ops, |_, _| {
+        Err(io::Error::other("exec format error"))
+    })
+    .expect("terminal restored");
+    assert!(ops.prompts.is_empty());
+    assert_eq!(
+        transcript(&app).last().map(String::as_str),
+        Some(app.status_text().as_str())
+    );
+}

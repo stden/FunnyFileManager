@@ -24,6 +24,10 @@ const GAP: &str = "   ";
 /// shortcut.
 const PAD: usize = 1;
 
+/// Blank columns the widest row keeps between its label and its shortcut; the
+/// other rows' gaps are wider, since every shortcut is flush right.
+const MIN_SHORTCUT_GAP: usize = 2;
+
 /// Far's tick, against a checked row.
 const TICK: char = '√';
 
@@ -242,7 +246,11 @@ fn menu_width(menu: &Menu) -> Cells {
         .map(|entry| match entry {
             Entry::Item {
                 label, shortcut, ..
-            } => Cells::of(&label.replace('&', "")) + Cells::of(shortcut) + Cells::new(PAD * 2 + 4),
+            } => {
+                Cells::of(&label.replace('&', ""))
+                    + Cells::of(shortcut)
+                    + Cells::new(PAD * 2 + 4 + MIN_SHORTCUT_GAP)
+            }
             Entry::Separator => Cells::ZERO,
         })
         .max()

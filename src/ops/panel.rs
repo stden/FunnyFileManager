@@ -4,7 +4,10 @@
 //! here so the domain panel only applies complete snapshots and the renderer
 //! never queries the filesystem.
 
-use std::{io, path::PathBuf};
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
 
 use crate::{directory, models::Panel};
 
@@ -16,6 +19,17 @@ impl Panel {
         panel.apply_listing(listing);
         panel.ensure_selection();
         Ok(panel)
+    }
+
+    /// Ctrl+R: re-read the directory — or, when it has been deleted, move to
+    /// the nearest folder above it that still exists, as Far's panel does.
+    /// Any other failure keeps the last complete snapshot, as
+    /// [`Self::load_entries`] does.
+    pub fn reload(&mut self) -> io::Result<()> {
+        match self.load_entries() {
+            Err(_) if !self.path.is_dir() => self.go_up(),
+            result => result,
+        }
     }
 
     /// Re-read the directory, preserving the last complete snapshot on error.
@@ -66,22 +80,7 @@ impl Panel {
         }
 
         if entry.name == ".." {
-            // Remember the directory we're leaving so we can select it after going up
-            let prev_dir_name = self
-                .path
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string());
-            let mut parent = self.path.clone();
-            parent.pop();
-            self.navigate_to(parent)?;
-            // Select the directory we just came from
-            if let Some(pos) =
-                prev_dir_name.and_then(|name| self.entries.iter().position(|e| e.name == name))
-            {
-                self.select(Some(pos));
-                return Ok(());
-            }
-            self.select(self.entries.first().map(|_| 0));
+            self.go_up()?;
         } else {
             // Build the target first: the listing (and the entry we selected in
             // it) must stay valid until `navigate_to` has proven it readable.
@@ -91,4 +90,32 @@ impl Panel {
         }
         Ok(())
     }
+
+    /// `..`: one level up — or, when that folder has been deleted too, the
+    /// nearest one above it that still exists — with the cursor on the way
+    /// back to the folder that was left.
+    fn go_up(&mut self) -> io::Result<()> {
+        let left = self.path.clone();
+        let parent = left.parent().unwrap_or(&left);
+        let target = crate::directory::nearest_existing(parent).unwrap_or(parent);
+        self.navigate_to(target.to_path_buf())?;
+        self.select_toward(&left);
+        Ok(())
+    }
+
+    /// Put the cursor on the entry that leads back down to `left`, or on the
+    /// first row when that entry is gone.
+    fn select_toward(&mut self, left: &Path) {
+        let step = left
+            .strip_prefix(&self.path)
+            .ok()
+            .and_then(|rest| rest.components().next());
+        let found = step.is_some_and(|step| self.select_named(&step.as_os_str().to_string_lossy()));
+        if !found {
+            self.select(self.entries.first().map(|_| 0));
+        }
+    }
 }
+
+#[cfg(test)]
+mod tests;

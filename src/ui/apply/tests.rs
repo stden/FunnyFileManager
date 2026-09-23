@@ -52,3 +52,13 @@ fn the_caret_sits_where_the_cursor_is() {
     }
     assert_eq!(caret_x(prompt), at_end - 4);
 }
+
+/// Far inserts names verbatim and the shell parses the result, so a file
+/// called `$(touch x)` runs `touch x`. The dialog says so before Enter.
+#[test]
+fn the_dialog_warns_that_names_reach_the_shell_unescaped() {
+    let (terminal, _) = draw(ApplyPrompt::default());
+    let screen = buffer_text(&terminal);
+    assert!(screen.contains("names are inserted unescaped"), "{screen}");
+    assert!(screen.contains("can run commands"), "{screen}");
+}

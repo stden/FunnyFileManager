@@ -146,6 +146,23 @@ fn a_folder_shows_its_totals() {
     assert_eq!(stats.total.bytes(), 12);
 }
 
+/// The byte-order mark is checked before the NUL heuristic: UTF-16 text is
+/// previewed, as F3 and F4 show it, not declined as binary.
+#[test]
+fn a_utf16_file_with_a_bom_is_previewed_not_declined_as_binary() {
+    let dir = fixture();
+    fs::write(dir.path().join("wide.txt"), b"\xff\xfeH\x00i\x00").expect("write");
+    let mut app = app_in(&dir);
+    select(&mut app, "wide.txt");
+    toggle(&mut app);
+
+    let Preview::Text(text) = preview(&app, PanelSide::Right) else {
+        panic!("expected a text preview");
+    };
+    assert_eq!(text.lines, vec!["Hi"]);
+    assert_eq!(text.encoding.label(), "UTF-16 LE");
+}
+
 #[test]
 fn a_binary_file_and_the_parent_row_are_declined_gracefully() {
     let dir = fixture();

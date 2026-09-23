@@ -156,6 +156,39 @@ fn the_exit_dialog_is_a_stage_of_being_modified() {
     );
     assert!(EditState::ConfirmingExit(ExitChoice::default()).is_confirming_exit());
     assert_eq!(EditState::default(), EditState::Clean);
+
+    // The "changed on disk" question is asked by a save, so it is a stage of
+    // being modified too — and only it carries the question.
+    let asking = EditState::ConfirmingOverwrite(OverwritePrompt::new(AfterSave::Close));
+    assert!(asking.is_modified());
+    assert_eq!(
+        asking.overwrite_prompt().map(|prompt| prompt.then),
+        Some(AfterSave::Close)
+    );
+    assert_eq!(EditState::Modified.overwrite_prompt(), None);
+}
+
+/// Another program's write is a change; the editor's own save is not; a
+/// buffer that was never read from disk has nothing to compare with.
+#[test]
+fn changed_on_disk_tells_another_programs_write_from_the_editors_own() -> io::Result<()> {
+    let dir = TempDir::new()?;
+    let path = dir.path().join("notes.txt");
+    fs::write(&path, "original\n")?;
+    let mut editor = Editor::from_content("notes.txt".to_owned(), path.clone(), "original\n");
+    assert!(!editor.changed_on_disk(), "never read: nothing to compare");
+
+    editor.disk = Some(Fingerprint::of(b"original\n"));
+    assert!(!editor.changed_on_disk());
+    fs::write(&path, "external change\n")?;
+    assert!(editor.changed_on_disk(), "another program wrote it");
+
+    editor.state = EditState::Modified;
+    editor.save()?;
+    assert!(!editor.changed_on_disk(), "the editor's own save is known");
+    fs::remove_file(&path)?;
+    assert!(editor.changed_on_disk(), "a file that is gone has changed");
+    Ok(())
 }
 
 #[test]
@@ -202,16 +235,16 @@ fn a_save_replaces_the_file_and_keeps_its_permissions() {
 
     use crate::models::Editor;
 
-    let dir = tempfile::TempDir::new().expect("test setup");
+    let dir = TempDir::new().expect("test setup");
     let path = dir.path().join("notes.txt");
-    std::fs::write(&path, "old\n").expect("test setup");
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).expect("test setup");
+    fs::write(&path, "old\n").expect("test setup");
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).expect("test setup");
 
     let mut editor = Editor::from_content("notes.txt".to_owned(), path.clone(), "new\n");
     editor.save().expect("save");
 
-    assert_eq!(std::fs::read_to_string(&path).unwrap(), "new\n");
-    let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+    assert_eq!(fs::read_to_string(&path).unwrap(), "new\n");
+    let mode = fs::metadata(&path).unwrap().permissions().mode();
     assert_eq!(
         mode & 0o777,
         0o640,
@@ -227,18 +260,18 @@ fn a_save_replaces_the_file_and_keeps_its_permissions() {
 fn a_hard_linked_file_is_rewritten_in_place_so_the_other_name_survives() {
     use crate::models::Editor;
 
-    let dir = tempfile::TempDir::new().expect("test setup");
+    let dir = TempDir::new().expect("test setup");
     let path = dir.path().join("notes.txt");
     let other = dir.path().join("also-notes.txt");
-    std::fs::write(&path, "old\n").expect("test setup");
-    std::fs::hard_link(&path, &other).expect("test setup");
+    fs::write(&path, "old\n").expect("test setup");
+    fs::hard_link(&path, &other).expect("test setup");
 
     let mut editor = Editor::from_content("notes.txt".to_owned(), path.clone(), "new\n");
     editor.save().expect("save");
 
-    assert_eq!(std::fs::read_to_string(&path).unwrap(), "new\n");
+    assert_eq!(fs::read_to_string(&path).unwrap(), "new\n");
     assert_eq!(
-        std::fs::read_to_string(&other).unwrap(),
+        fs::read_to_string(&other).unwrap(),
         "new\n",
         "the other name sees the change, which a rename would have broken"
     );
@@ -250,7 +283,7 @@ fn a_hard_linked_file_is_rewritten_in_place_so_the_other_name_survives() {
 fn a_save_that_cannot_be_written_leaves_the_buffer_modified() {
     use crate::models::{EditState, Editor};
 
-    let dir = tempfile::TempDir::new().expect("test setup");
+    let dir = TempDir::new().expect("test setup");
     let path = dir.path().join("gone/notes.txt");
     let mut editor = Editor::from_content("notes.txt".to_owned(), path, "new\n");
     editor.state = EditState::Modified;
@@ -273,9 +306,9 @@ impl crate::clipboard::ClipboardBackend for OscClipboard {
     }
 }
 
-fn editor_app(content: &str, path: std::path::PathBuf) -> crate::models::App {
-    let mut app = crate::models::App::new().expect("app");
-    app.set_overlay(crate::models::Overlay::Editor(Editor::from_content(
+fn editor_app(content: &str, path: std::path::PathBuf) -> App {
+    let mut app = App::new().expect("app");
+    app.set_overlay(Overlay::Editor(Editor::from_content(
         "t.txt".to_owned(),
         path,
         content,
@@ -285,7 +318,7 @@ fn editor_app(content: &str, path: std::path::PathBuf) -> crate::models::App {
 
 #[test]
 fn copying_falls_back_to_the_terminal_clipboard() {
-    let dir = tempfile::TempDir::new().expect("dir");
+    let dir = TempDir::new().expect("dir");
     let mut app = editor_app("ab", dir.path().join("t.txt"));
     app.clipboard.install(Box::new(OscClipboard));
     app.get_editor_mut().expect("editor").select_all();
@@ -301,7 +334,7 @@ fn copying_falls_back_to_the_terminal_clipboard() {
 
 #[test]
 fn paste_and_copy_do_nothing_without_an_editor() {
-    let mut app = crate::models::App::new().expect("app");
+    let mut app = App::new().expect("app");
     crate::ops::copy_editor_selection(&mut app);
     crate::ops::paste_into_editor(&mut app);
     assert!(app.get_editor().is_none());
@@ -309,7 +342,7 @@ fn paste_and_copy_do_nothing_without_an_editor() {
 
 #[test]
 fn reloading_a_directory_as_text_is_refused() {
-    let dir = tempfile::TempDir::new().expect("dir");
+    let dir = TempDir::new().expect("dir");
     let mut app = editor_app("x", dir.path().to_path_buf());
     crate::ops::reload_editor_encoding(&mut app, crate::encoding::TextEncoding::Utf8);
     let notice = app.get_editor().expect("editor").notice.clone();
@@ -321,9 +354,7 @@ fn reloading_a_directory_as_text_is_refused() {
 /// under it; the tests below say so rather than passing vacuously.
 #[cfg(unix)]
 fn running_as_root() -> bool {
-    // SAFETY: `geteuid` takes no arguments, reads no user memory and cannot
-    // fail; it only reports the calling process's own effective user.
-    unsafe { libc::geteuid() == 0 }
+    crate::platform::is_root()
 }
 
 /// Renaming a fresh file over the target needs write permission on the
@@ -377,5 +408,78 @@ fn test_save_still_writes_a_writable_file() -> io::Result<()> {
     editor.save()?;
 
     assert_eq!(fs::read_to_string(&path)?, "EDITED\n");
+    Ok(())
+}
+
+/// A directory the user may not add to (0555), holding a file they may write.
+/// Returns the directory; `restore` gives it back its write bit so `TempDir`
+/// can clean up.
+#[cfg(unix)]
+fn read_only_dir(root: &std::path::Path) -> io::Result<std::path::PathBuf> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let locked = root.join("read-only-dir");
+    fs::create_dir(&locked)?;
+    fs::write(locked.join("file.txt"), "ORIGINAL\n")?;
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o555))?;
+    Ok(locked)
+}
+
+#[cfg(unix)]
+fn restore(locked: &std::path::Path) -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    fs::set_permissions(locked, fs::Permissions::from_mode(0o755))
+}
+
+/// The atomic save needs a temp file beside the target, which a read-only
+/// directory refuses, and the save failed with "Permission denied … at path
+/// …/.tmpXXXXXX" although the file itself was writable. It now writes
+/// through the file, as vim and nano do. (Root may create files anywhere, so
+/// under root this only shows the save still works.)
+#[cfg(unix)]
+#[test]
+fn a_writable_file_in_a_read_only_directory_is_saved_in_place() -> io::Result<()> {
+    let dir = TempDir::new()?;
+    let locked = read_only_dir(dir.path())?;
+    let path = locked.join("file.txt");
+    let mut editor = Editor::from_content("file.txt".to_owned(), path.clone(), "EDITED\n");
+    editor.state = EditState::Modified;
+
+    let result = editor.save();
+    let listing = dir_names(&locked);
+    restore(&locked)?;
+
+    result?;
+    assert_eq!(fs::read_to_string(&path)?, "EDITED\n");
+    assert_eq!(listing?, ["file.txt"], "no temp file is left behind");
+    Ok(())
+}
+
+/// When the save really cannot happen — a new file in a read-only directory —
+/// the message names the directory that refused, never the random temp file
+/// the user has never heard of.
+#[cfg(unix)]
+#[test]
+fn a_refused_save_names_the_directory_not_a_temp_file() -> io::Result<()> {
+    if running_as_root() {
+        return Ok(()); // Root may create a file in a read-only directory.
+    }
+    let dir = TempDir::new()?;
+    let locked = read_only_dir(dir.path())?;
+    let mut editor = Editor::from_content("new.txt".to_owned(), locked.join("new.txt"), "");
+    editor.state = EditState::Modified;
+
+    let result = editor.save();
+    restore(&locked)?;
+
+    let message = result
+        .expect_err("nothing can be created there")
+        .to_string();
+    assert!(
+        !message.contains("read-only-dir/.tmp"),
+        "no temp file name: {message}"
+    );
+    assert!(message.contains("read-only-dir"), "{message}");
     Ok(())
 }

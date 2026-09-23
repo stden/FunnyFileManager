@@ -55,21 +55,36 @@ impl TerminalLost {
 /// keeps that case at the one poll per `timeout` it has always been.
 #[cfg(unix)]
 pub fn wait(timeout: Duration) -> io::Result<Duration> {
-    use std::io::IsTerminal;
-
-    // crossterm reads stdin only while stdin *is* the terminal; otherwise it
-    // opens /dev/tty, which this probe would not be watching. Leave that case
-    // to crossterm, unchanged.
-    if io::stdin().is_terminal() {
+    if crossterm_reads_stdin() {
         wait_for_fd(libc::STDIN_FILENO, timeout)
     } else {
         Ok(Duration::ZERO)
     }
 }
 
+/// Whether crossterm reads stdin, as it was when the first wait asked.
+///
+/// crossterm reads stdin only when stdin *is* the terminal; otherwise it opens
+/// /dev/tty, which this probe would not be watching, so that case is left to
+/// crossterm unchanged. crossterm decides once, when its reader starts, and
+/// never looks again — so neither may this. A hung-up terminal fails `isatty`
+/// (Linux answers `EIO`), and asking afresh would take the dead terminal for
+/// "not a terminal" and hand it straight to the read that never returns.
+#[cfg(unix)]
+fn crossterm_reads_stdin() -> bool {
+    use std::io::IsTerminal;
+
+    static READS_STDIN: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *READS_STDIN.get_or_init(|| io::stdin().is_terminal())
+}
+
 /// Windows tears its console's processes down with it and the console API has
 /// no equivalent spin, so nothing is owed: crossterm keeps the whole wait.
 #[cfg(not(unix))]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "shares the Unix signature, where the operation can fail"
+)]
 pub fn wait(_timeout: Duration) -> io::Result<Duration> {
     Ok(Duration::ZERO)
 }
@@ -81,6 +96,7 @@ pub fn wait(_timeout: Duration) -> io::Result<Duration> {
 /// `SA_RESTART` says — and the zero-timeout `event::poll` that follows lets
 /// crossterm pick up the pending `SIGWINCH` as a resize.
 #[cfg(unix)]
+#[allow(unsafe_code)]
 fn wait_for_fd(fd: std::os::fd::RawFd, timeout: Duration) -> io::Result<Duration> {
     let mut watched = libc::pollfd {
         fd,

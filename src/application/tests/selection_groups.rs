@@ -162,7 +162,7 @@ fn the_dialog_selects_what_was_typed_into_it() {
     let (mut app, _dir) = app_over(&FILES);
     app.set_overlay(Overlay::MaskPrompt(crate::models::MaskPrompt::new(
         MaskPurpose::Select,
-        String::new(),
+        "",
     )));
     for ch in "*.txt".chars() {
         process_popup_input(&mut app, key_event(KeyCode::Char(ch)));
@@ -181,7 +181,7 @@ fn the_dialog_selects_what_was_typed_into_it() {
 fn escape_and_the_cancel_button_leave_the_selection_alone() {
     for cancel_with in [key_event(KeyCode::Esc), key_event(KeyCode::Enter)] {
         let (mut app, _dir) = app_over(&FILES);
-        let mut prompt = crate::models::MaskPrompt::new(MaskPurpose::Select, "*".to_owned());
+        let mut prompt = crate::models::MaskPrompt::new(MaskPurpose::Select, "*");
         if cancel_with.code == KeyCode::Enter {
             prompt.toggle_button();
         }

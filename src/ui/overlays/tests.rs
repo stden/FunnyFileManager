@@ -13,7 +13,7 @@ fn moving_the_editor_cursor_reuses_file_highlighting() {
     editor.cursor_line = 9_000;
     let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("terminal");
     let mut tracker = crate::mouse::DialogMouse::default();
-    crate::highlight::FILE_PASSES.with(|passes| passes.set(0));
+    crate::highlight::FILE_PASSES.set(0);
     terminal
         .draw(|frame| render_editor(frame, &editor, &mut tracker))
         .expect("first frame");
@@ -22,13 +22,13 @@ fn moving_the_editor_cursor_reuses_file_highlighting() {
         .draw(|frame| render_editor(frame, &editor, &mut tracker))
         .expect("cursor frame");
     assert_eq!(
-        crate::highlight::FILE_PASSES.with(std::cell::Cell::get),
+        crate::highlight::FILE_PASSES.get(),
         1,
         "cursor motion must not rebuild file highlighting"
     );
 }
 
-fn drawn(app: &mut crate::models::App) -> String {
+fn drawn(app: &mut App) -> String {
     let mut terminal = Terminal::new(crate::WritableTestBackend::new(80, 24)).expect("terminal");
     terminal
         .draw(|frame| crate::ui::ui(frame, app))
@@ -45,8 +45,8 @@ fn the_encoding_dialog_lists_every_codec() {
         "hello",
     );
     editor.encoding_choice = Some(crate::encoding::TextEncoding::Utf8);
-    let mut app = crate::models::App::new().expect("app");
-    app.set_overlay(crate::models::Overlay::Editor(editor));
+    let mut app = App::new().expect("app");
+    app.set_overlay(Overlay::Editor(editor));
     let screen = drawn(&mut app);
     assert!(screen.contains("Encoding"), "{screen}");
     assert!(screen.contains("UTF-8"), "{screen}");
@@ -57,7 +57,10 @@ fn the_encoding_dialog_lists_every_codec() {
 fn the_link_dialog_asks_for_a_link_not_a_folder() {
     let mut app = crate::models::App::new().expect("app");
     app.set_overlay(crate::models::Overlay::NamePrompt(
-        crate::models::NamePrompt::link_to("/tmp/target".into(), "link-name".to_owned()),
+        crate::models::NamePrompt::link_to(
+            std::path::Path::new("/tmp/target"),
+            "link-name".to_owned(),
+        ),
     ));
     let screen = drawn(&mut app);
     assert!(screen.contains("Link"), "{screen}");

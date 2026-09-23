@@ -93,15 +93,20 @@ fn text_lines(view: &QuickView, text: &TextPreview, body: Rect) -> Vec<Line<'sta
     )
 }
 
-/// Far's folder answer: totals, not a listing.
+/// Far's folder answer: totals, not a listing — or, for a folder that could
+/// not be read, why, in the words a file that cannot be read gets.
 fn folder_lines(stats: &DirectoryStats) -> Vec<Line<'static>> {
+    let heading = Line::from(Span::styled(
+        "Folder",
+        Style::default()
+            .fg(palette::DIRECTORY)
+            .add_modifier(Modifier::BOLD),
+    ));
+    if let Coverage::Unreadable(reason) = &stats.coverage {
+        return vec![heading, Line::from(format!("Cannot read: {reason}"))];
+    }
     let mut lines = vec![
-        Line::from(Span::styled(
-            "Folder",
-            Style::default()
-                .fg(palette::DIRECTORY)
-                .add_modifier(Modifier::BOLD),
-        )),
+        heading,
         Line::from(format!(
             "Total size:  {}",
             abbreviate_bytes(stats.total.bytes())
@@ -109,8 +114,12 @@ fn folder_lines(stats: &DirectoryStats) -> Vec<Line<'static>> {
         Line::from(format!("Files:       {}", stats.files)),
         Line::from(format!("Folders:     {}", stats.directories)),
     ];
-    if stats.coverage == Coverage::Partial {
-        lines.push(Line::from("(walk limit reached: lower bounds)"));
+    match stats.coverage {
+        Coverage::Partial => lines.push(Line::from("(walk limit reached: lower bounds)")),
+        Coverage::Unread(folders) => lines.push(Line::from(format!(
+            "({folders} unreadable folder(s): lower bounds)"
+        ))),
+        Coverage::Complete | Coverage::Unreadable(_) => {}
     }
     lines
 }
@@ -148,20 +157,13 @@ fn info_row(view: &QuickView, page: usize) -> String {
             "{} │ {} bytes │ {}%",
             text.encoding.label(),
             text.size.bytes(),
-            percent(view.scroll.lines(), page, text.lines.len())
+            super::scroll_percent(view.scroll.lines(), page, text.lines.len())
         ),
+        Preview::Folder(stats) if matches!(stats.coverage, Coverage::Unreadable(_)) => {
+            String::new()
+        }
         Preview::Folder(stats) => format!("{} files, {} folders", stats.files, stats.directories),
         Preview::Nothing | Preview::Refused(_) => String::new(),
-    }
-}
-
-/// 100 once the last line is on screen, else how far down the top row is —
-/// the viewer's own rule, kept beside its one use here.
-const fn percent(top: usize, rows: usize, total: usize) -> usize {
-    if top.saturating_add(rows) >= total {
-        100
-    } else {
-        top * 100 / total
     }
 }
 

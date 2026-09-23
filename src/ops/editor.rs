@@ -1,12 +1,11 @@
 //! Persist the built-in editor buffer while preserving file identity and format.
 
 use std::{
-    fs,
-    io::{self, Write},
+    fs, io,
     path::{Path, PathBuf},
 };
 
-use crate::models::{EditState, Editor};
+use crate::models::{EditState, Editor, Fingerprint};
 
 mod clipboard;
 pub use clipboard::{copy_editor_selection, paste_into_editor};
@@ -20,35 +19,57 @@ impl Editor {
     /// a crash mid-write would leave nothing but an empty file behind.
     pub fn save(&mut self) -> io::Result<()> {
         let target = resolve_save_target(&self.path);
-        ensure_writable(&target)?;
+        crate::file_write::ensure_writable(&target)?;
         let content = self.format.encoding.encode(&self.content())?;
-
-        if rewrite_in_place(&target) {
-            // See `rewrite_in_place`: atomicity is the lesser thing to lose.
-            fs::write(&target, content)?;
-            self.state = EditState::Clean;
-            self.lsp.saved = self.lsp.saved.saturating_add(1);
-            return Ok(());
-        }
-
-        // The temp file must share the target's directory, or the rename would
-        // cross filesystems and stop being atomic.
-        let dir = target
-            .parent()
-            .filter(|parent| !parent.as_os_str().is_empty())
-            .unwrap_or_else(|| Path::new("."));
-        let mut temp = tempfile::NamedTempFile::new_in(dir)?;
-        // Temp files are created 0600 and the rename carries the mode onto the
-        // target, so the original's permissions have to be copied over first.
-        if let Ok(metadata) = fs::metadata(&target) {
-            temp.as_file().set_permissions(metadata.permissions())?;
-        }
-        temp.write_all(&content)?;
-        temp.as_file().sync_all()?;
-        temp.persist(&target).map_err(|err| err.error)?;
-        self.state = EditState::Clean;
-        self.lsp.saved = self.lsp.saved.saturating_add(1);
+        write_file(&target, &content)?;
+        self.mark_saved(&content);
         Ok(())
+    }
+
+    /// Whether another program has written the file since the editor last
+    /// read or saved it — the question a save has to ask before it replaces
+    /// that write.
+    ///
+    /// Read through the same bounded loader as F4, so a FIFO or a huge file
+    /// put in its place cannot hang the save; either one, like a file that is
+    /// gone, has changed. A file that cannot be read cannot be compared, and
+    /// the write that follows reports its own error.
+    #[must_use]
+    pub fn changed_on_disk(&self) -> bool {
+        let Some(read) = self.disk else {
+            return false;
+        };
+        match crate::fileload::read_for_text_ui(&self.path) {
+            Ok(crate::fileload::Loaded::Bytes(bytes)) => Fingerprint::of(&bytes) != read,
+            Ok(_) => true,
+            Err(err) => err.kind() == io::ErrorKind::NotFound,
+        }
+    }
+
+    fn mark_saved(&mut self, written: &[u8]) {
+        self.state = EditState::Clean;
+        self.disk = Some(Fingerprint::of(written));
+        self.lsp.saved = self.lsp.saved.saturating_add(1);
+    }
+}
+
+/// Put `content` in `target`: atomically, through a temp file renamed over
+/// it, unless replacing the file would lose something (see
+/// [`rewrite_in_place`]) or its directory cannot hold a temp file.
+fn write_file(target: &Path, content: &[u8]) -> io::Result<()> {
+    if rewrite_in_place(target) {
+        // See `rewrite_in_place`: atomicity is the lesser thing to lose.
+        return fs::write(target, content);
+    }
+    match crate::file_write::temp_beside(target) {
+        Ok(temp) => crate::file_write::persist_over(temp, target, content),
+        // A directory the user may not add to can still hold a file they may
+        // write — `ensure_writable` has just said so. Write through it, as vim
+        // and nano do, rather than refuse a save the user is entitled to.
+        Err(err) if err.kind() == io::ErrorKind::PermissionDenied && target.exists() => {
+            fs::write(target, content)
+        }
+        Err(err) => Err(err),
     }
 }
 
@@ -64,81 +85,6 @@ impl Editor {
 /// used as given.
 fn resolve_save_target(path: &Path) -> PathBuf {
     fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
-}
-
-/// Refuse a save the filesystem would otherwise let through for the wrong
-/// reason.
-///
-/// Persisting the temp file is `rename(2)`, which replaces a directory
-/// *entry*: the kernel checks write permission on the parent directory and
-/// never looks at the file. A root-owned 0644 file sitting in the user's own
-/// directory was therefore replaced in silence — new inode, new owner, ACLs
-/// and xattrs gone — while the editor reported "Saved". The in-place branch
-/// below fails on its own, because `fs::write` really opens the file, but the
-/// check sits ahead of both so that one refusal has one message.
-fn ensure_writable(target: &Path) -> io::Result<()> {
-    match refusal(target) {
-        None => Ok(()),
-        Some(reason) => Err(io::Error::new(
-            io::ErrorKind::PermissionDenied,
-            format!("{}: {reason}", target.display()),
-        )),
-    }
-}
-
-/// Whether *this* process may write the file's contents.
-///
-/// `metadata().permissions().readonly()` reads the owner-write bit alone and
-/// says nothing about who is asking, so a root-owned 0644 file looks writable
-/// to every user on the machine. Only the kernel knows the real answer, and
-/// only the kernel accounts for group membership, POSIX ACLs, a read-only
-/// mount and root's `CAP_DAC_OVERRIDE` — so root is not blocked, which is
-/// correct. `AT_EACCESS` asks with the *effective* ids, which are the ones the
-/// save will use; plain `access(2)` would ask with the real ones.
-///
-/// A path with nothing behind it yet (Shift+F4) answers `ENOENT`, and an
-/// unexpected errno means the question could not be put at all: both fall
-/// open, leaving the write that follows to report the real failure rather than
-/// this guard inventing one.
-#[cfg(unix)]
-fn refusal(path: &Path) -> Option<&'static str> {
-    use std::ffi::CString;
-    use std::os::unix::ffi::OsStrExt;
-
-    // An interior NUL: let the write itself report it.
-    let c_path = CString::new(path.as_os_str().as_bytes()).ok()?;
-    // SAFETY: `c_path` is NUL-terminated and outlives the call; faccessat
-    // reads no other user memory and only reports a permission answer.
-    let answer = unsafe {
-        libc::faccessat(
-            libc::AT_FDCWD,
-            c_path.as_ptr(),
-            libc::W_OK,
-            libc::AT_EACCESS,
-        )
-    };
-    if answer == 0 {
-        return None;
-    }
-    // "Permission denied" would send the user to `ls -l` and a chmod that
-    // cannot help, so a read-only filesystem says which it is.
-    match io::Error::last_os_error().raw_os_error() {
-        Some(libc::EROFS) => Some("read-only file system"),
-        Some(libc::EACCES | libc::EPERM) => Some("permission denied"),
-        // Anything else — the file is not there yet (Shift+F4), or the
-        // question could not be put at all — falls open, so the write reports
-        // what really happens instead of this guard inventing an answer.
-        _ => None,
-    }
-}
-
-/// Windows has one writability bit per file and `readonly()` reads exactly
-/// it. A file that is not there yet is the directory's business, as on Unix.
-#[cfg(not(unix))]
-fn refusal(path: &Path) -> Option<&'static str> {
-    fs::metadata(path)
-        .is_ok_and(|metadata| metadata.permissions().readonly())
-        .then_some("the file is marked read-only")
 }
 
 /// Whether the save writes through the file rather than replacing it.
@@ -159,9 +105,7 @@ fn rewrite_in_place(path: &Path) -> bool {
 fn owned_by_us(path: &Path) -> bool {
     use std::os::unix::fs::MetadataExt;
 
-    // SAFETY: `geteuid` takes no arguments, reads no user memory and cannot
-    // fail; it reports this process's own effective user.
-    let us = unsafe { libc::geteuid() };
+    let us = crate::platform::effective_uid();
     fs::metadata(path).map_or(true, |info| info.uid() == us)
 }
 
@@ -216,12 +160,14 @@ pub fn change_editor_encoding(
 }
 
 fn reload_editor(editor: &mut Editor, encoding: crate::encoding::TextEncoding) -> io::Result<()> {
-    let content =
-        crate::fileload::read_for_text_ui(&editor.path).and_then(|loaded| match loaded {
-            crate::fileload::Loaded::Bytes(bytes) => encoding.decode(&bytes),
-            _ => Err(io::Error::other("Cannot reload this file as text")),
-        })?;
+    let crate::fileload::Loaded::Bytes(bytes) = crate::fileload::read_for_text_ui(&editor.path)?
+    else {
+        return Err(io::Error::other("Cannot reload this file as text"));
+    };
+    let content = encoding.decode(&bytes)?;
     let mut reloaded = Editor::from_content(editor.title.clone(), editor.path.clone(), &content);
+    reloaded.disk = Some(Fingerprint::of(&bytes));
+    reloaded.tab_size = editor.tab_size;
     reloaded.cursor_line = editor
         .cursor_line
         .min(reloaded.lines.len().saturating_sub(1));

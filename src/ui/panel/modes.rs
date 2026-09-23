@@ -81,12 +81,13 @@ pub(super) fn displayed_name<'a>(
 }
 
 fn row_style(panel: &Panel, entry: &DirEntry, selected: bool) -> Style {
+    let is_marked = panel.marked.contains(entry.name.as_str());
     if selected {
         return Style::default()
             .bg(palette::CURSOR_BG)
-            .fg(palette::CURSOR_FG);
+            .fg(super::cursor_colour(is_marked));
     }
-    let foreground = if panel.marked.contains(entry.name.as_str()) {
+    let foreground = if is_marked {
         palette::MARKED
     } else if entry.kind.is_dir() {
         palette::DIRECTORY

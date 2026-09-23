@@ -59,7 +59,7 @@ where
         Action::Move => open_transfer_prompt(app, copy::Purpose::Move),
         Action::Rename => open_rename_prompt(app),
         Action::DeleteConfirm => report(app, handle_delete_confirm),
-        Action::McpStatus => report(app, crate::ops::open_mcp_status),
+        Action::McpStatus => report(app, ops::open_mcp_status),
         Action::ToggleConsole => app.view = app.view.toggled(),
         Action::Refresh => refresh(app),
         Action::CommandLine => app.set_overlay(Overlay::CommandLine(CommandLine::default())),
@@ -102,20 +102,32 @@ fn apply_file(app: &mut App, command: FileCommand) {
     }
 }
 
-/// The Commands menu: searches, histories, and the program's own windows.
-fn apply_tool<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut App, command: ToolCommand) {
-    match command {
-        ToolCommand::FindFile => ops::findfile::open(app),
-        ToolCommand::History => ops::history_list::open(app),
-        ToolCommand::VideoMode => ops::videomode::toggle(terminal, app),
-        ToolCommand::FindFolder => ops::findfolder::open(app),
-        ToolCommand::ViewHistory => ops::view_history::open(app),
-        ToolCommand::FolderHistory => ops::folder_history::open(app),
-        ToolCommand::Filter => ops::filter::open(app),
-        ToolCommand::Screens => ops::screens::open(app),
-        ToolCommand::Tasks => ops::tasks::open(app),
-        ToolCommand::SaveSetup => ops::savesetup::run(app),
+/// The Commands menu: the same operation the F9 row runs.
+fn apply_tool<B: Backend + Write>(
+    _terminal: &mut Terminal<B>,
+    app: &mut App,
+    command: ToolCommand,
+) {
+    match menu_tool(command) {
+        Some(command) => ops::menu::execute(app, command),
+        None => ops::savesetup::run(app),
     }
+}
+
+fn menu_tool(command: ToolCommand) -> Option<crate::menu::MenuCommand> {
+    use crate::menu::MenuCommand;
+    Some(match command {
+        ToolCommand::FindFile => MenuCommand::FindFile,
+        ToolCommand::History => MenuCommand::History,
+        ToolCommand::VideoMode => MenuCommand::VideoMode,
+        ToolCommand::FindFolder => MenuCommand::FindFolder,
+        ToolCommand::ViewHistory => MenuCommand::ViewHistory,
+        ToolCommand::FolderHistory => MenuCommand::FolderHistory,
+        ToolCommand::Filter => MenuCommand::Filter,
+        ToolCommand::Screens => MenuCommand::Screens,
+        ToolCommand::Tasks => MenuCommand::Tasks,
+        ToolCommand::SaveSetup => return None,
+    })
 }
 
 fn apply_selection(app: &mut App, command: crate::action::SelectionCommand) {
@@ -147,7 +159,7 @@ fn open_dialog(app: &mut App, command: crate::action::DialogCommand) {
     use crate::action::DialogCommand;
     match command {
         DialogCommand::ConfirmQuit => {
-            app.set_overlay(Overlay::QuitConfirm(crate::models::Confirm::default()));
+            app.set_overlay(Overlay::QuitConfirm(models::Confirm::default()));
         }
         DialogCommand::NewFile => app.set_overlay(Overlay::NewFileInput(String::new())),
         DialogCommand::ToggleHelp => toggle_help(app),

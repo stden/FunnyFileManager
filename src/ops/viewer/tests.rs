@@ -23,7 +23,7 @@ fn open_mcp_status_reports_binary_found_when_present() -> io::Result<()> {
     fs::write(&binary, b"fake-mcp-binary")?;
 
     let mut app = App::new()?;
-    open_mcp_status_in(&mut app, temp.path(), temp.path())?;
+    open_mcp_status_in(&mut app, temp.path(), temp.path());
     let text = app.get_viewer().expect("viewer").lines.join("\n");
 
     assert!(
@@ -44,7 +44,7 @@ fn open_mcp_status_reports_not_configured_when_a_config_exists_without_ffm_mcp()
     fs::write(temp.path().join(".mcp.json"), b"{}")?;
 
     let mut app = App::new()?;
-    open_mcp_status_in(&mut app, temp.path(), temp.path())?;
+    open_mcp_status_in(&mut app, temp.path(), temp.path());
     let text = app.get_viewer().expect("viewer").lines.join("\n");
 
     assert!(
@@ -147,12 +147,48 @@ fn handle_view_records_the_file_behind_the_viewer() -> io::Result<()> {
     handle_view(&mut app)?;
     let viewer = app.get_viewer().expect("viewer open");
     assert_eq!(viewer.title(), "latin1.txt");
-    assert_eq!(viewer.lines, vec!["caf\u{fffd}"]);
-    let viewed = viewer.viewed_file().expect("a file viewer knows its file");
-    assert_eq!(viewed.path, file);
-    assert_eq!(viewed.size.bytes(), 5);
-    assert_eq!(viewed.encoding, crate::models::Encoding::Ansi);
+    assert_eq!(viewer.lines, vec!["caf\u{439}"]);
+    let opened = viewer.viewed_file().expect("a file viewer knows its file");
+    assert_eq!(opened.path, file);
+    assert_eq!(opened.size.bytes(), 5);
+    assert_eq!(opened.encoding, crate::encoding::TextEncoding::Windows1251);
     assert_eq!(app.status_text(), format!("Viewing {}", file.display()));
+    Ok(())
+}
+
+/// UTF-16 text has a NUL in the high byte of every ASCII character. The
+/// byte-order mark says so, and F3 must read the file rather than call it
+/// binary — F4 already opens the same file.
+#[test]
+fn f3_opens_a_utf16_file_with_a_bom_instead_of_refusing_it_as_binary() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let file = temp.path().join("utf16le.txt");
+    fs::write(&file, b"\xff\xfeH\x00e\x00l\x00l\x00o\x00\n\x00")?;
+    let panel = crate::models::Panel::new(temp.path().to_path_buf())?;
+    let mut app = App::with_panels(panel.clone(), panel);
+
+    view_path(&mut app, file.clone())?;
+
+    let viewer = app.get_viewer().expect("F3 opens the viewer");
+    assert_eq!(viewer.lines, vec!["Hello"]);
+    assert_eq!(app.status, Status::Viewing(file.display().to_string()));
+    Ok(())
+}
+
+/// The mark only excuses the NULs of text it names: a NUL-bearing file with
+/// no byte-order mark is still refused.
+#[test]
+fn f3_still_refuses_a_nul_bearing_file_without_a_bom() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let file = temp.path().join("blob.bin");
+    fs::write(&file, b"MZ\x00\x01\x02")?;
+    let panel = crate::models::Panel::new(temp.path().to_path_buf())?;
+    let mut app = App::with_panels(panel.clone(), panel);
+
+    view_path(&mut app, file.clone())?;
+
+    assert!(app.get_viewer().is_none());
+    assert_eq!(app.status, Status::BinaryFile(file.display().to_string()));
     Ok(())
 }
 

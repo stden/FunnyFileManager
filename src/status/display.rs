@@ -1,5 +1,6 @@
 //! Purpose: how each `Status` reads — its `Display` impl, one formatter per outcome family, and the `String` conversion.
 
+use std::borrow::Cow;
 use std::fmt;
 
 use super::{FailedEntry, Status};
@@ -9,6 +10,7 @@ use std::path::Path;
 impl fmt::Display for Status {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         [
+            Self::format_path,
             Self::format_view,
             Self::format_transfer,
             Self::format_panel,
@@ -38,7 +40,98 @@ fn with_errors(
     )
 }
 
+/// A message split around the path it quotes: the words before it, the path
+/// as the message spells it, and the words after it. `path` is empty for a
+/// message that quotes none.
+///
+/// Three parts rather than one line so a row too narrow for the whole message
+/// can shorten the *path* — from its head, keeping the file name — and leave
+/// the reason whole: `Cannot edit …/unreadable.txt: Permission denied`. A
+/// line already flattened to one string can only be cut at its end, and the
+/// end is where the file name and the reason are.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PathMessage<'a> {
+    pub before: Cow<'a, str>,
+    pub path: Cow<'a, str>,
+    pub after: Cow<'a, str>,
+}
+
+/// A [`PathMessage`] from its parts; the words may be literals or formatted.
+fn quote<'a>(
+    before: impl Into<Cow<'a, str>>,
+    path: Cow<'a, str>,
+    after: impl Into<Cow<'a, str>>,
+) -> PathMessage<'a> {
+    PathMessage {
+        before: before.into(),
+        path,
+        after: after.into(),
+    }
+}
+
+/// A message that quotes no path: all of it is `before`.
+impl From<String> for PathMessage<'static> {
+    fn from(text: String) -> Self {
+        quote(text, Cow::Borrowed(""), "")
+    }
+}
+
+impl fmt::Display for PathMessage<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}{}{}", self.before, self.path, self.after)
+    }
+}
+
 impl Status {
+    /// This outcome's message split around the path it quotes, or `None` for
+    /// one that quotes no path (every outcome the two families below leave
+    /// out). The one place these messages are worded: `Display` prints
+    /// exactly these parts.
+    #[must_use]
+    pub fn path_message(&self) -> Option<PathMessage<'_>> {
+        self.view_path_message()
+            .or_else(|| self.edit_path_message())
+    }
+
+    fn view_path_message(&self) -> Option<PathMessage<'_>> {
+        Some(match self {
+            Self::Path(path) => quote("", label(path), ""),
+            Self::BinaryFile(path) => quote("Cannot view binary file ", label(Path::new(path)), ""),
+            Self::NotRegularFile(path) => quote(
+                "Cannot open ",
+                label(Path::new(path)),
+                ": not a regular file",
+            ),
+            Self::Viewing(path) => quote("Viewing ", label(Path::new(path)), ""),
+            Self::CreatedDir(path) => quote("Created directory ", label(Path::new(path)), ""),
+            Self::Opened(path) => quote("Opened ", label(path), ""),
+            Self::ChangedTo(path) => quote("Changed to ", label(path), ""),
+            Self::BookmarkSet { slot, path } => {
+                quote(format!("Bookmark {slot} set to "), label(path), "")
+            }
+            Self::OpenedBookmark { slot, path } => {
+                quote(format!("Opened bookmark {slot}: "), label(path), "")
+            }
+            _ => return None,
+        })
+    }
+
+    fn edit_path_message(&self) -> Option<PathMessage<'_>> {
+        Some(match self {
+            Self::Editing(path) => quote("Editing ", label(Path::new(path)), ""),
+            Self::Edited(path) => quote("Edited ", label(Path::new(path)), ""),
+            Self::CannotEdit { path, error } => {
+                quote("Cannot edit ", label(path), format!(": {error}"))
+            }
+            Self::Saved(path) => quote("Saved ", label(path), ""),
+            _ => return None,
+        })
+    }
+
+    fn format_path(&self, f: &mut fmt::Formatter<'_>) -> Option<fmt::Result> {
+        self.path_message().map(|message| write!(f, "{message}"))
+    }
+
     fn format_view(&self, f: &mut fmt::Formatter<'_>) -> Option<fmt::Result> {
         Some(match self {
             Self::Cleared => Ok(()),
@@ -46,9 +139,9 @@ impl Status {
                 f,
                 "F1 Help  F3 View  F4 Edit  F5 Copy  F6 Move  F7 Mkdir  F8 Delete"
             ),
-            Self::Path(path) => write!(f, "{}", crate::path_display::label(path)),
             Self::CommandOutput(text) => f.write_str(text),
             Self::ConsoleStarted(command) => write!(f, "Started in new console: {command}"),
+            Self::PackageUpdateCancelled => write!(f, "Package update cancelled"),
             Self::FileTooLarge {
                 megabytes,
                 limit_megabytes,
@@ -56,16 +149,6 @@ impl Status {
                 f,
                 "File too large to view ({megabytes:.1} MB, max {limit_megabytes:.0} MB)"
             ),
-            Self::BinaryFile(path) => {
-                write!(f, "Cannot view binary file {}", label(Path::new(path)))
-            }
-            Self::NotRegularFile(path) => write!(
-                f,
-                "Cannot open {}: not a regular file",
-                label(Path::new(path))
-            ),
-            Self::Viewing(path) => write!(f, "Viewing {}", label(Path::new(path))),
-            Self::CreatedDir(path) => write!(f, "Created directory {}", label(Path::new(path))),
             _ => return None,
         })
     }
@@ -89,6 +172,11 @@ impl Status {
                 first_error,
             } => with_errors(f, "Deleted", *count, *error_count, first_error),
             Self::Wiped { count } => write!(f, "Wiped {count} item(s)"),
+            Self::WipedSharedFiles { count, shared } => write!(
+                f,
+                "Wiped {count} item(s); {shared} hard-linked file(s) only unlinked, \
+                 their data stays under the other names"
+            ),
             Self::WipedWithErrors {
                 count,
                 error_count,
@@ -100,7 +188,6 @@ impl Status {
 
     fn format_panel(&self, f: &mut fmt::Formatter<'_>) -> Option<fmt::Result> {
         Some(match self {
-            Self::Opened(path) => write!(f, "Opened {}", crate::path_display::label(path)),
             Self::OpenedView(title) => write!(f, "Opened {title}"),
             Self::PanelsSwapped => write!(f, "Panels swapped"),
             Self::PanelsRefreshed => write!(f, "Panels refreshed"),
@@ -116,20 +203,6 @@ impl Status {
 
     fn format_bookmark(&self, f: &mut fmt::Formatter<'_>) -> Option<fmt::Result> {
         Some(match self {
-            Self::BookmarkSet { slot, path } => {
-                write!(
-                    f,
-                    "Bookmark {slot} set to {}",
-                    crate::path_display::label(path)
-                )
-            }
-            Self::OpenedBookmark { slot, path } => {
-                write!(
-                    f,
-                    "Opened bookmark {slot}: {}",
-                    crate::path_display::label(path)
-                )
-            }
             Self::OpenBookmarkFailed { slot, error } => {
                 write!(f, "Failed to open bookmark {slot}: {error}")
             }
@@ -141,15 +214,6 @@ impl Status {
 
     fn format_editor(&self, f: &mut fmt::Formatter<'_>) -> Option<fmt::Result> {
         Some(match self {
-            Self::Editing(path) => write!(f, "Editing {}", label(Path::new(path))),
-            Self::Edited(path) => write!(f, "Edited {}", label(Path::new(path))),
-            Self::CannotEdit { path, error } => {
-                write!(
-                    f,
-                    "Cannot edit {}: {error}",
-                    crate::path_display::label(path)
-                )
-            }
             Self::EditDirUnsupported => write!(f, "Editing directories is not supported"),
             Self::FileTooLargeEdit {
                 megabytes,
@@ -160,7 +224,6 @@ impl Status {
             ),
             Self::EditorExited { status } => write!(f, "Editor exited with status {status}"),
             Self::LaunchEditorFailed { error } => write!(f, "Failed to launch editor: {error}"),
-            Self::Saved(path) => write!(f, "Saved {}", crate::path_display::label(path)),
             Self::SaveFailed { error } => write!(f, "Save failed: {error}"),
             Self::ChangesDiscarded => write!(f, "Changes discarded"),
             _ => return None,
@@ -178,7 +241,6 @@ impl Status {
             Self::WipeCancelled => write!(f, "Wipe cancelled"),
             Self::NothingToWipe => write!(f, "Nothing to wipe"),
             Self::OpenDriveFailed { error } => write!(f, "Failed to open drive: {error}"),
-            Self::ChangedTo(path) => write!(f, "Changed to {}", crate::path_display::label(path)),
             Self::S3ProfileSelected(profile) => {
                 write!(
                     f,

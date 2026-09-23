@@ -13,8 +13,10 @@ fn clicking_away_closes_the_menu() {
     assert!(matches!(app.overlay, Overlay::None));
 }
 
+/// Clicking a panel's heading only opens its menu, as walking onto it with
+/// the arrows does; the active panel changes when one of its rows is chosen.
 #[test]
-fn clicking_a_panel_heading_makes_that_panel_active() {
+fn clicking_a_panel_heading_opens_its_menu_on_the_same_active_panel() {
     let dir = TempDir::new().expect("temp");
     let mut app = app_at(&dir);
     app.active_panel = PanelSide::Right;
@@ -26,11 +28,29 @@ fn clicking_a_panel_heading_makes_that_panel_active() {
         .find(|&col| crate::ui::heading_at(screen, col) == Some(Heading::Left))
         .expect("Left heading is on the bar");
     click_in_menu(&mut app, menu, column, screen.y);
-    assert_eq!(app.active_panel, PanelSide::Left);
+    assert_eq!(app.active_panel, PanelSide::Right);
     assert!(matches!(
         app.overlay,
         Overlay::Menu(open) if open.heading == Heading::Left
     ));
+}
+
+#[test]
+fn clicking_a_row_of_a_panel_menu_makes_that_panel_active() {
+    let dir = TempDir::new().expect("temp");
+    let mut app = app_at(&dir);
+    app.active_panel = PanelSide::Right;
+    let menu = Menu::open(Heading::Left);
+    app.set_menu(menu);
+    let screen = ratatui::layout::Rect::new(0, 0, 80, 24);
+    app.dialog_mouse.screen = screen;
+    let (column, row) = (0..screen.width)
+        .flat_map(|col| (1..screen.height).map(move |row| (col, row)))
+        .find(|&(col, row)| crate::ui::menu_row_at(&menu, screen, col, row) == Some(menu.row))
+        .expect("the first row is on screen");
+    click_in_menu(&mut app, menu, column, row);
+    assert_eq!(app.active_panel, PanelSide::Left);
+    assert!(!matches!(app.overlay, Overlay::Menu(_)), "the row ran");
 }
 
 /// A hidden panel's heading still opens its drop-down — that is where its

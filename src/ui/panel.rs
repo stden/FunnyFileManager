@@ -5,6 +5,8 @@
 //! arbitrary: everything here is about the inside of a panel, and `ui.rs` keeps
 //! the screen it sits on.
 
+use std::borrow::Cow;
+
 use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
@@ -14,11 +16,14 @@ use ratatui::{
 };
 
 use super::palette;
-use super::{far_block, head_cells, tail_cells, take_cells, Cells, FAR_BLUE, PANEL_BORDERS};
+use super::{far_block, fit_quoting_path, head_cells, tail_cells, take_cells, Cells};
+use super::{FAR_BLUE, PANEL_BORDERS};
 use super::{PANEL_COLUMN_HEADER, PANEL_COLUMN_RULE, PANEL_INFO_ROW, PANEL_NON_ENTRY_ROWS};
-use crate::models::{App, DirEntry, Panel, PanelView, ShortNames, SortMode};
+use crate::models::{divide_rounded, App, DirEntry, Panel, PanelView, ShortNames, SortMode};
+use crate::status::PathMessage;
 
 mod modes;
+mod selection;
 
 /// Right-aligned width of the Size column: "Folder", "Up", or a byte count.
 ///
@@ -315,19 +320,22 @@ pub(super) fn size_field(entry: &DirEntry) -> String {
 pub(super) fn abbreviate_bytes(bytes: u64) -> String {
     const UNITS: [&str; 5] = ["", "K", "M", "G", "T"];
 
-    let mut value = bytes as f64;
+    // Integer maths, exact for every u64: the value shown is `bytes / scale`.
+    let bytes = u128::from(bytes);
+    let mut scale = 1;
     let mut unit = 0;
-    while value >= 1000.0 && unit + 1 < UNITS.len() {
-        value /= 1024.0;
+    while bytes >= 1000 * scale && unit + 1 < UNITS.len() {
+        scale *= 1024;
         unit += 1;
     }
     if unit == 0 {
         return bytes.to_string();
     }
-    if value >= 100.0 {
-        format!("{value:.0} {}", UNITS[unit])
+    if bytes >= 100 * scale {
+        format!("{} {}", divide_rounded(bytes, scale), UNITS[unit])
     } else {
-        format!("{value:.1} {}", UNITS[unit])
+        let tenths = divide_rounded(bytes * 10, scale);
+        format!("{}.{} {}", tenths / 10, tenths % 10, UNITS[unit])
     }
 }
 
@@ -404,11 +412,22 @@ fn separator_style() -> Style {
 }
 
 /// The style of the entry under the active panel's cursor.
-fn cursor_style() -> Style {
+fn cursor_style(is_marked: bool) -> Style {
     Style::default()
         .bg(palette::CURSOR_BG)
-        .fg(palette::CURSOR_FG)
+        .fg(cursor_colour(is_marked))
         .add_modifier(Modifier::BOLD)
+}
+
+/// The text colour on the cursor bar: Far's marked yellow when the entry under
+/// it is marked, so the bar never hides the mark — the one thing Insert on
+/// the last row changes.
+const fn cursor_colour(is_marked: bool) -> Color {
+    if is_marked {
+        palette::MARKED
+    } else {
+        palette::CURSOR_FG
+    }
 }
 
 /// A stripe with no entry left to show: nothing in it but the column rules.
@@ -532,24 +551,17 @@ fn panel_block(
 fn panel_title(panel: &Panel, interior: Cells, is_active: bool) -> Line<'static> {
     // Far highlights the active panel's path; an unhighlighted title is how
     // the inactive panel says so even when neither has a visible cursor bar.
-    let title_style = if is_active {
-        Style::default()
-            .fg(palette::HIGHLIGHT_FG)
-            .bg(palette::HIGHLIGHT_BG)
-    } else {
-        Style::default().fg(palette::FRAME).bg(FAR_BLUE)
-    };
+    let title_style = super::active_title_style(is_active);
 
     // Far's `*` before the path: the listing is not the whole directory.
     let filtered = if panel.filter.is_active() { "*" } else { "" };
-    Line::from(Span::styled(
-        format!(
-            " {filtered}{} ",
-            tail_cells(&crate::path_display::label(&panel.path), interior)
-        ),
-        title_style,
-    ))
-    .centered()
+    // The blanks around the path and the `*` share the frame's width with it.
+    // A title wider than the frame is cut by ratatui from its left end, which
+    // took the blank, the ellipsis and the first kept character with it and
+    // left a cut path reading as a relative one.
+    let room = interior.saturating_sub(Cells(2) + Cells::of(filtered));
+    let path = tail_cells(&crate::path_display::label(&panel.path), room);
+    Line::from(Span::styled(format!(" {filtered}{path} "), title_style)).centered()
 }
 
 pub(super) fn render_panel(
@@ -557,7 +569,7 @@ pub(super) fn render_panel(
     panel: &mut Panel,
     area: Rect,
     is_active: bool,
-    footer: Option<&str>,
+    footer: Option<&PathMessage<'_>>,
 ) {
     let border_style = if is_active {
         Style::default()
@@ -584,11 +596,14 @@ fn render_panel_contents(
     area: Rect,
     inner: Rect,
     is_active: bool,
-    footer: Option<&str>,
+    footer: Option<&PathMessage<'_>>,
     border_style: Style,
 ) {
     let Some(shown) = table_columns(panel.view) else {
         modes::render(f, panel, inner, is_active);
+        if inner.height >= PANEL_NON_ENTRY_ROWS {
+            selection::render(f, panel, divider_row(inner));
+        }
         render_panel_info(f, panel, inner, footer, &[]);
         return;
     };
@@ -610,20 +625,54 @@ fn render_panel_contents(
     };
     render_entries(f, panel, body, layout, is_active);
 
+    let divider = divider_row(inner);
+    render_column_rule(f, layout, area, divider, border_style);
+    selection::render(f, panel, divider);
+
+    render_panel_info(f, panel, inner, footer, &info_columns(shown));
+}
+
+/// The column rule on the `divider` row of a panel drawn in `area`.
+fn render_column_rule(f: &mut Frame, layout: PanelLayout, area: Rect, divider: Rect, style: Style) {
     // The rule spans `area`, not `inner`: its two ends are the frame cells the
     // block already drew, and overwriting them is what turns a floating dash
     // into a divider joined to the border.
     f.render_widget(
-        Paragraph::new(Line::from(Span::styled(column_rule(layout), border_style)))
+        Paragraph::new(Line::from(Span::styled(column_rule(layout), style)))
             .style(Style::default().bg(FAR_BLUE)),
         Rect {
-            y: inner.y + inner.height - PANEL_COLUMN_RULE - PANEL_INFO_ROW,
-            height: PANEL_COLUMN_RULE,
-            ..area
+            x: area.x,
+            width: area.width,
+            ..divider
         },
     );
+}
 
-    render_panel_info(f, panel, inner, footer, &info_columns(shown));
+/// The row between the entries and the info row: the column rule in the
+/// table views, blank in the detail views, and in both the place Far writes
+/// its selection summary.
+fn divider_row(inner: Rect) -> Rect {
+    Rect {
+        y: inner.y
+            + inner
+                .height
+                .saturating_sub(PANEL_COLUMN_RULE + PANEL_INFO_ROW),
+        height: PANEL_COLUMN_RULE,
+        ..inner
+    }
+}
+
+/// `value` with Far's thousands separators: `5,368,709,120`.
+fn group_digits(value: u64) -> String {
+    let digits = value.to_string();
+    let mut grouped = String::new();
+    for (index, digit) in digits.chars().enumerate() {
+        if index > 0 && (digits.len() - index).is_multiple_of(3) {
+            grouped.push(',');
+        }
+        grouped.push(digit);
+    }
+    grouped
 }
 
 fn render_entries(
@@ -687,13 +736,12 @@ fn body_line(
             spans.push(empty_cell(name, layout.columns));
             continue;
         };
-        let cell = entry_cell(panel, &panel.entries[index], name, layout.columns);
+        let entry = &panel.entries[index];
+        let cell = entry_cell(panel, entry, name, layout.columns);
         // The cursor covers its own stripe only, never the rule beside it.
         if cursor == Some(index) {
-            spans.extend(
-                cell.into_iter()
-                    .map(|span| span.patch_style(cursor_style())),
-            );
+            let style = cursor_style(panel.marked.contains(entry.name.as_str()));
+            spans.extend(cell.into_iter().map(|span| span.patch_style(style)));
         } else {
             spans.extend(cell);
         }
@@ -735,12 +783,14 @@ fn render_panel_info(
     f: &mut Frame,
     panel: &Panel,
     inner: Rect,
-    footer: Option<&str>,
+    footer: Option<&PathMessage<'_>>,
     details: &[PanelColumn],
 ) {
     let width = Cells::columns(inner.width);
     let text = match (footer, panel.get_selected_entry()) {
-        (Some(message), _) => head_cells(message, width),
+        (Some(message), _) => {
+            fit_quoting_path(&message.before, &message.path, &message.after, width)
+        }
         (None, Some(entry)) => info_text(entry, details, width),
         (None, None) => String::new(),
     };
@@ -776,15 +826,27 @@ fn info_text(entry: &DirEntry, details: &[PanelColumn], width: Cells) -> String 
     format!("{}{columns}", pad_cells(&head_cells(&shown, name), name))
 }
 
-/// What the active panel's info row says, when it is not just the entry name.
-pub(super) fn panel_footer(app: &App) -> Option<String> {
+/// What the active panel's info row says, when it is not just the entry name:
+/// the message, split around the path it quotes so a narrow row can shorten
+/// the path rather than lose the file name or the reason.
+pub(super) fn panel_footer(app: &App) -> Option<PathMessage<'static>> {
     if let Some(search) = app.quick_search.query() {
-        return Some(format!("Search: {search}_"));
+        return Some(PathMessage::from(format!("Search: {search}_")));
     }
+    let news = app.status_news()?;
     // Status lines quote file names — "Viewing x", "Saved x", a failed copy's
     // path — so the message gets the same treatment the name it replaces does.
-    app.status_news()
-        .map(|message| crate::ui::printable_name(&message).into_owned())
+    let printable = |text: &str| -> Cow<'static, str> {
+        Cow::Owned(crate::ui::printable_name(text).into_owned())
+    };
+    Some(app.status.path_message().map_or_else(
+        || PathMessage::from(crate::ui::printable_name(&news).into_owned()),
+        |message| PathMessage {
+            before: printable(&message.before),
+            path: printable(&message.path),
+            after: printable(&message.after),
+        },
+    ))
 }
 
 /// Which entries a panel body `rows` tall will actually show.
@@ -822,9 +884,17 @@ pub(super) fn visible_window(
 }
 
 #[cfg(test)]
+mod tests_cursor;
+#[cfg(test)]
 mod tests_header;
 #[cfg(test)]
+mod tests_selection;
+#[cfg(test)]
+mod tests_sizes;
+#[cfg(test)]
 mod tests_snapshot;
+#[cfg(test)]
+mod tests_title;
 #[cfg(test)]
 mod tests_views;
 #[cfg(test)]

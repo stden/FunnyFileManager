@@ -57,7 +57,7 @@ pub use archive::{
 pub use associations::AssociationList;
 pub use attributes::{
     format_time, AttributesDialog, AttributesField, Check, EntrySnapshot, Flag, FlagBox, FlagGroup,
-    InvalidTime, RequestedTimes,
+    InvalidTime, RequestedTimes, TimeField,
 };
 pub use bookmarks::{BookmarkSlot, Bookmarks, MAX_BOOKMARKS};
 pub use clipboard::ClipboardSlot;
@@ -69,9 +69,10 @@ use drive_entry::windows_drive_paths_from_mask;
 pub use drive_entry::DriveEntry;
 pub use drives::{find_by_key as drive_by_key, rows as drive_rows, DriveRow, RowKind};
 pub use editor::{
-    CharColumn, EditState, Editor, EditorMotion, EditorSelection, ExitChoice, FileFormat,
-    LineEnding, SelectionMode,
+    AfterSave, CharColumn, EditState, Editor, EditorMotion, EditorSelection, ExitChoice,
+    FileFormat, Fingerprint, Indent, LineEnding, OverwritePrompt, SelectionMode, TabSize,
 };
+pub(crate) use entry::divide_rounded;
 pub use entry::{Attributes, DirEntry, EntryKind, FileSize, Modified};
 pub use file_name::FileName;
 pub use filter::{FilterPrompt, PanelFilter};
@@ -100,7 +101,7 @@ pub use menu_dialog::{ChoiceTarget, MenuChoice, MenuDialog};
 pub mod settings;
 #[cfg(feature = "keepass")]
 pub use vault_browser::KdbxOverlay;
-pub use viewer::{Encoding, ViewSource, ViewedFile, Viewer};
+pub use viewer::{ViewSource, ViewedFile, Viewer};
 pub use viewport::{Viewport, FALLBACK_TERMINAL_HEIGHT};
 pub use wsl::{
     DistributionName, WslActivity, WslDialog, WslOperation, WslOutput, WslRequest, WslRequestId,

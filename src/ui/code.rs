@@ -11,9 +11,12 @@ use ratatui::{
     text::{Line, Span},
 };
 
+use std::borrow::Cow;
+
 use super::palette;
-use super::{skip_cells, take_cells, Cells};
+use super::{expand_tabs, skip_cells, take_cells, Cells};
 use crate::highlight::{Highlighter, Token};
+use crate::models::TabSize;
 
 pub(super) fn editor_window(
     editor: &crate::models::Editor,
@@ -30,7 +33,26 @@ pub(super) fn editor_window(
         .enumerate()
         .skip(top)
         .take(rows)
-        .map(|(index, line)| clip_runs(cache.runs(index, line), skip, width))
+        .map(|(index, line)| {
+            clip_runs(
+                drawn_runs(cache.runs(index, line), editor.tab_size),
+                skip,
+                width,
+            )
+        })
+        .collect()
+}
+
+/// `runs` as the editor draws them: every TAB widened to the next stop, the
+/// stops counted from the start of the line across the runs.
+fn drawn_runs(runs: Vec<(&str, Token)>, tab: TabSize) -> Vec<(Cow<'_, str>, Token)> {
+    let mut at = Cells::ZERO;
+    runs.into_iter()
+        .map(|(text, token)| {
+            let drawn = expand_tabs(text, at, tab);
+            at = at + Cells::of(&drawn);
+            (drawn, token)
+        })
         .collect()
 }
 
@@ -67,7 +89,11 @@ pub(super) fn token_style(token: Token) -> Style {
 /// rather than one string, so the window has to be walked across them —
 /// `Paragraph::scroll` would take the whole line or none of it, and slicing
 /// each span independently would drop the wrong ones.
-pub(super) fn clip_runs(runs: Vec<(&str, Token)>, skip: Cells, width: Cells) -> Line<'static> {
+pub(super) fn clip_runs<S: AsRef<str>>(
+    runs: Vec<(S, Token)>,
+    skip: Cells,
+    width: Cells,
+) -> Line<'static> {
     let mut spans = Vec::new();
     let mut to_skip = skip;
     let mut room = width;
@@ -76,6 +102,7 @@ pub(super) fn clip_runs(runs: Vec<(&str, Token)>, skip: Cells, width: Cells) -> 
         if room.is_zero() {
             break;
         }
+        let text = text.as_ref();
         let text = if to_skip.is_zero() {
             text
         } else {

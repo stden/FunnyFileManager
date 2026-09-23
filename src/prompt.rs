@@ -75,6 +75,18 @@ pub enum Privilege {
     Root,
 }
 
+impl Privilege {
+    /// The privilege of the process actually running.
+    #[must_use]
+    pub fn current() -> Self {
+        if crate::platform::is_root() {
+            Self::Root
+        } else {
+            Self::User
+        }
+    }
+}
+
 /// Who the prompt says you are, and on which machine.
 ///
 /// Passed in rather than read inside [`segments`] so the prompt can be tested
@@ -96,11 +108,7 @@ impl Identity {
         Self {
             user: user(),
             host: host(),
-            privilege: if is_root() {
-                Privilege::Root
-            } else {
-                Privilege::User
-            },
+            privilege: Privilege::current(),
         }
     }
 }
@@ -210,18 +218,6 @@ fn pick_host(file: Option<&str>, variable: Option<&str>) -> Option<String> {
         .map(str::trim)
         .find(|name| !name.is_empty())
         .map(ToOwned::to_owned)
-}
-
-/// Whether this process can overwrite anything, which is what `#` means.
-#[cfg(unix)]
-fn is_root() -> bool {
-    // SAFETY: `geteuid` takes no arguments, touches no memory and cannot fail.
-    unsafe { libc::geteuid() == 0 }
-}
-
-#[cfg(not(unix))]
-fn is_root() -> bool {
-    false
 }
 
 #[cfg(test)]

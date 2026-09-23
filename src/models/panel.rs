@@ -93,6 +93,7 @@ pub struct Panel {
     /// What was marked before the last change to `marked`, so Ctrl+M can put
     /// it back. Far calls it "restore selection", and it is what saves a user
     /// who has just typed the wrong mask over a careful hand-made selection.
+    /// Like `marked`, it only ever names entries of the current listing.
     previous_marks: BTreeSet<FileName>,
     pub sort_mode: SortMode,
     /// `-` on the sort menu: the chosen order, backwards.
@@ -135,18 +136,29 @@ impl Panel {
         entries.append(&mut listing.entries);
         self.entries = entries;
         self.metadata = listing.metadata;
-
-        if !self.marked.is_empty() {
-            let valid_names: HashSet<&str> = self
-                .entries
-                .iter()
-                .filter(|entry| entry.name != "..")
-                .map(|entry| entry.name.as_str())
-                .collect();
-            self.marked
-                .retain(|name| valid_names.contains(name.as_str()));
-        }
+        self.forget_unlisted_marks();
         self.select_after_reload(&previous);
+    }
+
+    /// Drop every selected or remembered name the listing no longer shows.
+    ///
+    /// Both sets hold bare names that F5 and F8 join onto `path`, so a name
+    /// that is not listed here names a file that is gone — or a namesake.
+    /// The remembered set is trimmed too: Ctrl+M swaps it back in, and a
+    /// deleted file must not come back as a mark that F8 then offers again.
+    fn forget_unlisted_marks(&mut self) {
+        if self.marked.is_empty() && self.previous_marks.is_empty() {
+            return;
+        }
+        let listed: HashSet<&str> = self
+            .entries
+            .iter()
+            .filter(|entry| entry.name != "..")
+            .map(|entry| entry.name.as_str())
+            .collect();
+        self.marked.retain(|name| listed.contains(name.as_str()));
+        self.previous_marks
+            .retain(|name| listed.contains(name.as_str()));
     }
 
     /// Commit navigation only after the target directory has been loaded.
@@ -159,7 +171,10 @@ impl Panel {
             self.navigation_history.remove(0);
         }
         self.path = path;
+        // Marks are names in the folder being left. A namesake in the new one
+        // is a different file, so neither set may follow the panel there.
         self.marked.clear();
+        self.previous_marks.clear();
         self.apply_listing(listing);
         self.ensure_selection();
     }
@@ -392,6 +407,14 @@ impl Panel {
             changed += usize::from(moved);
         }
         changed
+    }
+
+    /// `:mark all`: every entry joins the selection. Recorded first, like any
+    /// other bulk change, so Ctrl+M can take it back.
+    pub fn mark_all(&mut self) {
+        self.remember_marks();
+        let all: Vec<FileName> = self.markable().map(FileName::from).collect();
+        self.marked.extend(all);
     }
 
     /// Gray ∗: everything selected becomes unselected and the other way round.

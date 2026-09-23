@@ -12,7 +12,10 @@
 //! Directories recurse — their files are wiped, then each directory takes a
 //! temporary name and goes. Symlinks are unlinked and never followed, the
 //! rule F8 and the move fallback already keep: wiping through
-//! `logs -> /var/log` would zero the target's files.
+//! `logs -> /var/log` would zero the target's files. Pipes, sockets and
+//! devices are never opened: they only take the temporary name and go. A
+//! file with other hard links goes the same way, and the summary says so:
+//! its bytes belong to those names too.
 //!
 //! Reached from the Files menu row and from `Alt+Del`, both of which resolve
 //! to `MenuCommand::Wipe`; `ops::menu` hands that command here.
@@ -112,25 +115,31 @@ pub fn run(app: &mut App) {
     app.close_overlay();
 
     let mut count = 0;
+    let mut shared = 0;
     let mut errors = Vec::new();
     for path in &paths {
         match wipe_path(path) {
-            Ok(()) => count += 1,
+            Ok(kept) => {
+                count += 1;
+                shared += kept;
+            }
             Err(error) => errors.push(FailedEntry::new(path, &error)),
         }
     }
 
     app.get_active_panel().clear_marks();
-    app.set_status(summary(count, errors));
+    app.set_status(summary(count, shared, errors));
     // The entries are gone whatever the reload says; reporting a refresh
     // failure here would replace "Wiped" with an error about intact data
     // (the same reasoning as `ops::file::refresh_after_operation`).
     let _ = refresh_panels(app);
 }
 
-fn summary(count: usize, errors: Vec<FailedEntry>) -> Status {
+/// An error outranks the hard-link note: it is the news the user must act on.
+fn summary(count: usize, shared: usize, errors: Vec<FailedEntry>) -> Status {
     let error_count = errors.len();
     match errors.into_iter().next() {
+        None if shared > 0 => Status::WipedSharedFiles { count, shared },
         None => Status::Wiped { count },
         Some(first_error) => Status::WipedWithErrors {
             count,
@@ -142,24 +151,39 @@ fn summary(count: usize, errors: Vec<FailedEntry>) -> Status {
 
 /// Wipe one entry: a link is unlinked, a directory is emptied and then loses
 /// its name like a file does, a file goes through all four steps.
-pub fn wipe_path(path: &Path) -> io::Result<()> {
-    let kind = fs::symlink_metadata(path)?.file_type();
-    if kind.is_symlink() {
-        return fs::remove_file(path);
+///
+/// Only a regular file is opened for its zeros. A pipe, socket or device
+/// has no bytes of its own on this disk, and opening one to write blocks
+/// until a reader comes (a pipe), fails (a socket) or writes to the device
+/// itself — so those lose only their name. So does a file with other hard
+/// links: its bytes are theirs too, and zeroing them through this name
+/// would empty every other one.
+///
+/// Returns how many files were only unlinked for that last reason, so the
+/// summary can say their data is still on the disk.
+pub fn wipe_path(path: &Path) -> io::Result<usize> {
+    let metadata = fs::symlink_metadata(path)?;
+    if metadata.is_symlink() {
+        fs::remove_file(path)?;
+        return Ok(0);
     }
-    if kind.is_dir() {
-        wipe_children(path)?;
-        return rename_then_remove(path, Removal::Dir);
+    if metadata.is_dir() {
+        let shared = wipe_children(path)?;
+        rename_then_remove(path, Removal::Dir)?;
+        return Ok(shared);
     }
-    zero_fill(path)?;
-    rename_then_remove(path, Removal::File)
+    let shared = metadata.is_file() && crate::directory::link_count(&metadata) > 1;
+    if metadata.is_file() && !shared {
+        zero_fill(path)?;
+    }
+    rename_then_remove(path, Removal::File)?;
+    Ok(usize::from(shared))
 }
 
-fn wipe_children(dir: &Path) -> io::Result<()> {
-    for entry in fs::read_dir(dir)? {
-        wipe_path(&entry?.path())?;
-    }
-    Ok(())
+fn wipe_children(dir: &Path) -> io::Result<usize> {
+    fs::read_dir(dir)?
+        .map(|entry| wipe_path(&entry?.path()))
+        .sum()
 }
 
 /// Steps one and two: zeros over every byte, then no bytes at all. Each

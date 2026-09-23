@@ -28,10 +28,10 @@ impl DescribePrompt {
     /// editing a description is not retyping it. The caret starts at the end,
     /// where a user who wants to add a word expects it.
     #[must_use]
-    pub fn new(name: String, text: String, pending: Vec<String>) -> Self {
+    pub fn new(name: String, text: &str, pending: Vec<String>) -> Self {
         Self {
             name,
-            text: LineEditor::new(&text),
+            text: LineEditor::new(text),
             pending,
             on_cancel: false,
         }

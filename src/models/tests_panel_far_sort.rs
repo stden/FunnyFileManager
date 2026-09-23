@@ -60,6 +60,25 @@ fn descriptions_sort_by_text_with_undescribed_rows_first() -> io::Result<()> {
     Ok(())
 }
 
+/// Far treats the description file's name without regard to letter case, so
+/// a lowercase `descript.ion` orders the rows on a case-sensitive filesystem
+/// just as `Descript.ion` does.
+#[test]
+fn descriptions_sort_reads_a_lowercase_description_file() -> io::Result<()> {
+    let temp = populated()?;
+    fs::remove_file(temp.path().join("Descript.ion"))?;
+    fs::write(
+        temp.path().join("descript.ion"),
+        "mid.txt Zulu\nnew.txt alpha\n",
+    )?;
+    let panel = sorted(&temp, SortMode::Descriptions, false)?;
+    assert_eq!(
+        file_names(&panel),
+        ["descript.ion", "old.txt", "new.txt", "mid.txt"]
+    );
+    Ok(())
+}
+
 #[test]
 fn reversal_turns_each_group_around_but_keeps_directories_on_top() -> io::Result<()> {
     let temp = populated()?;

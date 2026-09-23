@@ -113,3 +113,44 @@ fn runs_of_stars_behave_like_one() {
 fn case_folding_is_not_ascii_only() {
     assert!(Mask::parse("ОТЧЁТ*").matches("отчёт-2026.txt"));
 }
+
+const SEPARATED: [&str; 4] = ["semi;colon", "comma,name", "with space.txt", "plain.txt"];
+
+/// Far: "It is allowed to put any of the masks in quotes but not the whole
+/// list" — the way to name a file whose name holds a separator.
+#[test]
+fn a_quoted_mask_takes_its_separators_literally() {
+    assert_eq!(hits("\"semi;colon\"", &SEPARATED), vec!["semi;colon"]);
+    assert_eq!(hits("\"comma,name\"", &SEPARATED), vec!["comma,name"]);
+    assert_eq!(
+        hits("\"with space.txt\"", &SEPARATED),
+        vec!["with space.txt"]
+    );
+}
+
+/// Quotes wrap one mask of a list; the others still split and still glob.
+#[test]
+fn quoted_and_plain_masks_mix_in_one_list() {
+    assert_eq!(
+        hits("\"semi;*\", plain.*", &SEPARATED),
+        vec!["semi;colon", "plain.txt"]
+    );
+    assert_eq!(
+        hits("*|\"comma,name\";*.txt", &SEPARATED),
+        vec!["semi;colon"]
+    );
+}
+
+/// A bar inside quotes is part of the name, not the start of the exclusions.
+#[test]
+fn a_quoted_bar_does_not_start_the_exclusions() {
+    assert!(Mask::parse("\"a|b\"").matches("a|b"));
+    assert!(!Mask::parse("\"a|b\"").matches("a"));
+}
+
+/// Blanks inside the quotes are the name's own; the ones around them are not.
+#[test]
+fn only_the_blanks_outside_the_quotes_are_trimmed() {
+    assert!(Mask::parse("  \" padded \"  ").matches(" padded "));
+    assert!(!Mask::parse("  \" padded \"  ").matches("padded"));
+}

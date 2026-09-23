@@ -213,15 +213,31 @@ pub fn printable(line: &str) -> String {
     out
 }
 
+/// The first of `lines` that still shows something once made [`printable`].
+///
+/// A line of nothing but escapes (`tput sgr0`) or blanks says nothing, so a
+/// one-line summary of some output skips it. Pass `lines().rev()` for the
+/// last such line.
+pub fn first_drawable<'a>(lines: impl Iterator<Item = &'a str>) -> Option<String> {
+    lines.map(printable).find(|line| !line.trim().is_empty())
+}
+
 /// Consume the rest of an escape sequence that `ESC` just opened.
 ///
 /// Enough of ANSI to swallow what real commands emit: `CSI` (`ESC [ … final`)
 /// covers colours and cursor moves, `OSC` (`ESC ] … BEL` or `ST`) covers window
-/// titles, and anything else is a two-character sequence. An unterminated
-/// sequence — output cut off by the shell timeout — swallows the rest of the
-/// line, which is better than printing half of it as noise.
+/// titles, ECMA-35 sequences (`ESC`, intermediates, final) cover character-set
+/// switches such as `ESC ( B`, and anything else is a two-character sequence.
+/// An unterminated sequence — output cut off by the shell timeout — swallows
+/// the rest of the line, which is better than printing half of it as noise.
 fn skip_escape(chars: &mut std::iter::Peekable<std::str::Chars>) {
     match chars.next() {
+        // `ESC ( B` from `tput sgr0` and every ncurses program, `ESC # 8`,
+        // `ESC % G`: any number of intermediates, then exactly one final byte.
+        Some(ch) if is_intermediate(ch) => {
+            while chars.next_if(|&next| is_intermediate(next)).is_some() {}
+            chars.next();
+        }
         Some('[') => {
             // Parameters and intermediates, then one final byte in `@`..=`~`.
             for ch in chars.by_ref() {
@@ -245,6 +261,11 @@ fn skip_escape(chars: &mut std::iter::Peekable<std::str::Chars>) {
         // A two-character sequence (`ESC c`, `ESC =`, …): already consumed.
         _ => {}
     }
+}
+
+/// An ECMA-35 intermediate byte: space through `/`.
+fn is_intermediate(ch: char) -> bool {
+    ('\u{20}'..='\u{2f}').contains(&ch)
 }
 
 #[cfg(test)]

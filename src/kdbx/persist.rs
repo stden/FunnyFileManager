@@ -175,6 +175,9 @@ fn save_error_message(error: &KeepassError) -> String {
     match error {
         KeepassError::EntryNotFound => "Entry no longer exists in the vault".to_owned(),
         KeepassError::AlreadyExists => "An entry with that title already exists".to_owned(),
+        KeepassError::Io(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+            "The vault file is read-only for you: nothing was saved".to_owned()
+        }
         other => other.to_string(),
     }
 }

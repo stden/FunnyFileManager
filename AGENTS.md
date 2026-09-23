@@ -54,6 +54,7 @@ See `docs/knowledge-base/03-rust-best-practices/type-system.md` for details and 
 - `src/handlers/mod.rs`: Backward-compatible re-exports; no operation implementation.
 - `src/terminal.rs`: RAII lifecycle for the TUI session and external-editor suspension.
 - `src/utils.rs`: Utility functions (`format_size`, `unique_destination`, `copy_dir_all`).
+- `src/platform.rs`: Safe wrappers for OS calls std lacks (uids, write access, process-group kill, Windows drives and attributes).
 - `src/editor.rs`: Built-in F4 editor opening and external Alt+F4 integration.
 - `src/s3.rs`: AWS S3 integration.
 - `src/keepass.rs`: Optional KeePass backend (`--features keepass`).
@@ -290,12 +291,12 @@ the **sibling file**, `src/action/editor.rs`. A directory holding nothing but
   `test_support/`, and test aggregators under them) are deliberate: each is a
   façade whose whole job is re-exporting a subsystem, so "the directory" *is*
   the unit. Leave them.
-- **Moving any module file breaks the architecture test.**
-  `tests/module_boundaries_test.rs` asserts against exact paths —
-  `src/handlers/mod.rs` (twice), `src/handlers/dispatch.rs`, `src/editor.rs`,
-  `src/bootstrap.rs` and others — and reads them with `expect("read facade")`,
-  so a rename panics rather than failing with a useful message. Renaming a
-  module is therefore a two-file change: the file and that test.
+- **Moving some module files breaks the architecture test.**
+  `tests/module_boundaries_test.rs` names exact paths: `src/bootstrap.rs`,
+  `src/editor.rs`, `src/lib.rs`, the canonical owners under `src/ops/`, the
+  removed `src/handlers/*` files and the MCP modules. A moved file fails with
+  `<path> is not in the source set` or a wrong-owner message. Renaming one of
+  them is therefore a two-file change: the file and that test.
 - Either form is otherwise a pure file-placement choice: `git mv foo.rs
   foo/mod.rs` changes no module path, no `use`, no public API. Because nothing
   observable changes, converting one module in isolation buys nothing and
@@ -307,9 +308,12 @@ the **sibling file**, `src/action/editor.rs`. A directory holding nothing but
 - Unit tests live beside the code in `<module>/tests*.rs` child modules,
   never inline `mod tests {}` blocks in a production file.
 - Ownership is one-directional: `ui` and `action` never touch `std::fs`,
-  `std::process`, `ops`, `directory`, `popup`, `editor`, `terminal` or
-  `handlers` (`tests/module_boundaries_test.rs`). `popup` calls `ops`, never
-  `handlers`. Each `Overlay` variant is wired `ops::<f>::open` →
+  `std::process`, `std::net`, `ops`, `directory`, `popup`, `editor`,
+  `terminal`, `handlers` or the event loop; `models` never reaches up into
+  them either. `popup` calls `ops`, never `handlers`. The full rule list and
+  the checker's limits are in
+  `docs/knowledge-base/02-architecture/module-structure.md` ("Architecture
+  checks"). Each `Overlay` variant is wired `ops::<f>::open` →
   `popup::<f>::process` → `ui::<f>::render`.
 - Every file starts with a `//! Purpose:` line saying what it owns and, when
   the answer is not obvious, why it is a separate file.
@@ -354,8 +358,9 @@ the **sibling file**, `src/action/editor.rs`. A directory holding nothing but
 
 ### Unsafe and Platform Code
 
-- No `unsafe` outside `colorer-sys`, `windows.rs` and `terminal.rs`; each
-  block carries a `// SAFETY:` comment stating the invariant.
+- `unsafe_code` is denied: an item opts in with `#[allow(unsafe_code)]` only in the
+  files `tests/unsafe_boundary_test.rs` allowlists (never models, ui, action, popup,
+  command); each block carries a `// SAFETY:` comment. Prefer `src/platform`.
 - Platform branches are `#[cfg(windows)]` / `#[cfg(unix)]` functions with
   the same signature, chosen at the call site — not `if cfg!()` inside one
   function.
@@ -438,7 +443,7 @@ what each buys, is in `docs/knowledge-base/03-rust-best-practices/type-system.md
 - Filesystem isolation via `tempfile::TempDir`.
 - **Fault-injection points**: cfg-gated in-memory controls `FORCE_RENAME_FAILURE` (move fallback), `FORCE_COPY_DIR_ALL_STEP` (recursive-copy steps), and `FORCE_REFRESH_ERROR` (panel refresh). They are not environment variables.
 - Logging tests pass explicit paths inside their own temporary directories; do not change process-wide `cwd` to redirect logs.
-- Coverage: `cargo tarpaulin --out Html --output-dir coverage`. Mutation testing: `cargo mutants` (`.cargo-mutants.toml`).
+- Coverage: `cargo tarpaulin --out Html --output-dir coverage`. Mutation testing: `cargo mutants` (`.cargo/mutants.toml`, read automatically; runs tests with `cargo-nextest`).
 
 ## Dependencies
 

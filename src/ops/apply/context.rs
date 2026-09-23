@@ -120,6 +120,7 @@ fn drive(path: &Path) -> String {
 mod tests;
 
 #[cfg(windows)]
+#[allow(unsafe_code)]
 pub(super) fn short_path(path: &Path) -> PathBuf {
     use std::os::windows::ffi::{OsStrExt, OsStringExt};
     use windows_sys::Win32::Storage::FileSystem::GetShortPathNameW;

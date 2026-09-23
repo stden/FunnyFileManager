@@ -102,12 +102,7 @@ fn empty_definition_targets_keep_the_configured_encoding() {
     app.settings
         .set(crate::menu::SettingsPage::CodePages, "Windows-1251")
         .unwrap();
-    let expected = crate::editor::editor_for(
-        &app,
-        target.path.clone(),
-        "",
-        crate::encoding::TextEncoding::Utf8,
-    );
+    let expected = crate::editor::editor_for(&app, target.path.clone(), b"").unwrap();
     assert_eq!(
         expected.format.encoding,
         crate::encoding::TextEncoding::Windows1251

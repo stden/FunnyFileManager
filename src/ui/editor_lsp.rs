@@ -1,6 +1,6 @@
 //! Purpose: Render language-server popups, diagnostic ranges, and compact editor feedback.
 
-use super::{cells_before, skip_cells, Cells};
+use super::{screen_u16, Cells, EditorLine};
 use crate::lsp::{features::Diagnostic, positions};
 use crate::models::{lsp::Dialog, CharColumn, Editor, ServerState};
 use ratatui::{
@@ -75,7 +75,7 @@ fn contents(dialog: &Dialog) -> (&'static str, String, u16) {
     match dialog {
         Dialog::Trust { root, allow } => (
             " Language-server workspace trust ",
-            format!("The language server can execute this project's build scripts and macros.\n\n{}\n\n{} Keep LSP disabled\n{} Trust for this FFM session\n\nUp/Down selects; Enter confirms; Esc cancels.",
+            format!("The language server can execute this project's build scripts and macros.\nMissing servers with an install recipe are downloaded automatically.\n\n{}\n\n{} Keep LSP disabled\n{} Trust for this FFM session\n\nUp/Down selects; Enter confirms; Esc cancels.",
                 crate::path_display::label(root), marker(usize::from(*allow), 0), marker(usize::from(*allow), 1)),
             0,
         ),
@@ -155,11 +155,15 @@ pub(super) fn diagnostics(frame: &mut Frame, editor: &Editor, area: Rect, top: u
             .skip(top)
             .take(usize::from(area.height))
         {
+            let line = EditorLine {
+                text: line,
+                tab: editor.tab_size,
+            };
             if let Some(columns) = diagnostic_columns(diagnostic, row, line, skip, area.width) {
                 paint(
                     frame,
                     area.x,
-                    area.y + (row - top) as u16,
+                    area.y.saturating_add(screen_u16(row - top)),
                     columns,
                     diagnostic.severity,
                 );
@@ -171,7 +175,7 @@ pub(super) fn diagnostics(frame: &mut Frame, editor: &Editor, area: Rect, top: u
 fn diagnostic_columns(
     diagnostic: &Diagnostic,
     row: usize,
-    line: &str,
+    line: EditorLine<'_>,
     skip: Cells,
     width: u16,
 ) -> Option<std::ops::Range<usize>> {
@@ -180,18 +184,20 @@ fn diagnostic_columns(
         return None;
     }
     let first = if row == range.start.line as usize {
-        positions::to_chars(line, range.start.character)?
+        positions::to_chars(line.text, range.start.character)?
     } else {
         0
     };
     let last = if row == range.end.line as usize {
-        positions::to_chars(line, range.end.character)?
+        positions::to_chars(line.text, range.end.character)?
     } else {
-        line.chars().count()
+        line.text.chars().count()
     };
-    let dropped = skip_cells(line, skip).1;
-    let start = cells_before(line, CharColumn::new(first));
-    let end = cells_before(line, CharColumn::new(last)).max(start + Cells::new(1));
+    let dropped = line.dropped(skip);
+    let start = line.cells_before(CharColumn::new(first));
+    let end = line
+        .cells_before(CharColumn::new(last))
+        .max(start + Cells::new(1));
     if end <= dropped {
         return None;
     }
@@ -217,7 +223,7 @@ fn paint(
         .fg(color)
         .add_modifier(Modifier::UNDERLINED);
     for column in columns {
-        frame.buffer_mut()[(x + column as u16, y)].set_style(style);
+        frame.buffer_mut()[(x.saturating_add(screen_u16(column)), y)].set_style(style);
     }
 }
 

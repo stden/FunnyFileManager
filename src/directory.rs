@@ -76,14 +76,14 @@ impl Context {
 
 /// `st_nlink`; other platforms report every entry as singly linked.
 #[cfg(unix)]
-fn link_count(metadata: &fs::Metadata) -> u32 {
+pub fn link_count(metadata: &fs::Metadata) -> u32 {
     use std::os::unix::fs::MetadataExt;
 
     u32::try_from(metadata.nlink()).unwrap_or(u32::MAX)
 }
 
 #[cfg(not(unix))]
-fn link_count(_metadata: &fs::Metadata) -> u32 {
+pub fn link_count(_metadata: &fs::Metadata) -> u32 {
     1
 }
 
@@ -115,6 +115,14 @@ fn read_parent(path: &Path, metadata: &mut PanelMetadata) -> Option<DirEntry> {
             ..DirEntry::default()
         }
     })
+}
+
+/// The closest folder at or above `path` that still exists.
+///
+/// Where a panel goes when its own folder has been deleted under it, as Far's
+/// does: walking up one level is not enough when the parent went too.
+pub fn nearest_existing(path: &Path) -> Option<&Path> {
+    path.ancestors().find(|folder| folder.is_dir())
 }
 
 /// A symlink behaves like its target while retaining its identity as a link.

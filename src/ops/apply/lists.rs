@@ -64,11 +64,22 @@ fn encode(text: &str, encoding: ListEncoding) -> io::Result<Vec<u8>> {
     match encoding {
         ListEncoding::Utf8 => Ok(text.as_bytes().to_vec()),
         ListEncoding::Utf16 => Ok(text.encode_utf16().flat_map(u16::to_le_bytes).collect()),
-        #[cfg(windows)]
-        ListEncoding::Oem | ListEncoding::Ansi => native_encode(text, encoding),
-        #[cfg(not(windows))]
-        ListEncoding::Oem | ListEncoding::Ansi => Ok(text.as_bytes().to_vec()),
+        ListEncoding::Oem | ListEncoding::Ansi => legacy_bytes(text, encoding),
     }
+}
+
+#[cfg(windows)]
+fn legacy_bytes(text: &str, encoding: ListEncoding) -> io::Result<Vec<u8>> {
+    native_encode(text, encoding)
+}
+
+#[cfg(not(windows))]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "shares the Windows signature, where the code-page conversion can fail"
+)]
+fn legacy_bytes(text: &str, _encoding: ListEncoding) -> io::Result<Vec<u8>> {
+    Ok(text.as_bytes().to_vec())
 }
 
 #[cfg(windows)]
@@ -91,6 +102,7 @@ fn native_encode(text: &str, encoding: ListEncoding) -> io::Result<Vec<u8>> {
 }
 
 #[cfg(windows)]
+#[allow(unsafe_code)]
 fn native_convert(wide: &[u16], code_page: u32, bytes: &mut [u8]) -> io::Result<usize> {
     use windows_sys::Win32::Globalization::WideCharToMultiByte;
     let length = i32::try_from(wide.len()).map_err(io::Error::other)?;
@@ -116,7 +128,7 @@ fn native_convert(wide: &[u16], code_page: u32, bytes: &mut [u8]) -> io::Result<
     if written == 0 {
         return Err(io::Error::last_os_error());
     }
-    Ok(written as usize)
+    usize::try_from(written).map_err(io::Error::other)
 }
 
 #[cfg(test)]

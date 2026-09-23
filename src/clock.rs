@@ -11,14 +11,35 @@
 //! quietly showed UTC.
 
 use chrono::{Local, Timelike};
+#[cfg(test)]
+use std::cell::Cell;
 
 /// Seconds in an hour and a minute.
 const HOUR: u32 = 3_600;
 const MINUTE: u32 = 60;
 
+#[cfg(test)]
+thread_local! {
+    /// The time unit tests read, in seconds since midnight: noon, standing
+    /// still unless a test moves it. The event loop redraws when the minute
+    /// turns over, and a minute that happened to turn over mid-test would
+    /// add a frame to every test that counts them. `None` reads the real clock.
+    static TEST_TIME: Cell<Option<u64>> = const { Cell::new(Some(12 * 3_600)) };
+}
+
+/// Set the time [`now`] reads on this test's thread; `None` for the real clock.
+#[cfg(test)]
+pub(crate) fn set_test_time(since_midnight: Option<u64>) {
+    TEST_TIME.with(|time| time.set(since_midnight));
+}
+
 /// The current local time as Far writes it: `11:43 PM`.
 #[must_use]
 pub fn now() -> String {
+    #[cfg(test)]
+    if let Some(frozen) = TEST_TIME.with(Cell::get) {
+        return format(frozen);
+    }
     format(u64::from(Local::now().num_seconds_from_midnight()))
 }
 

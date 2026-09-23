@@ -16,6 +16,25 @@ pub mod settings;
 pub mod user;
 mod workflows;
 
+/// Run the row under the cursor of `menu`, as Enter, its letter or a click
+/// does.
+///
+/// The Left and Right menus act on their own side, but the keys behind their
+/// rows — Ctrl+L, Ctrl+R, Alt+F1/F2 — follow the active panel, so choosing
+/// one of those rows makes that panel active first. A hidden panel (Ctrl+F1 /
+/// Ctrl+F2) is the exception: its "Panel On/Off" row still runs, but the
+/// cursor stays on the panel that is on screen.
+pub fn activate_row(app: &mut App, menu: crate::menu::Menu) {
+    let Some(entry) = menu.entry().copied() else {
+        app.close_overlay();
+        return;
+    };
+    if let Some(side) = menu.heading.side() {
+        app.select_panel(side);
+    }
+    activate(app, entry);
+}
+
 pub fn activate(app: &mut App, entry: crate::menu::Entry) {
     app.close_overlay();
     if let Some(command) = entry.menu_command() {
@@ -86,6 +105,10 @@ fn execute_tools(app: &mut App, command: MenuCommand) -> io::Result<()> {
             super::packages::open(app);
             Ok(())
         }
+        MenuCommand::LanguageServers => {
+            super::lsp_status::open(app);
+            Ok(())
+        }
         MenuCommand::UserMenu | MenuCommand::Associations => user::edit(app, command),
         _ => Err(io::Error::other("Unknown tool")),
     }
@@ -113,10 +136,22 @@ pub fn choose(app: &mut App, target: ChoiceTarget) -> io::Result<()> {
     Ok(())
 }
 
+/// Alt+F7: the dialog has a mask and a containing-text field. The menu prompt
+/// has only the mask and calls [`submit`].
+pub fn find_files(app: &mut App, mask: &str, containing: &str) {
+    search::find(app, mask, false, containing);
+}
+
 pub fn submit(app: &mut App, command: MenuCommand, text: &str) -> io::Result<()> {
     match command {
-        MenuCommand::FindFile => search::find(app, text, false),
-        MenuCommand::FindFolder => search::find(app, text, true),
+        MenuCommand::FindFile => {
+            search::find(app, text, false, "");
+            Ok(())
+        }
+        MenuCommand::FindFolder => {
+            search::find(app, text, true, "");
+            Ok(())
+        }
         MenuCommand::Settings(page) => settings::submit(app, page, text),
         MenuCommand::Filter => workflows::filter(app, text),
 

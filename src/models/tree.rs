@@ -305,7 +305,7 @@ impl FolderTree {
     }
 
     /// Up to the row this folder hangs off. `false` on the root.
-    pub fn to_parent(&mut self) -> bool {
+    pub fn move_to_parent(&mut self) -> bool {
         let Some(parent) = self
             .selected()
             .and_then(Path::parent)
@@ -317,7 +317,7 @@ impl FolderTree {
     }
 
     /// Down to the first subfolder on screen. `false` unless the row is expanded.
-    pub fn to_first_child(&mut self) -> bool {
+    pub fn move_to_first_child(&mut self) -> bool {
         let Some(row) = self.selected_row() else {
             return false;
         };

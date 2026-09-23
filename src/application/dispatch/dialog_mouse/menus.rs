@@ -92,9 +92,7 @@ pub(super) fn click_in_menu(app: &mut App, menu: menu::Menu, column: u16, row: u
     if let Some(chosen) = crate::ui::menu_row_at(&menu, screen, column, row) {
         let mut menu = menu;
         menu.row = chosen;
-        if let Some(entry) = menu.entry().copied() {
-            crate::ops::menu::activate(app, entry);
-        }
+        crate::ops::menu::activate_row(app, menu);
         return;
     }
     // Anywhere else closes it, which is what clicking away from an open menu

@@ -11,7 +11,7 @@ use ratatui::{
 use super::code::editor_window;
 use super::dialog;
 use super::palette;
-use super::{cells_before, centered_rect, far_block, head_cells, skip_cells, Cells, FAR_BLUE};
+use super::{centered_rect, far_block, head_cells, screen_u16, Cells, EditorLine, FAR_BLUE};
 use crate::models::{App, ExitChoice, Overlay};
 use crate::search::SearchPrompt;
 
@@ -112,16 +112,25 @@ fn information_lines(stats: &crate::stats::DirectoryStats) -> Vec<Info> {
     use super::panel::abbreviate_bytes;
     use crate::stats::Coverage;
 
+    // No totals at all for a folder that could not be read: its zeros would
+    // read as an empty folder.
+    if let Coverage::Unreadable(reason) = &stats.coverage {
+        return vec![Info::Summary(format!("Cannot read this folder: {reason}"))];
+    }
     let mut lines = vec![Info::Summary(format!(
         "{} in {} files, {} folders",
         abbreviate_bytes(stats.total.bytes()),
         stats.files,
         stats.directories
     ))];
-    if stats.coverage == Coverage::Partial {
-        lines.push(Info::Summary(
+    match stats.coverage {
+        Coverage::Partial => lines.push(Info::Summary(
             "measured to the walk limit — totals are lower bounds".to_owned(),
-        ));
+        )),
+        Coverage::Unread(folders) => lines.push(Info::Summary(format!(
+            "{folders} folder(s) could not be read — totals are lower bounds"
+        ))),
+        Coverage::Complete | Coverage::Unreadable(_) => {}
     }
 
     append_information_sections(&mut lines, stats);
@@ -391,7 +400,11 @@ fn render_editor(
         .lines
         .get(editor.cursor_line)
         .map_or("", String::as_str);
-    let cursor_cell = cells_before(cursor_line_text, editor.cursor_column());
+    let cursor_line = EditorLine {
+        text: cursor_line_text,
+        tab: editor.tab_size,
+    };
+    let cursor_cell = cursor_line.cells_before(editor.cursor_column());
     let scroll_x = cursor_cell.saturating_sub(inner_w.saturating_sub(Cells::new(1)));
 
     render_editor_bar(f, editor, area, cursor_line_text);
@@ -402,9 +415,12 @@ fn render_editor(
         // Position against the cells actually dropped, not against
         // `scroll_x`: a double-width glyph straddling the cut is
         // dropped whole, so the two can differ by one.
-        let dropped = skip_cells(cursor_line_text, scroll_x).1;
-        let cursor_x = area.x + cursor_cell.saturating_sub(dropped).get() as u16;
-        let cursor_y = area.y + EDITOR_BAR_HEIGHT + (editor.cursor_line - scroll_y) as u16;
+        let dropped = cursor_line.dropped(scroll_x);
+        let cursor_x = area
+            .x
+            .saturating_add(screen_u16(cursor_cell.saturating_sub(dropped).get()));
+        let cursor_y =
+            (area.y + EDITOR_BAR_HEIGHT).saturating_add(screen_u16(editor.cursor_line - scroll_y));
         f.set_cursor_position((cursor_x, cursor_y));
     }
 }
@@ -432,8 +448,22 @@ fn render_mask_prompt(
             dialog::Button::new("&Cancel").focused(prompt.on_cancel()),
         ],
     ) {
-        f.set_cursor_position((x, y));
+        if prompt.is_offered() {
+            select_field_text(f, prompt.mask(), x, y);
+        }
+        f.set_cursor_position((super::describe::caret_column(x, prompt.after_caret()), y));
     }
+}
+
+/// Draw `text`, which ends at the caret, as a selection: Far shows an offered
+/// mask selected, and that is what tells the user typing will replace it.
+fn select_field_text(f: &mut Frame, text: &str, end: u16, y: u16) {
+    let width = u16::try_from(Cells::of(text).get()).unwrap_or(u16::MAX);
+    let cells = Rect::new(end.saturating_sub(width), y, width, 1).intersection(f.area());
+    let selected = Style::default()
+        .bg(palette::FIELD_SELECTED_BG)
+        .fg(palette::FIELD_SELECTED_FG);
+    f.buffer_mut().set_style(cells, selected);
 }
 
 fn render_quit_confirm(
@@ -468,12 +498,12 @@ fn render_delete_confirm(
         1 => "Do you wish to delete the file?".to_owned(),
         count => format!("Do you wish to delete {count} items?"),
     }];
-    message.extend(files.iter().take(DELETE_PREVIEW).map(|path| {
-        path.file_name().map_or_else(
-            || crate::ui::printable_name(&path.display().to_string()).into_owned(),
-            |name| crate::ui::printable_name(&name.to_string_lossy()).into_owned(),
-        )
-    }));
+    message.extend(
+        files
+            .iter()
+            .take(DELETE_PREVIEW)
+            .map(|path| super::entry_label(path)),
+    );
     if files.len() > DELETE_PREVIEW {
         message.push(format!("… and {} more", files.len() - DELETE_PREVIEW));
     }
@@ -540,10 +570,35 @@ fn render_editor_dialog(
                 dialog::Button::new("Cancel").focused(choice == ExitChoice::Cancel),
             ],
         );
+    } else if let Some(prompt) = editor.state.overwrite_prompt() {
+        render_overwrite_prompt(f, tracker, prompt.answer);
     } else {
         return super::editor_lsp::popup(f, editor);
     }
     true
+}
+
+/// A save found another program's write: say so before replacing it.
+fn render_overwrite_prompt(
+    f: &mut Frame,
+    tracker: &mut crate::mouse::DialogMouse,
+    answer: crate::models::Confirm,
+) {
+    dialog::render_warning(
+        f,
+        tracker,
+        "Editor",
+        &[
+            "The file was changed by another program".to_owned(),
+            "after it was opened. Overwrite it?".to_owned(),
+        ],
+        &[
+            dialog::Button::new("Overwrite").focused(answer.is_yes()),
+            dialog::Button::new("Cancel")
+                .default_button()
+                .focused(!answer.is_yes()),
+        ],
+    );
 }
 
 /// Far's Make folder dialog (F7), and its Rename box (Shift+F6).

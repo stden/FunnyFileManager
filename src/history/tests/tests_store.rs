@@ -89,3 +89,37 @@ fn default_history_never_persists() {
         );
     });
 }
+
+/// Two ffm windows share one history file. Each save used to rewrite the file
+/// from that window's own memory, so the other window's lines vanished.
+#[test]
+fn two_running_instances_keep_each_others_lines() {
+    with_xdg(|xdg| {
+        let mut first = History::load();
+        let mut second = History::load();
+        first.record("sort size");
+        second.record("sort name");
+        first.record("pwd");
+
+        let on_disk = fs::read_to_string(xdg.join("ffm/history")).expect("file");
+        assert_eq!(on_disk, "sort size\nsort name\npwd\n");
+    });
+}
+
+/// Merging must not bring back what the other instance's save let fall off
+/// or deduplicated: the file on disk is the starting point, not this
+/// instance's memory of it.
+#[test]
+fn merging_keeps_the_newest_copy_of_a_repeated_line() {
+    with_xdg(|xdg| {
+        let mut first = History::load();
+        let mut second = History::load();
+        first.record("cd /a");
+        second.record("pwd");
+        second.record("cd /a");
+        first.record("sort size");
+
+        let on_disk = fs::read_to_string(xdg.join("ffm/history")).expect("file");
+        assert_eq!(on_disk, "pwd\ncd /a\nsort size\n");
+    });
+}

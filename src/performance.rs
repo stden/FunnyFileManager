@@ -10,7 +10,9 @@ pub struct Performance {
 
 #[derive(Debug, Clone, Default)]
 struct Totals {
-    count: u64,
+    /// Saturates at `u32::MAX`: four billion waits outlast any session, and a
+    /// `u32` converts to `f64` exactly for the mean.
+    count: u32,
     total: Duration,
     maximum: Duration,
     render: Duration,
@@ -19,7 +21,7 @@ struct Totals {
 #[derive(Debug, Serialize)]
 struct Row<'a> {
     action: &'a str,
-    count: u64,
+    count: u32,
     total_ms: f64,
     mean_ms: f64,
     max_ms: f64,
@@ -44,7 +46,7 @@ impl Performance {
                 action,
                 count: stats.count,
                 total_ms: millis(stats.total),
-                mean_ms: millis(stats.total) / stats.count as f64,
+                mean_ms: millis(stats.total) / f64::from(stats.count),
                 max_ms: millis(stats.maximum),
                 render_ms: millis(stats.render),
             })

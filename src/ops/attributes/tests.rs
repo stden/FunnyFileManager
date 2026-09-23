@@ -79,7 +79,7 @@ fn open_reads_the_entry_under_the_cursor() {
         .and_then(|e| e.owner.clone());
     assert_eq!(dialog.owner, expected_owner.unwrap_or_default());
     assert!(!dialog.group.is_empty(), "the group resolves on Unix");
-    assert!(!dialog.modified.is_empty(), "one file offers its own time");
+    assert!(!dialog.modified.current.is_empty(), "its own time");
     let group_write = dialog
         .flags
         .iter()
@@ -137,7 +137,7 @@ fn open_keeps_an_unreadable_target_with_nothing_set() {
         .flags
         .iter()
         .all(|it| it.current == crate::models::Check::Clear));
-    assert!(dialog.owner.is_empty() && dialog.modified.is_empty());
+    assert!(dialog.owner.is_empty() && dialog.modified.current.is_empty());
 }
 
 /// On `..` the dialog is for the folder itself, as Far's is.
@@ -222,6 +222,191 @@ fn process_subfolders_recurses_and_its_absence_does_not() {
     assert_eq!(mode(&deeper), 0o646);
 }
 
+#[cfg(unix)]
+fn set_mtime(path: &Path, text: &str) {
+    let time = chrono::NaiveDateTime::parse_from_str(text, "%Y-%m-%d %H:%M:%S")
+        .expect("fixture time")
+        .and_local_timezone(chrono::Local)
+        .single()
+        .expect("unambiguous fixture time");
+    let file = fs::File::open(path).expect("open fixture");
+    file.set_modified(std::time::SystemTime::from(time))
+        .expect("set fixture mtime");
+}
+
+#[cfg(unix)]
+fn mtime(path: &Path) -> String {
+    crate::models::format_time(
+        fs::metadata(path)
+            .expect("metadata")
+            .modified()
+            .expect("mtime"),
+    )
+}
+
+/// Changing one bit with Process subfolders on changes that bit inside and
+/// nothing else: the folder's own times, which the dialog offers back
+/// untouched, are not stamped on its contents.
+#[cfg(unix)]
+#[test]
+fn process_subfolders_leaves_the_times_inside_alone_when_they_were_not_edited() {
+    let temp = TempDir::new().expect("temp");
+    let dir = temp.path().join("attrtest");
+    let file = dir.join("a.txt");
+    let deeper = dir.join("sub").join("b.txt");
+    fs::create_dir_all(deeper.parent().expect("parent")).expect("mkdir");
+    fs::write(&file, "a").expect("write");
+    fs::write(&deeper, "b").expect("write");
+    set_mtime(&file, "2001-01-01 01:01:01");
+    set_mtime(&deeper, "2002-02-02 02:02:02");
+    set_mtime(&dir, "2010-10-10 10:10:10");
+    let mut app = app_at(temp.path());
+    app.left_panel.select_named("attrtest");
+    open(&mut app);
+    let mut dialog = dialog(&app).clone();
+    set_flag(&mut dialog, Flag::OtherWrite);
+    dialog.process_subfolders = true;
+    app.close_overlay();
+
+    apply(&mut app, &dialog);
+
+    assert_eq!(mode(&file) & 0o002, 0o002, "the bit reached inside");
+    assert_eq!(mtime(&file), "2001-01-01 01:01:01");
+    assert_eq!(mtime(&deeper), "2002-02-02 02:02:02");
+}
+
+/// Opens the dialog on `name`, asks for Other Write with Process subfolders
+/// on, and presses Set.
+#[cfg(unix)]
+fn set_other_write_recursively(app: &mut App, name: &str) {
+    app.left_panel.select_named(name);
+    open(app);
+    let mut dialog = dialog(app).clone();
+    set_flag(&mut dialog, Flag::OtherWrite);
+    dialog.process_subfolders = true;
+    app.close_overlay();
+    apply(app, &dialog);
+}
+
+/// Process subfolders walks real folders only: a link inside the selection
+/// is neither followed nor changed, the rule `chmod -R` keeps.
+#[cfg(unix)]
+#[test]
+fn process_subfolders_never_follows_a_link_out_of_the_selection() {
+    let temp = TempDir::new().expect("temp");
+    let dir = temp.path().join("attrtest");
+    let outside = temp.path().join("attr-outside");
+    fs::create_dir_all(&dir).expect("mkdir");
+    fs::create_dir_all(&outside).expect("mkdir");
+    fs::write(dir.join("a.txt"), "a").expect("write");
+    fs::write(outside.join("c.txt"), "c").expect("write");
+    set_mode(&outside, 0o755);
+    set_mode(&outside.join("c.txt"), 0o644);
+    std::os::unix::fs::symlink("../attr-outside", dir.join("link-out")).expect("symlink");
+    let mut app = app_at(temp.path());
+
+    set_other_write_recursively(&mut app, "attrtest");
+
+    assert_eq!(mode(&dir.join("a.txt")) & 0o002, 0o002, "inside changed");
+    assert_eq!(mode(&outside), 0o755, "the link's target is outside");
+    assert_eq!(mode(&outside.join("c.txt")), 0o644, "and so is its content");
+    assert_eq!(status_text(&app), "Attributes set on 2 object(s)");
+}
+
+/// A link back to its own folder is not a way down: the walk ends instead
+/// of recursing until the kernel refuses the fortieth link.
+#[cfg(unix)]
+#[test]
+fn process_subfolders_does_not_loop_through_a_link_to_its_own_folder() {
+    let temp = TempDir::new().expect("temp");
+    let sub = temp.path().join("attrtest2").join("sub");
+    fs::create_dir_all(&sub).expect("mkdir");
+    fs::write(sub.join("x.txt"), "x").expect("write");
+    std::os::unix::fs::symlink(".", sub.join("self")).expect("symlink");
+    let mut app = app_at(temp.path());
+
+    set_other_write_recursively(&mut app, "attrtest2");
+
+    assert_eq!(status_text(&app), "Attributes set on 3 object(s)");
+}
+
+/// The owner of a mode-0000 file can give themselves read back and set a
+/// time in the same Set. Checked for real only when the suite runs as a
+/// plain user: root opens any file, so the old failure never showed there.
+#[cfg(unix)]
+#[test]
+fn the_owner_restores_read_and_a_time_on_a_mode_0000_file() {
+    let temp = TempDir::new().expect("temp");
+    let file = temp.path().join("zero.txt");
+    fs::write(&file, "z").expect("write");
+    set_mode(&file, 0o000);
+    let mut app = app_at(temp.path());
+    app.left_panel.select_named("zero.txt");
+    open(&mut app);
+    let mut dialog = dialog(&app).clone();
+    set_flag(&mut dialog, Flag::OwnerRead);
+    dialog.modified.current = "2001-02-03 04:05:06".to_owned();
+    app.close_overlay();
+
+    apply(&mut app, &dialog);
+
+    assert_eq!(status_text(&app), "Attributes set on 1 object(s)");
+    assert_eq!(mode(&file), 0o400);
+    assert_eq!(mtime(&file), "2001-02-03 04:05:06");
+}
+
+/// The other direction: taking every permission away in the same Set as a
+/// time edit still writes the time.
+#[cfg(unix)]
+#[test]
+fn a_time_is_set_in_the_same_set_that_drops_every_permission() {
+    let temp = TempDir::new().expect("temp");
+    let file = temp.path().join("t.txt");
+    fs::write(&file, "x").expect("write");
+    set_mode(&file, 0o400);
+    let mut app = app_at(temp.path());
+    app.left_panel.select_named("t.txt");
+    open(&mut app);
+    let mut dialog = dialog(&app).clone();
+    dialog.field = AttributesField::Flag(0);
+    dialog.toggle();
+    dialog.modified.current = "2001-02-03 04:05:06".to_owned();
+    app.close_overlay();
+
+    apply(&mut app, &dialog);
+
+    assert_eq!(status_text(&app), "Attributes set on 1 object(s)");
+    assert_eq!(mode(&file), 0o000);
+    assert_eq!(mtime(&file), "2001-02-03 04:05:06");
+}
+
+/// A time is written by path: a pipe has no reader to wait for, so setting
+/// its time must not block the UI the way opening it does.
+#[cfg(unix)]
+#[test]
+fn a_time_is_set_on_a_pipe_without_opening_it() {
+    let temp = TempDir::new().expect("temp");
+    let fifo = temp.path().join("pipe");
+    crate::test_support::make_fifo(&fifo).expect("mkfifo");
+    let time = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000_000);
+    let times = crate::models::RequestedTimes {
+        modified: Some(time),
+        accessed: None,
+    };
+
+    let target = fifo.clone();
+    let result =
+        crate::test_support::run_with_timeout(std::time::Duration::from_secs(5), move || {
+            super::stamp(&target, times).map_err(|error| error.to_string())
+        });
+
+    result
+        .expect("setting the time hung on the pipe")
+        .expect("stamp");
+    let metadata = fs::symlink_metadata(&fifo).expect("metadata");
+    assert_eq!(metadata.modified().expect("mtime"), time);
+}
+
 /// A filled time field sets that time, to the second.
 #[test]
 fn apply_sets_the_times_that_were_typed() {
@@ -232,8 +417,8 @@ fn apply_sets_the_times_that_were_typed() {
     app.left_panel.select_named("t.txt");
     open(&mut app);
     let mut dialog = dialog(&app).clone();
-    dialog.modified = "2001-02-03 04:05:06".to_owned();
-    dialog.accessed = "2002-03-04 05:06:07".to_owned();
+    dialog.modified.current = "2001-02-03 04:05:06".to_owned();
+    dialog.accessed.current = "2002-03-04 05:06:07".to_owned();
     app.close_overlay();
 
     apply(&mut app, &dialog);
@@ -295,7 +480,7 @@ fn a_bad_time_is_refused_before_anything_changes() {
     open(&mut app);
     let mut dialog = dialog(&app).clone();
     set_flag(&mut dialog, Flag::OtherWrite);
-    dialog.modified = "soon".to_owned();
+    dialog.modified.current = "soon".to_owned();
     app.close_overlay();
 
     apply(&mut app, &dialog);
@@ -314,7 +499,7 @@ fn a_missing_target_is_counted_and_named() {
     app.left_panel.select_named("gone.txt");
     open(&mut app);
     let mut dialog = dialog(&app).clone();
-    dialog.modified = "2001-02-03 04:05:06".to_owned();
+    dialog.modified.current = "2001-02-03 04:05:06".to_owned();
     app.close_overlay();
     fs::remove_file(&file).expect("remove");
 

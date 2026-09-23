@@ -1,16 +1,13 @@
 //! Directory ordering and available local or S3 drive reporting.
 
-use super::{format_size, FfmServer, SortDirectoryParams};
-use rmcp::{
-    model::{CallToolResult, ContentBlock},
-    ErrorData as McpError,
-};
+use super::{format_size, json_response, FfmServer, SortDirectoryParams};
+use rmcp::{model::CallToolResult, ErrorData as McpError};
 use serde_json::json;
 use std::{fs, path::Path};
 
-pub(super) fn sort_directory(
+pub fn sort_directory(
     server: &FfmServer,
-    params: SortDirectoryParams,
+    params: &SortDirectoryParams,
 ) -> Result<CallToolResult, McpError> {
     let path = server.safe_path(&params.path)?;
 
@@ -31,12 +28,10 @@ pub(super) fn sort_directory(
         "count": entries.len(),
         "entries": entries,
     });
-    Ok(CallToolResult::success(vec![ContentBlock::text(
-        serde_json::to_string_pretty(&result).unwrap_or_default(),
-    )]))
+    Ok(json_response(&result))
 }
 
-pub(super) fn list_drives() -> Result<CallToolResult, McpError> {
+pub fn list_drives() -> CallToolResult {
     let mut drives = Vec::new();
 
     #[cfg(target_os = "windows")]
@@ -65,10 +60,7 @@ pub(super) fn list_drives() -> Result<CallToolResult, McpError> {
             .map(|name| json!({ "type": "s3", "profile": name })),
     );
 
-    let result = json!({ "drives": drives });
-    Ok(CallToolResult::success(vec![ContentBlock::text(
-        serde_json::to_string_pretty(&result).unwrap_or_default(),
-    )]))
+    json_response(&json!({ "drives": drives }))
 }
 
 fn compare_entries(a: &serde_json::Value, b: &serde_json::Value, sort: &str) -> std::cmp::Ordering {

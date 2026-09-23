@@ -17,7 +17,7 @@ pub struct FailedEntry {
 
 impl FailedEntry {
     #[must_use]
-    pub fn new(path: impl Into<std::path::PathBuf>, error: &dyn std::fmt::Display) -> Self {
+    pub fn new(path: impl Into<std::path::PathBuf>, error: &dyn fmt::Display) -> Self {
         Self {
             path: path.into(),
             error: error.to_string(),

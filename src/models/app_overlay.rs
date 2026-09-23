@@ -136,25 +136,20 @@ impl App {
         }
     }
 
-    /// Replaces the current overlay with a new one.
-    /// Only one overlay can be active at a time (enforced by the type system).
     /// Move the menu without going through [`Self::set_overlay`], which
     /// would recentre a dialog that is not there and is not what walking a
     /// menu means.
     ///
-    /// The Left and Right menus act on their own side, but the keys behind
-    /// their rows — Ctrl+L, Ctrl+R, Alt+F1/F2 — follow the active panel, so
-    /// opening a panel's heading makes that panel active. A hidden panel
-    /// (Ctrl+F1 / Ctrl+F2) is the exception: its drop-down still opens, since
-    /// that is where its "Panel On/Off" row lives, but the cursor stays on
-    /// the panel that is on screen.
+    /// Showing a heading never changes the active panel: walking the bar past
+    /// Left or Right, or leaving it with Esc, must leave Files and Commands
+    /// acting on the panel the user was in. Choosing a row of a panel's menu
+    /// is what makes that panel active ([`crate::ops::menu::activate_row`]).
     pub fn set_menu(&mut self, menu: crate::menu::Menu) {
-        if let Some(side) = menu.heading.side() {
-            self.select_panel(side);
-        }
         self.overlay = Overlay::Menu(menu);
     }
 
+    /// Replaces the current overlay with a new one.
+    /// Only one overlay can be active at a time (enforced by the type system).
     pub fn set_overlay(&mut self, overlay: Overlay) {
         self.overlay = overlay;
         // A new dialog opens centred. Inheriting wherever the last one was

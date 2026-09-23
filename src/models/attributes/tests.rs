@@ -138,6 +138,28 @@ fn only_changed_boxes_ask_for_a_bit() {
     );
 }
 
+/// With a folder selected, a box moved on to [?] means "leave it": no file
+/// in the selection has that bit set or cleared.
+#[test]
+fn a_box_moved_to_leave_as_is_asks_for_nothing() {
+    let bits = SET_FLAG.bit();
+    let mut dialog = AttributesDialog::from_snapshots(&[snapshot("d", bits, true)]);
+    let index = dialog
+        .flags
+        .iter()
+        .position(|it| it.flag == CLEAR_FLAG)
+        .expect("clear platform flag");
+    dialog.field = AttributesField::Flag(index);
+    dialog.toggle();
+
+    assert_eq!(dialog.flags[index].initial, Check::Clear);
+    assert_eq!(dialog.flags[index].current, Check::Mixed);
+    assert_eq!(dialog.flags[index].request(), None);
+    assert_eq!(dialog.new_bits(bits), bits);
+    let with_flag = bits | CLEAR_FLAG.bit();
+    assert_eq!(dialog.new_bits(with_flag), with_flag);
+}
+
 /// Tab walks the boxes, the two time fields, the subfolders box and the
 /// buttons, then wraps; Shift+Tab walks back.
 #[test]
@@ -186,21 +208,21 @@ fn typing_edits_only_the_focused_time_field() {
         snapshot("b", 0o644, false),
     ]);
     assert!(
-        dialog.modified.is_empty(),
+        dialog.modified.current.is_empty(),
         "several files: leave the time alone"
     );
     dialog.field = AttributesField::Flag(0);
     dialog.push('2');
-    assert!(dialog.modified.is_empty() && dialog.accessed.is_empty());
+    assert!(dialog.modified.current.is_empty() && dialog.accessed.current.is_empty());
 
     dialog.field = AttributesField::Accessed;
     for ch in "2026-01-02 03:04:05".chars() {
         dialog.push(ch);
     }
-    assert_eq!(dialog.accessed, "2026-01-02 03:04:05");
+    assert_eq!(dialog.accessed.current, "2026-01-02 03:04:05");
     dialog.backspace();
-    assert_eq!(dialog.accessed, "2026-01-02 03:04:0");
-    assert!(dialog.modified.is_empty());
+    assert_eq!(dialog.accessed.current, "2026-01-02 03:04:0");
+    assert!(dialog.modified.current.is_empty());
 }
 
 /// A single file opens with its own times filled in, in the format the
@@ -208,25 +230,43 @@ fn typing_edits_only_the_focused_time_field() {
 #[test]
 fn a_single_file_offers_its_original_times() {
     let dialog = AttributesDialog::from_snapshots(&[snapshot("a", 0o644, false)]);
-    let times = dialog.requested_times().expect("the offered text parses");
+    let offered = super::parse_time("Modification time", &dialog.modified.current)
+        .expect("the offered text parses");
     assert_eq!(
-        times.modified,
+        offered,
         Some(SystemTime::UNIX_EPOCH + Duration::from_hours(24))
     );
-    assert_eq!(times.accessed, None, "unknown at open: left empty");
+    assert!(
+        dialog.accessed.current.is_empty(),
+        "unknown at open: left empty"
+    );
+}
+
+/// A time field left as it opened asks for nothing, the rule every box
+/// keeps: with Process subfolders on, the folder's own times would otherwise
+/// be stamped on everything inside it.
+#[test]
+fn untouched_offered_times_ask_for_nothing() {
+    let mut dialog = AttributesDialog::from_snapshots(&[snapshot("a", 0o644, true)]);
+    dialog.process_subfolders = true;
+
+    let times = dialog.requested_times().expect("the offered text parses");
+
+    assert_eq!(times.modified, None);
+    assert_eq!(times.accessed, None);
 }
 
 /// Empty fields leave the time alone; garbage is refused by name.
 #[test]
 fn time_fields_parse_or_are_refused() {
     let mut dialog = AttributesDialog::from_snapshots(&[snapshot("a", 0o644, false)]);
-    dialog.modified.clear();
-    dialog.accessed = "1999-12-31 23:59:59".to_owned();
+    dialog.modified.current.clear();
+    dialog.accessed.current = "1999-12-31 23:59:59".to_owned();
     let times = dialog.requested_times().expect("valid");
     assert_eq!(times.modified, None);
     assert!(times.accessed.is_some());
 
-    dialog.accessed = "yesterday".to_owned();
+    dialog.accessed.current = "yesterday".to_owned();
     let error = dialog.requested_times().expect_err("refused");
     assert!(error.to_string().contains("yesterday"), "{error}");
 }

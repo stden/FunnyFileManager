@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 
 use super::*;
+use crate::encoding::TextEncoding;
 use crate::scroll::{ScrollLeft, ScrollTop};
 
 fn file(bytes: &[u8]) -> Viewer {
@@ -28,19 +29,47 @@ fn a_utf8_file_is_labelled_utf8_and_split_into_lines() {
     let viewer = file("hello\nwörld\n".as_bytes());
     assert_eq!(viewer.lines, vec!["hello", "wörld"]);
     let file = viewed(&viewer);
-    assert_eq!(file.encoding, Encoding::Utf8);
+    assert_eq!(file.encoding, TextEncoding::Utf8);
     assert_eq!(file.encoding.label(), "UTF-8");
     assert_eq!(file.size.bytes(), 13);
 }
 
+/// F3 reads a file the way F4 does: bytes that are not UTF-8 are the editor's
+/// single-byte code page, and the status line names it — not a row of
+/// replacement marks labelled `ANSI`.
 #[test]
-fn bytes_that_are_not_utf8_open_lossily_as_ansi() {
-    let viewer = file(b"caf\xe9\nok");
-    assert_eq!(viewer.lines, vec!["caf\u{fffd}", "ok"]);
+fn a_non_utf8_file_is_read_in_the_editors_code_page_and_named() {
+    let viewer = file(b"caf\xe9 \xcf\xf0\xe8\xe2\xe5\xf2\nok");
+    assert_eq!(viewer.lines, vec!["caf\u{439} Привет", "ok"]);
     let file = viewed(&viewer);
-    assert_eq!(file.encoding, Encoding::Ansi);
-    assert_eq!(file.encoding.label(), "ANSI");
-    assert_eq!(file.size.bytes(), 7);
+    assert_eq!(file.encoding.label(), "Windows-1251");
+    assert_eq!(file.size.bytes(), 14);
+}
+
+/// A byte-order mark names the encoding, and the mark itself is not text.
+#[test]
+fn a_file_with_a_byte_order_mark_is_decoded_in_the_encoding_it_names() {
+    let little = file(b"\xff\xfeH\x00i\x00\n\x00");
+    assert_eq!(little.lines, vec!["Hi"]);
+    assert_eq!(viewed(&little).encoding.label(), "UTF-16 LE");
+
+    let big = file(b"\xfe\xff\x00H\x00i");
+    assert_eq!(big.lines, vec!["Hi"]);
+    assert_eq!(viewed(&big).encoding.label(), "UTF-16 BE");
+
+    let utf8 = file(b"\xef\xbb\xbfhi");
+    assert_eq!(utf8.lines, vec!["hi"]);
+    assert_eq!(viewed(&utf8).encoding.label(), "UTF-8 BOM");
+}
+
+/// The viewer never writes back, so a byte the code page cannot map is a
+/// replacement mark rather than a refused file — here an odd trailing byte of
+/// UTF-16, which the editor's strict decoder would reject.
+#[test]
+fn a_damaged_file_still_opens_with_replacement_marks() {
+    let viewer = file(b"\xff\xfeO\x00K\x00!");
+    assert_eq!(viewer.lines, vec!["OK\u{fffd}"]);
+    assert_eq!(viewed(&viewer).encoding, TextEncoding::Utf16Le);
 }
 
 #[test]
@@ -49,7 +78,7 @@ fn an_empty_file_shows_the_placeholder_and_a_zero_size() {
     assert_eq!(viewer.lines, vec!["<empty file>"]);
     let file = viewed(&viewer);
     assert_eq!(file.size.bytes(), 0);
-    assert_eq!(file.encoding, Encoding::Utf8);
+    assert_eq!(file.encoding, TextEncoding::Utf8);
 }
 
 #[test]

@@ -11,36 +11,40 @@ use std::os::unix::fs::PermissionsExt;
 
 use super::*;
 
-#[cfg(unix)]
-use crate::copy::AccessRights;
 use crate::copy::{CopyPrompt, ExistingFiles, Purpose};
 use crate::models::{FileName, Panel, PanelSide};
 
 use tempfile::TempDir;
 
 /// Two panels, left active and holding `sources`, right empty.
-fn app_with(sources: &[(&str, &[u8])]) -> (App, TempDir, TempDir) {
+pub(super) fn app_with(sources: &[(&str, &[u8])]) -> (App, TempDir, TempDir) {
     let from = TempDir::new().expect("test setup");
     let to = TempDir::new().expect("test setup");
     for (name, body) in sources {
         fs::write(from.path().join(name), body).expect("test setup");
     }
-    let mut app = App::new().expect("test setup");
-    app.left_panel = Panel::new(from.path().to_path_buf()).expect("test setup");
-    app.right_panel = Panel::new(to.path().to_path_buf()).expect("test setup");
-    app.active_panel = PanelSide::Left;
+    let app = app_between(from.path(), to.path());
     (app, from, to)
 }
 
+/// Two panels on directories that already exist, left active on `from`.
+pub(super) fn app_between(from: &Path, to: &Path) -> App {
+    let mut app = App::new().expect("test setup");
+    app.left_panel = Panel::new(from.to_path_buf()).expect("test setup");
+    app.right_panel = Panel::new(to.to_path_buf()).expect("test setup");
+    app.active_panel = PanelSide::Left;
+    app
+}
+
 /// Mark `name` in the active panel, which is what the transfer acts on.
-fn mark(app: &mut App, name: &str) {
+pub(super) fn mark(app: &mut App, name: &str) {
     app.get_active_panel()
         .marked
         .insert(FileName::new(name.to_owned()));
 }
 
 /// The dialog as it would be filled in, aimed at `destination`.
-fn settings(destination: &Path) -> CopyPrompt {
+pub(super) fn settings(destination: &Path) -> CopyPrompt {
     CopyPrompt::new("marked", destination)
 }
 
@@ -154,71 +158,6 @@ fn is_newer_treats_an_unreadable_source_time_as_newer() {
     );
 }
 
-// ─── the permissions the copy ends up with ──────────────────────────────────
-
-#[cfg(unix)]
-#[test]
-fn copy_rights_carries_the_source_mode_over() {
-    let (mut app, from, to) = app_with(&[("run.sh", b"#!/bin/sh\n")]);
-    fs::set_permissions(
-        from.path().join("run.sh"),
-        fs::Permissions::from_mode(0o755),
-    )
-    .expect("test setup");
-    mark(&mut app, "run.sh");
-
-    let mut dialog = settings(to.path());
-    dialog.rights = AccessRights::Copy;
-    copy_with(&mut app, &dialog);
-
-    let mode = fs::metadata(to.path().join("run.sh"))
-        .unwrap()
-        .permissions()
-        .mode();
-    assert_eq!(mode & 0o777, 0o755, "the executable bit came with it");
-}
-
-/// Inherit drops back to what a newly created file in that directory would
-/// get, which is the point: a copy of a private file into a shared directory
-/// stops carrying the private mode.
-#[cfg(unix)]
-#[test]
-fn inherit_rights_gives_the_copy_a_fresh_mode() {
-    let (mut app, from, to) = app_with(&[("secret.txt", b"x")]);
-    fs::set_permissions(
-        from.path().join("secret.txt"),
-        fs::Permissions::from_mode(0o600),
-    )
-    .expect("test setup");
-    mark(&mut app, "secret.txt");
-
-    let mut dialog = settings(to.path());
-    dialog.rights = AccessRights::Inherit;
-    copy_with(&mut app, &dialog);
-
-    let mode = fs::metadata(to.path().join("secret.txt"))
-        .unwrap()
-        .permissions()
-        .mode();
-    assert_ne!(mode & 0o777, 0o600, "it did not keep the source's mode");
-}
-
-#[cfg(unix)]
-#[test]
-fn default_rights_leave_whatever_the_copy_produced() {
-    let (mut app, from, to) = app_with(&[("run.sh", b"x")]);
-    fs::set_permissions(
-        from.path().join("run.sh"),
-        fs::Permissions::from_mode(0o755),
-    )
-    .expect("test setup");
-    mark(&mut app, "run.sh");
-
-    copy_with(&mut app, &settings(to.path()));
-
-    assert!(to.path().join("run.sh").exists());
-}
-
 // ─── timestamps ─────────────────────────────────────────────────────────────
 
 /// Without the box ticked the copy is new; with it, the copy is as old as the
@@ -284,14 +223,15 @@ fn a_move_takes_the_original_with_it() {
 }
 
 /// A relative destination is taken against the active panel, because that is
-/// where the user is looking when they type one.
+/// where the user is looking when they type one. The trailing separator asks
+/// for a folder (without it, `archive` would be the copy's new name).
 #[test]
 fn a_relative_destination_is_taken_against_the_active_panel() {
     let (mut app, from, _to) = app_with(&[("notes.txt", b"x")]);
     mark(&mut app, "notes.txt");
 
     let mut dialog = settings(Path::new("."));
-    dialog.destination = "archive".to_owned();
+    dialog.destination = format!("archive{}", std::path::MAIN_SEPARATOR);
     copy_with(&mut app, &dialog);
 
     assert!(
@@ -312,7 +252,7 @@ fn a_named_report_copies_into_a_new_nested_relative_archive() {
 
     let archive = Path::new("archive").join("2026");
     let mut dialog = settings(Path::new("."));
-    dialog.destination = archive.to_string_lossy().into_owned();
+    dialog.destination = format!("{}{}", archive.display(), std::path::MAIN_SEPARATOR);
     copy_with(&mut app, &dialog);
 
     let copied = from.path().join(&archive).join(name);
@@ -725,7 +665,7 @@ fn a_link_loop_is_refused_instead_of_walked_forever() {
     // The copy failed, and it failed quickly: what matters is that the walk
     // came back at all, and left no runaway tree behind.
     assert!(
-        matches!(app.status, crate::status::Status::CopiedWithErrors { .. }),
+        matches!(app.status, Status::CopiedWithErrors { .. }),
         "the loop must be reported, not silently truncated: {:?}",
         app.status
     );
@@ -753,7 +693,7 @@ fn a_link_into_the_destination_is_refused() {
     copy_with(&mut app, &dialog);
 
     assert!(
-        matches!(app.status, crate::status::Status::CopiedWithErrors { .. }),
+        matches!(app.status, Status::CopiedWithErrors { .. }),
         "reaching the destination must be reported: {:?}",
         app.status
     );
@@ -844,7 +784,7 @@ fn copying_a_fifo_reports_it_instead_of_waiting_for_a_writer() {
     copy_with(&mut app, &settings(to.path()));
 
     assert!(
-        matches!(app.status, crate::status::Status::CopiedWithErrors { .. }),
+        matches!(app.status, Status::CopiedWithErrors { .. }),
         "a pipe must be reported: {:?}",
         app.status
     );
@@ -852,17 +792,15 @@ fn copying_a_fifo_reports_it_instead_of_waiting_for_a_writer() {
 
 /// Make a FIFO at `path`, or `None` where the platform will not have one.
 #[cfg(unix)]
-fn make_fifo(path: &Path) -> Option<std::path::PathBuf> {
-    let name = std::ffi::CString::new(path.as_os_str().as_encoded_bytes()).expect("a path");
-    // SAFETY: a NUL-terminated path that outlives the call; mkfifo reads
-    // nothing else and only reports whether the node was made.
-    (unsafe { libc::mkfifo(name.as_ptr(), 0o644) } == 0).then(|| path.to_path_buf())
+pub(super) fn make_fifo(path: &Path) -> Option<std::path::PathBuf> {
+    crate::test_support::make_fifo(path).ok()?;
+    Some(path.to_path_buf())
 }
 
 /// How deep the tree under `root` goes, so a runaway walk is visible as a
 /// number rather than as a test that never ends.
 #[cfg(unix)]
-fn walk_depth(root: &std::path::Path) -> usize {
+fn walk_depth(root: &Path) -> usize {
     let Ok(entries) = fs::read_dir(root) else {
         return 0;
     };
@@ -881,7 +819,7 @@ fn zz_probe_create_new_already_exists() {
     fs::write(&source, b"x").expect("setup");
     let dest = dir.path().join("b.txt");
     fs::write(&dest, b"y").expect("setup");
-    let err = copy_entry(&source, &dest, LinkPolicy::Recreate).expect_err("must fail");
+    let err = copy_entry(&source, &dest, CopyRules::PLAIN).expect_err("must fail");
     assert_eq!(err.kind(), io::ErrorKind::AlreadyExists);
     assert_eq!(
         fs::read(&dest).unwrap(),
@@ -912,7 +850,7 @@ fn zz_probe_readonly_target_dir_permission_denied() {
     let (mut app, _from, to) = app_with(&[("notes.txt", b"payload")]);
     mark(&mut app, "notes.txt");
     fs::set_permissions(to.path(), fs::Permissions::from_mode(0o555)).expect("setup");
-    let euid = unsafe { libc::geteuid() };
+    let euid = crate::platform::effective_uid();
     let result = super::handle_copy(&mut app);
     fs::set_permissions(to.path(), fs::Permissions::from_mode(0o755)).expect("cleanup");
     let status = app.status.to_string();

@@ -9,6 +9,7 @@ use crate::test_support::disk_cleanup::{app, candidate, dialog, heap_dumps, run}
 
 mod deletion;
 mod measurement;
+mod temp_folder;
 
 #[test]
 fn cancelling_preserves_selected_files_and_closes_the_overlay() {

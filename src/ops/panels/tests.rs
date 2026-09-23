@@ -263,9 +263,9 @@ fn the_menu_row_is_the_same_toggle_as_the_key() {
 }
 
 /// `F9` then `Left` / `Right` walks the bar over the Left and Right headings.
-/// Reaching a heading normally moves the cursor to that panel; when the
-/// panel is hidden the drop-down still opens (its "Panel On/Off" row is how
-/// the panel comes back) but the cursor stays on the panel that is on screen.
+/// Walking never moves the cursor to another panel; when the panel is hidden
+/// its drop-down still opens (its "Panel On/Off" row is how the panel comes
+/// back) and the cursor stays on the panel that is on screen.
 #[test]
 fn the_f9_bar_never_walks_the_cursor_onto_a_hidden_panel() {
     let mut app = app();

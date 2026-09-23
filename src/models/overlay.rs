@@ -7,6 +7,8 @@
 
 use std::path::PathBuf;
 
+use crate::lineedit::LineEditor;
+
 use super::{
     ApplyPrompt, ArchiveMenu, ArchivePrompt, AssociationList, AttributesDialog, CommandLine,
     DescribePrompt, DeviceList, DriveRow, Editor, ExtractPrompt, FileName, FilterPrompt, FindFile,
@@ -237,9 +239,47 @@ impl MaskPurpose {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MaskPrompt {
     purpose: MaskPurpose,
-    mask: String,
+    mask: MaskField,
     /// The cursor is on Cancel rather than on OK.
     on_cancel: bool,
+}
+
+/// The mask field: the offered mask, pre-selected as Far shows it, or the
+/// user's own text once any key has edited it.
+///
+/// Two states rather than a flag beside the text, because they answer a typed
+/// character differently: it replaces an offer and joins an edit. Appending
+/// to the offer turned `*.txt` and `semi*` into `*.txtsemi*`, which matches
+/// nothing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum MaskField {
+    Offered(LineEditor),
+    Edited(LineEditor),
+}
+
+impl MaskField {
+    const fn line(&self) -> &LineEditor {
+        match self {
+            Self::Offered(line) | Self::Edited(line) => line,
+        }
+    }
+
+    /// The text to edit where it stands; an offer becomes the user's own.
+    fn edit(&mut self) -> &mut LineEditor {
+        if let Self::Offered(line) = self {
+            *self = Self::Edited(std::mem::take(line));
+        }
+        match self {
+            Self::Offered(line) | Self::Edited(line) => line,
+        }
+    }
+
+    fn type_char(&mut self, ch: char) {
+        if let Self::Offered(_) = self {
+            *self = Self::Edited(LineEditor::default());
+        }
+        self.edit().insert_char(ch);
+    }
 }
 
 impl MaskPrompt {
@@ -249,10 +289,10 @@ impl MaskPrompt {
     /// commonest thing anyone does with this key is "all the other ones like
     /// this". A field that opens on `*` makes them type it every time.
     #[must_use]
-    pub fn new(purpose: MaskPurpose, suggestion: String) -> Self {
+    pub fn new(purpose: MaskPurpose, suggestion: &str) -> Self {
         Self {
             purpose,
-            mask: suggestion,
+            mask: MaskField::Offered(LineEditor::new(suggestion)),
             on_cancel: false,
         }
     }
@@ -274,7 +314,14 @@ impl MaskPrompt {
 
     #[must_use]
     pub fn mask(&self) -> &str {
-        &self.mask
+        self.mask.line().text()
+    }
+
+    /// Whether the field still holds the offered mask untouched — drawn
+    /// selected, and replaced by the first character typed.
+    #[must_use]
+    pub const fn is_offered(&self) -> bool {
+        matches!(self.mask, MaskField::Offered(_))
     }
 
     #[must_use]
@@ -291,11 +338,40 @@ impl MaskPrompt {
     }
 
     pub fn push(&mut self, ch: char) {
-        self.mask.push(ch);
+        self.mask.type_char(ch);
     }
 
     pub fn backspace(&mut self) {
-        self.mask.pop();
+        self.mask.edit().backspace();
+    }
+
+    pub fn delete_forward(&mut self) {
+        self.mask.edit().delete_forward();
+    }
+
+    /// The caret moves through the text, as in any Far edit control; moving
+    /// it keeps the offer as text of the user's own.
+    pub fn left(&mut self) {
+        self.mask.edit().left();
+    }
+
+    pub fn right(&mut self) {
+        self.mask.edit().right();
+    }
+
+    pub fn home(&mut self) {
+        self.mask.edit().home();
+    }
+
+    pub fn end(&mut self) {
+        self.mask.edit().end();
+    }
+
+    /// What stands to the right of the caret — the width `ui` backs the
+    /// terminal cursor up by from the end of the field.
+    #[must_use]
+    pub fn after_caret(&self) -> &str {
+        self.mask.line().after_cursor()
     }
 }
 
@@ -445,7 +521,7 @@ impl NamePrompt {
     /// own name: Far puts a link there unless told otherwise, and showing the
     /// whole path is what lets the user tell it otherwise.
     #[must_use]
-    pub fn link_to(target: std::path::PathBuf, name: String) -> Self {
+    pub fn link_to(target: &std::path::Path, name: String) -> Self {
         Self {
             purpose: NamePurpose::Link,
             original: FileName::new(String::new()),

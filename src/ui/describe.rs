@@ -40,7 +40,7 @@ pub(super) fn render(
 
 /// The dialog places the caret after the text; the prompt's own cursor may
 /// stand further left, by the width of what follows it.
-fn caret_column(end: u16, after_caret: &str) -> u16 {
+pub(super) fn caret_column(end: u16, after_caret: &str) -> u16 {
     let back = u16::try_from(Cells::of(after_caret).get()).unwrap_or(u16::MAX);
     end.saturating_sub(back)
 }

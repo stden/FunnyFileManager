@@ -7,7 +7,8 @@
 
 use std::path::{Path, PathBuf};
 
-use super::{Encoding, FileSize, Viewer, Viewport};
+use super::{FileSize, Viewer, Viewport};
+use crate::encoding::TextEncoding;
 use crate::scroll::{ScrollLeft, ScrollTop};
 use crate::stats::DirectoryStats;
 
@@ -50,20 +51,20 @@ pub struct TextPreview {
     /// The text source, which can be a description inside the selected folder.
     pub path: PathBuf,
     pub lines: Vec<String>,
-    pub encoding: Encoding,
+    pub encoding: TextEncoding,
     pub size: FileSize,
 }
 
 impl TextPreview {
-    /// Decode `bytes` exactly as F3 would — lossily, naming the encoding by
-    /// whether the decoder had to copy, and marking an empty file — so the
-    /// preview and the viewer never disagree about a file.
+    /// Decode `bytes` exactly as F3 would — in the encoding the editor detects,
+    /// lossily, and marking an empty file — so the preview and the viewer
+    /// never disagree about a file.
     #[must_use]
     pub fn decoded(path: &Path, bytes: &[u8]) -> Self {
         let viewer = Viewer::file(path.to_path_buf(), bytes);
         let (encoding, size) = viewer
             .viewed_file()
-            .map_or((Encoding::Utf8, FileSize::from_bytes(0)), |file| {
+            .map_or((TextEncoding::Utf8, FileSize::from_bytes(0)), |file| {
                 (file.encoding, file.size)
             });
         Self {
@@ -82,7 +83,8 @@ impl TextPreview {
 /// says so in the panel instead.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Refusal {
-    /// A NUL byte: the line-oriented preview would render garbage.
+    /// A NUL byte with no UTF-16 byte-order mark to explain it: the
+    /// line-oriented preview would render garbage.
     Binary,
     /// Over the viewer's size limit; carries the size the metadata reported.
     TooLarge(FileSize),

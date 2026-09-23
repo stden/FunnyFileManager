@@ -67,8 +67,11 @@ separate checks. The self-test can also run directly as
   retains Cargo's release defaults. Both packages, including `colorer-sys`,
   share the root `target/` directory through `.cargo/config.toml`; dependencies
   can reuse artifacts when versions, features, and profiles match. Their
-  lockfiles remain independent and tracked. Root-crate commands do not build
-  or test MCP automatically.
+  lockfiles stay independent. The application's `Cargo.lock` is not tracked:
+  the first `cargo` command generates it with the newest versions the
+  manifest allows, so two fresh checkouts can resolve different versions and
+  commands for the root crate cannot pass `--locked`. `mcp/Cargo.lock` is
+  tracked. Root-crate commands do not build or test MCP automatically.
 - Windows uses `lld-link`; Linux uses `mold`. These linker settings live in
   `.cargo/config.toml` and apply without changing the commands below.
 - Many integration and UI tests are gated behind the `test-helpers` feature.
@@ -84,11 +87,15 @@ separate checks. The self-test can also run directly as
 
 ## 🧪 Mutation Testing
 
-The project uses `cargo-mutants` (configured via `.cargo-mutants.toml`).
+The project uses `cargo-mutants`, configured via `.cargo/mutants.toml` (the
+only path the tool reads; it selects `cargo-nextest` as the test runner).
 
 - Tests frequently contain comments like `// Kill: replace X with Y`.
 - Running mutation testing is encouraged on changed code.
 - The goal is very few surviving mutants on core logic.
+- CI runs `cargo mutants --in-diff` on every pull request for the application
+  and `mcp/`; a missed mutant in changed code fails that job. Evidence is the
+  `mutants.out` artifact, not a test named after a mutant.
 
 ## ✅ Recommended Daily Workflow
 

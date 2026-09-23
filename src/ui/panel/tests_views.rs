@@ -168,7 +168,10 @@ fn a_message_replaces_the_whole_info_row() {
     let mut panel = listing(PanelView::Brief, 3);
     let mut terminal = Terminal::new(TestBackend::new(42, 8)).expect("test terminal");
     terminal
-        .draw(|frame| render_panel(frame, &mut panel, frame.area(), true, Some("Copied")))
+        .draw(|frame| {
+            let message = PathMessage::from("Copied".to_owned());
+            render_panel(frame, &mut panel, frame.area(), true, Some(&message));
+        })
         .expect("render panel");
     let info = interior(terminal.backend().buffer(), INFO_ROW);
     assert_eq!(info.trim_end(), "Copied");

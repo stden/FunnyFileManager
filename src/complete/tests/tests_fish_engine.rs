@@ -159,16 +159,16 @@ fn fish_path_complete_returns_none_when_fish_exits_nonzero() {
 fn fish_poll_loop_waits_for_a_slow_completer() {
     use std::os::unix::fs::PermissionsExt;
 
-    let temp = tempfile::TempDir::new().expect("temp dir");
+    let temp = TempDir::new().expect("temp dir");
     let stub = temp.path().join("slow-fish.sh");
-    std::fs::write(
+    fs::write(
         &stub,
         "#!/bin/sh\nsleep 0.08\nprintf 'alpha\\tDirectory\\n'\n",
     )
     .expect("write stub");
-    std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+    fs::set_permissions(&stub, fs::Permissions::from_mode(0o755)).expect("chmod");
 
-    super::FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = Some(stub));
+    FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = Some(stub));
     // Retry while the freshly-written stub is still ETXTBSY.
     //
     // `fs::write` closes its own handle, but a sibling test thread that forks
@@ -180,13 +180,13 @@ fn fish_poll_loop_waits_for_a_slow_completer() {
     // five. `fish_path_complete` swallows the spawn error on purpose (a fish
     // that will not start is not a completion), so the retry belongs here.
     let candidates = (0..20).find_map(|_| {
-        let result = super::fish_path_complete("al", temp.path());
+        let result = fish_path_complete("al", temp.path());
         if result.is_none() {
             std::thread::sleep(std::time::Duration::from_millis(25));
         }
         result
     });
-    super::FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = None);
+    FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = None);
 
     // The stub sleeps past several 20ms polls before answering, so the loop's
     // wait branch runs; the answer must still arrive intact afterwards.
@@ -194,7 +194,7 @@ fn fish_poll_loop_waits_for_a_slow_completer() {
 }
 
 #[cfg(unix)]
-fn sleeping_fish(root: &std::path::Path) -> std::path::PathBuf {
+fn sleeping_fish(root: &Path) -> PathBuf {
     use std::os::unix::fs::PermissionsExt;
     let bin = root.join("bin");
     fs::create_dir(&bin).expect("bin");

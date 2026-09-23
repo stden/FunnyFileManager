@@ -125,6 +125,8 @@ struct LoopState {
     lsp: lsp_jobs::EditorLspController,
     redraw: Redraw,
     pending: Option<timing::Pending>,
+    /// The clock as the last frame showed it.
+    shown_time: String,
 }
 
 impl LoopState {
@@ -135,6 +137,7 @@ impl LoopState {
             lsp: lsp_jobs::EditorLspController::default(),
             redraw: Redraw::Needed,
             pending: None,
+            shown_time: String::new(),
         }
     }
 
@@ -167,6 +170,30 @@ impl LoopState {
         terminal: &mut Terminal<B>,
         app: &mut App,
     ) -> io::Result<()> {
+        self.pump_background(app);
+        let time = crate::clock::now();
+        if time != self.shown_time {
+            // The menu bar and the viewer's status line read the clock at
+            // draw time. An idle screen draws nothing, so without this it
+            // would show the minute of the last key for as long as it sat.
+            self.redraw = Redraw::Needed;
+        }
+        if self.redraw == Redraw::Unchanged {
+            return Ok(());
+        }
+        self.shown_time = time;
+        crate::ops::panel_session::checkpoint(app);
+        app.expire_status_on_move();
+        let rendering = Instant::now();
+        let result = draw_frame(terminal, app);
+        self.finish(app, rendering, Instant::now());
+        self.redraw = Redraw::Unchanged;
+        result
+    }
+
+    /// Collect what background work finished, asking for a frame when it
+    /// changed what is on screen.
+    fn pump_background(&mut self, app: &mut App) {
         if self.jobs.pump(app) == Redraw::Needed {
             self.redraw = Redraw::Needed;
         }
@@ -178,16 +205,6 @@ impl LoopState {
             self.redraw = Redraw::Needed;
         }
         crate::ops::quickview::refresh(app);
-        if self.redraw == Redraw::Unchanged {
-            return Ok(());
-        }
-        crate::ops::panel_session::checkpoint(app);
-        app.expire_status_on_move();
-        let rendering = Instant::now();
-        let result = draw_frame(terminal, app);
-        self.finish(app, rendering, Instant::now());
-        self.redraw = Redraw::Unchanged;
-        result
     }
 
     fn finish(&mut self, app: &mut App, rendering: Instant, finished: Instant) {

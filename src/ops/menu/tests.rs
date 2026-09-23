@@ -131,7 +131,10 @@ fn search_results_open_files_and_navigate_to_folders() {
     let target = rows(&app)[0].target.clone();
     choose(&mut app, target).unwrap();
     assert!(matches!(app.overlay, Overlay::Viewer(_)));
-    assert_eq!(app.viewed_files, vec![temp.path().join("alpha.txt")]);
+    assert_eq!(
+        app.view_history.last(),
+        Some(temp.path().join("alpha.txt").as_path())
+    );
     submit(&mut app, MenuCommand::FindFolder, "fold*").unwrap();
     let target = rows(&app)[0].target.clone();
     choose(&mut app, target).unwrap();
@@ -140,6 +143,43 @@ fn search_results_open_files_and_navigate_to_folders() {
     assert_eq!(rows(&app).len(), 1);
     execute_result(&mut app, MenuCommand::ViewHistory).unwrap();
     assert_eq!(rows(&app).len(), 1);
+}
+
+#[test]
+fn search_keeps_matches_when_a_child_directory_cannot_be_read() {
+    let (temp, mut app) = fixture();
+    let blocked = temp.path().join("blocked");
+    fs::create_dir(&blocked).unwrap();
+    fs::write(blocked.join("secret.txt"), "secret").unwrap();
+    let _deny = super::search::DenyReads::named("blocked");
+    submit(&mut app, MenuCommand::FindFile, "*").unwrap();
+    let labels: Vec<_> = rows(&app).iter().map(|row| row.label.clone()).collect();
+    assert!(labels.iter().any(|label| label.contains("alpha.txt")));
+    assert!(labels.iter().all(|label| !label.contains("secret")));
+    assert!(app.status.to_string().contains("could not be read"));
+}
+
+#[test]
+fn search_says_how_many_unreadable_folders_it_skipped() {
+    let (temp, mut app) = fixture();
+    fs::create_dir(temp.path().join("blocked")).unwrap();
+    fs::create_dir(temp.path().join("folder/blocked")).unwrap();
+    let _deny = super::search::DenyReads::named("blocked");
+    submit(&mut app, MenuCommand::FindFolder, "*").unwrap();
+    assert_eq!(rows(&app).len(), 3, "folder, blocked and folder/blocked");
+    assert_eq!(
+        app.status.to_string(),
+        "Search skipped 2 folders that could not be read."
+    );
+}
+
+#[test]
+fn search_says_when_the_entry_limit_stops_it() {
+    let (_temp, mut app) = fixture();
+    app.settings.set(SettingsPage::System, "1").unwrap();
+    submit(&mut app, MenuCommand::FindFile, "*").unwrap();
+    assert!(rows(&app).len() <= 1);
+    assert!(app.status.to_string().contains("entry limit"));
 }
 
 #[test]
@@ -386,4 +426,60 @@ fn edited_command_files_are_persistent_and_available_in_the_user_menu() {
     user::open(&mut app).unwrap();
     assert_eq!(rows(&app)[0].label, "Configured plugin command");
     assert!(user::edit(&mut app, MenuCommand::Sort).is_err());
+}
+
+/// Alt+F11 lists the view history ffm persists, so a restart does not empty
+/// it: the files viewed or edited in an earlier session come back, newest
+/// first.
+#[test]
+fn view_history_lists_the_files_viewed_before_a_restart() {
+    let (temp, mut app) = fixture();
+    let data = TempDir::new().unwrap();
+    let _xdg = crate::test_support::EnvVarGuard::set("XDG_DATA_HOME", data.path());
+    app.view_history = crate::models::ViewHistory::load();
+    crate::ops::handle_view(&mut app).unwrap();
+    app.view_history.touch(&temp.path().join("beta.bin"));
+    app.view_history.save().unwrap();
+
+    let (_temp, mut restarted) = fixture();
+    restarted.view_history = crate::models::ViewHistory::load();
+    execute_result(&mut restarted, MenuCommand::ViewHistory).unwrap();
+
+    let labels: Vec<_> = rows(&restarted)
+        .iter()
+        .map(|row| row.label.clone())
+        .collect();
+    assert_eq!(
+        labels,
+        [
+            temp.path().join("beta.bin").display().to_string(),
+            temp.path().join("alpha.txt").display().to_string(),
+        ]
+    );
+}
+
+/// Choosing a row of the Right menu runs it on the right panel; a hidden
+/// panel's row still runs, but the cursor stays on the panel on screen.
+#[test]
+fn activate_row_selects_the_panel_of_a_left_or_right_row_that_is_on_screen() {
+    let (_temp, mut app) = fixture();
+    app.active_panel = PanelSide::Left;
+    activate_row(&mut app, Menu::open(Heading::Right));
+    assert_eq!(app.active_panel, PanelSide::Right);
+
+    app.active_panel = PanelSide::Left;
+    app.panels_shown = PanelsShown::LeftOnly;
+    activate_row(&mut app, Menu::open(Heading::Right));
+    assert_eq!(
+        app.active_panel,
+        PanelSide::Left,
+        "the right panel is hidden"
+    );
+
+    activate_row(&mut app, Menu::open(Heading::Files));
+    assert_eq!(
+        app.active_panel,
+        PanelSide::Left,
+        "Files rows keep the panel"
+    );
 }

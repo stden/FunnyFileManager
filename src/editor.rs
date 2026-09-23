@@ -62,10 +62,7 @@ fn split_editor_command(env_editor: &str) -> (String, Vec<String>) {
     }
     let mut parts = env_editor.split_whitespace();
     let program = parts.next().unwrap_or(DEFAULT_EDITOR).to_string();
-    (
-        program,
-        parts.map(std::string::ToString::to_string).collect(),
-    )
+    (program, parts.map(ToString::to_string).collect())
 }
 
 /// Pick the editor to launch: VS Code when installed, else `$EDITOR`.
@@ -201,6 +198,8 @@ mod tests;
 mod tests_external_launch;
 #[cfg(test)]
 mod tests_guards;
+#[cfg(test)]
+mod tests_open;
 // FIFOs and device nodes are the inputs these tests need; neither exists on
 // Windows, so the whole module is Unix-only.
 #[cfg(all(test, unix))]

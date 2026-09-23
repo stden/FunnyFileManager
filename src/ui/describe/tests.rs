@@ -19,7 +19,7 @@ fn draw(app: &mut App) -> (String, (u16, u16)) {
 #[test]
 fn the_dialog_names_the_entry_and_shows_the_text() {
     let mut app = App::new().expect("test app");
-    let mut prompt = DescribePrompt::new("notes.txt".to_owned(), "Old".to_owned(), Vec::new());
+    let mut prompt = DescribePrompt::new("notes.txt".to_owned(), "Old", Vec::new());
     prompt.push('!');
     app.set_overlay(Overlay::Describe(prompt));
     let (screen, cursor) = draw(&mut app);
@@ -47,7 +47,7 @@ fn the_dialog_names_the_entry_and_shows_the_text() {
 #[test]
 fn focus_on_cancel_takes_the_caret_out_of_the_input() {
     let mut app = App::new().expect("test app");
-    let mut prompt = DescribePrompt::new("notes.txt".to_owned(), String::new(), Vec::new());
+    let mut prompt = DescribePrompt::new("notes.txt".to_owned(), "", Vec::new());
     prompt.toggle_button();
     app.set_overlay(Overlay::Describe(prompt));
     let (screen, cursor) = draw(&mut app);
@@ -59,7 +59,7 @@ fn focus_on_cancel_takes_the_caret_out_of_the_input() {
 #[test]
 fn the_caret_follows_the_prompts_cursor_into_the_text() {
     let mut app = App::new().expect("test app");
-    let mut prompt = DescribePrompt::new("notes.txt".to_owned(), "Old!".to_owned(), Vec::new());
+    let mut prompt = DescribePrompt::new("notes.txt".to_owned(), "Old!", Vec::new());
     prompt.left();
     prompt.left();
     app.set_overlay(Overlay::Describe(prompt));
@@ -78,7 +78,7 @@ fn an_ampersand_in_the_name_stays_in_the_caption() {
     let mut app = App::new().expect("test app");
     app.set_overlay(Overlay::Describe(DescribePrompt::new(
         "a&b.txt".to_owned(),
-        String::new(),
+        "",
         Vec::new(),
     )));
     let (screen, _) = draw(&mut app);

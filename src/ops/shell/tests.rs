@@ -68,7 +68,7 @@ fn test_run_shell_command_uses_current_dir() {
 
 #[test]
 fn test_run_shell_command_nonexistent_dir_fails() {
-    let bad_path = std::path::Path::new("/nonexistent_dir_99999");
+    let bad_path = Path::new("/nonexistent_dir_99999");
     let result = run_shell_command("echo hi", bad_path);
     assert!(result.is_err());
 }
@@ -86,7 +86,7 @@ fn test_run_shell_command_times_out_instead_of_hanging() {
     let error = run_shell_command_with_timeout(cmd, temp.path(), Duration::from_millis(200))
         .expect_err("must not run to completion");
 
-    assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+    assert!(matches!(error, ShellError::TimedOut(_)), "{error}");
     assert!(
         started.elapsed() < Duration::from_secs(10),
         "gave up after {:?}, so the wait was not bounded",
@@ -128,7 +128,7 @@ fn test_timeout_kills_the_whole_process_group() {
 
     let error = run_shell_command_with_timeout(&command, temp.path(), Duration::from_millis(300))
         .expect_err("must time out");
-    assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+    assert!(matches!(error, ShellError::TimedOut(_)), "{error}");
 
     let grandchild: i32 = std::fs::read_to_string(&pidfile)
         .expect("the shell wrote the background pid")
@@ -146,7 +146,9 @@ fn test_timeout_kills_the_whole_process_group() {
         std::thread::sleep(Duration::from_millis(50));
     }
     // Do not leave a stray `sleep` behind if the assertion fails.
-    unsafe { libc_kill(grandchild, 9) };
+    if let Some(pid) = rustix::process::Pid::from_raw(grandchild) {
+        let _ = rustix::process::kill_process(pid, rustix::process::Signal::KILL);
+    }
     panic!("grandchild {grandchild} outlived the timeout — the group was not killed");
 }
 
@@ -197,39 +199,36 @@ fn is_cancel_event_accepts_only_pressed_esc_and_ctrl_c() {
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
     let press = |code, modifiers| Event::Key(KeyEvent::new(code, modifiers));
-    assert!(super::is_cancel_event(&press(
-        KeyCode::Esc,
-        KeyModifiers::empty()
-    )));
-    assert!(super::is_cancel_event(&press(
+    assert!(is_cancel_event(&press(KeyCode::Esc, KeyModifiers::empty())));
+    assert!(is_cancel_event(&press(
         KeyCode::Char('c'),
         KeyModifiers::CONTROL
     )));
     // A plain 'c', any other key, and non-key events are not cancel.
-    assert!(!super::is_cancel_event(&press(
+    assert!(!is_cancel_event(&press(
         KeyCode::Char('c'),
         KeyModifiers::empty()
     )));
-    assert!(!super::is_cancel_event(&press(
+    assert!(!is_cancel_event(&press(
         KeyCode::Enter,
         KeyModifiers::empty()
     )));
-    assert!(!super::is_cancel_event(&Event::FocusGained));
+    assert!(!is_cancel_event(&Event::FocusGained));
     // Key releases must not cancel: only presses count.
     let mut release = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
     release.kind = KeyEventKind::Release;
-    assert!(!super::is_cancel_event(&Event::Key(release)));
+    assert!(!is_cancel_event(&Event::Key(release)));
 }
 #[test]
 fn quoted_paths_and_shell_operators_reach_the_shell_unchanged() {
-    let temp = tempfile::TempDir::new().expect("tempdir");
+    let temp = TempDir::new().expect("tempdir");
     std::fs::write(temp.path().join("input file.txt"), "contents").expect("input");
     let command = if cfg!(windows) {
         "type \"input file.txt\" > \"output file.txt\" && echo copied"
     } else {
         "cat \"input file.txt\" > \"output file.txt\" && echo copied"
     };
-    let output = super::run_shell_command(command, temp.path()).expect("shell");
+    let output = run_shell_command(command, temp.path()).expect("shell");
     assert!(output.status.success(), "{output:?}");
     assert_eq!(
         std::fs::read_to_string(temp.path().join("output file.txt")).expect("copy"),

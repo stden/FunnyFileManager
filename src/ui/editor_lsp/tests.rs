@@ -110,26 +110,34 @@ fn check_definition_list(editor: &Editor) {
     assert!(text.contains("source.rs:1:1"));
 }
 
+/// `text` as an editor line with the default tab stops.
+fn line(text: &str) -> crate::ui::EditorLine<'_> {
+    crate::ui::EditorLine {
+        text,
+        tab: crate::models::TabSize::DEFAULT,
+    }
+}
+
 #[test]
 fn invalid_and_offscreen_diagnostics_do_not_paint_other_text() {
     let mut diagnostic = emoji_diagnostic();
     assert_eq!(
-        diagnostic_columns(&diagnostic, 1, "plain", Cells::new(0), 8),
+        diagnostic_columns(&diagnostic, 1, line("plain"), Cells::new(0), 8),
         None
     );
     assert_eq!(
-        diagnostic_columns(&diagnostic, 0, "a😀z", Cells::new(8), 8),
+        diagnostic_columns(&diagnostic, 0, line("a😀z"), Cells::new(8), 8),
         None
     );
     diagnostic.range.start.character = 2;
     assert_eq!(
-        diagnostic_columns(&diagnostic, 0, "a😀z", Cells::new(0), 8),
+        diagnostic_columns(&diagnostic, 0, line("a😀z"), Cells::new(0), 8),
         None
     );
     diagnostic.range.start.character = 5;
     diagnostic.range.end.character = 5;
     assert_eq!(
-        diagnostic_columns(&diagnostic, 0, "a😀z", Cells::new(0), 8),
+        diagnostic_columns(&diagnostic, 0, line("a😀z"), Cells::new(0), 8),
         None
     );
     diagnostic.range.start = Position::default();
@@ -138,7 +146,7 @@ fn invalid_and_offscreen_diagnostics_do_not_paint_other_text() {
         character: 0,
     };
     assert_eq!(
-        diagnostic_columns(&diagnostic, 1, "middle", Cells::new(0), 3),
+        diagnostic_columns(&diagnostic, 1, line("middle"), Cells::new(0), 3),
         Some(0..3)
     );
 }

@@ -153,6 +153,11 @@ pub(super) const DISABLED_FG: Color = Color::Rgb(128, 128, 128);
 /// A text field: sunk into the dialog rather than raised out of it.
 pub(super) const FIELD_BG: Color = Color::Rgb(0, 128, 128);
 pub(super) const FIELD_FG: Color = Color::Rgb(0, 0, 0);
+/// Text selected in a field: an offered value that the first key typed
+/// replaces. White on black, the way a selected row is drawn elsewhere, so it
+/// cannot be mistaken for text that typing would add to.
+pub(super) const FIELD_SELECTED_BG: Color = Color::Rgb(0, 0, 0);
+pub(super) const FIELD_SELECTED_FG: Color = Color::Rgb(255, 255, 255);
 
 /// The focused form button: black on cyan; warnings use a gray button.
 pub(super) const DIALOG_FOCUS_BG: Color = Color::Rgb(0, 128, 128);

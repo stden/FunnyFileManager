@@ -52,11 +52,8 @@ pub fn submit(app: &mut App, page: SettingsPage, text: &str) -> io::Result<()> {
 pub fn load(app: &mut App, path: &Path) -> io::Result<()> {
     let mut settings = Settings::with_file(path.to_owned());
     if path.exists() {
-        if fs::metadata(path)?.len() > 1_048_576 {
-            return Err(io::Error::other("Settings file exceeds 1 MiB"));
-        }
         let values: std::collections::BTreeMap<SettingsPage, String> =
-            serde_json::from_slice(&fs::read(path)?).map_err(io::Error::other)?;
+            read_json(path, "Settings file")?;
         for (page, value) in values {
             settings.set(page, &value).map_err(io::Error::other)?;
         }
@@ -148,10 +145,27 @@ fn translations(language: &str) -> io::Result<std::collections::BTreeMap<String,
     if language == "English" {
         return Ok(std::collections::BTreeMap::new());
     }
-    if fs::metadata(language)?.len() > 1_048_576 {
-        return Err(io::Error::other("Language dictionary exceeds 1 MiB"));
+    read_json(Path::new(language), "Language dictionary")
+}
+
+/// Largest settings file or language dictionary read, in bytes.
+const MAX_JSON_FILE: u64 = 1_048_576;
+
+/// Read a settings file or language dictionary, `what` naming it in errors.
+///
+/// Anything but a regular file is refused before it is opened: opening a FIFO
+/// blocks until something writes to it, and this runs on the event loop, so
+/// the whole UI froze. A FIFO or a device also reports a length of 0, which
+/// the size check alone lets through.
+fn read_json<T: serde::de::DeserializeOwned>(path: &Path, what: &str) -> io::Result<T> {
+    let metadata = fs::metadata(path)?;
+    if !metadata.is_file() {
+        return Err(io::Error::other(format!("{what} is not a regular file")));
     }
-    serde_json::from_slice(&fs::read(language)?).map_err(io::Error::other)
+    if metadata.len() > MAX_JSON_FILE {
+        return Err(io::Error::other(format!("{what} exceeds 1 MiB")));
+    }
+    serde_json::from_slice(&fs::read(path)?).map_err(io::Error::other)
 }
 
 #[cfg(test)]

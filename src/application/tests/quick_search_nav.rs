@@ -31,10 +31,10 @@ fn test_quick_search_cleared_on_navigation() -> io::Result<()> {
     let mut events = vec![
         // Start quick search
         Event::Key(key_event_with_mods(KeyCode::Char('f'), KeyModifiers::ALT)),
-        // Navigate - should NOT clear quick search
+        // Navigation ends the quick search, as in Far (see quick_search_ends)
         Event::Key(key_event(KeyCode::Down)),
         Event::Key(key_event(KeyCode::Up)),
-        // Tab should clear quick search
+        // Tab ends the quick search too
         Event::Key(key_event(KeyCode::Tab)),
         // Quit
         Event::Key(key_event(KeyCode::F(10))),
@@ -68,7 +68,7 @@ fn test_quick_search_cleared_on_tab() -> io::Result<()> {
     let mut events = vec![
         // Start quick search
         Event::Key(key_event_with_mods(KeyCode::Char('f'), KeyModifiers::ALT)),
-        // Tab should clear quick search
+        // Tab ends the quick search too
         Event::Key(key_event(KeyCode::Tab)),
         // Quit
         Event::Key(key_event(KeyCode::F(10))),

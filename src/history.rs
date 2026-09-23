@@ -72,8 +72,10 @@ impl RingIndex {
 /// Session-plus-disk command history.
 ///
 /// `session` holds everything executed this run, newest last. `durable`
-/// mirrors the on-disk file (newest last). Suggestions search the session
-/// ring first — most recent experience wins — then the persisted lines.
+/// mirrors the on-disk file (newest last), re-read before every save so that
+/// several running instances add to one history instead of overwriting each
+/// other. Suggestions search the session ring first — most recent experience
+/// wins — then the persisted lines.
 ///
 /// `persistence` is the write target, resolved once by [`History::load`] and
 /// never re-read: [`Persistence::SessionOnly`] makes [`History::save`]
@@ -86,10 +88,9 @@ impl RingIndex {
 /// `Clone` is safe today only because nothing clones a `History` that holds
 /// a `Persistence::File`: the sole whole-`App` clone in the tree is a `#[cfg(test)]`
 /// helper (`src/tests_quick_search_nav.rs`) exercising a session-only
-/// history. Two live clones sharing one file would race on `save` (last
-/// writer wins, like any unsynchronized shared file) — if production code
-/// ever clones an `App`/`History` carrying a real path, that hazard needs
-/// revisiting (e.g. an `Arc<Mutex<_>>` around the file, or dropping `Clone`).
+/// history. Two live clones sharing one file merge like two processes do:
+/// each save re-reads the file first. Only saves that interleave between
+/// that read and the atomic rename can still lose a line — there is no lock.
 #[derive(Debug, Default, Clone)]
 pub struct History {
     session: VecDeque<String>,
@@ -106,22 +107,7 @@ impl History {
     #[must_use]
     pub fn load() -> Self {
         let persistence = history_file_path().map_or(Persistence::SessionOnly, Persistence::File);
-        let durable = persistence
-            .file()
-            // Skip the read entirely for an oversize (hand-made / corrupt) file.
-            .filter(|p| {
-                p.metadata()
-                    .is_ok_and(|m| m.len() <= MAX_HISTORY_FILE_BYTES)
-            })
-            .and_then(|p| fs::read_to_string(p).ok())
-            .map(|text| {
-                text.lines()
-                    // classify() re-checks on load: a hand-edited file cannot
-                    // smuggle a shell line back into the durable set.
-                    .filter_map(DurableLine::classify)
-                    .collect()
-            })
-            .unwrap_or_default();
+        let durable = persistence.file().map(read_durable).unwrap_or_default();
         Self {
             session: VecDeque::new(),
             durable,
@@ -140,6 +126,12 @@ impl History {
         push_deduped(&mut self.session, trimmed.to_owned(), |a, b| a == b);
 
         if let Some(durable) = DurableLine::classify(trimmed) {
+            // Another ffm may have saved since this one loaded. Starting from
+            // the file makes the save add to its lines; starting from memory
+            // wrote back a stale copy and dropped them.
+            if let Some(path) = self.persistence.file() {
+                self.durable = read_durable(path);
+            }
             push_deduped(&mut self.durable, durable, PartialEq::eq);
             self.save();
         }
@@ -223,6 +215,28 @@ impl History {
             .find(|(_, entry)| entry.contains(query))
             .map(|(index, _)| RingIndex::new(index))
     }
+}
+
+/// The durable lines of the history file at `path`. Missing, unreadable,
+/// oversize or corrupt files are an empty history — completion must never
+/// break the file manager.
+fn read_durable(path: &std::path::Path) -> VecDeque<DurableLine> {
+    // Skip the read entirely for an oversize (hand-made / corrupt) file.
+    if !path
+        .metadata()
+        .is_ok_and(|meta| meta.len() <= MAX_HISTORY_FILE_BYTES)
+    {
+        return VecDeque::new();
+    }
+    fs::read_to_string(path)
+        .map(|text| {
+            text.lines()
+                // classify() re-checks on load: a hand-edited file cannot
+                // smuggle a shell line back into the durable set.
+                .filter_map(DurableLine::classify)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Push `value`, dropping any older equal entry (dedup keep-newest) and the

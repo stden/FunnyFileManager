@@ -11,6 +11,8 @@
 //! - Several masks are separated by `,` or `;` — `*.c,*.h` is both.
 //! - Everything after `|` is an exclusion: `*|*.tmp` is everything but
 //!   temporary files.
+//! - Any one mask may be put in double quotes, which makes `,`, `;`, `|` and
+//!   the blanks at its ends part of it: `"semi;colon"` names that one file.
 //!
 //! Matching ignores case, as Far's does. On a case-sensitive filesystem that
 //! is a deliberate choice rather than an oversight: a mask is typed by a
@@ -29,7 +31,8 @@ impl Mask {
     /// reads as "all but the temporary files" rather than as "nothing".
     #[must_use]
     pub fn parse(line: &str) -> Self {
-        let (take, drop) = line.split_once('|').unwrap_or((line, ""));
+        let bar = unquoted(line).find(|&(_, ch)| ch == '|');
+        let (take, drop) = bar.map_or((line, ""), |(at, _)| (&line[..at], &line[at + 1..]));
         Self {
             include: patterns(take),
             exclude: patterns(drop),
@@ -62,12 +65,36 @@ impl Mask {
 }
 
 /// Split a half of the line into lowercase patterns, dropping blanks.
+///
+/// Only separators outside quotes split. Each part is trimmed before its
+/// quotes are removed, so the blanks inside them stay part of the name.
 fn patterns(half: &str) -> Vec<String> {
-    half.split([',', ';'])
-        .map(str::trim)
+    let mut parts = Vec::new();
+    let mut start = 0;
+    for (at, _) in unquoted(half).filter(|&(_, ch)| ch == ',' || ch == ';') {
+        parts.push(&half[start..at]);
+        start = at + 1;
+    }
+    parts.push(&half[start..]);
+    parts
+        .into_iter()
+        .map(|part| part.trim().replace('"', ""))
         .filter(|part| !part.is_empty())
-        .map(str::to_lowercase)
+        .map(|part| part.to_lowercase())
         .collect()
+}
+
+/// The characters of `text` that stand outside double quotes, with their byte
+/// offsets. The quotes themselves are left out, so a separator between them is
+/// never seen and cannot split the mask.
+fn unquoted(text: &str) -> impl Iterator<Item = (usize, char)> + '_ {
+    let mut quoted = false;
+    text.char_indices().filter(move |&(_, ch)| {
+        if ch == '"' {
+            quoted = !quoted;
+        }
+        !quoted && ch != '"'
+    })
 }
 
 /// Match one lowercase pattern against one lowercase name.

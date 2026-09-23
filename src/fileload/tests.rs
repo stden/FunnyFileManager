@@ -237,7 +237,8 @@ fn spawn_growth_writer(
         let chunk = vec![0_u8; 1024 * 1024];
         // Well past MAX_FILE_SIZE.bytes() so a concurrent take() can see
         // more than the limit even if it started from a zero-length snapshot.
-        for _ in 0..(MAX_FILE_SIZE.bytes() as usize / chunk.len() + 2) {
+        let limit = usize::try_from(MAX_FILE_SIZE.bytes()).expect("the limit fits usize");
+        for _ in 0..(limit / chunk.len() + 2) {
             let _ = file.write_all(&chunk);
         }
         let _ = file.flush();

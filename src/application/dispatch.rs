@@ -47,7 +47,7 @@ fn report(app: &mut App, operation: impl FnOnce(&mut App) -> io::Result<()>) {
 
 /// Apply a resolved [`Action`] to the application state, performing its effect.
 ///
-/// The dispatch half of the Input→Action DSL: [`crate::action::resolve`] turns a
+/// The dispatch half of the Input→Action DSL: [`resolve`] turns a
 /// key into an [`Action`]; this turns that [`Action`] into an effect on `app`.
 /// Updates [`Lifecycle`] when an action should terminate the event loop.
 ///
@@ -59,6 +59,11 @@ where
     B: Backend + Write,
 {
     log_action(&action_label(action));
+    // Far's fast find ends on any key that is not part of it, before that key
+    // acts: a query typed here means nothing in another folder or panel.
+    if !action.edits_quick_search() {
+        app.quick_search.clear();
+    }
     if app.view == ViewMode::Console {
         console_action(terminal, app, action);
         return;

@@ -5,6 +5,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use super::{copy_file, FileMode};
+
 #[cfg(any(test, tarpaulin))]
 use super::{
     force_lock, COPY_DIR_ALL_FAIL_COPY_FILE, COPY_DIR_ALL_FAIL_CREATE, COPY_DIR_ALL_FAIL_ENTRY,
@@ -45,7 +47,7 @@ fn entry_file_type(entry: &fs::DirEntry) -> io::Result<fs::FileType> {
     entry.file_type()
 }
 
-fn copy_file_checked(src: &Path, dst: &Path) -> io::Result<u64> {
+fn copy_file_checked(src: &Path, dst: &Path, mode: FileMode) -> io::Result<()> {
     #[cfg(any(test, tarpaulin))]
     {
         let step = force_lock(&FORCE_COPY_DIR_ALL_STEP);
@@ -53,18 +55,10 @@ fn copy_file_checked(src: &Path, dst: &Path) -> io::Result<u64> {
             return Err(io::Error::other("forced copy failure"));
         }
     }
-    // `fs::copy` opens the source before it looks at what the source is, and
-    // `open` on a FIFO waits for a writer that may never come — with the event
-    // loop stopped and no key able to reach it. A device node would copy until
-    // the disk filled instead. Neither has contents a file manager can carry
-    // over, so both are reported rather than attempted.
-    if !fs::metadata(src)?.is_file() {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("{}: not a regular file", src.display()),
-        ));
-    }
-    fs::copy(src, dst)
+    // The path goes into the message: the batch reports the folder, and only
+    // this says which entry inside it was refused or failed.
+    copy_file(src, dst, mode)
+        .map_err(|error| io::Error::new(error.kind(), format!("{}: {error}", src.display())))
 }
 
 /// Recreate a symlink instead of following it.
@@ -126,11 +120,29 @@ pub enum LinkPolicy {
 }
 
 pub fn copy_dir_all(src: &Path, dst: &Path) -> io::Result<()> {
-    copy_dir_all_with(src, dst, LinkPolicy::Recreate)
+    copy_dir_all_with(src, dst, CopyRules::PLAIN)
 }
 
-/// [`copy_dir_all`], with the caller's choice about links.
-pub fn copy_dir_all_with(src: &Path, dst: &Path, links: LinkPolicy) -> io::Result<()> {
+/// How a copy treats what it meets on the way down.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CopyRules {
+    pub links: LinkPolicy,
+    /// The permission bits each copied file ends up with. Folders are always
+    /// created afresh; restating a source folder's own mode is the caller's.
+    pub modes: FileMode,
+}
+
+impl CopyRules {
+    /// Links recreated, and every file keeping its source's mode: what
+    /// [`copy_dir_all`] and the quick F5/F6 do.
+    pub const PLAIN: Self = Self {
+        links: LinkPolicy::Recreate,
+        modes: FileMode::Source,
+    };
+}
+
+/// [`copy_dir_all`], with the caller's rules about links and modes.
+pub fn copy_dir_all_with(src: &Path, dst: &Path, rules: CopyRules) -> io::Result<()> {
     // Defence in depth: the walk below would descend into the copy it is
     // writing and duplicate the tree until the path length gives out. Callers
     // guard too — this keeps a future caller from re-introducing it.
@@ -148,11 +160,11 @@ pub fn copy_dir_all_with(src: &Path, dst: &Path, links: LinkPolicy) -> io::Resul
     // The root counts as entered: `logs -> ..` under the cursor is a link
     // whose own tree holds it again. Only a followed link can build a cycle,
     // so only that policy pays for the canonicalisation.
-    let mut walk = match links {
+    let mut walk = match rules.links {
         LinkPolicy::Recreate => Walk::unguarded(),
         LinkPolicy::Follow => Walk::guarded(src, dst),
     };
-    copy_tree(src, dst, links, &mut walk)
+    copy_tree(src, dst, rules, &mut walk)
 }
 
 /// Whether a link met during a transfer is followed rather than recreated.
@@ -174,11 +186,11 @@ pub fn follows_link(links: LinkPolicy, path: &Path) -> bool {
 /// directory tree cannot contain itself.
 struct Walk {
     /// The canonical path of every directory on the way down.
-    entered: Vec<std::path::PathBuf>,
+    entered: Vec<PathBuf>,
     /// The copy's own output. A link that reaches into it would have the walk
     /// copying what it is writing — every level a fresh path, so the `entered`
     /// stack alone never notices.
-    output: Option<std::path::PathBuf>,
+    output: Option<PathBuf>,
 }
 
 impl Walk {
@@ -220,7 +232,7 @@ impl Walk {
     }
 }
 
-fn copy_tree(src: &Path, dst: &Path, links: LinkPolicy, walk: &mut Walk) -> io::Result<()> {
+fn copy_tree(src: &Path, dst: &Path, rules: CopyRules, walk: &mut Walk) -> io::Result<()> {
     #[cfg(any(test, tarpaulin))]
     {
         let step = force_lock(&FORCE_COPY_DIR_ALL_STEP);
@@ -241,14 +253,14 @@ fn copy_tree(src: &Path, dst: &Path, links: LinkPolicy, walk: &mut Walk) -> io::
         let src_path = entry.path();
         let dst_path = dst.join(entry.file_name());
 
-        if file_type.is_symlink() && !follows_link(links, &src_path) {
+        if file_type.is_symlink() && !follows_link(rules.links, &src_path) {
             copy_symlink(&src_path, &dst_path)?;
         } else if src_path.is_dir() {
             // `is_dir` follows the link, which is the right question to ask
             // once the policy says to follow it.
-            descend(&src_path, &dst_path, links, walk)?;
+            descend(&src_path, &dst_path, rules, walk)?;
         } else {
-            copy_file_checked(&src_path, &dst_path)?;
+            copy_file_checked(&src_path, &dst_path, rules.modes)?;
         }
     }
     Ok(())
@@ -264,19 +276,19 @@ fn copy_tree(src: &Path, dst: &Path, links: LinkPolicy, walk: &mut Walk) -> io::
 /// batch reports rather than recursing until the path length gives out. The
 /// stack entry is popped on the way back up, so two links to the same
 /// directory side by side are duplicated work, not a loop.
-fn descend(src: &Path, dst: &Path, links: LinkPolicy, walk: &mut Walk) -> io::Result<()> {
-    if links == LinkPolicy::Recreate {
+fn descend(src: &Path, dst: &Path, rules: CopyRules, walk: &mut Walk) -> io::Result<()> {
+    if rules.links == LinkPolicy::Recreate {
         // Nothing to guard against, and nothing to pay for it: a link never
         // reaches this function under `Recreate`, so every descent is into a
         // real subdirectory and a real directory tree cannot contain itself.
-        return copy_tree(src, dst, links, walk);
+        return copy_tree(src, dst, rules, walk);
     }
     let real = src.canonicalize()?;
     if let Some(refusal) = walk.refusal(&real, src) {
         return Err(refusal);
     }
     walk.entered.push(real);
-    let result = copy_tree(src, dst, links, walk);
+    let result = copy_tree(src, dst, rules, walk);
     walk.entered.pop();
     result
 }

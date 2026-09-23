@@ -8,12 +8,15 @@ use std::{
 
 use crate::models::App;
 
+mod copy_file;
 mod copy_tree;
 
+pub(crate) use copy_file::copy_file;
+pub use copy_file::FileMode;
 pub(crate) use copy_tree::{
     canonical_existing_ancestor, copy_dir_all_with, copy_symlink, follows_link,
 };
-pub use copy_tree::{copy_dir_all, LinkPolicy};
+pub use copy_tree::{copy_dir_all, CopyRules, LinkPolicy};
 
 #[cfg(any(test, tarpaulin))]
 const COPY_DIR_ALL_FAIL_CREATE: u8 = 1;
@@ -119,9 +122,9 @@ pub fn refresh_panels(app: &mut App) -> io::Result<()> {
     // failure reported. `?` on the left reload used to skip the right panel
     // entirely, so deleting a directory the *other* panel sits in left the
     // acting panel still listing the entry it had just removed.
-    let left = app.left_panel.load_entries();
+    let left = app.left_panel.reload();
     app.left_panel.ensure_selection();
-    let right = app.right_panel.load_entries();
+    let right = app.right_panel.reload();
     app.right_panel.ensure_selection();
     left.and(right)
 }

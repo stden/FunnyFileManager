@@ -53,6 +53,17 @@
 //!   copy + delete when crossing filesystems.
 //! - **Never overwrite:** destinations get a `_N` suffix via `unique_destination`.
 
+// Unit-test ergonomics only; the non-test library build still enforces all four.
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unnecessary_wraps,
+        clippy::needless_pass_by_value,
+        clippy::needless_pass_by_ref_mut,
+        clippy::match_wildcard_for_single_variants
+    )
+)]
+
 pub mod action;
 mod application;
 mod bootstrap;
@@ -79,6 +90,7 @@ pub mod description;
 pub mod diskfree;
 pub mod editor;
 pub mod encoding;
+mod file_write;
 mod fileload;
 pub mod git;
 pub mod handlers;
@@ -101,6 +113,7 @@ mod panel_session;
 pub(crate) mod path_display;
 pub mod path_env;
 pub mod performance;
+mod platform;
 pub mod popup;
 pub mod prompt;
 pub mod quicksearch;

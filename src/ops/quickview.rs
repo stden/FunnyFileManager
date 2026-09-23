@@ -79,7 +79,7 @@ fn follow(app: &mut App, side: PanelSide) {
 fn target_of(panel: &Panel) -> Option<PathBuf> {
     match &panel.kind {
         PanelKind::Files => panel.selected_path(),
-        PanelKind::Tree(tree) => tree.selected().map(std::path::Path::to_path_buf),
+        PanelKind::Tree(tree) => tree.selected().map(Path::to_path_buf),
         PanelKind::QuickView(_) => None,
     }
 }
@@ -118,9 +118,10 @@ fn load_file(path: &Path) -> Preview {
         Ok(Loaded::TooLarge(size)) => {
             Preview::Refused(Refusal::TooLarge(FileSize::from_bytes(size)))
         }
-        // The NUL heuristic F3 uses (git's too): the preview can only render
-        // garbage for such a file.
-        Ok(Loaded::Bytes(bytes)) if bytes.contains(&0) => Preview::Refused(Refusal::Binary),
+        // The test F3 uses: the preview can only render garbage for a binary.
+        Ok(Loaded::Bytes(bytes)) if crate::encoding::is_binary(&bytes) => {
+            Preview::Refused(Refusal::Binary)
+        }
         Ok(Loaded::Bytes(bytes)) => Preview::Text(TextPreview::decoded(path, &bytes)),
     }
 }

@@ -108,10 +108,11 @@ fn copy_symlink_reports_a_read_link_failure_and_creates_nothing() {
     );
 }
 
-/// The left panel is reloaded first, so a right-panel failure still leaves the
-/// left panel refreshed.
+/// Both panels are reloaded whichever of them lost its folder. The right one,
+/// whose folder was deleted, moves to the folder above — it used to fail with
+/// "No such file or directory" and keep listing the deleted entries (B27).
 #[test]
-fn refresh_panels_reports_the_right_panel_failure_after_reloading_the_left() {
+fn refresh_panels_reloads_the_left_panel_and_moves_the_right_out_of_its_deleted_folder() {
     let _lock = refresh_panels_mutex().lock().expect("refresh mutex");
 
     let temp_dir = TempDir::new().expect("test setup");
@@ -123,30 +124,31 @@ fn refresh_panels_reports_the_right_panel_failure_after_reloading_the_left() {
     let mut app = app_with_panels(&left, &right);
 
     // Created after the panels were built: it can only show up if the left
-    // panel was actually re-read before the right panel failed.
+    // panel was actually re-read.
     File::create(left.join("added.txt")).expect("test setup");
     fs::remove_dir(&right).expect("test setup");
 
-    let err = refresh_panels(&mut app).expect_err("the right panel path no longer exists");
+    refresh_panels(&mut app).expect("a deleted folder is left, not reported");
 
-    assert_eq!(err.kind(), io::ErrorKind::NotFound);
     assert!(
         app.left_panel
             .entries
             .iter()
             .any(|entry| entry.name == "added.txt"),
-        "the left panel must have been reloaded before the failure"
+        "the left panel was reloaded"
     );
+    assert_eq!(app.right_panel.path, temp_dir.path());
 }
 
-/// A failing left reload must not cost the right panel its refresh.
+/// A left panel whose folder vanished must not cost the right panel its
+/// refresh.
 ///
 /// The left reload used to short-circuit with `?`, so deleting a directory the
 /// *other* panel was sitting in left the acting panel still listing the entry it
-/// had just removed. Both panels are reloaded now; the failure is only reported
-/// afterwards.
+/// had just removed. Both panels are reloaded, and the left one moves out of
+/// the deleted folder.
 #[test]
-fn refresh_panels_reloads_the_right_panel_even_when_the_left_fails() {
+fn refresh_panels_reloads_the_right_panel_and_moves_the_left_out_of_its_deleted_folder() {
     let _lock = refresh_panels_mutex().lock().expect("refresh mutex");
 
     let temp_dir = TempDir::new().expect("test setup");
@@ -160,25 +162,24 @@ fn refresh_panels_reloads_the_right_panel_even_when_the_left_fails() {
     File::create(right.join("added.txt")).expect("test setup");
     fs::remove_dir(&left).expect("test setup");
 
-    let err = refresh_panels(&mut app).expect_err("the left panel path no longer exists");
+    refresh_panels(&mut app).expect("a deleted folder is left, not reported");
 
-    assert_eq!(err.kind(), io::ErrorKind::NotFound);
     assert!(
         app.right_panel
             .entries
             .iter()
             .any(|entry| entry.name == "added.txt"),
-        "the right panel must be reloaded even though the left one failed"
+        "the right panel was reloaded"
     );
+    assert_eq!(app.left_panel.path, temp_dir.path());
 }
 
-/// The failing panel keeps its last good listing.
-///
-/// `load_entries` used to clear `self.entries` and push ".." *before* the
-/// fallible `read_dir`, so a panel whose directory vanished was blanked down to
-/// a lone ".." instead of continuing to show what it last read successfully.
+/// A panel whose folder vanished is never blanked down to a lone "..": it
+/// shows the folder above. (A reload that fails for any other reason keeps
+/// its last listing — `load_entries` is pinned by
+/// `models::tests_panel_symlinks::a_failed_reload_keeps_the_previous_listing`.)
 #[test]
-fn a_failed_reload_leaves_the_previous_listing_in_place() {
+fn a_panel_whose_folder_vanished_lists_the_folder_above() {
     let _lock = refresh_panels_mutex().lock().expect("refresh mutex");
 
     let temp_dir = TempDir::new().expect("test setup");
@@ -189,26 +190,20 @@ fn a_failed_reload_leaves_the_previous_listing_in_place() {
     File::create(left.join("kept.txt")).expect("test setup");
 
     let mut app = app_with_panels(&left, &right);
-    let before = app.left_panel.entries.len();
-    assert!(
-        app.left_panel
-            .entries
-            .iter()
-            .any(|entry| entry.name == "kept.txt"),
-        "test setup: the left panel starts with a real listing"
-    );
-
     fs::remove_file(left.join("kept.txt")).expect("test setup");
     fs::remove_dir(&left).expect("test setup");
 
-    refresh_panels(&mut app).expect_err("the left panel path no longer exists");
+    refresh_panels(&mut app).expect("a deleted folder is left, not reported");
 
-    assert_eq!(app.left_panel.entries.len(), before);
+    let names: Vec<&str> = app
+        .left_panel
+        .entries
+        .iter()
+        .map(|entry| entry.name.as_str())
+        .collect();
     assert!(
-        app.left_panel
-            .entries
-            .iter()
-            .any(|entry| entry.name == "kept.txt"),
-        "a failed reload must not blank the panel down to a lone \"..\""
+        names.contains(&"right"),
+        "the folder above is listed: {names:?}"
     );
+    assert!(!names.contains(&"kept.txt"));
 }

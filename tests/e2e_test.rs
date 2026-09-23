@@ -1131,21 +1131,29 @@ fn e2e_escaping_the_copy_dialog_copies_nothing() {
     assert!(left.path().join("report.txt").exists());
 }
 
-/// The point of the dialog: a destination that is neither panel.
+/// Press `f_key` on the first entry, clear the offered destination and type
+/// `destination` instead, then accept the dialog and quit.
+fn transfer_to_typed(left: &Path, right: &Path, f_key: u8, destination: &str) {
+    let mut events = vec![key(KeyCode::Down), key(KeyCode::F(f_key))];
+    for _ in 0..right.to_string_lossy().len() + 8 {
+        events.push(key(KeyCode::Backspace));
+    }
+    events.extend(typed(destination));
+    events.push(key(KeyCode::Enter));
+    events.extend(quit());
+    run(left, right, events);
+}
+
+/// The point of the dialog: a destination that is neither panel. The
+/// trailing separator asks for a folder, created on the way (Far: "append
+/// backslash to its name").
 #[test]
 fn e2e_the_copy_dialog_uses_the_typed_destination() {
     let (left, right) = fixture(&[("report.txt", "data")]);
     let elsewhere = left.path().join("elsewhere");
 
-    let mut events = vec![key(KeyCode::Down), key(KeyCode::F(5))];
-    // Clear the offered path, then type one neither panel is showing.
-    for _ in 0..left.path().to_string_lossy().len() + 8 {
-        events.push(key(KeyCode::Backspace));
-    }
-    events.extend(typed(&elsewhere.to_string_lossy()));
-    events.push(key(KeyCode::Enter));
-    events.extend(quit());
-    run(left.path(), right.path(), events);
+    let folder = format!("{}{}", elsewhere.display(), std::path::MAIN_SEPARATOR);
+    transfer_to_typed(left.path(), right.path(), 5, &folder);
 
     assert!(
         elsewhere.join("report.txt").exists(),
@@ -1154,6 +1162,23 @@ fn e2e_the_copy_dialog_uses_the_typed_destination() {
     assert!(
         !right.path().join("report.txt").exists(),
         "and not in the other panel"
+    );
+}
+
+/// F6 is "Rename or move": a new name for the one file renames it, rather
+/// than making a folder of that name and moving the file inside.
+#[test]
+fn e2e_f6_to_a_new_name_renames_the_file() {
+    let (left, right) = fixture(&[("report.txt", "data")]);
+    let renamed = left.path().join("final.txt");
+
+    transfer_to_typed(left.path(), right.path(), 6, &renamed.to_string_lossy());
+
+    assert!(renamed.is_file(), "a file named final.txt, not a folder");
+    assert_eq!(fs::read_to_string(&renamed).expect("renamed"), "data");
+    assert!(
+        !left.path().join("report.txt").exists(),
+        "the old name is gone"
     );
 }
 
