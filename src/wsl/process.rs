@@ -212,6 +212,7 @@ impl ManagedProcess for ChildGuard {
 }
 
 #[cfg(windows)]
+#[allow(unsafe_code)]
 fn windows_directory() -> Result<std::path::PathBuf, String> {
     use std::os::windows::ffi::OsStringExt;
     use windows_sys::Win32::System::SystemInformation::GetWindowsDirectoryW;

@@ -79,6 +79,7 @@ pub fn capacity(path: &Path) -> Option<Capacity> {
 
 #[cfg(windows)]
 #[must_use]
+#[allow(unsafe_code)]
 pub fn capacity(path: &Path) -> Option<Capacity> {
     use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
 
@@ -112,6 +113,7 @@ pub fn capacity(_path: &Path) -> Option<Capacity> {
 /// distinction the kernel does not draw.
 #[cfg(windows)]
 #[must_use]
+#[allow(unsafe_code)]
 pub fn drive_kind(path: &Path) -> DriveKind {
     use windows_sys::Win32::{
         Storage::FileSystem::GetDriveTypeW,

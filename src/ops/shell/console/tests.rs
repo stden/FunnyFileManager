@@ -33,10 +33,12 @@ fn write_probe(directory: &Path) {
     .expect("console probe");
 }
 
+#[allow(unsafe_code)]
 fn wait_for_probe(process: &OwnedHandle) {
     // SAFETY: the owned handle stays live throughout these calls.
     let result = unsafe { WaitForSingleObject(process.as_raw_handle(), 15_000) };
     if result != WAIT_OBJECT_0 {
+        // SAFETY: the same live, owned process handle.
         unsafe { TerminateProcess(process.as_raw_handle(), 1) };
     }
     assert_eq!(result, WAIT_OBJECT_0, "console probe must finish");

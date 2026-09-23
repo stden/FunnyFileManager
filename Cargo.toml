@@ -276,11 +276,18 @@ codegen-units = 16
 [lints.rust]
 unfulfilled_lint_expectations = "deny"
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tarpaulin)", "cfg(coverage)"] }
+# Unsafe code lives only in reviewed platform/FFI boundaries: each one opts in
+# with an item-level `#[allow(unsafe_code)]`, and tests/unsafe_boundary_test.rs
+# keeps those items on an explicit file allowlist.
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "deny"
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
+# Every unsafe block states why it is sound in a `// SAFETY:` comment.
+undocumented_unsafe_blocks = "deny"
 # Allow common patterns used throughout the codebase
 module_name_repetitions = "allow"
 must_use_candidate = "allow"

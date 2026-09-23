@@ -19,6 +19,7 @@ pub(super) fn owners(directory: &Path) -> io::Result<BTreeMap<String, String>> {
     serde_json::from_slice(&output.stdout).map_err(io::Error::other)
 }
 
+#[allow(unsafe_code)]
 pub(super) fn link_count(path: &Path) -> String {
     use windows_sys::Win32::Storage::FileSystem::{
         GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
@@ -26,8 +27,9 @@ pub(super) fn link_count(path: &Path) -> String {
     let Ok(file) = fs::File::open(path) else {
         return String::new();
     };
-    // The API initializes this output structure and borrows our live file handle.
-    let mut information: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+    let mut information = BY_HANDLE_FILE_INFORMATION::default();
+    // SAFETY: the API fills this owned output structure and only borrows our
+    // live file handle for the call.
     let success = unsafe { GetFileInformationByHandle(file.as_raw_handle(), &raw mut information) };
     if success == 0 {
         String::new()

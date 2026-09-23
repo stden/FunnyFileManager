@@ -74,6 +74,7 @@ fn no_type_holding_a_secret_can_be_formatted() {
 }
 
 #[test]
+#[allow(unsafe_code)]
 fn zeroize_overwrites_the_secret_in_place_rather_than_just_shortening_it() {
     let mut key = MasterKey::new("hunter2-master".to_owned());
     let ptr = key.expose().as_ptr();
@@ -93,6 +94,7 @@ fn zeroize_overwrites_the_secret_in_place_rather_than_just_shortening_it() {
 }
 
 #[test]
+#[allow(unsafe_code)]
 fn revealed_zeroize_overwrites_the_secret_in_place() {
     let mut revealed = Revealed::new("entry-password".to_owned());
     let ptr = revealed.expose().as_ptr();
@@ -110,6 +112,7 @@ fn revealed_zeroize_overwrites_the_secret_in_place() {
 }
 
 #[test]
+#[allow(unsafe_code)]
 fn deleting_a_typed_character_erases_it_from_the_buffer() {
     let mut key = MasterKey::typing();
     for ch in "abcd".chars() {
@@ -251,6 +254,7 @@ fn locking_discards_the_credentials_and_leaves_an_empty_prompt() {
 }
 
 #[test]
+#[allow(unsafe_code)]
 fn zeroizing_a_vault_wipes_the_master_key_and_the_revealed_password() {
     let (_dir, mut session, now) = unlocked_sample();
     assert!(session.reveal(now).expect("reveal"));
