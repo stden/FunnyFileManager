@@ -1,4 +1,6 @@
-//! Probe: does a second `delete_entry_by_id` with the same id reach `write.rs:141`?
+//! Purpose: Verify that deleting the same `KeePass` entry twice reports a missing entry.
+
+#![cfg(feature = "keepass")]
 
 use funny_file_manager::keepass::{
     create_database, delete_entry_by_id, list_entries, EntryDetails, KeepassError,

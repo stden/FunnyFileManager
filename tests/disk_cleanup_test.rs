@@ -11,7 +11,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use funny_file_manager::models::{
-    App, CleanupCandidate, CleanupField, DiskCleanupDialog, FileSize, Overlay, Panel,
+    App, CleanupCandidate, CleanupField, CleanupKind, DiskCleanupDialog, FileSize, Overlay, Panel,
 };
 use funny_file_manager::ops::disk_cleanup;
 use tempfile::TempDir;
@@ -20,6 +20,7 @@ fn candidate(label: &'static str, path: impl Into<PathBuf>) -> CleanupCandidate 
     CleanupCandidate {
         label,
         path: path.into(),
+        kind: CleanupKind::Path,
         size: None,
         checked: false,
         exists: false,
@@ -167,7 +168,9 @@ fn measure_sizes_only_the_heap_dumps_inside_the_home_directory() {
     // Sizing the whole home directory instead would sweep this in too.
     fs::write(home.join("notes.txt"), vec![0_u8; 9_000]).expect("test setup");
 
-    let mut dialog = dialog_with(vec![candidate("JVM heap dumps (*.hprof)", home)]);
+    let mut row = candidate("JVM heap dumps (*.hprof)", home);
+    row.kind = CleanupKind::HeapDumps;
+    let mut dialog = dialog_with(vec![row]);
     disk_cleanup::measure(&mut dialog, temp.path());
 
     let measured = &dialog.candidates[0];

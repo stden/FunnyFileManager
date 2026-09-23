@@ -348,6 +348,7 @@ fn test_execute_command_pwd_quit_exit() -> io::Result<()> {
     Ok(())
 }
 
+#[cfg(not(coverage))]
 fn long_destination(root: &Path) -> PathBuf {
     let mut long_path = root.to_path_buf();
     for i in 0..10 {

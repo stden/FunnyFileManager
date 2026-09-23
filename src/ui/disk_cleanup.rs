@@ -50,3 +50,6 @@ pub(super) fn render(
 
     dialog::render_tracked(f, tracker, "Disk Cleanup", Ground::Prompt, &rows, &buttons);
 }
+
+#[cfg(test)]
+mod tests;

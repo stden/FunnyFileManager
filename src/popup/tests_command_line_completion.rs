@@ -3,7 +3,7 @@
 use super::process_popup_input;
 use super::tests::key;
 
-use crate::models::{App, Overlay, Panel, PanelSide};
+use crate::models::{App, Overlay, Panel};
 
 use crossterm::event::KeyCode;
 
@@ -14,9 +14,8 @@ use tempfile::TempDir;
 /// App whose active panel sits in `dir` with the command line holding `text`.
 /// The panel directory matters: completion resolves paths relative to it.
 fn app_with_command_line(dir: &Path, text: &str) -> App {
-    let mut app = App::new().expect("test app");
-    app.left_panel = Panel::new(dir.to_path_buf()).expect("panel");
-    app.active_panel = PanelSide::Left;
+    let panel = Panel::new(dir.to_path_buf()).expect("panel");
+    let mut app = App::with_panels(panel.clone(), panel);
     app.set_overlay(Overlay::CommandLine(text.into()));
     app
 }
@@ -65,17 +64,17 @@ fn tab_with_a_single_match_completes_it_without_opening_the_menu() {
     assert_eq!(app.status_text(), status_before);
 }
 
-/// Nothing matches "zz", so Tab must leave the typed text untouched and open
-/// nothing — the key is still consumed by the modal prompt.
+/// No directory matches "zz", so Tab leaves the line untouched and opens no
+/// menu. A directory argument avoids consulting executables on the host PATH.
 #[test]
 fn tab_with_no_match_leaves_the_line_alone_and_opens_no_menu() {
     let temp = TempDir::new().expect("temp dir");
-    let mut app = app_with_command_line(temp.path(), "zz");
+    let mut app = app_with_command_line(temp.path(), "cd zz");
     let status_before = app.status_text();
 
     assert!(process_popup_input(&mut app, key(KeyCode::Tab)));
 
-    assert_eq!(app.get_command_line(), Some("zz"));
+    assert_eq!(app.get_command_line(), Some("cd zz"));
     let Overlay::CommandLine(state) = &app.overlay else {
         panic!("command line should still be open");
     };

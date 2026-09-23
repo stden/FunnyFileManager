@@ -8,6 +8,8 @@ pub use backend::WritableTestBackend;
 pub use environment::*;
 
 #[cfg(test)]
+pub(crate) mod disk_cleanup;
+#[cfg(test)]
 mod events;
 #[cfg(test)]
 pub(crate) use events::*;

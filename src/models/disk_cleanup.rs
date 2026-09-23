@@ -8,6 +8,15 @@ use std::path::PathBuf;
 
 use super::FileSize;
 
+/// The deletion scope chosen when a cleanup candidate is constructed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CleanupKind {
+    /// Remove this file or directory, including directory contents.
+    Path,
+    /// Remove only regular `*.hprof` files directly inside this directory.
+    HeapDumps,
+}
+
 /// One item in the cleanup checklist.
 #[derive(Debug, Clone)]
 pub struct CleanupCandidate {
@@ -15,6 +24,8 @@ pub struct CleanupCandidate {
     pub label: &'static str,
     /// Absolute path of the directory or file to remove.
     pub path: PathBuf,
+    /// Explicit scope; labels and directory names never decide what is deleted.
+    pub kind: CleanupKind,
     /// `None` while still measuring or if the entry does not exist.
     pub size: Option<FileSize>,
     /// Whether the checkbox is ticked.
@@ -110,7 +121,10 @@ fn build_candidates() -> Vec<CleanupCandidate> {
         ),
         pip,
         // The operations layer handles individual heap dumps, not the directory.
-        candidate("JVM heap dumps (~/*.hprof)", home),
+        CleanupCandidate {
+            kind: CleanupKind::HeapDumps,
+            ..candidate("JVM heap dumps (~/*.hprof)", home)
+        },
     ]
 }
 
@@ -139,6 +153,7 @@ fn candidate(label: &'static str, path: PathBuf) -> CleanupCandidate {
     CleanupCandidate {
         label,
         path,
+        kind: CleanupKind::Path,
         size: None,
         checked: false,
         exists: false,

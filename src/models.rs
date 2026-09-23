@@ -61,7 +61,7 @@ pub use bookmarks::{BookmarkSlot, Bookmarks, MAX_BOOKMARKS};
 pub use clipboard::ClipboardSlot;
 pub use command_line::{Candidate, CandidateKind, CommandLine, Menu, Recall};
 pub use describe::DescribePrompt;
-pub use disk_cleanup::{CleanupCandidate, CleanupField, DiskCleanupDialog};
+pub use disk_cleanup::{CleanupCandidate, CleanupField, CleanupKind, DiskCleanupDialog};
 #[cfg(all(windows, test))]
 use drive_entry::windows_drive_paths_from_mask;
 pub use drive_entry::DriveEntry;
