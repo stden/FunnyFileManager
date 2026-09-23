@@ -15,10 +15,10 @@ impl Default for DocumentId {
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct Revision(pub(crate) u64);
+pub struct Revision(pub u64);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Stamp {
+pub struct Stamp {
     pub id: DocumentId,
     pub revision: Revision,
 }
@@ -31,7 +31,7 @@ pub enum Feature {
 }
 
 impl Feature {
-    pub(crate) const fn method(self) -> &'static str {
+    pub const fn method(self) -> &'static str {
         match self {
             Self::Completion => "textDocument/completion",
             Self::Hover => "textDocument/hover",
@@ -52,7 +52,7 @@ pub enum ServerState {
 }
 
 impl ServerState {
-    pub(crate) const fn label(&self) -> &'static str {
+    pub const fn label(&self) -> &'static str {
         match self {
             Self::Stopped => "LSP off",
             Self::Unavailable => "LSP unavailable: check command/PATH",
@@ -65,7 +65,7 @@ impl ServerState {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct Snapshot {
+pub struct Snapshot {
     pub stamp: Stamp,
     pub path: PathBuf,
     pub text: String,
@@ -73,7 +73,7 @@ pub(crate) struct Snapshot {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Query {
+pub struct Query {
     pub stamp: Stamp,
     pub position: Position,
     pub feature: Feature,

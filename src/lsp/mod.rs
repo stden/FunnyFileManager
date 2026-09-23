@@ -2,13 +2,15 @@
 
 mod client;
 mod document;
-pub(crate) mod features;
-pub(crate) mod positions;
+pub mod features;
+pub mod manager;
+pub mod positions;
 mod process;
 mod rpc;
 mod transport;
-pub(crate) mod types;
-pub(crate) mod uri;
+pub mod types;
+pub mod uri;
+mod worker;
 
 #[cfg(test)]
 mod tests;

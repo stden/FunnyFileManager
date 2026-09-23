@@ -16,7 +16,7 @@ pub(super) enum Pending {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-pub(crate) struct ResponseError {
+pub struct ResponseError {
     pub code: i64,
     pub message: String,
     #[serde(default)]
@@ -88,6 +88,12 @@ impl Session {
 }
 
 fn response(message: &Value) -> Result<Result<Value, ResponseError>, &'static str> {
+    if !message
+        .get("id")
+        .is_some_and(|id| id.is_number() || id.is_string())
+    {
+        return Err("Invalid JSON-RPC response ID");
+    }
     match (message.get("result"), message.get("error")) {
         (Some(result), None) => Ok(Ok(result.clone())),
         (None, Some(error)) => serde_json::from_value(error.clone())

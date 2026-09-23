@@ -9,6 +9,7 @@ pub mod describe;
 pub mod disk_cleanup;
 mod dispatch;
 mod editor;
+pub(crate) mod editor_lsp;
 mod file;
 pub mod filter;
 pub mod findfile;

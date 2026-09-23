@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use crate::search::Caret;
 
-use super::{EditState, Editor};
+use super::Editor;
 
 /// Only the anchor is stored: the editor's caret is the active endpoint.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -39,6 +39,7 @@ impl Editor {
         self.state.exit_choice().is_none()
             && self.search.prompt.is_none()
             && self.encoding_choice.is_none()
+            && self.lsp.popup.is_none()
     }
 
     /// Select the complete document, including its final newline when present.
@@ -135,7 +136,7 @@ impl Editor {
         self.lines.drain(first + 1..=last);
         self.cursor_line = first;
         self.cursor_col = range.start.column.chars();
-        self.state = EditState::Modified;
+        self.mark_modified();
         true
     }
 
@@ -149,7 +150,7 @@ impl Editor {
         self.selection = EditorSelection::None;
         self.format.trailing_newline = false;
         if changed {
-            self.state = EditState::Modified;
+            self.mark_modified();
         }
         changed
     }
@@ -177,7 +178,7 @@ impl Editor {
             self.lines.splice(after..after, rest);
         }
         self.lines[self.cursor_line].push_str(&suffix);
-        self.state = EditState::Modified;
+        self.mark_modified();
     }
 
     pub(super) fn ensure_line(&mut self) {

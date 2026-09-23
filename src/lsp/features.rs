@@ -32,7 +32,7 @@ pub struct Diagnostic {
 }
 
 impl Diagnostic {
-    pub(crate) const fn label(&self) -> &'static str {
+    pub const fn label(&self) -> &'static str {
         match self.severity {
             Some(1) => "Error",
             Some(2) => "Warning",
@@ -49,13 +49,13 @@ pub struct Definition {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum Reply {
+pub enum Reply {
     Completions(Vec<Completion>),
     Hover(String),
     Definitions(Vec<Definition>),
 }
 
-pub(crate) fn parse(feature: Feature, value: &Value) -> Result<Reply, &'static str> {
+pub fn parse(feature: Feature, value: &Value) -> Result<Reply, &'static str> {
     match feature {
         Feature::Completion => completions(value).map(Reply::Completions),
         Feature::Hover => Ok(Reply::Hover(markup(&value["contents"]))),
@@ -112,7 +112,7 @@ fn completion_edit(edit: &Value) -> Result<TextEdit, &'static str> {
     })
 }
 
-pub(crate) fn markup(value: &Value) -> String {
+pub fn markup(value: &Value) -> String {
     if let Some(text) = value.as_str() {
         return text.to_owned();
     }

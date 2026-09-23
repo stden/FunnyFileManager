@@ -39,7 +39,8 @@ fn spawn_with_startup(
         "cmd.exe /D /S /K \"{}\"",
         command.as_str()
     )))?;
-    let directory = wide(std::path::absolute(current_dir)?.as_os_str())?;
+    let directory = crate::windows::console_directory(&std::path::absolute(current_dir)?);
+    let directory = wide(directory.as_os_str())?;
     create_process(&shell, &mut line, &directory, startup)
 }
 

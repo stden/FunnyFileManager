@@ -21,6 +21,8 @@ mod disk_cleanup;
 mod drive_entry;
 mod drives;
 mod editor;
+pub(crate) use editor::lsp;
+pub use editor::{EditorLspState, LspFeature, ServerState};
 mod entry;
 mod file_name;
 mod filter;

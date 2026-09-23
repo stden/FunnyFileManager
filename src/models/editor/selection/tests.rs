@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use super::*;
+use crate::models::EditState;
 
 fn editor(content: &str) -> Editor {
     Editor::from_content("text".to_owned(), PathBuf::from("text.txt"), content)

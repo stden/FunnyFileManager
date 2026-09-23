@@ -545,7 +545,7 @@ fn panel_title(panel: &Panel, interior: Cells, is_active: bool) -> Line<'static>
     Line::from(Span::styled(
         format!(
             " {filtered}{} ",
-            tail_cells(&panel.path.display().to_string(), interior)
+            tail_cells(&crate::path_display::label(&panel.path), interior)
         ),
         title_style,
     ))

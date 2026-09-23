@@ -65,6 +65,12 @@ pub(super) fn process_editor_input(app: &mut App, code: KeyCode, modifiers: KeyM
         process_encoding(app, code);
         return true;
     }
+    if lsp::process(app, code) {
+        return true;
+    }
+    let Some(editor) = app.get_editor_mut() else {
+        return false;
+    };
     // Any keystroke clears a stale "not found": it belongs to the search the
     // user has now moved on from.
     editor.search.not_found = None;
@@ -123,6 +129,10 @@ fn apply_editor_command(app: &mut App, command: EditorCommand) {
         EditorCommand::ChooseEncoding => editor.encoding_choice = Some(editor.format.encoding),
         EditorCommand::Paste => crate::ops::paste_into_editor(app),
         EditorCommand::RepeatSearch => repeat_search(app),
+        EditorCommand::Lsp(feature) => {
+            editor.lsp.intent = crate::models::lsp::Intent::Query(feature);
+        }
+        EditorCommand::RestartLsp => editor.lsp.intent = crate::models::lsp::Intent::Restart,
         EditorCommand::Search => {
             editor.search.prompt = Some(SearchPrompt::from_last(editor.search.last.as_ref()));
         }
@@ -131,13 +141,15 @@ fn apply_editor_command(app: &mut App, command: EditorCommand) {
         EditorCommand::Newline => editor.insert_newline(),
         EditorCommand::Backspace => editor.backspace(),
         EditorCommand::Delete => editor.delete_forward(),
-        EditorCommand::Indent => {
-            for _ in 0..tab_width {
-                editor.insert_char(' ');
-            }
-        }
+        EditorCommand::Indent => insert_indent(editor, tab_width),
         EditorCommand::Insert(ch) => editor.insert_char(ch),
         EditorCommand::Ignore => {}
+    }
+}
+
+fn insert_indent(editor: &mut crate::models::Editor, width: usize) {
+    for _ in 0..width {
+        editor.insert_char(' ');
     }
 }
 
@@ -175,6 +187,7 @@ fn save_editor(app: &mut App) {
     let _ = refresh_panels(app);
 }
 
+mod lsp;
 #[cfg(test)]
 mod tests;
 

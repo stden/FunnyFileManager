@@ -25,6 +25,7 @@ mod console;
 mod describe;
 mod dialog;
 mod drives;
+mod editor_lsp;
 mod editor_selection;
 mod extract_prompt;
 mod filter;

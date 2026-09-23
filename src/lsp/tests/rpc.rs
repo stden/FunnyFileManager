@@ -98,3 +98,10 @@ fn malformed_rpc_envelopes_do_not_masquerade_as_success() {
         assert!(rpc.receive(message).is_err());
     }
 }
+#[test]
+fn response_without_an_id_is_rejected() {
+    let mut session = super::super::rpc::Session::default();
+    assert!(session
+        .receive(serde_json::json!({"jsonrpc":"2.0","result":null}))
+        .is_err());
+}

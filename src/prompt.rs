@@ -128,7 +128,10 @@ pub fn segments_for(directory: &Path, last: LastCommand, identity: &Identity) ->
 
     append_identity(&mut push, identity);
 
-    push(directory.display().to_string(), Part::Path);
+    push(
+        crate::path_display::label(directory).into_owned(),
+        Part::Path,
+    );
 
     if let Some(branch) = crate::git::branch(directory) {
         push(" ".to_owned(), Part::Space);

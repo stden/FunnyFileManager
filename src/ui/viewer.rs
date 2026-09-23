@@ -117,7 +117,7 @@ const fn percent(top: usize, rows: usize, total: usize) -> usize {
 fn bar_row(viewer: &Viewer, width: Cells, clock: &str, page: usize) -> String {
     let (left, right) = match &viewer.source {
         ViewSource::File(file) => (
-            file.path.display().to_string(),
+            crate::path_display::label(&file.path).into_owned(),
             format!(
                 "│{TEXT_MODE}│{:<5}│{:<8}│Col {:<4}│{:<5}│{clock}",
                 file.encoding.label(),

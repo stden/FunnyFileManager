@@ -213,7 +213,7 @@ fn editor_bar_text(editor: &crate::models::Editor, width: u16, line: &str) -> St
 
     let width = Cells::columns(width);
     let label = editor.notice.as_ref().map_or_else(
-        || format!(" {}{marker}", editor.path.display()),
+        || super::editor_lsp::label(editor, marker),
         |notice| format!(" {notice}"),
     );
     // An operation's result must remain visible on a narrow terminal. Keep
@@ -541,7 +541,7 @@ fn render_editor_dialog(
             ],
         );
     } else {
-        return false;
+        return super::editor_lsp::popup(f, editor);
     }
     true
 }
@@ -752,6 +752,7 @@ fn render_editor_body(
         body_area,
     );
     super::editor_selection::render(f, editor, body_area, scroll_y, scroll_x);
+    super::editor_lsp::diagnostics(f, editor, body_area, scroll_y, scroll_x);
 }
 fn render_encoding_dialog(
     f: &mut Frame,

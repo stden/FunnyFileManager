@@ -5,4 +5,6 @@ mod documents;
 mod features;
 mod positions;
 mod rpc;
+mod smoke;
 mod transport;
+mod worker;

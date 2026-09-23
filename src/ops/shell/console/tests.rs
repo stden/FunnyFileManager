@@ -86,6 +86,27 @@ fn new_console_rejects_a_missing_working_directory() {
 }
 
 #[test]
+fn canonical_windows_directory_is_preserved_when_launching_codex() {
+    let temp = TempDir::new().expect("tempdir");
+    let directory = temp.path().join("Project with spaces");
+    std::fs::create_dir(&directory).expect("project");
+    write_probe(&directory);
+    let canonical = directory.canonicalize().expect("canonical directory");
+    let probe = directory.join("codex.cmd");
+    let input = format!(
+        r#""{}" --model example "two words" "Привет мир" "a & b""#,
+        probe.display()
+    );
+    let command = ShellCommand::new(&input).expect("command");
+    let mut startup = startup_info();
+    startup.dwFlags |= STARTF_USESHOWWINDOW;
+    startup.wShowWindow = 0;
+    let process = spawn_with_startup(&command, &canonical, &startup).expect("new console");
+    wait_for_probe(&process);
+    assert_probe_result(&directory);
+}
+
+#[test]
 fn new_console_rejects_nul_instead_of_truncating_arguments() {
     let temp = TempDir::new().expect("tempdir");
     let command = ShellCommand::new("codex before\0after").expect("command");
