@@ -144,6 +144,17 @@ with the rejected version. Generated artifacts stay under
 `target/readability-selftest/`. The script supplies lint levels directly;
 ordinary Clippy gates verify the Cargo manifests' lint settings.
 
+Before the readability check, `./ffm.sh lint self-test` runs the developer
+scripts' unit tests, `scripts/tests/test_*.py`, with the standard library's
+`unittest`. Each test runs its script through `scripts/tests/sandbox.py`: a
+fresh HOME, TMPDIR and checkout copy, and a PATH on which Cargo, Git, the AI
+tools and the cloud clients are recording fakes, so no test builds, registers
+a tool or reaches the network. They also run on their own:
+
+```sh
+python3 -m unittest discover -s scripts/tests
+```
+
 For the editor DSL and complete workflow specifically:
 
 ```sh
@@ -187,7 +198,8 @@ The shared `./ffm.sh lint` script also runs `module_boundaries_test`,
 `file_line_limit_test`, `scripts/test_readability.py`, and
 `scripts/test_recording.py`. These checks can be run together with
 `./ffm.sh lint architecture`. The CI lint job calls the full script, then
-explicitly reruns the readability fixtures and `module_boundaries_test`.
+runs the self-test (script unit tests, readability fixtures, lint policy) and
+`module_boundaries_test`.
 Optional-feature behavior needs its own test run when changed:
 
 ```sh

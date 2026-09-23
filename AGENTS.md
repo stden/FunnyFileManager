@@ -189,9 +189,10 @@ Full module-level detail remains in
   root default, all features, and no-default-features with test-helpers, plus
   MCP and Colorer; Clippy checks all targets. Needs `cargo install typos-cli`.
 - `./ffm.sh lint spelling`: Run only the spell check.
-- `./ffm.sh lint self-test`: Prove the spell check rejects a misspelling, then
-  verify readability rejection, acceptance, and equivalent behavior with
-  compiler fixtures; requires Python.
+- `./ffm.sh lint self-test`: Prove the spell check rejects a misspelling, run
+  the developer scripts' unit tests (`scripts/tests`), then verify readability
+  rejection, acceptance, and equivalent behavior with compiler fixtures;
+  requires Python.
 
 Optional coverage (tooling may be platform-dependent): `cargo tarpaulin --out Html --output-dir coverage`.
 

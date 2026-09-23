@@ -16,7 +16,7 @@
 | `cargo clippy -- -D warnings` | Lint (must be clean) |
 | `./scripts/lint.sh` / `./ffm.sh lint` | Shared local/CI format, spelling (`typos`, `cargo install typos-cli`) and Clippy gate for TUI, MCP, and Colorer |
 | `./ffm.sh lint spelling` | Spell check only; project words live in `typos.toml` |
-| `./ffm.sh lint self-test` | Prove the spell check rejects a misspelling; compile positive/negative readability fixtures and compare behavior; requires Python |
+| `./ffm.sh lint self-test` | Prove the spell check rejects a misspelling; run the developer scripts' unit tests (`scripts/tests`); compile positive/negative readability fixtures and compare behavior; requires Python |
 | `cargo build --manifest-path mcp/Cargo.toml` | Build the standalone MCP server with its development profile |
 | `cargo test --manifest-path mcp/Cargo.toml` | Run the MCP package's separate test suite |
 | `cargo tarpaulin --out Html --output-dir coverage` | Generate HTML coverage report |

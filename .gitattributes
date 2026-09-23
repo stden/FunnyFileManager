@@ -3,6 +3,8 @@
 # A POSIX shell reads a CR as part of the word: a CRLF checkout turns `set -eu`
 # into `set -eu\r`. src/wsl/package_update.sh is embedded with include_str!,
 # which copies the file byte for byte (unlike a string literal, whose CRLF rustc
-# normalizes), and WSL runs it with `sh -lc`.
+# normalizes), and WSL runs it with `sh -lc`. A Python entry point breaks the
+# same way: with a CR after `#!/usr/bin/env python3`, env looks for "python3\r".
 *.sh text eol=lf
+*.py text eol=lf
 scripts/pre-commit text eol=lf

@@ -48,7 +48,7 @@ fn open_mcp_status_in(app: &mut App, project: &Path, home: &Path) {
 
     lines.push(String::new());
     lines.push("Commands:".to_owned());
-    lines.push("  ./install-mcp.sh    Install for all IDEs".to_owned());
+    lines.push("  ./install_mcp.py    Install for all IDEs".to_owned());
     lines.push("  :mcp                Show this screen".to_owned());
     lines.push(String::new());
     lines.push("Tools:".to_owned());

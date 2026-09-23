@@ -8,7 +8,7 @@
 #   scripts/lint.sh clippy       # clippy and architecture (all targets, all features, fallback)
 #   scripts/lint.sh clippy-fast  # clippy all targets (default features)
 #   scripts/lint.sh fix          # auto-format, then full clippy gate
-#   scripts/lint.sh self-test    # prove the spell check, readability limits and the lint policy
+#   scripts/lint.sh self-test    # spell check, script unit tests, readability limits, lint policy
 #   scripts/lint.sh architecture # dependency ownership, layering, unsafe allowlist, file limits
 #
 # Exit non-zero on the first failure. Matches `.github/workflows/tests.yml` lint job.
@@ -142,6 +142,8 @@ case "$mode" in
         ;;
     self-test)
         self_test_spelling
+        # The developer scripts' unit tests (scripts/tests): fake commands, no Cargo.
+        "$PYTHON" -m unittest discover -s scripts/tests
         "$PYTHON" scripts/test_readability.py
         # Runs Cargo on throwaway crates, hence the wrapper preflight above.
         "$PYTHON" scripts/test_lint_policy.py
