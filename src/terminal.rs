@@ -139,7 +139,7 @@ mod tests_crossterm_ops;
 #[cfg(test)]
 mod tests;
 /// Toggle between a compact and tall host terminal while retaining its width.
-pub(crate) fn toggle_video_mode() -> std::io::Result<()> {
+pub(crate) fn toggle_video_mode() -> io::Result<()> {
     #[cfg(test)]
     {
         VIDEO_MODE_CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -148,8 +148,8 @@ pub(crate) fn toggle_video_mode() -> std::io::Result<()> {
         }
     }
     let (width, height) = crossterm::terminal::size()?;
-    crossterm::execute!(
-        std::io::stdout(),
+    execute!(
+        io::stdout(),
         crossterm::terminal::SetSize(width, if height > 30 { 25 } else { 50 })
     )
 }

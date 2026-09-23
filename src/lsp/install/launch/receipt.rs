@@ -1,8 +1,8 @@
 //! Purpose: Resolve cached launch receipts against the current runtime and canonical workspace.
 
 use super::{
-    fs, runnable, storage, Environment, InstallError, InstallRecipe, Launch, Path, PathBuf,
-    ServerSettings,
+    fs, java, runnable, storage, AtomicBool, Environment, InstallError, InstallRecipe, Launch,
+    Path, PathBuf, ServerSettings,
 };
 
 impl Launch {
@@ -12,8 +12,12 @@ impl Launch {
         root: &Path,
         workspace: &Path,
         environment: &dyn Environment,
+        stop: &AtomicBool,
     ) -> Result<ServerSettings, InstallError> {
-        let prepared = self.preview(settings, root, workspace, environment)?;
+        let mut prepared = self.preview(settings, root, workspace, environment)?;
+        if matches!(settings.install, Some(InstallRecipe::Jdtls { .. })) {
+            prepared.command = java(stop, environment)?.to_string_lossy().into_owned();
+        }
         let data = workspace_data(root, workspace);
         if let Some(configuration) = &self.configuration {
             fs::create_dir_all(data.join("config"))?;

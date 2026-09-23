@@ -195,12 +195,12 @@ fn system_clipboard_writes_osc52_bytes_to_the_injected_sink() {
 fn redact_with_an_empty_secret_returns_the_message_untouched() {
     // `str::replace("", ..)` would match between every character; the guard
     // must hand the message back as-is instead.
-    assert_eq!(super::redact("native failed: x", ""), "native failed: x");
+    assert_eq!(redact("native failed: x", ""), "native failed: x");
 }
 
 #[test]
 fn system_clipboard_reports_a_missing_os_clipboard_instead_of_panicking() {
-    let mut clipboard = super::SystemClipboard::terminal_only(Box::new(Vec::new()));
+    let mut clipboard = SystemClipboard::terminal_only(Box::new(Vec::new()));
     let error = clipboard
         .set_native("value")
         .expect_err("native route deliberately absent");

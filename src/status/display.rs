@@ -46,7 +46,7 @@ impl Status {
                 f,
                 "F1 Help  F3 View  F4 Edit  F5 Copy  F6 Move  F7 Mkdir  F8 Delete"
             ),
-            Self::Path(path) => write!(f, "{}", crate::path_display::label(path)),
+            Self::Path(path) => write!(f, "{}", label(path)),
             Self::CommandOutput(text) => f.write_str(text),
             Self::ConsoleStarted(command) => write!(f, "Started in new console: {command}"),
             Self::FileTooLarge {
@@ -100,7 +100,7 @@ impl Status {
 
     fn format_panel(&self, f: &mut fmt::Formatter<'_>) -> Option<fmt::Result> {
         Some(match self {
-            Self::Opened(path) => write!(f, "Opened {}", crate::path_display::label(path)),
+            Self::Opened(path) => write!(f, "Opened {}", label(path)),
             Self::OpenedView(title) => write!(f, "Opened {title}"),
             Self::PanelsSwapped => write!(f, "Panels swapped"),
             Self::PanelsRefreshed => write!(f, "Panels refreshed"),
@@ -117,18 +117,10 @@ impl Status {
     fn format_bookmark(&self, f: &mut fmt::Formatter<'_>) -> Option<fmt::Result> {
         Some(match self {
             Self::BookmarkSet { slot, path } => {
-                write!(
-                    f,
-                    "Bookmark {slot} set to {}",
-                    crate::path_display::label(path)
-                )
+                write!(f, "Bookmark {slot} set to {}", label(path))
             }
             Self::OpenedBookmark { slot, path } => {
-                write!(
-                    f,
-                    "Opened bookmark {slot}: {}",
-                    crate::path_display::label(path)
-                )
+                write!(f, "Opened bookmark {slot}: {}", label(path))
             }
             Self::OpenBookmarkFailed { slot, error } => {
                 write!(f, "Failed to open bookmark {slot}: {error}")
@@ -144,11 +136,7 @@ impl Status {
             Self::Editing(path) => write!(f, "Editing {}", label(Path::new(path))),
             Self::Edited(path) => write!(f, "Edited {}", label(Path::new(path))),
             Self::CannotEdit { path, error } => {
-                write!(
-                    f,
-                    "Cannot edit {}: {error}",
-                    crate::path_display::label(path)
-                )
+                write!(f, "Cannot edit {}: {error}", label(path))
             }
             Self::EditDirUnsupported => write!(f, "Editing directories is not supported"),
             Self::FileTooLargeEdit {
@@ -160,7 +148,7 @@ impl Status {
             ),
             Self::EditorExited { status } => write!(f, "Editor exited with status {status}"),
             Self::LaunchEditorFailed { error } => write!(f, "Failed to launch editor: {error}"),
-            Self::Saved(path) => write!(f, "Saved {}", crate::path_display::label(path)),
+            Self::Saved(path) => write!(f, "Saved {}", label(path)),
             Self::SaveFailed { error } => write!(f, "Save failed: {error}"),
             Self::ChangesDiscarded => write!(f, "Changes discarded"),
             _ => return None,
@@ -178,7 +166,7 @@ impl Status {
             Self::WipeCancelled => write!(f, "Wipe cancelled"),
             Self::NothingToWipe => write!(f, "Nothing to wipe"),
             Self::OpenDriveFailed { error } => write!(f, "Failed to open drive: {error}"),
-            Self::ChangedTo(path) => write!(f, "Changed to {}", crate::path_display::label(path)),
+            Self::ChangedTo(path) => write!(f, "Changed to {}", label(path)),
             Self::S3ProfileSelected(profile) => {
                 write!(
                     f,

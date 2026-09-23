@@ -4,10 +4,7 @@ use super::*;
 
 // ── bookmark slot completion (populated slots + path hints) ────────
 
-fn ctx_with_bookmarks<'a>(
-    cwd: &'a std::path::Path,
-    slots: &'a [Option<PathBuf>],
-) -> CompletionContext<'a> {
+fn ctx_with_bookmarks<'a>(cwd: &'a Path, slots: &'a [Option<PathBuf>]) -> CompletionContext<'a> {
     CompletionContext {
         cwd,
         bookmarks: slots,

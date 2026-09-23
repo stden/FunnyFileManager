@@ -148,7 +148,7 @@ fn longest_common_prefix(candidates: &[String]) -> String {
 }
 
 /// Byte length of the shared leading run of characters in `a` and `b`.
-fn common_prefix_len(a: &str, b: &str) -> usize {
+pub(crate) fn common_prefix_len(a: &str, b: &str) -> usize {
     a.chars()
         .zip(b.chars())
         .take_while(|(ca, cb)| ca == cb)

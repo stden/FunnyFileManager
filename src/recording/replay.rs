@@ -12,7 +12,7 @@ use std::{
 use super::{ClipboardReads, Entry, Header, RecordedEvent, POLL};
 
 pub struct Replay {
-    pub(super) events: std::collections::VecDeque<RecordedEvent>,
+    pub(super) events: VecDeque<RecordedEvent>,
     due: Instant,
     pub(super) clipboard: ClipboardReads,
     pub(super) size: (u16, u16),

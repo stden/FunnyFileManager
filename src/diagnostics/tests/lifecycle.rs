@@ -118,7 +118,7 @@ fn log_lines_reach_disk_when_ffm_log_is_on() {
     log_error("disk on fire");
 }
 
-fn run_log_child(directory: &std::path::Path) -> io::Result<std::process::Output> {
+fn run_log_child(directory: &Path) -> io::Result<std::process::Output> {
     std::process::Command::new(std::env::current_exe()?)
         .args(["--ignored", "--exact", LOG_CHILD_TEST])
         .env("FFM_LOG", "1")

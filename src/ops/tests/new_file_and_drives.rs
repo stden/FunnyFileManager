@@ -145,7 +145,7 @@ fn test_drive_selection_enter_navigates_right_panel() -> io::Result<()> {
         rows: crate::models::drive_rows(),
     });
 
-    let drives = crate::models::App::get_all_drives();
+    let drives = App::get_all_drives();
     if drives.is_empty() {
         return Ok(());
     }

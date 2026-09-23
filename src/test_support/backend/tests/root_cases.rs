@@ -26,7 +26,7 @@ fn test_writable_test_backend_cursor_operations() -> io::Result<()> {
     assert_eq!((pos.x, pos.y), (0, 0));
 
     backend
-        .set_cursor_position(ratatui::layout::Position::new(10, 5))
+        .set_cursor_position(Position::new(10, 5))
         .expect("test setup");
     let pos = backend.get_cursor_position().expect("test setup");
     assert_eq!((pos.x, pos.y), (10, 5));

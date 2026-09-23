@@ -4,6 +4,22 @@ use super::*;
 use tempfile::TempDir;
 
 #[test]
+fn candidates_list_java_home_before_path_even_when_the_home_runtime_is_older() {
+    let root = TempDir::new().unwrap();
+    let home = root.path().join("jdk");
+    let path = root.path().join("path");
+    std::fs::create_dir_all(home.join("bin")).unwrap();
+    std::fs::create_dir(&path).unwrap();
+    let java = launch::executable("java");
+    crate::test_support::write_executable(&home.join("bin").join(&java), b"old").unwrap();
+    crate::test_support::write_executable(&path.join(&java), b"current").unwrap();
+    assert_eq!(
+        candidates(&["java"], [path.clone()].into_iter(), Some(&home)),
+        vec![home.join("bin").join(&java), path.join(java)]
+    );
+}
+
+#[test]
 fn java_home_precedes_path_and_invalid_java_home_falls_back_to_path() {
     let root = TempDir::new().unwrap();
     let home = root.path().join("jdk");

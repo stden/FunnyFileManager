@@ -88,7 +88,7 @@ fn java_download_is_verified_and_each_workspace_has_its_own_data() {
     assert!(first.args.iter().any(|arg| Path::new(arg)
         .extension()
         .is_some_and(|ext| ext.eq_ignore_ascii_case("jar"))));
-    assert_eq!(packages.calls.borrow().len(), 4);
+    assert_eq!(packages.calls.borrow().len(), 6);
 }
 
 #[test]

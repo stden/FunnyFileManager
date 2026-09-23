@@ -17,16 +17,106 @@ fn launch_receipts_are_relocated_and_keep_literal_server_arguments() {
         args: vec!["--value=a & b".into()],
         ..ServerSettings::default()
     };
-    let prepared = launch
-        .settings(&settings, root.path(), root.path(), &System)
-        .unwrap();
+    let prepared = relocated(&launch, &settings, root.path()).unwrap();
     assert_eq!(Path::new(&prepared.command), root.path().join("server"));
     assert_eq!(prepared.args, ["--value=a & b"]);
     assert!(prepared.install.is_none());
     fs::remove_file(root.path().join("server")).unwrap();
-    assert!(launch
-        .settings(&settings, root.path(), root.path(), &System)
-        .is_err());
+    assert!(relocated(&launch, &settings, root.path()).is_err());
+}
+
+fn relocated(
+    launch: &Launch,
+    settings: &ServerSettings,
+    root: &Path,
+) -> Result<ServerSettings, InstallError> {
+    launch.settings(settings, root, root, &System, &AtomicBool::new(false))
+}
+
+struct TwoJavas {
+    old: PathBuf,
+    current: PathBuf,
+}
+
+impl Environment for TwoJavas {
+    fn program(&self, names: &[&str], missing: &'static str) -> Result<PathBuf, InstallError> {
+        self.runtimes(names)
+            .into_iter()
+            .next()
+            .ok_or(InstallError::Missing(missing))
+    }
+
+    fn run(&self, command: &mut Command, _stop: &AtomicBool) -> Result<Vec<u8>, InstallError> {
+        if command.get_program() == self.old {
+            Ok(b"openjdk 17.0.1".to_vec())
+        } else {
+            Ok(b"openjdk 21.0.1".to_vec())
+        }
+    }
+
+    fn runtimes(&self, names: &[&str]) -> Vec<PathBuf> {
+        if names == ["java"] {
+            vec![self.old.clone(), self.current.clone()]
+        } else {
+            Vec::new()
+        }
+    }
+}
+
+fn two_javas(root: &Path) -> (TwoJavas, PathBuf) {
+    let old = root.join("old-java");
+    let current = root.join("java-21");
+    crate::test_support::write_executable(&old, b"old").unwrap();
+    crate::test_support::write_executable(&current, b"current").unwrap();
+    (
+        TwoJavas {
+            old,
+            current: current.clone(),
+        },
+        current,
+    )
+}
+
+fn jdtls_settings() -> ServerSettings {
+    ServerSettings {
+        command: "jdtls".into(),
+        install: Some(InstallRecipe::Jdtls {
+            url: "https://example.com/jdtls.tar.gz".into(),
+            sha256: "ab".repeat(32),
+        }),
+        ..ServerSettings::default()
+    }
+}
+
+#[test]
+fn java_21_on_path_is_used_when_java_home_is_older() {
+    let root = TempDir::new().unwrap();
+    let (environment, current) = two_javas(root.path());
+    assert_eq!(
+        java(&AtomicBool::new(false), &environment).unwrap(),
+        current
+    );
+}
+
+#[test]
+fn cached_jdtls_launch_uses_the_same_java_21_choice() {
+    let root = TempDir::new().unwrap();
+    let (environment, current) = two_javas(root.path());
+    let launch = Launch {
+        command: "ignored".into(),
+        args: Vec::new(),
+        configuration: None,
+    };
+    let prepared = launch
+        .settings(
+            &jdtls_settings(),
+            root.path(),
+            root.path(),
+            &environment,
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+    assert_eq!(prepared.command, current.to_string_lossy());
 }
 
 #[test]

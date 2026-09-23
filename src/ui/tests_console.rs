@@ -150,8 +150,7 @@ fn press(app: &mut App, code: KeyCode) {
 }
 
 fn press_with(app: &mut App, event: KeyEvent) {
-    let mut terminal =
-        ratatui::Terminal::new(crate::WritableTestBackend::new(60, 12)).expect("terminal");
+    let mut terminal = Terminal::new(crate::WritableTestBackend::new(60, 12)).expect("terminal");
     crate::application::dispatch_key(&mut terminal, app, event);
 }
 
@@ -194,7 +193,7 @@ fn console_mode_swallows_actions_that_would_touch_the_panels() {
             "{code:?} opened an overlay behind the console"
         );
         assert_eq!(app.view, ViewMode::Console, "{code:?} left console mode");
-        assert_eq!(app.active_panel, crate::models::PanelSide::Left);
+        assert_eq!(app.active_panel, PanelSide::Left);
     }
 }
 
@@ -434,14 +433,14 @@ fn scrolling_back_swaps_the_prompt_for_a_scrollback_note() {
     app.view = app.view.toggled();
     let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("terminal");
 
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let at_bottom = whole_screen(&terminal);
     // At the bottom there is nothing to say, so nothing is said.
     assert!(!at_bottom.contains("more line(s) below"), "{at_bottom}");
     assert!(row_text(&terminal, 23).starts_with('●'), "{at_bottom}");
 
     app.console.scroll_up(5);
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let scrolled = whole_screen(&terminal);
     assert!(
         scrolled.contains("5 more line(s) below"),
@@ -474,7 +473,7 @@ fn a_reverse_search_replaces_the_prompt_with_its_own_banner() {
     );
 
     let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("terminal");
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
 
     assert!(
         whole_screen(&terminal).contains("reverse-i-search"),
@@ -486,19 +485,11 @@ fn a_reverse_search_replaces_the_prompt_with_its_own_banner() {
 /// layout that would not fit has to carry.
 #[test]
 fn the_cell_count_prints_as_its_number() {
-    assert_eq!(crate::ui::Cells::new(17).to_string(), "17");
+    assert_eq!(Cells::new(17).to_string(), "17");
 }
 
 fn whole_screen(terminal: &Terminal<TestBackend>) -> String {
-    let buffer = terminal.backend().buffer();
-    let mut out = String::new();
-    for y in 0..buffer.area.height {
-        for x in 0..buffer.area.width {
-            out.push_str(buffer[(x, y)].symbol());
-        }
-        out.push('\n');
-    }
-    out
+    crate::test_support::buffer_string(terminal.backend().buffer())
 }
 
 /// The panel view must not paint the transcript at all.

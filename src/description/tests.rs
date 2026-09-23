@@ -23,7 +23,7 @@ fn parses_bare_and_quoted_names() {
 }
 
 #[test]
-fn read_uses_the_first_existing_file_and_tolerates_none() -> std::io::Result<()> {
+fn read_uses_the_first_existing_file_and_tolerates_none() -> io::Result<()> {
     let temp = TempDir::new()?;
     let names = default_names();
     assert!(read(temp.path(), &names).is_empty());
@@ -35,7 +35,7 @@ fn read_uses_the_first_existing_file_and_tolerates_none() -> std::io::Result<()>
 }
 
 #[test]
-fn set_description_rewrites_only_the_named_line() -> std::io::Result<()> {
+fn set_description_rewrites_only_the_named_line() -> io::Result<()> {
     let temp = TempDir::new()?;
     let names = default_names();
     fs::write(
@@ -56,7 +56,7 @@ fn set_description_rewrites_only_the_named_line() -> std::io::Result<()> {
 }
 
 #[test]
-fn set_description_creates_the_first_name_when_none_exists() -> std::io::Result<()> {
+fn set_description_creates_the_first_name_when_none_exists() -> io::Result<()> {
     let temp = TempDir::new()?;
     set_description(temp.path(), &default_names(), "a.txt", "Fresh")?;
     assert_eq!(read(temp.path(), &default_names())["a.txt"], "Fresh");

@@ -7,7 +7,7 @@ use super::*;
 #[test]
 fn the_wheel_moves_the_panel_cursor_both_ways() {
     let (mut app, mut terminal, _dir) = app_and_terminal(&["a.txt", "b.txt", "c.txt", "d.txt"]);
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
     app.left_panel.select(Some(0));
 
@@ -40,9 +40,7 @@ fn the_wheel_scrolls_the_console_and_returns_to_the_same_line() {
         app.console.record_output(&format!("line {line}"));
     }
     app.view = app.view.toggled();
-    terminal
-        .draw(|frame| crate::ui::ui(frame, &mut app))
-        .expect("draw");
+    terminal.draw(|frame| ui(frame, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
     press(&mut app, &mut terminal, KeyCode::Home);
     let at_top = newest(&app);
@@ -72,9 +70,7 @@ fn the_wheel_scrolls_the_console_and_returns_to_the_same_line() {
 #[test]
 fn the_wheel_over_the_menu_bar_does_not_move_a_panel() {
     let (mut app, mut terminal, _dir) = app_and_terminal(&["a.txt", "b.txt", "c.txt"]);
-    terminal
-        .draw(|frame| crate::ui::ui(frame, &mut app))
-        .expect("draw");
+    terminal.draw(|frame| ui(frame, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
     app.left_panel.select(Some(1));
     let before = app.left_panel.selected();
@@ -95,7 +91,7 @@ fn the_wheel_over_the_menu_bar_does_not_move_a_panel() {
 #[test]
 fn scrolling_over_nothing_does_not_move_any_panel() {
     let (mut app, mut terminal, _dir) = app_and_terminal(&["a.txt", "b.txt"]);
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
     let before = app.left_panel.selected();
 
@@ -123,7 +119,7 @@ fn the_wheel_scrolls_the_console_transcript_when_it_is_showing() {
         app.console.record_output(&format!("line {line}"));
     }
     app.view = app.view.toggled();
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
 
     let newest = |app: &App| {

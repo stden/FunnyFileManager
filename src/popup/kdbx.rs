@@ -17,7 +17,7 @@
 //! A copied value is wrapped in [`Revealed`] the moment it arrives, so it is
 //! overwritten when this module is done with it rather than left in a freed
 //! `String`. Nothing here logs, and every [`Status`] it produces is either
-//! payload-free or carries a fixed label (see [`crate::status::Secret`]).
+//! payload-free or carries a fixed label (see [`Secret`]).
 
 use crate::models::Lifecycle;
 use std::time::Instant;

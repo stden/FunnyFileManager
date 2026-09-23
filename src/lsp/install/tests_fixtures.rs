@@ -52,30 +52,40 @@ impl Environment for Packages {
             .map(|arg| arg.to_string_lossy().into_owned())
             .collect();
         self.calls.borrow_mut().push(args.clone());
-        if args == ["--version"] {
-            let version = if Path::new(command.get_program()).file_stem().unwrap() == "curl" {
-                &self.curl_version
-            } else {
-                &self.version
-            };
-            return Ok(version.as_bytes().to_vec());
+        if let Some(version) = version_output(self, command, &args) {
+            return Ok(version);
         }
         let root = command.get_current_dir().unwrap();
         match args.get(1).map(String::as_str) {
             Some("venv") => {
                 let python = launch::venv_python(root);
-                fs::create_dir_all(python.parent().unwrap()).unwrap();
-                crate::test_support::write_executable(&python, b"python").unwrap();
+                fs::create_dir_all(python.parent().ok_or(InstallError::Recipe)?)?;
+                crate::test_support::write_executable(&python, b"python")?;
             }
             Some("pip") => write(root, "venv/installed", args.last().unwrap().as_bytes()),
             Some("install") => npm(root),
             _ => {
-                let output = args.iter().position(|arg| arg == "--output").unwrap();
+                let output = args
+                    .iter()
+                    .position(|arg| arg == "--output")
+                    .ok_or(InstallError::Recipe)?;
                 fs::write(&args[output + 1], &self.archive).unwrap();
             }
         }
         Ok(Vec::new())
     }
+}
+
+fn version_output(packages: &Packages, command: &Command, args: &[String]) -> Option<Vec<u8>> {
+    if args != ["--version"] {
+        return None;
+    }
+    let version = if Path::new(command.get_program()).file_stem().unwrap() == "curl" {
+        &packages.curl_version
+    } else {
+        &packages.version
+    };
+    Some(version.as_bytes().to_vec())
 }
 
 fn npm(root: &Path) {

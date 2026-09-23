@@ -35,7 +35,7 @@ pub enum Status {
     /// The F-key reminder a fresh session opens with.
     KeyHints,
     /// `pwd`: the active panel's path, verbatim.
-    Path(std::path::PathBuf),
+    Path(PathBuf),
     /// Free-form text a command produced — a shell command's last stdout line,
     /// or its first stderr line. No outcome name can stand in for it, so the
     /// variant carries it and says so.
@@ -262,7 +262,7 @@ pub enum Status {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StatusCursor {
     side: crate::models::PanelSide,
-    directory: std::path::PathBuf,
+    directory: PathBuf,
     row: Option<usize>,
 }
 

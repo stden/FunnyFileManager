@@ -89,7 +89,7 @@ fn test_copy_dir_all_recurse_only_fails_on_magic_name() -> io::Result<()> {
 
 #[test]
 fn test_refresh_panels_forced_error() -> io::Result<()> {
-    let _lock = super::refresh_panels_mutex().lock().expect("refresh mutex");
+    let _lock = refresh_panels_mutex().lock().expect("refresh mutex");
     let mut app = App::new().expect("test setup");
     set_refresh_panels_error(true);
     assert!(refresh_panels(&mut app).is_err());

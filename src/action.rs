@@ -37,9 +37,9 @@ use function_keys::resolve_function_key;
 /// [`App`](crate::models::App); the mapping from keys to actions is [`resolve`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
-    MenuCommand(crate::menu::MenuCommand),
+    MenuCommand(MenuCommand),
     /// Select the active panel's file presentation mode.
-    PanelView(crate::models::PanelView),
+    PanelView(PanelView),
     /// Typed dialog intent, dispatched by its own owner.
     Dialog(DialogCommand),
     /// Typed selection intent, dispatched by its own owner.

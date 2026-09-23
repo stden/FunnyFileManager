@@ -174,11 +174,11 @@ pub fn follows_link(links: LinkPolicy, path: &Path) -> bool {
 /// directory tree cannot contain itself.
 struct Walk {
     /// The canonical path of every directory on the way down.
-    entered: Vec<std::path::PathBuf>,
+    entered: Vec<PathBuf>,
     /// The copy's own output. A link that reaches into it would have the walk
     /// copying what it is writing — every level a fresh path, so the `entered`
     /// stack alone never notices.
-    output: Option<std::path::PathBuf>,
+    output: Option<PathBuf>,
 }
 
 impl Walk {

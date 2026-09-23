@@ -43,10 +43,7 @@ fn question(count: usize) -> String {
 
 /// `..` has no file name; the whole path is still better than a blank row.
 fn shown_name(path: &Path) -> String {
-    path.file_name().map_or_else(
-        || crate::ui::printable_name(&path.display().to_string()).into_owned(),
-        |name| crate::ui::printable_name(&name.to_string_lossy()).into_owned(),
-    )
+    super::entry_label(path)
 }
 
 #[cfg(test)]

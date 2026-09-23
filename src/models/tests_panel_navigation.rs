@@ -426,8 +426,8 @@ fn test_app_switch_panel_multiple_times() -> io::Result<()> {
 /// panel is not looking.
 #[test]
 fn selecting_a_name_the_listing_does_not_have_reports_it_and_moves_nothing() {
-    let dir = tempfile::TempDir::new().expect("test setup");
-    std::fs::write(dir.path().join("here.txt"), b"x").expect("test setup");
+    let dir = TempDir::new().expect("test setup");
+    fs::write(dir.path().join("here.txt"), b"x").expect("test setup");
     let mut panel = Panel::new(dir.path().to_path_buf()).expect("panel");
 
     assert!(panel.select_named("here.txt"));
@@ -441,7 +441,7 @@ fn selecting_a_name_the_listing_does_not_have_reports_it_and_moves_nothing() {
 /// row that is not there.
 #[test]
 fn entering_with_no_row_under_the_cursor_does_nothing() {
-    let dir = tempfile::TempDir::new().expect("test setup");
+    let dir = TempDir::new().expect("test setup");
     let mut panel = Panel::new(dir.path().to_path_buf()).expect("panel");
     let path = panel.path.clone();
 

@@ -417,7 +417,7 @@ fn test_get_all_drives_returns_at_least_one_drive() {
 
     // The first drive should be a Local variant.
     assert!(
-        matches!(&drives[0], crate::models::DriveEntry::Local(_)),
+        matches!(&drives[0], DriveEntry::Local(_)),
         "first drive should be a Local entry"
     );
 }

@@ -143,9 +143,6 @@ fn diagnostic_labels_distinguish_errors_warnings_information_and_hints() {
 }
 #[test]
 fn markup_supports_plain_legacy_and_empty_values() {
-    assert_eq!(
-        super::super::features::markup(&serde_json::json!("plain")),
-        "plain"
-    );
-    assert_eq!(super::super::features::markup(&serde_json::Value::Null), "");
+    assert_eq!(markup(&json!("plain")), "plain");
+    assert_eq!(markup(&serde_json::Value::Null), "");
 }

@@ -45,7 +45,7 @@ fn cmd_cd_path(app: &mut App, requested: &Path) -> io::Result<()> {
     // user) passes every check here and only fails at `read_dir`.
     app.get_active_panel().navigate_to(new_path)?;
     let opened = app.get_active_panel().path.clone();
-    app.set_status(crate::status::Status::Opened(opened));
+    app.set_status(Status::Opened(opened));
     Ok(())
 }
 
@@ -60,7 +60,7 @@ fn cmd_bookmark_set(app: &mut App, slot: BookmarkSlot) {
     // No bounds check: `BookmarkSlot` proves the index and `Bookmarks` has one
     // entry per slot, so the store cannot be missing the one being written.
     let path = app.get_active_panel().path.clone();
-    app.set_status(crate::status::Status::BookmarkSet {
+    app.set_status(Status::BookmarkSet {
         slot,
         path: path.clone(),
     });
@@ -80,7 +80,7 @@ fn cmd_bookmark_go(app: &mut App, slot: BookmarkSlot) -> io::Result<()> {
     // cannot list.
     app.get_active_panel().navigate_to(path)?;
     let path = app.get_active_panel().path.clone();
-    app.set_status(crate::status::Status::OpenedBookmark { slot, path });
+    app.set_status(Status::OpenedBookmark { slot, path });
     Ok(())
 }
 
@@ -95,7 +95,7 @@ fn cmd_mark_all(app: &mut App) {
     let panel = app.get_active_panel();
     panel.marked.extend(names);
     let count = panel.marked.len();
-    app.set_status(crate::status::Status::Marked { count });
+    app.set_status(Status::Marked { count });
 }
 
 pub fn execute_command(app: &mut App, command: &str) -> io::Result<()> {

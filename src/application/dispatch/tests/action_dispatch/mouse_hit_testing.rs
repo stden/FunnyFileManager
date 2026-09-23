@@ -18,7 +18,7 @@ fn sort_menu_mouse_click_activates_the_clicked_criterion() {
     assert!(app.overlay.is_active());
     // The box is centred and sized to its rows, so the row's place is read
     // back from the frame rather than written here.
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let area = app.dialog_mouse.area.expect("the menu was drawn");
     mouse.column = area.x + 2;
     // Size is the fourth row Far lists, after name, extension and time.
@@ -84,10 +84,8 @@ fn brief_panel_click_selects_the_file_in_the_clicked_column() {
         fs::write(app.left_panel.path.join(format!("file{index:02}")), "x").unwrap();
     }
     app.left_panel.load_entries().unwrap();
-    app.left_panel.view = crate::models::PanelView::Brief;
-    terminal
-        .draw(|frame| crate::ui::ui(frame, &mut app))
-        .unwrap();
+    app.left_panel.view = models::PanelView::Brief;
+    terminal.draw(|frame| ui(frame, &mut app)).unwrap();
     let mouse = crossterm::event::MouseEvent {
         kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left),
         column: 14,

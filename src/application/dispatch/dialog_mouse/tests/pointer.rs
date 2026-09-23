@@ -64,11 +64,7 @@ fn a_dialog_is_dragged_by_its_chrome_and_let_go_on_release() {
 
     // A drag with nothing held, and a gesture the dialog has no use for, must
     // both leave the offset alone.
-    dispatch_dialog_mouse(
-        &mut term,
-        &mut app,
-        mouse(MouseEventKind::Drag(MouseButton::Left), 1, 1),
-    );
+    dispatch_dialog_mouse(&mut term, &mut app, mouse(Drag(Left), 1, 1));
     dispatch_dialog_mouse(&mut term, &mut app, mouse(MouseEventKind::Moved, 1, 1));
     assert_eq!(app.dialog_mouse.offset, (3, 2), "unchanged");
 }

@@ -139,13 +139,11 @@ impl Input {
     /// diagnostic, never the job: a directory owned by another user, or a full
     /// disk, must not be what stops the file manager from starting.
     fn recording(path: io::Result<PathBuf>, size: (u16, u16)) -> Self {
-        match path.and_then(|path| Self::open_recorder(&path, size)) {
-            Ok(input) => input,
-            Err(error) => {
+        path.and_then(|path| Self::open_recorder(&path, size))
+            .unwrap_or_else(|error| {
                 eprintln!("ffm: recording disabled: {error}");
                 Self::Live(None)
-            }
-        }
+            })
     }
 
     fn open_recorder(path: &Path, size: (u16, u16)) -> io::Result<Self> {
@@ -203,7 +201,7 @@ fn record_live(recorder: &mut Option<Rc<RefCell<Recorder>>>, event: &Event) {
 thread_local! {
     /// Why the recording stopped, for the exit to report once the terminal is
     /// the user's again. See [`stopped_reason`].
-    static STOPPED: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+    static STOPPED: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
 /// Why a recording stopped mid-session, taken so it is reported once.

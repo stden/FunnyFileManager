@@ -15,16 +15,17 @@ pub fn key_event_with_mods(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
 }
 
 pub fn buffer_text(terminal: &Terminal<WritableTestBackend>) -> String {
-    let buf = terminal.backend().buffer();
-    let mut text = String::new();
+    buffer_string(terminal.backend().buffer())
+}
 
+pub fn buffer_string(buf: &ratatui::buffer::Buffer) -> String {
+    let mut text = String::new();
     for y in 0..buf.area.height {
         for x in 0..buf.area.width {
             text.push_str(buf[(x, y)].symbol());
         }
         text.push('\n');
     }
-
     text
 }
 

@@ -98,14 +98,14 @@ impl Backend for SpyBackend {
         self.inner.size()
     }
 
-    fn flush(&mut self) -> io::Result<()> {
-        self.record("flush")?;
-        Backend::flush(&mut self.inner)
-    }
-
     fn window_size(&mut self) -> io::Result<WindowSize> {
         self.record("window_size")?;
         self.inner.window_size()
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.record("flush")?;
+        Backend::flush(&mut self.inner)
     }
 }
 

@@ -7,7 +7,7 @@ use super::*;
 #[test]
 fn clicking_the_other_panel_makes_it_active() {
     let (mut app, mut terminal, _dir) = app_and_terminal(&["a.txt", "b.txt"]);
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
     assert_eq!(app.active_panel, PanelSide::Left);
 
@@ -29,7 +29,7 @@ fn clicking_the_other_panel_makes_it_active() {
 #[test]
 fn clicking_a_panel_from_the_command_line_returns_focus_to_it() {
     let (mut app, mut terminal, _dir) = app_and_terminal(&["a.txt", "b.txt"]);
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
     let column = area.x + (area.width * 3 / 4);
     let row = area.y + 4;
@@ -39,7 +39,7 @@ fn clicking_a_panel_from_the_command_line_returns_focus_to_it() {
             column,
             row,
             crate::ui::FKEY_COUNT,
-            crate::models::PanelsShown::Both
+            models::PanelsShown::Both
         ),
         crate::mouse::Target::PanelRow {
             side: PanelSide::Right,
@@ -68,7 +68,7 @@ fn clicking_the_console_does_not_pretend_a_hidden_panel_was_clicked() {
     let (mut app, mut terminal, _dir) = app_and_terminal(&["a.txt"]);
     app.view = ViewMode::Console;
     app.set_overlay(Overlay::CommandLine("echo still editing".into()));
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
 
     dispatch_mouse(
@@ -89,9 +89,7 @@ fn clicking_the_console_does_not_pretend_a_hidden_panel_was_clicked() {
 #[test]
 fn clicking_the_other_panels_header_activates_it_without_selecting_a_row() {
     let (mut app, mut terminal, _dir) = app_and_terminal(&["a.txt", "b.txt"]);
-    terminal
-        .draw(|frame| crate::ui::ui(frame, &mut app))
-        .expect("draw");
+    terminal.draw(|frame| ui(frame, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
     let column = area.x + (area.width * 3 / 4);
     let row = area.y + 2;
@@ -101,7 +99,7 @@ fn clicking_the_other_panels_header_activates_it_without_selecting_a_row() {
             column,
             row,
             crate::ui::FKEY_COUNT,
-            crate::models::PanelsShown::Both
+            models::PanelsShown::Both
         ),
         crate::mouse::Target::Panel(PanelSide::Right),
         "test setup: the pointer is on the right column heading"
@@ -126,7 +124,7 @@ fn clicking_the_other_panels_header_activates_it_without_selecting_a_row() {
 #[test]
 fn clicking_a_panels_header_row_makes_it_active_without_selecting_a_row() {
     let (mut app, mut terminal, _dir) = app_and_terminal(&["a.txt", "b.txt"]);
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
+    terminal.draw(|f| ui(f, &mut app)).expect("draw");
     let area = terminal.get_frame().area();
     let before = app.right_panel.selected();
     assert_eq!(app.active_panel, PanelSide::Left);

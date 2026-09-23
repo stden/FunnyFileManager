@@ -168,7 +168,7 @@ impl Highlighter {
     /// being special-cased on a two-point difference.
     pub fn for_file(path: &Path, lines: &[String]) -> Self {
         #[cfg(test)]
-        FILE_PASSES.with(|passes| passes.set(passes.get() + 1));
+        FILE_PASSES.set(FILE_PASSES.get() + 1);
         #[cfg_attr(not(feature = "colorer"), allow(unused_mut))]
         let mut highlighter = Self::new(path);
         #[cfg(feature = "colorer")]

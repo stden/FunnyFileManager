@@ -19,7 +19,7 @@ const SCREEN_H: u16 = 40;
 
 /// Far's warning ground, so a test can tell the dialog from the panels behind
 /// it without knowing where it landed.
-const WARNING_BG: ratatui::style::Color = ratatui::style::Color::Rgb(128, 0, 0);
+const WARNING_BG: Color = Color::Rgb(128, 0, 0);
 
 /// App whose panels list empty directories, so no real file name from the
 /// working directory can satisfy an assertion by accident.
@@ -154,8 +154,8 @@ fn test_delete_confirm_drops_a_translucent_shadow() {
     let (terminal, _left, _right) = draw_delete_confirm(vec![PathBuf::from("/tmp/x.txt")]);
     let buf = terminal.backend().buffer();
 
-    let panel_bg = crate::ui::FAR_BLUE;
-    let ratatui::style::Color::Rgb(0, 0, panel_blue) = panel_bg else {
+    let panel_bg = FAR_BLUE;
+    let Color::Rgb(0, 0, panel_blue) = panel_bg else {
         panic!("the panel ground is a shade of pure blue");
     };
     let shadowed: Vec<&ratatui::buffer::Cell> = (0..SCREEN_H)
@@ -164,7 +164,7 @@ fn test_delete_confirm_drops_a_translucent_shadow() {
         .filter(|cell| {
             // The panel ground, scaled down: darker than the panel, and not
             // black either.
-            matches!(cell.bg, ratatui::style::Color::Rgb(0, 0, b) if b > 0 && b < panel_blue)
+            matches!(cell.bg, Color::Rgb(0, 0, b) if b > 0 && b < panel_blue)
         })
         .collect();
 

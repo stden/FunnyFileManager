@@ -321,9 +321,9 @@ fn every_content_kind_has_its_own_label() {
 fn a_walk_that_runs_out_of_budget_reports_the_numbers_as_partial() {
     use super::{analyse_within, Coverage};
 
-    let dir = tempfile::TempDir::new().expect("test setup");
+    let dir = TempDir::new().expect("test setup");
     for index in 0..5 {
-        std::fs::write(dir.path().join(format!("f{index}.txt")), b"x").expect("test setup");
+        fs::write(dir.path().join(format!("f{index}.txt")), b"x").expect("test setup");
     }
 
     let complete = analyse_within(dir.path(), 100);
@@ -343,11 +343,11 @@ fn a_walk_that_runs_out_of_budget_reports_the_numbers_as_partial() {
 fn the_budget_is_shared_with_the_subtrees() {
     use super::{analyse_within, Coverage};
 
-    let dir = tempfile::TempDir::new().expect("test setup");
+    let dir = TempDir::new().expect("test setup");
     let nested = dir.path().join("a/b/c");
-    std::fs::create_dir_all(&nested).expect("test setup");
+    fs::create_dir_all(&nested).expect("test setup");
     for index in 0..5 {
-        std::fs::write(nested.join(format!("f{index}.txt")), b"x").expect("test setup");
+        fs::write(nested.join(format!("f{index}.txt")), b"x").expect("test setup");
     }
 
     let partial = analyse_within(dir.path(), 4);

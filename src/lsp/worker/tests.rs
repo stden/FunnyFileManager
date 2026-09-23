@@ -27,7 +27,7 @@ fn an_unresponsive_writer_cannot_grow_the_outbox_without_bound() {
     assert!(flush_messages(&mut messages, |_| panic!("must reject before sending")).is_err());
 }
 
-fn silent_connection(root: &std::path::Path) -> Connection {
+fn silent_connection(root: &Path) -> Connection {
     let settings = ServerSettings {
         command: "python".into(),
         args: vec!["-c".into(), "import time; time.sleep(30)".into()],

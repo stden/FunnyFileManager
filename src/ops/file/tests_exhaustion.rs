@@ -17,14 +17,14 @@ struct CollisionGuard;
 
 impl CollisionGuard {
     fn engage() -> Self {
-        FORCE_TRANSFER_COLLISION.with(|flag| flag.set(true));
+        FORCE_TRANSFER_COLLISION.set(true);
         Self
     }
 }
 
 impl Drop for CollisionGuard {
     fn drop(&mut self) {
-        FORCE_TRANSFER_COLLISION.with(|flag| flag.set(false));
+        FORCE_TRANSFER_COLLISION.set(false);
     }
 }
 

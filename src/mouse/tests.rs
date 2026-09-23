@@ -13,24 +13,16 @@ fn both(column: u16, row: u16) -> Target {
 
 #[test]
 fn a_second_press_on_the_same_entry_activates_it() {
-    let now = std::time::Instant::now();
+    let now = Instant::now();
     let mut clicks = PanelClicks::default();
 
     assert_eq!(clicks.press(PanelSide::Left, 4, now), PanelRowClick::Select);
     assert_eq!(
-        clicks.press(
-            PanelSide::Left,
-            4,
-            now + std::time::Duration::from_millis(250)
-        ),
+        clicks.press(PanelSide::Left, 4, now + Duration::from_millis(250)),
         PanelRowClick::Activate
     );
     assert_eq!(
-        clicks.press(
-            PanelSide::Left,
-            4,
-            now + std::time::Duration::from_millis(300)
-        ),
+        clicks.press(PanelSide::Left, 4, now + Duration::from_millis(300)),
         PanelRowClick::Select,
         "the third press starts a new sequence"
     );
@@ -38,8 +30,8 @@ fn a_second_press_on_the_same_entry_activates_it() {
 
 #[test]
 fn another_entry_or_a_late_press_starts_a_new_sequence() {
-    let now = std::time::Instant::now();
-    let at = |millis| now + std::time::Duration::from_millis(millis);
+    let now = Instant::now();
+    let at = |millis| now + Duration::from_millis(millis);
     let mut clicks = PanelClicks::default();
 
     assert_eq!(clicks.press(PanelSide::Left, 1, now), PanelRowClick::Select);

@@ -160,7 +160,7 @@ const MAX_TRANSFER_ATTEMPTS: u32 = 10_000;
 /// Callers retry on [`io::ErrorKind::AlreadyExists`].
 fn copy_entry(source: &Path, dest: &Path, links: LinkPolicy) -> io::Result<()> {
     #[cfg(any(test, tarpaulin))]
-    if FORCE_TRANSFER_COLLISION.with(std::cell::Cell::get) {
+    if FORCE_TRANSFER_COLLISION.get() {
         return Err(io::Error::new(
             io::ErrorKind::AlreadyExists,
             "forced destination collision",

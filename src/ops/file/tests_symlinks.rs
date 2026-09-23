@@ -267,7 +267,7 @@ fn a_move_within_one_filesystem_keeps_the_same_inode() {
     // force the cross-device path. Without this lock those tests make the fast
     // path unavailable here, and the inode changes for a reason that has
     // nothing to do with the code under test.
-    let _lock = super::RENAME_TEST_MUTEX
+    let _lock = RENAME_TEST_MUTEX
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
 
@@ -281,7 +281,7 @@ fn a_move_within_one_filesystem_keeps_the_same_inode() {
     fs::write(&source, vec![b'x'; 64 * 1024]).expect("payload");
     let before = fs::metadata(&source).expect("before").ino();
 
-    let moved = super::move_into(&source, &target_dir).expect("move");
+    let moved = move_into(&source, &target_dir).expect("move");
 
     assert!(!source.exists(), "the original is gone");
     let after = fs::metadata(&moved).expect("after").ino();
@@ -302,7 +302,7 @@ fn moving_a_directory_within_one_filesystem_keeps_the_same_inode() {
     // force the cross-device path. Without this lock those tests make the fast
     // path unavailable here, and the inode changes for a reason that has
     // nothing to do with the code under test.
-    let _lock = super::RENAME_TEST_MUTEX
+    let _lock = RENAME_TEST_MUTEX
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
 
@@ -317,7 +317,7 @@ fn moving_a_directory_within_one_filesystem_keeps_the_same_inode() {
     }
 
     let before = fs::metadata(&tree).expect("before").ino();
-    let moved = super::move_into(&tree, &target_dir).expect("move");
+    let moved = move_into(&tree, &target_dir).expect("move");
 
     assert!(!tree.exists(), "the original is gone");
     assert_eq!(
@@ -342,7 +342,7 @@ fn the_move_dialog_also_renames_rather_than_copying() {
     // force the cross-device path. Without this lock those tests make the fast
     // path unavailable here, and the inode changes for a reason that has
     // nothing to do with the code under test.
-    let _lock = super::RENAME_TEST_MUTEX
+    let _lock = RENAME_TEST_MUTEX
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
 
@@ -355,13 +355,13 @@ fn the_move_dialog_also_renames_rather_than_copying() {
     fs::write(&source, vec![b'x'; 64 * 1024]).expect("payload");
     let before = fs::metadata(&source).expect("before").ino();
 
-    let mut app = crate::models::App::new().expect("app");
-    app.left_panel = crate::models::Panel::new(source_dir).expect("panel");
-    app.right_panel = crate::models::Panel::new(target_dir.clone()).expect("panel");
+    let mut app = App::new().expect("app");
+    app.left_panel = Panel::new(source_dir).expect("panel");
+    app.right_panel = Panel::new(target_dir.clone()).expect("panel");
     assert!(app.left_panel.select_named("payload.bin"));
 
     let settings = CopyPrompt::for_purpose(Purpose::Move, "\"payload.bin\"", &target_dir);
-    crate::ops::copy_with(&mut app, &settings);
+    copy_with(&mut app, &settings);
 
     let moved = target_dir.join("payload.bin");
     assert!(moved.exists(), "it arrived");

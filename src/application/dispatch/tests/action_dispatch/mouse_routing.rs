@@ -26,7 +26,7 @@ fn panel_row_at(area: ratatui::layout::Rect, column: u16, accept: impl Fn(usize)
     (area.y..area.bottom())
         .find(|row| {
             matches!(
-                crate::mouse::hit(area, column, *row, crate::ui::FKEY_COUNT, crate::models::PanelsShown::Both),
+                crate::mouse::hit(area, column, *row, crate::ui::FKEY_COUNT, models::PanelsShown::Both),
                 crate::mouse::Target::PanelRow {
                     side: PanelSide::Left,
                     row

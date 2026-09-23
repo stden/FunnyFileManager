@@ -70,7 +70,7 @@ fn cursor_key(app: &mut App, code: KeyCode) -> bool {
             tree::expand_or_descend(app);
             true
         }
-        KeyCode::Left => moved(app, |tree| tree.collapse() || tree.to_parent()),
+        KeyCode::Left => moved(app, |tree| tree.collapse() || tree.move_to_parent()),
         KeyCode::Up
         | KeyCode::Down
         | KeyCode::Home

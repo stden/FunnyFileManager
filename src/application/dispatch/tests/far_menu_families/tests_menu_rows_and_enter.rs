@@ -82,8 +82,8 @@ fn enter_runs_an_associated_command() {
     std::fs::write(dir.path().join("note.txt"), "x").expect("file");
     std::fs::write(dir.path().join(".ffm/associations.txt"), "txt\t/bin/true\n").expect("assoc");
     let mut app = App::new().expect("app");
-    app.left_panel = crate::models::Panel::new(dir.path().to_path_buf()).expect("panel");
-    app.right_panel = crate::models::Panel::new(dir.path().to_path_buf()).expect("panel");
+    app.left_panel = models::Panel::new(dir.path().to_path_buf()).expect("panel");
+    app.right_panel = models::Panel::new(dir.path().to_path_buf()).expect("panel");
     assert!(app.get_active_panel().select_named("note.txt"));
     apply_action(&mut terminal(), &mut app, Action::Open);
 }
@@ -94,8 +94,8 @@ fn a_broken_associations_file_is_reported_instead_of_opening() {
     std::fs::create_dir_all(dir.path().join(".ffm/associations.txt")).expect("not a file");
     std::fs::write(dir.path().join("note.txt"), "x").expect("file");
     let mut app = App::new().expect("app");
-    app.left_panel = crate::models::Panel::new(dir.path().to_path_buf()).expect("panel");
-    app.right_panel = crate::models::Panel::new(dir.path().to_path_buf()).expect("panel");
+    app.left_panel = models::Panel::new(dir.path().to_path_buf()).expect("panel");
+    app.right_panel = models::Panel::new(dir.path().to_path_buf()).expect("panel");
     assert!(app.get_active_panel().select_named("note.txt"));
     apply_action(&mut terminal(), &mut app, Action::Open);
     assert!(matches!(app.status, status::Status::Error(_)));

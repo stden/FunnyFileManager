@@ -309,11 +309,11 @@ fn the_search_helpers_do_nothing_without_an_editor() {
     app.set_overlay(Overlay::Help);
 
     assert!(
-        !super::process_search_prompt(&mut app, KeyCode::Enter),
+        !process_search_prompt(&mut app, KeyCode::Enter),
         "no editor, so the prompt handled nothing"
     );
-    super::repeat_search(&mut app);
-    super::run_search(
+    repeat_search(&mut app);
+    run_search(
         &mut app,
         crate::search::Search {
             needle: crate::search::Needle::new("x").expect("non-empty"),
@@ -330,7 +330,7 @@ fn the_search_helpers_do_nothing_without_an_editor() {
 fn the_search_prompt_handler_does_nothing_while_no_dialog_is_up() {
     let mut app = editing("hello");
     assert!(
-        !super::process_search_prompt(&mut app, KeyCode::Enter),
+        !process_search_prompt(&mut app, KeyCode::Enter),
         "the editor is open but the dialog is not"
     );
 }
@@ -340,7 +340,7 @@ fn the_search_prompt_handler_does_nothing_while_no_dialog_is_up() {
 #[test]
 fn repeating_a_search_that_never_happened_opens_the_dialog() {
     let mut app = editing("hello world");
-    super::repeat_search(&mut app);
+    repeat_search(&mut app);
 
     let editor = app.get_editor().expect("editor");
     assert!(

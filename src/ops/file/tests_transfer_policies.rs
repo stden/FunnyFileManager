@@ -725,7 +725,7 @@ fn a_link_loop_is_refused_instead_of_walked_forever() {
     // The copy failed, and it failed quickly: what matters is that the walk
     // came back at all, and left no runaway tree behind.
     assert!(
-        matches!(app.status, crate::status::Status::CopiedWithErrors { .. }),
+        matches!(app.status, Status::CopiedWithErrors { .. }),
         "the loop must be reported, not silently truncated: {:?}",
         app.status
     );
@@ -753,7 +753,7 @@ fn a_link_into_the_destination_is_refused() {
     copy_with(&mut app, &dialog);
 
     assert!(
-        matches!(app.status, crate::status::Status::CopiedWithErrors { .. }),
+        matches!(app.status, Status::CopiedWithErrors { .. }),
         "reaching the destination must be reported: {:?}",
         app.status
     );
@@ -844,7 +844,7 @@ fn copying_a_fifo_reports_it_instead_of_waiting_for_a_writer() {
     copy_with(&mut app, &settings(to.path()));
 
     assert!(
-        matches!(app.status, crate::status::Status::CopiedWithErrors { .. }),
+        matches!(app.status, Status::CopiedWithErrors { .. }),
         "a pipe must be reported: {:?}",
         app.status
     );
@@ -860,7 +860,7 @@ fn make_fifo(path: &Path) -> Option<std::path::PathBuf> {
 /// How deep the tree under `root` goes, so a runaway walk is visible as a
 /// number rather than as a test that never ends.
 #[cfg(unix)]
-fn walk_depth(root: &std::path::Path) -> usize {
+fn walk_depth(root: &Path) -> usize {
     let Ok(entries) = fs::read_dir(root) else {
         return 0;
     };
