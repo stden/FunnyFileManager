@@ -33,6 +33,8 @@ check_rust() {
         echo "Run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
         exit 1
     fi
+    # Fail in seconds, not minutes, when the compiler wrapper has stalled.
+    bash "$SCRIPT_DIR/scripts/cargo-preflight.sh" || exit 1
 }
 
 # Build FFM

@@ -50,6 +50,21 @@ if errorlevel 1 exit /b 1
 goto end
 
 :coverage
+REM cargo-llvm-cov cannot run the empty rustc-wrapper in .cargo/config.toml (it
+REM executes " rustc"), and cmd cannot set an empty variable to override it, so
+REM hand it a pass-through wrapper: env.exe, as CI does on Linux.
+if defined RUSTC_WRAPPER goto coverage_run
+if defined CARGO_BUILD_RUSTC_WRAPPER goto coverage_run
+for /f "delims=" %%E in ('where env.exe 2^>nul') do if not defined CARGO_BUILD_RUSTC_WRAPPER set "CARGO_BUILD_RUSTC_WRAPPER=%%E"
+if not defined CARGO_BUILD_RUSTC_WRAPPER if exist "%ProgramFiles%\Git\usr\bin\env.exe" set "CARGO_BUILD_RUSTC_WRAPPER=%ProgramFiles%\Git\usr\bin\env.exe"
+if defined CARGO_BUILD_RUSTC_WRAPPER goto coverage_run
+echo cargo llvm-cov needs a pass-through compiler wrapper and none was found.
+echo Install Git for Windows, which ships usr\bin\env.exe, or set CARGO_BUILD_RUSTC_WRAPPER.
+exit /b 1
+
+:coverage_run
+REM Git's env.exe must pass rustc's arguments through untouched.
+set "MSYS_NO_PATHCONV=1"
 echo Generating test coverage report...
 %FFM_CARGO_COMMAND% llvm-cov --features test-helpers --html
 if errorlevel 1 exit /b 1

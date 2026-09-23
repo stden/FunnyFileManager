@@ -36,12 +36,22 @@ separate checks. The self-test can also run directly as
 - Cargo's job count is intentionally unset, so local builds use every logical
   CPU by default. Override it with `cargo build -j N` or `CARGO_BUILD_JOBS` on a
   memory-constrained machine.
-- This project leaves compiler caching opt-in. Developers can select
-  `RUSTC_WRAPPER=sccache` in their shell; an inherited Cargo configuration can
-  also select the wrapper, which may require its server. The repository keeps
-  `SCCACHE_NO_DAEMON=1` for foreground-server behavior; this setting does not
-  disable the server. Cargo incremental compilation remains enabled for both
-  development and test profiles.
+- This project leaves compiler caching opt-in. `.cargo/config.toml` sets an
+  empty `rustc-wrapper`, which switches off a wrapper forced by a user or
+  managed Cargo configuration: a shared sccache server that stalls keeps every
+  build waiting for minutes with no `rustc` running. Developers enable a cache
+  per shell with `RUSTC_WRAPPER=sccache`, which outranks the file. Do not set
+  `SCCACHE_NO_DAEMON`: a foreground server inherits Cargo's output pipes and the
+  build never finishes. `cargo llvm-cov` cannot run an empty wrapper, so
+  coverage runs set `CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env`, as CI does;
+  `ffm.cmd coverage` uses Git for Windows' `env.exe` the same way.
+  `scripts/cargo-preflight.sh` (run by `./ffm.sh` and `scripts/lint.sh`) asks
+  the selected wrapper for `rustc -vV` and fails within
+  `FFM_WRAPPER_PROBE_SECS` (default 20) seconds instead of hanging; without GNU
+  `timeout` (or `gtimeout`) it skips the probe. Cargo
+  incremental compilation remains enabled for both development and test
+  profiles, unless a user config sets `build.incremental = false`, which
+  overrides every profile.
 - Plain `cargo build` and `cargo run` compile project code without optimization
   or LTO, with incremental compilation and 256 codegen units. Debug information
   is disabled and stripped; dependencies use optimization level 2. These

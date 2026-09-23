@@ -118,7 +118,7 @@ scripts/
 
 | Directory | Description |
 |-----------|-------------|
-| `.cargo/config.toml` | Cargo build settings: shared `target/`, mold linker on Linux, LLD on Windows; parallelism is Cargo's default |
+| `.cargo/config.toml` | Cargo build settings: shared `target/`, mold linker on Linux, LLD on Windows, no compiler wrapper (sccache is opt-in via `RUSTC_WRAPPER`); parallelism is Cargo's default |
 | `.claude/` | Claude Code slash commands and local settings |
 | `.gemini/` | Gemini IDE settings |
 | `.junie/` | JetBrains Junie MCP config |

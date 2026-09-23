@@ -83,6 +83,12 @@ run_architecture() {
     "$PYTHON" scripts/test_recording.py
 }
 
+# Fail in seconds, not minutes, when the compiler wrapper has stalled.
+case "$mode" in
+    fmt | self-test | -h | --help | help) ;;
+    *) bash "$ROOT/scripts/cargo-preflight.sh" ;;
+esac
+
 case "$mode" in
     all | "")
         run_fmt_check

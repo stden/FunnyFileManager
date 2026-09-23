@@ -1,14 +1,17 @@
 # Purpose: Configures Cargo defaults used by local builds and test runs.
-[env]
-# This project leaves compiler wrappers opt-in; inherited Cargo configuration
-# may still select sccache. Preserve its foreground-server setting: this does
-# not disable the server or move compilation into the client process.
-SCCACHE_NO_DAEMON = { value = "1", force = true }
-
 [build]
 # All packages share compiled dependencies when their features/profiles match.
 # Cargo resolves this relative to the repository, including runs from mcp/.
 target-dir = "target"
+# Compiler caching is opt-in. An empty wrapper means "none" to Cargo and
+# overrides a user or managed config that forces sccache on every build: a
+# shared cache server that stalls keeps Cargo waiting for minutes with no rustc
+# running. Enable a cache per shell with RUSTC_WRAPPER=sccache; the environment
+# outranks this file. Never force SCCACHE_NO_DAEMON here: a foreground server
+# inherits Cargo's output pipes and the build never sees them close.
+# cargo-llvm-cov cannot run an empty wrapper (it executes ` rustc`), so
+# coverage runs set CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env, as CI does.
+rustc-wrapper = ""
 # jobs is unset here so Cargo can use its default or inherited parallelism.
 # Override with `cargo build -j N` or CARGO_BUILD_JOBS for headroom.
 

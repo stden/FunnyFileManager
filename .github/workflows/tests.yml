@@ -66,8 +66,8 @@ jobs:
     name: Tests & Coverage
     runs-on: ubuntu-latest
     env:
-      # Matches .cargo/config.toml. Kept here so a stale cache of an empty
-      # rustc-wrapper cannot make cargo-llvm-cov exec ` rustc` (ENOENT).
+      # .cargo/config.toml sets an empty rustc-wrapper (no wrapper), which
+      # cargo-llvm-cov would exec as ` rustc` (ENOENT); env is a no-op wrapper.
       CARGO_BUILD_RUSTC_WRAPPER: /usr/bin/env
     steps:
       - uses: actions/checkout@v7
