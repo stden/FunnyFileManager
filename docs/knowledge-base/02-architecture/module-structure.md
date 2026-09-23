@@ -128,6 +128,7 @@ flowchart LR
 | `src/description.rs` | Far-format description files (`Descript.ion`): read per listing, rewritten by `set_description` |
 | `src/config.rs`, `src/config/pages.rs` | `Settings` — one struct per Options page, JSON under the config directory, loaded in `bootstrap` and saved at exit |
 | `src/diskfree.rs`, `src/windows.rs` | Platform disk/drive information and diagnostics |
+| `src/platform.rs`, `src/platform/` | Safe wrappers for OS calls std lacks: uids, write access, process-group kill, Windows drives and attributes |
 | `src/fileload.rs` | Bounded regular-file loading shared by viewer and editor |
 | `src/editor.rs` | Built-in editor opening and external-editor process integration |
 | `src/utils.rs` | Existing size/transfer helpers, unique destinations, recursive copy, and panel refresh |
@@ -197,6 +198,7 @@ filesystem and logging fixtures use temporary directories.
 ## Architecture checks
 
 `tests/module_boundaries_test.rs` enforces these contracts on parsed source.
+`tests/unsafe_boundary_test.rs` keeps `#[allow(unsafe_code)]` items on a reviewed file allowlist.
 The shared checker in `tests/architecture/` resolves every path a file names
 (imports, expressions, types, patterns, bounds and macro input) to where it
 points, so comments, doc comments and string literals never count as code. It

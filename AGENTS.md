@@ -54,6 +54,7 @@ See `docs/knowledge-base/03-rust-best-practices/type-system.md` for details and 
 - `src/handlers/mod.rs`: Backward-compatible re-exports; no operation implementation.
 - `src/terminal.rs`: RAII lifecycle for the TUI session and external-editor suspension.
 - `src/utils.rs`: Utility functions (`format_size`, `unique_destination`, `copy_dir_all`).
+- `src/platform.rs`: Safe wrappers for OS calls std lacks (uids, write access, process-group kill, Windows drives and attributes).
 - `src/editor.rs`: Built-in F4 editor opening and external Alt+F4 integration.
 - `src/s3.rs`: AWS S3 integration.
 - `src/keepass.rs`: Optional KeePass backend (`--features keepass`).
@@ -357,8 +358,9 @@ the **sibling file**, `src/action/editor.rs`. A directory holding nothing but
 
 ### Unsafe and Platform Code
 
-- No `unsafe` outside `colorer-sys`, `windows.rs` and `terminal.rs`; each
-  block carries a `// SAFETY:` comment stating the invariant.
+- `unsafe_code` is denied: an item opts in with `#[allow(unsafe_code)]` only in the
+  files `tests/unsafe_boundary_test.rs` allowlists (never models, ui, action, popup,
+  command); each block carries a `// SAFETY:` comment. Prefer `src/platform`.
 - Platform branches are `#[cfg(windows)]` / `#[cfg(unix)]` functions with
   the same signature, chosen at the call site — not `if cfg!()` inside one
   function.

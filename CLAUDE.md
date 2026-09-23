@@ -43,6 +43,7 @@ src/
 │   └── mod.rs               # Backward-compatible re-export facade
 ├── terminal.rs              # RAII terminal session and editor suspension
 ├── utils.rs                 # Utility functions (format_size, copy_dir_all, etc.)
+├── platform.rs              # Safe wrappers for OS calls std lacks (uids, access, drives)
 ├── editor.rs                # Built-in editor opening (F4) + external editor (Alt+F4)
 ├── s3.rs                    # AWS S3 integration (browse/upload/download)
 └── windows.rs               # Windows-specific diagnostics and compatibility
@@ -423,6 +424,7 @@ AWS S3 integration for cloud storage browsing.
 - **File size limit**: no file in `src/` may exceed 1000 lines (enforced by `tests/file_line_limit_test.rs`); split files over ~500 lines into modules. Unit tests live in `<module>/tests*.rs` child modules.
 - **No private data**: `tests/private_data_lint_test.rs` scans every tracked file for personal e-mails, machine-specific absolute paths, credential-shaped strings and public IPs. Fixture paths use `/home/bob`, `/srv/x`, `example.com`. Site-specific words live outside the repo in `~/.config/ffm/private-words.txt`, never in the test.
 
+- **Unsafe boundary**: `unsafe_code` is denied; items opt in with `#[allow(unsafe_code)]` only in files `tests/unsafe_boundary_test.rs` allowlists. Shared OS calls go through `src/platform`.
 - **Canonical operations**: `src/ops/` owns command, file, shell, viewer, and MCP-status implementations; `handlers` is a compatibility facade
 - **Modal-first input**: `popup::process_popup_input` consumes active-overlay keys before `action::resolve`
 - **Terminal RAII**: `TerminalSession` and `TerminalSuspension` own best-effort restoration, including partial transitions
