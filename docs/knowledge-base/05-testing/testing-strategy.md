@@ -124,18 +124,18 @@ functions; avoid tests that merely duplicate implementation statements.
 ```sh
 cargo test
 cargo test --features test-helpers
-./ffm.sh lint
+./ffm.py lint
 ```
 
 To verify the readability policy itself:
 
 ```sh
-./ffm.sh lint self-test
+./ffm.py lint self-test
 ```
 
 This check requires Python and also runs directly as
-`python scripts/test_readability.py`. The full `./ffm.sh lint` gate includes it
-through its architecture checks; `./ffm.sh lint self-test` runs it on its own.
+`python scripts/test_readability.py`. The full `./ffm.py lint` gate includes it
+through its architecture checks; `./ffm.py lint self-test` runs it on its own.
 CI also runs it explicitly after the shared lint gate. It resolves `clippy-driver`
 and `rustc` through the selected rustup toolchain. It verifies all three diagnostics from the TUI, MCP, and
 Colorer crate directories, so each must discover the shared root configuration.
@@ -144,7 +144,7 @@ with the rejected version. Generated artifacts stay under
 `target/readability-selftest/`. The script supplies lint levels directly;
 ordinary Clippy gates verify the Cargo manifests' lint settings.
 
-Before the readability check, `./ffm.sh lint self-test` runs the developer
+Before the readability check, `./ffm.py lint self-test` runs the developer
 scripts' unit tests, `scripts/tests/test_*.py`, with the standard library's
 `unittest`. Each test runs its script through `scripts/tests/sandbox.py`: a
 fresh HOME, TMPDIR and checkout copy, and a PATH on which Cargo, Git, the AI
@@ -194,10 +194,10 @@ checks every target in these configurations, always denying warnings:
 | MCP | Package defaults |
 | Colorer | Package defaults |
 
-The shared `./ffm.sh lint` script also runs `module_boundaries_test`,
+The shared `./ffm.py lint` script also runs `module_boundaries_test`,
 `file_line_limit_test`, `scripts/test_readability.py`, and
 `scripts/test_recording.py`. These checks can be run together with
-`./ffm.sh lint architecture`. The CI lint job calls the full script, then
+`./ffm.py lint architecture`. The CI lint job calls the full script, then
 runs the self-test (script unit tests, readability fixtures, lint policy) and
 `module_boundaries_test`.
 Optional-feature behavior needs its own test run when changed:

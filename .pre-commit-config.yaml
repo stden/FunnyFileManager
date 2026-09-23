@@ -19,7 +19,7 @@
 #
 # To run manually on all files:
 #   pre-commit run --all-files
-#   ./scripts/lint.sh
+#   ./scripts/lint.py
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -43,7 +43,7 @@ repos:
 
       - id: cargo-clippy
         name: cargo clippy (-D warnings, feature matrix)
-        entry: bash scripts/lint.sh clippy
+        entry: python3 scripts/lint.py clippy
         language: system
         types_or: [rust]
         pass_filenames: false

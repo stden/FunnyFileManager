@@ -186,12 +186,12 @@ Full module-level detail remains in
 - `cargo test -- --ignored`: Run tests marked `#[ignore]` (used for manual/interactive cases).
 - `cargo fmt`: Format code with `rustfmt`.
 - `cargo clippy -- -D warnings`: Lint and fail on warnings.
-- `./ffm.sh lint`: Run the shared local/CI format, spelling and Clippy gate:
+- `./ffm.py lint`: Run the shared local/CI format, spelling and Clippy gate:
   `typos` over every text file (project words in `typos.toml`), then Clippy for
   root default, all features, and no-default-features with test-helpers, plus
   MCP and Colorer; Clippy checks all targets. Needs `cargo install typos-cli`.
-- `./ffm.sh lint spelling`: Run only the spell check.
-- `./ffm.sh lint self-test`: Prove the spell check rejects a misspelling, run
+- `./ffm.py lint spelling`: Run only the spell check.
+- `./ffm.py lint self-test`: Prove the spell check rejects a misspelling, run
   the developer scripts' unit tests (`scripts/tests`), then verify readability
   rejection, acceptance, and equivalent behavior with compiler fixtures;
   requires Python.
@@ -211,7 +211,7 @@ Rules that must be followed when writing or reviewing code. This project is inte
 - **Strongly prefer enums for state** instead of multiple `bool`/`Option` fields (see the `Overlay` enum).
 - Use **newtypes** instead of raw primitives for domain concepts (`BookmarkSlot`, `FileSize`, IDs, etc.).
 - "Make illegal states unrepresentable" using the type system whenever feasible.
-- Follow all enforced Clippy rules and run the shared gate (`./ffm.sh lint`).
+- Follow all enforced Clippy rules and run the shared gate (`./ffm.py lint`).
 - Enforce the shared `clippy.toml` complexity limits: at most 30 lines per
   function as counted by Clippy, nesting depth 4, and cognitive-complexity
   score 25. Nesting includes surrounding blocks such as `impl`; the score is
@@ -412,7 +412,7 @@ what each buys, is in `docs/knowledge-base/03-rust-best-practices/type-system.md
 
 - **Commit and push when a task is done.** Finishing a task means the work is in
   the repository, not sitting in a dirty working tree: run the gate
-  (`cargo test`, `./ffm.sh lint`), commit, and push. Work left uncommitted is
+  (`cargo test`, `./ffm.py lint`), commit, and push. Work left uncommitted is
   invisible to the next session and to anyone else working the same files — and
   this repo is worked from more than one machine, so a local-only change is one
   force-push away from gone.

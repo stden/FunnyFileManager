@@ -7,4 +7,3 @@
 # same way: with a CR after `#!/usr/bin/env python3`, env looks for "python3\r".
 *.sh text eol=lf
 *.py text eol=lf
-scripts/pre-commit text eol=lf

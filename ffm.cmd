@@ -89,7 +89,7 @@ REM Kept out of `cargo build` on purpose. Cloning and CMake-building a C++
 REM library would turn every build into something that needs the network and
 REM several minutes; this does it once and the build script then finds it.
 REM
-REM Same layout as `ffm.sh colorer`, so colorer-sys and the running program
+REM Same layout as `ffm.py colorer`, so colorer-sys and the running program
 REM look in one place on both platforms.
 set "COLORER_HOME=%USERPROFILE%\.local\share\ffm"
 set "COLORER_LIB=%COLORER_HOME%\Colorer-library"

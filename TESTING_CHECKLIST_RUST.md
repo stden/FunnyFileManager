@@ -6,7 +6,7 @@ The strategy and the seam table are in `docs/knowledge-base/05-testing/testing-s
 
 ## Before a change is finished
 
-- [ ] `./ffm.sh lint` passes (format, Clippy `-D warnings`, the shared feature matrix).
+- [ ] `./ffm.py lint` passes (format, Clippy `-D warnings`, the shared feature matrix).
 - [ ] `cargo test --features test-helpers` passes for the behavior you touched.
 - [ ] New behavior and bug fixes have a test that failed before the fix.
 - [ ] Filesystem tests use `tempfile::TempDir` and do not read the checkout or the home directory.

@@ -436,7 +436,7 @@ cargo test --test bdd_ru --features test-helpers,s3
 # Optional local HTML report. CI's 98% / 75% gates, with their
 # filename exclusions, are the llvm-cov steps in
 # .github/workflows/tests.yml.
-./ffm.sh coverage
+./ffm.py coverage
 ```
 
 ### ✨ BDD Feature Example
@@ -506,7 +506,7 @@ graph TB
 
 | Job | What it does |
 |-----|----------------|
-| **Lint** | `./ffm.sh lint`, the readability self-test, and the architecture contract test |
+| **Lint** | `./ffm.py lint`, the readability self-test, and the architecture contract test |
 | **Tests & Coverage** | `cargo llvm-cov nextest`, failing under 98% of the measured root lines |
 | **BDD** | S3 unit tests plus `bdd` and `bdd_ru`, on Linux and Windows |
 | **TUI BDD** | Keyboard scenarios through the real event loop. Windows also runs the full suite and Clippy |

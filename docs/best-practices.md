@@ -30,7 +30,7 @@
 - Baseline local validation:
   - `cargo test`
   - `cargo test --features test-helpers`
-  - `./ffm.sh lint`
+  - `./ffm.py lint`
 - Use coverage tooling only when intentionally refreshing coverage artifacts.
 
 ## Complexity and readability
@@ -61,7 +61,7 @@ Do not raise thresholds or introduce accepted-warning baselines. Extract named
 fixtures and assertions for tests, and separate production responsibilities.
 The same 30-line limit applies to exhaustive formatting and dispatch code.
 
-Run `./ffm.sh lint self-test` (or `python scripts/test_readability.py`) to check
+Run `./ffm.py lint self-test` (or `python scripts/test_readability.py`) to check
 the policy with the real compiler. It rejects intentionally complex fixtures, admits their refactored
 equivalents, and compares their behavior. It also verifies shared configuration
 discovery from all three crate directories without invoking Cargo. These

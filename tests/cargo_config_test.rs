@@ -29,16 +29,16 @@ fn an_inherited_compiler_cache_is_switched_off_and_never_run_in_the_foreground()
 fn build_entry_points_run_the_wrapper_preflight_first() {
     for (script, text) in [
         (
-            "ffm.sh",
-            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/ffm.sh")),
+            "ffm.py",
+            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/ffm.py")),
         ),
         (
-            "scripts/lint.sh",
-            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/lint.sh")),
+            "scripts/lint.py",
+            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/lint.py")),
         ),
     ] {
         assert!(
-            text.contains("scripts/cargo-preflight.sh"),
+            text.contains("scripts/cargo_preflight.py"),
             "{script} must run the compiler-wrapper preflight"
         );
     }
@@ -53,7 +53,7 @@ mod preflight {
         time::{Duration, Instant},
     };
 
-    const SCRIPT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/cargo-preflight.sh");
+    const SCRIPT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/cargo_preflight.py");
     /// Limit for the cases that must fail; the passing cases never wait for it.
     const STALL_SECS: u64 = 5;
     /// Limit for the cases that must pass, generous for a loaded machine.
@@ -79,7 +79,7 @@ mod preflight {
 
     /// `wrapper: None` leaves the choice to Cargo's config files.
     fn preflight(sandbox: &Path, wrapper: Option<&str>, limit_secs: u64) -> (Output, Duration) {
-        let mut command = Command::new("bash");
+        let mut command = Command::new("python3");
         command
             .arg(SCRIPT)
             .env("CARGO", env!("CARGO"))
@@ -93,11 +93,6 @@ mod preflight {
         let started = Instant::now();
         let output = command.output().expect("run the preflight");
         (output, started.elapsed())
-    }
-
-    /// Hosts without GNU timeout(1) (stock macOS) skip the probe; nothing to check.
-    fn skipped(output: &Output) -> bool {
-        String::from_utf8_lossy(&output.stderr).contains("skipping the compiler-wrapper probe")
     }
 
     #[test]
@@ -138,9 +133,6 @@ mod preflight {
         let wrapper = stalling_wrapper(sandbox.path());
 
         let (output, elapsed) = preflight(sandbox.path(), Some(&wrapper), STALL_SECS);
-        if skipped(&output) {
-            return;
-        }
 
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(!output.status.success(), "{stderr}");
@@ -159,9 +151,6 @@ mod preflight {
             Some("/nonexistent/compiler-wrapper"),
             ANSWER_SECS,
         );
-        if skipped(&output) {
-            return;
-        }
 
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(!output.status.success(), "{stderr}");

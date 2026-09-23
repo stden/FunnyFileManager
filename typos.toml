@@ -1,4 +1,4 @@
-# Purpose: Configures the spell check (`typos`) that `./ffm.sh lint` runs over
+# Purpose: Configures the spell check (`typos`) that `./ffm.py lint` runs over
 # every tracked text file: docs, comments, strings and identifiers.
 # English only. `typos` flags known misspellings, not unknown words, so a
 # project term needs an entry here only when it looks like a misspelling.

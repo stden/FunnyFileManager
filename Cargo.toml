@@ -108,7 +108,7 @@ test-helpers = []
 # Far's own HRC schemes. On by default, and harmless when the library is absent:
 # colorer-sys compiles to stubs and the built-in tokenizer does the work, so
 # `cargo build` never needs ICU, libxml2 or zlib. Install the engine itself with
-# `./ffm.sh colorer` or `ffm.cmd colorer`.
+# `./ffm.py colorer` or `ffm.cmd colorer`.
 colorer = ["dep:colorer-sys"]
 s3 = ["dep:aws-config", "dep:aws-sdk-s3", "dep:tokio"]
 keepass = ["dep:keepass", "dep:serde_norway"]

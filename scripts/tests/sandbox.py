@@ -10,6 +10,8 @@ goes through a Sandbox, so no test can reach the real machine:
 - Every command in GUARDED starts as a refusing stub in that bin directory,
   ahead of any real one. A test replaces the commands it expects with fakes.
 - Git may use local repositories only (GIT_ALLOW_PROTOCOL=file).
+- A real ffm in a system PATH directory skips the test, because
+  `./ffm.py install` refreshes every ffm it finds on PATH.
 
 Fakes are small Python programs. Each call appends one JSON line (name,
 arguments, working directory, environment) to a log that calls() reads back.
@@ -36,7 +38,7 @@ GUARDED = (
     "claude", "codex", "aws", "kubectl", "k9s", "fzf",
     # The Rust toolchain: builds are faked, never run.
     "cargo", "cargo-tarpaulin", "rustup", "rustc", "clippy-driver", "sccache", "cmake",
-    # The file manager itself: `./ffm.sh install` overwrites every ffm on PATH.
+    # The file manager itself: `./ffm.py install` overwrites every ffm on PATH.
     "ffm", "ffm-mcp",
     # Desktop integration, scheduling and privilege.
     "notify-send", "xdg-open", "xdg-user-dir", "xdg-mime", "xdg-desktop-menu",
@@ -76,6 +78,8 @@ class Sandbox:
             test.skipTest("fake commands are POSIX executables")
         if any(character.isspace() for character in sys.executable):
             test.skipTest("a fake's #! line cannot hold an interpreter path with spaces")
+        if any(Path(directory, "ffm").exists() for directory in SYSTEM_PATH):
+            test.skipTest("a real ffm on the system PATH: `./ffm.py install` would overwrite it")
         self.root = Path(tempfile.mkdtemp(prefix="ffm-script-test-")).resolve()
         test.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
         self.home = self.root / "home"
@@ -89,13 +93,14 @@ class Sandbox:
         for name in GUARDED:
             self.fake(name, status=REFUSED, stderr=f"sandbox: {name} is not faked by this test\n")
 
-    def fake(self, name, *, status=0, stdout="", stderr="", effect=""):
-        """Install a recording fake on PATH as `name`.
+    def fake(self, name, *, status=0, stdout="", stderr="", effect="", path=None):
+        """Install a recording fake: on PATH as `name`, or at `path` if given.
 
         `effect` is Python run after the call is recorded, with `args` (the
         argument list), `os` and `sys` in scope. It may exit with its own status.
         """
-        target = self.bin / name
+        target = Path(path) if path else self.bin / name
+        target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(
             FAKE.format(
                 python=sys.executable, name=name, log=str(self.log),
@@ -106,6 +111,15 @@ class Sandbox:
         )
         target.chmod(0o755)
         return target
+
+    def tilde_path(self, *names):
+        """Move the fakes `names` to ~/tools; return a PATH that reaches them
+        only through a literal `~/tools` entry, which bash expands."""
+        tools = self.home / "tools"
+        tools.mkdir(exist_ok=True)
+        for name in names:
+            os.replace(self.bin / name, tools / name)
+        return os.pathsep.join(["~/tools", str(self.bin)])
 
     def use_real(self, name):
         """Drop the refusing stub, so `name` resolves to the system's command."""
@@ -173,6 +187,13 @@ class Sandbox:
     def args(self, name):
         """The argument lists of every call of `name`, oldest first."""
         return [call.args for call in self.calls(name)]
+
+    def git(self, *args):
+        """Run the real git in the sandbox and return its output; fail loudly."""
+        result = self.execute([shutil.which("git", path=os.pathsep.join(SYSTEM_PATH)), *args])
+        if result.returncode:
+            raise AssertionError(f"git {' '.join(map(str, args))} failed:\n{result.stderr}")
+        return result.stdout
 
 
 class SandboxTestCase(unittest.TestCase):

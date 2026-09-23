@@ -14,9 +14,9 @@
 | `cargo test -- --ignored` | Run tests marked `#[ignore]` |
 | `cargo fmt` | Format all code |
 | `cargo clippy -- -D warnings` | Lint (must be clean) |
-| `./scripts/lint.sh` / `./ffm.sh lint` | Shared local/CI format, spelling (`typos`, `cargo install typos-cli`) and Clippy gate for TUI, MCP, and Colorer |
-| `./ffm.sh lint spelling` | Spell check only; project words live in `typos.toml` |
-| `./ffm.sh lint self-test` | Prove the spell check rejects a misspelling; run the developer scripts' unit tests (`scripts/tests`); compile positive/negative readability fixtures and compare behavior; requires Python |
+| `./scripts/lint.py` / `./ffm.py lint` | Shared local/CI format, spelling (`typos`, `cargo install typos-cli`) and Clippy gate for TUI, MCP, and Colorer |
+| `./ffm.py lint spelling` | Spell check only; project words live in `typos.toml` |
+| `./ffm.py lint self-test` | Prove the spell check rejects a misspelling; run the developer scripts' unit tests (`scripts/tests`); compile positive/negative readability fixtures and compare behavior; requires Python |
 | `cargo build --manifest-path mcp/Cargo.toml` | Build the standalone MCP server with its development profile |
 | `cargo test --manifest-path mcp/Cargo.toml` | Run the MCP package's separate test suite |
 | `cargo tarpaulin --out Html --output-dir coverage` | Generate HTML coverage report |
@@ -34,6 +34,13 @@ separate checks. The self-test can also run directly as
 
 - `rust-toolchain.toml` selects stable Rust with rustfmt and Clippy for all
   packages, matching CI. The manifests retain Rust 1.95 as the minimum version.
+- The developer scripts (`ffm.py`, `install_mcp.py`,
+  `create_desktop_shortcut.py`, `scripts/*.py`) use only the Python standard
+  library and need Python 3.9 or newer, the `python3` that macOS's Command Line
+  Tools ship; `scripts/tests/test_python_version.py` parses each one with the
+  3.9 grammar. `ffm.py`, `create_desktop_shortcut.py` and the scripts in
+  `scripts/` find programs on `PATH` as bash does, expanding a leading `~` in
+  an entry (`scripts/shell_path.py`).
 - Cargo's job count is intentionally unset, so local builds use every logical
   CPU by default. Override it with `cargo build -j N` or `CARGO_BUILD_JOBS` on a
   memory-constrained machine.
@@ -46,10 +53,10 @@ separate checks. The self-test can also run directly as
   build never finishes. `cargo llvm-cov` cannot run an empty wrapper, so
   coverage runs set `CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env`, as CI does;
   `ffm.cmd coverage` uses Git for Windows' `env.exe` the same way.
-  `scripts/cargo-preflight.sh` (run by `./ffm.sh` and `scripts/lint.sh`) asks
+  `scripts/cargo_preflight.py` (run by `./ffm.py` and `scripts/lint.py`) asks
   the selected wrapper for `rustc -vV` and fails within
-  `FFM_WRAPPER_PROBE_SECS` (default 20) seconds instead of hanging; without GNU
-  `timeout` (or `gtimeout`) it skips the probe. Cargo
+  `FFM_WRAPPER_PROBE_SECS` (default 20) seconds instead of hanging; it times
+  Cargo itself, so it needs no GNU `timeout`. Cargo
   incremental compilation remains enabled for both development and test
   profiles, unless a user config sets `build.incremental = false`, which
   overrides every profile.
@@ -104,7 +111,7 @@ only path the tool reads; it selects `cargo-nextest` as the test runner).
 cargo fmt -- --check
 cargo test
 cargo test --features test-helpers
-./ffm.sh lint
+./ffm.py lint
 ```
 
 For deeper validation:
@@ -117,7 +124,7 @@ For deeper validation:
 
 When making code changes, always verify with at least:
 - `cargo fmt`
-- `./ffm.sh lint`
+- `./ffm.py lint`
 - Relevant tests (preferably with `--features test-helpers`)
 
 If the pre-commit hook is installed in the environment, formatting will be applied automatically before the commit lands.

@@ -132,7 +132,7 @@ Reproduce the canonical checks with:
 ```sh
 cargo fmt --all -- --check
 cargo test
-./ffm.sh lint
+./ffm.py lint
 cargo nextest run --features test-helpers
 git diff --check
 ```

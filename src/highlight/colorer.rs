@@ -30,7 +30,7 @@ const CATALOG_CANDIDATES: [&str; 3] = [
     "/opt/colorer/catalog.xml",
 ];
 
-/// The same, relative to the user's home — where `ffm.sh colorer` and
+/// The same, relative to the user's home — where `ffm.py colorer` and
 /// `ffm.cmd colorer` install the schemes, since that needs no root.
 const HOME_CANDIDATES: [&str; 2] = [
     ".local/share/ffm/colorer/catalog.xml",

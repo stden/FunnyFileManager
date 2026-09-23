@@ -10,7 +10,7 @@ built-in tokenizer knows.
 
 It is **on by default**, and costs nothing when the engine is not installed:
 `colorer-sys` compiles to stubs, `Colorer::open` returns `None`, and
-`src/highlight.rs` does the work. So `cargo run`, `./ffm.sh run` and
+`src/highlight.rs` does the work. So `cargo run`, `./ffm.py run` and
 `ffm.cmd run` all build the Colorer version without needing a C++ toolchain,
 ICU, libxml2 or zlib — those are only needed to build the engine itself.
 
@@ -21,7 +21,7 @@ One command installs the engine and Far's schemes under
 where both the build script and the running program look:
 
 ```sh
-./ffm.sh colorer      # Linux, macOS
+./ffm.py colorer      # Linux, macOS
 ffm.cmd colorer       # Windows
 ```
 

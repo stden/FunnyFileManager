@@ -6,7 +6,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from sandbox import GUARDED, REFUSED, REPO, SandboxTestCase
+from sandbox import GUARDED, REFUSED, REPO, Sandbox, SandboxTestCase
 
 
 class GuardTests(SandboxTestCase):
@@ -39,6 +39,12 @@ class GuardTests(SandboxTestCase):
         self.assertEqual(env["FFM_MCP_ROOT"], "kept")
         self.assertEqual(env["PATH"].split(os.pathsep)[0], str(self.sandbox.bin))
 
+    def test_a_real_ffm_on_the_system_path_skips_the_test(self):
+        system = self.sandbox.root / "system bin"
+        self.sandbox.fake("ffm", path=system / "ffm")
+        with patch("sandbox.SYSTEM_PATH", (str(system),)), self.assertRaises(unittest.SkipTest):
+            Sandbox(self)
+
 
 class FakeTests(SandboxTestCase):
     def test_calls_is_empty_before_any_call(self):
@@ -59,6 +65,34 @@ class FakeTests(SandboxTestCase):
         self.assertEqual(self.sandbox.execute(["cargo", "-V"]).returncode, 5)
         self.assertEqual(self.sandbox.execute(["cargo", "metadata"]).returncode, 0)
         self.assertEqual(self.sandbox.args("cargo"), [["-V"], ["metadata"]])
+
+    def test_a_fake_may_stand_at_any_path(self):
+        helper = self.sandbox.fake("lint", path=self.sandbox.repo / "scripts/deep dir/lint.py", status=4)
+        self.assertEqual(helper, self.sandbox.repo / "scripts/deep dir/lint.py")
+        self.assertFalse((self.sandbox.bin / "lint").exists())
+        result = self.sandbox.execute([helper, "--check"])
+        self.assertEqual(result.returncode, 4)
+        self.assertEqual(self.sandbox.args("lint"), [["--check"]])
+
+
+class GitTests(SandboxTestCase):
+    def test_git_runs_the_real_git_past_the_refusing_stub(self):
+        self.sandbox.git("init", "--quiet", "--initial-branch=main", self.sandbox.repo)
+        self.assertEqual(self.sandbox.git("rev-parse", "--is-inside-work-tree"), "true\n")
+        self.assertEqual(self.sandbox.calls("git"), [])
+
+    def test_git_commits_as_the_sandbox_identity(self):
+        self.sandbox.git("init", "--quiet", self.sandbox.repo)
+        self.sandbox.write("README", "seed\n")
+        self.sandbox.git("add", "README")
+        self.sandbox.git("commit", "--quiet", "--message=seed")
+        self.assertEqual(self.sandbox.git("log", "--format=%an <%ae>"), "Sandbox <sandbox@example.com>\n")
+
+    def test_a_failing_git_raises_with_its_command_and_stderr(self):
+        with self.assertRaises(AssertionError) as raised:
+            self.sandbox.git("-C", self.sandbox.root / "missing", "status")
+        self.assertIn(f"git -C {self.sandbox.root / 'missing'} status failed:", str(raised.exception))
+        self.assertIn("missing", str(raised.exception).splitlines()[-1])
 
 
 class CheckoutTests(SandboxTestCase):
