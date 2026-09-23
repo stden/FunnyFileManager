@@ -7,7 +7,7 @@
 #   scripts/lint.sh clippy       # clippy and architecture (all targets, all features, fallback)
 #   scripts/lint.sh clippy-fast  # clippy all targets (default features)
 #   scripts/lint.sh fix          # auto-format, then full clippy gate
-#   scripts/lint.sh self-test    # prove readability limits with compiler fixtures
+#   scripts/lint.sh self-test    # prove readability limits and the manifest lint policy
 #   scripts/lint.sh architecture # dependency ownership, layering, and file limits
 #
 # Exit non-zero on the first failure. Matches `.github/workflows/tests.yml` lint job.
@@ -85,7 +85,7 @@ run_architecture() {
 
 # Fail in seconds, not minutes, when the compiler wrapper has stalled.
 case "$mode" in
-    fmt | self-test | -h | --help | help) ;;
+    fmt | -h | --help | help) ;;
     *) bash "$ROOT/scripts/cargo-preflight.sh" ;;
 esac
 
@@ -114,6 +114,8 @@ case "$mode" in
         ;;
     self-test)
         "$PYTHON" scripts/test_readability.py
+        # Runs Cargo on throwaway crates, hence the wrapper preflight above.
+        "$PYTHON" scripts/test_lint_policy.py
         ;;
     architecture)
         run_architecture
