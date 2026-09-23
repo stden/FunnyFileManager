@@ -45,6 +45,7 @@ pub enum ServerState {
     #[default]
     Stopped,
     Unavailable,
+    Untrusted,
     Starting,
     Initializing,
     Ready,
@@ -56,6 +57,7 @@ impl ServerState {
         match self {
             Self::Stopped => "LSP off",
             Self::Unavailable => "LSP unavailable: check command/PATH",
+            Self::Untrusted => "LSP needs workspace trust (Ctrl+Alt+R)",
             Self::Starting => "LSP starting",
             Self::Initializing => "LSP initializing",
             Self::Ready => "LSP ready",

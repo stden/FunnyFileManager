@@ -67,3 +67,21 @@ fn unix_backslashes_are_literal_filename_characters() {
     let raw = r"\\?\C:\file";
     assert_eq!(label(Path::new(raw)), raw);
 }
+#[cfg(windows)]
+#[test]
+fn status_paths_use_ordinary_spelling_even_when_stored_as_strings() {
+    let root = tempfile::TempDir::new().unwrap();
+    let canonical = root.path().canonicalize().unwrap();
+    let raw = canonical.to_string_lossy().into_owned();
+    for status in [
+        crate::status::Status::Viewing(raw.clone()),
+        crate::status::Status::Editing(raw.clone()),
+        crate::status::Status::Edited(raw.clone()),
+        crate::status::Status::CreatedDir(raw.clone()),
+        crate::status::Status::BinaryFile(raw.clone()),
+        crate::status::Status::NotRegularFile(raw),
+    ] {
+        assert!(!status.to_string().contains(r"\\?\"));
+        assert!(status.to_string().contains(label(&canonical).as_ref()));
+    }
+}

@@ -73,6 +73,7 @@ fn cursor_movement_prevents_hover_from_opening() {
         feature: Feature::Hover,
     };
     editor.move_right();
+    editor.notice = Some("Newer request".into());
     apply_event(
         &mut app,
         Envelope(
@@ -81,6 +82,10 @@ fn cursor_movement_prevents_hover_from_opening() {
         ),
     );
     assert!(app.get_editor().unwrap().lsp.popup.is_none());
+    assert_eq!(
+        app.get_editor().unwrap().notice.as_deref(),
+        Some("Newer request")
+    );
 }
 #[test]
 fn disabled_and_failed_servers_explain_why_queries_cannot_run() {

@@ -114,6 +114,9 @@ fn canonical_paths_use_ordinary_spelling_in_the_panel_title() {
     let mut panel = Panel::from_entries(canonical.clone(), Vec::new());
     let rendered = text(&draw(&mut panel));
     assert!(!rendered.contains(r"\\?\"));
-    assert!(rendered.contains(&crate::path_display::label(&canonical).to_string()));
+    assert!(rendered.contains(&tail_cells(
+        &crate::path_display::label(&canonical),
+        Cells::new(78)
+    )));
     assert_eq!(panel.path, canonical);
 }

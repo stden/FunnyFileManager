@@ -41,7 +41,11 @@ impl LspSettings {
         self.0
             .iter()
             .find(|(_, server)| {
-                server.enabled && server.extensions.iter().any(|ext| ext == extension)
+                server.enabled
+                    && server
+                        .extensions
+                        .iter()
+                        .any(|ext| ext.eq_ignore_ascii_case(extension))
             })
             .map(|(language, server)| (language.as_str(), server))
     }

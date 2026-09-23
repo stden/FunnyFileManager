@@ -14,6 +14,7 @@ use capabilities::Capabilities;
 
 #[derive(Debug, Clone)]
 pub enum Event {
+    TrustRequired(std::path::PathBuf),
     State(super::types::ServerState),
     Diagnostics(Stamp, Vec<Diagnostic>),
     Reply(Query, Result<Reply, ResponseError>),
@@ -123,6 +124,7 @@ impl Client {
     }
 
     pub fn query(&mut self, query: Query) -> Result<(), &'static str> {
+        self.rpc.cancel_queries();
         let document = self
             .document
             .as_ref()
@@ -135,7 +137,6 @@ impl Client {
         {
             return Err("Language server does not support this feature");
         }
-        self.rpc.cancel_queries();
         self.rpc.request(
             query.feature.method(),
             json!({"textDocument":{"uri":document.uri},"position":query.position}),

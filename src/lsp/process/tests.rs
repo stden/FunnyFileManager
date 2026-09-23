@@ -47,3 +47,29 @@ fn stderr_is_drained_through_interruptions_and_stops_after_failure() {
     drain_stderr(&mut stderr);
     assert_eq!(stderr.reads, 3);
 }
+
+#[cfg(unix)]
+#[test]
+fn observing_exit_keeps_the_process_id_reserved_until_group_cleanup() {
+    use rustix::process::{waitid, Pid, WaitId, WaitIdOptions};
+    let root = tempfile::TempDir::new().unwrap();
+    let settings = ServerSettings {
+        command: "python".into(),
+        args: vec!["-c".into(), "pass".into()],
+        ..ServerSettings::default()
+    };
+    let mut process = Process::start(&settings, root.path()).unwrap();
+    let pid = Pid::from_child(&process.child);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while !process.exited() {
+        assert!(std::time::Instant::now() < deadline);
+        thread::sleep(std::time::Duration::from_millis(5));
+    }
+    let flags = WaitIdOptions::EXITED | WaitIdOptions::NOHANG | WaitIdOptions::NOWAIT;
+    assert!(waitid(WaitId::Pid(pid), flags).unwrap().is_some());
+    drop(process);
+    assert_eq!(
+        waitid(WaitId::Pid(pid), flags).unwrap_err(),
+        rustix::io::Errno::CHILD
+    );
+}

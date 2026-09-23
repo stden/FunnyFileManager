@@ -12,6 +12,7 @@ use std::thread::{self, JoinHandle};
 
 pub enum Command {
     Open(String, ServerSettings, Snapshot),
+    Trust(DocumentId),
     Update(Snapshot),
     Query(Query),
     Cancel,

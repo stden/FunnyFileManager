@@ -40,8 +40,15 @@ fn fixture() -> (TempDir, Snapshot) {
 
 fn wait(manager: &Manager, predicate: impl Fn(&Event) -> bool) -> Event {
     let deadline = Instant::now() + Duration::from_secs(120);
+    wait_until(manager, predicate, deadline)
+}
+
+fn wait_until(manager: &Manager, predicate: impl Fn(&Event) -> bool, deadline: Instant) -> Event {
     loop {
         if let Some(event) = manager.poll() {
+            if matches!(event.1, Event::TrustRequired(_)) {
+                assert!(manager.send(Command::Trust(event.0)).is_ok());
+            }
             assert!(
                 !matches!(
                     event.1,
@@ -65,6 +72,7 @@ fn wait(manager: &Manager, predicate: impl Fn(&Event) -> bool) -> Event {
 }
 
 fn request(manager: &Manager, snapshot: &Snapshot, feature: Feature, character: u32) -> Reply {
+    let deadline = Instant::now() + Duration::from_secs(120);
     let query = Query {
         stamp: snapshot.stamp,
         position: Position { line: 3, character },
@@ -72,7 +80,11 @@ fn request(manager: &Manager, snapshot: &Snapshot, feature: Feature, character: 
     };
     for _ in 0..30 {
         assert!(manager.send(Command::Query(query)).is_ok());
-        match wait(manager, |event| matches!(event, Event::Reply(_, _))) {
+        match wait_until(
+            manager,
+            |event| matches!(event, Event::Reply(_, _)),
+            deadline,
+        ) {
             Event::Reply(_, Ok(reply)) => return reply,
             Event::Reply(_, Err(error)) if error.code == -32801 => {
                 thread::sleep(Duration::from_millis(200));
@@ -113,7 +125,8 @@ fn real_rust_analyzer_supports_the_complete_editor_protocol() {
 fn verify_editing(manager: &Manager, snapshot: &mut Snapshot) {
     snapshot.stamp.revision = Revision(1);
     snapshot.text = SOURCE.replace("let broken = ;", "let _broken = 1;");
-    // Cargo diagnostics describe saved files; a save also requests a fresh check.
+    // Keep disk and buffer aligned; this assertion checks diagnostic refresh.
+    // Deterministic client tests separately verify the didSave notification itself.
     fs::write(&snapshot.path, &snapshot.text).unwrap();
     snapshot.saved += 1;
     let typing = Instant::now();

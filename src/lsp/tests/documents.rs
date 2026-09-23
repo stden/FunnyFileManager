@@ -64,6 +64,9 @@ fn incremental_changes_reconstruct_unicode_insertions_deletions_and_replacements
         ("", "Я😀\nx"),
         ("a\nb", ""),
         ("abc", "abc!"),
+        ("a\r\nb", "a\nb"),
+        ("a\r\nb", "a\rX\nb"),
+        ("a\nb", "a\r\nb"),
     ] {
         let mut rpc = Session::default();
         let mut doc = Document::open(snapshot(old), "file:///test.rs".into(), "rust", &mut rpc);

@@ -126,7 +126,8 @@ fn invalid_and_offscreen_diagnostics_do_not_paint_other_text() {
         diagnostic_columns(&diagnostic, 0, "a😀z", Cells::new(0), 8),
         None
     );
-    diagnostic.range.start.character = 4;
+    diagnostic.range.start.character = 5;
+    diagnostic.range.end.character = 5;
     assert_eq!(
         diagnostic_columns(&diagnostic, 0, "a😀z", Cells::new(0), 8),
         None
@@ -140,6 +141,18 @@ fn invalid_and_offscreen_diagnostics_do_not_paint_other_text() {
         diagnostic_columns(&diagnostic, 1, "middle", Cells::new(0), 3),
         Some(0..3)
     );
+}
+
+#[test]
+fn diagnostic_messages_stop_at_the_exclusive_end_but_include_point_ranges() {
+    let root = TempDir::new().unwrap();
+    let mut editor = Editor::from_content("source".into(), root.path().join("source.rs"), "a😀z");
+    editor.lsp.state = ServerState::Ready;
+    editor.lsp.diagnostics.push(emoji_diagnostic());
+    editor.cursor_col = 2;
+    assert!(!status(&editor).contains("bad type"));
+    editor.lsp.diagnostics[0].range.start = editor.lsp.diagnostics[0].range.end;
+    assert!(status(&editor).contains("bad type"));
 }
 
 #[test]
@@ -167,9 +180,22 @@ fn language_server_status_precedes_the_path_on_narrow_editor_headers() {
         ServerState::Initializing,
         ServerState::Ready,
         ServerState::Unavailable,
+        ServerState::Untrusted,
         ServerState::Failed,
     ] {
         editor.lsp.state = state;
         assert!(label(&editor, "").starts_with(&format!(" {}", editor.lsp.state.label())));
     }
+}
+
+#[test]
+fn workspace_trust_explains_execution_and_defaults_to_disabled() {
+    let root = TempDir::new().unwrap();
+    let (_, text, _) = contents(&Dialog::Trust {
+        root: root.path().to_path_buf(),
+        allow: false,
+    });
+    assert!(text.contains("execute this project's build scripts"));
+    assert!(text.contains(&format!("{} Keep LSP disabled", marker(0, 0))));
+    assert!(text.contains(crate::path_display::label(root.path()).as_ref()));
 }

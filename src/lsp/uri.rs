@@ -11,7 +11,9 @@ pub fn to_path(uri: &str) -> Option<PathBuf> {
     if url.scheme() != "file" || url.query().is_some() || url.fragment().is_some() {
         return None;
     }
-    url.to_file_path().ok()
+    url.to_file_path()
+        .ok()
+        .filter(|path| !path.as_os_str().as_encoded_bytes().contains(&0))
 }
 
 pub fn same(left: &str, right: &str) -> bool {

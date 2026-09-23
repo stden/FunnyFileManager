@@ -63,21 +63,31 @@ impl Document {
 }
 
 fn incremental(old: &str, new: &str) -> Value {
-    let prefix: usize = old
+    let mut prefix: usize = old
         .chars()
         .zip(new.chars())
         .take_while(|(a, b)| a == b)
         .map(|(a, _)| a.len_utf8())
         .sum();
-    let suffix: usize = old[prefix..]
+    if inside_crlf(old, prefix) || inside_crlf(new, prefix) {
+        prefix -= 1;
+    }
+    let mut suffix: usize = old[prefix..]
         .chars()
         .rev()
         .zip(new[prefix..].chars().rev())
         .take_while(|(a, b)| a == b)
         .map(|(a, _)| a.len_utf8())
         .sum();
-    // Prefix/suffix are sums of complete UTF-8 characters, hence valid boundaries.
-    let start = positions::at_byte(old, prefix).expect("prefix is a UTF-8 boundary");
-    let end = positions::at_byte(old, old.len() - suffix).expect("suffix is a UTF-8 boundary");
+    if inside_crlf(old, old.len() - suffix) || inside_crlf(new, new.len() - suffix) {
+        suffix -= 1;
+    }
+    // Complete UTF-8 characters and complete line endings define LSP positions.
+    let start = positions::at_byte(old, prefix).expect("prefix is a text boundary");
+    let end = positions::at_byte(old, old.len() - suffix).expect("suffix is a text boundary");
     json!({"range":{"start":start,"end":end}, "text":new[prefix..new.len()-suffix]})
+}
+
+fn inside_crlf(text: &str, offset: usize) -> bool {
+    text[..offset].ends_with('\r') && text[offset..].starts_with('\n')
 }

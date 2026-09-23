@@ -9,6 +9,7 @@ use crate::status::Status;
 
 mod builtin;
 
+pub(crate) use builtin::editor_for;
 pub use builtin::handle_edit_builtin;
 
 /// Fallback when `$EDITOR` is unset.

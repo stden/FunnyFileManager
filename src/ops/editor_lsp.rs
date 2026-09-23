@@ -32,14 +32,7 @@ fn navigate(app: &mut App, target: &Definition) -> Result<(), &'static str> {
     let text = encoding
         .decode(&bytes)
         .map_err(|_| "Cannot decode definition target")?;
-    let title = target
-        .path
-        .file_name()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .into_owned();
-    let mut editor = Editor::from_content(title, target.path.clone(), &text);
-    editor.format.encoding = encoding;
+    let mut editor = crate::editor::editor_for(app, target.path.clone(), &text, encoding);
     move_cursor(&mut editor, target)?;
     app.set_overlay(Overlay::Editor(editor));
     Ok(())

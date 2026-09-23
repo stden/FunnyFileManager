@@ -47,7 +47,7 @@ pub fn handle_edit_builtin(app: &mut App) -> io::Result<()> {
 /// The editor a file opens in, titled by its name and carrying the encoding it
 /// was read with — or, for an empty file where nothing can be sniffed, the one
 /// the settings name.
-fn editor_for(
+pub fn editor_for(
     app: &App,
     selected: std::path::PathBuf,
     content: &str,

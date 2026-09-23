@@ -3,6 +3,8 @@
 use std::fmt;
 
 use super::{FailedEntry, Status};
+use crate::path_display::label;
+use std::path::Path;
 
 impl fmt::Display for Status {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -54,10 +56,16 @@ impl Status {
                 f,
                 "File too large to view ({megabytes:.1} MB, max {limit_megabytes:.0} MB)"
             ),
-            Self::BinaryFile(path) => write!(f, "Cannot view binary file {path}"),
-            Self::NotRegularFile(path) => write!(f, "Cannot open {path}: not a regular file"),
-            Self::Viewing(path) => write!(f, "Viewing {path}"),
-            Self::CreatedDir(path) => write!(f, "Created directory {path}"),
+            Self::BinaryFile(path) => {
+                write!(f, "Cannot view binary file {}", label(Path::new(path)))
+            }
+            Self::NotRegularFile(path) => write!(
+                f,
+                "Cannot open {}: not a regular file",
+                label(Path::new(path))
+            ),
+            Self::Viewing(path) => write!(f, "Viewing {}", label(Path::new(path))),
+            Self::CreatedDir(path) => write!(f, "Created directory {}", label(Path::new(path))),
             _ => return None,
         })
     }
@@ -133,8 +141,8 @@ impl Status {
 
     fn format_editor(&self, f: &mut fmt::Formatter<'_>) -> Option<fmt::Result> {
         Some(match self {
-            Self::Editing(path) => write!(f, "Editing {path}"),
-            Self::Edited(path) => write!(f, "Edited {path}"),
+            Self::Editing(path) => write!(f, "Editing {}", label(Path::new(path))),
+            Self::Edited(path) => write!(f, "Edited {}", label(Path::new(path))),
             Self::CannotEdit { path, error } => {
                 write!(
                     f,
