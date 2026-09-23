@@ -81,6 +81,9 @@ cargo run
 
 ### 🏗️ Build with S3 Support
 
+`s3` is not a default feature. This build adds the profile rows to the drive
+menu and compiles `src/s3.rs`. It does not make a panel list a bucket.
+
 ```bash
 cargo build --features s3
 ```
@@ -382,53 +385,15 @@ There is no bookmark overlay, and `Ctrl+1` is Brief view, not a bookmark. The F9
 
 ## ☁️ AWS S3 Integration
 
-FFM can browse AWS S3 buckets as if they were local directories! 🤯
+Panels list local directories. S3 is a separate object store: the library and
+the MCP server can list, upload, download, copy, and delete objects. Choosing
+an S3 profile in `Alt+F1` or `Alt+F2` does not open a bucket.
 
-### 🔧 Setup
+The walkthrough is in three pages:
 
-1. Configure your AWS credentials in `~/.aws/credentials`:
-
-```ini
-[default]
-aws_access_key_id = YOUR_KEY
-aws_secret_access_key = YOUR_SECRET
-
-[production]
-aws_access_key_id = PROD_KEY
-aws_secret_access_key = PROD_SECRET
-```
-
-2. Build FFM with S3 support:
-
-```bash
-cargo build --features s3
-```
-
-3. Press `Alt+F1` or `Alt+F2` to open the drive selector, then pick an S3 profile!
-
-### 🛣️ VirtualPath System
-
-```mermaid
-graph TB
-    VP[VirtualPath] --> LOCAL["Local(PathBuf)<br/>📂 /home/user/docs"]
-    VP --> S3["S3 { profile, bucket, prefix }<br/>☁️ s3://my-bucket/data/"]
-
-    subgraph "S3 Path Formats"
-        P1["s3://bucket/prefix<br/>(default profile)"]
-        P2["s3://profile@bucket/prefix<br/>(named profile)"]
-    end
-```
-
-### ☁️ Supported S3 Operations
-
-| Operation | Local | S3 |
-|-----------|-------|-----|
-| Browse | ✅ | ✅ |
-| Copy | ✅ | ✅ |
-| Move | ✅ | ✅ |
-| Delete | ✅ | ✅ |
-| Upload | — | ✅ |
-| Download | ✅ | ✅ |
+- [Local filesystems](docs/tutorials/filesystems.md)
+- [AWS profiles](docs/tutorials/aws.md)
+- [S3](docs/tutorials/s3.md)
 
 ---
 
@@ -574,9 +539,12 @@ Make sure your terminal supports 24-bit (true color) RGB. Most modern terminals 
 
 FFM always asks for confirmation before deleting. But if you confirmed... well, this is a learning opportunity about backups. 📚
 
-### ☁️ "S3 operations are slow!" 🐢
+### ☁️ "I picked an S3 profile and the panel did not change" 🐢
 
-S3 operations go over the network. FFM uses a blocking Tokio runtime for S3 calls. For large operations, consider using the AWS CLI directly.
+That is the current behavior. The drive row only records the profile. Listing,
+upload, download, copy, and delete go through the library and the MCP tools
+in [the S3 tutorial](docs/tutorials/s3.md). Each of those calls reads or
+writes the whole object in memory, so a large object is a bad fit for them.
 
 ---
 

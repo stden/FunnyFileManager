@@ -127,7 +127,7 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 - Alt+F8, Alt+F9, Alt+F10, Alt+F11, Alt+F12, Ctrl+I, and Ctrl+W open a placeholder frame. The F9 row of the same name runs the operation. See [overlays](../06-ui-and-interaction/overlays-and-modals.md).
 - Some advanced Far plugins and menu systems have no equivalent.
 - Drive letters on Unix are simulated as `/`.
-- S3 buckets appear as additional "drives".
+- With the `s3` feature, credential-file profiles appear as extra drive-menu rows. Selecting one does not open a bucket. See [S3](../../tutorials/s3.md).
 
 ## 🧑‍💻 Far Manager Reference
 
