@@ -16,6 +16,51 @@ const PERFORMANCE_TITLE: &str = "Windows Performance";
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
+/// Own an LSP process tree so a crashed or unresponsive server cannot orphan children.
+#[cfg(windows)]
+pub(crate) fn lsp_job(
+    child: &std::process::Child,
+) -> io::Result<std::os::windows::io::OwnedHandle> {
+    use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+    use windows_sys::Win32::System::JobObjects::{AssignProcessToJobObject, CreateJobObjectW};
+    // SAFETY: null security/name create a private, non-inherited job handle.
+    let raw = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
+    if raw.is_null() {
+        return Err(io::Error::last_os_error());
+    }
+    // SAFETY: CreateJobObjectW returned a unique live handle; ownership transfers once.
+    let job = unsafe { OwnedHandle::from_raw_handle(raw) };
+    configure_lsp_job(raw)?;
+    // SAFETY: both handles remain live throughout the call; the child is owned by the caller.
+    if unsafe { AssignProcessToJobObject(raw, child.as_raw_handle()) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(job)
+}
+
+#[cfg(windows)]
+fn configure_lsp_job(handle: windows_sys::Win32::Foundation::HANDLE) -> io::Result<()> {
+    use windows_sys::Win32::System::JobObjects::{
+        JobObjectExtendedLimitInformation, SetInformationJobObject,
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
+    let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+    limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    // SAFETY: limits points to an initialized structure of the supplied size for this class.
+    let result = unsafe {
+        SetInformationJobObject(
+            handle,
+            JobObjectExtendedLimitInformation,
+            std::ptr::from_ref(&limits).cast(),
+            std::mem::size_of_val(&limits) as u32,
+        )
+    };
+    if result == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
 #[cfg(windows)]
 const SYSTEM_MESSAGES_SCRIPT: &str = include_str!("windows/system_messages.ps1");
 

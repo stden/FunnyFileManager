@@ -14,7 +14,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::PanelView;
 
+mod lsp;
 mod pages;
+pub use lsp::{LspSettings, ServerSettings};
 
 pub use pages::{
     AutoCompleteSettings, CodePageSettings, ColorSettings, CommandLineSettings,
@@ -36,6 +38,7 @@ const FILE_NAME: &str = "settings.json";
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+    pub lsp: LspSettings,
     pub system: SystemSettings,
     pub panel: PanelSettings,
     pub tree: TreeSettings,

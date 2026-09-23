@@ -65,6 +65,8 @@ keepass = { version = "0.15.0", default-features = false, features = ["save_kdbx
 # serde_norway is a maintained serde_yaml fork; serde_yaml itself is archived.
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+# File URI encoding/decoding, including Windows drive and UNC paths.
+url = "2.5.8"
 serde_norway = { version = "0.9.42", optional = true }
 # Text clipboard for editor selection and optional vault password copying.
 # Image support is unused; disabling it avoids image codec build dependencies.
@@ -311,6 +313,7 @@ match_wildcard_for_single_variants = "allow"
 # pulls libc through signal-hook — so declaring it costs no extra crate.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.189"
+rustix = { version = "1.1.5", features = ["process"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = [
@@ -319,6 +322,7 @@ windows-sys = { version = "0.61.2", features = [
     "Win32_Security",
     "Win32_Storage_FileSystem",
     "Win32_System_Threading",
+    "Win32_System_JobObjects",
     "Win32_System_WindowsProgramming",
     "Win32_System_SystemInformation",
 ] }
