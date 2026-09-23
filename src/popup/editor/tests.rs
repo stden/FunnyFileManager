@@ -302,3 +302,126 @@ fn assert_unsaved_search(app: &App, path: &std::path::Path) {
         "original界"
     );
 }
+
+#[test]
+fn encoding_dialog_ignores_keys_that_are_not_choices() {
+    let temp = TempDir::new().expect("temporary directory");
+    let mut app = app_with_editor("text", temp.path().join("text.txt"));
+    key(&mut app, KeyCode::F(8), KeyModifiers::NONE);
+    key(&mut app, KeyCode::Char('x'), KeyModifiers::NONE);
+    let editor = app.get_editor().expect("editor");
+    assert_eq!(
+        editor.encoding_choice,
+        Some(crate::encoding::TextEncoding::Utf8)
+    );
+    assert_eq!(
+        editor.lines,
+        ["text"],
+        "the key must not reach the document"
+    );
+}
+
+#[test]
+fn lsp_shortcuts_record_the_request_for_the_worker_without_editing() {
+    use crate::models::{lsp::Intent, LspFeature};
+    let temp = TempDir::new().expect("temporary directory");
+    let mut app = app_with_editor("text", temp.path().join("main.rs"));
+    for (code, modifiers, expected) in [
+        (
+            KeyCode::Char(' '),
+            KeyModifiers::CONTROL,
+            Intent::Query(LspFeature::Completion),
+        ),
+        (
+            KeyCode::Char('k'),
+            KeyModifiers::CONTROL,
+            Intent::Query(LspFeature::Hover),
+        ),
+        (
+            KeyCode::Char(']'),
+            KeyModifiers::CONTROL,
+            Intent::Query(LspFeature::Definition),
+        ),
+        (
+            KeyCode::Char('r'),
+            KeyModifiers::CONTROL | KeyModifiers::ALT,
+            Intent::Restart,
+        ),
+    ] {
+        key(&mut app, code, modifiers);
+        let editor = app.get_editor().expect("editor");
+        assert!(editor.lsp.intent == expected, "{code:?} {modifiers:?}");
+        assert_eq!(editor.lines, ["text"]);
+    }
+}
+
+#[test]
+fn an_open_lsp_popup_takes_keys_before_the_document() {
+    use crate::models::lsp::Dialog;
+    let temp = TempDir::new().expect("temporary directory");
+    let mut app = app_with_editor("text", temp.path().join("main.rs"));
+    app.get_editor_mut().expect("editor").lsp.popup = Some(Dialog::Hover {
+        text: "docs".into(),
+        scroll: 0,
+    });
+
+    key(&mut app, KeyCode::Char('x'), KeyModifiers::NONE);
+    let editor = app.get_editor().expect("editor");
+    assert_eq!(editor.lines, ["text"]);
+    assert!(editor.lsp.popup.is_some());
+
+    key(&mut app, KeyCode::Esc, KeyModifiers::NONE);
+    let editor = app
+        .get_editor()
+        .expect("Esc closes the popup, not the editor");
+    assert!(editor.lsp.popup.is_none());
+    assert_eq!(editor.state, EditState::Clean);
+}
+
+/// A backend that can only write, like the terminal-only OSC 52 route.
+struct WriteOnly;
+
+impl ClipboardBackend for WriteOnly {
+    fn set_native(&mut self, _text: &str) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn emit_osc52(&mut self, _payload: &str) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+#[test]
+fn paste_from_a_write_only_clipboard_is_refused_without_editing() {
+    assert_eq!(
+        WriteOnly.get_native(),
+        Err("clipboard text is unavailable".to_owned())
+    );
+    let temp = TempDir::new().expect("temporary directory");
+    let mut app = app_with_editor("text", temp.path().join("text.txt"));
+    app.clipboard.install(Box::new(WriteOnly));
+    key(&mut app, KeyCode::Insert, KeyModifiers::SHIFT);
+    let editor = app.get_editor().expect("editor");
+    assert_eq!(editor.lines, ["text"]);
+    assert_eq!(editor.state, EditState::Clean);
+    assert_eq!(
+        editor.notice.as_deref(),
+        Some("Paste failed: clipboard text is unavailable")
+    );
+}
+
+#[test]
+fn failed_copy_reports_in_editor_and_writes_nothing() {
+    let temp = TempDir::new().expect("temporary directory");
+    let mut app = app_with_editor("text", temp.path().join("text.txt"));
+    let clipboard = Clipboard::default();
+    clipboard.0.borrow_mut().fail = true;
+    app.clipboard.install(Box::new(clipboard.clone()));
+    key(&mut app, KeyCode::Right, KeyModifiers::SHIFT);
+    key(&mut app, KeyCode::Insert, KeyModifiers::CONTROL);
+    let editor = app.get_editor().expect("editor");
+    let notice = editor.notice.as_deref().expect("visible error");
+    assert!(notice.starts_with("Copy failed: "), "{notice}");
+    assert_eq!(clipboard.0.borrow().text, "");
+    assert_eq!(editor.selected_text().as_deref(), Some("t"));
+}
