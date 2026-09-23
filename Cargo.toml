@@ -74,10 +74,6 @@ arboard = { version = "3.6.1", default-features = false }
 
 [dev-dependencies]
 regex = "1"
-# tests/unsafe_boundary_test.rs parses every source file to find unsafe code;
-# span-locations gives its failures a line number.
-syn = { version = "2.0.119", features = ["full", "visit"] }
-proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 criterion = "0.8.2"
 cucumber = "0.23.0"
 futures = "0.3.34"
@@ -86,6 +82,12 @@ futures = "0.3.34"
 aws-smithy-http-client = { version = "1.4.2", features = ["test-util"] }
 aws-smithy-types = "1.8.0"
 http_1x = { package = "http", version = "1.5.0" }
+# Architecture tests parse sources instead of matching text: tests/architecture/
+# (module boundaries) and tests/unsafe_boundary_test.rs (the unsafe allowlist).
+# Both crates are already in the lockfile through proc-macro dependencies;
+# `span-locations` gives the violations their line numbers.
+proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
+syn = { version = "2.0.119", features = ["full", "visit"] }
 
 [features]
 # Colorer is how the editor prefers to highlight, so it is on. The build script

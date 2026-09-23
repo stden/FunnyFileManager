@@ -194,6 +194,45 @@ Fault-injection controls are cfg-gated in-memory seams, not environment
 variables. Tests that must change environment variables use the shared guards;
 filesystem and logging fixtures use temporary directories.
 
+## Architecture checks
+
+`tests/module_boundaries_test.rs` enforces these contracts on parsed source.
+The shared checker in `tests/architecture/` resolves every path a file names
+(imports, expressions, types, patterns, bounds and macro input) to where it
+points, so comments, doc comments and string literals never count as code. It
+also resolves grouped and renamed imports, and `crate::`, `super::` and `self::` chains.
+Each rule has a real-tree test and a fixture that plants a violation and pins
+the reported `file:line: path` message.
+
+| Rule | Checked | Contract |
+|---|---|---|
+| Rendering reads state | `src/ui*` | Never names `std::fs`, `std::process`, `std::net`, `std::env::{set_var, remove_var, set_current_dir}`, or `crate::{application, bootstrap, directory, diskfree, ops, handlers, popup, editor, terminal}` |
+| Key resolution is pure | `src/action*` | The rendering list, plus `std::io` and `std::env` |
+| State stays below its users | `src/models*` | Never names `crate::{ui, action, popup, application, bootstrap, handlers, ops, terminal, editor}`, `std::process`, `std::net`, or environment mutation. One reported exception: `models/clipboard.rs` reads `crate::CLIPBOARD_CLEAR`, which `application` owns |
+| Modal input uses canonical operations | `src/popup*` | Never names `crate::handlers` |
+| Facades only wire | `src/lib.rs`, `src/handlers*` | Only `mod` and `use` items, no `#[cfg(test)]`; `handlers` forwards only `crate::ops` and `crate::popup` |
+| One owner per operation | `src/` | Each listed operation is exported (`pub` or `pub(crate)`) from exactly one file |
+| Tests beside, not inside, production code | `src/`, `mcp/src/`, `colorer-sys/src/` | No `#[test]`-style attribute outside `tests*.rs` files |
+| `test-helpers` exposes seams | `run`, `main_impl`, `handle_edit` | One definition each, and none names `feature = "test-helpers"` |
+| Restore before changing the terminal | `bootstrap::run_session` | `std::panic::set_hook` comes before `TerminalSession::enter` |
+| MCP is a separate process | Both lockfiles, `mcp/src/` | Neither package resolves the other. The TUI compiles only `mcp/src/tool_names.rs` from MCP, and that file imports nothing. Only `main.rs` calls `paths::`. Every extracted tool handed `&FfmServer` starts with `server.safe_path*`. Only allowlisted modules name `std::fs` |
+
+What the checker cannot see:
+
+- **Macros** are scanned as tokens for `a::b` sequences; a path a macro
+  assembles from fragments, or a file pulled in with `include!`, is invisible.
+- **Name resolution** is per file. A re-export in another module or a glob
+  import (`use super::*;`) hides the original path; the glob itself is
+  reported. Imports at a crate root are followed (`crate::run_app` is
+  `crate::application::run_app`).
+- **cfg**: only items marked exactly `#[cfg(test)]` are skipped. All other
+  configurations are checked as source, including Windows-only code on Linux.
+  That checks what the source names; it does not compile or run that code.
+- **Module paths** come from file locations; `#[path]` on a `mod` is not
+  followed, attributes are not scanned, and `build.rs` is not checked.
+- **Filesystem access** through `Path` methods (`exists`, `canonicalize`,
+  `read_dir`) never names `std::fs`, so the MCP allowlist cannot see it.
+
 ## Adding or moving code
 
 Choose the implementation owner from these tables. Keep state transitions with
