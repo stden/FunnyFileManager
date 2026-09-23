@@ -267,6 +267,20 @@ fn the_cursor_stays_on_the_described_entry_after_the_relist() {
     );
 }
 
+/// The names in `dir`, spelled as the file system stores them.
+fn file_names(dir: &std::path::Path) -> Vec<String> {
+    fs::read_dir(dir)
+        .expect("list")
+        .map(|entry| {
+            entry
+                .expect("entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect()
+}
+
 /// A directory that keeps its descriptions in a lowercase `descript.ion`, as
 /// Far writes it: Ctrl+Z offers the line that is already there, Enter rewrites
 /// that same file, and the Descriptions view shows the new text.
@@ -292,7 +306,11 @@ fn ctrl_z_edits_a_lowercase_descript_ion_in_place() {
         fs::read_to_string(temp.path().join("descript.ion")).expect("descript.ion"),
         "a.txt Old and new\n"
     );
-    assert!(!temp.path().join("Descript.ion").exists());
+    // Names, not `exists()`: on a case-insensitive file system (Windows,
+    // macOS) `Descript.ion` answers for `descript.ion`.
+    let names = file_names(temp.path());
+    assert!(names.contains(&"descript.ion".to_owned()), "{names:?}");
+    assert!(!names.contains(&"Descript.ion".to_owned()), "{names:?}");
     let shown = &app.get_active_panel_ref().details.descriptions["a.txt"];
     assert_eq!(shown, "Old and new", "the view shows the edit");
     assert_eq!(described(&app, "a.txt").as_deref(), Some("Old and new"));

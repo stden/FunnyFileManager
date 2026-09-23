@@ -190,7 +190,7 @@ jobs:
         run: cargo test --features test-helpers --test tui_bdd
       - name: Run the complete Windows test suite
         if: runner.os == 'Windows'
-        run: cargo test --features test-helpers
+        run: cargo test --features test-helpers --no-fail-fast
       - name: Lint Windows code and tests
         if: runner.os == 'Windows'
         run: cargo clippy --all-targets --features test-helpers -- -D warnings

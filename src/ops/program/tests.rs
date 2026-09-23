@@ -140,7 +140,7 @@ fn a_program_started_with_enter_is_recorded_in_the_transcript() {
         transcript(&app),
         [
             format!("{}> {}", root.path().display(), program.display()),
-            format!("{}: exit status: 0", program.display()),
+            format!("{}: {}", program.display(), ExitStatus::default()),
         ]
     );
 }
@@ -199,7 +199,10 @@ fn the_panels_come_back_only_after_a_key_once_the_program_has_run() {
     .expect("terminal restored");
     assert_eq!(
         ops.prompts,
-        ["[exit status: 0] Press any key to return to FFM"]
+        [format!(
+            "[{}] Press any key to return to FFM",
+            ExitStatus::default()
+        )]
     );
 }
 
