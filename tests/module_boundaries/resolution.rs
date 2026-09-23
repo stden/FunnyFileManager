@@ -1,9 +1,23 @@
 //! Purpose: Pin how dependency paths in Rust source resolve, one syntax form per fixture.
 //!
-//! Every fixture is judged against the presentation guard's forbidden
-//! dependencies (`std::fs`, `std::process`, `crate::ops`, `crate::handlers`,
+//! Every fixture is judged by the rendering rule's forbidden dependencies
+//! (`std::fs`, `std::process`, `crate::ops`, `crate::handlers`,
 //! `crate::editor`, ...). `expected` lists the forbidden paths, fully resolved,
-//! that a correct checker reports, in source order.
+//! the checker must report, in source order.
+//!
+//! The substring matcher these guards used before (`contains` on the source
+//! with `//` comments and whitespace stripped) misread fifteen fixtures:
+//! it missed `grouped_std_import`, `nested_group_import`,
+//! `grouped_crate_import`, `renamed_crate_root`, `grandparent_module`,
+//! `great_grandparent_group`, `inline_module_parent` and `string_hides_code`
+//! (and `crate_root_reexport`, added with the checker), and flagged
+//! `block_comment`, `block_doc_comment`, `doc_attribute`, `string_literal`,
+//! `raw_string_literal`, `lookalike_prefix` and `test_only_inline_module`.
+
+use super::architecture::{forbidden_dependencies, SourceFile};
+
+/// The crate root the fixtures compile under; it re-exports one operation.
+const LIB: &str = "mod application;\npub use application::run_app;\n";
 
 struct Case {
     name: &'static str,
@@ -245,6 +259,14 @@ fn draw() {}"#,
         expected: &[],
     },
     Case {
+        name: "crate_root_reexport",
+        file: "src/ui/status.rs",
+        source: "fn restart() {
+    crate::run_app();
+}",
+        expected: &["crate::application::run_app"],
+    },
+    Case {
         name: "test_only_inline_module",
         file: "src/ui/status.rs",
         source: "#[cfg(test)]
@@ -255,43 +277,23 @@ mod tests {
     },
 ];
 
-/// Every fixture the substring matcher (`compact_source` + `contains`) that
-/// the guards used before the syntax-aware checker misreads.
-const LEGACY_MISREADS: [&str; 15] = [
-    // Missed violations.
-    "grouped_std_import",
-    "nested_group_import",
-    "grouped_crate_import",
-    "renamed_crate_root",
-    "grandparent_module",
-    "great_grandparent_group",
-    "inline_module_parent",
-    "string_hides_code",
-    // False positives.
-    "block_comment",
-    "block_doc_comment",
-    "doc_attribute",
-    "string_literal",
-    "raw_string_literal",
-    "lookalike_prefix",
-    "test_only_inline_module",
-];
-
-fn legacy_flags(source: &str) -> bool {
-    let code = super::compact_source(source);
-    super::PRESENTATION_FORBIDDEN
-        .iter()
-        .any(|fragment| code.contains(fragment))
+fn reported(case: &Case) -> Vec<String> {
+    let sources = [
+        SourceFile::new("src/lib.rs", LIB),
+        SourceFile::new(case.file, case.source),
+    ];
+    let checked = |file: &SourceFile| file.relative == case.file;
+    forbidden_dependencies(&sources, checked, &super::layers::RENDERING_FORBIDDEN)
+        .into_iter()
+        .map(|violation| violation.path)
+        .collect()
 }
 
 #[test]
-fn legacy_text_matcher_misreads_these_fixtures() {
-    let misread = CASES
-        .iter()
-        .filter(|case| legacy_flags(case.source) == case.expected.is_empty())
-        .map(|case| case.name)
-        .collect::<Vec<_>>();
-    assert_eq!(misread, LEGACY_MISREADS);
+fn checker_resolves_every_fixture() {
+    for case in CASES {
+        assert_eq!(reported(case), case.expected, "{}", case.name);
+    }
 }
 
 #[test]

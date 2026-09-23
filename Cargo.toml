@@ -82,6 +82,11 @@ futures = "0.3.34"
 aws-smithy-http-client = { version = "1.4.2", features = ["test-util"] }
 aws-smithy-types = "1.8.0"
 http_1x = { package = "http", version = "1.5.0" }
+# Architecture tests parse sources instead of matching text (tests/architecture/).
+# Both crates are already in the lockfile through proc-macro dependencies;
+# `span-locations` gives the violations their line numbers.
+proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
+syn = { version = "2.0.119", features = ["full", "visit"] }
 
 [features]
 # Colorer is how the editor prefers to highlight, so it is on. The build script
