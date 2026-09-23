@@ -146,19 +146,31 @@ const JAVA_ARGS: &[&str] = &[
     "-jar",
 ];
 
+pub(super) const JAVA_REQUIRED: &str = "Java LSP requires Java 21+ (set JAVA_HOME)";
+
 pub(super) fn java(
     stop: &AtomicBool,
     environment: &dyn Environment,
 ) -> Result<PathBuf, InstallError> {
-    let java = environment.program(&["java"], "Java LSP requires Java 21+ (set JAVA_HOME)")?;
-    let version = environment.run(Command::new(&java).arg("--version"), stop)?;
-    if java_major(&String::from_utf8_lossy(&version)).is_some_and(|version| version >= 21) {
-        Ok(java)
-    } else {
-        Err(InstallError::Missing(
-            "Java LSP requires Java 21+ (set JAVA_HOME)",
-        ))
+    for candidate in environment.runtimes(&["java"]) {
+        if acceptable_java(&candidate, stop, environment)? {
+            return Ok(candidate);
+        }
     }
+    Err(InstallError::Missing(JAVA_REQUIRED))
+}
+
+fn acceptable_java(
+    path: &Path,
+    stop: &AtomicBool,
+    environment: &dyn Environment,
+) -> Result<bool, InstallError> {
+    let version = match environment.run(Command::new(path).arg("--version"), stop) {
+        Ok(version) => version,
+        Err(error @ (InstallError::Cancelled | InstallError::Timeout)) => return Err(error),
+        Err(_) => return Ok(false),
+    };
+    Ok(java_major(&String::from_utf8_lossy(&version)).is_some_and(|version| version >= 21))
 }
 
 fn java_major(version: &str) -> Option<u32> {
@@ -171,20 +183,17 @@ fn java_major(version: &str) -> Option<u32> {
         .ok()
 }
 
-pub(super) fn find_any(
-    names: &[&str],
-    paths: impl Iterator<Item = PathBuf>,
-    message: &'static str,
-) -> Result<PathBuf, InstallError> {
+pub(super) fn find_all(names: &[&str], paths: impl Iterator<Item = PathBuf>) -> Vec<PathBuf> {
+    let mut found = Vec::new();
     for directory in paths.filter(|path| path.is_absolute()) {
         for name in names {
             let path = directory.join(executable(name));
             if runnable(&path) {
-                return Ok(path);
+                found.push(path);
             }
         }
     }
-    Err(InstallError::Missing(message))
+    found
 }
 
 #[cfg(unix)]

@@ -76,6 +76,32 @@ fn excessive_installer_output_is_bounded_and_terminates_the_command() {
 }
 
 #[test]
+fn failure_line_keeps_the_first_nonempty_installer_line() {
+    use std::io::Cursor;
+    assert_eq!(
+        failure_line(&mut Cursor::new(
+            b"\n\nnpm ERR! 404 not found\nmore\n".to_vec()
+        )),
+        Some("npm ERR! 404 not found".to_owned())
+    );
+    assert_eq!(failure_line(&mut Cursor::new(b"   \n\n".to_vec())), None);
+}
+
+#[test]
+fn stderr_stays_out_of_the_returned_output() {
+    let root = TempDir::new().unwrap();
+    let mut command = Command::new("python");
+    command
+        .args([
+            "-c",
+            "import sys; sys.stderr.write('\\nsecret failure\\n'); sys.stdout.write('ok')",
+        ])
+        .current_dir(root.path());
+    let output = run(&mut command, &AtomicBool::new(false)).unwrap();
+    assert_eq!(output, b"ok");
+}
+
+#[test]
 fn excessive_output_is_rejected_even_when_the_producer_exits_immediately() {
     let root = TempDir::new().unwrap();
     let mut command = Command::new("python");

@@ -51,7 +51,7 @@ pub(super) fn prepare_with(
     }
     let receipt = fs::read(destination.join("ready.json"))?;
     let launch: Launch = serde_json::from_slice(&receipt).map_err(|_| InstallError::Recipe)?;
-    launch.settings(settings, &destination, workspace, environment)
+    launch.settings(settings, &destination, workspace, environment, stop)
 }
 
 fn lock(path: &Path, stop: &AtomicBool) -> Result<File, InstallError> {
