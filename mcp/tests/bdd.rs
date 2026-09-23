@@ -858,7 +858,8 @@ async fn then_error(w: &mut McpWorld) {
 #[then(expr = "the search should return {int} results")]
 async fn then_search_count(w: &mut McpWorld, count: usize) {
     let result = w.last_result.as_ref().expect("no result");
-    let actual = result["count"].as_u64().expect("no count field") as usize;
+    let actual = usize::try_from(result["count"].as_u64().expect("no count field"))
+        .expect("count fits in usize");
     assert_eq!(
         actual, count,
         "expected {} search results, got {}",

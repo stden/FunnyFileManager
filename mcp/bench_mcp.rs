@@ -517,9 +517,10 @@ fn print_statistics(results: &[(&str, Duration, bool)], total: Duration) {
             .iter()
             .map(|(_, d, _)| d.as_secs_f64() * 1000.0)
             .collect();
-        let avg = times.iter().sum::<f64>() / times.len() as f64;
-        let min = times.iter().cloned().fold(f64::INFINITY, f64::min);
-        let max = times.iter().cloned().fold(0.0f64, f64::max);
+        let count = u32::try_from(times.len()).unwrap_or(u32::MAX);
+        let avg = times.iter().sum::<f64>() / f64::from(count);
+        let min = times.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = times.iter().copied().fold(0.0f64, f64::max);
         let min_name = results.iter().min_by_key(|(_, d, _)| *d).unwrap().0;
         let max_name = results.iter().max_by_key(|(_, d, _)| *d).unwrap().0;
         println!();

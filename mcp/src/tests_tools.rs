@@ -1070,7 +1070,7 @@ fn read_lines_to_the_last_line_reports_the_end() {
 fn line_readers_refuse_past_the_read_cap() {
     let dir = TempDir::new().expect("temp dir");
     let (server, root) = server_at(&dir);
-    let blob = "x".repeat(MAX_READ_BYTES as usize + 16);
+    let blob = "x".repeat(usize::try_from(MAX_READ_BYTES).expect("the cap fits in usize") + 16);
     write_file_at(&root.join("blob.txt"), &blob);
 
     assert!(server

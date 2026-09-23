@@ -43,6 +43,8 @@ pub use tool_names::TOOL_NAMES;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_conversions;
+#[cfg(test)]
 mod tests_kdbx;
 #[cfg(test)]
 mod tests_tools;
@@ -54,14 +56,41 @@ fn format_size(size: u64) -> String {
     const MB: u64 = 1024 * 1024;
     const GB: u64 = 1024 * 1024 * 1024;
     if size >= GB {
-        format!("{:.2} GB", size as f64 / GB as f64)
+        format!("{} GB", two_decimals(size, GB))
     } else if size >= MB {
-        format!("{:.2} MB", size as f64 / MB as f64)
+        format!("{} MB", two_decimals(size, MB))
     } else if size >= KB {
-        format!("{:.2} KB", size as f64 / KB as f64)
+        format!("{} KB", two_decimals(size, KB))
     } else {
         format!("{size} B")
     }
+}
+
+/// `size / unit` to two decimals, rounded half to even as `{:.2}` rounds.
+///
+/// Integer maths in `u128`: exact for every `u64`, where an `f64` quotient
+/// would lose the low bits of any size above 2^53.
+fn two_decimals(size: u64, unit: u64) -> String {
+    let unit = u128::from(unit);
+    let scaled = u128::from(size) * 100;
+    let (mut hundredths, remainder) = (scaled / unit, scaled % unit);
+    if remainder * 2 > unit || (remainder * 2 == unit && hundredths % 2 == 1) {
+        hundredths += 1;
+    }
+    format!("{}.{:02}", hundredths / 100, hundredths % 100)
+}
+
+/// A client-supplied `u64` count as a `usize`, saturating where `usize` is
+/// narrower: a line offset or limit past `usize::MAX` means "all of them".
+fn saturating_usize(value: u64) -> usize {
+    usize::try_from(value).unwrap_or(usize::MAX)
+}
+
+/// An S3 object size as bytes. The SDK models it as `i64`; a missing or
+/// negative size reports as zero rather than wrapping to 16 EiB.
+fn object_size(size: Option<i64>) -> u64 {
+    size.and_then(|bytes| u64::try_from(bytes).ok())
+        .unwrap_or(0)
 }
 
 /// Copy one entry, preserving what it *is* — the single place that decides how
@@ -1240,8 +1269,8 @@ impl FfmServer {
         let lines: Vec<&str> = content.lines().collect();
         let total_lines = lines.len();
 
-        let offset = params.offset.unwrap_or(0) as usize;
-        let limit = params.limit.map(|l| l as usize).unwrap_or(total_lines);
+        let offset = params.offset.map_or(0, saturating_usize);
+        let limit = params.limit.map_or(total_lines, saturating_usize);
 
         let selected: Vec<&str> = lines.into_iter().skip(offset).take(limit).collect();
 
@@ -2541,8 +2570,8 @@ impl FfmServer {
                 "key": obj.key().unwrap_or(""),
                 "type": "file",
                 "size": obj.size().unwrap_or(0),
-                "size_human": format_size(obj.size().unwrap_or(0) as u64),
-                "last_modified": obj.last_modified().map(|d| d.to_string()),
+                "size_human": format_size(object_size(obj.size())),
+                "last_modified": obj.last_modified().map(std::string::ToString::to_string),
             }));
         }
 
