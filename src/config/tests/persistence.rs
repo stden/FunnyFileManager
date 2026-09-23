@@ -1,7 +1,7 @@
 //! Unit tests: the settings round trip through `settings.yaml`, the read-only
 //! migration from `settings.json`, and the saves that must not happen.
 
-use std::{collections::BTreeMap, fs, io, path::Path};
+use std::{collections::BTreeMap, fs};
 
 use tempfile::TempDir;
 
@@ -160,7 +160,7 @@ fn populated() -> Settings {
     populate_panels(&mut settings);
     populate_viewers(&mut settings);
     populate_lsp(&mut settings);
-    let tricky_paths = TRICKY.map(std::path::PathBuf::from);
+    let tricky_paths = TRICKY.map(PathBuf::from);
     for (shortcut, path) in settings.shortcuts.iter_mut().zip(tricky_paths) {
         *shortcut = Some(path);
     }
@@ -168,7 +168,7 @@ fn populated() -> Settings {
     settings
 }
 
-fn settings_path(temp: &TempDir) -> std::path::PathBuf {
+fn settings_path(temp: &TempDir) -> PathBuf {
     temp.path().join("ffm").join("settings.yaml")
 }
 

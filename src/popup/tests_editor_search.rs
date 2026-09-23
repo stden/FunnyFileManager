@@ -2,15 +2,14 @@
 //! Shift+F7 repeating it.
 
 use super::*;
-use crate::models::{Editor, Overlay};
-use crate::search::{Case, Direction, SearchField, WordMatch};
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crate::models::Editor;
+use crate::search::{Case, Direction, WordMatch};
 use std::path::PathBuf;
 
 fn editing(content: &str) -> App {
     let mut app = App::new().expect("test setup");
     app.set_overlay(Overlay::Editor(Editor::from_content(
-        "notes.txt".to_string(),
+        "notes.txt".to_owned(),
         PathBuf::from("notes.txt"),
         content,
     )));
@@ -450,7 +449,7 @@ fn a_paste_while_the_not_found_box_is_up_does_not_reach_the_document() {
         !editor(&app).accepts_text(),
         "the box owns the input, so typing is not batched into the buffer"
     );
-    super::editor::paste_text(&mut app, "pasted");
+    editor::paste_text(&mut app, "pasted");
 
     assert_eq!(editor(&app).lines, ["alpha"]);
     assert!(!editor(&app).state.is_modified());

@@ -1,10 +1,9 @@
 //! Purpose: Pins the Far-style console layer — its backdrop, colours, and Ctrl+O view.
 
 use super::*;
-use crate::models::ViewMode;
 use crate::scroll::ScrollBack;
 
-use crate::models::{App, Overlay, Panel};
+use crate::models::Panel;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::backend::TestBackend;
@@ -28,7 +27,7 @@ fn row_text(terminal: &Terminal<TestBackend>, y: u16) -> String {
         .map(|x| buf[(x, y)].symbol())
         .collect::<String>()
         .trim_end()
-        .to_string()
+        .to_owned()
 }
 
 fn screen_text(terminal: &Terminal<TestBackend>) -> String {

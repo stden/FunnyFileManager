@@ -27,11 +27,11 @@ fn test_process_popup_input_viewer_scroll() -> io::Result<()> {
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "test.txt",
         vec![
-            "Line 1".to_string(),
-            "Line 2".to_string(),
-            "Line 3".to_string(),
-            "Line 4".to_string(),
-            "Line 5".to_string(),
+            "Line 1".to_owned(),
+            "Line 2".to_owned(),
+            "Line 3".to_owned(),
+            "Line 4".to_owned(),
+            "Line 5".to_owned(),
         ],
     )));
     app.set_viewport(funny_file_manager::models::Viewport::new(2));
@@ -237,7 +237,7 @@ fn test_handle_mkdir() -> io::Result<()> {
     assert!(app.left_panel.entries.len() > initial_count);
     let names: Vec<_> = app.left_panel.entries.iter().map(|e| &e.name).collect();
     assert!(
-        names.contains(&&"new_folder".to_string()) || names.contains(&&"new_folder_1".to_string())
+        names.contains(&&"new_folder".to_owned()) || names.contains(&&"new_folder_1".to_owned())
     );
 
     Ok(())
@@ -276,7 +276,7 @@ fn test_handle_delete_file() -> io::Result<()> {
         .entries
         .iter()
         .map(|e| &e.name)
-        .any(|x| x == &"to_delete.txt".to_string()));
+        .any(|x| x == &"to_delete.txt".to_owned()));
 
     Ok(())
 }
@@ -315,7 +315,7 @@ fn test_handle_delete_directory() -> io::Result<()> {
         .entries
         .iter()
         .map(|e| &e.name)
-        .any(|x| x == &"to_delete".to_string()));
+        .any(|x| x == &"to_delete".to_owned()));
 
     Ok(())
 }

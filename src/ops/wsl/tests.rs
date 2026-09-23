@@ -48,7 +48,7 @@ fn manager_refreshes_then_preserves_the_selected_distribution_on_refresh() {
     complete_distributions(&mut app, &["Ubuntu", "Debian"]);
     assert_eq!(dialog(&app).activity, WslActivity::Ready);
     let Overlay::Wsl(state) = &mut app.overlay else {
-        unreachable!()
+        panic!("the WSL dialog is open");
     };
     state.move_down();
     refresh(&mut app);

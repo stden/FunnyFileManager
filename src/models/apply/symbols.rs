@@ -143,9 +143,10 @@ impl<'a> Iterator for Tokens<'a> {
         let (length, token) = if at == 0 {
             parse_symbol(self.rest)
         } else {
-            (at, Token::Text(&self.rest[..at]))
+            (at, Token::Text(self.rest.get(..at)?))
         };
-        self.rest = &self.rest[length..];
+        // Every length above ends on a char boundary inside `rest`.
+        self.rest = self.rest.get(length..).unwrap_or_default();
         Some(token)
     }
 }
@@ -180,17 +181,15 @@ fn panel_reference(text: &str) -> Option<PanelReference> {
 }
 
 fn parse_list(text: &str) -> Option<(usize, Token<'_>)> {
-    let form = if text.starts_with("!@") {
-        NameForm::Long
-    } else if text.starts_with("!$") {
-        NameForm::Short
+    let (form, tail) = if let Some(tail) = text.strip_prefix("!@") {
+        (NameForm::Long, tail)
     } else {
-        return None;
+        (NameForm::Short, text.strip_prefix("!$")?)
     };
-    let end = text[2..].find('!')? + 2;
+    let (options, rest) = tail.split_once('!')?;
     Some((
-        end + 1,
-        Token::List(ListOptions::parse(form, &text[2..end])),
+        text.len() - rest.len(),
+        Token::List(ListOptions::parse(form, options)),
     ))
 }
 

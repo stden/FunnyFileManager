@@ -4,7 +4,6 @@ use super::*;
 use crate::{
     menu::{Heading, Menu, SettingsPage},
     models::{Panel, PanelSide, PanelsShown, ViewMode},
-    status::Status,
 };
 use std::fs;
 use tempfile::TempDir;
@@ -151,7 +150,7 @@ fn search_keeps_matches_when_a_child_directory_cannot_be_read() {
     let blocked = temp.path().join("blocked");
     fs::create_dir(&blocked).unwrap();
     fs::write(blocked.join("secret.txt"), "secret").unwrap();
-    let _deny = super::search::DenyReads::named("blocked");
+    let _deny = search::DenyReads::named("blocked");
     submit(&mut app, MenuCommand::FindFile, "*").unwrap();
     let labels: Vec<_> = rows(&app).iter().map(|row| row.label.clone()).collect();
     assert!(labels.iter().any(|label| label.contains("alpha.txt")));
@@ -164,7 +163,7 @@ fn search_says_how_many_unreadable_folders_it_skipped() {
     let (temp, mut app) = fixture();
     fs::create_dir(temp.path().join("blocked")).unwrap();
     fs::create_dir(temp.path().join("folder/blocked")).unwrap();
-    let _deny = super::search::DenyReads::named("blocked");
+    let _deny = search::DenyReads::named("blocked");
     submit(&mut app, MenuCommand::FindFolder, "*").unwrap();
     assert_eq!(rows(&app).len(), 3, "folder, blocked and folder/blocked");
     assert_eq!(

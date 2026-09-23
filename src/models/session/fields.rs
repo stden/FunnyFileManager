@@ -225,6 +225,10 @@ impl Port {
     }
 
     /// A port as typed: digits only, surrounding blanks dropped.
+    #[expect(
+        clippy::map_err_ignore,
+        reason = "the refusal names the field and says it is not a port; the integer error adds nothing to act on"
+    )]
     pub fn parse(text: &str) -> Result<Self, InvalidField> {
         let text = text.trim();
         if !text.bytes().all(|byte| byte.is_ascii_digit()) {

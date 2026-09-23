@@ -36,8 +36,9 @@
 ## Complexity and readability
 
 The TUI, MCP, and Colorer crates use the shared root `clippy.toml`, targeting
-Rust 1.95. The lint gate treats warnings as errors and applies the same policy
-to production code and tests:
+Rust 1.95. The lint gate treats warnings as errors and applies the same
+readability limits to production code and tests (the reliability lint families
+are in `docs/knowledge-base/04-development-workflow/build-run-test.md`):
 
 | Rule | Limit | What to improve |
 |---|---|---|

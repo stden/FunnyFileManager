@@ -55,7 +55,7 @@ pub(super) fn delete(app: &mut App, code: KeyCode) -> bool {
             // Confirmed. `handle_delete` never fails as a whole: it
             // folds per-file errors into its own status summary, so
             // there is nothing left to report here.
-            let _ = handle_delete(app);
+            drop(handle_delete(app));
         }
         KeyCode::Char('n' | 'N') | KeyCode::Esc | KeyCode::F(10) => {
             // Cancelled

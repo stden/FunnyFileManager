@@ -35,7 +35,11 @@ const FRAME_COLUMNS: usize = 6;
 /// The outer frame's top and bottom rows.
 const FRAME_ROWS: usize = 2;
 
-pub(super) fn render(f: &mut Frame, tracker: &mut crate::mouse::DialogMouse, dialog: &ArchiveMenu) {
+pub(super) fn render(
+    f: &mut Frame<'_>,
+    tracker: &mut crate::mouse::DialogMouse,
+    dialog: &ArchiveMenu,
+) {
     let interior = interior_width();
     let lines = body(interior, dialog.command());
     let area = placed(

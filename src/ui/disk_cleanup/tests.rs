@@ -19,8 +19,8 @@ fn locate(buffer: &Buffer, label: &str) -> (u16, u16) {
         let text: String = (0..buffer.area.width)
             .map(|x| buffer[(x, y)].symbol())
             .collect();
-        if let Some(byte) = text.find(label) {
-            return (u16::try_from(Cells::of(&text[..byte]).get()).unwrap(), y);
+        if let Some((before, _)) = text.split_once(label) {
+            return (u16::try_from(Cells::of(before).get()).unwrap(), y);
         }
     }
     panic!("missing {label}");

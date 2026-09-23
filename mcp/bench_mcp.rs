@@ -4,45 +4,45 @@
 //! Usage:
 //!   `cargo build --release -j1 && cargo run --example bench_mcp`
 //! Or standalone:
-//!   `rustc bench_mcp.rs -o bench_mcp && ./bench_mcp`
+//!   `rustc --edition 2021 bench_mcp.rs -o bench_mcp && ./bench_mcp`
 
 use std::fmt::Write as _;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, ChildStdin, ChildStdout, Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
-fn main() {
-    let binary = locate_server();
+#[expect(clippy::print_stdout, reason = "the benchmark's report is its output")]
+#[expect(
+    clippy::print_stderr,
+    reason = "a person who runs the benchmark reads why it cannot start"
+)]
+fn main() -> ExitCode {
+    let binary = match locate_server() {
+        Ok(binary) => binary,
+        Err(message) => {
+            eprintln!("ERROR: {message}");
+            return ExitCode::FAILURE;
+        }
+    };
 
     println!("=== FFM MCP Server Benchmark ===");
     println!("Binary: {}", binary.display());
     println!();
 
-    // Create temp directory for test files
+    // Create temp directory for test files. A previous run may have left one
+    // behind, or none: either way the directory is recreated empty.
     let tmp = std::env::temp_dir().join("ffm_mcp_bench");
-    let _ = std::fs::remove_dir_all(&tmp);
-    std::fs::create_dir_all(&tmp).unwrap();
+    drop(std::fs::remove_dir_all(&tmp));
     create_fixtures(&tmp);
 
-    // Spawn MCP server
-    let mut child = Command::new(&binary)
-        // The server confines every path to this root.
-        .env("FFM_MCP_ROOT", &tmp)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .expect("failed to start ffm-mcp");
-
-    let mut stdin = child.stdin.take().unwrap();
-    let stdout = child.stdout.take().unwrap();
+    let (mut child, mut stdin, stdout) = start_server(&binary, &tmp);
     let mut reader = BufReader::new(stdout);
 
     // Send initialize
     let init_req = r#"{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"bench","version":"1.0"}}}"#;
     send(&mut stdin, init_req);
-    let _ = recv(&mut reader); // initialize response
+    recv(&mut reader); // initialize response
 
     // Send initialized notification
     let init_notif = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
@@ -54,16 +54,45 @@ fn main() {
     let results = benchmark_tools(&tmp, &mut stdin, &mut reader);
     print_results(&results);
 
-    // Cleanup
-    let _ = stdin.write_all(b"");
-    let _ = child.kill();
+    // Cleanup is best effort: the results are already reported, and a
+    // leftover fixture directory is removed by the next run.
+    drop(child.kill());
     // `kill` only sends the signal; without the wait the server stays a zombie
     // until this process exits.
-    let _ = child.wait();
-    let _ = std::fs::remove_dir_all(&tmp);
+    drop(child.wait());
+    drop(std::fs::remove_dir_all(&tmp));
+    ExitCode::SUCCESS
 }
 
+/// Start the server confined to `root`, with its stdin and stdout piped to us.
+#[expect(
+    clippy::expect_used,
+    reason = "a benchmark without its server has nothing to measure: abort"
+)]
+#[expect(
+    clippy::unwrap_used,
+    reason = "both streams are `Stdio::piped()`, so the child always has them"
+)]
+fn start_server(binary: &Path, root: &Path) -> (Child, ChildStdin, ChildStdout) {
+    let mut child = Command::new(binary)
+        // The server confines every path to this root.
+        .env("FFM_MCP_ROOT", root)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("failed to start ffm-mcp");
+    let stdin = child.stdin.take().unwrap();
+    let stdout = child.stdout.take().unwrap();
+    (child, stdin, stdout)
+}
+
+#[expect(
+    clippy::unwrap_used,
+    reason = "without its fixtures the benchmark has nothing to measure: abort"
+)]
 fn create_fixtures(root: &Path) {
+    std::fs::create_dir_all(root).unwrap();
     for directory in [
         "subdir",
         "copy_dest",
@@ -75,7 +104,7 @@ fn create_fixtures(root: &Path) {
     ] {
         std::fs::create_dir_all(root.join(directory)).unwrap();
     }
-    create_fixture_files(root);
+    create_fixture_files(root).unwrap();
 }
 
 fn benchmark_tools(
@@ -106,6 +135,10 @@ fn benchmark_tools(
 }
 
 /// Escape a path for insertion inside a JSON string, keeping standalone rustc support.
+#[expect(
+    clippy::let_underscore_must_use,
+    reason = "writing into a `String` cannot fail"
+)]
 fn json_path(path: &Path) -> String {
     let mut escaped = String::new();
     for character in path.to_string_lossy().chars() {
@@ -185,7 +218,7 @@ fn metadata_operations(bench: &mut impl FnMut(&'static str, String), tmp: &Path)
     let test_file_str = json_path(&tmp.join("test.txt"));
 
     // ── 19. list_drives ──────────────────────────────────────────
-    bench("list_drives", "{}".to_string());
+    bench("list_drives", "{}".to_owned());
 
     // ── 20. disk_usage ───────────────────────────────────────────
     bench("disk_usage", format!(r#"{{"path":"{test_dir_str}"}}"#));
@@ -200,7 +233,7 @@ fn metadata_operations(bench: &mut impl FnMut(&'static str, String), tmp: &Path)
     bench("file_checksum", format!(r#"{{"path":"{test_file_str}"}}"#));
 
     // ── 23. format_size_tool ───────────────────────────────────────
-    bench("format_size_tool", r#"{"bytes":1048576}"#.to_string());
+    bench("format_size_tool", r#"{"bytes":1048576}"#.to_owned());
 }
 
 fn batch_operations(bench: &mut impl FnMut(&'static str, String), tmp: &Path) {
@@ -250,21 +283,22 @@ fn system_operations(bench: &mut impl FnMut(&'static str, String), tmp: &Path) {
     );
 
     // ── 31. get_bookmark ─────────────────────────────────────────
-    bench("get_bookmark", r#"{"name":"bench_test"}"#.to_string());
+    bench("get_bookmark", r#"{"name":"bench_test"}"#.to_owned());
 
     // ── 32. list_bookmarks ───────────────────────────────────────
-    bench("list_bookmarks", "{}".to_string());
+    bench("list_bookmarks", "{}".to_owned());
 
     // ── 33. delete_bookmark ──────────────────────────────────────
-    bench("delete_bookmark", r#"{"name":"bench_test"}"#.to_string());
+    bench("delete_bookmark", r#"{"name":"bench_test"}"#.to_owned());
 
     // ── 34. system_info ──────────────────────────────────────────
-    bench("system_info", "{}".to_string());
+    bench("system_info", "{}".to_owned());
 
     // ── 35. s3_list_profiles ─────────────────────────────────────
-    bench("s3_list_profiles", "{}".to_string());
+    bench("s3_list_profiles", "{}".to_owned());
 }
 
+#[expect(clippy::print_stdout, reason = "the benchmark's report is its output")]
 fn print_results(results: &[(&str, Duration, bool)]) {
     // Print results
     println!("┌─────────────────────────┬───────────┬────────┐");
@@ -302,6 +336,10 @@ fn print_results(results: &[(&str, Duration, bool)]) {
     print_failures(results);
 }
 
+#[expect(
+    clippy::unwrap_used,
+    reason = "a benchmark that has lost its server has nothing left to measure: abort"
+)]
 fn send(stdin: &mut impl Write, msg: &str) {
     // rmcp uses line-delimited JSON (no Content-Length header)
     stdin.write_all(msg.as_bytes()).unwrap();
@@ -309,6 +347,10 @@ fn send(stdin: &mut impl Write, msg: &str) {
     stdin.flush().unwrap();
 }
 
+#[expect(
+    clippy::unwrap_used,
+    reason = "a benchmark that has lost its server has nothing left to measure: abort"
+)]
 fn recv(reader: &mut impl BufRead) -> String {
     // Read one JSON line
     let mut line = String::new();
@@ -350,7 +392,7 @@ fn server_candidates(executable: &Path) -> Vec<PathBuf> {
 #[path = "bench_mcp/tests.rs"]
 mod tests;
 
-fn locate_server() -> PathBuf {
+fn locate_server() -> Result<PathBuf, &'static str> {
     std::env::var_os("FFM_MCP_BIN")
         .map(PathBuf::from)
         .or_else(|| {
@@ -360,13 +402,10 @@ fn locate_server() -> PathBuf {
                 .flat_map(|executable| server_candidates(&executable))
                 .find(|candidate| candidate.is_file())
         })
-        .unwrap_or_else(|| {
-            eprintln!("ERROR: ffm-mcp binary not found. Run 'cargo build --release' first or set FFM_MCP_BIN.");
-            std::process::exit(1);
-        })
+        .ok_or("ffm-mcp binary not found. Run 'cargo build --release' first or set FFM_MCP_BIN.")
 }
 
-fn create_fixture_files(root: &Path) {
+fn create_fixture_files(root: &Path) -> std::io::Result<()> {
     for (name, content) in [
         ("test.txt", "Hello, World!\nLine 2\nLine 3\nfoo bar baz\n"),
         ("subdir/a.txt", "content a"),
@@ -388,8 +427,9 @@ fn create_fixture_files(root: &Path) {
         ("pattern_dir/a.tmp", "tmp1"),
         ("pattern_dir/b.tmp", "tmp2"),
     ] {
-        std::fs::write(root.join(name), content).unwrap();
+        std::fs::write(root.join(name), content)?;
     }
+    Ok(())
 }
 
 fn write_operations(bench: &mut impl FnMut(&'static str, String), tmp: &Path) {
@@ -502,28 +542,32 @@ fn symlink_operations(bench: &mut impl FnMut(&'static str, String), tmp: &Path) 
     );
 }
 
+#[expect(clippy::print_stdout, reason = "the benchmark's report is its output")]
 fn print_statistics(results: &[(&str, Duration, bool)], total: Duration) {
-    // Compute stats
-    if !results.is_empty() {
-        let times: Vec<f64> = results
-            .iter()
-            .map(|(_, d, _)| d.as_secs_f64() * 1000.0)
-            .collect();
-        let count = u32::try_from(times.len()).unwrap_or(u32::MAX);
-        let avg = times.iter().sum::<f64>() / f64::from(count);
-        let min = times.iter().copied().fold(f64::INFINITY, f64::min);
-        let max = times.iter().copied().fold(0.0f64, f64::max);
-        let min_name = results.iter().min_by_key(|(_, d, _)| *d).unwrap().0;
-        let max_name = results.iter().max_by_key(|(_, d, _)| *d).unwrap().0;
-        println!();
-        println!("Stats:");
-        println!("  Avg: {avg:.2} ms");
-        println!("  Min: {min:.2} ms ({min_name})");
-        println!("  Max: {max:.2} ms ({max_name})");
-        println!("  Total: {:.2} ms", total.as_secs_f64() * 1000.0);
-    }
+    // No results, no stats.
+    let (Some(&(min_name, _, _)), Some(&(max_name, _, _))) = (
+        results.iter().min_by_key(|(_, d, _)| *d),
+        results.iter().max_by_key(|(_, d, _)| *d),
+    ) else {
+        return;
+    };
+    let times: Vec<f64> = results
+        .iter()
+        .map(|(_, d, _)| d.as_secs_f64() * 1000.0)
+        .collect();
+    let count = u32::try_from(times.len()).unwrap_or(u32::MAX);
+    let avg = times.iter().sum::<f64>() / f64::from(count);
+    let min = times.iter().copied().fold(f64::INFINITY, f64::min);
+    let max = times.iter().copied().fold(0.0f64, f64::max);
+    println!();
+    println!("Stats:");
+    println!("  Avg: {avg:.2} ms");
+    println!("  Min: {min:.2} ms ({min_name})");
+    println!("  Max: {max:.2} ms ({max_name})");
+    println!("  Total: {:.2} ms", total.as_secs_f64() * 1000.0);
 }
 
+#[expect(clippy::print_stdout, reason = "the benchmark's report is its output")]
 fn print_failures(results: &[(&str, Duration, bool)]) {
     if results.iter().any(|(_, _, ok)| !ok) {
         println!();
@@ -552,6 +596,7 @@ fn batch_delete_operations(bench: &mut impl FnMut(&'static str, String), tmp: &P
     symlink_operations(bench, tmp);
 }
 
+#[expect(clippy::print_stdout, reason = "the benchmark's report is its output")]
 fn print_skipped_tools() {
     // S3 tools that require real AWS credentials — skip with note
     let s3_skipped = [

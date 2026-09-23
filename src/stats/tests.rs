@@ -1,7 +1,6 @@
 //! Unit tests: measuring a directory, and the limits that keep it safe.
 
 use super::*;
-use std::fs;
 use tempfile::TempDir;
 
 /// A tree built from `(relative path, size in bytes)`.

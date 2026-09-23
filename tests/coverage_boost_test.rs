@@ -46,16 +46,27 @@ const fn key_mod(code: KeyCode, modifiers: KeyModifiers) -> Event {
     })
 }
 
-fn setup_app(temp: &TempDir) -> App {
-    let mut app = App::new().unwrap();
-    app.left_panel = Panel::new(temp.path().to_path_buf()).unwrap();
-    app.right_panel = Panel::new(temp.path().to_path_buf()).unwrap();
-    app
+fn setup_app(temp: &TempDir) -> io::Result<App> {
+    let mut app = App::new()?;
+    app.left_panel = Panel::new(temp.path().to_path_buf())?;
+    app.right_panel = Panel::new(temp.path().to_path_buf())?;
+    Ok(app)
 }
 
-fn setup_terminal() -> Terminal<WritableTestBackend> {
+fn setup_terminal() -> io::Result<Terminal<WritableTestBackend>> {
     let backend = WritableTestBackend::new(80, 24);
-    Terminal::new(backend).unwrap()
+    Terminal::new(backend)
+}
+
+/// Drive the real event loop over `events`. These tests prove the loop gets
+/// through the sequence without panicking; how the session ended is not
+/// what they check, so its outcome is dropped on purpose.
+fn run_events(terminal: &mut Terminal<WritableTestBackend>, app: App, events: Vec<Event>) {
+    let mut iter = events.into_iter();
+    drop(run_app_with_event_reader(terminal, app, || {
+        iter.next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
+    }));
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -113,7 +124,7 @@ fn test_mcp_command_via_process_popup() -> io::Result<()> {
 fn test_view_empty_file_shows_placeholder() -> io::Result<()> {
     let temp = TempDir::new()?;
     File::create(temp.path().join("empty.txt"))?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     // Select empty.txt
     let idx = app
         .left_panel
@@ -136,7 +147,7 @@ fn test_view_large_file_rejected() -> io::Result<()> {
     // but we can test the status message for the branch
     // Actually we test with a normal file and verify the path works
     fs::write(&path, "small")?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     let idx = app
         .left_panel
         .entries
@@ -155,7 +166,7 @@ fn test_view_large_file_rejected() -> io::Result<()> {
 fn test_view_multiline_file() -> io::Result<()> {
     let temp = TempDir::new()?;
     fs::write(temp.path().join("multi.txt"), "line1\nline2\nline3")?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     let idx = app
         .left_panel
         .entries
@@ -175,7 +186,7 @@ fn test_view_multiline_file() -> io::Result<()> {
 fn test_view_with_parent_selected_does_nothing() -> io::Result<()> {
     let temp = TempDir::new()?;
     fs::write(temp.path().join("file.txt"), "data")?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     // Select ".." (index 0)
     app.left_panel.select(Some(0));
     handle_view(&mut app)?;
@@ -474,9 +485,9 @@ fn test_app_get_all_drives_includes_local() {
 #[test]
 fn test_ui_renders_console_mode() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.view = ViewMode::Console;
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     terminal.draw(|f| ui::ui(f, &mut app))?;
     Ok(())
 }
@@ -484,9 +495,9 @@ fn test_ui_renders_console_mode() -> io::Result<()> {
 #[test]
 fn test_ui_renders_help_overlay() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.set_overlay(Overlay::Help);
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     terminal.draw(|f| ui::ui(f, &mut app))?;
     Ok(())
 }
@@ -494,12 +505,12 @@ fn test_ui_renders_help_overlay() -> io::Result<()> {
 #[test]
 fn test_ui_renders_viewer_overlay() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "Test",
         vec!["line1".to_owned(), "line2".to_owned()],
     )));
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     terminal.draw(|f| ui::ui(f, &mut app))?;
     Ok(())
 }
@@ -507,13 +518,13 @@ fn test_ui_renders_viewer_overlay() -> io::Result<()> {
 #[test]
 fn test_ui_renders_viewer_with_scroll() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     let lines: Vec<String> = (0..50).map(|i| format!("line {i}")).collect();
     app.set_overlay(Overlay::Viewer(Viewer {
         scroll: ScrollTop::TOP.down(10, usize::MAX),
         ..Viewer::report("Scrolled", lines)
     }));
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     terminal.draw(|f| ui::ui(f, &mut app))?;
     Ok(())
 }
@@ -521,9 +532,9 @@ fn test_ui_renders_viewer_with_scroll() -> io::Result<()> {
 #[test]
 fn test_ui_renders_delete_confirmation() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.set_overlay(Overlay::DeleteConfirm(vec![temp.path().join("doomed.txt")]));
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     terminal.draw(|f| ui::ui(f, &mut app))?;
     Ok(())
 }
@@ -531,9 +542,9 @@ fn test_ui_renders_delete_confirmation() -> io::Result<()> {
 #[test]
 fn test_ui_renders_new_file_input() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.set_overlay(Overlay::NewFileInput("newfile.txt".to_owned()));
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     terminal.draw(|f| ui::ui(f, &mut app))?;
     Ok(())
 }
@@ -541,13 +552,13 @@ fn test_ui_renders_new_file_input() -> io::Result<()> {
 #[test]
 fn test_ui_renders_drive_selection() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.set_overlay(Overlay::DriveSelection {
         side: PanelSide::Left,
         selected_index: 0,
         rows: funny_file_manager::models::drive_rows(),
     });
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     terminal.draw(|f| ui::ui(f, &mut app))?;
     Ok(())
 }
@@ -555,9 +566,9 @@ fn test_ui_renders_drive_selection() -> io::Result<()> {
 #[test]
 fn test_ui_renders_command_line() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("cd /tmp".into()));
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     terminal.draw(|f| ui::ui(f, &mut app))?;
     Ok(())
 }
@@ -565,9 +576,9 @@ fn test_ui_renders_command_line() -> io::Result<()> {
 #[test]
 fn test_ui_renders_quick_search_in_status() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.quick_search = QuickSearch::Active("fi".to_owned());
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     terminal.draw(|f| ui::ui(f, &mut app))?;
     Ok(())
 }
@@ -576,9 +587,9 @@ fn test_ui_renders_quick_search_in_status() -> io::Result<()> {
 fn test_ui_renders_with_marked_files() -> io::Result<()> {
     let temp = TempDir::new()?;
     fs::write(temp.path().join("marked.txt"), "m")?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.left_panel.marked.insert(FileName::from("marked.txt"));
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     terminal.draw(|f| ui::ui(f, &mut app))?;
     Ok(())
 }
@@ -586,9 +597,9 @@ fn test_ui_renders_with_marked_files() -> io::Result<()> {
 #[test]
 fn test_ui_renders_right_panel_active() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.active_panel = PanelSide::Right;
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     terminal.draw(|f| ui::ui(f, &mut app))?;
     Ok(())
 }
@@ -596,9 +607,9 @@ fn test_ui_renders_right_panel_active() -> io::Result<()> {
 #[test]
 fn test_ui_renders_with_no_selection() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.left_panel.select(None);
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     terminal.draw(|f| ui::ui(f, &mut app))?;
     Ok(())
 }
@@ -657,7 +668,7 @@ fn test_popup_delete_confirm_yes() -> io::Result<()> {
     let temp = TempDir::new()?;
     let path = temp.path().join("del.txt");
     fs::write(&path, "bye")?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.set_overlay(Overlay::DeleteConfirm(vec![path.clone()]));
     process_popup_input(&mut app, key_event(KeyCode::Char('y')));
     assert!(app.get_delete_confirm().is_none());
@@ -670,7 +681,7 @@ fn test_popup_delete_confirm_no() -> io::Result<()> {
     let temp = TempDir::new()?;
     let path = temp.path().join("keep.txt");
     fs::write(&path, "stay")?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.set_overlay(Overlay::DeleteConfirm(vec![path.clone()]));
     process_popup_input(&mut app, key_event(KeyCode::Char('n')));
     assert!(app.get_delete_confirm().is_none());
@@ -703,7 +714,7 @@ fn test_popup_new_file_esc_cancels() -> io::Result<()> {
 #[test]
 fn test_popup_new_file_enter_creates() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.set_overlay(Overlay::NewFileInput("brand_new.txt".to_owned()));
     process_popup_input(&mut app, key_event(KeyCode::Enter));
     assert!(temp.path().join("brand_new.txt").exists());
@@ -871,7 +882,7 @@ fn test_copy_dir_all_nested() -> io::Result<()> {
 #[test]
 fn test_refresh_panels_reloads() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     // Create file after panel was loaded
     fs::write(temp.path().join("new_after_load.txt"), "new")?;
     refresh_panels(&mut app)?;
@@ -890,8 +901,8 @@ fn test_refresh_panels_reloads() -> io::Result<()> {
 #[test]
 fn test_event_loop_ctrl_o_console_toggle() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key_mod(KeyCode::Char('o'), KeyModifiers::CONTROL),
         key_mod(KeyCode::Char('o'), KeyModifiers::CONTROL),
@@ -899,68 +910,52 @@ fn test_event_loop_ctrl_o_console_toggle() -> io::Result<()> {
         // F10 now asks before quitting; Enter answers Yes.
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
 #[test]
 fn test_event_loop_ctrl_u_swap() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key_mod(KeyCode::Char('u'), KeyModifiers::CONTROL),
         key(KeyCode::F(10)),
         // F10 now asks before quitting; Enter answers Yes.
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
 #[test]
 fn test_event_loop_f1_help() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key(KeyCode::F(1)),
         key(KeyCode::Esc),
         key(KeyCode::F(10)),
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
 #[test]
 fn test_event_loop_tab_switch() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key(KeyCode::Tab),
         key(KeyCode::Tab),
         key(KeyCode::F(10)),
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
@@ -969,19 +964,15 @@ fn test_event_loop_home_end() -> io::Result<()> {
     let temp = TempDir::new()?;
     fs::write(temp.path().join("a.txt"), "a")?;
     fs::write(temp.path().join("b.txt"), "b")?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key(KeyCode::End),
         key(KeyCode::Home),
         key(KeyCode::F(10)),
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
@@ -989,7 +980,7 @@ fn test_event_loop_home_end() -> io::Result<()> {
 fn test_event_loop_insert_mark() -> io::Result<()> {
     let temp = TempDir::new()?;
     fs::write(temp.path().join("mark_me.txt"), "m")?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     let idx = app
         .left_panel
         .entries
@@ -997,17 +988,13 @@ fn test_event_loop_insert_mark() -> io::Result<()> {
         .position(|e| e.name == "mark_me.txt")
         .unwrap();
     app.left_panel.select(Some(idx));
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key(KeyCode::Insert),
         key(KeyCode::F(10)),
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
@@ -1015,7 +1002,7 @@ fn test_event_loop_insert_mark() -> io::Result<()> {
 fn test_event_loop_space_mark() -> io::Result<()> {
     let temp = TempDir::new()?;
     fs::write(temp.path().join("space.txt"), "s")?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     let idx = app
         .left_panel
         .entries
@@ -1023,58 +1010,46 @@ fn test_event_loop_space_mark() -> io::Result<()> {
         .position(|e| e.name == "space.txt")
         .unwrap();
     app.left_panel.select(Some(idx));
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key(KeyCode::Char(' ')),
         key(KeyCode::F(10)),
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
 #[test]
 fn test_event_loop_ctrl_backslash_root() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key_mod(KeyCode::Char('\\'), KeyModifiers::CONTROL),
         key(KeyCode::F(10)),
         // F10 now asks before quitting; Enter answers Yes.
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
 #[test]
 fn test_event_loop_f10_quit() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![key(KeyCode::F(10)), key(KeyCode::Enter)];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
 #[test]
 fn test_event_loop_alt_f1_drives() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key_mod(KeyCode::F(1), KeyModifiers::ALT),
         key(KeyCode::Esc),
@@ -1082,19 +1057,15 @@ fn test_event_loop_alt_f1_drives() -> io::Result<()> {
         // F10 now asks before quitting; Enter answers Yes.
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
 #[test]
 fn test_event_loop_alt_f2_drives() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key_mod(KeyCode::F(2), KeyModifiers::ALT),
         key(KeyCode::Esc),
@@ -1102,11 +1073,7 @@ fn test_event_loop_alt_f2_drives() -> io::Result<()> {
         // F10 now asks before quitting; Enter answers Yes.
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
@@ -1163,7 +1130,7 @@ fn test_writable_test_backend_write() -> io::Result<()> {
 fn test_delete_confirm_on_parent_entry_does_nothing() -> io::Result<()> {
     let temp = TempDir::new()?;
     fs::write(temp.path().join("file.txt"), "data")?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.left_panel.select(Some(0)); // ".."
     handle_delete_confirm(&mut app)?;
     assert!(app.get_delete_confirm().is_none());
@@ -1174,7 +1141,7 @@ fn test_delete_confirm_on_parent_entry_does_nothing() -> io::Result<()> {
 #[test]
 fn test_delete_confirm_no_selection() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.left_panel.select(None);
     handle_delete_confirm(&mut app)?;
     assert!(app.get_delete_confirm().is_none());
@@ -1187,8 +1154,8 @@ fn test_event_loop_down_up_navigation() -> io::Result<()> {
     let temp = TempDir::new()?;
     fs::write(temp.path().join("a.txt"), "a")?;
     fs::write(temp.path().join("b.txt"), "b")?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key(KeyCode::Down),
         key(KeyCode::Down),
@@ -1197,11 +1164,7 @@ fn test_event_loop_down_up_navigation() -> io::Result<()> {
         // F10 now asks before quitting; Enter answers Yes.
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
@@ -1212,14 +1175,10 @@ fn test_event_loop_end_with_entries() -> io::Result<()> {
     fs::write(temp.path().join("a.txt"), "a")?;
     fs::write(temp.path().join("b.txt"), "b")?;
     fs::write(temp.path().join("c.txt"), "c")?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![key(KeyCode::End), key(KeyCode::F(10)), key(KeyCode::Enter)];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
@@ -1228,8 +1187,8 @@ fn test_event_loop_end_with_entries() -> io::Result<()> {
 fn test_event_loop_alt_letter_then_backspace() -> io::Result<()> {
     let temp = TempDir::new()?;
     fs::write(temp.path().join("alpha.txt"), "a")?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key_mod(KeyCode::Char('a'), KeyModifiers::ALT), // start quick search
         key(KeyCode::Char('l')),                        // extend search
@@ -1239,11 +1198,7 @@ fn test_event_loop_alt_letter_then_backspace() -> io::Result<()> {
         // F10 now asks before quitting; Enter answers Yes.
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
@@ -1252,8 +1207,8 @@ fn test_event_loop_alt_letter_then_backspace() -> io::Result<()> {
 fn test_event_loop_esc_clears_quick_search() -> io::Result<()> {
     let temp = TempDir::new()?;
     fs::write(temp.path().join("test.txt"), "t")?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key_mod(KeyCode::Char('t'), KeyModifiers::ALT),
         key(KeyCode::Esc),
@@ -1261,11 +1216,7 @@ fn test_event_loop_esc_clears_quick_search() -> io::Result<()> {
         // F10 now asks before quitting; Enter answers Yes.
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
@@ -1273,7 +1224,7 @@ fn test_event_loop_esc_clears_quick_search() -> io::Result<()> {
 #[test]
 fn test_drive_selection_enter_local() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     app.set_overlay(Overlay::DriveSelection {
         side: PanelSide::Left,
         selected_index: 0,
@@ -1305,19 +1256,15 @@ fn test_drive_selection_up_down() -> io::Result<()> {
 #[test]
 fn test_event_loop_left_right_arrows() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key(KeyCode::Right),
         key(KeyCode::Left),
         key(KeyCode::F(10)),
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
@@ -1327,8 +1274,8 @@ fn test_event_loop_enter_directory() -> io::Result<()> {
     let temp = TempDir::new()?;
     let sub = temp.path().join("subdir");
     fs::create_dir(&sub)?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     // Navigate to "subdir" then quit
     let events = vec![
         key(KeyCode::Down), // move to "subdir"
@@ -1337,11 +1284,7 @@ fn test_event_loop_enter_directory() -> io::Result<()> {
         // F10 now asks before quitting; Enter answers Yes.
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
@@ -1349,14 +1292,10 @@ fn test_event_loop_enter_directory() -> io::Result<()> {
 #[test]
 fn test_event_loop_ctrl_c_quit() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![key_mod(KeyCode::Char('c'), KeyModifiers::CONTROL)];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
@@ -1364,8 +1303,8 @@ fn test_event_loop_ctrl_c_quit() -> io::Result<()> {
 #[test]
 fn test_event_loop_colon_command_line() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key(KeyCode::Char(':')),
         key(KeyCode::Esc),
@@ -1373,11 +1312,7 @@ fn test_event_loop_colon_command_line() -> io::Result<()> {
         // F10 now asks before quitting; Enter answers Yes.
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
@@ -1385,8 +1320,8 @@ fn test_event_loop_colon_command_line() -> io::Result<()> {
 #[test]
 fn test_event_loop_slash_search() -> io::Result<()> {
     let temp = TempDir::new()?;
-    let app = setup_app(&temp);
-    let mut terminal = setup_terminal();
+    let app = setup_app(&temp)?;
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key(KeyCode::Char('/')),
         key(KeyCode::Esc),
@@ -1394,11 +1329,7 @@ fn test_event_loop_slash_search() -> io::Result<()> {
         // F10 now asks before quitting; Enter answers Yes.
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
@@ -1407,7 +1338,7 @@ fn test_event_loop_slash_search() -> io::Result<()> {
 fn test_event_loop_f3_view() -> io::Result<()> {
     let temp = TempDir::new()?;
     fs::write(temp.path().join("viewable.txt"), "contents")?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     let idx = app
         .left_panel
         .entries
@@ -1415,18 +1346,14 @@ fn test_event_loop_f3_view() -> io::Result<()> {
         .position(|e| e.name == "viewable.txt")
         .unwrap();
     app.left_panel.select(Some(idx));
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key(KeyCode::F(3)),
         key(KeyCode::Esc),
         key(KeyCode::F(10)),
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     Ok(())
 }
 
@@ -1435,7 +1362,7 @@ fn test_event_loop_f3_view() -> io::Result<()> {
 fn test_event_loop_f8_delete_confirm_cancel() -> io::Result<()> {
     let temp = TempDir::new()?;
     fs::write(temp.path().join("target.txt"), "bye")?;
-    let mut app = setup_app(&temp);
+    let mut app = setup_app(&temp)?;
     let idx = app
         .left_panel
         .entries
@@ -1443,7 +1370,7 @@ fn test_event_loop_f8_delete_confirm_cancel() -> io::Result<()> {
         .position(|e| e.name == "target.txt")
         .unwrap();
     app.left_panel.select(Some(idx));
-    let mut terminal = setup_terminal();
+    let mut terminal = setup_terminal()?;
     let events = vec![
         key(KeyCode::F(8)),
         key(KeyCode::Char('n')), // cancel
@@ -1451,11 +1378,7 @@ fn test_event_loop_f8_delete_confirm_cancel() -> io::Result<()> {
         // F10 now asks before quitting; Enter answers Yes.
         key(KeyCode::Enter),
     ];
-    let mut iter = events.into_iter();
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
-        iter.next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "done"))
-    });
+    run_events(&mut terminal, app, events);
     assert!(temp.path().join("target.txt").exists()); // still there
     Ok(())
 }
@@ -1513,8 +1436,8 @@ fn test_drive_entry_variants() {
     let local = DriveEntry::Local(PathBuf::from("/"));
     let s3 = DriveEntry::S3Profile("prod".to_owned());
     // Just ensure they can be created and debug-printed
-    let _ = format!("{local:?}");
-    let _ = format!("{s3:?}");
+    drop(format!("{local:?}"));
+    drop(format!("{s3:?}"));
 }
 
 // Viewer default

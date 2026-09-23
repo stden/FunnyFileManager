@@ -5,7 +5,11 @@ use ratatui::Frame;
 use super::dialog;
 use crate::models::{FindFile, FindFileField};
 
-pub(super) fn render(f: &mut Frame, tracker: &mut crate::mouse::DialogMouse, dialog: &FindFile) {
+pub(super) fn render(
+    f: &mut Frame<'_>,
+    tracker: &mut crate::mouse::DialogMouse,
+    dialog: &FindFile,
+) {
     let on = |field| dialog.field() == field;
     let rows = [
         dialog::Row::Label("&File masks"),

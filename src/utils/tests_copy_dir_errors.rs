@@ -1,11 +1,8 @@
 //! Unit tests: copy dir errors (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use super::tests::*;
 
 use super::*;
-
-use crate::models::App;
 
 use std::fs::File;
 

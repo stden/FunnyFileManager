@@ -13,7 +13,11 @@ use super::dialog;
 /// What the frame says while the feature is on its way.
 const COMING: &str = "Coming in this release";
 
-pub(super) fn render_coming(f: &mut Frame, tracker: &mut crate::mouse::DialogMouse, title: &str) {
+pub(super) fn render_coming(
+    f: &mut Frame<'_>,
+    tracker: &mut crate::mouse::DialogMouse,
+    title: &str,
+) {
     dialog::render_tracked(
         f,
         tracker,

@@ -6,7 +6,7 @@
 use std::fs;
 
 use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
-use ratatui::{layout::Rect, Terminal};
+use ratatui::layout::Rect;
 use tempfile::TempDir;
 
 use super::*;

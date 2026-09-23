@@ -169,7 +169,10 @@ impl Highlighter {
     pub fn for_file(path: &Path, lines: &[String]) -> Self {
         #[cfg(test)]
         FILE_PASSES.set(FILE_PASSES.get() + 1);
-        #[cfg_attr(not(feature = "colorer"), allow(unused_mut))]
+        #[cfg_attr(
+            not(feature = "colorer"),
+            expect(unused_mut, reason = "only the colorer build fills the regions")
+        )]
         let mut highlighter = Self::new(path);
         #[cfg(feature = "colorer")]
         if matches!(highlighter.scanner, Scanner::Plain) {
@@ -242,11 +245,10 @@ impl Highlighter {
             return vec![(line, Token::Comment)];
         }
         if trimmed.starts_with("- ") || trimmed.starts_with("* ") || trimmed.starts_with("| ") {
-            let bullet = line.len() - trimmed.len() + 1;
-            return vec![
-                (&line[..bullet], Token::Meta),
-                (&line[bullet..], Token::Normal),
-            ];
+            // The indent and the one-byte marker, then the item's text.
+            if let Some((bullet, text)) = line.split_at_checked(line.len() - trimmed.len() + 1) {
+                return vec![(bullet, Token::Meta), (text, Token::Normal)];
+            }
         }
         vec![(line, Token::Normal)]
     }

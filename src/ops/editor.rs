@@ -171,9 +171,11 @@ fn reload_editor(editor: &mut Editor, encoding: crate::encoding::TextEncoding) -
     reloaded.cursor_line = editor
         .cursor_line
         .min(reloaded.lines.len().saturating_sub(1));
-    reloaded.cursor_col = editor
-        .cursor_col
-        .min(reloaded.lines[reloaded.cursor_line].chars().count());
+    let line_chars = reloaded
+        .lines
+        .get(reloaded.cursor_line)
+        .map_or(0, |line| line.chars().count());
+    reloaded.cursor_col = editor.cursor_col.min(line_chars);
     *editor = reloaded;
     Ok(())
 }

@@ -20,7 +20,7 @@ fn write_probe(directory: &Path) {
     .expect("local codex stand-in");
     std::fs::write(
         directory.join("probe.ps1"),
-        r"$result = @{
+        "$result = @{
     arguments = @($args)
     directory = [Environment]::CurrentDirectory
     inputRedirected = [Console]::IsInputRedirected
@@ -33,7 +33,10 @@ fn write_probe(directory: &Path) {
     .expect("console probe");
 }
 
-#[allow(unsafe_code)]
+#[allow(
+    unsafe_code,
+    reason = "WaitForSingleObject and TerminateProcess have no safe wrapper in std"
+)]
 fn wait_for_probe(process: &OwnedHandle) {
     // SAFETY: the owned handle stays live throughout these calls.
     let result = unsafe { WaitForSingleObject(process.as_raw_handle(), 15_000) };

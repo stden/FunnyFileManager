@@ -1,5 +1,4 @@
 //! Unit tests: overlay dialogs (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use crate::models::EntryKind;
 use crate::models::FileSize;
@@ -8,7 +7,7 @@ use crate::quicksearch::QuickSearch;
 
 use super::*;
 
-use crate::models::{App, DirEntry, Overlay};
+use crate::models::DirEntry;
 
 use ratatui::backend::TestBackend;
 
@@ -156,7 +155,7 @@ fn test_render_overlays_new_file_input() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let mut app = App::new().unwrap();
-    app.set_overlay(Overlay::NewFileInput("myfile.txt".to_string()));
+    app.set_overlay(Overlay::NewFileInput("myfile.txt".to_owned()));
 
     terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
     assert!(screen_text(&terminal).contains("[ Cancel ]"));
@@ -191,7 +190,7 @@ fn test_render_overlays_new_file_input_empty() {
 fn test_render_status_with_directory_selection() {
     let mut app = App::new().unwrap();
     app.left_panel.entries = vec![DirEntry {
-        name: "subdir".to_string(),
+        name: "subdir".to_owned(),
         kind: EntryKind::Directory,
         size: FileSize::from_bytes(0),
         modified: Modified::UNKNOWN,
@@ -221,7 +220,7 @@ fn test_render_status_dotdot_selected() {
     // ".." entry produces None from get_selected_entry in status (selected_path).
     // But get_selected_entry itself returns the ".." entry.
     app.left_panel.entries = vec![DirEntry {
-        name: "..".to_string(),
+        name: "..".to_owned(),
         kind: EntryKind::Directory,
         size: FileSize::from_bytes(0),
         modified: Modified::UNKNOWN,
@@ -281,7 +280,7 @@ fn test_render_drive_selection_multiple_items() {
 #[test]
 fn test_render_status_with_quick_search_rebase_copy() {
     let mut app = App::new().unwrap();
-    app.quick_search = QuickSearch::Active("test".to_string());
+    app.quick_search = QuickSearch::Active("test".to_owned());
 
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).unwrap();
@@ -316,7 +315,7 @@ fn test_ui_render_with_quick_search_active_rebase_copy() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let mut app = App::new().unwrap();
-    app.quick_search = QuickSearch::Active("search".to_string());
+    app.quick_search = QuickSearch::Active("search".to_owned());
 
     terminal
         .draw(|f| {
@@ -356,8 +355,8 @@ fn app_with_loud_panels() -> App {
 fn test_editor_overlay_erases_the_panels_behind_it() {
     let mut app = app_with_loud_panels();
     app.set_overlay(Overlay::Editor(crate::models::Editor {
-        title: "notes.txt".to_string(),
-        lines: vec!["hi".to_string()],
+        title: "notes.txt".to_owned(),
+        lines: vec!["hi".to_owned()],
         ..Default::default()
     }));
 
@@ -387,7 +386,7 @@ fn test_viewer_overlay_erases_the_panels_behind_it() {
     let mut app = app_with_loud_panels();
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "log",
-        vec!["hi".to_string()],
+        vec!["hi".to_owned()],
     )));
 
     let backend = TestBackend::new(80, 24);
@@ -498,22 +497,22 @@ fn the_mask_dialog_cursor_follows_the_caret() {
     let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
     let mut prompt = MaskPrompt::new(MaskPurpose::Select, "*.rs");
     app.set_overlay(Overlay::MaskPrompt(prompt.clone()));
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).unwrap();
+    terminal.draw(|f| ui(f, &mut app)).unwrap();
     let at_end = terminal.get_cursor_position().unwrap();
 
     prompt.left();
     prompt.left();
     app.set_overlay(Overlay::MaskPrompt(prompt));
-    terminal.draw(|f| crate::ui::ui(f, &mut app)).unwrap();
+    terminal.draw(|f| ui(f, &mut app)).unwrap();
     let moved = terminal.get_cursor_position().unwrap();
 
     assert_eq!((moved.x + 2, moved.y), (at_end.x, at_end.y));
 }
 
 /// The background of the first cell of `text` on screen.
-fn background_of(app: &mut App, text: &str) -> Option<ratatui::style::Color> {
+fn background_of(app: &mut App, text: &str) -> Option<Color> {
     let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
-    terminal.draw(|f| crate::ui::ui(f, app)).unwrap();
+    terminal.draw(|f| ui(f, app)).unwrap();
     let buffer = terminal.backend().buffer();
     let wanted: Vec<String> = text.chars().map(String::from).collect();
     (0..buffer.area.height).find_map(|y| {
@@ -744,7 +743,6 @@ fn draw_dialog_controls(ground: dialog::Ground) -> Terminal<TestBackend> {
 }
 
 fn assert_dialog_control_colors(ground: dialog::Ground, button_bg: Color) {
-    use ratatui::style::Color;
     let terminal = draw_dialog_controls(ground);
     let buffer = terminal.backend().buffer();
     let field = buffer
@@ -777,7 +775,6 @@ fn assert_dialog_control_colors(ground: dialog::Ground, button_bg: Color) {
 }
 
 fn assert_button_accents(buffer: &ratatui::buffer::Buffer, focused: Color, ground: Color) {
-    use ratatui::style::Color;
     let hotkey = buffer
         .content
         .iter()

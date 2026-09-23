@@ -18,7 +18,7 @@ use super::panel::visible_window;
 use super::{far_block, palette, Cells, FAR_BLUE, PANEL_INFO_ROW};
 use crate::models::{Branch, FolderTree, Guide, Panel, PanelKind, TreeRow};
 
-pub(super) fn render(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bool) {
+pub(super) fn render(f: &mut Frame<'_>, panel: &mut Panel, area: Rect, is_active: bool) {
     let PanelKind::Tree(tree) = &mut panel.kind else {
         return;
     };
@@ -54,7 +54,7 @@ fn title(is_active: bool) -> Line<'static> {
 /// Only the rows on screen are built, and the offset survives between frames
 /// the way the file panel's does: the window holds still until the cursor
 /// leaves it, then moves by just enough.
-fn render_rows(f: &mut Frame, tree: &mut FolderTree, body: Rect, is_active: bool) {
+fn render_rows(f: &mut Frame<'_>, tree: &mut FolderTree, body: Rect, is_active: bool) {
     let window = visible_window(
         tree.rows().len(),
         usize::from(body.height),
@@ -62,7 +62,10 @@ fn render_rows(f: &mut Frame, tree: &mut FolderTree, body: Rect, is_active: bool
         Some(tree.cursor),
     );
     tree.scroll = window.start;
-    let items: Vec<ListItem> = tree.rows()[window.clone()]
+    let items: Vec<ListItem<'_>> = tree
+        .rows()
+        .get(window.clone())
+        .unwrap_or_default()
         .iter()
         .map(|row| ListItem::new(row_line(row)))
         .collect();
@@ -112,7 +115,7 @@ fn guide_text(row: &TreeRow) -> String {
 /// The row above the bottom border: the search being typed, else the full
 /// path of the folder under the cursor — which is what the other panel is
 /// showing, or would show on Enter.
-fn render_info(f: &mut Frame, tree: &FolderTree, inner: Rect) {
+fn render_info(f: &mut Frame<'_>, tree: &FolderTree, inner: Rect) {
     let text = tree.search.query().map_or_else(
         || {
             tree.selected()

@@ -1,5 +1,4 @@
 //! Unit tests and shared test helpers for `editor`.
-#![allow(unused_imports)]
 
 use super::{
     handle_edit_builtin, handle_edit_impl, handle_edit_test_mode, handle_edit_with,
@@ -111,11 +110,11 @@ fn unreachable_folder() -> PathBuf {
 fn test_split_editor_command_splits_arguments() {
     assert_eq!(
         super::split_editor_command("code -w -n"),
-        ("code".to_string(), vec!["-w".to_string(), "-n".to_string()])
+        ("code".to_owned(), vec!["-w".to_owned(), "-n".to_owned()])
     );
     assert_eq!(
         super::split_editor_command(""),
-        ("nano".to_string(), Vec::new())
+        ("nano".to_owned(), Vec::new())
     );
 }
 
@@ -129,7 +128,10 @@ fn test_select_entry_returns_false() -> io::Result<()> {
 }
 
 #[test]
-#[allow(clippy::significant_drop_tightening)] // lock is moved into set_with_lock
+#[expect(
+    clippy::significant_drop_tightening,
+    reason = "the lock is moved into set_with_lock, which holds it until the guard drops"
+)]
 fn test_editor_env_guard_restores_existing_value() -> io::Result<()> {
     let temp_dir = TempDir::new().expect("temp dir");
     let editor_path = fake_editor_path(temp_dir.path(), 0);

@@ -1,7 +1,6 @@
 //! Purpose: Unit tests for the `:` command-line parser.
 //!
 use super::*;
-use crate::models::SortMode;
 
 mod tests_tilde;
 
@@ -218,10 +217,10 @@ fn every_completion_verb_parses_to_a_real_command() {
     // verb the completer offers is never dispatched as a shell command.
     for verb in VERBS {
         let line = match *verb {
-            "cd" => "cd /".to_string(),
-            "mark" => "mark all".to_string(),
-            "bookmark" => "bookmark go 0".to_string(),
-            other => other.to_string(),
+            "cd" => "cd /".to_owned(),
+            "mark" => "mark all".to_owned(),
+            "bookmark" => "bookmark go 0".to_owned(),
+            other => other.to_owned(),
         };
         assert!(
             !matches!(

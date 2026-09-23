@@ -123,13 +123,14 @@ fn unquote(value: &str) -> &str {
 }
 
 fn profile_block(text: &str) -> io::Result<Option<&str>> {
-    match (text.find(START), text.find(END)) {
-        (None, None) => Ok(None),
-        (Some(start), Some(end)) if start < end => Ok(Some(&text[start..end + END.len()])),
-        _ => Err(io::Error::other(
-            "Incomplete FFM PATH block; fix the profile before saving",
-        )),
-    }
+    let block = match (text.find(START), text.find(END)) {
+        (None, None) => return Ok(None),
+        (Some(start), Some(end)) if start < end => text.get(start..end + END.len()),
+        _ => None,
+    };
+    block
+        .map(Some)
+        .ok_or_else(|| io::Error::other("Incomplete FFM PATH block; fix the profile before saving"))
 }
 
 fn write_at(path: &Path, format: Format, previous: &Snapshot, value: &str) -> io::Result<()> {

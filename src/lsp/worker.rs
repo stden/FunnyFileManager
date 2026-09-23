@@ -202,7 +202,7 @@ impl Drop for Connection {
 
 fn report(events: &SyncSender<Envelope>, owner: DocumentId, event: Event) {
     // The UI receiver is intentionally dropped before the worker is joined.
-    let _ = events.send(Envelope(owner, event));
+    drop(events.send(Envelope(owner, event)));
 }
 
 pub(super) fn workspace_root(path: &Path, markers: &[String]) -> PathBuf {

@@ -22,6 +22,11 @@ fn press(app: &mut App, code: KeyCode) {
     );
 }
 
+#[expect(
+    clippy::panic,
+    reason = "test assertion: a closed attributes dialog fails the calling test; clippy.toml \
+              allows that in #[test] fns and #[cfg(test)] items, not in integration-test helpers"
+)]
 fn field(app: &App) -> AttributesField {
     match &app.overlay {
         Overlay::Attributes(dialog) => dialog.field,
@@ -29,6 +34,11 @@ fn field(app: &App) -> AttributesField {
     }
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture: a failed setup fails the calling test; clippy.toml allows that in \
+              #[test] fns and #[cfg(test)] items, not in integration-test helpers"
+)]
 fn app_marking(dir: &Path, names: &[&str]) -> App {
     let mut app = App::new().expect("app");
     app.left_panel = Panel::new(dir.to_path_buf()).expect("panel");
@@ -39,12 +49,22 @@ fn app_marking(dir: &Path, names: &[&str]) -> App {
 }
 
 #[cfg(unix)]
+#[expect(
+    clippy::expect_used,
+    reason = "test probe: an unreadable file fails the calling test; clippy.toml allows that in \
+              #[test] fns and #[cfg(test)] items, not in integration-test helpers"
+)]
 fn mode(path: &Path) -> u32 {
     use std::os::unix::fs::PermissionsExt;
     fs::metadata(path).expect("metadata").permissions().mode() & 0o777
 }
 
 #[cfg(unix)]
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture: a failed setup fails the calling test; clippy.toml allows that in \
+              #[test] fns and #[cfg(test)] items, not in integration-test helpers"
+)]
 fn set_mode(path: &Path, mode: u32) {
     use std::os::unix::fs::PermissionsExt;
     fs::set_permissions(path, fs::Permissions::from_mode(mode)).expect("chmod");

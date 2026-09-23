@@ -1,5 +1,4 @@
 //! Unit tests: search and commands (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use crate::scroll::ScrollTop;
 
@@ -7,13 +6,7 @@ use super::support::*;
 use crate::ops::*;
 use crate::popup::process_popup_input;
 
-#[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
-
 use crate::models::{App, CommandLine, Overlay, Viewer};
-
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -226,7 +219,7 @@ fn test_process_popup_input_viewer_scroll_limits() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "Test",
-        vec!["Line 1".to_string(), "Line 2".to_string()],
+        vec!["Line 1".to_owned(), "Line 2".to_owned()],
     )));
     app.set_viewport(crate::models::Viewport::new(2));
 

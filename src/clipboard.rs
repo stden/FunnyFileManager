@@ -112,15 +112,23 @@ fn base64_encode(input: &[u8]) -> String {
         // `len + 1` characters and pads the rest with '='.
         for i in 0..4 {
             if i <= chunk.len() {
-                out.push(char::from(
-                    BASE64_ALPHABET[((triple >> (18 - 6 * i)) & 0x3F) as usize],
-                ));
+                out.push(base64_digit(triple >> (18 - 6 * i)));
             } else {
                 out.push('=');
             }
         }
     }
     out
+}
+
+/// The base64 digit for the low six bits of `bits`.
+#[expect(
+    clippy::indexing_slicing,
+    reason = "a six-bit index is below 64, the alphabet's length"
+)]
+fn base64_digit(bits: u32) -> char {
+    let [low_byte, ..] = bits.to_le_bytes();
+    char::from(BASE64_ALPHABET[usize::from(low_byte & 0x3F)])
 }
 
 /// Strip `secret` out of a message on its way to the caller.
@@ -133,7 +141,7 @@ fn redact(message: &str, secret: &str) -> String {
     // Guard: `str::replace("", ..)` matches between every character and would
     // shred the message. An empty secret is also nothing to hide.
     if secret.is_empty() {
-        return message.to_string();
+        return message.to_owned();
     }
     message
         .replace(secret, REDACTED)

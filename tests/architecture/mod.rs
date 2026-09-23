@@ -58,6 +58,10 @@ impl SourceFile {
     }
 
     /// Parse the file; a source the checker cannot read fails the test.
+    #[expect(
+        clippy::panic,
+        reason = "test support: a source the checker cannot parse fails the test that asked for it"
+    )]
     pub fn syntax(&self) -> syn::File {
         syn::parse_file(&self.text)
             .unwrap_or_else(|error| panic!("parse {}: {error}", self.relative))
@@ -83,6 +87,11 @@ impl SourceFile {
 }
 
 /// Every Rust file below `<root>/<package>/src`, sorted by path.
+#[expect(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test support: a source tree the checker cannot read fails the test that asked for it"
+)]
 pub fn package_sources(root: &Path, package: &str) -> Vec<SourceFile> {
     let mut paths = Vec::new();
     rust_files(&root.join(package).join("src"), &mut paths);
@@ -102,6 +111,10 @@ pub fn package_sources(root: &Path, package: &str) -> Vec<SourceFile> {
         .collect()
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "test support: a source tree the checker cannot read fails the test that asked for it"
+)]
 fn rust_files(directory: &Path, files: &mut Vec<PathBuf>) {
     for entry in fs::read_dir(directory).expect("read source directory") {
         let path = entry.expect("read source entry").path();
@@ -132,8 +145,13 @@ fn module_path(relative: &str) -> Vec<String> {
 
 /// `path` equals `prefix` or continues it with `::`.
 pub fn starts_with_path(path: &str, prefix: &str) -> bool {
+    path_after(path, prefix).is_some()
+}
+
+/// What follows `prefix` in `path` (`""` or `::rest`), when `path` starts with it.
+fn path_after<'a>(path: &'a str, prefix: &str) -> Option<&'a str> {
     path.strip_prefix(prefix)
-        .is_some_and(|rest| rest.is_empty() || rest.starts_with("::"))
+        .filter(|rest| rest.is_empty() || rest.starts_with("::"))
 }
 
 /// A dependency that falls under a forbidden path prefix.
@@ -198,9 +216,6 @@ pub fn forbidden_dependencies(
 fn through_root_imports(path: &str, imports: &[(String, String)]) -> String {
     imports
         .iter()
-        .find(|(alias, _)| starts_with_path(path, alias))
-        .map_or_else(
-            || path.to_owned(),
-            |(alias, target)| format!("{target}{}", &path[alias.len()..]),
-        )
+        .find_map(|(alias, target)| path_after(path, alias).map(|rest| format!("{target}{rest}")))
+        .unwrap_or_else(|| path.to_owned())
 }

@@ -122,7 +122,7 @@ jobs:
         run: |
           cargo llvm-cov nextest \
             --features test-helpers \
-            --ignore-filename-regex 'src/(main|editor|bootstrap)\.rs$|src/clipboard/system\.rs$|src/ops/shell/tty\.rs$|src/highlight/colorer\.rs$|/tests[_.\/]|_tests\.rs$|/test_support/' \
+            --ignore-filename-regex 'src/(main|editor|bootstrap)\.rs$|src/clipboard/system\.rs$|src/ops/shell/tty\.rs$|src/highlight/colorer\.rs$|/tests[_.\/]|_tests\.rs$|/test_support(/|\.rs$)' \
             --fail-under-lines 98 \
             --show-missing-lines \
             --summary-only

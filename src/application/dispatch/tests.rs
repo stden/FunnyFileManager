@@ -1,11 +1,7 @@
 //! Dispatcher tests retain private access without widening runtime APIs.
 
-#![allow(unused_imports)]
-
 use super::*;
 use crate::models::{App, Overlay, ViewMode};
-#[cfg(feature = "test-helpers")]
-use crate::test_support::select_entry;
 use crate::test_support::{buffer_text, key_event, key_event_with_mods};
 use crate::{menu, models, ops, status, WritableTestBackend};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};

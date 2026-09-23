@@ -1,5 +1,4 @@
 //! Unit tests: marks and bookmarks (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use crate::models::FileName;
 use crate::scroll::ScrollTop;
@@ -8,19 +7,13 @@ use super::support::*;
 use crate::ops::*;
 use crate::popup::process_popup_input;
 
-#[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
-
 use crate::models::{App, BookmarkSlot, Overlay, Panel, SortMode, Viewer};
-
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
 
 use crossterm::event::KeyCode;
 
 use std::fs::{self, File};
 
-use std::io::{self, Write};
+use std::io;
 
 use tempfile::TempDir;
 
@@ -424,7 +417,7 @@ fn test_process_popup_input_viewer_single_line_no_scroll() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "one.txt",
-        vec!["only line".to_string()],
+        vec!["only line".to_owned()],
     )));
 
     // Try to scroll down - should stay at 0

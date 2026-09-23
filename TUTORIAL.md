@@ -110,7 +110,7 @@ graph TB
         OPS --> UTILS[utils.rs<br/>Filesystem Helpers]
         APP --> EDITOR[editor.rs<br/>Built-in / External Editor]
         APP --> TERMINAL[terminal.rs<br/>RAII Lifecycle]
-        HANDLERS[handlers/mod.rs<br/>Compatibility Facade] -.-> OPS
+        HANDLERS[handlers.rs<br/>Compatibility Facade] -.-> OPS
         HANDLERS -.-> POPUP
     end
 
@@ -141,7 +141,7 @@ graph TB
 | `action.rs` | Maps main-view keys to typed actions | 🎼 The score |
 | `popup.rs` | Consumes input for the active modal overlay | 🚦 The traffic controller |
 | `ops/` | Owns command, file, shell, and viewer operations | 🔧 The mechanic |
-| `handlers/mod.rs` | Preserves old operation import paths | 🔌 The adapter |
+| `handlers.rs` | Preserves old operation import paths | 🔌 The adapter |
 | `terminal.rs` | Restores terminal state with RAII guards | 🛟 The safety crew |
 | `models.rs` | Holds all the data structures | 🗄️ The librarian |
 | `ui.rs` | Makes everything look pretty | 🎨 The artist |

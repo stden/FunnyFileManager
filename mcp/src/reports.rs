@@ -1,8 +1,8 @@
 //! Directory composition and duplicate-content reports.
 
 use super::{
-    checksum_of, collect_files, content_kind, format_size, json_response, walkable_type,
-    AnalyseParams, CollectedFile, DuplicatesParams, FfmServer, WALK_BUDGET,
+    checksum_of, collect_files, content_kind, format_size, json_response, saturating_u64,
+    walkable_type, AnalyseParams, CollectedFile, DuplicatesParams, FfmServer, WALK_BUDGET,
 };
 use rmcp::{model::CallToolResult, ErrorData as McpError};
 use serde_json::json;
@@ -129,7 +129,7 @@ fn duplicate_groups(files: &[CollectedFile], min_size: u64) -> (Vec<serde_json::
             }
         }
         for (hash, paths) in by_hash.into_iter().filter(|(_, paths)| paths.len() > 1) {
-            wasted += size * (paths.len() as u64 - 1);
+            wasted += size * (saturating_u64(paths.len()) - 1);
             groups.push(json!({
                 "checksum": hash,
                 "size": size,

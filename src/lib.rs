@@ -53,14 +53,14 @@
 //!   copy + delete when crossing filesystems.
 //! - **Never overwrite:** destinations get a `_N` suffix via `unique_destination`.
 
-// Unit-test ergonomics only; the non-test library build still enforces all four.
 #![cfg_attr(
     test,
     allow(
         clippy::unnecessary_wraps,
         clippy::needless_pass_by_value,
         clippy::needless_pass_by_ref_mut,
-        clippy::match_wildcard_for_single_variants
+        clippy::match_wildcard_for_single_variants,
+        reason = "unit-test ergonomics only; the non-test library build still enforces all four"
     )
 )]
 

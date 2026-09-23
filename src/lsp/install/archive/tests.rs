@@ -32,7 +32,7 @@ fn verified_archives_extract_files_into_the_managed_directory() {
         verify(&path, &"0".repeat(64), &stop),
         Err(InstallError::Integrity)
     );
-    unpack(&data[..], root.path(), &stop).unwrap();
+    unpack(&*data, root.path(), &stop).unwrap();
     assert_eq!(fs::read(root.path().join("bin/server")).unwrap(), b"data");
 }
 
@@ -42,7 +42,7 @@ fn links_invalid_downloads_and_cancelled_extraction_are_rejected() {
     let stop = AtomicBool::new(false);
     let data = archive(tar::EntryType::Symlink);
     assert_eq!(
-        unpack(&data[..], root.path(), &stop),
+        unpack(&*data, root.path(), &stop),
         Err(InstallError::Archive)
     );
 }
@@ -80,7 +80,7 @@ fn invalid_archives_and_cancellation_stop_extraction() {
     assert!(unpack(&b"bad archive"[..], root.path(), &stop).is_err());
     assert_eq!(
         unpack(
-            &archive(tar::EntryType::Regular)[..],
+            &*archive(tar::EntryType::Regular),
             root.path(),
             &AtomicBool::new(true)
         ),
@@ -103,7 +103,7 @@ fn a_traversal_member_cannot_write_outside_the_managed_directory() {
     archive.append(&header, &b"data"[..]).unwrap();
     let data = archive.into_inner().unwrap().finish().unwrap();
     assert_eq!(
-        unpack(&data[..], &managed, &AtomicBool::new(false)),
+        unpack(&*data, &managed, &AtomicBool::new(false)),
         Err(InstallError::Archive)
     );
     assert!(!root.path().join("outside").exists());

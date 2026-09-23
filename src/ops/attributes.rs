@@ -103,7 +103,7 @@ pub fn apply(app: &mut App, dialog: &AttributesDialog) {
     app.get_active_panel().clear_marks();
     // A refresh failure is not this operation's news: the status bar already
     // says what was set, and Ctrl+R reports listing trouble on its own.
-    let _ = crate::utils::refresh_panels(app);
+    drop(crate::utils::refresh_panels(app));
 }
 
 /// One target, and what is inside it when the dialog asked for that.

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use ratatui::{backend::TestBackend, buffer::Buffer, Terminal};
 
-use crate::models::{FileName, PanelView};
+use crate::models::FileName;
 
 use super::*;
 

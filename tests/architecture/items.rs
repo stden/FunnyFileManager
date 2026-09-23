@@ -183,7 +183,7 @@ impl<'ast> Visit<'ast> for IncludedFiles {
 
 pub fn is_cfg_test(attribute: &Attribute) -> bool {
     attribute.path().is_ident("cfg")
-        && matches!(&attribute.meta, syn::Meta::List(list) if list.tokens.to_string() == "test")
+        && matches!(&attribute.meta, Meta::List(list) if list.tokens.to_string() == "test")
 }
 
 pub fn item_attributes(item: &Item) -> &[Attribute] {

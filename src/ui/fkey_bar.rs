@@ -43,12 +43,12 @@ pub(super) const FKEY_LABELS: [(&str, &str); FKEY_COUNT] = [
 /// The remainder is spread over the leftmost cells rather than dumped on the
 /// last one, which is what keeps an 85-column terminal from ending in a cell
 /// five columns wider than its neighbours.
-pub(super) fn render_command_bar(f: &mut Frame, area: Rect) {
+pub(super) fn render_command_bar(f: &mut Frame<'_>, area: Rect) {
     // The same arithmetic the hit test uses, so a click that lands on "5Copy"
     // runs F5 because one function put the label there and answered for it.
     let widths = crate::mouse::fkey_widths(area.width, FKEY_LABELS.len());
 
-    let spans: Vec<Span> = FKEY_LABELS
+    let spans: Vec<Span<'_>> = FKEY_LABELS
         .iter()
         .zip(widths)
         .flat_map(|((key, label), width)| {

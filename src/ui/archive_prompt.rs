@@ -10,7 +10,7 @@ use super::dialog;
 use crate::models::{ArchiveField, ArchivePrompt};
 
 pub(super) fn render(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     dialog: &ArchivePrompt,
 ) {

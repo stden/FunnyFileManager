@@ -20,7 +20,7 @@ fn bookmark_go_offers_only_populated_slots_with_path_hints() {
 
     let c = complete_with("bookmark go ", &ctx_with_bookmarks(tmp.path(), &slots))
         .expect("populated slots complete");
-    assert_eq!(texts(&c), vec!["0".to_string(), "3".to_string()]);
+    assert_eq!(texts(&c), vec!["0".to_owned(), "3".to_owned()]);
     // The path rides along as the dropdown hint.
     let hint0 = c
         .candidates
@@ -59,7 +59,7 @@ fn bookmark_go_filters_populated_slots_by_typed_digit() {
 
     let c = complete_with("bookmark go 3", &ctx_with_bookmarks(tmp.path(), &slots))
         .expect("slot 3 matches");
-    assert_eq!(texts(&c), vec!["3".to_string()]);
+    assert_eq!(texts(&c), vec!["3".to_owned()]);
     assert_eq!(c.line, "bookmark go 3 ");
 }
 

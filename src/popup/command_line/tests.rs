@@ -7,12 +7,10 @@
 //! of those guards is a branch, and a helper that acted anyway would write into
 //! an overlay that is no longer there.
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use tempfile::TempDir;
 
 use super::*;
-use crate::history::RingIndex;
-use crate::models::{App, CommandLine, Overlay, Panel};
+use crate::models::Panel;
 
 fn app_at(dir: &TempDir) -> App {
     let mut app = App::new().expect("app");

@@ -123,7 +123,7 @@ pub fn update_entry_by_id(
             .group_by_path(group_path)
             .ok_or(KeepassError::EntryNotFound)?;
         let current = group.entry(id).ok_or(KeepassError::EntryNotFound)?;
-        let original_title = current.get(fields::TITLE).unwrap_or_default().to_string();
+        let original_title = current.get(fields::TITLE).unwrap_or_default().to_owned();
         refuse_rename_collision(&group, &original_title, &entry.title)?;
     }
     write_tracked_and_save(&mut db, db_path, password, keyfile, id, entry)

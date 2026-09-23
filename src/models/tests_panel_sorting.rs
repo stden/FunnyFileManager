@@ -1,7 +1,5 @@
 //! Unit tests: panel sorting (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
-use crate::models::BookmarkSlot;
 use std::fs;
 
 use super::tests::*;

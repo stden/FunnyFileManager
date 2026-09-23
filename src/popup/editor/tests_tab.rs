@@ -3,7 +3,6 @@
 
 use std::fs;
 
-use crossterm::event::KeyEvent;
 use tempfile::TempDir;
 
 use crate::menu::MenuCommand;

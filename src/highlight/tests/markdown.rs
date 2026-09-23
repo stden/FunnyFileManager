@@ -30,6 +30,6 @@ fn a_markdown_paragraph_with_no_special_shape_is_left_normal() {
     let out = runs("a.md", "Just an ordinary sentence.");
     assert_eq!(
         out,
-        vec![("Just an ordinary sentence.".to_string(), Token::Normal)]
+        vec![("Just an ordinary sentence.".to_owned(), Token::Normal)]
     );
 }

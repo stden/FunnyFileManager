@@ -132,7 +132,7 @@ pub fn run(app: &mut App) {
     // The entries are gone whatever the reload says; reporting a refresh
     // failure here would replace "Wiped" with an error about intact data
     // (the same reasoning as `ops::file::refresh_after_operation`).
-    let _ = refresh_panels(app);
+    drop(refresh_panels(app));
 }
 
 /// An error outranks the hard-link note: it is the news the user must act on.
@@ -192,11 +192,12 @@ fn wipe_children(dir: &Path) -> io::Result<usize> {
 fn zero_fill(path: &Path) -> io::Result<()> {
     let mut file = OpenOptions::new().write(true).open(path)?;
     let mut remaining = file.metadata()?.len();
-    let zeros = vec![0_u8; ZERO_CHUNK];
+    let mut zeros = vec![0_u8; ZERO_CHUNK];
     while remaining > 0 {
-        let step = usize::try_from(remaining).map_or(ZERO_CHUNK, |left| left.min(ZERO_CHUNK));
-        file.write_all(&zeros[..step])?;
-        remaining -= step as u64;
+        // Only the last pass is shorter: as many zeros as bytes are left.
+        zeros.truncate(usize::try_from(remaining).unwrap_or(ZERO_CHUNK));
+        file.write_all(&zeros)?;
+        remaining -= u64::try_from(zeros.len()).map_err(io::Error::other)?;
     }
     file.sync_all()?;
     witness(Stage::Overwritten, path);

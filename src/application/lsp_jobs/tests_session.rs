@@ -3,10 +3,7 @@
 use super::*;
 use crate::{
     config::ServerSettings,
-    models::{
-        lsp::{Dialog, Intent},
-        Editor, LspFeature, Overlay, Panel,
-    },
+    models::{lsp::Dialog, Editor, LspFeature, Overlay, Panel},
 };
 use std::{fs, thread};
 use tempfile::TempDir;

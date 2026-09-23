@@ -1,5 +1,4 @@
 //! Unit tests: event loop keys (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use super::*;
 

@@ -1,5 +1,4 @@
 //! Unit tests: quick search nav (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use super::*;
 

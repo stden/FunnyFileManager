@@ -1,16 +1,9 @@
 //! Unit tests: copy move (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use super::support::*;
 use crate::ops::*;
 
-#[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
-
 use crate::models::{App, Panel};
-
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
 
 use std::fs::{self, File};
 

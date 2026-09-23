@@ -23,7 +23,7 @@ use crate::models::{DirEntry, Panel, PanelKind, RemotePanel};
 /// The one column's heading.
 const COLUMN_TITLE: &str = "Name";
 
-pub(super) fn render(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bool) {
+pub(super) fn render(f: &mut Frame<'_>, panel: &mut Panel, area: Rect, is_active: bool) {
     let PanelKind::Remote(remote) = &mut panel.kind else {
         return;
     };
@@ -35,7 +35,7 @@ pub(super) fn render(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bo
 }
 
 /// The rows on screen, scrolled so the cursor row is always drawn.
-fn render_rows(f: &mut Frame, remote: &mut RemotePanel, body: Rect, is_active: bool) {
+fn render_rows(f: &mut Frame<'_>, remote: &mut RemotePanel, body: Rect, is_active: bool) {
     let entries = remote.entries();
     let window = visible_window(
         entries.len(),
@@ -44,7 +44,9 @@ fn render_rows(f: &mut Frame, remote: &mut RemotePanel, body: Rect, is_active: b
         Some(remote.cursor()),
     );
     let width = Cells::columns(body.width);
-    let lines: Vec<Line> = entries[window.clone()]
+    let lines: Vec<Line<'_>> = entries
+        .get(window.clone())
+        .unwrap_or_default()
         .iter()
         .enumerate()
         .map(|(offset, entry)| {

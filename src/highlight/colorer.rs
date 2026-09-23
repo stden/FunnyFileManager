@@ -60,16 +60,16 @@ struct Handle(*mut c_void);
 // SAFETY: the pointer is only ever dereferenced while `FFI` is held, so at most
 // one thread is inside Colorer — or inside the libxml2 globals it sets — at a
 // time.
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "Send for the raw handle; every use holds `FFI`")]
 unsafe impl Send for Handle {}
 
 // SAFETY: as for `Send` — every use goes through `FFI`. `Sync` is needed
 // because `SHARED` hands out `&'static Colorer`.
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "Sync for the raw handle; every use holds `FFI`")]
 unsafe impl Sync for Handle {}
 
 impl Drop for Colorer {
-    #[allow(unsafe_code)]
+    #[allow(unsafe_code, reason = "frees the handle through the Colorer C API")]
     fn drop(&mut self) {
         let _guard = FFI.lock();
         // SAFETY: `self.handle.0` came from `colorer_open` and is freed once,
@@ -120,7 +120,7 @@ impl Colorer {
 
     /// Load a specific catalog.
     #[must_use]
-    #[allow(unsafe_code)]
+    #[allow(unsafe_code, reason = "opens a catalog through the Colorer C API")]
     pub fn open(catalog: &Path) -> Option<Self> {
         let path = CString::new(catalog.as_os_str().as_encoded_bytes()).ok()?;
         let handle = {
@@ -143,7 +143,7 @@ impl Colorer {
     /// The language Colorer chooses for `path` — `rust`, `python` — or `None`
     /// when it has no scheme for it.
     #[must_use]
-    #[allow(unsafe_code)]
+    #[allow(unsafe_code, reason = "asks the Colorer C API for a file type")]
     pub fn file_type(&self, path: &Path) -> Option<String> {
         let name = CString::new(path.as_os_str().as_encoded_bytes()).ok()?;
         let _guard = FFI.lock().ok()?;
@@ -171,7 +171,7 @@ impl Colorer {
     /// cover a character is the one that wins. That is Colorer's own rule and
     /// the reason the editor cannot simply take the first.
     #[must_use]
-    #[allow(unsafe_code)]
+    #[allow(unsafe_code, reason = "parses lines through the Colorer C API")]
     pub fn parse(&self, path: &Path, lines: &[String]) -> Vec<Vec<Span>> {
         let mut collected: Vec<Vec<Span>> = vec![Vec::new(); lines.len()];
         let Ok(name) = CString::new(path.as_os_str().as_encoded_bytes()) else {
@@ -223,7 +223,7 @@ pub struct Span {
 /// `ctx` must be the `&mut Vec<Vec<Span>>` handed to `colorer_parse`, with no
 /// other borrow alive, and `region` null or a NUL-terminated string; Colorer
 /// calls it only synchronously from inside that `colorer_parse` call.
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "the callback Colorer calls with raw pointers")]
 unsafe extern "C" fn collect_region(
     ctx: *mut c_void,
     line: usize,

@@ -6,8 +6,9 @@
 # - clipboard/system.rs: arboard/OS-clipboard glue — whether it works depends
 #   on the machine (headless CI has no clipboard), not on this crate
 # - ops/shell/tty.rs: drains crossterm's live event queue for cancel keys
-# - test files (tests*.rs / *_tests.rs / tests/ / test_support/): tests
-#   are not code under test; their unreached lines are assertion-failure arms
+# - test files (tests*.rs / *_tests.rs / tests/ / test_support.rs /
+#   test_support/): tests are not code under test; their unreached lines are
+#   assertion-failure arms
 #
 # editor.rs is deliberately NOT excluded: the $EDITOR resolution and the
 # spawn path are covered by src/editor/tests/, and hiding the file only
@@ -23,6 +24,7 @@ exclude-files = [
     "*/*_tests.rs",
     "*/tests/*.rs",
     "*/tests/**/*.rs",
+    "*/test_support.rs",
     "*/test_support/*",
     "*/test_support/**/*",
 ]

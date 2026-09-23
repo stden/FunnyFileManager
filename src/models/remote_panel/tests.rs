@@ -80,10 +80,11 @@ fn names_that_are_not_one_path_part_are_left_out_and_counted() {
 #[test]
 fn the_cursor_moves_inside_the_listing_and_a_click_selects_a_drawn_row() {
     let mut panel = panel();
-    let _ = panel.show(
+    let shown = panel.show(
         RemotePath::root(),
         vec![entry("a", EntryKind::File), entry("b", EntryKind::File)],
     );
+    assert_eq!(shown, Shown { unusable_names: 0 });
     panel.move_cursor(RowMotion::Next);
     assert!(!panel.on_parent());
     assert_eq!(panel.selected().map(|e| e.name.as_str()), Some("a"));

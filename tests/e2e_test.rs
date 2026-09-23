@@ -68,6 +68,12 @@ enum Ends {
 }
 
 /// Run the real event loop over `events` and return the screen it left behind.
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture: a failed setup, or a session that does not end when told to, fails the \
+              calling test; clippy.toml allows that in #[test] fns and #[cfg(test)] items, not in \
+              integration-test helpers"
+)]
 fn drive(left: &Path, right: &Path, events: Vec<Event>, ends: Ends) -> String {
     let mut app = App::new().expect("app");
     app.left_panel = Panel::new(left.to_path_buf()).expect("left panel");
@@ -109,6 +115,11 @@ fn run_until(left: &Path, right: &Path, events: Vec<Event>) -> String {
 }
 
 /// A pair of directories, the left one seeded with `files`.
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture: a failed setup fails the calling test; clippy.toml allows that in \
+              #[test] fns and #[cfg(test)] items, not in integration-test helpers"
+)]
 fn fixture(files: &[(&str, &str)]) -> (TempDir, TempDir) {
     let left = TempDir::new().expect("left dir");
     let right = TempDir::new().expect("right dir");
@@ -1288,6 +1299,13 @@ fn e2e_escape_cancels_the_quit_dialog() {
 ///
 /// Dialogs are centred and sized to their content, so their buttons have no
 /// fixed address. Finding the text is how a test clicks what a user would.
+#[expect(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test assertion: text missing from the screen fails the calling test; clippy.toml \
+              allows that in #[test] fns and #[cfg(test)] items, not in integration-test helpers. \
+              The u16 conversions cannot fail: the 100x24 test screen is far smaller than u16::MAX"
+)]
 fn find(screen: &str, needle: &str) -> (u16, u16) {
     // Columns, not byte offsets. The frames are box-drawing characters at
     // three bytes each, so `str::find` answers a different question than the

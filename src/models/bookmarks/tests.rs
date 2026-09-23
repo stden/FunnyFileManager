@@ -1,11 +1,6 @@
 //! Purpose: bookmark slots survive a restart, and two running instances do
 //! not overwrite each other's slots.
 
-use std::{
-    fs, io,
-    path::{Path, PathBuf},
-};
-
 use tempfile::TempDir;
 
 use super::*;

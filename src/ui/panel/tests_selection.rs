@@ -109,8 +109,9 @@ fn the_summary_is_drawn_in_the_marked_colour() {
     let mut panel = listing();
     mark(&mut panel, &["crlf.txt"]);
     let buffer = draw(&mut panel);
-    let start = rule(&buffer).find("29 bytes").expect("summary drawn");
-    let x = u16::try_from(rule(&buffer)[..start].chars().count()).expect("column");
+    let rule_text = rule(&buffer);
+    let (before, _) = rule_text.split_once("29 bytes").expect("summary drawn");
+    let x = u16::try_from(before.chars().count()).expect("column");
     assert_eq!(buffer[(x, RULE_ROW)].fg, palette::MARKED);
 }
 

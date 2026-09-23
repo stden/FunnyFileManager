@@ -131,9 +131,9 @@ fn locate(buffer: &Buffer, label: &str) -> (u16, u16) {
         let text: String = (0..buffer.area.width)
             .map(|column| buffer[(column, row)].symbol())
             .collect();
-        if let Some(byte) = text.find(label) {
+        if let Some((before, _)) = text.split_once(label) {
             return (
-                u16::try_from(Cells::of(&text[..byte]).get()).expect("screen column"),
+                u16::try_from(Cells::of(before).get()).expect("screen column"),
                 row,
             );
         }

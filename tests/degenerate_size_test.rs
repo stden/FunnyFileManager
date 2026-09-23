@@ -34,7 +34,7 @@ fn populated() -> App {
     );
     let entries = vec![
         DirEntry {
-            name: "..".to_string(),
+            name: "..".to_owned(),
             kind: EntryKind::Directory,
             size: FileSize::from_bytes(0),
             modified: Modified::UNKNOWN,
@@ -42,7 +42,7 @@ fn populated() -> App {
             ..DirEntry::default()
         },
         DirEntry {
-            name: "a-rather-long-file-name.rs".to_string(),
+            name: "a-rather-long-file-name.rs".to_owned(),
             kind: EntryKind::File,
             size: FileSize::from_bytes(4096),
             modified: Modified::UNKNOWN,
@@ -64,7 +64,7 @@ fn overlays() -> Vec<(&'static str, Overlay)> {
     vec![
         ("none", Overlay::None),
         ("help", Overlay::Help),
-        ("new file", Overlay::NewFileInput("name".to_string())),
+        ("new file", Overlay::NewFileInput("name".to_owned())),
         (
             "delete",
             Overlay::DeleteConfirm(vec![PathBuf::from("/tmp/x")]),

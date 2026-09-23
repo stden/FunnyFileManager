@@ -87,7 +87,7 @@ impl ConsoleLog {
     fn record_lines(&mut self, text: &str, tag: impl Fn(String) -> ConsoleLine) {
         let all: Vec<&str> = text.lines().collect();
         let first_kept = all.len().saturating_sub(CONSOLE_CAP);
-        for line in &all[first_kept..] {
+        for line in all.iter().skip(first_kept) {
             self.push(tag(printable(line)));
         }
     }
@@ -230,7 +230,7 @@ pub fn first_drawable<'a>(lines: impl Iterator<Item = &'a str>) -> Option<String
 /// switches such as `ESC ( B`, and anything else is a two-character sequence.
 /// An unterminated sequence — output cut off by the shell timeout — swallows
 /// the rest of the line, which is better than printing half of it as noise.
-fn skip_escape(chars: &mut std::iter::Peekable<std::str::Chars>) {
+fn skip_escape(chars: &mut std::iter::Peekable<std::str::Chars<'_>>) {
     match chars.next() {
         // `ESC ( B` from `tput sgr0` and every ncurses program, `ESC # 8`,
         // `ESC % G`: any number of intermediates, then exactly one final byte.

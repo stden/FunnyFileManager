@@ -102,6 +102,10 @@ enum Connection {
 }
 
 impl Worker {
+    #[expect(
+        clippy::map_err_ignore,
+        reason = "SendError only hands back the unsent request; a stopped worker is the whole cause"
+    )]
     fn submit(&mut self, request: WslRequest) -> Result<(), String> {
         let pending = Pending::new(&request);
         self.requests

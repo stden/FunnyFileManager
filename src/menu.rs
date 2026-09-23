@@ -63,12 +63,19 @@ impl Heading {
     /// The next heading, wrapping — a menu bar is a ring.
     #[must_use]
     pub fn next(self) -> Self {
-        Self::ALL[(self.position() + 1) % Self::ALL.len()]
+        self.round(1)
     }
 
     #[must_use]
     pub fn previous(self) -> Self {
-        Self::ALL[(self.position() + Self::ALL.len() - 1) % Self::ALL.len()]
+        self.round(Self::ALL.len() - 1)
+    }
+
+    /// The heading `steps` places to the right, wrapping. The index is taken
+    /// modulo the ring's length, so the fallback is never used.
+    fn round(self, steps: usize) -> Self {
+        let index = (self.position() + steps) % Self::ALL.len();
+        Self::ALL.get(index).copied().unwrap_or(self)
     }
 
     /// The panel this heading configures, for the two that name one.

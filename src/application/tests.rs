@@ -1,7 +1,5 @@
 //! Application event-loop and input interaction tests.
 
-#![allow(unused_imports)]
-
 use super::*;
 use crate::models::{App, Lifecycle, Overlay};
 #[cfg(feature = "test-helpers")]

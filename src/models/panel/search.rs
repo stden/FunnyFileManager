@@ -19,8 +19,10 @@ impl Panel {
         // Search from current+1 to end, then from 0 to current (inclusive)
         for offset in 1..=len {
             let idx = (current + offset) % len;
-            let entry = &self.entries[idx];
-            if entry.name != ".." && starts_with_ignore_case(&entry.name, prefix) {
+            let is_match = self.entries.get(idx).is_some_and(|entry| {
+                entry.name != ".." && starts_with_ignore_case(&entry.name, prefix)
+            });
+            if is_match {
                 self.select(Some(idx));
                 return true;
             }

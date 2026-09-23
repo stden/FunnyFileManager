@@ -35,7 +35,7 @@ fn a_modified_shortcut_must_not_resolve_like_an_unmodified_one() {
                 without,
                 "{heading:?}: {:?} offers {:?}+{:?}, but the modifier is ignored — \
                  it does whatever the bare key does ({without:?})",
-                super::label_of(entry),
+                label_of(entry),
                 shortcut.modifiers,
                 shortcut.code,
             );
@@ -59,7 +59,7 @@ fn only_the_delete_row_can_reach_the_delete_dialog() {
             let Some(shortcut) = entry.key() else {
                 continue;
             };
-            let label = super::label_of(entry);
+            let label = label_of(entry);
             let action = resolve(KeyEvent::new(shortcut.code, shortcut.modifiers));
             if matches!(action, Action::DeleteConfirm) {
                 assert!(
@@ -92,7 +92,7 @@ fn no_row_falls_through_to_the_quick_search_reset() {
                 ),
                 "{heading:?}: {:?} claims a key that is not recognised — it falls \
                  through to {action:?}",
-                super::label_of(entry),
+                label_of(entry),
             );
         }
     }
@@ -114,12 +114,12 @@ fn shortcut_and_command_items_are_both_executable() {
     let working = Entry::item("&Delete", "F8", Shortcut::plain(KeyCode::F(8)));
     assert!(working.is_selectable(), "a row with a key can be chosen");
     assert_eq!(working.key().map(|key| key.code), Some(KeyCode::F(8)));
-    assert_eq!(super::label_of(&working), "&Delete");
+    assert_eq!(label_of(&working), "&Delete");
 
-    let command = Entry::command("Add &to archive", "Shift+F1", super::MenuCommand::Archive);
+    let command = Entry::command("Add &to archive", "Shift+F1", MenuCommand::Archive);
     assert!(command.is_selectable());
-    assert_eq!(command.menu_command(), Some(super::MenuCommand::Archive));
-    assert_eq!(super::label_of(&command), "Add &to archive");
+    assert_eq!(command.menu_command(), Some(MenuCommand::Archive));
+    assert_eq!(label_of(&command), "Add &to archive");
 }
 
 /// Each shortcut constructor must set its own modifier and no other. A

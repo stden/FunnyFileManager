@@ -154,7 +154,7 @@ fn an_unusable_recording_path_still_starts_the_session() {
 #[test]
 fn live_read_without_a_tty_does_not_panic() {
     let mut input = Input::from_args(&[os("--no-record")], (80, 24)).expect("live");
-    let _ = input.read();
+    drop(input.read());
 }
 
 fn write_replay(dir: &TempDir, delay_ms: u64) -> PathBuf {

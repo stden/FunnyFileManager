@@ -4,7 +4,7 @@
 
 File-operation implementations are owned by `src/ops/file.rs`. Low-level path,
 recursive-copy, and refresh helpers live in `src/utils.rs`;
-`src/handlers/mod.rs` only preserves compatibility imports.
+`src/handlers.rs` only preserves compatibility imports.
 
 ## 📝 Source Selection
 
@@ -144,8 +144,8 @@ and mutexes serialize cases that mutate shared state.
 ## 🔗 Related Code
 
 - `src/ops/file.rs`
-- `src/ops/mod.rs`
+- `src/ops.rs`
 - `src/utils.rs`
 - `src/popup.rs`
-- `src/handlers/mod.rs` (compatibility facade only)
+- `src/handlers.rs` (compatibility facade only)
 - `docs/specifications/command-popup-and-operations-modules.md`

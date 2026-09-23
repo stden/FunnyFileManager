@@ -3,13 +3,12 @@
 
 use std::fs;
 
-use ratatui::Terminal;
 use tempfile::TempDir;
 
 use super::*;
-use crate::models::{PanelKind, PanelSide};
+use crate::models::PanelSide;
 use crate::sessions::SessionStore;
-use crate::test_support::netbox::{app_in, app_on_sessions, session};
+use crate::test_support::netbox::{app_in, app_on_sessions, open_empty_sessions, session};
 
 fn terminal() -> Terminal<WritableTestBackend> {
     Terminal::new(WritableTestBackend::new(80, 24)).expect("test terminal")
@@ -27,7 +26,7 @@ fn beside_the_sessions(dir: &TempDir) -> App {
         .position(|entry| entry.name == "a.txt")
         .expect("listed");
     app.left_panel.select(Some(index));
-    let _ = crate::ops::sessions::open_on(&mut app, PanelSide::Right);
+    open_empty_sessions(&mut app, PanelSide::Right);
     app
 }
 

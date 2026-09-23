@@ -11,6 +11,7 @@
 //! `FFM_PRIVATE_WORDS_FILE`; the test reads it when present and stays silent
 //! when it is absent (as on CI).
 
+use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -63,9 +64,10 @@ struct Finding {
 #[test]
 fn tracked_files_carry_no_private_data() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let rules = Rules::new();
+    let rules = Rules::new().expect("every rule pattern compiles");
     let mut findings = Vec::new();
-    for path in tracked_files(&root) {
+    let tracked = tracked_files(&root).expect("git must be available to list tracked files");
+    for path in tracked {
         let Ok(text) = std::fs::read_to_string(root.join(&path)) else {
             continue; // not UTF-8: a binary we did not list
         };
@@ -101,10 +103,10 @@ struct Rules {
 }
 
 impl Rules {
-    fn new() -> Self {
-        Self {
-            email: Regex::new(r"[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})").unwrap(),
-            home_path: Regex::new(r"(/home/|/Users/|/srv/)([A-Za-z0-9_.-]+)").unwrap(),
+    fn new() -> Result<Self, regex::Error> {
+        Ok(Self {
+            email: Regex::new(r"[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})")?,
+            home_path: Regex::new("(/home/|/Users/|/srv/)([A-Za-z0-9_.-]+)")?,
             // Built from pieces so this file does not trip its own rule.
             machine_path: Regex::new(
                 &[
@@ -114,8 +116,7 @@ impl Rules {
                     concat!("|/tmp/cl", "aude"),
                 ]
                 .concat(),
-            )
-            .unwrap(),
+            )?,
             secret: Regex::new(concat!(
                 "AKIA[0-9A-Z]{16}",
                 "|gh[pousr]_[A-Za-z0-9]{30,}",
@@ -124,11 +125,10 @@ impl Rules {
                 "|xox[abp]-[A-Za-z0-9-]{10,}",
                 "|AIza[0-9A-Za-z_-]{35}",
                 "|-----BEGIN [A-Z ]*PRIVATE KEY-----",
-            ))
-            .unwrap(),
-            ipv4: Regex::new(r"(?:^|[^0-9.])((?:[0-9]{1,3}\.){3}[0-9]{1,3})(?:[^0-9.]|$)").unwrap(),
+            ))?,
+            ipv4: Regex::new(r"(?:^|[^0-9.])((?:[0-9]{1,3}\.){3}[0-9]{1,3})(?:[^0-9.]|$)")?,
             private_words: private_words(),
-        }
+        })
     }
 
     fn check(&self, line: &str, mut report: impl FnMut(&'static str, String)) {
@@ -213,14 +213,13 @@ fn private_words() -> Vec<Regex> {
         .collect()
 }
 
-fn tracked_files(root: &Path) -> Vec<PathBuf> {
+fn tracked_files(root: &Path) -> io::Result<Vec<PathBuf>> {
     let output = Command::new("git")
         .args(["ls-files", "-z"])
         .current_dir(root)
-        .output()
-        .expect("git must be available to list tracked files");
+        .output()?;
     assert!(output.status.success(), "git ls-files failed");
-    output
+    Ok(output
         .stdout
         .split(|&b| b == 0)
         .filter(|p| !p.is_empty())
@@ -230,5 +229,5 @@ fn tracked_files(root: &Path) -> Vec<PathBuf> {
                 .and_then(|e| e.to_str())
                 .is_some_and(|e| SKIP_EXTENSIONS.contains(&e))
         })
-        .collect()
+        .collect())
 }

@@ -146,7 +146,11 @@ impl Settings {
     /// The column layout and fullscreen flag configured for `view`.
     #[must_use]
     pub fn panel_mode(&self, view: PanelView) -> &PanelModeSettings {
-        &self.panel_modes.modes[view.index()]
+        let modes = &self.panel_modes.modes;
+        let [first, ..] = modes;
+        // `modes` has a slot for every position `index` returns; the fallback
+        // mirrors `index`'s own, the first mode.
+        modes.get(view.index()).unwrap_or(first)
     }
 }
 

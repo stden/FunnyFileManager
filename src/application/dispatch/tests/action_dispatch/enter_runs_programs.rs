@@ -31,7 +31,10 @@ struct ProgramTerminalGuard;
 #[cfg(windows)]
 impl ProgramTerminalGuard {
     fn enter() -> Self {
-        let _ = crossterm::execute!(std::io::stdout(), crossterm::event::EnableMouseCapture);
+        drop(crossterm::execute!(
+            io::stdout(),
+            crossterm::event::EnableMouseCapture
+        ));
         Self
     }
 }
@@ -39,8 +42,11 @@ impl ProgramTerminalGuard {
 #[cfg(windows)]
 impl Drop for ProgramTerminalGuard {
     fn drop(&mut self) {
-        let _ = crossterm::execute!(std::io::stdout(), crossterm::event::DisableMouseCapture);
-        let _ = crossterm::terminal::disable_raw_mode();
+        drop(crossterm::execute!(
+            io::stdout(),
+            crossterm::event::DisableMouseCapture
+        ));
+        drop(crossterm::terminal::disable_raw_mode());
     }
 }
 

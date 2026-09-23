@@ -44,8 +44,9 @@ impl Document {
                 .ok_or("Document version overflow")?;
             let change = match kind {
                 SyncKind::Incremental => incremental(&self.snapshot.text, &snapshot.text),
-                SyncKind::Full | SyncKind::None => json!({"text":snapshot.text}),
-            };
+                SyncKind::Full | SyncKind::None => None,
+            }
+            .unwrap_or_else(|| json!({"text":snapshot.text}));
             rpc.notify("textDocument/didChange", json!({
                 "textDocument":{"uri":self.uri, "version":self.version}, "contentChanges":[change]
             }));
@@ -62,15 +63,19 @@ impl Document {
     }
 }
 
-fn incremental(old: &str, new: &str) -> Value {
-    let mut prefix: usize = crate::complete::common_prefix_len(old, new);
+/// The edit from `old` to `new` as one replaced range. `None` only if a split
+/// point fell inside a character, and the caller then sends the whole text.
+fn incremental(old: &str, new: &str) -> Option<Value> {
+    let mut prefix = crate::complete::common_prefix_len(old, new);
     if inside_crlf(old, prefix) || inside_crlf(new, prefix) {
         prefix -= 1;
     }
-    let mut suffix: usize = old[prefix..]
+    let (_, old_rest) = old.split_at_checked(prefix)?;
+    let (_, new_rest) = new.split_at_checked(prefix)?;
+    let mut suffix: usize = old_rest
         .chars()
         .rev()
-        .zip(new[prefix..].chars().rev())
+        .zip(new_rest.chars().rev())
         .take_while(|(a, b)| a == b)
         .map(|(a, _)| a.len_utf8())
         .sum();
@@ -78,11 +83,13 @@ fn incremental(old: &str, new: &str) -> Value {
         suffix -= 1;
     }
     // Complete UTF-8 characters and complete line endings define LSP positions.
-    let start = positions::at_byte(old, prefix).expect("prefix is a text boundary");
-    let end = positions::at_byte(old, old.len() - suffix).expect("suffix is a text boundary");
-    json!({"range":{"start":start,"end":end}, "text":new[prefix..new.len()-suffix]})
+    let start = positions::at_byte(old, prefix)?;
+    let end = positions::at_byte(old, old.len() - suffix)?;
+    let text = new.get(prefix..new.len() - suffix)?;
+    Some(json!({"range":{"start":start,"end":end}, "text":text}))
 }
 
 fn inside_crlf(text: &str, offset: usize) -> bool {
-    text[..offset].ends_with('\r') && text[offset..].starts_with('\n')
+    text.split_at_checked(offset)
+        .is_some_and(|(before, after)| before.ends_with('\r') && after.starts_with('\n'))
 }

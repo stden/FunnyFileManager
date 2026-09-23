@@ -49,7 +49,7 @@ fn report(
             || "disabled".into(),
             |recipe| {
                 serde_json::to_string(recipe)
-                    .expect("installation recipes contain only JSON values")
+                    .unwrap_or_else(|error| format!("unreadable recipe ({error})"))
             },
         );
         lines.push(format!("  Auto-install: {recipe}"));
@@ -103,7 +103,9 @@ fn resolve(
         "not installed; auto-install disabled",
     ))?;
     let cache = cache.ok_or(InstallError::Missing("no installation cache configured"))?;
-    let key = storage::digest(&serde_json::to_vec(recipe).map_err(|_| InstallError::Recipe)?);
+    let key = storage::digest(
+        &serde_json::to_vec(recipe).map_err(crate::lsp::logged(InstallError::Recipe))?,
+    );
     let root = cache.join(key);
     if !root.exists() {
         return Err(InstallError::Missing(
@@ -111,7 +113,7 @@ fn resolve(
         ));
     }
     let receipt: Launch = serde_json::from_slice(&fs::read(root.join("ready.json"))?)
-        .map_err(|_| InstallError::Recipe)?;
+        .map_err(crate::lsp::logged(InstallError::Recipe))?;
     Ok((
         "installed in FFM cache",
         receipt.preview(server, &root, workspace, environment)?,

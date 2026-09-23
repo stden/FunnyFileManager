@@ -11,9 +11,11 @@
 //! # Fixing a failure
 //!
 //! Prefer a safe API — std, `rustix`, or a wrapper in `src/platform`. When raw
-//! FFI is genuinely needed, keep it in the narrowest item, give every block a
-//! `// SAFETY:` comment, and add the file to [`BOUNDARIES`] with its reason.
-//! Growing that list is a reviewed decision, not a formality.
+//! FFI is genuinely needed, keep it in the narrowest item, open the comment
+//! above every block with `// SAFETY` followed by a colon (spelled out here, or
+//! Clippy reads this doc as a safety comment on the first import), and add the
+//! file to [`BOUNDARIES`] with its reason. Growing that list is a reviewed
+//! decision, not a formality.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -186,6 +188,10 @@ fn permits_unsafe_code(attribute: &syn::Attribute) -> bool {
 }
 
 /// Every unsafe site in `source`, which is named `path` in a parse failure.
+#[expect(
+    clippy::panic,
+    reason = "a source the scan cannot parse fails the test; unparsable_source_fails_loudly pins it"
+)]
 fn sites_in(path: &str, source: &str) -> Vec<Site> {
     let file = syn::parse_file(source).unwrap_or_else(|error| panic!("parse {path}: {error}"));
     let mut finder = Finder::default();
@@ -220,6 +226,10 @@ fn violations(path: &str, sites: &[Site]) -> Vec<String> {
         .collect()
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "test support: a source tree the scan cannot read fails the test that asked for it"
+)]
 fn rust_files(directory: &Path, files: &mut Vec<PathBuf>) {
     for entry in fs::read_dir(directory).expect("read source directory") {
         let path = entry.expect("read source entry").path();
@@ -232,6 +242,10 @@ fn rust_files(directory: &Path, files: &mut Vec<PathBuf>) {
 }
 
 /// `(repository-relative path, unsafe sites)` for every file under `roots`.
+#[expect(
+    clippy::expect_used,
+    reason = "test support: a source tree the scan cannot read fails the test that asked for it"
+)]
 fn scan(roots: &[&str]) -> Vec<(String, Vec<Site>)> {
     let repository = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut files = Vec::new();

@@ -14,7 +14,7 @@ use crate::command::ShellCommand;
 mod console;
 mod error;
 
-pub(crate) use error::ShellError;
+pub(super) use error::ShellError;
 
 /// Start an interactive shell without waiting for it or sharing the TUI's I/O.
 pub(super) fn spawn_console(command: &ShellCommand, current_dir: &Path) -> io::Result<()> {
@@ -53,17 +53,17 @@ pub(super) const DRAIN_GRACE: Duration = Duration::from_millis(200);
 const CHUNK_SIZE: usize = 8 * 1024;
 
 #[cfg(any(test, windows))]
-pub(crate) const fn windows_shell_args(command: &str) -> [&str; 3] {
+pub const fn windows_shell_args(command: &str) -> [&str; 3] {
     ["/D", "/C", command]
 }
 
-pub(crate) fn run_shell_command(command: &str, current_dir: &Path) -> Result<Output, ShellError> {
+pub fn run_shell_command(command: &str, current_dir: &Path) -> Result<Output, ShellError> {
     run_shell_command_with_timeout(command, current_dir, SHELL_TIMEOUT)
 }
 
 /// Run `command` through the platform shell, giving up after `timeout` or as
 /// soon as the user presses Esc / Ctrl+C.
-pub(crate) fn run_shell_command_with_timeout(
+pub fn run_shell_command_with_timeout(
     command: &str,
     current_dir: &Path,
     timeout: Duration,
@@ -196,10 +196,12 @@ fn kill_shell_tree(child: &mut Child) {
     // The shell leads its own group (set in `spawn_shell`), and killing a
     // whole group has no std equivalent. It is not reaped yet, so its id
     // cannot name a stranger's group.
+    // Best effort throughout: the timeout or the cancel is what gets reported,
+    // and a child that already exited has nothing left to kill or reap.
     #[cfg(unix)]
-    let _ = crate::platform::kill_process_group(child);
-    let _ = child.kill();
-    let _ = child.wait();
+    drop(crate::platform::kill_process_group(child));
+    drop(child.kill());
+    drop(child.wait());
 }
 
 /// Read a child pipe on a background thread, forwarding it chunk by chunk.
@@ -229,9 +231,14 @@ where
             if read == 0 {
                 return;
             }
+            // `read` never exceeds the buffer (the `Read` contract); a reader
+            // that broke it ends the stream like a read error would.
+            let Some(bytes) = chunk.get(..read) else {
+                return;
+            };
             // Best effort: a lost echo leaves the kept copy intact.
-            let _ = echo.write_all(&chunk[..read]).and_then(|()| echo.flush());
-            if sender.send(chunk[..read].to_vec()).is_err() {
+            drop(echo.write_all(bytes).and_then(|()| echo.flush()));
+            if sender.send(bytes.to_vec()).is_err() {
                 return;
             }
         }

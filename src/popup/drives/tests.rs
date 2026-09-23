@@ -195,10 +195,10 @@ fn selecting_an_s3_profile_acknowledges_it_without_touching_the_panel() {
     let status = select_drive(
         &mut app,
         PanelSide::Left,
-        DriveEntry::S3Profile("prod".to_string()),
+        DriveEntry::S3Profile("prod".to_owned()),
     );
 
-    assert_eq!(status, Status::S3ProfileSelected("prod".to_string()));
+    assert_eq!(status, Status::S3ProfileSelected("prod".to_owned()));
     assert_eq!(app.left_panel.path, before);
     assert!(
         app.left_panel.marked.contains("keep.txt"),
@@ -490,7 +490,7 @@ fn a_local_drive_turns_a_netbox_panel_back_into_files() {
         Panel::new(temp.path().to_path_buf()).expect("panel"),
         Panel::new(temp.path().to_path_buf()).expect("panel"),
     );
-    let _ = crate::ops::sessions::open_on(&mut app, PanelSide::Left);
+    crate::test_support::netbox::open_empty_sessions(&mut app, PanelSide::Left);
     let status = select_drive(
         &mut app,
         PanelSide::Left,
@@ -499,7 +499,7 @@ fn a_local_drive_turns_a_netbox_panel_back_into_files() {
     assert!(matches!(status, Status::ChangedTo(_)), "{status:?}");
     assert_eq!(app.left_panel.kind, crate::models::PanelKind::Files);
 
-    let _ = crate::ops::sessions::open_on(&mut app, PanelSide::Left);
+    crate::test_support::netbox::open_empty_sessions(&mut app, PanelSide::Left);
     let status = select_drive(
         &mut app,
         PanelSide::Left,

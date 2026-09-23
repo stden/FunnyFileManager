@@ -32,6 +32,7 @@ Feature: Delete operation scenarios
     When I press F8
     And I cancel the deletion
     Then "safe.txt" should still exist in the source
+    And the status message should contain "Delete cancelled"
 
   Scenario: Delete directory recursively
     Given a source directory

@@ -33,9 +33,9 @@ fn multibyte_whitespace_does_not_panic() {
     let tmp = empty_cwd();
     fs::create_dir(tmp.path().join("Documents")).unwrap();
     // Pasted text routinely carries NBSP; completing it must not abort FFM.
-    let _ = complete("cd\u{a0}Doc", tmp.path());
-    let _ = complete("\u{a0}", tmp.path());
-    let _ = complete("cd \u{3000}Doc", tmp.path());
+    drop(complete("cd\u{a0}Doc", tmp.path()));
+    drop(complete("\u{a0}", tmp.path()));
+    drop(complete("cd \u{3000}Doc", tmp.path()));
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn split_target_keeps_the_whole_cd_argument() {
 
 #[test]
 fn longest_common_prefix_is_char_safe() {
-    let v = vec!["caña".to_string(), "cañon".to_string()];
+    let v = vec!["caña".to_owned(), "cañon".to_owned()];
     assert_eq!(longest_common_prefix(&v), "cañ");
     assert_eq!(common_prefix_len("caña", "cañon"), "cañ".len());
 }

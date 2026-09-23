@@ -151,7 +151,7 @@ fn test_editor_save_writes_file_and_clears_modified() -> io::Result<()> {
     let path = temp_dir.path().join("save.txt");
     fs::write(&path, "hello\n").expect("test setup");
 
-    let mut editor = Editor::from_content("save.txt".to_string(), path.clone(), "hello\n");
+    let mut editor = Editor::from_content("save.txt".to_owned(), path.clone(), "hello\n");
     editor.cursor_col = 5;
     editor.insert_char('!');
     assert!(editor.state.is_modified());
@@ -168,7 +168,7 @@ fn test_editor_save_leaves_no_temp_file_behind() -> io::Result<()> {
     let path = temp_dir.path().join("atomic.txt");
     fs::write(&path, "hello\n").expect("test setup");
 
-    let mut editor = Editor::from_content("atomic.txt".to_string(), path.clone(), "hello\n");
+    let mut editor = Editor::from_content("atomic.txt".to_owned(), path.clone(), "hello\n");
     editor.move_end();
     editor.insert_char('!');
     editor.save()?;
@@ -183,7 +183,7 @@ fn test_editor_save_leaves_no_temp_file_behind() -> io::Result<()> {
                 .into_owned()
         })
         .collect();
-    assert_eq!(names, vec!["atomic.txt".to_string()]);
+    assert_eq!(names, vec!["atomic.txt".to_owned()]);
     Ok(())
 }
 
@@ -197,7 +197,7 @@ fn test_editor_save_replaces_file_and_keeps_mode() -> io::Result<()> {
     fs::write(&path, "hello\n").expect("test setup");
     fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).expect("test setup");
 
-    let mut editor = Editor::from_content("mode.txt".to_string(), path.clone(), "hello\n");
+    let mut editor = Editor::from_content("mode.txt".to_owned(), path.clone(), "hello\n");
     editor.move_end();
     editor.insert_char('!');
     let inode_before = fs::metadata(&path)?.ino();

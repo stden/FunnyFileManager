@@ -1,5 +1,4 @@
 //! Unit tests: popup command line (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use crate::lineedit::LineEditor;
 use crate::models::FileName;
@@ -11,15 +10,9 @@ use super::support::*;
 use crate::ops::*;
 use crate::popup::process_popup_input;
 
-#[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
-
 use crate::models::{
     App, BookmarkSlot, Candidate, CandidateKind, CommandLine, Menu, Overlay, Panel, SortMode,
 };
-
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
 
 use crossterm::event::{KeyCode, KeyModifiers};
 
@@ -85,7 +78,7 @@ fn test_process_popup_input_command_line_enter_empty() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
     app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
     app.set_overlay(Overlay::CommandLine("   ".into()));
-    app.set_status(Status::CommandOutput("status".to_string()));
+    app.set_status(Status::CommandOutput("status".to_owned()));
 
     assert!(process_popup_input(&mut app, key_event(KeyCode::Enter)));
     assert!(!matches!(app.overlay, Overlay::CommandLine(_)));
@@ -405,7 +398,7 @@ fn test_enter_accept_splits_on_multi_byte_whitespace() {
     app.set_overlay(Overlay::CommandLine(CommandLine {
         line: LineEditor::new("m\u{3000}x"),
         menu: Menu::new(vec![Candidate {
-            text: "mcp".to_string(),
+            text: "mcp".to_owned(),
             kind: CandidateKind::Word,
             hint: None,
         }]),
@@ -470,7 +463,7 @@ fn test_typing_refreshes_an_open_menu() {
     // re-highlighted: only "mcp" still matches "mc".
     assert_eq!(
         menu_texts(&app),
-        vec!["mcp".to_string()],
+        vec!["mcp".to_owned()],
         "the candidate list must track the edited buffer"
     );
 }
@@ -495,7 +488,7 @@ fn buffer_of(app: &App) -> String {
     let Overlay::CommandLine(state) = &app.overlay else {
         panic!("command line should be open");
     };
-    state.text().to_string()
+    state.text().to_owned()
 }
 
 #[test]
@@ -510,7 +503,7 @@ fn test_backspace_refreshes_an_open_menu() {
     );
 
     process_popup_input(&mut app, key_event(KeyCode::Char('c')));
-    assert_eq!(menu_texts(&app), vec!["mcp".to_string()]);
+    assert_eq!(menu_texts(&app), vec!["mcp".to_owned()]);
 
     process_popup_input(&mut app, key_event(KeyCode::Backspace));
 

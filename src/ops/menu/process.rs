@@ -37,8 +37,10 @@ fn capture_with_timeout(
         if Instant::now() >= deadline
             || stdout.metadata()?.len() + stderr.metadata()?.len() > MAX_OUTPUT
         {
-            let _ = child.kill();
-            let _ = child.wait();
+            // Best effort: the limit is the error reported, and a child that
+            // already exited has nothing left to kill or reap.
+            drop(child.kill());
+            drop(child.wait());
             return Err(io::Error::new(
                 io::ErrorKind::TimedOut,
                 "Command exceeded its time or output limit",

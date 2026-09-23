@@ -18,7 +18,7 @@ use crate::models::{DirEntry, Panel};
 /// Far's selection summary, centred on the divider in the marked entries'
 /// colour while anything is marked. The rule it covers is what Far covers:
 /// with a mark on screen, how many and how big is the question being asked.
-pub(super) fn render(f: &mut Frame, panel: &Panel, row: Rect) {
+pub(super) fn render(f: &mut Frame<'_>, panel: &Panel, row: Rect) {
     let Some(summary) = selection_summary(panel, Cells::columns(row.width)) else {
         return;
     };

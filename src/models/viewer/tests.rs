@@ -1,11 +1,7 @@
 //! Purpose: Pins how a viewer is built from a file's bytes, how many rows a
 //! terminal gives it, and where it stops scrolling.
 
-use std::path::PathBuf;
-
 use super::*;
-use crate::encoding::TextEncoding;
-use crate::scroll::{ScrollLeft, ScrollTop};
 
 fn file(bytes: &[u8]) -> Viewer {
     Viewer::file(PathBuf::from("/tmp/notes.txt"), bytes)

@@ -50,7 +50,7 @@ const MASK: &str = "••••••••";
 /// Draw the vault browser: the unlock prompt while locked, the entry list once
 /// unlocked.
 pub(super) fn render_kdbx(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     session: &KdbxSession,
     tracker: &mut crate::mouse::DialogMouse,
 ) {
@@ -84,7 +84,7 @@ fn display_path(path: &std::path::Path) -> String {
 }
 
 fn render_locked(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     name: &str,
     prompt: &crate::kdbx::UnlockPrompt,
     tracker: &mut crate::mouse::DialogMouse,
@@ -136,7 +136,7 @@ fn clipped_password(
 }
 
 fn render_unlocked(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     name: &str,
     vault: &Vault,
     tracker: &mut crate::mouse::DialogMouse,
@@ -161,7 +161,7 @@ fn render_unlocked(
 /// of the screen. The locked prompt below stays a centred dialog — it is a
 /// question about the file under the cursor, and the panels stay visible
 /// behind it.
-fn render_browser(f: &mut Frame, name: &str, vault: &Vault) {
+fn render_browser(f: &mut Frame<'_>, name: &str, vault: &Vault) {
     let area = f.area();
     let inner_w = Cells::columns(area.width.saturating_sub(2));
     let inner_h = usize::from(area.height.saturating_sub(2));
@@ -194,7 +194,7 @@ fn render_browser(f: &mut Frame, name: &str, vault: &Vault) {
 }
 
 fn render_password(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     name: &str,
     vault: &Vault,
     tracker: &mut crate::mouse::DialogMouse,
@@ -227,7 +227,7 @@ fn render_password(
 }
 
 fn render_delete(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     name: &str,
     vault: &Vault,
     tracker: &mut crate::mouse::DialogMouse,

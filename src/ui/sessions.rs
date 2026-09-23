@@ -24,7 +24,7 @@ use crate::models::{sessions_panel, Panel, PanelKind, SessionRow, SessionsPanel}
 /// spends on its column titles, so a click lands on the same row in both.
 const HEADER_ROWS: u16 = 1;
 
-pub(super) fn render(f: &mut Frame, panel: &mut Panel, area: Rect, is_active: bool) {
+pub(super) fn render(f: &mut Frame<'_>, panel: &mut Panel, area: Rect, is_active: bool) {
     let PanelKind::Sessions(sessions) = &mut panel.kind else {
         return;
     };
@@ -52,7 +52,7 @@ pub(super) struct Body {
 /// Draw the frame titled `title` with the column heading `heading` under
 /// it; `None` when the panel is too short to hold a row.
 pub(super) fn frame(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     area: Rect,
     title: &str,
     heading: &str,
@@ -78,7 +78,7 @@ pub(super) fn frame(
 }
 
 /// The column heading, on the first row inside the frame.
-fn render_heading(f: &mut Frame, heading: &str, row: Rect) {
+fn render_heading(f: &mut Frame<'_>, heading: &str, row: Rect) {
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
             pad_cells(heading, Cells::columns(row.width)),
@@ -110,7 +110,7 @@ fn border(is_active: bool) -> Style {
 }
 
 /// The rows on screen, scrolled so the cursor row is always drawn.
-fn render_rows(f: &mut Frame, sessions: &mut SessionsPanel, body: Rect, is_active: bool) {
+fn render_rows(f: &mut Frame<'_>, sessions: &mut SessionsPanel, body: Rect, is_active: bool) {
     let rows = sessions.rows();
     let window = visible_window(
         rows.len(),
@@ -119,7 +119,9 @@ fn render_rows(f: &mut Frame, sessions: &mut SessionsPanel, body: Rect, is_activ
         Some(sessions.cursor()),
     );
     let width = Cells::columns(body.width);
-    let lines: Vec<Line> = rows[window.clone()]
+    let lines: Vec<Line<'_>> = rows
+        .get(window.clone())
+        .unwrap_or_default()
         .iter()
         .enumerate()
         .map(|(offset, row)| {
@@ -165,7 +167,7 @@ fn row_style(row: &SessionRow, chosen: bool) -> Style {
 }
 
 /// The info row above the bottom border.
-pub(super) fn render_info(f: &mut Frame, text: &str, row: Rect) {
+pub(super) fn render_info(f: &mut Frame<'_>, text: &str, row: Rect) {
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
             pad_cells(&printable_name(text), Cells::columns(row.width)),

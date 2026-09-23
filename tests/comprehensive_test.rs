@@ -1,4 +1,3 @@
-#![allow(unused_mut)]
 //! Purpose: Exercises broad application workflows that span models, handlers, and UI state.
 //!
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
@@ -45,13 +44,13 @@ const fn key_release(code: KeyCode) -> Event {
     })
 }
 
-fn setup_app(temp: &TempDir) -> (App, Terminal<WritableTestBackend>) {
-    let mut app = App::new().unwrap();
-    app.left_panel = Panel::new(temp.path().to_path_buf()).unwrap();
-    app.right_panel = Panel::new(temp.path().to_path_buf()).unwrap();
+fn setup_app(temp: &TempDir) -> io::Result<(App, Terminal<WritableTestBackend>)> {
+    let mut app = App::new()?;
+    app.left_panel = Panel::new(temp.path().to_path_buf())?;
+    app.right_panel = Panel::new(temp.path().to_path_buf())?;
     let backend = WritableTestBackend::new(80, 24);
-    let terminal = Terminal::new(backend).unwrap();
-    (app, terminal)
+    let terminal = Terminal::new(backend)?;
+    Ok((app, terminal))
 }
 
 fn run_events(
@@ -406,8 +405,8 @@ fn test_action_entry_names_with_marks() {
     panel.marked.insert(FileName::from("a.txt"));
     panel.marked.insert(FileName::from("b.txt"));
     let names = panel.action_entry_names();
-    assert!(names.contains(&"a.txt".to_string()));
-    assert!(names.contains(&"b.txt".to_string()));
+    assert!(names.contains(&"a.txt".to_owned()));
+    assert!(names.contains(&"b.txt".to_owned()));
 }
 
 #[test]
@@ -498,7 +497,7 @@ fn test_drive_entry_display() {
     let local = DriveEntry::Local(PathBuf::from("/home"));
     assert_eq!(local.display(), "/home");
 
-    let s3 = DriveEntry::S3Profile("myprofile".to_string());
+    let s3 = DriveEntry::S3Profile("myprofile".to_owned());
     assert_eq!(s3.display(), "S3: myprofile");
 }
 
@@ -533,7 +532,7 @@ fn test_viewer_default() {
 #[test]
 fn test_key_release_ignored() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (app, mut terminal) = setup_app(&temp);
+    let (app, mut terminal) = setup_app(&temp)?;
 
     let events = vec![
         key_release(KeyCode::Down), // should be ignored
@@ -554,11 +553,11 @@ fn test_viewer_scroll_down_and_up() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
     let mut content = String::new();
     for i in 0..50 {
-        let _ = writeln!(content, "Line {i}");
+        writeln!(content, "Line {i}").map_err(io::Error::other)?;
     }
     fs::write(temp.path().join("long.txt"), content.as_bytes()).unwrap();
 
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     // Select the file
     let idx = app
         .left_panel
@@ -587,7 +586,7 @@ fn test_viewer_scroll_up_at_zero() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
     fs::write(temp.path().join("file.txt"), b"line1\nline2").unwrap();
 
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     let idx = app
         .left_panel
         .entries
@@ -613,7 +612,7 @@ fn test_viewer_close_with_f3() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
     fs::write(temp.path().join("file.txt"), b"content").unwrap();
 
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     let idx = app
         .left_panel
         .entries
@@ -645,7 +644,7 @@ fn test_command_line_cd() -> io::Result<()> {
     let sub = temp.path().join("target");
     fs::create_dir(&sub).unwrap();
 
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     let target_str = sub.to_string_lossy().to_string();
     app.set_overlay(Overlay::CommandLine(format!("cd {target_str}").into()));
 
@@ -662,7 +661,7 @@ fn test_command_line_cd() -> io::Result<()> {
 #[test]
 fn test_command_line_pwd() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("pwd".into()));
 
     let events = vec![
@@ -678,7 +677,7 @@ fn test_command_line_pwd() -> io::Result<()> {
 #[test]
 fn test_command_line_sort_name() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("sort name".into()));
 
     let events = vec![
@@ -693,7 +692,7 @@ fn test_command_line_sort_name() -> io::Result<()> {
 #[test]
 fn test_command_line_sort_ext() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("sort ext".into()));
 
     let events = vec![
@@ -708,7 +707,7 @@ fn test_command_line_sort_ext() -> io::Result<()> {
 #[test]
 fn test_command_line_sort_extension() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("sort extension".into()));
 
     let events = vec![
@@ -723,7 +722,7 @@ fn test_command_line_sort_extension() -> io::Result<()> {
 #[test]
 fn test_command_line_sort_size() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("sort size".into()));
 
     let events = vec![
@@ -738,7 +737,7 @@ fn test_command_line_sort_size() -> io::Result<()> {
 #[test]
 fn test_command_line_sort_invalid() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("sort blah".into()));
 
     let events = vec![
@@ -756,7 +755,7 @@ fn test_command_line_mark_all() -> io::Result<()> {
     fs::write(temp.path().join("a.txt"), b"").unwrap();
     fs::write(temp.path().join("b.txt"), b"").unwrap();
 
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("mark all".into()));
 
     let events = vec![
@@ -771,7 +770,7 @@ fn test_command_line_mark_all() -> io::Result<()> {
 #[test]
 fn test_command_line_unmark() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.left_panel.marked.insert(FileName::from("a.txt"));
     app.set_overlay(Overlay::CommandLine("unmark".into()));
 
@@ -787,7 +786,7 @@ fn test_command_line_unmark() -> io::Result<()> {
 #[test]
 fn test_command_line_help() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("help".into()));
 
     let events = vec![
@@ -804,7 +803,7 @@ fn test_command_line_help() -> io::Result<()> {
 #[test]
 fn test_command_line_quit() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("quit".into()));
 
     let events = vec![key(KeyCode::Enter)]; // quit command
@@ -815,7 +814,7 @@ fn test_command_line_quit() -> io::Result<()> {
 #[test]
 fn test_command_line_exit() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("exit".into()));
 
     let events = vec![key(KeyCode::Enter)]; // exit command
@@ -826,7 +825,7 @@ fn test_command_line_exit() -> io::Result<()> {
 #[test]
 fn test_command_line_unknown() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("foobar".into()));
 
     let events = vec![
@@ -841,7 +840,7 @@ fn test_command_line_unknown() -> io::Result<()> {
 #[test]
 fn test_command_line_empty_enter() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("".into()));
 
     let events = vec![
@@ -856,7 +855,7 @@ fn test_command_line_empty_enter() -> io::Result<()> {
 #[test]
 fn test_command_line_escape() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("some text".into()));
 
     let events = vec![key(KeyCode::Esc), key(KeyCode::F(10)), key(KeyCode::Enter)];
@@ -867,7 +866,7 @@ fn test_command_line_escape() -> io::Result<()> {
 #[test]
 fn test_command_line_backspace() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("ab".into()));
 
     let events = vec![
@@ -885,7 +884,7 @@ fn test_command_line_backspace() -> io::Result<()> {
 #[test]
 fn test_command_line_type_chars() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine(String::new().into()));
 
     let events = vec![
@@ -904,7 +903,7 @@ fn test_command_line_type_chars() -> io::Result<()> {
 #[test]
 fn test_command_bookmark_set_and_go() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("bookmark set 0".into()));
 
     let events = vec![
@@ -920,7 +919,7 @@ fn test_command_bookmark_set_and_go() -> io::Result<()> {
 #[test]
 fn test_command_bookmark_go_empty() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("bookmark go 5".into()));
 
     let events = vec![
@@ -935,7 +934,7 @@ fn test_command_bookmark_go_empty() -> io::Result<()> {
 #[test]
 fn test_command_cd_missing_arg() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("cd".into()));
 
     let events = vec![
@@ -950,7 +949,7 @@ fn test_command_cd_missing_arg() -> io::Result<()> {
 #[test]
 fn test_command_cd_invalid_path() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("cd /nonexistent_path_xyz_123".into()));
 
     let events = vec![
@@ -965,7 +964,7 @@ fn test_command_cd_invalid_path() -> io::Result<()> {
 #[test]
 fn test_command_mark_invalid_sub() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.set_overlay(Overlay::CommandLine("mark blah".into()));
 
     let events = vec![
@@ -982,7 +981,7 @@ fn test_command_mark_invalid_sub() -> io::Result<()> {
 #[test]
 fn test_drive_selection_navigate_and_escape() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (app, mut terminal) = setup_app(&temp);
+    let (app, mut terminal) = setup_app(&temp)?;
 
     let events = vec![
         key_mod(KeyCode::F(1), KeyModifiers::ALT), // open drive selection for left
@@ -1002,7 +1001,7 @@ fn test_drive_selection_navigate_and_escape() -> io::Result<()> {
 #[test]
 fn test_drive_selection_enter_local() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (app, mut terminal) = setup_app(&temp);
+    let (app, mut terminal) = setup_app(&temp)?;
 
     let events = vec![
         key_mod(KeyCode::F(1), KeyModifiers::ALT), // open for left
@@ -1018,7 +1017,7 @@ fn test_drive_selection_enter_local() -> io::Result<()> {
 #[test]
 fn test_drive_selection_right_panel() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (app, mut terminal) = setup_app(&temp);
+    let (app, mut terminal) = setup_app(&temp)?;
 
     let events = vec![
         key_mod(KeyCode::F(2), KeyModifiers::ALT), // open for right
@@ -1034,7 +1033,7 @@ fn test_drive_selection_right_panel() -> io::Result<()> {
 #[test]
 fn test_drive_selection_up_wraps() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (app, mut terminal) = setup_app(&temp);
+    let (app, mut terminal) = setup_app(&temp)?;
 
     let events = vec![
         key_mod(KeyCode::F(1), KeyModifiers::ALT),
@@ -1051,7 +1050,7 @@ fn test_drive_selection_up_wraps() -> io::Result<()> {
 #[test]
 fn test_drive_selection_down_wraps() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (app, mut terminal) = setup_app(&temp);
+    let (app, mut terminal) = setup_app(&temp)?;
 
     let events = vec![
         key_mod(KeyCode::F(1), KeyModifiers::ALT),
@@ -1073,7 +1072,7 @@ fn test_delete_confirm_yes() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
     fs::write(temp.path().join("doomed.txt"), b"bye").unwrap();
 
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     let idx = app
         .left_panel
         .entries
@@ -1100,7 +1099,7 @@ fn test_delete_confirm_no() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
     fs::write(temp.path().join("safe.txt"), b"keep").unwrap();
 
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     let idx = app
         .left_panel
         .entries
@@ -1127,7 +1126,7 @@ fn test_delete_confirm_escape() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
     fs::write(temp.path().join("safe.txt"), b"keep").unwrap();
 
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     let idx = app
         .left_panel
         .entries
@@ -1154,7 +1153,7 @@ fn test_delete_confirm_with_enter() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
     fs::write(temp.path().join("gone.txt"), b"data").unwrap();
 
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     let idx = app
         .left_panel
         .entries
@@ -1183,7 +1182,7 @@ fn test_delete_marked_files() -> io::Result<()> {
     fs::write(temp.path().join("b.txt"), b"").unwrap();
     fs::write(temp.path().join("c.txt"), b"").unwrap();
 
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.left_panel.marked.insert(FileName::from("a.txt"));
     app.left_panel.marked.insert(FileName::from("b.txt"));
 
@@ -1209,7 +1208,7 @@ fn test_delete_directory() -> io::Result<()> {
     fs::create_dir(&sub).unwrap();
     fs::write(sub.join("inside.txt"), b"").unwrap();
 
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     let idx = app
         .left_panel
         .entries
@@ -1234,7 +1233,7 @@ fn test_delete_directory() -> io::Result<()> {
 #[test]
 fn test_delete_dotdot_does_nothing() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     app.left_panel.select(Some(0)); // ".."
 
     let events = vec![
@@ -1252,7 +1251,7 @@ fn test_delete_dotdot_does_nothing() -> io::Result<()> {
 #[test]
 fn test_new_file_create() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (app, mut terminal) = setup_app(&temp)?;
 
     let events = vec![
         key_mod(KeyCode::F(4), KeyModifiers::SHIFT), // open new file dialog
@@ -1277,7 +1276,7 @@ fn test_new_file_create() -> io::Result<()> {
 #[test]
 fn test_new_file_empty_name() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (app, mut terminal) = setup_app(&temp)?;
 
     let events = vec![
         key_mod(KeyCode::F(4), KeyModifiers::SHIFT),
@@ -1293,7 +1292,7 @@ fn test_new_file_empty_name() -> io::Result<()> {
 #[test]
 fn test_new_file_escape() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (app, mut terminal) = setup_app(&temp)?;
 
     let events = vec![
         key_mod(KeyCode::F(4), KeyModifiers::SHIFT),
@@ -1310,7 +1309,7 @@ fn test_new_file_escape() -> io::Result<()> {
 #[test]
 fn test_new_file_backspace() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (app, mut terminal) = setup_app(&temp)?;
 
     let events = vec![
         key_mod(KeyCode::F(4), KeyModifiers::SHIFT),
@@ -1333,8 +1332,8 @@ fn test_new_file_already_exists() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
     fs::write(temp.path().join("exists.txt"), b"data").unwrap();
 
-    let (mut app, mut terminal) = setup_app(&temp);
-    app.set_overlay(Overlay::NewFileInput("exists.txt".to_string()));
+    let (mut app, mut terminal) = setup_app(&temp)?;
+    app.set_overlay(Overlay::NewFileInput("exists.txt".to_owned()));
 
     let events = vec![
         key(KeyCode::Enter), // try to create existing file
@@ -1351,7 +1350,7 @@ fn test_new_file_already_exists() -> io::Result<()> {
 #[test]
 fn test_console_mode_toggle() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (app, mut terminal) = setup_app(&temp);
+    let (app, mut terminal) = setup_app(&temp)?;
 
     let events = vec![
         key_mod(KeyCode::Char('o'), KeyModifiers::CONTROL), // enter console mode
@@ -1395,7 +1394,7 @@ fn test_ctrl_u_swap_panels_via_event_loop() -> io::Result<()> {
 #[test]
 fn test_ctrl_backslash_goes_to_root() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
-    let (app, mut terminal) = setup_app(&temp);
+    let (app, mut terminal) = setup_app(&temp)?;
 
     let events = vec![
         key_mod(KeyCode::Char('\\'), KeyModifiers::CONTROL),
@@ -1416,7 +1415,7 @@ fn test_home_end_keys() -> io::Result<()> {
         fs::write(temp.path().join(format!("file{i:02}.txt")), b"").unwrap();
     }
 
-    let (app, mut terminal) = setup_app(&temp);
+    let (app, mut terminal) = setup_app(&temp)?;
 
     let events = vec![
         key(KeyCode::End),  // go to last
@@ -1437,7 +1436,7 @@ fn test_insert_and_space_marking() -> io::Result<()> {
     fs::write(temp.path().join("a.txt"), b"").unwrap();
     fs::write(temp.path().join("b.txt"), b"").unwrap();
 
-    let (app, mut terminal) = setup_app(&temp);
+    let (app, mut terminal) = setup_app(&temp)?;
 
     let events = vec![
         key(KeyCode::Down),      // move past ".."
@@ -1622,7 +1621,7 @@ fn test_ui_render_new_file_input() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let mut app = App::new().unwrap();
-    app.set_overlay(Overlay::NewFileInput("newfile.txt".to_string()));
+    app.set_overlay(Overlay::NewFileInput("newfile.txt".to_owned()));
 
     terminal
         .draw(|f| funny_file_manager::ui::ui(f, &mut app))
@@ -1649,7 +1648,7 @@ fn test_view_empty_file() -> io::Result<()> {
     let temp = TempDir::new().unwrap();
     fs::write(temp.path().join("empty.txt"), b"").unwrap();
 
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     let idx = app
         .left_panel
         .entries
@@ -1675,7 +1674,7 @@ fn test_view_directory_opens_the_information_panel() -> io::Result<()> {
     let sub = temp.path().join("subdir");
     fs::create_dir(&sub).unwrap();
 
-    let (mut app, mut terminal) = setup_app(&temp);
+    let (mut app, mut terminal) = setup_app(&temp)?;
     let idx = app
         .left_panel
         .entries
@@ -1823,7 +1822,7 @@ fn test_sort_mode_default() {
 #[test]
 fn test_dir_entry_struct() {
     let entry = DirEntry {
-        name: "test".to_string(),
+        name: "test".to_owned(),
         kind: EntryKind::Directory,
         size: FileSize::from_bytes(0),
         modified: Modified::UNKNOWN,
@@ -1834,7 +1833,7 @@ fn test_dir_entry_struct() {
     assert_eq!(entry.size, FileSize::from_bytes(0));
 
     let file = DirEntry {
-        name: "f.txt".to_string(),
+        name: "f.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(42),
         modified: Modified::UNKNOWN,

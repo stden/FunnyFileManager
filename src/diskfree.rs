@@ -79,7 +79,10 @@ pub fn capacity(path: &Path) -> Option<Capacity> {
 
 #[cfg(windows)]
 #[must_use]
-#[allow(unsafe_code)]
+#[allow(
+    unsafe_code,
+    reason = "std has no call for a volume's size and free space"
+)]
 pub fn capacity(path: &Path) -> Option<Capacity> {
     use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
 
@@ -113,7 +116,10 @@ pub fn capacity(_path: &Path) -> Option<Capacity> {
 /// distinction the kernel does not draw.
 #[cfg(windows)]
 #[must_use]
-#[allow(unsafe_code)]
+#[allow(
+    unsafe_code,
+    reason = "std cannot tell a network or removable drive from a fixed one"
+)]
 pub fn drive_kind(path: &Path) -> DriveKind {
     use windows_sys::Win32::{
         Storage::FileSystem::GetDriveTypeW,

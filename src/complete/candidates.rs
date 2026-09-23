@@ -8,7 +8,11 @@ use crate::models::{Candidate, CandidateKind};
 use super::paths::path_complete;
 use super::{execs, matcher, shellwords, CompletionContext};
 
-pub(super) fn candidates_for(head: &str, token: &str, ctx: &CompletionContext) -> Vec<Candidate> {
+pub(super) fn candidates_for(
+    head: &str,
+    token: &str,
+    ctx: &CompletionContext<'_>,
+) -> Vec<Candidate> {
     let head_words: Vec<&str> = head.split_whitespace().collect();
 
     match head_words.first() {
@@ -51,7 +55,7 @@ pub(super) fn candidates_for(head: &str, token: &str, ctx: &CompletionContext) -
 fn sessions_candidates(
     head_words: &[&str],
     token: &str,
-    ctx: &CompletionContext,
+    ctx: &CompletionContext<'_>,
 ) -> Vec<Candidate> {
     match head_words {
         [_] => plain_candidates(match_filter(&["import"], token), CandidateKind::Word),
@@ -201,5 +205,5 @@ fn plain_candidates(texts: Vec<String>, kind: CandidateKind) -> Vec<Candidate> {
 
 /// Keep the options matching `token`, best first (see [`matcher::rank`]).
 fn match_filter(options: &[&str], token: &str) -> Vec<String> {
-    matcher::rank(token, options.iter().map(|&o| o.to_string()).collect())
+    matcher::rank(token, options.iter().map(|&o| o.to_owned()).collect())
 }

@@ -52,7 +52,9 @@ fn every_printed_extended_shortcut_resolves_to_its_menu_command() {
             if shortcut.is_empty() {
                 continue;
             }
-            let key = printed_shortcut(shortcut);
+            let Some(key) = printed_shortcut(shortcut) else {
+                panic!("{shortcut} does not name a key");
+            };
             assert_eq!(
                 funny_file_manager::action::resolve(key),
                 funny_file_manager::action::Action::MenuCommand(command),
@@ -62,25 +64,30 @@ fn every_printed_extended_shortcut_resolves_to_its_menu_command() {
     }
 }
 
-fn printed_shortcut(text: &str) -> KeyEvent {
+/// The key a menu prints as `text` (`Ctrl+F3`, `Del`), or `None` if it names none.
+fn printed_shortcut(text: &str) -> Option<KeyEvent> {
     let (modifier, key) = text.split_once('+').unwrap_or(("", text));
     let modifiers = match modifier {
         "Ctrl" => KeyModifiers::CONTROL,
         "Alt" => KeyModifiers::ALT,
         "Shift" => KeyModifiers::SHIFT,
         "" => KeyModifiers::NONE,
-        _ => panic!("unknown modifier"),
+        _ => return None,
     };
     let code = if let Some(number) = key.strip_prefix('F') {
-        KeyCode::F(number.parse().unwrap())
+        KeyCode::F(number.parse().ok()?)
     } else if key == "Del" {
         KeyCode::Delete
     } else {
-        KeyCode::Char(key.chars().next().unwrap().to_ascii_lowercase())
+        KeyCode::Char(key.chars().next()?.to_ascii_lowercase())
     };
-    KeyEvent::new(code, modifiers)
+    Some(KeyEvent::new(code, modifiers))
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture: a menu without the named entry fails the test that chose it"
+)]
 fn select_menu(app: &mut App, heading: Heading, label: &str) {
     let mut menu = Menu::open(heading);
     menu.row = menu

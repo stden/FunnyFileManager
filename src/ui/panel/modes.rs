@@ -9,7 +9,7 @@ use crate::models::{DirEntry, Panel, ShortName, ShortNames};
 
 mod columns;
 
-pub(super) fn render(f: &mut Frame, panel: &mut Panel, inner: Rect, active: bool) {
+pub(super) fn render(f: &mut Frame<'_>, panel: &mut Panel, inner: Rect, active: bool) {
     let header = Rect { height: 1, ..inner };
     let layout = columns::Layout::new(panel.view, Cells::columns(inner.width));
     f.render_widget(Paragraph::new(layout.header()), header);
@@ -25,7 +25,7 @@ pub(super) fn render(f: &mut Frame, panel: &mut Panel, inner: Rect, active: bool
 }
 
 fn render_rows(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     panel: &mut Panel,
     body: Rect,
     active: bool,
@@ -46,7 +46,9 @@ fn render_rows(
             height: 1,
             ..body
         };
-        let entry = &panel.entries[index];
+        let Some(entry) = panel.entries.get(index) else {
+            break;
+        };
         let style = row_style(panel, entry, active && panel.selected() == Some(index));
         let name = displayed_name(short_names.as_ref(), &entry.name);
         f.render_widget(

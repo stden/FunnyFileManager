@@ -10,7 +10,7 @@ fn test_verb_completion_accepts_a_fuzzy_query() {
     let completion = complete("bkm", Path::new(".")).expect("fuzzy verb match");
     let names = texts(&completion);
     assert!(
-        names.contains(&"bookmark".to_string()),
+        names.contains(&"bookmark".to_owned()),
         "candidates were {names:?}"
     );
 }
@@ -22,7 +22,7 @@ fn test_exact_prefix_candidate_ranks_first() {
     let names = texts(&completion);
     assert_eq!(
         names.first(),
-        Some(&"mcp".to_string()),
+        Some(&"mcp".to_owned()),
         "candidates were {names:?}"
     );
 }
@@ -41,17 +41,17 @@ fn rank_by_leaf_ranks_exact_leaf_prefix_above_fuzzy_and_keeps_dir_part() {
     // "sub/complete_b/".starts_with("com") was false even though the leaf
     // "complete_b" is an exact prefix match for "com".
     let candidates = vec![
-        "sub/xcomz/".to_string(),
-        "sub/command_a/".to_string(),
-        "sub/complete_b/".to_string(),
+        "sub/xcomz/".to_owned(),
+        "sub/command_a/".to_owned(),
+        "sub/complete_b/".to_owned(),
     ];
     let ranked = rank_by_leaf("com", candidates);
     assert_eq!(
         ranked,
         vec![
-            "sub/command_a/".to_string(),
-            "sub/complete_b/".to_string(),
-            "sub/xcomz/".to_string(),
+            "sub/command_a/".to_owned(),
+            "sub/complete_b/".to_owned(),
+            "sub/xcomz/".to_owned(),
         ]
     );
 }
@@ -62,8 +62,8 @@ fn rank_by_leaf_keeps_non_matching_leaf_instead_of_dropping_it() {
     // like "FOO"; smartcase then makes matching case-sensitive, so
     // `matcher::score` alone would reject it. fish already validated this
     // candidate, so ranking must never drop it — only order it.
-    let ranked = rank_by_leaf("FOO", vec!["foo/".to_string()]);
-    assert_eq!(ranked, vec!["foo/".to_string()]);
+    let ranked = rank_by_leaf("FOO", vec!["foo/".to_owned()]);
+    assert_eq!(ranked, vec!["foo/".to_owned()]);
 }
 
 #[test]
@@ -71,9 +71,9 @@ fn rank_by_leaf_orders_matches_before_non_matching_leftovers() {
     let ranked = rank_by_leaf(
         "com",
         vec![
-            "xcomz/".to_string(),
-            "command_a/".to_string(),
-            "FOO/".to_string(),
+            "xcomz/".to_owned(),
+            "command_a/".to_owned(),
+            "FOO/".to_owned(),
         ],
     );
     // "command_a/" is an exact leaf-prefix match, "xcomz/" a fuzzy one, and
@@ -81,9 +81,9 @@ fn rank_by_leaf_orders_matches_before_non_matching_leftovers() {
     assert_eq!(
         ranked,
         vec![
-            "command_a/".to_string(),
-            "xcomz/".to_string(),
-            "FOO/".to_string(),
+            "command_a/".to_owned(),
+            "xcomz/".to_owned(),
+            "FOO/".to_owned(),
         ]
     );
 }
@@ -101,11 +101,11 @@ fn fuzzy_leaf_matches_survive_fish_prefix_shadowing() {
     let completion = complete("cd dwn", tmp.path()).expect("candidates");
     let names = texts(&completion);
     assert!(
-        names.contains(&"dwn-tools/".to_string()),
+        names.contains(&"dwn-tools/".to_owned()),
         "prefix match lost: {names:?}"
     );
     assert!(
-        names.contains(&"Downloads/".to_string()),
+        names.contains(&"Downloads/".to_owned()),
         "fuzzy match must not be shadowed by fish's prefix matches: {names:?}"
     );
 }

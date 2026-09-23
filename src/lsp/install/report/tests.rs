@@ -1,7 +1,7 @@
 //! Purpose: Verify inventory states and parameters without package installation or server execution.
 
 use super::*;
-use crate::lsp::install::{fixtures::Packages, storage, tests::simple_recipe};
+use crate::lsp::install::{fixtures::Packages, tests::simple_recipe};
 use std::sync::atomic::AtomicBool;
 use tempfile::TempDir;
 

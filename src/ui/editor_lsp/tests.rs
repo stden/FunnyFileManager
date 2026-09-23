@@ -110,9 +110,58 @@ fn check_definition_list(editor: &Editor) {
     assert!(text.contains("source.rs:1:1"));
 }
 
+/// One `marker label [kind]` line per item, then a blank line and the
+/// selected item's detail and documentation.
+#[test]
+fn completion_text_lists_the_items_then_the_selected_ones_details() {
+    use crate::lsp::{
+        features::{self, Reply},
+        types::Feature,
+    };
+    let Reply::Completions(items) = features::parse(
+        Feature::Completion,
+        &serde_json::json!([
+            {"label":"alpha","kind":3,"detail":"fn alpha()","documentation":"first"},
+            {"label":"beta","detail":"fn beta()","documentation":"second"}
+        ]),
+    )
+    .unwrap() else {
+        panic!()
+    };
+    assert_eq!(
+        completions(&items, 1),
+        "  alpha [3]\n> beta []\n\nfn beta()\nsecond"
+    );
+}
+
+/// One `marker path:line:column` line per definition, counted from one.
+#[test]
+fn definition_text_is_one_location_per_line_counted_from_one() {
+    let path = std::path::PathBuf::from("lib.rs");
+    let at = Position {
+        line: 4,
+        character: 2,
+    };
+    let items = [
+        crate::lsp::features::Definition {
+            path: path.clone(),
+            range: Range { start: at, end: at },
+        },
+        crate::lsp::features::Definition {
+            path: path.clone(),
+            range: Range::default(),
+        },
+    ];
+    let label = crate::path_display::label(&path);
+    assert_eq!(
+        definitions(&items, 0),
+        format!("> {label}:5:3\n  {label}:1:1\n")
+    );
+}
+
 /// `text` as an editor line with the default tab stops.
-fn line(text: &str) -> crate::ui::EditorLine<'_> {
-    crate::ui::EditorLine {
+fn line(text: &str) -> EditorLine<'_> {
+    EditorLine {
         text,
         tab: crate::models::TabSize::DEFAULT,
     }

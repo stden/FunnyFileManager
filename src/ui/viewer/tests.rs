@@ -7,9 +7,9 @@ use ratatui::backend::TestBackend;
 use ratatui::style::Color;
 use ratatui::Terminal;
 
-use super::super::{palette, ui, Cells};
+use super::super::ui;
 use super::*;
-use crate::models::{App, Overlay, Viewer};
+use crate::models::{App, Overlay};
 
 /// A file viewer over `bytes`, not touching the disk: the highlighter picks its
 /// language from the name alone.
@@ -36,7 +36,7 @@ fn row_text(terminal: &Terminal<TestBackend>, y: u16) -> String {
         .map(|x| buf[(x, y)].symbol())
         .collect::<String>()
         .trim_end()
-        .to_string()
+        .to_owned()
 }
 
 /// The foreground of every drawn (non-blank) cell on `y`.

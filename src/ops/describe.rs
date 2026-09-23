@@ -62,7 +62,9 @@ pub fn accept(app: &mut App) {
     // Far unmarks each file as it is described: a second Ctrl+Z then asks
     // only about the ones Esc left behind, not the whole queue again.
     panel.marked.remove(name.as_str());
-    let _ = panel.load_entries();
+    // The line is written; a listing that cannot be re-read keeps its old rows
+    // until the next refresh reports the trouble.
+    drop(panel.load_entries());
     app.set_status(Status::CommandOutput(report(&name, &text)));
     prompt_next(app, rest);
 }

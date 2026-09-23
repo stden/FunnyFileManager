@@ -150,7 +150,7 @@ pub(super) const fn scroll_percent(top: usize, rows: usize, total: usize) -> usi
 }
 
 /// Draw the entire user interface: two file panels, status bar, and overlays.
-pub fn ui(f: &mut Frame, app: &mut App) {
+pub fn ui(f: &mut Frame<'_>, app: &mut App) {
     let area = f.area();
     console::render_backdrop(f, area);
     if app.view == ViewMode::Console {
@@ -172,7 +172,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
     render_overlays(f, app);
 }
 
-fn apply_theme(f: &mut Frame, app: &App) {
+fn apply_theme(f: &mut Frame<'_>, app: &App) {
     let background = match app.settings.get(crate::menu::SettingsPage::Colors) {
         "black" => Color::Black,
         "gray" => Color::DarkGray,
@@ -198,7 +198,7 @@ fn apply_theme(f: &mut Frame, app: &App) {
     }
 }
 
-fn render_panel_view(f: &mut Frame, app: &mut App, area: Rect) {
+fn render_panel_view(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     // No transcript layer here. It used to be painted underneath and "covered
     // by the panels", but covered was never true: a ratatui widget sets
     // symbols only where its text reaches, so the menu bar's 44 cells of
@@ -206,7 +206,7 @@ fn render_panel_view(f: &mut Frame, app: &mut App, area: Rect) {
     // repainted it from the log on every frame, so it never went away. The
     // transcript belongs to the console screen, which `console::render_view`
     // still paints; `render_backdrop` owns the ground here.
-    let chunks = Layout::default()
+    let [menu_bar, panels, command_line, fkey_bar] = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(MENU_BAR_HEIGHT),
@@ -214,16 +214,16 @@ fn render_panel_view(f: &mut Frame, app: &mut App, area: Rect) {
             Constraint::Length(COMMAND_LINE_HEIGHT),
             Constraint::Length(FKEY_BAR_HEIGHT),
         ])
-        .split(area);
+        .areas(area);
     app.dialog_mouse.screen = area;
-    menu::render_bar(f, app, chunks[0]);
-    render_both_panels(f, app, chunks[1]);
-    render_command_line(f, app, chunks[2]);
-    render_completion_menu(f, app, chunks[2]);
-    render_command_bar(f, chunks[3]);
+    menu::render_bar(f, app, menu_bar);
+    render_both_panels(f, app, panels);
+    render_command_line(f, app, command_line);
+    render_completion_menu(f, app, command_line);
+    render_command_bar(f, fkey_bar);
 }
 
-fn render_both_panels(f: &mut Frame, app: &mut App, area: Rect) {
+fn render_both_panels(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     // Only the active panel replaces its selected-entry footer with status.
     let footer = panel_footer(app);
     let (left, right) = panel_areas(app, area);
@@ -247,11 +247,11 @@ pub(crate) fn panel_areas(app: &App, area: Rect) -> (Option<Rect>, Option<Rect>)
         PanelsShown::LeftOnly => (Some(area), None),
         PanelsShown::RightOnly => (None, Some(area)),
         PanelsShown::Both => {
-            let halves = Layout::default()
+            let [left, right] = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .split(area);
-            (Some(halves[0]), Some(halves[1]))
+                .areas(area);
+            (Some(left), Some(right))
         }
     }
 }
@@ -259,7 +259,7 @@ pub(crate) fn panel_areas(app: &App, area: Rect) -> (Option<Rect>, Option<Rect>)
 /// One panel, drawn as whatever kind it is: a file list, a folder tree, or a
 /// preview of the other panel's cursor.
 fn render_one_panel(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     app: &mut App,
     side: PanelSide,
     area: Rect,

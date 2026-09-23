@@ -33,10 +33,12 @@ pub fn open_add(app: &mut App) {
         ));
         return;
     }
-    let single_is_dir = sources.len() == 1
-        && panel
+    let single_is_dir = match sources.as_slice() {
+        [only] => panel
             .get_selected_entry()
-            .is_some_and(|entry| entry.name == sources[0] && entry.kind.is_dir());
+            .is_some_and(|entry| entry.name == *only && entry.kind.is_dir()),
+        _ => false,
+    };
     let folder_name = panel.path.file_name().map_or_else(
         || "archive".to_owned(),
         |name| name.to_string_lossy().into_owned(),

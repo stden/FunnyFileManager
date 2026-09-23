@@ -146,7 +146,6 @@ impl SortMode {
 
     /// The legacy three-stop cycle (name, extension, size) kept for its
     /// callers; the Far-only modes walk the rest of the menu back to `Name`.
-    #[allow(dead_code)]
     #[must_use]
     pub const fn next(self) -> Self {
         match self {

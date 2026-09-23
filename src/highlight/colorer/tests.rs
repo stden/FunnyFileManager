@@ -77,7 +77,7 @@ fn a_real_catalog_finds_the_regions_in_a_rust_file() {
     let Some(colorer) = catalog() else { return };
     let lines: Vec<String> = ["// note", "fn main() {", "    let x = 42;", "}"]
         .iter()
-        .map(|line| (*line).to_string())
+        .map(|line| (*line).to_owned())
         .collect();
 
     let spans = colorer.parse(Path::new("main.rs"), &lines);
@@ -108,7 +108,7 @@ fn a_real_catalog_finds_the_regions_in_a_rust_file() {
 #[test]
 fn an_unknown_file_type_yields_no_regions() {
     let Some(colorer) = catalog() else { return };
-    let lines = vec!["some text".to_string()];
+    let lines = vec!["some text".to_owned()];
     let spans = colorer.parse(Path::new("notes.zzzz"), &lines);
     assert!(spans.iter().all(Vec::is_empty), "{spans:?}");
 }
@@ -127,7 +127,7 @@ fn colorer_covers_languages_the_built_in_tables_do_not() {
 
     let lines: Vec<String> = ["-- a comment", "local x = 42", "function f() end"]
         .iter()
-        .map(|line| (*line).to_string())
+        .map(|line| (*line).to_owned())
         .collect();
 
     let mut highlighter = crate::highlight::Highlighter::for_file(path, &lines);
@@ -148,7 +148,7 @@ fn colorer_covers_languages_the_built_in_tables_do_not() {
 #[test]
 fn the_painted_runs_reproduce_the_line() {
     let Some(_) = catalog() else { return };
-    let lines = vec!["let mut счёт = \"значение\"; // note".to_string()];
+    let lines = vec!["let mut счёт = \"значение\"; // note".to_owned()];
     let mut highlighter = crate::highlight::Highlighter::for_file(Path::new("main.rs"), &lines);
     let rejoined: String = highlighter
         .line(&lines[0])

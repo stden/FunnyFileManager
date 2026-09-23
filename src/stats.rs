@@ -9,7 +9,7 @@
 //! no statistics view: the user pressed a key to look at something, not to lose
 //! the session.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
@@ -115,7 +115,7 @@ struct Tally {
     directories: usize,
     /// Folders the walk could not list.
     unread: usize,
-    by_kind: HashMap<ContentKind, (u64, usize)>,
+    by_kind: BTreeMap<ContentKind, (u64, usize)>,
     largest: Vec<LargeFile>,
 }
 

@@ -4,7 +4,7 @@
 use ratatui::Frame;
 
 pub(super) fn render(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     _dialog: &crate::models::UserMenu,
 ) {

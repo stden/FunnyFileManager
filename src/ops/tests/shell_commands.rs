@@ -1,25 +1,18 @@
 //! Unit tests: shell commands (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use crate::models::FileName;
 
-use crate::ops::file::{format_operation_status, get_source_paths};
+use crate::ops::file::format_operation_status;
 
 use crate::ops::*;
 
 use crate::command::Command;
 
-#[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
-
 use crate::models::{App, BookmarkSlot, Overlay, Panel, SortMode};
 
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
+use std::fs;
 
-use std::fs::{self};
-
-use std::io::{self, Write};
+use std::io;
 
 use std::path::Path;
 

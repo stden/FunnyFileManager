@@ -33,14 +33,22 @@ impl SearchField {
 
     #[must_use]
     pub fn next(self) -> Self {
-        let at = Self::ORDER.iter().position(|f| *f == self).unwrap_or(0);
-        Self::ORDER[(at + 1) % Self::ORDER.len()]
+        self.round(1)
     }
 
     #[must_use]
     pub fn previous(self) -> Self {
+        self.round(Self::ORDER.len() - 1)
+    }
+
+    /// The control `steps` places further round the Tab ring. The index is
+    /// taken modulo the ring's length, so the fallback is never used.
+    fn round(self, steps: usize) -> Self {
         let at = Self::ORDER.iter().position(|f| *f == self).unwrap_or(0);
-        Self::ORDER[(at + Self::ORDER.len() - 1) % Self::ORDER.len()]
+        Self::ORDER
+            .get((at + steps) % Self::ORDER.len())
+            .copied()
+            .unwrap_or(self)
     }
 
     /// Whether this control is a checkbox, which Space toggles.

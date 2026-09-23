@@ -26,11 +26,13 @@ pub(super) fn process(app: &mut App, code: KeyCode) -> bool {
         KeyCode::Down => *selected_index = drive_index_down(*selected_index, drive_count),
         KeyCode::Home => *selected_index = 0,
         KeyCode::End if drive_count > 0 => *selected_index = drive_count - 1,
-        KeyCode::Enter if *selected_index < drive_count => {
+        KeyCode::Enter => {
             // Cloning the entry ends the `&mut app.overlay` borrow the
             // match bindings hold, so the helper can take the whole App.
-            let selected = rows[*selected_index].entry.clone();
-            finish_selection(app, target_panel, selected);
+            if let Some(row) = rows.get(*selected_index) {
+                let selected = row.entry.clone();
+                finish_selection(app, target_panel, selected);
+            }
         }
         // Far's own shortcut: the letter of a drive, or the digit
         // beside a row under the rule, opens it without the cursor.

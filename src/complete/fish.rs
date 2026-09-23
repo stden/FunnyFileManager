@@ -58,8 +58,13 @@ fn wait_for_fish(child: &mut std::process::Child) -> Option<Vec<String>> {
                     return None;
                 }
                 let mut stdout = Vec::new();
-                if let Some(mut pipe) = child.stdout.take() {
-                    let _ = pipe.read_to_end(&mut stdout);
+                let read = child
+                    .stdout
+                    .take()
+                    .map(|mut pipe| pipe.read_to_end(&mut stdout));
+                if let Some(Err(error)) = read {
+                    // Parse whatever arrived before the failure, as before.
+                    crate::diagnostics::log_error(&format!("fish completion output: {error}"));
                 }
                 let candidates = parse_fish_completions(&String::from_utf8_lossy(&stdout));
                 return (!candidates.is_empty()).then_some(candidates);
@@ -70,8 +75,10 @@ fn wait_for_fish(child: &mut std::process::Child) -> Option<Vec<String>> {
             // Timed out — or `try_wait` itself failed, which gets the same
             // treatment: kill whatever is left and fall back to no completion.
             Ok(None) | Err(_) => {
-                let _ = child.kill();
-                let _ = child.wait();
+                // Best effort: fish may have exited on its own meanwhile, and
+                // completion falls back either way.
+                drop(child.kill());
+                drop(child.wait());
                 return None;
             }
         }
@@ -87,6 +94,6 @@ pub(super) fn parse_fish_completions(stdout: &str) -> Vec<String> {
         .lines()
         .filter_map(|l| l.split('\t').next())
         .filter(|v| !v.is_empty())
-        .map(str::to_string)
+        .map(str::to_owned)
         .collect()
 }

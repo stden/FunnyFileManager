@@ -3,8 +3,7 @@
 
 use std::path::Path;
 
-use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-use ratatui::Terminal;
+use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
 use tempfile::TempDir;
 use unicode_width::UnicodeWidthStr;
 
@@ -77,8 +76,8 @@ fn click_text(term: &mut Terminal<WritableTestBackend>, app: &mut App, label: &s
             let text: String = (0..area.width)
                 .map(|column| buffer[(column, row)].symbol())
                 .collect();
-            text.find(label)
-                .map(|byte| (u16::try_from(text[..byte].width()).unwrap(), row))
+            text.split_once(label)
+                .map(|(before, _)| (u16::try_from(before.width()).unwrap(), row))
         })
         .expect("rendered target");
     gesture(term, app, MouseEventKind::Down(MouseButton::Left), position);

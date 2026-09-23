@@ -20,20 +20,16 @@ impl App {
     /// Every row of the Change drive dialog: local drives, AWS S3 profiles,
     /// then the two plugin rows Far lists after them.
     pub fn get_all_drives() -> Vec<DriveEntry> {
-        #[cfg_attr(not(feature = "s3"), allow(unused_mut))]
-        let mut entries: Vec<DriveEntry> = Self::get_drives()
-            .into_iter()
-            .map(DriveEntry::Local)
-            .collect();
-
+        let entries = Self::get_drives().into_iter().map(DriveEntry::Local);
         #[cfg(feature = "s3")]
-        for profile in crate::s3::list_aws_profiles() {
-            entries.push(DriveEntry::S3Profile(profile.name));
-        }
-
-        entries.push(DriveEntry::NetBox);
-        entries.push(DriveEntry::ProcessList);
+        let entries = entries.chain(
+            crate::s3::list_aws_profiles()
+                .into_iter()
+                .map(|profile| DriveEntry::S3Profile(profile.name)),
+        );
         entries
+            .chain([DriveEntry::NetBox, DriveEntry::ProcessList])
+            .collect()
     }
 }
 

@@ -16,7 +16,7 @@
 | `cargo clippy -- -D warnings` | Lint (must be clean) |
 | `./scripts/lint.py` / `./ffm.py lint` | Shared local/CI format, spelling (`typos`, `cargo install typos-cli`) and Clippy gate for TUI, MCP, and Colorer |
 | `./ffm.py lint spelling` | Spell check only; project words live in `typos.toml` |
-| `./ffm.py lint self-test` | Prove the spell check rejects a misspelling; run the developer scripts' unit tests (`scripts/tests`); compile positive/negative readability fixtures and compare behavior; requires Python |
+| `./ffm.py lint self-test` | Prove the spell check rejects a misspelling; run the developer scripts' unit tests (`scripts/tests`); compile positive/negative readability fixtures and compare behavior; prove the manifest lint policy on positive/negative fixtures; requires Python |
 | `cargo build --manifest-path mcp/Cargo.toml` | Build the standalone MCP server with its development profile |
 | `cargo test --manifest-path mcp/Cargo.toml` | Run the MCP package's separate test suite |
 | `cargo tarpaulin --out Html --output-dir coverage` | Generate HTML coverage report |
@@ -28,7 +28,54 @@ checks every target in MCP and Colorer. This covers helper-gated tests, feature
 interactions, and the built-in highlighter without the optional Colorer adapter.
 CI calls the same script, then runs `self-test` and architecture contracts as
 separate checks. The self-test can also run directly as
-`python scripts/test_readability.py`; it invokes the compilers without Cargo.
+`python scripts/test_readability.py` (the compilers, without Cargo) and
+`python scripts/test_lint_policy.py` (see the lint policy below).
+
+## 🛡️ Lint Policy
+
+Each crate declares its own `[lints]` tables (`Cargo.toml`, `mcp/Cargo.toml`,
+`colorer-sys/Cargo.toml`); the root `clippy.toml` holds the shared thresholds
+and test allowances. On top of Clippy's `all`, `pedantic` and `nursery` groups,
+every crate enables these reliability families at `warn`, which the gate's
+`-D warnings` makes errors:
+
+| Family | Lints | What it stops |
+|---|---|---|
+| Rust guards | `unused_lifetimes`, `single_use_lifetimes`, `redundant_lifetimes`, `explicit_outlives_requirements`, `unused_macro_rules`, `meta_variable_misuse`, `unused_import_braces`, `unused_extern_crates`, `macro_use_extern_crate`, `trivial_numeric_casts`, `unit_bindings`, `keyword_idents_2024`, `non_ascii_idents`, `unsafe_attr_outside_unsafe` | Nothing trips them today; they keep it that way |
+| Rust idioms | `let_underscore_drop`, `trivial_casts`, `unnameable_types`, `unused_qualifications`, `redundant_imports`, `elided_lifetimes_in_paths` | A destructor hidden by `let _ =`, a cast a coercion would do, an unnameable `pub` type, a path or import that says nothing, a hidden lifetime (`Formatter<'_>`) |
+| Production panics | `unwrap_used`, `expect_used`, `panic`, `todo`, `unimplemented`, `unreachable`, `exit`, `indexing_slicing`, `string_slice`, `as_conversions` | A crash, or a silently wrong number, where an error belongs |
+| Lost errors | `map_err_ignore`, `let_underscore_must_use`, `unused_result_ok` | An error dropped without a word |
+| TUI and determinism | `print_stdout`, `print_stderr`, `dbg_macro`, `use_debug`, `iter_over_hash_type`, `filetype_is_file` | Output that tears the TUI screen (or corrupts MCP's stdout protocol), `{:?}` shown to a user, hash-map order, `is_file()` misreading devices and pipes |
+| Unsafe hygiene | `undocumented_unsafe_blocks` (`deny`), `multiple_unsafe_ops_per_block`, `unnecessary_safety_comment`, `unnecessary_safety_doc`, `allow_attributes_without_reason` | One unsafe operation per documented block; no stale SAFETY notes; every `#[allow]` and `#[expect]` says why |
+| Guards | `mem_forget`, `rc_buffer`, `rc_mutex`, `clone_on_ref_ptr`, `mutex_atomic`, `mutex_integer`, `lossy_float_literal`, `float_cmp_const`, `empty_drop`, `verbose_file_reads`, `str_to_string`, `string_add`, `infinite_loop`, `large_include_file`, `get_unwrap`, `try_err`, `rest_pat_in_fully_bound_structs`, `mod_module_files`, `needless_raw_strings`, `unnecessary_self_imports`, `redundant_type_annotations`, `deref_by_slicing` | Leaks, shared-state and float traps, wasted allocations; `name.rs` over `name/mod.rs` |
+| Cargo | `wildcard_dependencies`, `negative_feature_names`, `redundant_feature_names` | `*` versions, `no-`/`with-`/`use-` feature names |
+
+`mcp/` forbids `unsafe_code`, which already rejects every unsafe block and
+unsafe attribute, so it leaves out `undocumented_unsafe_blocks`,
+`multiple_unsafe_ops_per_block` and `unsafe_attr_outside_unsafe`.
+Two lints are deliberately not in the set. Clippy removed
+`clippy::string_to_string`; the pedantic `implicit_clone` covers it.
+`clippy::unwrap_in_result` has no test exemption, so it would reject the
+`.expect()` in a `#[test]` returning `Result` that `allow-expect-in-tests`
+admits, and in production it fires only where `unwrap_used`/`expect_used`
+already do.
+
+- **Fix the code** and keep its behaviour: handle or return the error, use
+  `get()`/`first()`, slice on char boundaries, convert with `TryFrom`, write an
+  explicit `drop()`, use `to_owned()`.
+- **Suppress only code that is right as written** (a proven invariant, a cast a
+  `const fn` requires, the CLI's `--help` on stdout) with
+  `#[expect(clippy::<lint>, reason = "<why this is correct>")]` on the smallest
+  item. Never a module- or crate-wide `allow`, never one without a reason.
+- **Tests** may unwrap, expect, index, panic, print and `dbg!`: `clippy.toml`
+  sets `allow-{unwrap,expect,panic,indexing-slicing,print,dbg}-in-tests`, so
+  the panic family judges production code only.
+
+`scripts/test_lint_policy.py` (run by `./ffm.py lint self-test`) fails when a
+manifest drifts from this policy, and proves each family live: throwaway
+crates under `target/` copy each manifest's `[lints]` tables, Clippy must
+reject one negative fixture per family (`scripts/tests/fixtures/lint_policy/`)
+with exactly its codes, and must accept test code that uses the allowances.
 
 ## ⚙️ Important Environment Details
 

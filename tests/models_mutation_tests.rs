@@ -10,6 +10,10 @@ use std::fs::{self, File};
 use std::io::{self, Write};
 use tempfile::TempDir;
 
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture: a panel without the named entry fails the test that chose it"
+)]
 fn select_entry(panel: &mut Panel, name: &str) {
     let index = panel
         .entries
@@ -204,15 +208,15 @@ fn test_panel_action_entry_names_mutations() -> io::Result<()> {
 
     let names = panel.action_entry_names();
     assert_eq!(names.len(), 2);
-    assert!(names.contains(&"file1.txt".to_string()));
-    assert!(names.contains(&"file3.txt".to_string()));
+    assert!(names.contains(&"file1.txt".to_owned()));
+    assert!(names.contains(&"file3.txt".to_owned()));
 
     // Test without marks (should return selected)
     panel.marked.clear();
     select_entry(&mut panel, "file2.txt");
     let names = panel.action_entry_names();
     assert_eq!(names.len(), 1);
-    assert!(names.contains(&"file2.txt".to_string()));
+    assert!(names.contains(&"file2.txt".to_owned()));
 
     // Test with no selection and no marks
     panel.select(None);
@@ -288,7 +292,7 @@ fn test_viewer_mutations() {
     // Test creation
     let viewer = Viewer {
         scroll: ScrollTop::TOP.down(5, usize::MAX),
-        ..Viewer::report("test.txt", vec!["Line 1".to_string(), "Line 2".to_string()])
+        ..Viewer::report("test.txt", vec!["Line 1".to_owned(), "Line 2".to_owned()])
     };
 
     assert_eq!(viewer.title(), "test.txt");
@@ -306,7 +310,7 @@ fn test_viewer_mutations() {
 fn test_dir_entry_mutations() {
     // Test creation
     let entry = DirEntry {
-        name: "test.txt".to_string(),
+        name: "test.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(1024),
         modified: Modified::UNKNOWN,

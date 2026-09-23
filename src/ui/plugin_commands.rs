@@ -22,7 +22,7 @@ const PAD: usize = 1;
 const FRAME: usize = 2;
 
 pub(super) fn render(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     list: &PluginCommands,
 ) {
@@ -46,7 +46,7 @@ pub(super) fn render(
         .style(ground);
     let body = block.inner(area);
     f.render_widget(block, area);
-    let lines: Vec<Line> = labels
+    let lines: Vec<Line<'_>> = labels
         .iter()
         .enumerate()
         .map(|(index, label)| row(label, text_width, index == list.cursor(), ground))

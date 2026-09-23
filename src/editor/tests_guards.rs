@@ -34,7 +34,7 @@ fn sparse_file(dir: &Path, name: &str, len: u64) -> io::Result<()> {
 /// past the directory guard, so `selected_path()` is the guard under test.
 fn select_parent_entry(app: &mut crate::models::App) {
     app.left_panel.entries = vec![DirEntry {
-        name: "..".to_string(),
+        name: "..".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(0),
         modified: Modified::UNKNOWN,
@@ -110,7 +110,7 @@ fn builtin_editor_reports_a_file_that_vanished_after_the_listing() -> io::Result
     let temp_dir = TempDir::new().expect("temp dir");
     let mut app = build_app(&temp_dir);
     app.left_panel.entries = vec![DirEntry {
-        name: "ghost.txt".to_string(),
+        name: "ghost.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(0),
         modified: Modified::UNKNOWN,
@@ -235,7 +235,7 @@ fn external_editor_forwards_arguments_from_the_editor_variable() -> io::Result<(
 
     let mut launched: Option<(String, Vec<String>)> = None;
     handle_edit_impl(&mut terminal, &mut app, |editor, args, path| {
-        launched = Some((editor.to_string(), args.to_vec()));
+        launched = Some((editor.to_owned(), args.to_vec()));
         assert_eq!(path, file_path.as_path());
         Ok(std::process::ExitStatus::default())
     })?;

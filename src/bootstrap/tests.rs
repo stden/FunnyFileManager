@@ -1,15 +1,16 @@
 //! Unit tests: start-up loads what earlier runs stored — here the `NetBox`
 //! sessions — from sandboxed configuration and data directories, never the
-//! user's own.
+//! user's own; and the line a failed session leaves on stderr at exit.
 
 use std::ffi::OsString;
 use std::fs;
+use std::io;
 use std::path::Path;
 use std::sync::MutexGuard;
 
 use tempfile::TempDir;
 
-use super::load_persisted;
+use super::{load_persisted, AtExitErrorLine};
 use crate::sessions::{SessionStore, FILE_NAME};
 use crate::test_support::netbox::{app_in, file_store, name, session};
 
@@ -58,7 +59,7 @@ fn start_up_loads_the_stored_sessions() {
     let config = SessionStore::path().expect("a sandboxed config directory");
     let dir = config.parent().expect("the ffm directory");
     fs::create_dir_all(dir).expect("mkdir");
-    let _ = file_store(dir, vec![session("a.test", None)]);
+    drop(file_store(dir, vec![session("a.test", None)]));
     assert!(dir.join(FILE_NAME).is_file());
 
     let panels = TempDir::new().expect("temp dir");
@@ -66,4 +67,22 @@ fn start_up_loads_the_stored_sessions() {
     load_persisted(&mut app);
     assert!(app.sessions.find(&name("a.test")).is_some());
     assert!(!app.sessions.is_damaged());
+}
+
+#[test]
+fn a_custom_error_is_reported_with_its_kind_and_message() {
+    let error = io::Error::other("terminal gone");
+    assert_eq!(
+        AtExitErrorLine(&error).to_string(),
+        r#"Error: Custom { kind: Other, error: "terminal gone" }"#
+    );
+}
+
+#[test]
+fn a_bare_kind_is_reported_by_name() {
+    let error = io::Error::from(io::ErrorKind::BrokenPipe);
+    assert_eq!(
+        AtExitErrorLine(&error).to_string(),
+        "Error: Kind(BrokenPipe)"
+    );
 }

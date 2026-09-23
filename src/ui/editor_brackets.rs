@@ -8,7 +8,7 @@ use ratatui::{
     Frame,
 };
 
-pub(super) fn render(frame: &mut Frame, editor: &Editor, area: Rect, top: usize, skip: Cells) {
+pub(super) fn render(frame: &mut Frame<'_>, editor: &Editor, area: Rect, top: usize, skip: Cells) {
     let Some((line, column, partner_line, partner_column)) = matching_pair(editor) else {
         return;
     };
@@ -67,10 +67,12 @@ fn matching_pair(editor: &Editor) -> Option<(usize, usize, usize, usize)> {
     let index = positions
         .iter()
         .position(|(line, column, _)| (*line, *column) == (candidate.0, candidate.1))?;
+    let (before, from_candidate) = positions.split_at_checked(index)?;
+    let (_, after) = from_candidate.split_first()?;
     let partner = if is_open(candidate.2) {
-        scan(positions[index + 1..].iter().copied(), candidate.2)?
+        scan(after.iter().copied(), candidate.2)?
     } else {
-        scan(positions[..index].iter().copied().rev(), candidate.2)?
+        scan(before.iter().copied().rev(), candidate.2)?
     };
     Some((candidate.0, candidate.1, partner.0, partner.1))
 }

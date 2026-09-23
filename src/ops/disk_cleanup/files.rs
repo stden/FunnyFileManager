@@ -58,6 +58,10 @@ impl CleanupOutcome {
     /// Remove one entry of a shared folder if the current user owns it: a
     /// file or link outright, a directory once emptied the same way. Returns
     /// whether it is gone.
+    #[expect(
+        clippy::filetype_is_file,
+        reason = "only regular files and links are removed; sockets, pipes and devices stay"
+    )]
     fn remove_owned(&mut self, entry: io::Result<fs::DirEntry>) -> bool {
         // `DirEntry::metadata` does not follow links: a link goes, its target stays.
         let (path, metadata) = match entry.and_then(|entry| Ok((entry.path(), entry.metadata()?))) {
@@ -138,6 +142,10 @@ fn heap_dumps(path: &Path) -> io::Result<Vec<HeapDump>> {
         .collect()
 }
 
+#[expect(
+    clippy::filetype_is_file,
+    reason = "a heap dump is a regular file; a pipe or device named `.hprof` is not one"
+)]
 fn heap_dump(entry: &fs::DirEntry) -> io::Result<Option<HeapDump>> {
     if !entry.file_name().to_string_lossy().ends_with(".hprof") || !entry.file_type()?.is_file() {
         return Ok(None);

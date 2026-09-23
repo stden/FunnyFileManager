@@ -51,7 +51,12 @@ fn waiting_for_another_installer_is_cancellable_and_unlocks_on_drop() {
             &cancelled,
             Instant::now() + Duration::from_secs(10),
             || {
-                // Only the first blocked attempt needs to signal the test.
+                // Not `drop(...)`, as elsewhere: this `Result` is `Copy`, so
+                // `dropping_copy_types` would reject it.
+                #[expect(
+                    clippy::let_underscore_must_use,
+                    reason = "only the first blocked attempt signals; later ones find it full"
+                )]
                 let _ = waiting.try_send(());
                 std::thread::sleep(Duration::from_millis(20));
             },

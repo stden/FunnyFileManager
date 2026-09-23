@@ -120,8 +120,8 @@ fn the_active_panels_frame_is_bold_and_its_title_highlighted() {
     let dir = TempDir::new().expect("temp dir");
     let mut app = sessions_app(&dir, &["a.test"]);
     let (rows, terminal) = draw_sessions(&mut app, true);
-    let title = rows[0].find("NetBox").expect("the title");
-    let title = u16::try_from(rows[0][..title].chars().count()).expect("fits");
+    let (before_title, _) = rows[0].split_once("NetBox").expect("the title");
+    let title = u16::try_from(before_title.chars().count()).expect("fits");
     let buffer = terminal.backend().buffer();
     assert!(buffer[(0, 5)].modifier.contains(Modifier::BOLD));
     assert_eq!(buffer[(0, 5)].fg, palette::FRAME);
@@ -146,13 +146,14 @@ fn remote_app(dir: &TempDir) -> App {
         name("demo"),
         RemoteLink::new(Box::new(FakeRemoteFs::default())),
     );
-    let _ = panel.show(
+    let shown = panel.show(
         RemotePath::parse("/var/www").expect("path"),
         vec![
             entry("html", EntryKind::Directory),
             entry("a.txt", EntryKind::File),
         ],
     );
+    assert_eq!(shown.unusable_names, 0);
     let mut app = app_in(dir.path());
     app.left_panel.kind = PanelKind::Remote(Box::new(panel));
     app
@@ -193,10 +194,9 @@ fn at(screen: &str, text: &str) -> (u16, u16) {
         .lines()
         .enumerate()
         .find_map(|(row, line)| {
-            line.find(text).map(|byte| {
-                let column = u16::try_from(line[..byte].chars().count()).expect("fits");
-                (column, u16::try_from(row).expect("fits"))
-            })
+            let (before, _) = line.split_once(text)?;
+            let column = u16::try_from(before.chars().count()).expect("fits");
+            Some((column, u16::try_from(row).expect("fits")))
         })
         .unwrap_or_else(|| panic!("{text:?} on\n{screen}"))
 }
@@ -206,7 +206,7 @@ fn the_plugin_list_is_as_wide_as_its_longest_row_plus_padding_and_frame() {
     let dir = TempDir::new().expect("temp dir");
     let mut app = app_in(dir.path());
     app.set_overlay(Overlay::PluginCommands(PluginCommands::default()));
-    let _ = draw_overlay(&mut app);
+    drop(draw_overlay(&mut app));
     let longest = PluginCommand::ImportNetBox.label().chars().count();
     let expected = super::drives::centered(
         Rect::new(0, 0, 80, 24),

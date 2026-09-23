@@ -299,9 +299,9 @@ use crossterm::event::Event;
 use funny_file_manager::{run_app_with_event_reader, WritableTestBackend};
 use ratatui::Terminal;
 
-fn make_terminal() -> Terminal<WritableTestBackend> {
+fn make_terminal() -> io::Result<Terminal<WritableTestBackend>> {
     let backend = WritableTestBackend::new(240, 24);
-    Terminal::new(backend).expect("terminal")
+    Terminal::new(backend)
 }
 
 const fn key_event_with_mods(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
@@ -309,7 +309,7 @@ const fn key_event_with_mods(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent
 }
 
 fn run_events(app: App, events: Vec<Event>) -> io::Result<()> {
-    let mut terminal = make_terminal();
+    let mut terminal = make_terminal()?;
     let mut iter = events.into_iter();
     run_app_with_event_reader(&mut terminal, app, || {
         iter.next()
@@ -427,7 +427,7 @@ fn test_ui_render_delete_confirm_with_root_path() -> io::Result<()> {
     // Path "/" has no file_name(), exercises the map_or_else fallback
     app.set_overlay(Overlay::DeleteConfirm(vec![file, PathBuf::from("/")]));
 
-    let mut terminal = make_terminal();
+    let mut terminal = make_terminal()?;
     terminal.draw(|f| funny_file_manager::ui::ui(f, &mut app))?;
 
     Ok(())

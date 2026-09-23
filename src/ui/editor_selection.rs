@@ -6,7 +6,7 @@ use crate::models::{CharColumn, Editor};
 
 use super::{palette, screen_u16, Cells, EditorLine};
 
-pub(super) fn render(f: &mut Frame, editor: &Editor, area: Rect, top: usize, skip: Cells) {
+pub(super) fn render(f: &mut Frame<'_>, editor: &Editor, area: Rect, top: usize, skip: Cells) {
     let Some(selection) = editor.selection_range() else {
         return;
     };
@@ -76,7 +76,7 @@ fn selection_columns(
 mod tests;
 
 fn paint_selection(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     left: u16,
     y: u16,
     columns: std::ops::Range<usize>,

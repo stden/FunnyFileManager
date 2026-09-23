@@ -7,7 +7,8 @@
 2. Live proof: for each crate, throwaway crates under target/ copy the real
    [lints] tables verbatim and sit below the shared clippy.toml. Clippy must
    reject every negative fixture with exactly its expected lint codes and
-   accept every positive fixture.
+   accept every positive fixture, including test code that uses the
+   clippy.toml allowances (unwrap, expect, index, panic, print, dbg!).
 """
 
 from collections import defaultdict
@@ -30,25 +31,115 @@ MANIFESTS = {
     "colorer": ROOT / "colorer-sys" / "Cargo.toml",
 }
 
-# Every crate: the three groups, the readability lints, honest `#[expect]`s.
+# Reliability lint families, each lint at "warn" (the gate's -D warnings makes
+# it an error). Rust guards nothing trips today:
+RUST_GUARDS = (
+    "unused_lifetimes",
+    "single_use_lifetimes",
+    "redundant_lifetimes",
+    "explicit_outlives_requirements",
+    "unused_macro_rules",
+    "meta_variable_misuse",
+    "unused_import_braces",
+    "unused_extern_crates",
+    "macro_use_extern_crate",
+    "trivial_numeric_casts",
+    "unit_bindings",
+    "keyword_idents_2024",
+    "non_ascii_idents",
+)
+# Rust lints for code that hides what it does:
+RUST_IDIOMS = (
+    "let_underscore_drop",
+    "trivial_casts",
+    "unnameable_types",
+    "unused_qualifications",
+    "redundant_imports",
+    "elided_lifetimes_in_paths",
+)
+# Clippy restriction lints. clippy.toml exempts tests from the panic family.
+PANICS = (
+    "unwrap_used",
+    "expect_used",
+    "panic",
+    "todo",
+    "unimplemented",
+    "unreachable",
+    "exit",
+    "indexing_slicing",
+    "string_slice",
+    "as_conversions",
+)
+LOST_ERRORS = ("map_err_ignore", "let_underscore_must_use", "unused_result_ok")
+TERMINAL = (
+    "print_stdout",
+    "print_stderr",
+    "dbg_macro",
+    "use_debug",
+    "iter_over_hash_type",
+    "filetype_is_file",
+)
+SAFETY_NOTES = (
+    "unnecessary_safety_comment",
+    "unnecessary_safety_doc",
+    "allow_attributes_without_reason",
+)
+GUARDS = (
+    "mem_forget",
+    "rc_buffer",
+    "rc_mutex",
+    "clone_on_ref_ptr",
+    "mutex_atomic",
+    "mutex_integer",
+    "lossy_float_literal",
+    "float_cmp_const",
+    "empty_drop",
+    "verbose_file_reads",
+    "str_to_string",
+    "string_add",
+    "infinite_loop",
+    "large_include_file",
+    "get_unwrap",
+    "try_err",
+    "rest_pat_in_fully_bound_structs",
+    "mod_module_files",
+    "needless_raw_strings",
+    "unnecessary_self_imports",
+    "redundant_type_annotations",
+    "deref_by_slicing",
+)
+CARGO = ("wildcard_dependencies", "negative_feature_names", "redundant_feature_names")
+# Judge unsafe blocks and attributes, so only where unsafe code can exist:
+# mcp/ forbids unsafe_code, which already rejects both.
+UNSAFE_OPS = {
+    ("rust", "unsafe_attr_outside_unsafe"): "warn",
+    ("clippy", "multiple_unsafe_ops_per_block"): "warn",
+}
+
+# Every crate: the three groups, the readability lints, honest `#[expect]`s,
+# and the reliability families.
 GROUP = {"level": "warn", "priority": -1}
 READABILITY = ("cognitive_complexity", "excessive_nesting", "too_many_lines")
+CLIPPY_FAMILIES = PANICS + LOST_ERRORS + TERMINAL + SAFETY_NOTES + GUARDS + CARGO
 COMMON = {
     **{("clippy", group): GROUP for group in ("all", "pedantic", "nursery")},
-    **{("clippy", lint): "warn" for lint in READABILITY},
+    **{("clippy", lint): "warn" for lint in READABILITY + CLIPPY_FAMILIES},
     ("rust", "unfulfilled_lint_expectations"): "deny",
+    **{("rust", lint): "warn" for lint in RUST_GUARDS + RUST_IDIOMS},
 }
 UNSAFE = {
     "tui": {
         ("rust", "unsafe_code"): "deny",
         ("rust", "unsafe_op_in_unsafe_fn"): "deny",
         ("clippy", "undocumented_unsafe_blocks"): "deny",
+        **UNSAFE_OPS,
     },
     "mcp": {("rust", "unsafe_code"): "forbid"},
     "colorer": {
         ("rust", "unsafe_op_in_unsafe_fn"): "deny",
         ("clippy", "undocumented_unsafe_blocks"): "deny",
         ("clippy", "missing_safety_doc"): "deny",
+        **UNSAFE_OPS,
     },
 }
 # The only crate-wide allowances; each needs a one-line reason comment.
@@ -107,8 +198,39 @@ MUTATIONS = (
     (
         "tui",
         CLIPPY,
-        CLIPPY + 'unwrap_used = "deny"\n',
-        "tui: [lints.clippy] unwrap_used is not part of the lint policy",
+        CLIPPY + 'panic_in_result_fn = "deny"\n',
+        "tui: [lints.clippy] panic_in_result_fn is not part of the lint policy",
+    ),
+    (
+        "tui",
+        'unwrap_used = "warn"',
+        'unwrap_used = "allow"',
+        'tui: [lints.clippy] unwrap_used is "allow"; the policy requires "warn"',
+    ),
+    (
+        "mcp",
+        'print_stdout = "warn"\n',
+        "",
+        'mcp: [lints.clippy] print_stdout is missing; the policy requires "warn"',
+    ),
+    (
+        "colorer",
+        'trivial_casts = "warn"\n',
+        "",
+        'colorer: [lints.rust] trivial_casts is missing; the policy requires "warn"',
+    ),
+    (
+        "tui",
+        'multiple_unsafe_ops_per_block = "warn"\n',
+        "",
+        'tui: [lints.clippy] multiple_unsafe_ops_per_block is missing; the policy requires "warn"',
+    ),
+    # A lint that judges unsafe code has nothing to judge where unsafe is forbidden.
+    (
+        "mcp",
+        CLIPPY,
+        CLIPPY + 'multiple_unsafe_ops_per_block = "warn"\n',
+        "mcp: [lints.clippy] multiple_unsafe_ops_per_block is not part of the lint policy",
     ),
     (
         "tui",
@@ -183,15 +305,46 @@ MUTATIONS = (
 # `unsafe_op_in_unsafe_fn` reports under E0133: without the lint, edition 2021
 # accepts an unsafe operation directly in an `unsafe fn` body.
 UNSAFE_OP = "E0133"
+# The one fixture that is a Cargo.toml fragment (`<name>.toml`), not a module.
+MANIFEST_FIXTURE = "feature_names"
+# Every `as` cast is also an `as_conversions`; every `.expect()` an `expect_used`.
+AS = "clippy::as_conversions"
 COMMON_NEGATIVES = {
-    "cast_possible_truncation": {"clippy::cast_possible_truncation"},
-    "cast_sign_loss": {"clippy::cast_sign_loss"},
-    "cast_precision_loss": {"clippy::cast_precision_loss"},
+    "cast_possible_truncation": {"clippy::cast_possible_truncation", AS},
+    "cast_sign_loss": {"clippy::cast_sign_loss", AS},
+    "cast_precision_loss": {"clippy::cast_precision_loss", AS},
     "struct_excessive_bools": {"clippy::struct_excessive_bools"},
     "wildcard_imports": {"clippy::wildcard_imports"},
-    "missing_panics_doc": {"clippy::missing_panics_doc"},
+    "missing_panics_doc": {"clippy::missing_panics_doc", "clippy::expect_used"},
     "unnecessary_wraps": {"clippy::unnecessary_wraps"},
     "readability": {f"clippy::{lint}" for lint in READABILITY},
+    # One fixture per reliability family.
+    "rust_guards": {"keyword_idents_2024", "non_ascii_idents", "unused_import_braces"},
+    "rust_idioms": {"elided_lifetimes_in_paths", "let_underscore_drop", "unused_qualifications"},
+    "production_panics": {
+        "clippy::unwrap_used",
+        "clippy::indexing_slicing",
+        "clippy::string_slice",
+        "clippy::panic",
+    },
+    "lost_errors": {f"clippy::{lint}" for lint in LOST_ERRORS},
+    "terminal_output": {
+        "clippy::print_stdout",
+        "clippy::print_stderr",
+        "clippy::use_debug",
+        "clippy::iter_over_hash_type",
+    },
+    "safety_notes": {f"clippy::{lint}" for lint in SAFETY_NOTES},
+    "guards": {
+        "clippy::mem_forget",
+        "clippy::clone_on_ref_ptr",
+        "clippy::empty_drop",
+        "clippy::str_to_string",
+    },
+    MANIFEST_FIXTURE: {"clippy::negative_feature_names", "clippy::redundant_feature_names"},
+}
+UNSAFE_OPS_NEGATIVE = {
+    "unsafe_ops": {"clippy::multiple_unsafe_ops_per_block", "unsafe_attr_outside_unsafe"},
 }
 # One crate (one Cargo run) per set. The E0453 hard error stops compilation
 # before Clippy's late lints, so the forbid proof gets a crate of its own.
@@ -202,6 +355,7 @@ NEGATIVES = {
             "unsafe_block": {"unsafe_code"},
             "undocumented_unsafe_block": {"clippy::undocumented_unsafe_blocks"},
             "unsafe_op_in_unsafe_fn": {UNSAFE_OP},
+            **UNSAFE_OPS_NEGATIVE,
         },
     },
     "mcp": {
@@ -214,17 +368,25 @@ NEGATIVES = {
             "undocumented_unsafe_block": {"clippy::undocumented_unsafe_blocks"},
             "unsafe_op_in_unsafe_fn": {UNSAFE_OP},
             "missing_safety_doc": {"clippy::missing_safety_doc"},
+            **UNSAFE_OPS_NEGATIVE,
         },
     },
 }
 POSITIVES = {
-    "tui": ("checked_conversions", "test_scope_allow", "allowed_unsafe"),
-    "mcp": ("checked_conversions", "test_scope_allow"),
-    "colorer": ("checked_conversions", "test_scope_allow", "allowed_unsafe", "unsafe_block"),
+    "tui": ("checked_conversions", "test_scope_allow", "test_panics", "allowed_unsafe"),
+    "mcp": ("checked_conversions", "test_scope_allow", "test_panics"),
+    "colorer": (
+        "checked_conversions",
+        "test_scope_allow",
+        "test_panics",
+        "allowed_unsafe",
+        "unsafe_block",
+    ),
 }
 LIBRARY_ROOT = (
     "//! Generated by `scripts/test_lint_policy.py`; test-scope allowances live here.\n"
-    f"#![cfg_attr(test, allow({', '.join(f'clippy::{lint}' for lint in TEST_SCOPE)}))]\n\n"
+    f"#![cfg_attr(test, allow({', '.join(f'clippy::{lint}' for lint in TEST_SCOPE)}, "
+    'reason = "test helpers favour plain signatures over production-grade ones"))]\n\n'
 )
 
 
@@ -342,10 +504,13 @@ def write_crate(crate, kind, fixtures, text):
         f'[package]\nname = "lint-policy-{crate}-{kind}"\nversion = "0.0.0"\nedition = "{edition}"\n\n'
         "[workspace]\n\n"
     )
+    if MANIFEST_FIXTURE in fixtures:
+        manifest += (FIXTURES / f"{MANIFEST_FIXTURE}.toml").read_text(encoding="utf-8") + "\n"
     (directory / "Cargo.toml").write_text(manifest + lint_tables(crate, text), encoding="utf-8")
-    modules = "".join(f"pub mod {name};\n" for name in fixtures)
+    sources = [name for name in fixtures if name != MANIFEST_FIXTURE]
+    modules = "".join(f"pub mod {name};\n" for name in sources)
     (directory / "src" / "lib.rs").write_text(LIBRARY_ROOT + modules, encoding="utf-8")
-    for name in fixtures:
+    for name in sources:
         shutil.copyfile(FIXTURES / f"{name}.rs", directory / "src" / f"{name}.rs")
     return directory
 
@@ -391,6 +556,16 @@ def clippy(directory):
     return result
 
 
+def fixture_of(file_name):
+    """The fixture a diagnostic's primary span belongs to.
+
+    Clippy reports the cargo-group lints, which judge Cargo.toml, at the first
+    line of clippy.toml; they belong to the manifest fixture.
+    """
+    path = Path(file_name)
+    return MANIFEST_FIXTURE if path.name == "clippy.toml" else path.stem
+
+
 def codes_by_fixture(stdout):
     """Diagnostic codes keyed by the fixture file of their primary span."""
     found = defaultdict(set)
@@ -400,7 +575,7 @@ def codes_by_fixture(stdout):
         if not message or not message.get("code"):
             continue
         primary = [span["file_name"] for span in message["spans"] if span["is_primary"]]
-        found[Path(primary[0]).stem if primary else "<no span>"].add(message["code"]["code"])
+        found[fixture_of(primary[0]) if primary else "<no span>"].add(message["code"]["code"])
     return found
 
 

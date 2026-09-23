@@ -3,6 +3,7 @@
 mod client;
 mod documents;
 mod features;
+mod logging;
 mod positions;
 mod rpc;
 mod smoke;

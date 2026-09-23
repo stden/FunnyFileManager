@@ -7,8 +7,6 @@
 //! colour. Twelve boxes stacked one per line would not fit a 24-row screen
 //! with the times and buttons under them.
 
-use std::fmt::Write as _;
-
 use ratatui::{
     layout::Rect,
     style::{Modifier, Style},
@@ -36,7 +34,7 @@ struct GroupLine {
 }
 
 pub(super) fn render(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     dialog: &AttributesDialog,
 ) {
@@ -71,7 +69,7 @@ fn group_lines(dialog: &AttributesDialog) -> Vec<GroupLine> {
             for flag in group.flags {
                 let mark = boxes.next().map_or(' ', |flag_box| flag_box.current.mark());
                 box_columns.push(text.chars().count());
-                let _ = write!(text, "[{mark}] {}{BOX_GAP}", flag.label());
+                text = format!("{text}[{mark}] {}{BOX_GAP}", flag.label());
             }
             GroupLine { text, box_columns }
         })
@@ -120,7 +118,7 @@ fn rows<'a>(
 /// it. The frame's own checkbox row does this for one box per line; here a
 /// line holds three, so the highlight is placed by hand.
 fn highlight_box(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     dialog: &AttributesDialog,
     groups: &[GroupLine],
     index: usize,
@@ -154,14 +152,16 @@ fn highlight_box(
 
 /// The body row and column of the `index`-th box across all groups.
 fn locate_box(groups: &[GroupLine], index: usize) -> Option<(usize, usize)> {
-    let mut seen = 0;
-    for (line, group) in groups.iter().enumerate() {
-        if index < seen + group.box_columns.len() {
-            return Some((ROWS_ABOVE_GROUPS + line, group.box_columns[index - seen]));
-        }
-        seen += group.box_columns.len();
-    }
-    None
+    groups
+        .iter()
+        .enumerate()
+        .flat_map(|(line, group)| {
+            group
+                .box_columns
+                .iter()
+                .map(move |column| (ROWS_ABOVE_GROUPS + line, *column))
+        })
+        .nth(index)
 }
 
 #[cfg(test)]

@@ -37,6 +37,11 @@ fn encoding_dialog_converts_clean_unicode_text_without_reinterpreting_it() {
     );
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture: a failed setup fails the calling test; clippy.toml allows that in \
+              #[test] fns and #[cfg(test)] items, not in integration-test helpers"
+)]
 fn open_bytes(root: &TempDir, bytes: &[u8]) -> App {
     fs::write(root.path().join("text.txt"), bytes).expect("source");
     let mut app = App::new().expect("app");

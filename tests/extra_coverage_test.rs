@@ -147,7 +147,7 @@ fn test_process_popup_input_new_file_input() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
     let mut app = App::new()?;
     app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
-    app.set_overlay(Overlay::NewFileInput("newfile.txt".to_string()));
+    app.set_overlay(Overlay::NewFileInput("newfile.txt".to_owned()));
 
     // Test typing
     process_popup_input(&mut app, key_event(KeyCode::Char('2')));
@@ -164,12 +164,12 @@ fn test_process_popup_input_new_file_input() -> io::Result<()> {
     assert!(app.status_text().contains("Created file"));
 
     // Test create already existing file
-    app.set_overlay(Overlay::NewFileInput("newfile.txt".to_string()));
+    app.set_overlay(Overlay::NewFileInput("newfile.txt".to_owned()));
     process_popup_input(&mut app, key_event(KeyCode::Enter));
     assert!(app.status_text().contains("already exists"));
 
     // Test Esc
-    app.set_overlay(Overlay::NewFileInput("anything".to_string()));
+    app.set_overlay(Overlay::NewFileInput("anything".to_owned()));
     process_popup_input(&mut app, key_event(KeyCode::Esc));
     assert!(app.get_new_file_input().is_none());
 

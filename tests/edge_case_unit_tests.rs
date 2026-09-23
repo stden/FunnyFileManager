@@ -53,7 +53,7 @@ fn test_drive_entry_display_local_root() {
 
 #[test]
 fn test_drive_entry_display_s3_profile_with_spaces() {
-    let entry = DriveEntry::S3Profile("my profile".to_string());
+    let entry = DriveEntry::S3Profile("my profile".to_owned());
     assert_eq!(entry.display(), "S3: my profile");
 }
 
@@ -272,11 +272,11 @@ fn test_viewer_default_has_empty_state() {
 fn test_viewer_clone_is_independent() {
     let viewer = Viewer {
         scroll: ScrollTop::TOP.down(5, usize::MAX),
-        ..Viewer::report("test", vec!["line1".to_string(), "line2".to_string()])
+        ..Viewer::report("test", vec!["line1".to_owned(), "line2".to_owned()])
     };
     let mut cloned = viewer.clone();
     cloned.scroll = ScrollTop::TOP.down(10, usize::MAX);
-    cloned.lines.push("line3".to_string());
+    cloned.lines.push("line3".to_owned());
 
     assert_eq!(viewer.scroll.lines(), 5);
     assert_eq!(viewer.lines.len(), 2);
@@ -407,8 +407,8 @@ fn test_action_entry_names_returns_marks_over_selection() -> io::Result<()> {
     // Even though something else might be selected, marks take precedence
     let names = panel.action_entry_names();
     assert_eq!(names.len(), 2);
-    assert!(names.contains(&"a.txt".to_string()));
-    assert!(names.contains(&"b.txt".to_string()));
+    assert!(names.contains(&"a.txt".to_owned()));
+    assert!(names.contains(&"b.txt".to_owned()));
 
     Ok(())
 }

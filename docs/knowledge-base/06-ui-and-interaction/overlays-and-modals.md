@@ -66,7 +66,7 @@ The older dedicated variants (`CommandHistory`, `FindFolder`, `ViewHistory`, `Fo
 ## Implementation locations
 
 - State: `src/models/overlay.rs`. Accessors such as `get_viewer` live in `src/models/app_overlay.rs`.
-- Input: `src/popup.rs` → `process_popup_input` (re-exported via `src/handlers/mod.rs` for compatibility).
+- Input: `src/popup.rs` → `process_popup_input` (re-exported via `src/handlers.rs` for compatibility).
 - Effects: `src/ops/`.
 - Opening from the main view: `src/application/dispatch.rs`. `src/lib.rs` re-exports `run_app`; it does not route keys.
 - Rendering: `src/ui/` children, routed from `src/ui/overlays.rs`. The viewer delegates to `src/ui/viewer.rs`. Highlighted text shared with the editor lives in `src/ui/code.rs`.

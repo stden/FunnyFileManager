@@ -1,5 +1,4 @@
 use super::*;
-use std::path::Path;
 
 #[test]
 fn display_path_strips_windows_prefixes() {

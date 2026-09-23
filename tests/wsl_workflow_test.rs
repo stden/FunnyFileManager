@@ -43,6 +43,10 @@ impl FakeWsl {
         }
     }
 
+    #[expect(
+        clippy::expect_used,
+        reason = "test fixture: the lock is poisoned only by a panic, which has already failed the test"
+    )]
     fn operations(&self) -> Vec<WslOperation> {
         self.operations.lock().expect("recorded operations").clone()
     }
@@ -52,7 +56,7 @@ impl WslBackend for FakeWsl {
     fn execute(&self, operation: &WslOperation) -> Result<WslOutput, String> {
         self.operations
             .lock()
-            .expect("record operations")
+            .map_err(|error| format!("record operations: {error}"))?
             .push(operation.clone());
         match operation {
             WslOperation::Refresh => Ok(WslOutput::Distributions(vec![
@@ -63,7 +67,7 @@ impl WslBackend for FakeWsl {
                 if let Some(release) = &self.release_update {
                     release
                         .lock()
-                        .expect("update release")
+                        .map_err(|error| format!("update release: {error}"))?
                         .recv_timeout(WAIT_LIMIT)
                         .map_err(|error| format!("test did not release the update: {error}"))?;
                 }
@@ -77,6 +81,10 @@ impl WslBackend for FakeWsl {
     }
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture: every name passed here is a valid literal distribution name"
+)]
 fn distribution(name: &str) -> DistributionName {
     DistributionName::new(name).expect("valid fixture distribution")
 }
@@ -187,7 +195,7 @@ fn text_ui_updates_platform_and_selected_packages_then_opens_a_normal_panel() ->
     let root = TempDir::new()?;
     fs::write(root.path().join("root-visible.txt"), "distribution file")?;
     let backend = Arc::new(FakeWsl::new(root.path().to_path_buf()));
-    run(backend.clone(), update_and_open_steps())?;
+    run(Arc::<FakeWsl>::clone(&backend), update_and_open_steps())?;
     assert_eq!(
         backend.operations(),
         [
@@ -212,7 +220,7 @@ fn text_ui_closes_a_busy_manager_keeps_keyboard_working_and_reports_completion()
     backend.release_update = Some(Mutex::new(gate));
     let backend = Arc::new(backend);
     run(
-        backend.clone(),
+        Arc::<FakeWsl>::clone(&backend),
         vec![
             open_manager(),
             Step::WaitFor("Debian"),
@@ -259,7 +267,9 @@ fn read_step(
                 return Ok(Some(Event::Resize(size.width, size.height)));
             }
             Some(Step::ReleaseUpdate(release)) => {
-                release.send(()).expect("update worker is waiting");
+                release.send(()).map_err(|error| {
+                    io::Error::other(format!("update worker is waiting: {error}"))
+                })?;
             }
             None => {
                 return Err(io::Error::new(
@@ -271,7 +281,7 @@ fn read_step(
     }
 }
 
-fn assert_manager_controls(buffer: &ratatui::buffer::Buffer) {
+fn assert_manager_controls(buffer: &Buffer) {
     let frame = frame_text(buffer);
     for label in [
         "Enter Open root",
@@ -284,7 +294,7 @@ fn assert_manager_controls(buffer: &ratatui::buffer::Buffer) {
     assert_selected(buffer, "Ubuntu", MENU_SELECTED);
 }
 
-fn assert_compact_manager(buffer: &ratatui::buffer::Buffer) {
+fn assert_compact_manager(buffer: &Buffer) {
     assert_selected(buffer, "Debian", MENU_SELECTED);
     let frame = frame_text(buffer);
     for label in ["Open", "F5", "F6", "Esc"] {
@@ -295,7 +305,7 @@ fn assert_compact_manager(buffer: &ratatui::buffer::Buffer) {
     }
 }
 
-fn assert_background_panels(buffer: &ratatui::buffer::Buffer) {
+fn assert_background_panels(buffer: &Buffer) {
     assert_panels(buffer);
     assert_selected(buffer, "right-only", PANEL_SELECTED);
     assert!(frame_text(buffer).contains("left-only"));

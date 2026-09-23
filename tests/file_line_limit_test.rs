@@ -26,6 +26,11 @@ const SINGLE_DEFINITION_HANDLERS: &[&str] = &[
     "process_popup_input",
 ];
 
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture: an unreadable src/ fails the calling test; clippy.toml allows that in \
+              #[test] fns and #[cfg(test)] items, not in integration-test helpers"
+)]
 fn collect_rs_files(dir: &Path, out: &mut Vec<PathBuf>) {
     for entry in fs::read_dir(dir).expect("read source directory") {
         let path = entry.expect("directory entry").path();
@@ -37,6 +42,11 @@ fn collect_rs_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
+#[expect(
+    clippy::panic,
+    reason = "test assertion: an unreadable source must fail the guard, and the should_panic \
+              tests below pin exactly that panic"
+)]
 fn read_sources(files: Vec<PathBuf>) -> Vec<(PathBuf, String)> {
     files
         .into_iter()

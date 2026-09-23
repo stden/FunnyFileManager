@@ -1,12 +1,9 @@
 //! Unit tests: `copy_dir_all` must refuse its own destination and must
 //! recreate symlinks instead of dereferencing them.
-#![allow(unused_imports)]
 
 use super::tests::*;
 
 use super::*;
-
-use std::io::Write;
 
 use tempfile::TempDir;
 

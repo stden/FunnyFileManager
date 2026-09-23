@@ -1,13 +1,10 @@
 //! Unit tests and shared test helpers for `lib`.
-#![allow(unused_imports)]
 
 use super::*;
 
 use crate::models::Panel;
 #[cfg(feature = "test-helpers")]
 use crate::models::PanelSide;
-
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use std::fs;
 

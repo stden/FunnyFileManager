@@ -37,7 +37,32 @@ const SMALL_SIZE: usize = 4 * 1_024;
 /// and large enough that the copy is bandwidth rather than bookkeeping.
 const LARGE_SIZE: usize = 16 * 1_024 * 1_024;
 
+/// The shapes of work a benchmark copies, moves or deletes.
+#[derive(Clone, Copy)]
+enum Shape {
+    ManySmall,
+    OneLarge,
+    DeepTree,
+}
+
+impl Shape {
+    const ALL: [Self; 3] = [Self::ManySmall, Self::OneLarge, Self::DeepTree];
+
+    /// The benchmark id criterion reports.
+    const fn label(self) -> &'static str {
+        match self {
+            Self::ManySmall => "many_small",
+            Self::OneLarge => "one_large",
+            Self::DeepTree => "deep_tree",
+        }
+    }
+}
+
 /// A directory of `count` files of `size` bytes each.
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn many_small(root: &Path, count: usize, size: usize) {
     fs::create_dir_all(root).expect("tree root");
     let payload = vec![b'x'; size];
@@ -47,6 +72,10 @@ fn many_small(root: &Path, count: usize, size: usize) {
 }
 
 /// A directory holding one file of `size` bytes.
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn one_large(root: &Path, size: usize) {
     fs::create_dir_all(root).expect("tree root");
     fs::write(root.join("payload.bin"), vec![b'x'; size]).expect("large file");
@@ -56,6 +85,10 @@ fn one_large(root: &Path, size: usize) {
 ///
 /// Its own shape because a deep tree costs a `read_dir` and a `create_dir` per
 /// level on top of the files, and a project checkout is mostly this.
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn deep_tree(root: &Path, depth: usize, per_level: usize) {
     let mut path = root.to_path_buf();
     for level in 0..depth {
@@ -68,13 +101,17 @@ fn deep_tree(root: &Path, depth: usize, per_level: usize) {
 }
 
 /// Copying, in each shape.
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn bench_copy(c: &mut Criterion) {
     let mut group = c.benchmark_group("copy");
     group.sample_size(20);
 
-    for shape in ["many_small", "one_large", "deep_tree"] {
+    for shape in Shape::ALL {
         let source = source_tree(shape);
-        group.bench_function(shape, |b| {
+        group.bench_function(shape.label(), |b| {
             b.iter_batched(
                 || TempDir::new().expect("destination"),
                 |dst| {
@@ -101,13 +138,17 @@ fn bench_copy(c: &mut Criterion) {
 /// but copy and then delete — the full price, twice over. The gap between
 /// these two numbers is the whole reason a file manager must not promise that
 /// F6 is quick.
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn bench_move(c: &mut Criterion) {
     let mut group = c.benchmark_group("move");
     group.sample_size(20);
 
     group.bench_function("rename_same_filesystem", |b| {
         b.iter_batched(
-            || source_tree("many_small"),
+            || source_tree(Shape::ManySmall),
             |root| {
                 fs::rename(
                     black_box(root.path().join("tree")),
@@ -122,7 +163,7 @@ fn bench_move(c: &mut Criterion) {
 
     group.bench_function("copy_then_delete", |b| {
         b.iter_batched(
-            || source_tree("many_small"),
+            || source_tree(Shape::ManySmall),
             |root| {
                 // What a cross-filesystem move comes down to.
                 copy_dir_all(&root.path().join("tree"), &root.path().join("moved"))
@@ -142,13 +183,17 @@ fn bench_move(c: &mut Criterion) {
 /// A thousand small files cost a thousand `unlink`s; one large file costs one.
 /// Size on disk is close to irrelevant, which is the opposite of what a
 /// progress bar counting bytes would suggest.
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn bench_delete(c: &mut Criterion) {
     let mut group = c.benchmark_group("delete");
     group.sample_size(20);
 
-    group.bench_function("many_small", |b| {
+    group.bench_function(Shape::ManySmall.label(), |b| {
         b.iter_batched(
-            || source_tree("many_small"),
+            || source_tree(Shape::ManySmall),
             |root| {
                 fs::remove_dir_all(black_box(root.path().join("tree"))).expect("delete");
                 root
@@ -157,9 +202,9 @@ fn bench_delete(c: &mut Criterion) {
         );
     });
 
-    group.bench_function("one_large", |b| {
+    group.bench_function(Shape::OneLarge.label(), |b| {
         b.iter_batched(
-            || source_tree("one_large"),
+            || source_tree(Shape::OneLarge),
             |root| {
                 fs::remove_dir_all(black_box(root.path().join("tree"))).expect("delete");
                 root
@@ -178,6 +223,10 @@ fn bench_delete(c: &mut Criterion) {
 /// holding a run of `report_1.txt`, `report_2.txt`, … therefore costs a
 /// `stat` per existing copy, and the run grows by one each time a file is
 /// copied into it. This measures how that curve actually bends.
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn bench_unique_destination_collisions(c: &mut Criterion) {
     let mut group = c.benchmark_group("unique_destination");
 
@@ -240,6 +289,10 @@ fn highlight_first_screen(source: &[String]) {
 ///
 /// One `lstat` per entry, and a second `metadata` for every symlink. The
 /// panel cannot draw until this returns, so it is the delay on every Enter.
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn bench_directory_load(c: &mut Criterion) {
     use funny_file_manager::models::Panel;
 
@@ -269,14 +322,17 @@ criterion_group!(
 );
 criterion_main!(benches);
 
-fn source_tree(shape: &str) -> TempDir {
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
+fn source_tree(shape: Shape) -> TempDir {
     let root = TempDir::new().expect("source tree");
     let path = root.path().join("tree");
     match shape {
-        "many_small" => many_small(&path, SMALL_FILES, SMALL_SIZE),
-        "one_large" => one_large(&path, LARGE_SIZE),
-        "deep_tree" => deep_tree(&path, 10, 20),
-        _ => panic!("unknown benchmark shape"),
+        Shape::ManySmall => many_small(&path, SMALL_FILES, SMALL_SIZE),
+        Shape::OneLarge => one_large(&path, LARGE_SIZE),
+        Shape::DeepTree => deep_tree(&path, 10, 20),
     }
     root
 }

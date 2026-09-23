@@ -41,7 +41,7 @@ pub(super) fn path_complete(token: &str, cwd: &Path) -> Vec<String> {
 /// or empty) and the partial leaf name being completed.
 fn split_token(token: &str) -> (&str, &str) {
     match token.rfind('/') {
-        Some(i) => (&token[..=i], &token[i + 1..]),
+        Some(i) => token.split_at(i + 1),
         None => ("", token),
     }
 }
@@ -51,10 +51,8 @@ fn split_token(token: &str) -> (&str, &str) {
 /// slash when finding the split point — so `"sub/handlers/"` splits as
 /// `("sub/", "handlers/")`, not `("sub/handlers/", "")`.
 fn split_leaf(candidate: &str) -> (&str, &str) {
-    let search_len = candidate
-        .strip_suffix('/')
-        .map_or(candidate.len(), str::len);
-    match candidate[..search_len].rfind('/') {
+    let searched = candidate.strip_suffix('/').unwrap_or(candidate);
+    match searched.rfind('/') {
         Some(i) => candidate.split_at(i + 1),
         None => ("", candidate),
     }
@@ -81,7 +79,7 @@ pub(super) fn rank_by_leaf(leaf: &str, candidates: Vec<String>) -> Vec<String> {
     let mut by_leaf: HashMap<String, VecDeque<String>> = HashMap::new();
     let mut leaves = Vec::with_capacity(matching.len());
     for candidate in matching {
-        let leaf_text = split_leaf(&candidate).1.to_string();
+        let leaf_text = split_leaf(&candidate).1.to_owned();
         by_leaf
             .entry(leaf_text.clone())
             .or_default()

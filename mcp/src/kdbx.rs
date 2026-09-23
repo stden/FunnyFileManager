@@ -40,6 +40,10 @@ pub enum ExportError {
 }
 
 /// Open a `KeePass` database and return one complete text representation.
+#[expect(
+    clippy::map_err_ignore,
+    reason = "a serializer error may quote decrypted data, so only its kind survives"
+)]
 pub fn export(
     path: &Path,
     password: Option<&str>,
@@ -72,6 +76,10 @@ pub fn export(
     Ok(text)
 }
 
+#[expect(
+    clippy::map_err_ignore,
+    reason = "key-file and decryption errors must never echo key material or vault data"
+)]
 fn open_database(
     path: &Path,
     password: Option<&str>,
@@ -161,13 +169,14 @@ fn unique_env_name(base: &str, used_names: &mut HashSet<String>) -> String {
         return first;
     }
 
-    for suffix in 2_u64.. {
+    let mut suffix = 2_u64;
+    loop {
         let candidate = format!("KDBX_{base}_{suffix}_PASSWORD");
         if used_names.insert(candidate.clone()) {
             return candidate;
         }
+        suffix += 1;
     }
-    unreachable!("the numeric suffix space is inexhaustible in practice")
 }
 
 fn quote_env_value(value: &str) -> String {

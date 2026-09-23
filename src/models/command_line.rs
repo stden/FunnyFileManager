@@ -63,6 +63,10 @@ impl Menu {
 
     /// The highlighted candidate. Total: the list cannot be empty.
     #[must_use]
+    #[expect(
+        clippy::indexing_slicing,
+        reason = "`new` refuses an empty list and `next`/`previous` keep `selected` below its length"
+    )]
     pub fn selection(&self) -> &Candidate {
         &self.candidates[self.selected]
     }

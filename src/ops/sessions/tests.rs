@@ -19,7 +19,9 @@ use crate::models::{
 use crate::sessions::import::ImportError;
 use crate::sessions::{SessionStore, StoreError, FILE_NAME};
 use crate::status::Status;
-use crate::test_support::netbox::{app_in, app_on_sessions, file_store, name, session};
+use crate::test_support::netbox::{
+    app_in, app_on_sessions, file_store, name, open_empty_sessions, session,
+};
 
 fn sessions_panel(app: &crate::models::App) -> &crate::models::SessionsPanel {
     let PanelKind::Sessions(panel) = &app.left_panel.kind else {
@@ -87,7 +89,7 @@ fn back_to_files_only_leaves_a_netbox_panel() {
     open(&mut app);
     back_to_files(&mut app);
     assert_eq!(app.left_panel.kind, PanelKind::Files);
-    let _ = open_on(&mut app, PanelSide::Right);
+    open_empty_sessions(&mut app, PanelSide::Right);
     back_to_files_on(&mut app, PanelSide::Right);
     assert_eq!(app.right_panel.kind, PanelKind::Files);
 }
@@ -96,7 +98,7 @@ fn back_to_files_only_leaves_a_netbox_panel() {
 fn refresh_follows_the_store_in_every_sessions_panel() {
     let dir = TempDir::new().expect("temp dir");
     let mut app = app_on_sessions(dir.path(), SessionStore::default());
-    let _ = open_on(&mut app, PanelSide::Right);
+    open_empty_sessions(&mut app, PanelSide::Right);
     app.sessions.upsert(session("a.test", None));
     refresh(&mut app);
     assert_eq!(sessions_panel(&app).session_count(), 1);

@@ -1,8 +1,6 @@
 //! Test utilities for process-global environment management.
 //! Provides a single crate-wide lock for any `set_var` / `remove_var` in tests.
 
-#![allow(dead_code)]
-
 use std::ffi::OsString;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};

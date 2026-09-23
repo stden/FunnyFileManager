@@ -1,7 +1,6 @@
 //! Purpose: Verify workspace trust isolation and launch failures without executing project code.
 
 use super::*;
-use std::path::Path;
 use std::sync::mpsc;
 use tempfile::TempDir;
 

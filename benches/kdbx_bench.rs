@@ -38,12 +38,9 @@ const PASSWORD: &str = "bench-master-password";
 /// short-circuit in a way real data does not.
 fn entries(count: usize) -> Vec<EntryDetails> {
     (0..count)
-        .map(|index| EntryDetails {
-            title: format!(
-                "service-{:04}-{}",
-                index,
-                ["api", "web", "db", "ssh"][index % 4]
-            ),
+        .zip(["api", "web", "db", "ssh"].into_iter().cycle())
+        .map(|(index, kind)| EntryDetails {
+            title: format!("service-{index:04}-{kind}"),
             username: format!("user{}@example.com", index % 50),
             url: format!("https://host-{:03}.example.com", index % 200),
             notes: String::new(),
@@ -53,6 +50,10 @@ fn entries(count: usize) -> Vec<EntryDetails> {
 }
 
 /// A saved vault. Kept alive by its `TempDir`, so the caller must hold both.
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn vault_file(count: usize) -> (TempDir, PathBuf) {
     let dir = TempDir::new().expect("vault benchmark dir");
     let path = dir.path().join("bench.kdbx");
@@ -69,6 +70,10 @@ fn unlocked(path: &Path, now: Instant) -> KdbxSession {
     session
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn vault_of(session: &mut KdbxSession) -> &mut Vault {
     session.vault_mut().expect("vault is unlocked")
 }

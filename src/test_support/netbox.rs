@@ -5,11 +5,12 @@
 use std::path::Path;
 
 use crate::models::{
-    App, HostName, Panel, PanelKind, Port, Protocol, RemotePath, Session, SessionName,
+    App, HostName, Panel, PanelKind, PanelSide, Port, Protocol, RemotePath, Session, SessionName,
     SessionsPanel, UserName,
 };
 use crate::remote::fake::FakeRemoteFs;
 use crate::sessions::{SessionStore, FILE_NAME};
+use crate::status::Status;
 
 /// An SFTP session to `host` on port 22, named `user@host` or `host`.
 pub fn session(host: &str, user: Option<&str>) -> Session {
@@ -47,6 +48,16 @@ pub fn app_on_sessions(dir: &Path, store: SessionStore) -> App {
     app.sessions = store;
     app.left_panel.kind = PanelKind::Sessions(Box::new(SessionsPanel::from_store(&app.sessions)));
     app
+}
+
+/// `side`'s panel on the sessions list, which `open_on` must report as
+/// holding no sessions: every caller starts from an empty store.
+pub fn open_empty_sessions(app: &mut App, side: PanelSide) {
+    let opened = crate::ops::sessions::open_on(app, side);
+    assert_eq!(
+        opened,
+        Status::CommandOutput("NetBox: 0 stored sessions".to_owned())
+    );
 }
 
 /// [`app_in`] with the active panel browsing a fake host holding `files`,

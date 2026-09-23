@@ -7,7 +7,6 @@
 //! refusals, the filters and the failure handling that never reach it.
 
 use super::*;
-use std::time::{Duration, SystemTime};
 use tempfile::TempDir;
 
 /// A server sandboxed to a fresh temp directory, plus that canonical root.
@@ -759,7 +758,7 @@ fn find_excludes_files_modified_before_the_time_window() {
     let stale = root.join("stale.txt");
     write_file_at(&stale, "old");
     // Backdate the modification time so the window has something to exclude.
-    let handle = fs::OpenOptions::new()
+    let handle = OpenOptions::new()
         .write(true)
         .open(&stale)
         .expect("open for set_modified");

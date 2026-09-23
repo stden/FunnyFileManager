@@ -92,7 +92,7 @@ still invoke it through a model type.
 | `src/popup/stub.rs`, `src/popup/<feature>.rs` | Esc/F10 close for the placeholder dialogs; one input owner per F9 menu dialog, routed by `popup.rs` |
 | `src/command.rs` | Typed command parsing, validation, and shared command metadata |
 | `src/lineedit.rs`, `src/complete.rs`, `src/complete/` | Command editing, recall, and completion candidates |
-| `src/ops/mod.rs` | Canonical operation exports |
+| `src/ops.rs` | Canonical operation exports |
 | `src/ops/dispatch.rs` | Parsed command execution and built-in/shell dispatch |
 | `src/ops/file.rs` | Create, copy, move, mkdir, delete, and transfer outcomes |
 | `src/ops/panel.rs` | `Panel::new`, `load_entries`, `navigate_to`, and `enter`; load before applying state |
@@ -115,7 +115,7 @@ still invoke it through a model type.
 | `src/ops/link.rs`, `wipe.rs`, `archive.rs`, `attributes.rs`, `apply.rs`, `describe.rs` | Files-menu `open` functions, one dialog each |
 | `src/ops/findfile.rs`, `history_list.rs`, `videomode.rs`, `findfolder.rs`, `view_history.rs`, `folder_history.rs`, `compare.rs`, `usermenu.rs`, `associations.rs`, `shortcuts.rs`, `filter.rs`, `screens.rs`, `tasks.rs`, `hotplug.rs` | Commands-menu `open`/`run`/`toggle` functions; `associations::association_command` is consulted by `Enter` before the executable rule |
 | `src/ops/sortmenu.rs`, `settings.rs`, `savesetup.rs`, `stub.rs` | Sort menu and direct sort keys, Options pages, Save setup, and the "coming in this release" status |
-| `src/handlers/mod.rs` | Historical operation and popup API re-exports; no implementation ownership |
+| `src/handlers.rs` | Historical operation and popup API re-exports; no implementation ownership |
 
 The modal layer calls `ops` directly. Unsupported overlay keys are consumed;
 they never fall through to main-view actions. Some modal acceptance paths still

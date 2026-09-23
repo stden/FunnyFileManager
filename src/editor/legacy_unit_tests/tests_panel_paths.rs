@@ -51,7 +51,7 @@ fn test_handle_edit_impl_file_not_found() -> io::Result<()> {
 
     // Select a non-existent file by manipulating the panel state
     app.left_panel.entries.push(crate::models::DirEntry {
-        name: "nonexistent.txt".to_string(),
+        name: "nonexistent.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(0),
         modified: Modified::UNKNOWN,
@@ -80,7 +80,7 @@ fn test_handle_edit_impl_very_long_filename() -> io::Result<()> {
     let mut app = App::new()?;
 
     // Create a file with a long name (but valid for Windows)
-    let long_name = "a".repeat(100) + ".txt";
+    let long_name = format!("{}.txt", "a".repeat(100));
     let file = temp_dir.path().join(&long_name);
     File::create(&file)?;
 

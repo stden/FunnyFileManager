@@ -59,15 +59,15 @@ impl Bookmarks {
     /// The path saved in `slot`, if any. Cannot fail: the slot proves itself.
     #[must_use]
     pub fn get(&self, slot: BookmarkSlot) -> Option<&Path> {
-        self.slots[slot.as_usize()].as_deref()
+        self.slots.get(slot.as_usize())?.as_deref()
     }
 
     pub fn set(&mut self, slot: BookmarkSlot, path: PathBuf) {
-        self.slots[slot.as_usize()] = Some(path);
+        put(&mut self.slots, slot, Some(path));
     }
 
     pub fn clear(&mut self, slot: BookmarkSlot) {
-        self.slots[slot.as_usize()] = None;
+        put(&mut self.slots, slot, None);
     }
 
     /// Every slot in order, for the completer's `bookmark go` candidates.
@@ -122,9 +122,17 @@ fn read_slots(file: &Path) -> Slots {
     let mut slots: Slots = std::array::from_fn(|_| None);
     let text = fs::read_to_string(file).unwrap_or_default();
     for (slot, path) in text.lines().filter_map(parse_line) {
-        slots[slot.as_usize()] = Some(path);
+        put(&mut slots, slot, Some(path));
     }
     slots
+}
+
+/// Store `path` in `slot`. The slot proves it is below `BookmarkSlot::COUNT`,
+/// the array's length, so the slot is always there.
+fn put(slots: &mut Slots, slot: BookmarkSlot, path: Option<PathBuf>) {
+    if let Some(stored) = slots.get_mut(slot.as_usize()) {
+        *stored = path;
+    }
 }
 
 fn parse_line(line: &str) -> Option<(BookmarkSlot, PathBuf)> {
@@ -145,6 +153,10 @@ impl BookmarkSlot {
     /// Maximum valid slot (inclusive).
     pub const MAX: u8 = 9;
     /// Total number of bookmark slots available.
+    #[expect(
+        clippy::as_conversions,
+        reason = "u8 to usize widens losslessly, and `usize::from` is not const"
+    )]
     pub const COUNT: usize = (Self::MAX as usize) + 1;
 
     /// Create a new slot. Returns error for values outside 0..=9.
@@ -165,6 +177,10 @@ impl BookmarkSlot {
         self.0
     }
 
+    #[expect(
+        clippy::as_conversions,
+        reason = "u8 to usize widens losslessly, and `usize::from` is not const"
+    )]
     pub const fn as_usize(self) -> usize {
         self.0 as usize
     }

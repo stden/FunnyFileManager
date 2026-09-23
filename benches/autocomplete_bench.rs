@@ -6,6 +6,10 @@ use funny_file_manager::complete::{complete_with, execs, matcher, CompletionCont
 use std::{fs, hint::black_box, time::Duration};
 use tempfile::TempDir;
 
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn bench_commands(c: &mut Criterion) {
     let root = TempDir::new().expect("completion directory");
     let bookmarks = [Some(root.path().join("workspace")), None];
@@ -24,6 +28,10 @@ fn bench_commands(c: &mut Criterion) {
     group.finish();
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn directory_fixture(count: usize) -> TempDir {
     let root = TempDir::new().expect("path completion fixture");
     for index in 0..count {
@@ -33,6 +41,10 @@ fn directory_fixture(count: usize) -> TempDir {
     root
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn bench_paths(c: &mut Criterion) {
     let mut group = c.benchmark_group("autocomplete/paths_builtin");
     group.sample_size(20);

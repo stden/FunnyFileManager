@@ -152,7 +152,9 @@ fn create_folder(
 /// together: a caller that did one without the other would put the cursor on
 /// the row the name held *before* the listing changed.
 fn settle_on(app: &mut App, name: &str) {
-    let _ = refresh_panels(app);
+    // The entry exists either way; a listing that cannot be re-read keeps its
+    // old rows, and the cursor then simply finds nothing to settle on.
+    drop(refresh_panels(app));
     app.get_active_panel().select_named(name);
 }
 

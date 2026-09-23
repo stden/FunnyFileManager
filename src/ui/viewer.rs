@@ -27,7 +27,7 @@ const VIEWER_BAR_HEIGHT: u16 = 1;
 /// refuses binaries before it opens, so it only ever has the first.
 const TEXT_MODE: &str = "t";
 
-pub(super) fn render_viewer(f: &mut Frame, viewer: &Viewer) {
+pub(super) fn render_viewer(f: &mut Frame<'_>, viewer: &Viewer) {
     let area = f.area();
     let body = Rect {
         y: area.y.saturating_add(VIEWER_BAR_HEIGHT),
@@ -54,7 +54,7 @@ pub(super) fn render_viewer(f: &mut Frame, viewer: &Viewer) {
     render_viewer_body(f, viewer, body);
 }
 
-fn render_viewer_body(f: &mut Frame, viewer: &Viewer, body: Rect) {
+fn render_viewer_body(f: &mut Frame<'_>, viewer: &Viewer, body: Rect) {
     let page = usize::from(body.height);
     // A report is not a file: nothing to colour it as, and a title that
     // happens to look like a file name must not pick a language.
@@ -77,7 +77,7 @@ fn render_viewer_body(f: &mut Frame, viewer: &Viewer, body: Rect) {
 }
 
 /// The status line: the path on the left, Far's fields flush right.
-fn render_viewer_bar(f: &mut Frame, viewer: &Viewer, area: Rect, page: usize) {
+fn render_viewer_bar(f: &mut Frame<'_>, viewer: &Viewer, area: Rect, page: usize) {
     let row = bar_row(
         viewer,
         Cells::columns(area.width),

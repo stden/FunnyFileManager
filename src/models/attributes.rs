@@ -270,6 +270,10 @@ pub struct InvalidTime {
 }
 
 impl std::fmt::Display for InvalidTime {
+    #[expect(
+        clippy::use_debug,
+        reason = "Debug quotes and escapes the typed text, which is how the refusal has always shown it"
+    )]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -314,7 +318,11 @@ impl AttributesDialog {
         let flags = boxes(entries, has_directories);
         // One file offers its own times back, which is Far's "Original";
         // several offer nothing, because a blank field means "leave it".
-        let single = (entries.len() == 1).then(|| &entries[0]);
+        let single = if let [only] = entries {
+            Some(only)
+        } else {
+            None
+        };
         Self {
             targets: entries.iter().map(|entry| entry.path.clone()).collect(),
             owner: shared_name(entries.iter().map(|entry| entry.owner.as_deref())),
@@ -488,6 +496,10 @@ pub fn format_time(at: SystemTime) -> String {
 }
 
 /// The field's text back into a timestamp; blank means "leave it".
+#[expect(
+    clippy::map_err_ignore,
+    reason = "the refusal names the field, the text and the format; chrono's reason adds nothing to act on"
+)]
 fn parse_time(field: &'static str, text: &str) -> Result<Option<SystemTime>, InvalidTime> {
     let text = text.trim();
     if text.is_empty() {

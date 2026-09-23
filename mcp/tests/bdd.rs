@@ -51,11 +51,17 @@ fn forward_responses(reader: impl BufRead, sender: std::sync::mpsc::Sender<Strin
         .map_while(Result::ok)
         .filter(|line| !line.trim().is_empty())
     {
-        let _ = sender.send(line);
+        // The caller stops listening once it has its answer. The rest is
+        // still drained, unread, so the server never writes into a closed pipe.
+        drop(sender.send(line));
     }
 }
 
 impl McpWorld {
+    #[expect(
+        clippy::expect_used,
+        reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+    )]
     fn temp_path(&self) -> PathBuf {
         self.temp_dir
             .as_ref()
@@ -69,6 +75,10 @@ impl McpWorld {
     }
 
     /// The out-of-root tree, created on first use.
+    #[expect(
+        clippy::expect_used,
+        reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+    )]
     fn outside_path(&mut self) -> PathBuf {
         self.outside_dir
             .get_or_insert_with(|| TempDir::new().expect("create outside dir"))
@@ -76,6 +86,10 @@ impl McpWorld {
             .to_path_buf()
     }
 
+    #[expect(
+        clippy::expect_used,
+        reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+    )]
     fn call_tool(&mut self, name: &str, args: Value) {
         self.last_result = None;
         self.last_error = None;
@@ -118,13 +132,18 @@ impl McpWorld {
         drop(stdin);
         self.server_exit = Some(wait_for_exit(&mut child));
         // The reader thread ends at stdout EOF, which the exit above guarantees.
-        let _ = handle.join();
+        // It cannot panic, so joining it has no error to report.
+        drop(handle.join());
 
         if !found && self.last_error.is_none() {
             self.last_error = Some("no response from server".to_owned());
         }
     }
 
+    #[expect(
+        clippy::panic,
+        reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+    )]
     fn spawn_server(&self) -> Child {
         let binary = binary_path();
         // The server confines every path argument to this root; each scenario
@@ -192,6 +211,11 @@ impl McpWorld {
 /// Polling rather than a blocking `wait()` keeps one wedged server from
 /// hanging the whole suite; the kill is the fallback, not the norm. Either
 /// branch reaps the child, so no zombies accumulate across the suite.
+#[expect(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 fn wait_for_exit(child: &mut Child) -> ExitStatus {
     let deadline = Instant::now() + EXIT_DEADLINE;
     while Instant::now() < deadline {
@@ -201,7 +225,9 @@ fn wait_for_exit(child: &mut Child) -> ExitStatus {
             Err(e) => panic!("try_wait on server: {e}"),
         }
     }
-    let _ = child.kill();
+    // A server that exits between the last poll and the kill cannot be
+    // killed; the `wait` below reaps it either way.
+    drop(child.kill());
     child.wait().expect("reap killed server")
 }
 
@@ -215,11 +241,20 @@ fn binary_path() -> PathBuf {
 // ─── Given Steps ────────────────────────────────────────────────
 
 #[given("a temporary directory")]
+#[expect(
+    clippy::expect_used,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn given_temp_dir(w: &mut McpWorld) {
     w.temp_dir = Some(TempDir::new().expect("create temp dir"));
 }
 
 #[given(expr = "a file {string} with content {string}")]
+#[expect(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn given_file(w: &mut McpWorld, name: String, content: String) {
     let path = w.temp_path().join(&name);
     if let Some(parent) = path.parent() {
@@ -230,6 +265,10 @@ async fn given_file(w: &mut McpWorld, name: String, content: String) {
 }
 
 #[given(expr = "a KeePass database {string} protected by {string}")]
+#[expect(
+    clippy::expect_used,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn given_keepass_database(w: &mut McpWorld, name: String, password: String) {
     let mut database = Database::new();
     if let KdfConfig::Argon2 {
@@ -261,12 +300,20 @@ async fn given_keepass_database(w: &mut McpWorld, name: String, password: String
 }
 
 #[given(expr = "a subdirectory {string}")]
+#[expect(
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn given_subdir(w: &mut McpWorld, name: String) {
     let path = w.temp_path().join(&name);
     fs::create_dir_all(&path).unwrap_or_else(|e| panic!("mkdir {}: {}", path.display(), e));
 }
 
 #[given(expr = "a symlink {string} pointing to {string}")]
+#[expect(
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn given_symlink(w: &mut McpWorld, link: String, target: String) {
     let link_path = w.temp_path().join(&link);
     let target_path = w.temp_path().join(&target);
@@ -285,6 +332,10 @@ async fn given_symlink(w: &mut McpWorld, link: String, target: String) {
 }
 
 #[given(expr = "a file {string} with content {string} outside the root")]
+#[expect(
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn given_outside_file(w: &mut McpWorld, name: String, content: String) {
     let path = w.outside_path().join(&name);
     fs::write(&path, content.replace("\\n", "\n"))
@@ -294,6 +345,10 @@ async fn given_outside_file(w: &mut McpWorld, name: String, content: String) {
 /// A link *inside* the root naming a file outside it — what a caller plants
 /// when the confinement stops at the directory a walk starts from.
 #[given(expr = "a symlink {string} pointing outside the root at {string}")]
+#[expect(
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn given_outside_symlink(w: &mut McpWorld, link: String, target: String) {
     let link_path = w.temp_path().join(&link);
     let target_path = w.outside_path().join(&target);
@@ -306,6 +361,14 @@ async fn given_outside_symlink(w: &mut McpWorld, link: String, target: String) {
 }
 
 #[given(expr = "the file {string} has mode {string}")]
+#[cfg_attr(
+    unix,
+    expect(
+        clippy::expect_used,
+        clippy::panic,
+        reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+    )
+)]
 async fn given_mode(w: &mut McpWorld, name: String, mode: String) {
     let path = w.temp_path().join(&name);
     #[cfg(unix)]
@@ -316,7 +379,7 @@ async fn given_mode(w: &mut McpWorld, name: String, mode: String) {
             .unwrap_or_else(|e| panic!("chmod {}: {}", path.display(), e));
     }
     #[cfg(not(unix))]
-    let _ = (path, mode);
+    drop((path, mode));
 }
 
 // ─── When Steps ─────────────────────────────────────────────────
@@ -752,6 +815,10 @@ async fn then_file_not_exists(w: &mut McpWorld, name: String) {
 }
 
 #[then(expr = "the file {string} should contain {string}")]
+#[expect(
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_file_contains(w: &mut McpWorld, name: String, expected: String) {
     let path = w.temp_path().join(&name);
     let content =
@@ -763,6 +830,10 @@ async fn then_file_contains(w: &mut McpWorld, name: String, expected: String) {
 }
 
 #[then(expr = "the file {string} should not contain {string}")]
+#[expect(
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_file_not_contains(w: &mut McpWorld, name: String, unexpected: String) {
     let path = w.temp_path().join(&name);
     let content =
@@ -786,6 +857,10 @@ async fn then_symlink_not_exists(w: &mut McpWorld, name: String) {
 }
 
 #[then(expr = "{string} should still be a symlink")]
+#[expect(
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_still_a_symlink(w: &mut McpWorld, name: String) {
     // `exists()` follows the link and would pass even after the link had been
     // renamed away and replaced by a regular file — ask for its own metadata.
@@ -800,6 +875,11 @@ async fn then_still_a_symlink(w: &mut McpWorld, name: String) {
 }
 
 #[then(expr = "the result field {string} should be {int}")]
+#[expect(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_result_field_is(w: &mut McpWorld, field: String, expected: u64) {
     let result = w.last_result.as_ref().expect("no result");
     let actual = result[&field]
@@ -821,7 +901,7 @@ async fn then_result_contains(w: &mut McpWorld, expected: String) {
         text.contains(&expected),
         "result should contain '{}', got: {}",
         expected,
-        &text[..text.len().min(200)]
+        preview(&text)
     );
 }
 
@@ -832,11 +912,22 @@ async fn then_result_not_contains(w: &mut McpWorld, expected: String) {
         !text.contains(&expected),
         "result should NOT contain '{}', got: {}",
         expected,
-        &text[..text.len().min(200)]
+        preview(&text)
     );
 }
 
+/// The start of `text` for a failure message: its first 200 bytes, cut back
+/// to a character boundary so a multibyte character (`├──`) is never split.
+fn preview(text: &str) -> &str {
+    let (start, _) = text.split_at(text.floor_char_boundary(200));
+    start
+}
+
 #[then(expr = "the operation should fail with {string}")]
+#[expect(
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_error_contains(w: &mut McpWorld, expected: String) {
     let err = w.last_error.as_ref().unwrap_or_else(|| {
         panic!("expected error containing '{expected}', but operation succeeded")
@@ -857,6 +948,10 @@ async fn then_error(w: &mut McpWorld) {
 }
 
 #[then(expr = "the search should return {int} results")]
+#[expect(
+    clippy::expect_used,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_search_count(w: &mut McpWorld, count: usize) {
     let result = w.last_result.as_ref().expect("no result");
     let actual = usize::try_from(result["count"].as_u64().expect("no count field"))
@@ -868,6 +963,10 @@ async fn then_search_count(w: &mut McpWorld, count: usize) {
 }
 
 #[then(expr = "the size should be {int}")]
+#[expect(
+    clippy::expect_used,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_size_is(w: &mut McpWorld, expected: u64) {
     let result = w.last_result.as_ref().expect("no result");
     let actual = result["size"].as_u64().expect("no size field");
@@ -875,6 +974,11 @@ async fn then_size_is(w: &mut McpWorld, expected: u64) {
 }
 
 #[then(expr = "the result field {string} should equal {string}")]
+#[expect(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_result_field_equals(w: &mut McpWorld, field: String, expected: String) {
     let result = w.last_result.as_ref().expect("no result");
     let actual = result[&field]
@@ -884,6 +988,10 @@ async fn then_result_field_equals(w: &mut McpWorld, field: String, expected: Str
 }
 
 /// The `name` of every object in the array under `field`.
+#[expect(
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 fn entry_names<'a>(result: &'a Value, field: &str) -> Vec<&'a str> {
     result[field]
         .as_array()
@@ -899,6 +1007,10 @@ fn expected_names(expected: &str) -> Vec<&str> {
 
 /// Ordered comparison — for listings where the order *is* the behavior.
 #[then(expr = "the {string} entries should be named {string}")]
+#[expect(
+    clippy::expect_used,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_named_in_order(w: &mut McpWorld, field: String, expected: String) {
     let result = w.last_result.as_ref().expect("no result");
     assert_eq!(
@@ -911,6 +1023,10 @@ async fn then_named_in_order(w: &mut McpWorld, field: String, expected: String) 
 /// Unordered comparison — directory iteration order is not defined, so for a
 /// recursive walk only the set of entries is meaningful.
 #[then(expr = "the {string} entries should be named {string} in any order")]
+#[expect(
+    clippy::expect_used,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_named_any_order(w: &mut McpWorld, field: String, expected: String) {
     let result = w.last_result.as_ref().expect("no result");
     let mut names = entry_names(result, &field);
@@ -923,6 +1039,11 @@ async fn then_named_any_order(w: &mut McpWorld, field: String, expected: String)
 /// Compares a reported path against the scenario's temp directory. The server
 /// canonicalizes some paths and echoes others verbatim, so both forms pass.
 #[then(expr = "the result field {string} should be the temporary directory")]
+#[expect(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_field_is_temp_dir(w: &mut McpWorld, field: String) {
     let temp = w.temp_path();
     let canonical = temp.canonicalize().unwrap_or_else(|_| temp.clone());
@@ -950,6 +1071,11 @@ async fn then_flag_false(w: &mut McpWorld, field: String) {
     assert_flag(w, &field, false);
 }
 
+#[expect(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 fn assert_flag(w: &McpWorld, field: &str, expected: bool) {
     let text = w.result_text();
     let result = w.last_result.as_ref().expect("no result");
@@ -960,6 +1086,11 @@ fn assert_flag(w: &McpWorld, field: &str, expected: bool) {
 }
 
 #[then(expr = "profile {int} should be {string} in region {string}")]
+#[expect(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_profile_region(w: &mut McpWorld, index: usize, name: String, region: String) {
     let text = w.result_text();
     let result = w.last_result.as_ref().expect("no result");
@@ -977,6 +1108,11 @@ async fn then_profile_region(w: &mut McpWorld, index: usize, name: String, regio
 
 /// A list of plain strings under `field`, in the order the server reported it.
 #[then(expr = "the result list {string} should be {string}")]
+#[expect(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_result_list_is(w: &mut McpWorld, field: String, expected: String) {
     let result = w.last_result.as_ref().expect("no result");
     let items = result[&field]
@@ -988,6 +1124,11 @@ async fn then_result_list_is(w: &mut McpWorld, field: String, expected: String) 
 }
 
 #[then(expr = "match {int} should be {string} at line {int}")]
+#[expect(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_grep_match(w: &mut McpWorld, index: usize, content: String, line: u64) {
     let result = w.last_result.as_ref().expect("no result");
     let matches = result["matches"].as_array().expect("no matches array");
@@ -999,6 +1140,10 @@ async fn then_grep_match(w: &mut McpWorld, index: usize, content: String, line: 
 }
 
 #[then("the server should exit cleanly after its input closes")]
+#[expect(
+    clippy::expect_used,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_server_exits_cleanly(w: &mut McpWorld) {
     // A server that has to be killed reports a signal here instead of code 0.
     // That distinction is the difference between coverage being recorded and
@@ -1011,6 +1156,10 @@ async fn then_server_exits_cleanly(w: &mut McpWorld) {
 }
 
 #[then(expr = "{string} should appear before {string} in entries")]
+#[expect(
+    clippy::expect_used,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 async fn then_order(w: &mut McpWorld, first: String, second: String) {
     let result = w.last_result.as_ref().expect("no result");
     let entries = result["entries"].as_array().expect("no entries array");
@@ -1039,6 +1188,10 @@ async fn main() {
     .await;
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
+)]
 fn send_tool_request(stdin: &mut impl Write, name: &str, args: Value) {
     let msgs = [
         json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{

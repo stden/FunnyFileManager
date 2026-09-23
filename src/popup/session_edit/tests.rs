@@ -150,7 +150,7 @@ fn another_overlay_is_not_this_dialogs() {
     assert!(!super::process(
         &mut app,
         KeyCode::Enter,
-        crossterm::event::KeyModifiers::NONE
+        KeyModifiers::NONE
     ));
     assert!(!app.is_overlay_active());
 }

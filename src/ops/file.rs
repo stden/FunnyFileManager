@@ -1,6 +1,5 @@
 //! File operations: create, copy, move, mkdir, and delete.
 
-use std::fmt::Write as _;
 use std::{
     fs, io,
     path::{Path, PathBuf},
@@ -65,7 +64,7 @@ pub fn rename_or_fail(source: &Path, dest: &Path) -> io::Result<()> {
 /// does. That stale listing is for Ctrl+R to report, on purpose, because there
 /// the refresh *is* the operation.
 fn refresh_after_operation(app: &mut App) {
-    let _ = refresh_panels(app);
+    drop(refresh_panels(app));
 }
 
 pub fn get_source_paths(app: &App) -> Vec<PathBuf> {
@@ -193,7 +192,8 @@ fn copy_directory_entry(source: &Path, dest: &Path, rules: CopyRules) -> io::Res
     fs::create_dir(dest)?;
     let result = copy_dir_all_with(source, dest, rules);
     if result.is_err() {
-        let _ = fs::remove_dir_all(dest);
+        // Best effort: the copy's own error is the one worth reporting.
+        drop(fs::remove_dir_all(dest));
     }
     result
 }
@@ -448,13 +448,16 @@ mod tests_destinations;
 mod tests_exhaustion;
 #[cfg(test)]
 mod tests_mkdir_errors;
-#[cfg(all(test, unix))]
+#[cfg(test)]
+#[cfg(unix)]
 mod tests_modes;
 #[cfg(test)]
 mod tests_refresh_failures;
-#[cfg(all(test, unix))]
+#[cfg(test)]
+#[cfg(unix)]
 mod tests_sparse;
-#[cfg(all(test, unix))]
+#[cfg(test)]
+#[cfg(unix)]
 mod tests_special_files;
 #[cfg(test)]
 mod tests_symlinks;
@@ -547,7 +550,7 @@ fn report_copy_outcome(app: &mut App, outcome: &DialogOutcome, purpose: crate::c
     let mut text =
         format_operation_status(batch.count, purpose.done(), batch.first_dest.as_deref());
     if outcome.skipped > 0 {
-        let _ = write!(text, ", {} skipped", outcome.skipped);
+        text = format!("{text}, {} skipped", outcome.skipped);
     }
     if outcome.renamed > 0 {
         text.push_str(" (existing files kept, new ones renamed)");

@@ -82,7 +82,7 @@ fn a_selection_past_the_end_becomes_no_selection() {
     let mut panel = Panel::from_entries(
         PathBuf::from("/tmp"),
         vec![DirEntry {
-            name: "only.txt".to_string(),
+            name: "only.txt".to_owned(),
             kind: EntryKind::File,
             size: FileSize::from_bytes(0),
             modified: Modified::UNKNOWN,
@@ -113,7 +113,7 @@ fn enter_is_a_no_op_when_the_selected_index_is_stale_after_entries_shrink() {
         PathBuf::from("/tmp"),
         vec![
             DirEntry {
-                name: "a".to_string(),
+                name: "a".to_owned(),
                 kind: EntryKind::Directory,
                 size: FileSize::from_bytes(0),
                 modified: Modified::UNKNOWN,
@@ -121,7 +121,7 @@ fn enter_is_a_no_op_when_the_selected_index_is_stale_after_entries_shrink() {
                 ..DirEntry::default()
             },
             DirEntry {
-                name: "b".to_string(),
+                name: "b".to_owned(),
                 kind: EntryKind::Directory,
                 size: FileSize::from_bytes(0),
                 modified: Modified::UNKNOWN,

@@ -64,7 +64,9 @@ pub fn starts_with_ignore_case(haystack: &str, needle: &str) -> bool {
         return haystack.to_lowercase().starts_with(&needle.to_lowercase());
     }
     let (haystack, needle) = (haystack.as_bytes(), needle.as_bytes());
-    haystack.len() >= needle.len() && haystack[..needle.len()].eq_ignore_ascii_case(needle)
+    haystack
+        .get(..needle.len())
+        .is_some_and(|head| head.eq_ignore_ascii_case(needle))
 }
 
 #[cfg(test)]

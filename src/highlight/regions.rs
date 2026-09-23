@@ -32,10 +32,10 @@ pub(super) fn paint<'a>(line: &'a str, spans: &[colorer::Span]) -> Vec<(&'a str,
         let token = per_char.get(start).copied().unwrap_or(Token::Normal);
         let ended = index == width || per_char.get(index) != Some(&token);
         if ended {
-            let (Some(from), Some(to)) = (bounds.get(start), bounds.get(index)) else {
+            let (Some(&from), Some(&to)) = (bounds.get(start), bounds.get(index)) else {
                 break;
             };
-            runs.push((&line[*from..*to], token));
+            runs.push((line.get(from..to).unwrap_or_default(), token));
             start = index;
         }
     }

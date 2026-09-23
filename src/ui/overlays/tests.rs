@@ -55,13 +55,11 @@ fn the_encoding_dialog_lists_every_codec() {
 
 #[test]
 fn the_link_dialog_asks_for_a_link_not_a_folder() {
-    let mut app = crate::models::App::new().expect("app");
-    app.set_overlay(crate::models::Overlay::NamePrompt(
-        crate::models::NamePrompt::link_to(
-            std::path::Path::new("/tmp/target"),
-            "link-name".to_owned(),
-        ),
-    ));
+    let mut app = App::new().expect("app");
+    app.set_overlay(Overlay::NamePrompt(crate::models::NamePrompt::link_to(
+        std::path::Path::new("/tmp/target"),
+        "link-name".to_owned(),
+    )));
     let screen = drawn(&mut app);
     assert!(screen.contains("Link"), "{screen}");
     assert!(screen.contains("link"), "{screen}");

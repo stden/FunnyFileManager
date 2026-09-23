@@ -79,13 +79,13 @@ fn exercise_probe(directory: &Path) -> io::Result<()> {
         .entries
         .iter()
         .position(|entry| entry.name == "notes.txt")
-        .expect("fixture file is listed");
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "fixture file is not listed"))?;
     app.left_panel.select(Some(selected));
     let mut terminal = Terminal::new(WritableTestBackend::new(80, 24))?;
     let _restore = RestoreRawMode;
     // On a headless runner, resuming raw mode can fail after the launch. The
     // reported outcome and recorded arguments prove the real launch completed.
-    let _ = handle_edit(&mut terminal, &mut app);
+    drop(handle_edit(&mut terminal, &mut app));
     assert_eq!(
         app.status,
         Status::Edited(directory.join("notes.txt").display().to_string())
@@ -97,7 +97,8 @@ struct RestoreRawMode;
 
 impl Drop for RestoreRawMode {
     fn drop(&mut self) {
-        let _ = crossterm::terminal::disable_raw_mode();
+        // Best effort: `drop` cannot report a failed restore.
+        drop(crossterm::terminal::disable_raw_mode());
     }
 }
 
@@ -105,8 +106,10 @@ struct ChildGuard(Child);
 
 impl Drop for ChildGuard {
     fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
+        // Best effort: the child may already have exited, and `drop`
+        // cannot report a failure.
+        drop(self.0.kill());
+        drop(self.0.wait());
     }
 }
 

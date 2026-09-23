@@ -75,7 +75,7 @@ pub fn complete(input: &str, cwd: &Path) -> Option<Completion> {
 /// Complete `input` (the current command-line text) against `ctx`. Returns
 /// `None` when there is nothing to complete.
 #[must_use]
-pub fn complete_with(input: &str, ctx: &CompletionContext) -> Option<Completion> {
+pub fn complete_with(input: &str, ctx: &CompletionContext<'_>) -> Option<Completion> {
     let (head, token) = split_target(input);
     let candidates = candidates_for(head, token, ctx);
 
@@ -83,8 +83,8 @@ pub fn complete_with(input: &str, ctx: &CompletionContext) -> Option<Completion>
         return None;
     }
 
-    let completed = if candidates.len() == 1 {
-        finish_word(&candidates[0].text, candidates[0].kind)
+    let completed = if let [only] = candidates.as_slice() {
+        finish_word(&only.text, only.kind)
     } else {
         // Ambiguous: advance to the longest common prefix only (no trailing space).
         let texts: Vec<String> = candidates.iter().map(|c| c.text.clone()).collect();
@@ -92,7 +92,7 @@ pub fn complete_with(input: &str, ctx: &CompletionContext) -> Option<Completion>
         if lcp.len() <= token.len() {
             // Already at the common prefix — nothing to insert, just report options.
             return Some(Completion {
-                line: input.to_string(),
+                line: input.to_owned(),
                 candidates,
             });
         }
@@ -114,10 +114,10 @@ pub fn complete_with(input: &str, ctx: &CompletionContext) -> Option<Completion>
 /// replace exactly the token this split identified.
 pub(crate) fn split_target(input: &str) -> (&str, &str) {
     match input.trim_start().split_once(char::is_whitespace) {
-        // `token` is a suffix of `input`, so its length locates the split.
+        // `token` is a suffix of `input`, so stripping it leaves the head.
         Some(("cd", rest)) => {
             let token = rest.trim_start();
-            (&input[..input.len() - token.len()], token)
+            (input.strip_suffix(token).unwrap_or_default(), token)
         }
         // Quote- and escape-aware, so `cat My\ Doc` completes against
         // `My Doc` rather than against `Doc`.
@@ -131,7 +131,7 @@ pub(crate) fn split_target(input: &str) -> (&str, &str) {
 /// finish a word the same way.
 pub(crate) fn finish_word(candidate: &str, kind: CandidateKind) -> String {
     if kind == CandidateKind::Path && candidate.ends_with('/') {
-        candidate.to_string()
+        candidate.to_owned()
     } else {
         format!("{candidate} ")
     }
@@ -139,12 +139,18 @@ pub(crate) fn finish_word(candidate: &str, kind: CandidateKind) -> String {
 
 /// Longest common prefix of a non-empty candidate list, on `char` boundaries.
 fn longest_common_prefix(candidates: &[String]) -> String {
-    let first = &candidates[0];
-    let mut prefix_len = first.len();
-    for other in &candidates[1..] {
-        prefix_len = common_prefix_len(&first[..prefix_len], other);
+    let Some((first, others)) = candidates.split_first() else {
+        return String::new();
+    };
+    let mut prefix = first.as_str();
+    for other in others {
+        // `common_prefix_len` ends on a char boundary of `prefix`, so `get`
+        // always succeeds.
+        prefix = prefix
+            .get(..common_prefix_len(prefix, other))
+            .unwrap_or_default();
     }
-    first[..prefix_len].to_string()
+    prefix.to_owned()
 }
 
 /// Byte length of the shared leading run of characters in `a` and `b`.

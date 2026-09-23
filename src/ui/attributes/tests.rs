@@ -149,3 +149,24 @@ fn the_check_marks_cover_all_three_states() {
     assert_eq!(Check::Clear.mark(), ' ');
     assert_eq!(Check::Mixed.mark(), '?');
 }
+
+/// A group row is its caption padded to eight columns, then each box as
+/// `[mark] label` and a two-blank gap; `box_columns` holds where each `[` is.
+#[test]
+fn a_group_row_spells_each_box_after_the_caption() {
+    let dialog = AttributesDialog::from_snapshots(&[snapshot("a", first_flag().bit(), false)]);
+    let lines = super::group_lines(&dialog);
+    #[cfg(unix)]
+    let (text, columns) = (
+        "Owner   [x] Read  [ ] Write  [ ] Execute  ",
+        [8, 18, 29].as_slice(),
+    );
+    #[cfg(windows)]
+    let (text, columns) = (
+        "Flags   [x] Read-only  [ ] Hidden  [ ] System  [ ] Archive  ",
+        [8, 23, 35, 47].as_slice(),
+    );
+    assert_eq!(lines.len(), Flag::GROUPS.len());
+    assert_eq!(lines[0].text, text);
+    assert_eq!(lines[0].box_columns, columns);
+}

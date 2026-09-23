@@ -1,5 +1,4 @@
 //! Purpose: Owns injected terminal operations and RAII lifecycle guards.
-#![allow(clippy::redundant_pub_crate)]
 
 use crossterm::{
     cursor::Show,
@@ -10,7 +9,7 @@ use crossterm::{
 use ratatui::{backend::Backend, Terminal};
 use std::io::{self, Write};
 
-pub(crate) trait TerminalOps<B>
+pub trait TerminalOps<B>
 where
     B: Backend + Write,
 {
@@ -38,7 +37,7 @@ where
     fn wait_for_key(&mut self, terminal: &mut Terminal<B>, prompt: &str) -> io::Result<()>;
 }
 
-pub(crate) struct CrosstermOps;
+pub struct CrosstermOps;
 
 impl<B> TerminalOps<B> for CrosstermOps
 where
@@ -109,8 +108,7 @@ fn is_key_press(event: &Event) -> bool {
 }
 
 #[cfg(any(test, coverage))]
-#[cfg_attr(coverage, allow(dead_code))]
-pub(crate) struct NoopTerminalOps;
+pub struct NoopTerminalOps;
 
 #[cfg(any(test, coverage))]
 impl<B> TerminalOps<B> for NoopTerminalOps
@@ -158,26 +156,30 @@ mod guards;
 mod interrupts;
 mod keyboard;
 
-pub(crate) use guards::{TerminalSession, TerminalSuspension};
-pub(crate) use keyboard::{decode_input, KeyboardProtocol};
+pub use guards::{TerminalSession, TerminalSuspension};
+pub use keyboard::{decode_input, KeyboardProtocol};
 
-pub(crate) fn merge_run_and_cleanup<T>(
-    run: io::Result<T>,
-    cleanup: io::Result<()>,
-) -> io::Result<T> {
+pub fn merge_run_and_cleanup<T>(run: io::Result<T>, cleanup: io::Result<()>) -> io::Result<T> {
     match (run, cleanup) {
         (Err(error), _) | (Ok(_), Err(error)) => Err(error),
         (Ok(value), Ok(())) => Ok(value),
     }
 }
 
-pub(crate) fn restore_after_abort() {
-    let _ = disable_raw_mode();
+/// Best effort, after a panic: every step runs whatever the one before it
+/// returned, and there is no caller left to hand an error to.
+pub fn restore_after_abort() {
+    drop(disable_raw_mode());
     let mut stdout = io::stdout();
     // Before the alternate screen goes: each screen has its own flag stack,
     // and a pop on the main screen would take the shell's flags instead.
-    let _ = keyboard::pop(&mut stdout, keyboard::known_protocol());
-    let _ = execute!(stdout, LeaveAlternateScreen, DisableMouseCapture, Show);
+    drop(keyboard::pop(&mut stdout, keyboard::known_protocol()));
+    drop(execute!(
+        stdout,
+        LeaveAlternateScreen,
+        DisableMouseCapture,
+        Show
+    ));
 }
 
 #[cfg(test)]
@@ -188,9 +190,9 @@ mod tests;
 /// What Alt+F9 got from the host terminal: the height it asked for and the
 /// height the terminal has once it had a moment to act on the request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct VideoMode {
-    pub(crate) requested_rows: u16,
-    pub(crate) rows: u16,
+pub struct VideoMode {
+    pub requested_rows: u16,
+    pub rows: u16,
 }
 
 /// How long a terminal gets to apply a resize before its size is read back,
@@ -201,7 +203,7 @@ const RESIZE_POLL: std::time::Duration = std::time::Duration::from_millis(20);
 
 /// Ask the host terminal for 25 rows when it is taller than 30, else for 50,
 /// keeping its width, and report the height it then has.
-pub(crate) fn toggle_video_mode() -> io::Result<VideoMode> {
+pub fn toggle_video_mode() -> io::Result<VideoMode> {
     #[cfg(test)]
     {
         VIDEO_MODE_CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -246,7 +248,7 @@ static SKIP_VIDEO_MODE_RESIZE: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
 #[cfg(test)]
-pub(crate) fn video_mode_calls() -> usize {
+pub fn video_mode_calls() -> usize {
     VIDEO_MODE_CALLS.load(std::sync::atomic::Ordering::SeqCst)
 }
 
@@ -259,7 +261,7 @@ static VIDEO_MODE_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 /// Skip the host resize until the guard drops. Tests use this so Alt+F9 can
 /// prove it called [`toggle_video_mode`] without changing the terminal.
 #[cfg(test)]
-pub(crate) fn skip_video_mode_resize() -> VideoModeGuard {
+pub fn skip_video_mode_resize() -> VideoModeGuard {
     let lock = VIDEO_MODE_TEST_LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -268,7 +270,7 @@ pub(crate) fn skip_video_mode_resize() -> VideoModeGuard {
 }
 
 #[cfg(test)]
-pub(crate) struct VideoModeGuard {
+pub struct VideoModeGuard {
     _lock: std::sync::MutexGuard<'static, ()>,
 }
 

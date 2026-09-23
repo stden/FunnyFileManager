@@ -14,7 +14,7 @@ fn defaults_follow_far() {
     let settings = Settings::default();
     assert!(!settings.system.auto_save_setup);
     assert_eq!(
-        settings.system.history_size as usize,
+        usize::try_from(settings.system.history_size).unwrap(),
         crate::history::HISTORY_CAP
     );
     assert!(settings.panel.show_hidden);
@@ -48,8 +48,8 @@ fn the_path_sits_under_the_config_home() {
 
 /// An environment holding exactly `variables`, for the pure path rules.
 fn environment<'a>(
-    variables: &'a [(&'static str, &'a std::path::Path)],
-) -> impl Fn(&'static str) -> Option<std::ffi::OsString> + 'a {
+    variables: &'a [(&'static str, &'a Path)],
+) -> impl Fn(&'static str) -> Option<OsString> + 'a {
     |name| {
         variables
             .iter()
@@ -61,7 +61,7 @@ fn environment<'a>(
 #[test]
 fn windows_keeps_the_config_directory_under_appdata() {
     let temp = TempDir::new().expect("tempdir");
-    let appdata = std::path::Path::new("C:/Users/bob/AppData/Roaming");
+    let appdata = Path::new("C:/Users/bob/AppData/Roaming");
     let unix_homes = [("XDG_CONFIG_HOME", temp.path()), ("HOME", temp.path())];
     assert_eq!(
         Platform::Windows.dir(environment(&[
@@ -100,7 +100,7 @@ fn unix_prefers_an_absolute_xdg_config_home_to_home() {
 #[test]
 fn unix_ignores_a_relative_xdg_config_home() {
     let home = TempDir::new().expect("tempdir");
-    let relative = std::path::Path::new("relative/dir");
+    let relative = Path::new("relative/dir");
     assert_eq!(
         Platform::Unix.dir(environment(&[
             ("XDG_CONFIG_HOME", relative),

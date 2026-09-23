@@ -23,7 +23,7 @@ fn test_sort_mode_labels_and_cycle() {
 #[test]
 fn test_drive_entry_display_variants() {
     let local = DriveEntry::Local(PathBuf::from("/tmp"));
-    let s3 = DriveEntry::S3Profile("default".to_string());
+    let s3 = DriveEntry::S3Profile("default".to_owned());
 
     assert_eq!(local.display(), PathBuf::from("/tmp").display().to_string());
     assert_eq!(s3.display(), "S3: default");
@@ -70,10 +70,10 @@ fn test_panel_selected_path_and_action_names() -> io::Result<()> {
     panel.select(Some(alpha_index));
 
     assert_eq!(panel.selected_path(), Some(temp.path().join("alpha.txt")));
-    assert_eq!(panel.action_entry_names(), vec!["alpha.txt".to_string()]);
+    assert_eq!(panel.action_entry_names(), vec!["alpha.txt".to_owned()]);
 
     panel.marked.insert(FileName::from("beta.txt"));
-    assert_eq!(panel.action_entry_names(), vec!["beta.txt".to_string()]);
+    assert_eq!(panel.action_entry_names(), vec!["beta.txt".to_owned()]);
 
     Ok(())
 }

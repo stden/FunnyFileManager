@@ -17,7 +17,7 @@ use super::{far_block, Cells, FAR_BLUE};
 ///
 /// The window scrolls to keep the highlighted candidate visible, so a long
 /// candidate list stays navigable without growing the popup.
-pub(super) fn render_completion_menu(f: &mut Frame, app: &App, command_line_area: Rect) {
+pub(super) fn render_completion_menu(f: &mut Frame<'_>, app: &App, command_line_area: Rect) {
     let Overlay::CommandLine(state) = &app.overlay else {
         return;
     };

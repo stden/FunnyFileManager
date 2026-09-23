@@ -12,7 +12,7 @@ use crate::models::{InputPrompt, Question};
 
 /// The one-line input, its caret where the editor's cursor is.
 pub(super) fn render_input(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     prompt: &InputPrompt,
 ) {
@@ -42,7 +42,7 @@ pub(super) fn render_input(
 
 /// The question, drawn the way the quit confirmation is.
 pub(super) fn render_question(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     question: &Question,
 ) {

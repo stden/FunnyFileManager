@@ -70,7 +70,7 @@ fn unix_backslashes_are_literal_filename_characters() {
 #[cfg(windows)]
 #[test]
 fn status_paths_use_ordinary_spelling_even_when_stored_as_strings() {
-    let root = tempfile::TempDir::new().unwrap();
+    let root = TempDir::new().unwrap();
     let canonical = root.path().canonicalize().unwrap();
     let raw = canonical.to_string_lossy().into_owned();
     for status in [

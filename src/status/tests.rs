@@ -507,7 +507,7 @@ fn a_message_raised_under_a_quick_search_is_not_thrown_away() {
 /// info row cuts the parts, and must not be showing a different sentence.
 #[test]
 fn a_path_message_is_the_display_text_in_three_parts() {
-    let path = std::path::PathBuf::from("/srv/x/perms/unreadable.txt");
+    let path = PathBuf::from("/srv/x/perms/unreadable.txt");
     let statuses = [
         Status::CannotEdit {
             path: path.clone(),

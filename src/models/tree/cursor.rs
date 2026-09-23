@@ -66,8 +66,10 @@ impl FolderTree {
         let Some((depth, parent)) = self.level() else {
             return false;
         };
-        let Some(offset) = self.rows[self.cursor + 1..]
+        let Some(offset) = self
+            .rows
             .iter()
+            .skip(self.cursor + 1)
             .position(|row| row.depth() == depth && row.path.parent() == parent.as_deref())
         else {
             return false;
@@ -81,8 +83,10 @@ impl FolderTree {
         let Some((depth, parent)) = self.level() else {
             return false;
         };
-        let Some(at) = self.rows[..self.cursor]
+        let Some(at) = self
+            .rows
             .iter()
+            .take(self.cursor)
             .rposition(|row| row.depth() == depth && row.path.parent() == parent.as_deref())
         else {
             return false;
@@ -124,8 +128,11 @@ impl FolderTree {
         }
         let len = self.rows.len();
         let Some(offset) = (1..=len).find(|offset| {
-            let row = &self.rows[(self.cursor + offset) % len];
-            row.branch != Branch::Root && starts_with_ignore_case(&row.name(), prefix)
+            self.rows
+                .get((self.cursor + offset) % len)
+                .is_some_and(|row| {
+                    row.branch != Branch::Root && starts_with_ignore_case(&row.name(), prefix)
+                })
         }) else {
             return false;
         };

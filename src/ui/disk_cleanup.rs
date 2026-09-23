@@ -9,7 +9,7 @@ use super::dialog::{self, Button, Ground, Row};
 use crate::models::{CleanupCandidate, CleanupField, CleanupKind, DiskCleanupDialog};
 
 pub(super) fn render(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     dialog_state: &DiskCleanupDialog,
 ) {
@@ -17,14 +17,15 @@ pub(super) fn render(
     // borrow it as &str within the same scope.
     let labels: Vec<String> = dialog_state.candidates.iter().map(row_text).collect();
 
-    let mut rows: Vec<Row> = labels
+    let mut rows: Vec<Row<'_>> = labels
         .iter()
+        .zip(&dialog_state.candidates)
         .enumerate()
-        .map(|(idx, label)| Row::Checkbox {
+        .map(|(idx, (label, candidate))| Row::Checkbox {
             label: label.as_str(),
-            checked: dialog_state.candidates[idx].checked,
+            checked: candidate.checked,
             focused: dialog_state.field == CleanupField::Item(idx),
-            enabled: dialog_state.candidates[idx].exists,
+            enabled: candidate.exists,
         })
         .collect();
 

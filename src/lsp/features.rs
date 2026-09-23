@@ -105,7 +105,7 @@ fn completion(item: &Value) -> Result<Completion, &'static str> {
         .get("additionalTextEdits")
         .map(|edits| serde_json::from_value(edits.clone()))
         .transpose()
-        .map_err(|_| "Invalid additional completion edits")?
+        .map_err(crate::lsp::logged("Invalid additional completion edits"))?
         .unwrap_or_default();
     Ok(Completion {
         insert_text: item["insertText"].as_str().unwrap_or(&label).to_owned(),
@@ -125,7 +125,8 @@ fn completion_edit(edit: &Value) -> Result<TextEdit, &'static str> {
         .or_else(|| edit.get("replace"))
         .ok_or("Missing completion range")?;
     Ok(TextEdit {
-        range: serde_json::from_value(range.clone()).map_err(|_| "Invalid completion range")?,
+        range: serde_json::from_value(range.clone())
+            .map_err(crate::lsp::logged("Invalid completion range"))?,
         new_text: edit["newText"]
             .as_str()
             .ok_or("Missing completion text")?
@@ -168,6 +169,7 @@ fn definition(value: &Value) -> Result<Definition, &'static str> {
             .as_str()
             .and_then(uri::to_path)
             .ok_or("Definition is not a valid file URI")?,
-        range: serde_json::from_value(range.clone()).map_err(|_| "Invalid definition range")?,
+        range: serde_json::from_value(range.clone())
+            .map_err(crate::lsp::logged("Invalid definition range"))?,
     })
 }

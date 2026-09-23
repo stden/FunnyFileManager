@@ -34,7 +34,7 @@ impl FakeBackend {
 
 impl ClipboardBackend for FakeBackend {
     fn set_native(&mut self, text: &str) -> Result<(), String> {
-        self.native_calls.push(text.to_string());
+        self.native_calls.push(text.to_owned());
         if self.native_ok {
             return Ok(());
         }
@@ -45,7 +45,7 @@ impl ClipboardBackend for FakeBackend {
     }
 
     fn emit_osc52(&mut self, payload: &str) -> Result<(), String> {
-        self.osc52_calls.push(payload.to_string());
+        self.osc52_calls.push(payload.to_owned());
         if self.osc52_ok {
             return Ok(());
         }

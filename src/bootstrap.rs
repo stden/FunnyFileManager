@@ -99,6 +99,10 @@ fn load_app() -> io::Result<App> {
 /// Everything that has to wait for the screen to be the user's again: the
 /// state written back to disk, a recording that gave up halfway, and the
 /// failure that ended the session, if one did.
+#[expect(
+    clippy::print_stderr,
+    reason = "runs after the terminal is restored: stderr is the only channel left for a failure"
+)]
 fn report_at_exit(app: &App, run_result: &io::Result<()>) {
     persist_at_exit(app);
     if let Err(error) = app.performance.save_session() {
@@ -108,7 +112,22 @@ fn report_at_exit(app: &App, run_result: &io::Result<()>) {
         eprintln!("ffm: recording stopped: {reason}");
     }
     if let Err(error) = run_result {
-        eprintln!("Error: {error:?}");
+        eprintln!("{}", AtExitErrorLine(error));
+    }
+}
+
+/// The line a failed session leaves on stderr: the `io::Error` in its Debug
+/// form, which also names the `ErrorKind`. `main` prints the Display form
+/// after it.
+struct AtExitErrorLine<'error>(&'error io::Error);
+
+impl std::fmt::Display for AtExitErrorLine<'_> {
+    #[expect(
+        clippy::use_debug,
+        reason = "the exit line deliberately shows the io::Error's Debug form, which names its ErrorKind; main prints the Display form after it"
+    )]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Error: {:?}", self.0)
     }
 }
 

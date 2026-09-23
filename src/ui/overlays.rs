@@ -20,7 +20,7 @@ mod tests;
 
 /// Far's F7 dialog: what to look for, how to match it, and which way to go.
 fn render_search_prompt(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     prompt: &SearchPrompt,
 ) -> Option<(u16, u16)> {
@@ -79,7 +79,7 @@ enum Info {
 /// how much there is, the folders say *where* it is, and the categories say
 /// *what* it is. One flat list would answer none of them.
 fn render_information(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     stats: &crate::stats::DirectoryStats,
 ) {
@@ -193,7 +193,7 @@ const EDITOR_BAR_HEIGHT: u16 = 1;
 /// `Ch` is the code point under the cursor, which is the reason the bar is
 /// worth its row — it is the one fact about a file you cannot get by looking
 /// at it, and the one you need when a file will not parse.
-fn render_editor_bar(f: &mut Frame, editor: &crate::models::Editor, area: Rect, line: &str) {
+fn render_editor_bar(f: &mut Frame<'_>, editor: &crate::models::Editor, area: Rect, line: &str) {
     let text = editor_bar_text(editor, area.width, line);
     f.render_widget(
         Paragraph::new(Line::from(Span::raw(text))).style(
@@ -240,7 +240,7 @@ fn editor_bar_text(editor: &crate::models::Editor, width: u16, line: &str) -> St
     format!("{name}{}{position}", " ".repeat(gap))
 }
 
-pub fn render_overlays(f: &mut Frame, app: &mut App) {
+pub fn render_overlays(f: &mut Frame<'_>, app: &mut App) {
     if !app.overlay.is_active() {
         // No dialog this frame, so last frame's rectangles describe nothing.
         // Leaving them would send a click on the panels into a closed window.
@@ -280,7 +280,7 @@ pub fn render_overlays(f: &mut Frame, app: &mut App) {
 /// A second and third function only to keep each under the line limit; the
 /// split follows the menu headings.
 fn render_menu_dialog(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     overlay: &mut Overlay,
     tracker: &mut crate::mouse::DialogMouse,
 ) {
@@ -299,7 +299,7 @@ fn render_menu_dialog(
 /// The Commands- and Options-menu dialogs. Every variant is drawn by one of
 /// the three routers; the fallback here is only for the arms above.
 fn render_commands_dialog(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     overlay: &mut Overlay,
     tracker: &mut crate::mouse::DialogMouse,
 ) {
@@ -352,7 +352,7 @@ const HELP_LINES: &[&str] = &[
     ":winperf - Windows performance summary",
 ];
 
-fn render_help(f: &mut Frame) {
+fn render_help(f: &mut Frame<'_>) {
     let area = centered_rect(80, 80, f.area());
     dialog::render_shadow(f, area, f.area());
 
@@ -360,7 +360,7 @@ fn render_help(f: &mut Frame) {
         .iter()
         .copied()
         .map(|line| Line::from(Span::raw(line)))
-        .collect::<Vec<Line>>();
+        .collect::<Vec<Line<'_>>>();
 
     let style = Style::default().fg(palette::HELP_FG).bg(palette::HELP_BG);
     let block = far_block()
@@ -375,7 +375,7 @@ fn render_help(f: &mut Frame) {
 }
 
 fn render_editor(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     editor: &crate::models::Editor,
     tracker: &mut crate::mouse::DialogMouse,
 ) {
@@ -429,7 +429,7 @@ fn render_editor(
 }
 
 fn render_mask_prompt(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     prompt: &crate::models::MaskPrompt,
 ) {
@@ -460,7 +460,7 @@ fn render_mask_prompt(
 
 /// Draw `text`, which ends at the caret, as a selection: Far shows an offered
 /// mask selected, and that is what tells the user typing will replace it.
-fn select_field_text(f: &mut Frame, text: &str, end: u16, y: u16) {
+fn select_field_text(f: &mut Frame<'_>, text: &str, end: u16, y: u16) {
     let width = u16::try_from(Cells::of(text).get()).unwrap_or(u16::MAX);
     let cells = Rect::new(end.saturating_sub(width), y, width, 1).intersection(f.area());
     let selected = Style::default()
@@ -470,7 +470,7 @@ fn select_field_text(f: &mut Frame, text: &str, end: u16, y: u16) {
 }
 
 fn render_quit_confirm(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     answer: crate::models::Confirm,
 ) {
@@ -490,7 +490,7 @@ fn render_quit_confirm(
 }
 
 fn render_delete_confirm(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     files: &[std::path::PathBuf],
 ) {
@@ -523,7 +523,7 @@ fn render_delete_confirm(
     );
 }
 
-fn render_new_file_input(f: &mut Frame, tracker: &mut crate::mouse::DialogMouse, input: &str) {
+fn render_new_file_input(f: &mut Frame<'_>, tracker: &mut crate::mouse::DialogMouse, input: &str) {
     let input = super::tail_cells(input, Cells::columns(f.area().width.saturating_sub(9)));
     if let Some(cursor) = dialog::render_tracked(
         f,
@@ -544,7 +544,7 @@ fn render_new_file_input(f: &mut Frame, tracker: &mut crate::mouse::DialogMouse,
 }
 
 fn render_editor_dialog(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     editor: &crate::models::Editor,
     caret: (u16, u16),
@@ -584,7 +584,7 @@ fn render_editor_dialog(
 
 /// A save found another program's write: say so before replacing it.
 fn render_overwrite_prompt(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     answer: crate::models::Confirm,
 ) {
@@ -613,7 +613,7 @@ fn render_overwrite_prompt(
 /// none of that, so the rows are simply not drawn — unlike a greyed control,
 /// which says "not for this answer", an absent one says "not for this key".
 fn render_name_prompt(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     prompt: &crate::models::NamePrompt,
 ) {
@@ -654,7 +654,7 @@ fn render_name_prompt(
 /// buttons. The order is not cosmetic — it runs from the answer the user
 /// always supplies to the ones they almost never change.
 fn render_copy_prompt(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     prompt: &crate::copy::CopyPrompt,
 ) {
@@ -787,7 +787,7 @@ fn copy_option_rows(prompt: &crate::copy::CopyPrompt) -> [dialog::Row<'_>; 5] {
 }
 
 fn render_editor_body(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     editor: &crate::models::Editor,
     area: Rect,
     scroll_y: usize,
@@ -815,7 +815,7 @@ fn render_editor_body(
     super::editor_brackets::render(f, editor, body_area, scroll_y, scroll_x);
 }
 fn render_encoding_dialog(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     choice: crate::encoding::TextEncoding,
 ) {
@@ -839,7 +839,7 @@ fn render_encoding_dialog(
     );
 }
 
-fn render_search_miss(f: &mut Frame, tracker: &mut crate::mouse::DialogMouse, needle: &str) {
+fn render_search_miss(f: &mut Frame<'_>, tracker: &mut crate::mouse::DialogMouse, needle: &str) {
     dialog::render_warning(
         f,
         tracker,

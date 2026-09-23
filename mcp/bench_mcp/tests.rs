@@ -116,3 +116,78 @@ fn benchmark_json_paths_escape_separators_quotes_and_control_characters() {
         serde_json::from_str(&format!("\"{}\"", json_path(path))).expect("JSON path");
     assert_eq!(decoded, path.to_string_lossy());
 }
+
+/// This file compiled on its own, as its header documents, into `directory`,
+/// and a command that runs it there. No Cargo target sits beside it, so it
+/// finds no server by accident, and its scratch directory stays inside.
+fn standalone_benchmark(directory: &Path) -> Command {
+    let binary = directory.join(format!("bench_mcp{}", std::env::consts::EXE_SUFFIX));
+    let compiled = Command::new(std::env::var_os("RUSTC").unwrap_or_else(|| "rustc".into()))
+        .args(["--edition", "2021"])
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("bench_mcp.rs"))
+        .arg("-o")
+        .arg(&binary)
+        .output()
+        .expect("run rustc");
+    assert!(
+        compiled.status.success(),
+        "the benchmark compiles on its own: {}",
+        String::from_utf8_lossy(&compiled.stderr)
+    );
+    let mut benchmark = Command::new(binary);
+    benchmark
+        .current_dir(directory)
+        .env_remove("FFM_MCP_BIN")
+        .env("RUST_BACKTRACE", "0");
+    for variable in ["TMPDIR", "TMP", "TEMP"] {
+        benchmark.env(variable, directory);
+    }
+    benchmark
+}
+
+#[test]
+fn without_a_server_the_benchmark_prints_one_error_line_and_exits_with_1() {
+    let temp = tempfile::TempDir::new().expect("empty directory");
+    let output = standalone_benchmark(temp.path())
+        .output()
+        .expect("run the benchmark");
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        "ERROR: ffm-mcp binary not found. Run 'cargo build --release' first or set FFM_MCP_BIN.\n"
+    );
+    assert!(output.stdout.is_empty());
+}
+
+#[test]
+fn a_server_that_cannot_start_aborts_the_benchmark() {
+    let temp = tempfile::TempDir::new().expect("empty directory");
+    let output = standalone_benchmark(temp.path())
+        .env("FFM_MCP_BIN", temp.path().join("no-such-server"))
+        .output()
+        .expect("run the benchmark");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(101), "{stderr}");
+    assert!(stderr.contains("failed to start ffm-mcp: Os {"), "{stderr}");
+}
+
+#[test]
+fn a_scratch_directory_that_cannot_be_made_aborts_the_benchmark() {
+    let temp = tempfile::TempDir::new().expect("empty directory");
+    let not_a_directory = temp.path().join("a file");
+    std::fs::write(&not_a_directory, "").expect("plain file");
+    let mut benchmark = standalone_benchmark(temp.path());
+    for variable in ["TMPDIR", "TMP", "TEMP"] {
+        benchmark.env(variable, &not_a_directory);
+    }
+    let output = benchmark
+        .env("FFM_MCP_BIN", temp.path().join("no-such-server"))
+        .output()
+        .expect("run the benchmark");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(101), "{stderr}");
+    assert!(
+        stderr.contains("called `Result::unwrap()` on an `Err` value: Os {"),
+        "{stderr}"
+    );
+}

@@ -17,7 +17,7 @@ pub(super) fn download(
     stop: &AtomicBool,
     environment: &dyn Environment,
 ) -> Result<(), InstallError> {
-    let parsed = url::Url::parse(url).map_err(|_| InstallError::Recipe)?;
+    let parsed = url::Url::parse(url).map_err(crate::lsp::logged(InstallError::Recipe))?;
     if parsed.scheme() != "https"
         || checksum.len() != 64
         || !checksum.bytes().all(|byte| byte.is_ascii_hexdigit())
@@ -90,7 +90,8 @@ fn verify(path: &Path, expected: &str, stop: &AtomicBool) -> Result<(), InstallE
         if length == 0 {
             break;
         }
-        hash.update(&buffer[..length]);
+        // `read` never reports more than the buffer holds.
+        hash.update(buffer.get(..length).ok_or(InstallError::Integrity)?);
     }
     if storage::hex(&hash.finalize()).eq_ignore_ascii_case(expected) {
         Ok(())
@@ -110,7 +111,8 @@ fn unpack(input: impl Read, root: &Path, stop: &AtomicBool) -> Result<(), Instal
             return Err(InstallError::Archive);
         }
         let path = entry.path()?.to_string_lossy().into_owned();
-        let destination = storage::relative(root, &path).map_err(|_| InstallError::Archive)?;
+        let destination =
+            storage::relative(root, &path).map_err(crate::lsp::logged(InstallError::Archive))?;
         if entry.header().entry_type().is_dir() {
             fs::create_dir_all(destination)?;
         } else if entry.header().entry_type().is_file() {
@@ -136,7 +138,8 @@ fn extract_file<R: Read>(
         if length == 0 {
             break;
         }
-        file.write_all(&buffer[..length])?;
+        // `read` never reports more than the buffer holds.
+        file.write_all(buffer.get(..length).ok_or(InstallError::Archive)?)?;
     }
     permissions(&file, entry.header().mode()?)?;
     Ok(())

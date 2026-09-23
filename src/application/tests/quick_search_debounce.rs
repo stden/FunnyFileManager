@@ -1,11 +1,8 @@
 //! Unit tests: quick search debounce (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use super::*;
 
 use crate::models::Panel;
-
-use crossterm::event::{KeyCode, KeyModifiers};
 
 use std::fs;
 

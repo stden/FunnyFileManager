@@ -9,7 +9,7 @@ fn completes_unique_verb_prefix_with_trailing_space() {
     let tmp = empty_cwd();
     let c = complete("pw", tmp.path()).expect("some");
     assert_eq!(c.line, "pwd ");
-    assert_eq!(texts(&c), vec!["pwd".to_string()]);
+    assert_eq!(texts(&c), vec!["pwd".to_owned()]);
 }
 
 #[test]
@@ -19,7 +19,7 @@ fn empty_input_offers_all_verbs_at_common_prefix() {
     // candidate list is returned for display.
     let c = complete("", tmp.path()).expect("some");
     assert_eq!(c.line, "");
-    assert!(texts(&c).contains(&"cd".to_string()));
+    assert!(texts(&c).contains(&"cd".to_owned()));
     assert!(c.candidates.len() > 1);
 }
 
@@ -90,8 +90,8 @@ fn every_verb_is_offered_for_completion() {
     // The completer reads `command::VERBS`, so `win…` and friends complete too.
     let c = complete("win", tmp.path()).expect("some");
     let names = texts(&c);
-    assert!(names.contains(&"winmsg".to_string()));
-    assert!(names.contains(&"wincheck".to_string()));
+    assert!(names.contains(&"winmsg".to_owned()));
+    assert!(names.contains(&"wincheck".to_owned()));
 }
 
 // ── command-name completion ───────────────────────────────────────
@@ -111,7 +111,7 @@ fn a_unique_verb_prefix_is_not_diluted_by_path_programs() {
     let tmp = empty_cwd();
     let c = complete("pw", tmp.path()).expect("verb");
     assert_eq!(c.line, "pwd ");
-    assert_eq!(texts(&c), vec!["pwd".to_string()]);
+    assert_eq!(texts(&c), vec!["pwd".to_owned()]);
 }
 
 #[test]
@@ -122,7 +122,7 @@ fn built_in_verbs_outrank_path_executables() {
     let names = texts(&c);
     assert_eq!(
         names.first(),
-        Some(&"cd".to_string()),
+        Some(&"cd".to_owned()),
         "a built-in must lead, candidates were {names:?}"
     );
 }
@@ -143,7 +143,7 @@ fn sessions_completes_its_subcommand_and_source() {
 fn sessions_import_netbox_completes_the_file_as_a_path() {
     let tmp = cwd_with(&["demo.netbox"]);
     let c = complete("sessions import netbox de", tmp.path()).expect("the file");
-    assert_eq!(texts(&c), vec!["demo.netbox".to_string()]);
+    assert_eq!(texts(&c), vec!["demo.netbox".to_owned()]);
     assert!(
         c.line.starts_with("sessions import netbox demo.netbox"),
         "{}",

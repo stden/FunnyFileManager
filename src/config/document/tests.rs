@@ -190,7 +190,7 @@ fn a_directory_or_an_oversized_file_is_refused() {
     let temp = TempDir::new().expect("tempdir");
     let path = settings_path(&temp);
     write_file(&path, "");
-    fs::File::options()
+    File::options()
         .write(true)
         .open(&path)
         .and_then(|file| file.set_len(MAX_FILE_BYTES + 1))

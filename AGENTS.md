@@ -51,7 +51,7 @@ See `docs/knowledge-base/03-rust-best-practices/type-system.md` for details and 
 - `src/ui.rs`: TUI rendering with ratatui.
 - `src/popup.rs`: Modal input handling; depends directly on canonical operations.
 - `src/ops/`: Canonical command, file, directory navigation, editor save, shell, viewer, and MCP-status operations.
-- `src/handlers/mod.rs`: Backward-compatible re-exports; no operation implementation.
+- `src/handlers.rs`: Backward-compatible re-exports; no operation implementation.
 - `src/terminal.rs`: RAII lifecycle for the TUI session and external-editor suspension.
 - `src/utils.rs`: Utility functions (`format_size`, `unique_destination`, `copy_dir_all`).
 - `src/platform.rs`: Safe wrappers for OS calls std lacks (uids, write access, process-group kill, Windows drives and attributes).
@@ -140,7 +140,7 @@ flowchart LR
 
 - `src/ops/` is the sole implementation owner for command dispatch, file
   operations, shell execution, viewing, and MCP-status operations.
-- `src/handlers/mod.rs` only re-exports stable paths. Do not add implementations
+- `src/handlers.rs` only re-exports stable paths. Do not add implementations
   there, and do not make `popup` depend on `handlers`.
 - `action` performs no filesystem or terminal I/O. `ui` renders state but does
   not execute operations. `terminal` and `bootstrap` own host-terminal effects.
@@ -206,7 +206,7 @@ Rules that must be followed when writing or reviewing code. This project is inte
 
 ### Core Mandatory Rules
 
-- Use `?` for error propagation. Never use `unwrap()` in library code (except tests/main).
+- Use `?` for error propagation. Never use `unwrap()` or `expect()` outside tests; Clippy's `unwrap_used` and `expect_used` enforce it.
 - Prefer `&str` / `&Path` over owned types in function signatures when possible.
 - **Strongly prefer enums for state** instead of multiple `bool`/`Option` fields (see the `Overlay` enum).
 - Use **newtypes** instead of raw primitives for domain concepts (`BookmarkSlot`, `FileSize`, IDs, etc.).
@@ -271,8 +271,8 @@ Rules that must be followed when writing or reviewing code. This project is inte
 ### Modules and File Layout
 
 **A module is a file; the directory next to it holds that module's children.**
-This is the Rust 2018 form, and it is what you will see almost everywhere
-here — 201 modules use it against 11 `mod.rs` files:
+This is the Rust 2018 form, and Clippy's `mod_module_files` makes it the only
+one here:
 
 ```
 src/action/
@@ -289,25 +289,22 @@ If you came looking for `src/action/editor/` and found only tests, the code is
 the **sibling file**, `src/action/editor.rs`. A directory holding nothing but
 `tests.rs` is normal and not a missing implementation.
 
-- **Do not add new `mod.rs` files.** The older `foo/mod.rs` form puts the code
+- **No `mod.rs` files.** The older `foo/mod.rs` form puts the code
   inside the directory, which reads more naturally in a file tree but leaves
   an editor showing ten tabs all called `mod.rs` with nothing to tell them
   apart. Naming the file after the module is why the 2018 form exists.
-- The eleven existing `mod.rs` files (`ops/`, `application/`, `handlers/`,
-  `test_support/`, and test aggregators under them) are deliberate: each is a
-  façade whose whole job is re-exporting a subsystem, so "the directory" *is*
-  the unit. Leave them.
+  Clippy's `mod_module_files` rejects every `mod.rs`, including the façades
+  (`ops/`, `application/`, `handlers/`, `test_support/`, and test aggregators
+  under them) that predate the lint: each becomes `<name>.rs` beside its
+  directory.
 - **Moving some module files breaks the architecture test.**
   `tests/module_boundaries_test.rs` names exact paths: `src/bootstrap.rs`,
   `src/editor.rs`, `src/lib.rs`, the canonical owners under `src/ops/`, the
   removed `src/handlers/*` files and the MCP modules. A moved file fails with
   `<path> is not in the source set` or a wrong-owner message. Renaming one of
   them is therefore a two-file change: the file and that test.
-- Either form is otherwise a pure file-placement choice: `git mv foo.rs
-  foo/mod.rs` changes no module path, no `use`, no public API. Because nothing
-  observable changes, converting one module in isolation buys nothing and
-  costs an exception the next reader trips over. Convert the whole tree or
-  none of it.
+- Converting a `mod.rs` is a pure file move: `git mv foo/mod.rs foo.rs`
+  changes no module path, no `use`, no public API.
 - Target ≤ 300 lines per file; the guard test in
   `tests/file_line_limit_test.rs` enforces the hard cap. Split by
   responsibility into `<module>/<part>.rs` child modules, never by line count.
@@ -392,9 +389,16 @@ the **sibling file**, `src/action/editor.rs`. A directory holding nothing but
 - `cargo clippy --all-targets --features test-helpers -- -D warnings` is
   the gate; `all`, `pedantic` and `nursery` are on, exceptions live only in
   `Cargo.toml [lints.clippy]` with a reason.
-- `#[allow]`/`#[expect]` on an item needs a one-line justification and is
-  reviewed like `unsafe`. `unfulfilled_lint_expectations` is `deny`, so a
-  stale `#[expect]` fails the build.
+- Reliability restriction lints are on in every crate: no `unwrap`/`expect`,
+  `panic!`, indexing, string slicing or `as` casts in production code, no
+  dropped errors, no `print!`/`dbg!`/`{:?}` output, no hash-map iteration.
+  Tests are exempt from the panic family through `clippy.toml`. The families,
+  and how to fix or justify a violation, are in
+  `docs/knowledge-base/04-development-workflow/build-run-test.md` ("Lint Policy").
+- `#[allow]`/`#[expect]` on an item needs `reason = "..."`
+  (`allow_attributes_without_reason`) and is reviewed like `unsafe`.
+  `unfulfilled_lint_expectations` is `deny`, so a stale `#[expect]` fails the
+  build.
 - `rustfmt.toml`: `max_width = 100`, field-init shorthand. `cargo fmt --all`
   before every commit; CI checks it.
 

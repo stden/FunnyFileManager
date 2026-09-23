@@ -4,7 +4,7 @@
 use super::*;
 use crate::action::{FileCommand, PanelCommand, ToolCommand};
 use crate::menu::{Heading, Menu, MenuCommand, SettingsPage};
-use crate::models::{PanelKind, PanelSide, PanelView, PanelsShown};
+use crate::models::{PanelSide, PanelView, PanelsShown};
 
 /// Whether an overlay is the one a command was meant to open.
 type Opens = fn(&Overlay) -> bool;

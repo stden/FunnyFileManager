@@ -20,7 +20,7 @@ fn runs(path: &str, line: &str) -> Vec<(String, Token)> {
     let rejoined: String = runs.iter().map(|(text, _)| *text).collect();
     assert_eq!(rejoined, line, "runs must cover the line exactly");
     runs.into_iter()
-        .map(|(text, token)| (text.to_string(), token))
+        .map(|(text, token)| (text.to_owned(), token))
         .collect()
 }
 
@@ -77,7 +77,7 @@ fn a_block_comment_keeps_colouring_until_it_closes() {
     // Code after the close is code again.
     let after: Vec<(String, Token)> = closing
         .into_iter()
-        .map(|(t, k)| (t.to_string(), k))
+        .map(|(t, k)| (t.to_owned(), k))
         .collect();
     assert_eq!(token_of(&after, "let"), Token::Keyword);
 }

@@ -281,8 +281,8 @@ pub(super) struct Placement {
 pub(super) fn place(
     screen: Rect,
     title: &str,
-    rows: &[Row],
-    buttons: &[Button],
+    rows: &[Row<'_>],
+    buttons: &[Button<'_>],
     offset: (i32, i32),
 ) -> Option<Placement> {
     let (width, height) = dialog_size(screen, title, rows, buttons);
@@ -316,7 +316,7 @@ pub(super) fn place(
     })
 }
 
-fn dialog_size(screen: Rect, title: &str, rows: &[Row], buttons: &[Button]) -> (u16, u16) {
+fn dialog_size(screen: Rect, title: &str, rows: &[Row<'_>], buttons: &[Button<'_>]) -> (u16, u16) {
     let button_row: Cells = buttons
         .iter()
         .map(|button| button.width() + Cells::of(BUTTON_GAP))
@@ -355,8 +355,11 @@ fn frame_area(area: Rect) -> Rect {
 ///
 /// The same centring `button_line` draws with, so a click lands on the button
 /// the user is looking at.
-pub(super) fn button_spans(placement: &Placement, buttons: &[Button]) -> Vec<(usize, u16, u16)> {
-    let total: usize = buttons
+pub(super) fn button_spans(
+    placement: &Placement,
+    buttons: &[Button<'_>],
+) -> Vec<(usize, u16, u16)> {
+    let total = buttons
         .iter()
         .map(|button| button.width().get() + Cells::of(BUTTON_GAP).get())
         .sum::<usize>()
@@ -382,12 +385,12 @@ pub(super) fn button_spans(placement: &Placement, buttons: &[Button]) -> Vec<(us
 /// The loop draws immediately before it reads an event, so what is recorded
 /// here is exactly the frame the user was looking at.
 pub(super) fn render_tracked(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     title: &str,
     ground: Ground,
-    rows: &[Row],
-    buttons: &[Button],
+    rows: &[Row<'_>],
+    buttons: &[Button<'_>],
 ) -> Option<(u16, u16)> {
     let offset = tracker.offset;
     let caret = render_at(f, title, ground, rows, buttons, offset);
@@ -404,11 +407,11 @@ pub(super) fn render_tracked(
 
 /// The same dialog, shifted by however far it has been dragged.
 pub(super) fn render_at(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     title: &str,
     ground: Ground,
-    rows: &[Row],
-    buttons: &[Button],
+    rows: &[Row<'_>],
+    buttons: &[Button<'_>],
     offset: (i32, i32),
 ) -> Option<(u16, u16)> {
     let screen = f.area();
@@ -445,8 +448,8 @@ pub(super) fn render_at(
 }
 
 fn render_body(
-    f: &mut Frame,
-    rows: &[Row],
+    f: &mut Frame<'_>,
+    rows: &[Row<'_>],
     style: Style,
     body: Rect,
     framed: Rect,
@@ -483,7 +486,7 @@ fn render_body(
     caret
 }
 
-fn row_caret(row: &Row) -> Option<u16> {
+fn row_caret(row: &Row<'_>) -> Option<u16> {
     match row {
         Row::Input {
             value,
@@ -502,18 +505,25 @@ fn row_caret(row: &Row) -> Option<u16> {
 
 /// A red warning dialog: a few sentences and some buttons.
 pub(super) fn render_warning(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     title: &str,
     message: &[String],
-    buttons: &[Button],
+    buttons: &[Button<'_>],
 ) {
-    let rows: Vec<Row> = message.iter().map(|line| Row::Text(line)).collect();
+    let rows: Vec<Row<'_>> = message.iter().map(|line| Row::Text(line)).collect();
     render_tracked(f, tracker, title, Ground::Warning, &rows, buttons);
 }
 
 /// One body row, drawn according to what it is.
-fn render_row(f: &mut Frame, row: &Row, style: Style, width: u16, area: Rect, framed: Rect) {
+fn render_row(
+    f: &mut Frame<'_>,
+    row: &Row<'_>,
+    style: Style,
+    width: u16,
+    area: Rect,
+    framed: Rect,
+) {
     let accent = style.fg(palette::HOTKEY).add_modifier(Modifier::BOLD);
     let focused = row.is_focused();
     let enabled = row.is_enabled();
@@ -701,7 +711,7 @@ pub(super) fn field_caret(caption: &str, value: &str) -> u16 {
 /// Double, like the frame it meets: a single rule ending on a double border
 /// leaves two half-joined corners, which is what makes a dialog look drawn by
 /// two different programs.
-fn render_rule(f: &mut Frame, style: Style, y: u16, framed: Rect) {
+fn render_rule(f: &mut Frame<'_>, style: Style, y: u16, framed: Rect) {
     let rule = format!(
         "╠{}╣",
         "═".repeat(usize::from(framed.width.saturating_sub(2)))
@@ -733,7 +743,7 @@ fn hotkey_spans<'a>(label: &str, base: Style, accent: Style) -> Vec<Span<'a>> {
 }
 
 /// The buttons, centred, each with its hotkey letter picked out.
-fn button_line<'a>(buttons: &[Button], ground: Style) -> Line<'a> {
+fn button_line<'a>(buttons: &[Button<'_>], ground: Style) -> Line<'a> {
     let mut spans = Vec::new();
     for button in buttons {
         // The focused button is the one Enter acts on, so it is the one lit up.
@@ -762,7 +772,7 @@ fn button_line<'a>(buttons: &[Button], ground: Style) -> Line<'a> {
     Line::from(spans).centered()
 }
 
-fn button_style(button: &Button, ground: Style) -> Style {
+fn button_style(button: &Button<'_>, ground: Style) -> Style {
     if !button.is_enabled {
         ground.fg(palette::DISABLED_FG)
     } else if button.is_focused {
@@ -791,7 +801,7 @@ fn focused_control_style(ground: Style) -> Style {
 ///
 /// Drawn before the dialog and never over it: the two rectangles overlap, and
 /// painting the shadow second would darken the dialog's own right edge.
-pub(super) fn render_shadow(f: &mut Frame, area: Rect, screen: Rect) {
+pub(super) fn render_shadow(f: &mut Frame<'_>, area: Rect, screen: Rect) {
     let x = area.x + SHADOW_X;
     let y = area.y + SHADOW_Y;
     if x >= screen.right() || y >= screen.bottom() {

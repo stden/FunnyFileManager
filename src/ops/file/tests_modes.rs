@@ -6,7 +6,6 @@
 //! source's bits on a folder as well.
 
 use std::os::unix::fs::PermissionsExt;
-use std::sync::atomic::Ordering;
 
 use super::tests_transfer_policies::{app_with, mark, settings};
 use super::*;

@@ -39,13 +39,11 @@ fn find(screen: &str, text: &str) -> (u16, u16) {
         .lines()
         .enumerate()
         .find_map(|(row, line)| {
-            line.find(text).map(|byte| {
-                let column = line[..byte].chars().count();
-                (
-                    u16::try_from(column).expect("fits"),
-                    u16::try_from(row).expect("fits"),
-                )
-            })
+            let (before, _) = line.split_once(text)?;
+            Some((
+                u16::try_from(before.chars().count()).expect("fits"),
+                u16::try_from(row).expect("fits"),
+            ))
         })
         .unwrap_or_else(|| panic!("{text:?} is on screen:\n{screen}"))
 }
@@ -155,7 +153,11 @@ fn remote_app(dir: &TempDir, listing: Vec<DirEntry>) -> App {
         name("demo@example.test"),
         RemoteLink::new(Box::new(FakeRemoteFs::default())),
     );
-    let _ = panel.show(RemotePath::parse("/var/www").expect("path"), listing);
+    let shown = panel.show(RemotePath::parse("/var/www").expect("path"), listing);
+    assert_eq!(
+        shown.unusable_names, 0,
+        "the fixture listing holds only usable names"
+    );
     app.left_panel.kind = PanelKind::Remote(Box::new(panel));
     app
 }

@@ -167,7 +167,8 @@ impl SortMenu {
     /// rather than panicking on a menu built by hand.
     #[must_use]
     pub fn row(&self) -> SortRow {
-        SortRow::ALL[self.cursor.min(SortRow::ALL.len() - 1)]
+        let [.., last] = SortRow::ALL;
+        SortRow::ALL.get(self.cursor).copied().unwrap_or(last)
     }
 
     #[must_use]

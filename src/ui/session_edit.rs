@@ -24,7 +24,11 @@ const AUTH: [&str; 3] = [
     AuthKind::ALL[2].label(),
 ];
 
-pub(super) fn render(f: &mut Frame, tracker: &mut crate::mouse::DialogMouse, dialog: &SessionEdit) {
+pub(super) fn render(
+    f: &mut Frame<'_>,
+    tracker: &mut crate::mouse::DialogMouse,
+    dialog: &SessionEdit,
+) {
     let title = match dialog.purpose() {
         EditPurpose::Create => TITLE_NEW,
         EditPurpose::Edit(_) => TITLE_EDIT,

@@ -354,6 +354,10 @@ fn the_ghost_is_suppressed_while_the_caret_sits_mid_line() {
 // ─── completion at the caret ──────────────────────────────────────────────
 
 #[test]
+#[expect(
+    clippy::string_slice,
+    reason = "a caret off a char boundary panics the test, which fails it as loudly as the assertion"
+)]
 fn tab_completes_the_token_under_the_caret_and_keeps_the_tail() {
     let temp = tempfile::TempDir::new().expect("temp dir");
     std::fs::create_dir(temp.path().join("Documents")).expect("mkdir");

@@ -139,7 +139,7 @@ impl Command {
     /// A known verb used with arguments it does not accept.
     fn invalid(input: &str, usage: &'static str) -> Self {
         Self::Invalid {
-            input: input.to_string(),
+            input: input.to_owned(),
             usage,
         }
     }

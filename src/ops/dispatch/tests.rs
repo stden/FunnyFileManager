@@ -2,7 +2,7 @@
 //! assertion-failure arms are not measured as unreached production lines.
 
 use super::*;
-use crate::models::{App, Overlay, Panel};
+use crate::models::Panel;
 use std::fs::{self, File};
 use tempfile::TempDir;
 
@@ -433,7 +433,7 @@ fn command_output_lands_in_the_console_behind_the_panels() {
         format!(r"{}> printf 'alpha\nbeta\n'", temp.path().display()),
         "the command is echoed behind its prompt, as Far prints it"
     );
-    assert_eq!(&transcript[1..], ["alpha".to_string(), "beta".to_string()]);
+    assert_eq!(&transcript[1..], ["alpha".to_owned(), "beta".to_owned()]);
     // No window pops up over the panels — that is the whole point.
     assert!(matches!(app.overlay, Overlay::None));
     // The status bar still summarises, so the common case costs no keys.

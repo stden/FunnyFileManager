@@ -1,5 +1,4 @@
 //! Unit tests and shared test helpers for `ui`.
-#![allow(unused_imports)]
 
 use super::*;
 use crate::lineedit::LineEditor;
@@ -8,11 +7,10 @@ use crate::models::FileName;
 use crate::models::FileSize;
 use crate::models::Modified;
 use crate::models::Recall;
-use crate::models::ViewMode;
 use crate::quicksearch::QuickSearch;
 use crate::status::Status;
 
-use crate::models::{App, Candidate, CandidateKind, CommandLine, DirEntry, Menu, Overlay};
+use crate::models::{Candidate, CandidateKind, CommandLine, DirEntry, Menu};
 
 use ratatui::backend::TestBackend;
 
@@ -80,7 +78,7 @@ fn test_ui_render_status_with_file_selection() {
 
     // Add a file to the panel
     app.left_panel.entries.push(DirEntry {
-        name: "test.txt".to_string(),
+        name: "test.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(1024),
         modified: Modified::UNKNOWN,
@@ -137,7 +135,7 @@ fn test_ui_render_with_viewer_overlay() {
     let mut app = App::new().unwrap();
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "test.txt",
-        vec!["Line 1".to_string(), "Line 2".to_string()],
+        vec!["Line 1".to_owned(), "Line 2".to_owned()],
     )));
 
     terminal
@@ -157,7 +155,7 @@ fn test_render_status_right_panel_active_with_file() {
 
     // Add a file to the right panel
     app.right_panel.entries.push(DirEntry {
-        name: "document.pdf".to_string(),
+        name: "document.pdf".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(2_048_576), // 2MB,
         modified: Modified::UNKNOWN,
@@ -184,17 +182,17 @@ fn test_render_panel_with_various_entries() {
     // Add various types of entries
     app.left_panel.entries.clear();
     app.left_panel.entries.push(DirEntry {
-        name: "..".to_string(),
+        name: "..".to_owned(),
         kind: EntryKind::Directory,
         ..DirEntry::default()
     });
     app.left_panel.entries.push(DirEntry {
-        name: "documents".to_string(),
+        name: "documents".to_owned(),
         kind: EntryKind::Directory,
         ..DirEntry::default()
     });
     app.left_panel.entries.push(DirEntry {
-        name: "image.jpg".to_string(),
+        name: "image.jpg".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(1_536_000), // ~1.5MB,
         modified: Modified::UNKNOWN,
@@ -302,7 +300,7 @@ fn test_render_overlays_with_all_types() {
 
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "Test Viewer",
-        vec!["Line 1".to_string(), "Line 2".to_string()],
+        vec!["Line 1".to_owned(), "Line 2".to_owned()],
     )));
     terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
     app.close_overlay();
@@ -318,7 +316,7 @@ fn test_render_status_with_extreme_values() {
 
     app.left_panel.entries = vec![
         DirEntry {
-            name: "..".to_string(),
+            name: "..".to_owned(),
             kind: EntryKind::Directory,
             size: FileSize::from_bytes(0),
             modified: Modified::UNKNOWN,
@@ -326,7 +324,7 @@ fn test_render_status_with_extreme_values() {
             ..DirEntry::default()
         },
         DirEntry {
-            name: "huge_file.dat".to_string(),
+            name: "huge_file.dat".to_owned(),
             kind: EntryKind::File,
             size: FileSize::from_bytes(u64::MAX),
             modified: Modified::UNKNOWN,
@@ -428,7 +426,7 @@ fn test_render_panel_with_marked_files() {
 #[test]
 fn test_panel_footer_prefers_quick_search() {
     let mut app = App::new().unwrap();
-    app.quick_search = QuickSearch::Active("test".to_string());
+    app.quick_search = QuickSearch::Active("test".to_owned());
 
     assert_eq!(
         panel_footer(&app).map(|message| message.to_string()),
@@ -454,7 +452,7 @@ fn test_ui_render_with_quick_search_active() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let mut app = App::new().unwrap();
-    app.quick_search = QuickSearch::Active("search".to_string());
+    app.quick_search = QuickSearch::Active("search".to_owned());
 
     terminal
         .draw(|f| {
@@ -497,12 +495,12 @@ fn test_open_menu_renders_its_candidates() {
         line: LineEditor::new("m"),
         menu: Menu::new(vec![
             Candidate {
-                text: "mark".to_string(),
+                text: "mark".to_owned(),
                 kind: CandidateKind::Word,
                 hint: None,
             },
             Candidate {
-                text: "mcp".to_string(),
+                text: "mcp".to_owned(),
                 kind: CandidateKind::Word,
                 hint: None,
             },
@@ -567,9 +565,9 @@ fn test_candidate_hint_is_rendered() {
     app.set_overlay(Overlay::CommandLine(CommandLine {
         line: LineEditor::new("bookmark go "),
         menu: Menu::new(vec![Candidate {
-            text: "3".to_string(),
+            text: "3".to_owned(),
             kind: CandidateKind::Word,
-            hint: Some("/srv/FunnyFileManager".to_string()),
+            hint: Some("/srv/FunnyFileManager".to_owned()),
         }]),
         ghost: None,
         recall: Recall::Idle,
@@ -637,7 +635,7 @@ fn test_ghost_text_renders_after_the_buffer() {
     app.set_overlay(Overlay::CommandLine(CommandLine {
         line: LineEditor::new("cd"),
         menu: None,
-        ghost: Some(" /somewhere".to_string()),
+        ghost: Some(" /somewhere".to_owned()),
         recall: Recall::Idle,
     }));
 
@@ -735,7 +733,7 @@ fn completion_menu_on_zero_height_terminal_is_skipped() {
     app.set_overlay(Overlay::CommandLine(CommandLine {
         line: LineEditor::new("m"),
         menu: Menu::new(vec![Candidate {
-            text: "mark".to_string(),
+            text: "mark".to_owned(),
             kind: CandidateKind::Word,
             hint: None,
         }]),
@@ -750,10 +748,10 @@ fn completion_menu_on_zero_height_terminal_is_skipped() {
 #[cfg(not(windows))]
 fn column_of(buf: &ratatui::buffer::Buffer, y: u16, text: &str) -> Option<u16> {
     let row: String = (0..buf.area.width)
-        .map(|x| buf[(x, y)].symbol().to_string())
+        .map(|x| buf[(x, y)].symbol().to_owned())
         .collect();
-    row.find(text)
-        .map(|byte| u16::try_from(row[..byte].chars().count()).expect("column fits u16"))
+    row.split_once(text)
+        .map(|(before, _)| u16::try_from(before.chars().count()).expect("column fits u16"))
 }
 
 /// A leading dot is a Unix naming convention, not a hidden attribute, so a

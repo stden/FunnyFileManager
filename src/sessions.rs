@@ -11,6 +11,7 @@
 //! the next change. `App::new()` never loads it; `bootstrap` does, so no test
 //! reads the user's own sessions.
 
+use std::collections::BTreeSet;
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -55,6 +56,10 @@ impl fmt::Display for ReadError {
 
 /// The text of the regular file at `path`, if it is at most `limit` bytes of
 /// UTF-8.
+#[expect(
+    clippy::map_err_ignore,
+    reason = "the offset of the bad UTF-8 sequence means nothing to the user; the fixed message does"
+)]
 pub fn read_text(path: &Path, limit: u64) -> Result<String, ReadError> {
     match read_regular(path, limit).map_err(ReadError::Io)? {
         Loaded::Bytes(bytes) => String::from_utf8(bytes).map_err(|_| ReadError::NotUtf8),
@@ -171,8 +176,12 @@ impl SessionStore {
 
     /// Add `session`, or replace the one stored under its name.
     pub fn upsert(&mut self, session: Session) {
-        match self.position(&session.name) {
-            Some(at) => self.sessions[at] = session,
+        match self
+            .sessions
+            .iter_mut()
+            .find(|kept| kept.name == session.name)
+        {
+            Some(kept) => *kept = session,
             None => self.sessions.push(session),
         }
     }
@@ -266,9 +275,8 @@ fn read_sessions(path: &Path) -> Result<Vec<Session>, LoadError> {
         Err(error) => return Err(LoadError::Read(error)),
     };
     let file: StoredFile = serde_json::from_str(&text).map_err(LoadError::Parse)?;
-    let mut names: Vec<&SessionName> = file.sessions.iter().map(|s| &s.name).collect();
-    names.sort_unstable();
-    if names.windows(2).any(|pair| pair[0] == pair[1]) {
+    let names: BTreeSet<&SessionName> = file.sessions.iter().map(|s| &s.name).collect();
+    if names.len() != file.sessions.len() {
         return Err(LoadError::DuplicateName);
     }
     Ok(file.sessions)

@@ -25,7 +25,7 @@ use crate::stats::{Coverage, DirectoryStats};
 /// itself below the text.
 const FOOTER_ROWS: u16 = 2;
 
-pub(super) fn render(f: &mut Frame, panel: &Panel, area: Rect, is_active: bool) {
+pub(super) fn render(f: &mut Frame<'_>, panel: &Panel, area: Rect, is_active: bool) {
     let PanelKind::QuickView(view) = &panel.kind else {
         return;
     };
@@ -68,7 +68,7 @@ fn title(view: &QuickView, width: u16) -> String {
     )
 }
 
-fn render_body(f: &mut Frame, view: &QuickView, body: Rect) {
+fn render_body(f: &mut Frame<'_>, view: &QuickView, body: Rect) {
     let lines = match &view.preview {
         Preview::Nothing => Vec::new(),
         Preview::Text(text) => text_lines(view, text, body),
@@ -127,7 +127,7 @@ fn folder_lines(stats: &DirectoryStats) -> Vec<Line<'static>> {
 /// The rule joined to the frame, then the info row: what the viewer's status
 /// line would say about the file, in the row the file panel spends on the
 /// entry under its cursor.
-fn render_footer(f: &mut Frame, view: &QuickView, area: Rect, inner: Rect, border: Style) {
+fn render_footer(f: &mut Frame<'_>, view: &QuickView, area: Rect, inner: Rect, border: Style) {
     let rule = format!("╟{}╢", "─".repeat(usize::from(inner.width)));
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(rule, border))).style(Style::default().bg(FAR_BLUE)),

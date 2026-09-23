@@ -61,6 +61,11 @@ mod preflight {
 
     /// A private `CARGO_HOME`: no other Cargo's package-cache lock, and no
     /// developer config (which may select sccache) leaking into the probe.
+    #[expect(
+        clippy::expect_used,
+        reason = "test fixture: a failed setup fails the calling test; clippy.toml allows that in \
+                  #[test] fns and #[cfg(test)] items, not in integration-test helpers"
+    )]
     fn sandbox() -> tempfile::TempDir {
         let dir = tempfile::tempdir().expect("temp dir");
         std::fs::create_dir(dir.path().join("cargo-home")).expect("CARGO_HOME");
@@ -69,6 +74,11 @@ mod preflight {
 
     /// A stuck sccache in miniature: the wrapper exits, but a process it
     /// started keeps Cargo's output pipe open, so Cargo waits for an EOF.
+    #[expect(
+        clippy::expect_used,
+        reason = "test fixture: a failed setup fails the calling test; clippy.toml allows that in \
+                  #[test] fns and #[cfg(test)] items, not in integration-test helpers"
+    )]
     fn stalling_wrapper(sandbox: &Path) -> String {
         let wrapper = sandbox.join("stalling-wrapper");
         std::fs::write(&wrapper, "#!/bin/sh\nsleep 20 &\nexec \"$@\"\n").expect("write wrapper");
@@ -78,6 +88,11 @@ mod preflight {
     }
 
     /// `wrapper: None` leaves the choice to Cargo's config files.
+    #[expect(
+        clippy::expect_used,
+        reason = "test fixture: a failed setup fails the calling test; clippy.toml allows that in \
+                  #[test] fns and #[cfg(test)] items, not in integration-test helpers"
+    )]
     fn preflight(sandbox: &Path, wrapper: Option<&str>, limit_secs: u64) -> (Output, Duration) {
         let mut command = Command::new("python3");
         command
@@ -163,6 +178,11 @@ mod preflight {
     }
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture: unreadable Cargo metadata fails the calling test; clippy.toml allows \
+              that in #[test] fns and #[cfg(test)] items, not in integration-test helpers"
+)]
 fn target_directory(package: &Path) -> String {
     let output = Command::new(env!("CARGO"))
         .args(["metadata", "--no-deps", "--format-version=1", "--offline"])

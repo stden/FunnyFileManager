@@ -369,7 +369,7 @@ fn only_a_key_going_down_ends_a_pause() {
     let press = KeyEvent::from(KeyCode::Char('x'));
     let mut release = press;
     release.kind = KeyEventKind::Release;
-    assert!(super::is_key_press(&Event::Key(press)));
-    assert!(!super::is_key_press(&Event::Key(release)));
-    assert!(!super::is_key_press(&Event::Resize(80, 24)));
+    assert!(is_key_press(&Event::Key(press)));
+    assert!(!is_key_press(&Event::Key(release)));
+    assert!(!is_key_press(&Event::Resize(80, 24)));
 }

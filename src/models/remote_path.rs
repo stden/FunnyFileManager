@@ -80,9 +80,9 @@ impl RemotePath {
             return None;
         }
         // Every path but the root has a `/` before its last name.
-        match self.0.rfind('/')? {
-            0 => Some(Self::root()),
-            cut => Some(Self(self.0[..cut].to_owned())),
+        match self.0.rsplit_once('/')? {
+            ("", _) => Some(Self::root()),
+            (above, _) => Some(Self(above.to_owned())),
         }
     }
 

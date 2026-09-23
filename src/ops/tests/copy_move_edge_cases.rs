@@ -1,5 +1,4 @@
 //! Unit tests: copy move edge cases (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use crate::models::FileName;
 use crate::models::Lifecycle;
@@ -8,13 +7,7 @@ use super::support::*;
 use crate::ops::*;
 use crate::popup::process_popup_input;
 
-#[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
-
 use crate::models::{App, CommandLine, Overlay, PanelSide, Viewer};
-
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -22,6 +15,7 @@ use std::fs::{self, File};
 
 use std::io::{self, Write};
 
+#[cfg(not(coverage))]
 use std::path::{Path, PathBuf};
 
 use tempfile::TempDir;
@@ -80,7 +74,7 @@ fn test_process_popup_input_viewer_always_some() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "Test",
-        vec!["Line 1".to_string(), "Line 2".to_string()],
+        vec!["Line 1".to_owned(), "Line 2".to_owned()],
     )));
 
     // Test various viewer operations to ensure viewer remains Some
@@ -317,13 +311,13 @@ fn test_process_popup_input_new_file_input() -> io::Result<()> {
     assert!(temp_dir.path().join("new.txt").exists());
 
     // Test empty filename
-    app.set_overlay(Overlay::NewFileInput("  ".to_string()));
+    app.set_overlay(Overlay::NewFileInput("  ".to_owned()));
     process_popup_input(&mut app, key_event(KeyCode::Enter));
     assert!(!matches!(app.overlay, Overlay::NewFileInput(_)));
     assert!(app.status_text().contains("cannot be empty"));
 
     // Test existing file
-    app.set_overlay(Overlay::NewFileInput("new.txt".to_string()));
+    app.set_overlay(Overlay::NewFileInput("new.txt".to_owned()));
     process_popup_input(&mut app, key_event(KeyCode::Enter));
     assert!(!matches!(app.overlay, Overlay::NewFileInput(_)));
     assert!(app.status_text().contains("already exists"));

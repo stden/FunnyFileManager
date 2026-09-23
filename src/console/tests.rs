@@ -62,7 +62,7 @@ fn the_oldest_lines_fall_off_past_the_cap() {
     let mut log = ConsoleLog::default();
     let text: String = (0..CONSOLE_CAP + 5).fold(String::new(), |mut acc, i| {
         use std::fmt::Write;
-        let _ = writeln!(acc, "line {i}");
+        writeln!(acc, "line {i}").expect("writing to a String cannot fail");
         acc
     });
     log.record_output(&text);
@@ -82,7 +82,7 @@ fn a_single_oversized_write_is_capped_without_building_every_line() {
     let mut log = ConsoleLog::default();
     let text: String = (0..CONSOLE_CAP * 2).fold(String::new(), |mut acc, i| {
         use std::fmt::Write;
-        let _ = writeln!(acc, "{i}");
+        writeln!(acc, "{i}").expect("writing to a String cannot fail");
         acc
     });
     log.record_output(&text);

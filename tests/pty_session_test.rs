@@ -40,6 +40,10 @@ struct Ffm {
 }
 
 impl Ffm {
+    #[expect(
+        clippy::expect_used,
+        reason = "test fixture: an error from the pty or the ffm process fails the test driving it"
+    )]
     fn start() -> Self {
         let sandbox = TempDir::new().expect("sandbox");
         let home = sandbox.path().join("home");
@@ -76,6 +80,10 @@ impl Ffm {
     }
 
     /// Send `keys` in one write, the way a paste or a fast typist's burst lands.
+    #[expect(
+        clippy::expect_used,
+        reason = "test fixture: an error from the pty or the ffm process fails the test driving it"
+    )]
     fn type_keys(&mut self, keys: &[u8]) {
         let terminal = self.terminal.as_mut().expect("the terminal is up");
         terminal.write_all(keys).expect("type");
@@ -86,6 +94,10 @@ impl Ffm {
     }
 
     /// How ffm ended, or `None` if it is still running after [`HANG_UP`].
+    #[expect(
+        clippy::expect_used,
+        reason = "test fixture: an error from the pty or the ffm process fails the test driving it"
+    )]
     fn wait_for_exit(&mut self) -> Option<ExitStatus> {
         self.wait_for(HANG_UP, |ffm| {
             ffm.process.try_wait().expect("ffm status").is_some()
@@ -120,21 +132,26 @@ impl Ffm {
         let mut chunk = [0_u8; 4096];
         // `WouldBlock` is an empty terminal; `EIO` is one ffm has let go of.
         while let Ok(read @ 1..) = terminal.read(&mut chunk) {
-            self.screen.extend_from_slice(&chunk[..read]);
+            self.screen.extend(chunk.iter().take(read));
         }
     }
 }
 
 impl Drop for Ffm {
     fn drop(&mut self) {
-        // A failed test leaves ffm running; it must not outlive the test.
-        let _ = self.process.kill();
-        let _ = self.process.wait();
+        // A failed test leaves ffm running; it must not outlive the test. Best
+        // effort: a panic here, while a failed test unwinds, would abort the run.
+        drop(self.process.kill());
+        drop(self.process.wait());
     }
 }
 
 /// A pty pair: the nonblocking far end the test holds, and the terminal
 /// device ffm runs on.
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture: an error from the pty or the ffm process fails the test driving it"
+)]
 fn open_pty() -> (File, File) {
     let far_end =
         openpt(OpenptFlags::RDWR | OpenptFlags::NOCTTY | OpenptFlags::CLOEXEC).expect("open a pty");
@@ -201,7 +218,12 @@ fn a_terminal_that_hangs_up_during_a_shell_command_stops_it_and_ends_ffm() {
     ffm.hang_up();
     let status = ffm.wait_for_exit();
     let group_gone = ffm.wait_for(HANG_UP, |_| test_kill_process_group(group).is_err());
-    // A failed run must not leave the command behind either.
+    // A failed run must not leave the command behind either. After a passing
+    // one the group is already gone, and the kill fails as it should.
+    #[expect(
+        clippy::let_underscore_must_use,
+        reason = "best-effort cleanup: either outcome is fine; drop() of a Copy result is a no-op"
+    )]
     let _ = kill_process_group(group, Signal::KILL);
 
     assert_ended_cleanly(status);
@@ -220,6 +242,10 @@ fn a_terminal_that_hangs_up_while_ffm_waits_for_a_key_ends_it_cleanly() {
     assert_ended_cleanly(ffm.wait_for_exit());
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "an assertion helper: failing the test with this message is its job"
+)]
 fn assert_ended_cleanly(status: Option<ExitStatus>) {
     let status = status.expect("ffm kept running after its terminal hung up");
     assert!(

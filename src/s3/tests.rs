@@ -1,11 +1,8 @@
 //! Unit tests and shared test helpers for `s3`.
-#![allow(unused_imports)]
 
 use super::*;
 
 use aws_sdk_s3::config::{Credentials, Region, SharedCredentialsProvider};
-
-use aws_sdk_s3::Client;
 
 use aws_smithy_http_client::test_util::{ReplayEvent, StaticReplayClient};
 
@@ -16,8 +13,6 @@ use http_1x::{Request, Response};
 use std::env;
 
 use std::fs;
-
-use std::io;
 
 use std::path::PathBuf;
 
@@ -38,7 +33,7 @@ pub fn build_test_client(events: Vec<ReplayEvent>) -> S3Client {
     S3Client {
         client,
         runtime,
-        profile: "test".to_string(),
+        profile: "test".to_owned(),
         current_bucket: None,
         current_prefix: String::new(),
     }
@@ -54,7 +49,7 @@ pub struct AwsHomeEnvGuard {
 }
 
 impl AwsHomeEnvGuard {
-    pub(crate) fn set(path: &std::path::Path) -> Self {
+    pub(crate) fn set(path: &Path) -> Self {
         let lock = crate::test_support::env_lock();
         let original_home = env::var("HOME").ok();
         let original_userprofile = env::var("USERPROFILE").ok();
@@ -121,7 +116,7 @@ pub fn error_event(status: u16) -> ReplayEvent {
         Response::builder()
             .status(status)
             .body(SdkBody::from(
-                r"<Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>",
+                "<Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>",
             ))
             .expect("response"),
     )
@@ -143,7 +138,7 @@ fn test_virtual_path_parse_s3_bucket() {
             prefix,
         } => {
             assert_eq!(profile, "default");
-            assert_eq!(bucket, Some("my-bucket".to_string()));
+            assert_eq!(bucket, Some("my-bucket".to_owned()));
             assert_eq!(prefix, "folder/file.txt");
         }
         _ => panic!("Expected S3 path"),
@@ -160,7 +155,7 @@ fn test_virtual_path_parse_s3_with_profile() {
             prefix,
         } => {
             assert_eq!(profile, "myprofile");
-            assert_eq!(bucket, Some("my-bucket".to_string()));
+            assert_eq!(bucket, Some("my-bucket".to_owned()));
             assert_eq!(prefix, "folder/");
         }
         _ => panic!("Expected S3 path"),
@@ -173,23 +168,23 @@ fn test_virtual_path_display_formats() {
     assert_eq!(local.display(), "/tmp");
 
     let s3_root = VirtualPath::S3 {
-        profile: "default".to_string(),
+        profile: "default".to_owned(),
         bucket: None,
         prefix: String::new(),
     };
     assert_eq!(s3_root.display(), "s3://default@");
 
     let s3_bucket = VirtualPath::S3 {
-        profile: "prod".to_string(),
-        bucket: Some("logs".to_string()),
+        profile: "prod".to_owned(),
+        bucket: Some("logs".to_owned()),
         prefix: String::new(),
     };
     assert_eq!(s3_bucket.display(), "s3://prod@logs");
 
     let s3_prefix = VirtualPath::S3 {
-        profile: "prod".to_string(),
-        bucket: Some("logs".to_string()),
-        prefix: "2024/".to_string(),
+        profile: "prod".to_owned(),
+        bucket: Some("logs".to_owned()),
+        prefix: "2024/".to_owned(),
     };
     assert_eq!(s3_prefix.display(), "s3://prod@logs/2024/");
 }
@@ -208,21 +203,21 @@ fn test_virtual_path_display() {
     assert_eq!(local.display(), "/test/path");
 
     let s3_full = VirtualPath::S3 {
-        profile: "myprof".to_string(),
-        bucket: Some("mybuck".to_string()),
-        prefix: "mypre".to_string(),
+        profile: "myprof".to_owned(),
+        bucket: Some("mybuck".to_owned()),
+        prefix: "mypre".to_owned(),
     };
     assert_eq!(s3_full.display(), "s3://myprof@mybuck/mypre");
 
     let s3_no_prefix = VirtualPath::S3 {
-        profile: "myprof".to_string(),
-        bucket: Some("mybuck".to_string()),
+        profile: "myprof".to_owned(),
+        bucket: Some("mybuck".to_owned()),
         prefix: String::new(),
     };
     assert_eq!(s3_no_prefix.display(), "s3://myprof@mybuck");
 
     let s3_no_bucket = VirtualPath::S3 {
-        profile: "myprof".to_string(),
+        profile: "myprof".to_owned(),
         bucket: None,
         prefix: String::new(),
     };
@@ -251,11 +246,11 @@ fn test_virtual_path_parse_edge_cases() {
 
 #[test]
 fn test_list_aws_profiles_mocked() {
-    let temp_dir = tempfile::TempDir::new().unwrap();
+    let temp_dir = TempDir::new().unwrap();
     let aws_dir = temp_dir.path().join(".aws");
-    std::fs::create_dir(&aws_dir).unwrap();
+    fs::create_dir(&aws_dir).unwrap();
     let creds_file = aws_dir.join("credentials");
-    std::fs::write(
+    fs::write(
         &creds_file,
         "[work]\nregion=us-west-2\n[personal]\nregion=us-east-1",
     )
@@ -281,8 +276,8 @@ fn test_s3_client_new_logic() {
 fn test_list_aws_profiles_reads_credentials() {
     let temp_dir = TempDir::new().expect("temp dir");
     let credentials_dir = temp_dir.path().join(".aws");
-    std::fs::create_dir_all(&credentials_dir).expect("create .aws");
-    std::fs::write(
+    fs::create_dir_all(&credentials_dir).expect("create .aws");
+    fs::write(
         credentials_dir.join("credentials"),
         "[default]\naws_access_key_id=AKIA\n[team]\naws_secret_access_key=SECRET\n",
     )
@@ -325,7 +320,7 @@ fn test_s3_client_object_operations() -> io::Result<()> {
     let temp_dir = TempDir::new().expect("temp dir");
     let download_path = temp_dir.path().join("download.txt");
     let upload_path = temp_dir.path().join("upload.txt");
-    std::fs::write(&upload_path, "payload")?;
+    fs::write(&upload_path, "payload")?;
 
     let get_response = ReplayEvent::new(
         Request::builder()
@@ -340,7 +335,7 @@ fn test_s3_client_object_operations() -> io::Result<()> {
     let client = build_test_client(vec![get_response, ok_event(), ok_event(), ok_event()]);
 
     client.download_object("alpha", "download.txt", &download_path)?;
-    assert_eq!(std::fs::read_to_string(&download_path)?, "downloaded");
+    assert_eq!(fs::read_to_string(&download_path)?, "downloaded");
 
     client.upload_object("alpha", "upload.txt", &upload_path)?;
     client.copy_object("alpha", "upload.txt", "alpha", "copied.txt")?;
@@ -380,7 +375,7 @@ fn get_event(bucket: &str, key: &str, body: &str) -> ReplayEvent {
             .expect("request"),
         Response::builder()
             .status(200)
-            .body(SdkBody::from(body.to_string()))
+            .body(SdkBody::from(body.to_owned()))
             .expect("response"),
     )
 }
@@ -404,7 +399,7 @@ fn test_download_no_part_file_after_success() -> io::Result<()> {
         leftovers.is_empty(),
         "temp files left behind: {leftovers:?}"
     );
-    assert_eq!(std::fs::read_to_string(&download_path)?, "content");
+    assert_eq!(fs::read_to_string(&download_path)?, "content");
     Ok(())
 }
 
@@ -421,8 +416,8 @@ fn test_download_leaves_unrelated_part_file_alone() -> io::Result<()> {
     let client = build_test_client(vec![get_event("bucket", "report.txt", "downloaded")]);
     client.download_object("bucket", "report.txt", &download_path)?;
 
-    assert_eq!(std::fs::read_to_string(&download_path)?, "downloaded");
-    assert_eq!(std::fs::read_to_string(&bystander)?, "do not touch");
+    assert_eq!(fs::read_to_string(&download_path)?, "downloaded");
+    assert_eq!(fs::read_to_string(&bystander)?, "do not touch");
     Ok(())
 }
 
@@ -449,7 +444,7 @@ fn test_download_to_a_part_destination_leaves_no_staging_file() -> io::Result<()
     let client = build_test_client(vec![get_event("bucket", "archive.part", "payload")]);
     client.download_object("bucket", "archive.part", &download_path)?;
 
-    assert_eq!(std::fs::read_to_string(&download_path)?, "payload");
+    assert_eq!(fs::read_to_string(&download_path)?, "payload");
     let leftovers: Vec<PathBuf> = fs::read_dir(temp_dir.path())?
         .map(|entry| entry.expect("dir entry").path())
         .filter(|path| path != &download_path)
@@ -465,14 +460,14 @@ fn test_download_to_a_part_destination_leaves_no_staging_file() -> io::Result<()
 fn test_download_preserves_existing_file_on_failure() -> io::Result<()> {
     let temp_dir = TempDir::new().expect("temp dir");
     let download_path = temp_dir.path().join("existing.txt");
-    std::fs::write(&download_path, "original")?;
+    fs::write(&download_path, "original")?;
 
     let client = build_test_client(vec![error_event(500)]);
     let result = client.download_object("bucket", "existing.txt", &download_path);
     assert!(result.is_err());
 
     // Original file should be preserved
-    assert_eq!(std::fs::read_to_string(&download_path)?, "original");
+    assert_eq!(fs::read_to_string(&download_path)?, "original");
     Ok(())
 }
 

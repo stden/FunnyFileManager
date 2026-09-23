@@ -73,7 +73,7 @@ impl Viewer {
     pub fn file(path: PathBuf, bytes: &[u8]) -> Self {
         let encoding = TextEncoding::detect(bytes);
         let text = encoding.decode_lossy(bytes);
-        let mut lines: Vec<String> = text.lines().map(ToString::to_string).collect();
+        let mut lines: Vec<String> = text.lines().map(str::to_owned).collect();
         if lines.is_empty() {
             lines.push(EMPTY_FILE.to_owned());
         }

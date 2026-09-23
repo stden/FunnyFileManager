@@ -40,7 +40,7 @@ fn the_rows_include_the_machines_own_filesystems() {
     let disks: Vec<_> = rows.iter().filter(|row| row.is_disk()).collect();
     assert!(!disks.is_empty(), "the first section is never empty");
     let RowKind::Disk { space, label, .. } = &disks[0].kind else {
-        unreachable!("filtered to disks");
+        panic!("filtered to disks");
     };
     assert!(!label.is_empty());
     assert!(
@@ -166,7 +166,7 @@ fn a_local_path_becomes_a_disk_row_with_its_size() {
     let row = row_for((Some('/'), DriveEntry::Local("/".into())));
     assert!(row.is_disk());
     let RowKind::Disk { label, space, .. } = &row.kind else {
-        unreachable!("built as a disk");
+        panic!("built as a disk");
     };
     assert_eq!(label, "/");
     assert!(space.is_some_and(|space| space.total > 0));

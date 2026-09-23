@@ -38,7 +38,9 @@ where
         .entries
         .iter()
         .position(|entry| entry.name == name)
-        .expect("the panel lists special files, which is how the cursor gets onto one");
+        .ok_or_else(|| {
+            io::Error::other("the panel lists special files, which is how the cursor gets onto one")
+        })?;
     app.left_panel.select(Some(index));
 
     handle_view(&mut app)?;

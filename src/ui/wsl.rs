@@ -97,7 +97,7 @@ pub fn wsl_button_at(screen: Rect, dialog: &WslDialog, column: u16, row: u16) ->
         })
 }
 
-pub(super) fn render(f: &mut Frame, dialog: &WslDialog) {
+pub(super) fn render(f: &mut Frame<'_>, dialog: &WslDialog) {
     let layout = layout(f.area(), dialog);
     let ground = Style::default().bg(palette::MENU_BG).fg(palette::DRIVE_FG);
     let block = far_block()
@@ -126,7 +126,7 @@ pub(super) fn render(f: &mut Frame, dialog: &WslDialog) {
     render_buttons(f, dialog, &layout, ground);
 }
 
-fn render_activity(f: &mut Frame, dialog: &WslDialog, layout: &Layout) {
+fn render_activity(f: &mut Frame<'_>, dialog: &WslDialog, layout: &Layout) {
     let inner = layout.inner;
     let (message, status_style) = activity(dialog);
     let message = if layout.status_rows == 1 {
@@ -290,7 +290,7 @@ fn activity(dialog: &WslDialog) -> (String, Style) {
 #[cfg(test)]
 mod tests;
 
-fn render_buttons(f: &mut Frame, dialog: &WslDialog, layout: &Layout, ground: Style) {
+fn render_buttons(f: &mut Frame<'_>, dialog: &WslDialog, layout: &Layout, ground: Style) {
     for button in &layout.buttons {
         let text = head_cells(button.control.label, Cells::columns(button.area.width));
         let line = control_line(&text, button.control.enabled(dialog), ground);
@@ -309,11 +309,16 @@ fn control_line(text: &str, enabled: bool, ground: Style) -> Line<'_> {
     } else {
         normal
     };
-    let prefix = usize::from(text.starts_with('['));
-    let end = text.find(' ').unwrap_or(text.len());
+    let (bracket, label) = text
+        .strip_prefix('[')
+        .map_or(("", text), |label| ("[", label));
+    let (key, tail) = label
+        .find(' ')
+        .and_then(|space| label.split_at_checked(space))
+        .unwrap_or((label, ""));
     Line::from(vec![
-        Span::styled(&text[..prefix], normal),
-        Span::styled(&text[prefix..end], hotkey),
-        Span::styled(&text[end..], normal),
+        Span::styled(bracket, normal),
+        Span::styled(key, hotkey),
+        Span::styled(tail, normal),
     ])
 }

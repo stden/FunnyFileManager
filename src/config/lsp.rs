@@ -37,6 +37,10 @@ impl Default for ServerSettings {
 pub struct LspSettings(pub BTreeMap<String, ServerSettings>);
 
 impl Default for LspSettings {
+    #[expect(
+        clippy::expect_used,
+        reason = "the catalog is compiled in and every configuration test parses it"
+    )]
     fn default() -> Self {
         Self(
             serde_json::from_str(include_str!("lsp/catalog.json"))
@@ -53,12 +57,12 @@ impl<'de> Deserialize<'de> for LspSettings {
             let mut base =
                 serde_json::to_value(settings.0.get(&language).cloned().unwrap_or_default())
                     .map_err(serde::de::Error::custom)?;
-            let fields = value
-                .as_object()
-                .ok_or_else(|| serde::de::Error::custom("LSP settings must be an object"))?;
-            for (key, value) in fields {
-                base[key] = value.clone();
-            }
+            let serde_json::Value::Object(fields) = value else {
+                return Err(serde::de::Error::custom("LSP settings must be an object"));
+            };
+            base.as_object_mut()
+                .ok_or_else(|| serde::de::Error::custom("LSP server defaults must be an object"))?
+                .extend(fields);
             let server = serde_json::from_value(base).map_err(serde::de::Error::custom)?;
             settings.0.insert(language, server);
         }

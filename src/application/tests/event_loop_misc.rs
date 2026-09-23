@@ -1,5 +1,4 @@
 //! Unit tests: event loop misc (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use crate::quicksearch::QuickSearch;
 
@@ -10,8 +9,6 @@ use crate::models::Panel;
 use crossterm::event::{KeyCode, KeyModifiers};
 
 use std::fs;
-
-use std::path::PathBuf;
 
 use tempfile::TempDir;
 

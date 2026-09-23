@@ -9,27 +9,24 @@ use super::{copy_file, FileMode};
 
 #[cfg(any(test, tarpaulin))]
 use super::{
-    force_lock, COPY_DIR_ALL_FAIL_COPY_FILE, COPY_DIR_ALL_FAIL_CREATE, COPY_DIR_ALL_FAIL_ENTRY,
-    COPY_DIR_ALL_FAIL_FILE_TYPE, COPY_DIR_ALL_FAIL_RECURSE, FORCE_COPY_DIR_ALL_STEP,
+    forced_copy_step, COPY_DIR_ALL_FAIL_COPY_FILE, COPY_DIR_ALL_FAIL_CREATE,
+    COPY_DIR_ALL_FAIL_ENTRY, COPY_DIR_ALL_FAIL_FILE_TYPE, COPY_DIR_ALL_FAIL_RECURSE,
 };
 
 fn create_dir_all_checked(dst: &Path) -> io::Result<()> {
     #[cfg(any(test, tarpaulin))]
     {
-        let step = force_lock(&FORCE_COPY_DIR_ALL_STEP);
-        if *step == COPY_DIR_ALL_FAIL_CREATE {
+        if forced_copy_step() == COPY_DIR_ALL_FAIL_CREATE {
             return Err(io::Error::other("forced create_dir_all failure"));
         }
     }
     fs::create_dir_all(dst)
 }
 
-#[allow(clippy::missing_const_for_fn)] // Cannot be const when #[cfg(test)] block is present
 fn read_dir_entry(entry: io::Result<fs::DirEntry>) -> io::Result<fs::DirEntry> {
     #[cfg(any(test, tarpaulin))]
     {
-        let step = force_lock(&FORCE_COPY_DIR_ALL_STEP);
-        if *step == COPY_DIR_ALL_FAIL_ENTRY {
+        if forced_copy_step() == COPY_DIR_ALL_FAIL_ENTRY {
             return Err(io::Error::other("forced read_dir entry failure"));
         }
     }
@@ -39,8 +36,7 @@ fn read_dir_entry(entry: io::Result<fs::DirEntry>) -> io::Result<fs::DirEntry> {
 fn entry_file_type(entry: &fs::DirEntry) -> io::Result<fs::FileType> {
     #[cfg(any(test, tarpaulin))]
     {
-        let step = force_lock(&FORCE_COPY_DIR_ALL_STEP);
-        if *step == COPY_DIR_ALL_FAIL_FILE_TYPE {
+        if forced_copy_step() == COPY_DIR_ALL_FAIL_FILE_TYPE {
             return Err(io::Error::other("forced file_type failure"));
         }
     }
@@ -50,8 +46,7 @@ fn entry_file_type(entry: &fs::DirEntry) -> io::Result<fs::FileType> {
 fn copy_file_checked(src: &Path, dst: &Path, mode: FileMode) -> io::Result<()> {
     #[cfg(any(test, tarpaulin))]
     {
-        let step = force_lock(&FORCE_COPY_DIR_ALL_STEP);
-        if *step == COPY_DIR_ALL_FAIL_COPY_FILE {
+        if forced_copy_step() == COPY_DIR_ALL_FAIL_COPY_FILE {
             return Err(io::Error::other("forced copy failure"));
         }
     }
@@ -235,8 +230,7 @@ impl Walk {
 fn copy_tree(src: &Path, dst: &Path, rules: CopyRules, walk: &mut Walk) -> io::Result<()> {
     #[cfg(any(test, tarpaulin))]
     {
-        let step = force_lock(&FORCE_COPY_DIR_ALL_STEP);
-        if *step == COPY_DIR_ALL_FAIL_RECURSE
+        if forced_copy_step() == COPY_DIR_ALL_FAIL_RECURSE
             && src
                 .file_name()
                 .and_then(|name| name.to_str())

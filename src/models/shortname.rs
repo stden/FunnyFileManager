@@ -99,11 +99,13 @@ fn unique_short_name(name: &str, taken: &HashSet<String>) -> ShortName {
         }
     }
     // Each claimed name blocks at most one candidate, so one more than their
-    // count is always free.
-    let numbered = (1..=taken.len() + 1)
+    // count is always free. The bound keeps the search finite, and the
+    // fallback keeps it total without a panic.
+    let last = taken.len() + 1;
+    let numbered = (1..=last)
         .map(|n| basis.numbered(n))
         .find(|candidate| !taken.contains(candidate))
-        .expect("more candidates than claimed names");
+        .unwrap_or_else(|| basis.numbered(last));
     ShortName::new(numbered)
 }
 
@@ -121,10 +123,7 @@ impl Basis {
             .chars()
             .filter(|c| *c != ' ')
             .collect();
-        let (stem, extension) = match trimmed.rfind('.') {
-            Some(dot) => (&trimmed[..dot], &trimmed[dot + 1..]),
-            None => (trimmed.as_str(), ""),
-        };
+        let (stem, extension) = trimmed.rsplit_once('.').unwrap_or((&trimmed, ""));
         Self {
             stem: stem.chars().filter(|c| *c != '.').map(short_char).collect(),
             extension: extension

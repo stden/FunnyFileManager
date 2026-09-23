@@ -58,12 +58,8 @@ fn test_run_shell_command_uses_current_dir() {
     let cmd = "pwd";
     let output = run_shell_command(cmd, temp.path()).expect("run");
     let stdout = String::from_utf8_lossy(&output.stdout);
-    // The output should contain part of the temp dir path
-    let temp_str = temp.path().to_string_lossy();
     // On Windows, canonicalized paths may differ slightly, so just check non-empty
     assert!(!stdout.trim().is_empty());
-    // On most systems this should reflect the temp dir
-    let _ = temp_str; // suppress unused warning if the assertion above is enough
 }
 
 #[test]
@@ -147,7 +143,9 @@ fn test_timeout_kills_the_whole_process_group() {
     }
     // Do not leave a stray `sleep` behind if the assertion fails.
     if let Some(pid) = rustix::process::Pid::from_raw(grandchild) {
-        let _ = rustix::process::kill_process(pid, rustix::process::Signal::KILL);
+        if let Err(error) = rustix::process::kill_process(pid, rustix::process::Signal::KILL) {
+            eprintln!("could not kill stray grandchild {grandchild}: {error}");
+        }
     }
     panic!("grandchild {grandchild} outlived the timeout — the group was not killed");
 }

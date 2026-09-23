@@ -9,7 +9,6 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
     Frame,
 };
-use std::fmt::Write;
 
 pub(super) fn status(editor: &Editor) -> String {
     if editor.lsp.state == ServerState::Stopped {
@@ -45,7 +44,7 @@ pub(super) fn label(editor: &Editor, marker: &str) -> String {
     }
 }
 
-pub(super) fn popup(frame: &mut Frame, editor: &Editor, caret: (u16, u16)) -> bool {
+pub(super) fn popup(frame: &mut Frame<'_>, editor: &Editor, caret: (u16, u16)) -> bool {
     let Some(dialog) = &editor.lsp.popup else {
         return false;
     };
@@ -129,18 +128,15 @@ fn completions(items: &[crate::lsp::features::Completion], selected: usize) -> S
         .skip(selected.saturating_sub(5))
         .take(8)
     {
-        writeln!(
-            text,
-            "{} {} [{}]",
+        text = format!(
+            "{text}{} {} [{}]\n",
             marker(index, selected),
             item.label,
             item.kind.map_or(String::new(), |kind| kind.to_string())
-        )
-        .expect("writing to a String cannot fail");
+        );
     }
     if let Some(item) = items.get(selected) {
-        write!(text, "\n{}\n{}", item.detail, item.documentation)
-            .expect("writing to a String cannot fail");
+        text = format!("{text}\n{}\n{}", item.detail, item.documentation);
     }
     text
 }
@@ -153,15 +149,13 @@ fn definitions(items: &[crate::lsp::features::Definition], selected: usize) -> S
         .skip(selected.saturating_sub(5))
         .take(12)
     {
-        writeln!(
-            text,
-            "{} {}:{}:{}",
+        text = format!(
+            "{text}{} {}:{}:{}\n",
             marker(index, selected),
             crate::path_display::label(&item.path),
             item.range.start.line + 1,
             item.range.start.character + 1
-        )
-        .expect("writing to a String cannot fail");
+        );
     }
     text
 }
@@ -174,7 +168,13 @@ const fn marker(index: usize, selected: usize) -> &'static str {
     }
 }
 
-pub(super) fn diagnostics(frame: &mut Frame, editor: &Editor, area: Rect, top: usize, skip: Cells) {
+pub(super) fn diagnostics(
+    frame: &mut Frame<'_>,
+    editor: &Editor,
+    area: Rect,
+    top: usize,
+    skip: Cells,
+) {
     for diagnostic in &editor.lsp.diagnostics {
         for (row, line) in editor
             .lines
@@ -208,15 +208,17 @@ fn diagnostic_columns(
     width: u16,
 ) -> Option<std::ops::Range<usize>> {
     let range = diagnostic.range;
-    if range.start > range.end || row < range.start.line as usize || row > range.end.line as usize {
+    let start_line = usize::try_from(range.start.line).ok()?;
+    let end_line = usize::try_from(range.end.line).ok()?;
+    if range.start > range.end || row < start_line || row > end_line {
         return None;
     }
-    let first = if row == range.start.line as usize {
+    let first = if row == start_line {
         positions::to_chars(line.text, range.start.character)?
     } else {
         0
     };
-    let last = if row == range.end.line as usize {
+    let last = if row == end_line {
         positions::to_chars(line.text, range.end.character)?
     } else {
         line.text.chars().count()
@@ -236,7 +238,7 @@ fn diagnostic_columns(
 }
 
 fn paint(
-    frame: &mut Frame,
+    frame: &mut Frame<'_>,
     x: u16,
     y: u16,
     columns: std::ops::Range<usize>,

@@ -1,27 +1,20 @@
 //! Unit tests: new file and drives (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use crate::models::FileName;
 
-use crate::ops::file::{format_operation_status, get_source_paths};
+use crate::ops::file::format_operation_status;
 
 use super::support::*;
 use crate::ops::*;
 use crate::popup::process_popup_input;
 
-#[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
-
 use crate::models::{App, BookmarkSlot, Overlay, Panel};
-
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
 
 use crossterm::event::KeyCode;
 
 use std::fs::{self, File};
 
-use std::io::{self, Write};
+use std::io;
 
 use std::path::Path;
 
@@ -69,7 +62,7 @@ fn test_new_file_input_enter_existing_file_sets_error_message() -> io::Result<()
     let mut app = App::new().expect("test setup");
     app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
     app.left_panel.load_entries().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("exists.txt".to_string()));
+    app.set_overlay(Overlay::NewFileInput("exists.txt".to_owned()));
 
     process_popup_input(&mut app, key_event(KeyCode::Enter));
 
@@ -109,7 +102,7 @@ fn test_new_file_input_enter_creates_new_file() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
     app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
     app.left_panel.load_entries().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("brand_new.txt".to_string()));
+    app.set_overlay(Overlay::NewFileInput("brand_new.txt".to_owned()));
 
     process_popup_input(&mut app, key_event(KeyCode::Enter));
 

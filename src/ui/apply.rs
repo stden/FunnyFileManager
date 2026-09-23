@@ -14,7 +14,7 @@ const UNESCAPED_WARNING: [&str; 2] = [
 ];
 
 pub(super) fn render(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     dialog: &crate::models::ApplyPrompt,
 ) {

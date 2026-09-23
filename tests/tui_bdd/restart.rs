@@ -10,7 +10,7 @@ use super::{session::Session, TuiWorld};
 #[when(expr = "I resume the TUI at {int} by {int}")]
 fn resume(world: &mut TuiWorld, width: u16, height: u16) {
     world.finish();
-    let workspace = world.workspace.as_ref().expect("workspace").path();
+    let workspace = world.root();
     world.session = Some(Session::resume(
         workspace,
         workspace.join("config/panel-session.json"),
@@ -19,8 +19,19 @@ fn resume(world: &mut TuiWorld, width: u16, height: u16) {
 }
 
 #[then(expr = "the saved panel directories are {string} and {string}")]
+#[expect(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::indexing_slicing,
+    reason = "a Cucumber step fails by panicking, as a #[test] does"
+)]
+#[expect(
+    clippy::needless_pass_by_value,
+    clippy::needless_pass_by_ref_mut,
+    reason = "Cucumber dictates step signatures: captured args arrive owned and the world as `&mut`"
+)]
 fn saved(world: &mut TuiWorld, left: String, right: String) {
-    let workspace = world.workspace.as_ref().expect("workspace").path();
+    let workspace = world.root();
     let bytes = fs::read(workspace.join("config/panel-session.json")).expect("saved session");
     let paths: std::collections::BTreeMap<String, std::path::PathBuf> =
         serde_json::from_slice(&bytes).expect("session JSON");
@@ -35,6 +46,15 @@ fn saved(world: &mut TuiWorld, left: String, right: String) {
 }
 
 #[when(expr = "the {word} workspace directory is removed")]
+#[expect(
+    clippy::expect_used,
+    reason = "a Cucumber step fails by panicking, as a #[test] does"
+)]
+#[expect(
+    clippy::needless_pass_by_value,
+    clippy::needless_pass_by_ref_mut,
+    reason = "Cucumber dictates step signatures: captured args arrive owned and the world as `&mut`"
+)]
 fn remove_directory(world: &mut TuiWorld, side: String) {
     // The path comes solely from this scenario's TempDir and fixed side names.
     fs::remove_dir_all(world.path(&side, "")).expect("remove fixture directory");

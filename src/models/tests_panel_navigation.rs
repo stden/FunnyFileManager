@@ -1,5 +1,4 @@
 //! Unit tests: panel navigation (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use std::fs;
 

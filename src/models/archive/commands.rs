@@ -80,8 +80,11 @@ impl ArchiveMenu {
     /// draw a cursor on nothing while Enter did nothing.
     #[must_use]
     pub fn command(&self) -> ArchiveCommand {
-        let last = ArchiveCommand::ALL.len() - 1;
-        ArchiveCommand::ALL[self.cursor.min(last)]
+        let [.., last] = ArchiveCommand::ALL;
+        ArchiveCommand::ALL
+            .get(self.cursor)
+            .copied()
+            .unwrap_or(last)
     }
 
     /// One row up, wrapping to the bottom at the top — Far's menu cursor.

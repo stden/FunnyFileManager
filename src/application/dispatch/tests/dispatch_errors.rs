@@ -1,12 +1,9 @@
 //! Unit tests: the main-view dispatcher reports handler failures in the status
 //! bar instead of killing the event loop, and navigation drops stale marks.
-#![allow(unused_imports)]
 
 use super::*;
 
 use crate::models::{Panel, PanelSide};
-
-use crossterm::event::KeyCode;
 
 use std::fs;
 
@@ -229,7 +226,7 @@ fn test_plugin_commands_action_opens_the_list_whose_first_row_is_mcp_status() ->
 
     dispatch(&mut app, Action::PluginCommands)?;
     assert!(matches!(app.overlay, Overlay::PluginCommands(_)));
-    crate::ops::plugin_commands::run(&mut app, crate::models::PluginCommand::McpStatus)?;
+    ops::plugin_commands::run(&mut app, models::PluginCommand::McpStatus)?;
 
     let viewer = app.get_viewer().expect("MCP status must open the viewer");
     assert_eq!(viewer.title(), "MCP Server Status");

@@ -21,7 +21,7 @@ fn startup_info() -> io::Result<STARTUPINFOW> {
     // No STARTF_USESTDHANDLES: Windows must create console handles instead of
     // inheriting FFM's raw input, output pipes, or alternate screen buffer.
     Ok(STARTUPINFOW {
-        cb: u32::try_from(std::mem::size_of::<STARTUPINFOW>()).map_err(io::Error::other)?,
+        cb: u32::try_from(size_of::<STARTUPINFOW>()).map_err(io::Error::other)?,
         ..STARTUPINFOW::default()
     })
 }
@@ -44,7 +44,7 @@ fn spawn_with_startup(
     create_process(&shell, &mut line, &directory, startup)
 }
 
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "CreateProcessW has no safe wrapper in std")]
 fn create_process(
     shell: &[u16],
     line: &mut [u16],
@@ -71,11 +71,13 @@ fn create_process(
     if created == 0 {
         return Err(io::Error::last_os_error());
     }
-    // SAFETY: successful CreateProcessW transfers ownership of these handles.
-    unsafe {
-        drop(OwnedHandle::from_raw_handle(process.hThread));
-        Ok(OwnedHandle::from_raw_handle(process.hProcess))
-    }
+    // SAFETY: a successful CreateProcessW hands the thread handle over to us,
+    // and this is the only place that takes ownership of it.
+    let thread = unsafe { OwnedHandle::from_raw_handle(process.hThread) };
+    drop(thread);
+    // SAFETY: the same call hands over the process handle, owned only here.
+    let child = unsafe { OwnedHandle::from_raw_handle(process.hProcess) };
+    Ok(child)
 }
 
 fn wide(value: &OsStr) -> io::Result<Vec<u16>> {

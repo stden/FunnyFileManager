@@ -47,7 +47,7 @@ fn quoted_cd_token_completes_through_the_merged_fish_engine() {
     let completed = complete("cd \"al", tmp.path());
     if fish_is_installed() {
         let completion = completed.expect("fish must supply the quoted-token candidate");
-        assert_eq!(texts(&completion), vec!["alpha/".to_string()]);
+        assert_eq!(texts(&completion), vec!["alpha/".to_owned()]);
         assert_eq!(completion.line, "cd alpha/");
     } else {
         assert!(
@@ -99,6 +99,7 @@ fn path_complete_merges_new_fish_candidates_and_skips_duplicates_of_the_builtin_
     )
     .expect("write stub");
     fs::set_permissions(&stub, fs::Permissions::from_mode(0o755)).expect("chmod");
+    wait_until_executable(&stub);
 
     FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = Some(stub));
     let result = path_complete("al", tmp.path());
@@ -110,7 +111,7 @@ fn path_complete_merges_new_fish_candidates_and_skips_duplicates_of_the_builtin_
         "the entry both engines agree on must not be doubled: {result:?}"
     );
     assert!(
-        result.contains(&"beta/".to_string()),
+        result.contains(&"beta/".to_owned()),
         "a fish-only candidate must be merged in: {result:?}"
     );
 }

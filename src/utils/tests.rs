@@ -1,10 +1,8 @@
 //! Unit tests and shared test helpers for `utils`.
-#![allow(unused_imports)]
 
 use super::*;
-use crate::models::FileSize;
 
-use crate::models::{App, Panel};
+use crate::models::Panel;
 
 use std::ffi::OsStr;
 

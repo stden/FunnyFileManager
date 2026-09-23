@@ -34,8 +34,9 @@ pub fn accept_entry(editor: &mut PathEditor) {
         validation: validate(&text),
         text,
     };
-    if let Some(index) = index {
-        editor.entries[*index] = entry;
+    // A row that is no longer listed takes the edit as a new row.
+    if let Some(row) = index.and_then(|row_index| editor.entries.get_mut(row_index)) {
+        *row = entry;
     } else {
         editor.entries.push(entry);
         editor.selected = editor.entries.len() - 1;

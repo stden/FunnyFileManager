@@ -136,6 +136,10 @@ impl Input {
     /// Start recording, or say why not and carry on live. A recording is a
     /// diagnostic, never the job: a directory owned by another user, or a full
     /// disk, must not be what stops the file manager from starting.
+    #[expect(
+        clippy::print_stderr,
+        reason = "runs before the TUI takes the screen, so stderr is where the user reads it"
+    )]
     fn recording(path: io::Result<PathBuf>, size: (u16, u16)) -> Self {
         path.and_then(|path| Self::open_recorder(&path, size))
             .unwrap_or_else(|error| {
@@ -144,6 +148,10 @@ impl Input {
             })
     }
 
+    #[expect(
+        clippy::print_stderr,
+        reason = "runs before the TUI takes the screen, so stderr is where the user reads it"
+    )]
     fn open_recorder(path: &Path, size: (u16, u16)) -> io::Result<Self> {
         let header = Header {
             version: 1,

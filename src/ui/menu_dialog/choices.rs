@@ -56,7 +56,7 @@ fn first_row(selected: usize, length: usize, height: u16) -> usize {
         .saturating_sub(usize::from(height))
 }
 
-pub(super) fn render(f: &mut Frame, title: &str, rows: &[MenuChoice], selected: usize) {
+pub(super) fn render(f: &mut Frame<'_>, title: &str, rows: &[MenuChoice], selected: usize) {
     let area = area(f.area(), title, rows);
     dialog::render_shadow(f, area, f.area());
     let style = Style::default().fg(palette::DRIVE_FG).bg(palette::MENU_BG);
@@ -73,7 +73,7 @@ pub(super) fn render(f: &mut Frame, title: &str, rows: &[MenuChoice], selected: 
     render_rows(f, body, rows, selected, style);
 }
 
-fn render_rows(f: &mut Frame, body: Rect, rows: &[MenuChoice], selected: usize, style: Style) {
+fn render_rows(f: &mut Frame<'_>, body: Rect, rows: &[MenuChoice], selected: usize, style: Style) {
     let first = first_row(selected, rows.len(), body.height);
     for (index, row) in rows
         .iter()

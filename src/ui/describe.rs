@@ -9,7 +9,7 @@ use super::{dialog, Cells};
 const TITLE: &str = "Describe files";
 
 pub(super) fn render(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     dialog: &crate::models::DescribePrompt,
 ) {

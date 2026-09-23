@@ -9,7 +9,10 @@ use windows_sys::Win32::Storage::FileSystem::{GetLogicalDrives, SetFileAttribute
 
 /// The drive letters Windows has mounted, as `GetLogicalDrives`' bitmask:
 /// bit 0 is `A:`, bit 25 is `Z:`. Zero means the call failed.
-#[allow(unsafe_code)]
+#[allow(
+    unsafe_code,
+    reason = "std has no call listing the mounted drive letters"
+)]
 #[must_use]
 pub fn logical_drives() -> u32 {
     // SAFETY: `GetLogicalDrives` takes no arguments, reads no caller memory
@@ -23,7 +26,10 @@ pub fn logical_drives() -> u32 {
 ///
 /// `InvalidInput` for a path with an interior NUL — Win32 would silently act
 /// on the part before it — and otherwise the OS error of the failed call.
-#[allow(unsafe_code)]
+#[allow(
+    unsafe_code,
+    reason = "std sets only the read-only bit; hidden, system and archive need Win32"
+)]
 pub fn set_file_attributes(path: &Path, attributes: u32) -> io::Result<()> {
     let mut wide: Vec<u16> = path.as_os_str().encode_wide().collect();
     if wide.contains(&0) {

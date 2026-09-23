@@ -42,7 +42,7 @@ fn row_text(terminal: &Terminal<TestBackend>, y: u16) -> String {
         let cell = &buf[(x, y)];
         s.push_str(cell.symbol());
     }
-    s.trim_end().to_string()
+    s.trim_end().to_owned()
 }
 
 /// Extract the background color of a cell.
@@ -58,6 +58,10 @@ fn caret_column(terminal: &Terminal<TestBackend>, y: u16) -> Option<u16> {
 }
 
 /// Create an App with predictable test entries (no filesystem dependency).
+#[expect(
+    clippy::unwrap_used,
+    reason = "test fixture: an app that cannot start fails the test that asked for it"
+)]
 fn test_app() -> App {
     let mut app = App::new().unwrap();
     // Replace entries with known data so tests are deterministic
@@ -421,7 +425,7 @@ fn test_status_bar_with_quick_search() {
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).unwrap();
     let mut app = test_app();
-    app.quick_search = QuickSearch::Active("main".to_string());
+    app.quick_search = QuickSearch::Active("main".to_owned());
 
     terminal.draw(|f| ui(f, &mut app)).unwrap();
 
@@ -563,7 +567,7 @@ fn test_viewer_overlay_shows_filename() {
     let mut app = test_app();
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "example.txt",
-        vec!["Hello world".to_string(), "Second line".to_string()],
+        vec!["Hello world".to_owned(), "Second line".to_owned()],
     )));
 
     terminal.draw(|f| ui(f, &mut app)).unwrap();
@@ -682,7 +686,7 @@ fn test_new_file_input_overlay() {
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).unwrap();
     let mut app = test_app();
-    app.set_overlay(Overlay::NewFileInput("newfile.txt".to_string()));
+    app.set_overlay(Overlay::NewFileInput("newfile.txt".to_owned()));
 
     terminal.draw(|f| ui(f, &mut app)).unwrap();
 
@@ -901,7 +905,7 @@ fn test_status_message_displayed() {
     let mut terminal = Terminal::new(backend).unwrap();
     let mut app = test_app();
     app.set_status(Status::CommandOutput(
-        "Copy completed successfully".to_string(),
+        "Copy completed successfully".to_owned(),
     ));
     app.left_panel.select(Some(1));
 

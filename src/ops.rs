@@ -38,7 +38,6 @@ pub mod savesetup;
 pub mod screens;
 pub mod sessions;
 pub mod settings;
-#[allow(clippy::redundant_pub_crate)]
 mod shell;
 pub mod shortcuts;
 pub mod sortmenu;

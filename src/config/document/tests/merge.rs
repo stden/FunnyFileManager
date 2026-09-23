@@ -229,8 +229,7 @@ fn a_save_is_refused_while_another_ffm_holds_the_lock() {
     let temp = TempDir::new().expect("tempdir");
     let path = settings_path(&temp);
     write_file(&path, "counter: 1\n");
-    let lock =
-        fs::File::create(temp.path().join("ffm").join("settings.yaml.lock")).expect("lock file");
+    let lock = File::create(temp.path().join("ffm").join("settings.yaml.lock")).expect("lock file");
     lock.lock().expect("held by the other FFM");
     let loaded = Counter { counter: 1 };
     let current = Counter { counter: 2 };

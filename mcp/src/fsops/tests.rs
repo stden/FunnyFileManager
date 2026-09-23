@@ -11,7 +11,7 @@ use tempfile::TempDir;
 use std::os::unix::fs::PermissionsExt;
 
 #[cfg(unix)]
-fn mode_of(path: &std::path::Path) -> u32 {
+fn mode_of(path: &Path) -> u32 {
     fs::metadata(path).expect("metadata").permissions().mode() & 0o7777
 }
 

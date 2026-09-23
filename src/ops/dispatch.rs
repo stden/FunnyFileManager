@@ -183,10 +183,10 @@ fn cmd_shell(app: &mut App, command: &ShellCommand) -> io::Result<()> {
     // so "run nothing" is not a state this function can be called in.
     let command = command.as_str();
     let panel_path = app.get_active_panel().path.clone();
-    let timeout = std::time::Duration::from_secs(
-        app.settings
-            .number(crate::menu::SettingsPage::PluginManager) as u64,
-    );
+    let seconds = app
+        .settings
+        .number(crate::menu::SettingsPage::PluginManager);
+    let timeout = std::time::Duration::from_secs(u64::try_from(seconds).unwrap_or(u64::MAX));
     match run_shell_command_with_timeout(command, &panel_path, timeout) {
         Ok(output) => record_shell_output(app, command, &output),
         Err(ShellError::Cancelled) => record_cancel(app, command),
@@ -197,7 +197,7 @@ fn cmd_shell(app: &mut App, command: &ShellCommand) -> io::Result<()> {
 
     // The command may have created or removed files; a refresh failure is not
     // the command's failure, so it is deliberately not propagated.
-    let _ = refresh_panels(app);
+    drop(refresh_panels(app));
     Ok(())
 }
 

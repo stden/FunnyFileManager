@@ -195,7 +195,12 @@ impl App {
                 continue;
             }
             panel.description_names.clone_from(&names);
-            let _ = panel.load_entries();
+            if let Err(error) = panel.load_entries() {
+                crate::diagnostics::log_error(&format!(
+                    "re-reading {} for its descriptions: {error}",
+                    panel.path.display()
+                ));
+            }
         }
     }
 

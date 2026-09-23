@@ -52,7 +52,7 @@ fn export_includes_nested_groups() {
     {
         let mut root = db.root_mut();
         let mut work = root.add_group();
-        work.name = "Work".to_string();
+        work.name = "Work".to_owned();
         write_entry_fields(&mut work.add_entry(), &entry("Deploy", "", "", "", "p"));
     }
     let key = build_key("pw", None).expect("key");
@@ -87,7 +87,7 @@ fn export_times_reports_expiry_only_when_the_flag_is_set() {
 
 fn save_custom_field_vault(path: &Path) {
     let mut db = cheap_db();
-    db.meta.database_name = Some("My Vault".to_string());
+    db.meta.database_name = Some("My Vault".to_owned());
     {
         let mut root = db.root_mut();
         let mut e = root.add_entry();

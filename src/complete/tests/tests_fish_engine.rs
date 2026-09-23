@@ -13,18 +13,14 @@ fn parse_fish_completions_keeps_values_drops_descriptions_and_blanks() {
     let raw = "alpha/\tDirectory\nbeta/\ngamma/\tSubcommand\n\n\n";
     assert_eq!(
         parse_fish_completions(raw),
-        vec![
-            "alpha/".to_string(),
-            "beta/".to_string(),
-            "gamma/".to_string(),
-        ],
+        vec!["alpha/".to_owned(), "beta/".to_owned(), "gamma/".to_owned()],
     );
     assert!(parse_fish_completions("").is_empty());
     // A value with interior spaces (a path with spaces) survives whole; only
     // the tab boundary splits.
     assert_eq!(
         parse_fish_completions("my docs/\tDirectory"),
-        vec!["my docs/".to_string()],
+        vec!["my docs/".to_owned()],
     );
 }
 

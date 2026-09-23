@@ -114,7 +114,7 @@ const HOTKEY_CELLS: usize = 4;
 /// The rows come in from the overlay, built once when it opened: a row
 /// carries its filesystem's size, and rebuilding them here would run a
 /// `statvfs` per drive on every redraw.
-pub(super) fn render(f: &mut Frame, _side: PanelSide, rows: &[DriveRow], selected: usize) {
+pub(super) fn render(f: &mut Frame<'_>, _side: PanelSide, rows: &[DriveRow], selected: usize) {
     let widths = Widths::of(rows);
     let lines = body(rows, &widths, selected);
 

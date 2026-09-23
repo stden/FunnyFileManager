@@ -119,11 +119,11 @@ impl TextEncoding {
 /// only the high half of an ASCII character, so there the test is a NUL
 /// *character*: a code unit of two zero bytes.
 pub fn is_binary(bytes: &[u8]) -> bool {
-    let utf16 = [TextEncoding::Utf16Le, TextEncoding::Utf16Be]
+    let behind_utf16_bom = [TextEncoding::Utf16Le, TextEncoding::Utf16Be]
         .into_iter()
-        .any(|encoding| bytes.starts_with(encoding.bom()));
-    if utf16 {
-        let (units, _) = bytes[2..].as_chunks::<2>();
+        .find_map(|encoding| bytes.strip_prefix(encoding.bom()));
+    if let Some(text) = behind_utf16_bom {
+        let (units, _) = text.as_chunks::<2>();
         return units.contains(&[0, 0]);
     }
     bytes.contains(&0)

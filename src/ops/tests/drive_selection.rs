@@ -1,22 +1,15 @@
 //! Unit tests: drive selection (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use super::support::*;
 use crate::popup::process_popup_input;
 
-#[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
-
 use crate::models::{App, Overlay, Panel, PanelSide};
-
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
 
 use crossterm::event::{KeyCode, KeyModifiers};
 
 use std::fs::{self, File};
 
-use std::io::{self, Write};
+use std::io;
 
 use std::path::PathBuf;
 
@@ -358,7 +351,7 @@ fn test_process_popup_input_new_file_ctrl_char_ignored() -> io::Result<()> {
 #[test]
 fn test_new_file_input_esc() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("partial".to_string()));
+    app.set_overlay(Overlay::NewFileInput("partial".to_owned()));
 
     process_popup_input(&mut app, key_event(KeyCode::Esc));
 
@@ -370,7 +363,7 @@ fn test_new_file_input_esc() -> io::Result<()> {
 #[test]
 fn test_process_popup_input_new_file_backspace_on_text() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("abc".to_string()));
+    app.set_overlay(Overlay::NewFileInput("abc".to_owned()));
 
     assert!(process_popup_input(&mut app, key_event(KeyCode::Backspace)));
     assert_eq!(
@@ -388,7 +381,7 @@ fn test_process_popup_input_new_file_backspace_on_text() -> io::Result<()> {
 #[test]
 fn test_process_popup_input_new_file_other_key() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("test".to_string()));
+    app.set_overlay(Overlay::NewFileInput("test".to_owned()));
 
     // F5 key - should be consumed but not change input
     assert!(process_popup_input(&mut app, key_event(KeyCode::F(5))));
@@ -412,7 +405,7 @@ fn test_process_popup_input_new_file_already_exists() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
     app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
     app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("exists.txt".to_string()));
+    app.set_overlay(Overlay::NewFileInput("exists.txt".to_owned()));
 
     assert!(process_popup_input(&mut app, key_event(KeyCode::Enter)));
     assert!(!matches!(app.overlay, Overlay::NewFileInput(_)));

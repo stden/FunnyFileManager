@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     menu::{Heading, Menu, SettingsPage},
-    models::{App, FileName, Panel, PanelView, PanelsShown},
+    models::{App, FileName, PanelView, PanelsShown},
 };
 use ratatui::{backend::TestBackend, Terminal};
 

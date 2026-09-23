@@ -33,7 +33,7 @@ pub(super) fn prepare_with(
 ) -> Result<ServerSettings, InstallError> {
     check_cancel(stop)?;
     let recipe = settings.install.as_ref().ok_or(InstallError::Recipe)?;
-    let encoded = serde_json::to_vec(recipe).map_err(|_| InstallError::Recipe)?;
+    let encoded = serde_json::to_vec(recipe).map_err(crate::lsp::logged(InstallError::Recipe))?;
     let key = digest(&encoded);
     fs::create_dir_all(cache)?;
     let _lock = lock(&cache.join(format!("{key}.lock")), stop)?;
@@ -44,13 +44,15 @@ pub(super) fn prepare_with(
             .tempdir_in(cache)?;
         recipes::install(recipe, staging.path(), stop, environment)?;
         let launch = super::launch::for_recipe(recipe, staging.path(), stop, environment)?;
-        let receipt = serde_json::to_vec(&launch).map_err(|_| InstallError::Recipe)?;
+        let receipt =
+            serde_json::to_vec(&launch).map_err(crate::lsp::logged(InstallError::Recipe))?;
         fs::write(staging.path().join("ready.json"), receipt)?;
         check_cancel(stop)?;
         fs::rename(staging.path(), &destination)?;
     }
     let receipt = fs::read(destination.join("ready.json"))?;
-    let launch: Launch = serde_json::from_slice(&receipt).map_err(|_| InstallError::Recipe)?;
+    let launch: Launch =
+        serde_json::from_slice(&receipt).map_err(crate::lsp::logged(InstallError::Recipe))?;
     launch.settings(settings, &destination, workspace, environment, stop)
 }
 
@@ -95,16 +97,11 @@ pub(super) fn digest(bytes: &[u8]) -> String {
 }
 
 pub(super) fn hex(bytes: &[u8]) -> String {
-    const DIGITS: &[u8] = b"0123456789abcdef";
     bytes
         .iter()
-        .flat_map(|byte| {
-            [
-                DIGITS[usize::from(byte >> 4)],
-                DIGITS[usize::from(byte & 15)],
-            ]
-        })
-        .map(char::from)
+        .flat_map(|byte| [byte >> 4, byte & 15])
+        // A nibble is always a hexadecimal digit, lowercase from `from_digit`.
+        .filter_map(|nibble| char::from_digit(u32::from(nibble), 16))
         .collect()
 }
 

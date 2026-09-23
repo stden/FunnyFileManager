@@ -2,7 +2,6 @@
 
 use std::{cell::RefCell, rc::Rc};
 
-use crossterm::event::KeyEvent;
 use tempfile::TempDir;
 
 use crate::clipboard::ClipboardBackend;
@@ -217,7 +216,7 @@ fn a_save_request_does_nothing_without_an_open_editor() {
     let mut app = App::new().expect("test app");
     let before = app.status_text();
 
-    super::save::request_save(&mut app, crate::models::AfterSave::Close);
+    save::request_save(&mut app, AfterSave::Close);
 
     assert!(app.get_editor().is_none());
     assert_eq!(
@@ -234,7 +233,7 @@ fn f8_opens_the_encoding_dialog_and_esc_closes_it() {
     key(&mut app, KeyCode::F(8), KeyModifiers::NONE);
     assert_eq!(
         app.get_editor().expect("editor").encoding_choice,
-        Some(crate::encoding::TextEncoding::Utf8)
+        Some(TextEncoding::Utf8)
     );
     key(&mut app, KeyCode::Esc, KeyModifiers::NONE);
     assert_eq!(app.get_editor().expect("editor").encoding_choice, None);
@@ -254,15 +253,15 @@ fn encoding_arrows_walk_the_list_and_enter_keeps_utf8() {
     key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
     let editor = app.get_editor().expect("editor");
     assert_eq!(editor.encoding_choice, None);
-    assert_eq!(editor.format.encoding, crate::encoding::TextEncoding::Utf8);
+    assert_eq!(editor.format.encoding, TextEncoding::Utf8);
 }
 
 #[test]
 fn encoding_helpers_do_nothing_without_an_open_editor() {
     let mut app = App::new().expect("test app");
     process_encoding(&mut app, KeyCode::Enter);
-    crate::ops::change_editor_encoding(&mut app, crate::encoding::TextEncoding::Utf8);
-    crate::ops::reload_editor_encoding(&mut app, crate::encoding::TextEncoding::Utf8);
+    crate::ops::change_editor_encoding(&mut app, TextEncoding::Utf8);
+    crate::ops::reload_editor_encoding(&mut app, TextEncoding::Utf8);
     assert!(app.get_editor().is_none());
 }
 
@@ -310,10 +309,7 @@ fn encoding_dialog_ignores_keys_that_are_not_choices() {
     key(&mut app, KeyCode::F(8), KeyModifiers::NONE);
     key(&mut app, KeyCode::Char('x'), KeyModifiers::NONE);
     let editor = app.get_editor().expect("editor");
-    assert_eq!(
-        editor.encoding_choice,
-        Some(crate::encoding::TextEncoding::Utf8)
-    );
+    assert_eq!(editor.encoding_choice, Some(TextEncoding::Utf8));
     assert_eq!(
         editor.lines,
         ["text"],

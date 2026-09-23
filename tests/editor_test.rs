@@ -106,7 +106,7 @@ fn test_handle_edit_selected_path_none() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
     let mut app = create_test_app(&temp_dir)?;
     app.left_panel.entries = vec![DirEntry {
-        name: "..".to_string(),
+        name: "..".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(0),
         modified: Modified::UNKNOWN,

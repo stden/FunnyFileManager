@@ -41,7 +41,7 @@ impl Job {
             .spawn(move || {
                 let installed = storage::prepare(&settings, &cache, &workspace, &cancelled);
                 // Closing the editor deliberately discards the installation result.
-                let _ = sender.send(installed);
+                drop(sender.send(installed));
             })?;
         Ok(Self {
             stop,
@@ -88,13 +88,13 @@ fn check_cancel(stop: &AtomicBool) -> Result<(), InstallError> {
 mod tests;
 
 #[cfg(test)]
-#[path = "tests_fixtures.rs"]
+#[path = "install/tests_fixtures.rs"]
 mod fixtures;
 
 #[cfg(test)]
-#[path = "tests_packages.rs"]
+#[path = "install/tests_packages.rs"]
 mod package_tests;
 
 #[cfg(test)]
-#[path = "tests_smoke.rs"]
+#[path = "install/tests_smoke.rs"]
 mod smoke_tests;

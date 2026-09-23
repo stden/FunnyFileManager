@@ -96,7 +96,6 @@ impl Panel {
         std::mem::swap(&mut self.marked, &mut self.previous_marks);
     }
 
-    #[allow(dead_code)]
     pub fn action_entry_names(&self) -> Vec<String> {
         if !self.marked.is_empty() {
             return self

@@ -1,5 +1,4 @@
 //! Viewer, editor and modal operation regression tests.
-#![allow(unused_imports)]
 
 use crate::scroll::ScrollTop;
 
@@ -8,12 +7,9 @@ use crate::ops::*;
 use crate::popup::process_popup_input;
 
 #[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
+use crate::editor::{handle_edit_test_mode, TestEditorBehavior};
 
 use crate::models::{App, Overlay, Panel, Viewer, Viewport};
-
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
 
 use crossterm::event::KeyCode;
 
@@ -31,11 +27,11 @@ fn test_process_popup_input_viewer() -> io::Result<()> {
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "test.txt",
         vec![
-            "Line 1".to_string(),
-            "Line 2".to_string(),
-            "Line 3".to_string(),
-            "Line 4".to_string(),
-            "Line 5".to_string(),
+            "Line 1".to_owned(),
+            "Line 2".to_owned(),
+            "Line 3".to_owned(),
+            "Line 4".to_owned(),
+            "Line 5".to_owned(),
         ],
     )));
     // One body row, so Down walks the file instead of being swallowed by a
@@ -68,7 +64,7 @@ fn test_process_popup_input_viewer_close_variations() -> io::Result<()> {
     // Test closing with F3
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "test.txt",
-        vec!["Line 1".to_string()],
+        vec!["Line 1".to_owned()],
     )));
     assert!(process_popup_input(&mut app, key_event(KeyCode::F(3))));
     assert!(app.get_viewer().is_none());
@@ -76,7 +72,7 @@ fn test_process_popup_input_viewer_close_variations() -> io::Result<()> {
     // Test closing with Enter
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "test.txt",
-        vec!["Line 1".to_string()],
+        vec!["Line 1".to_owned()],
     )));
     assert!(process_popup_input(&mut app, key_event(KeyCode::Enter)));
     assert!(app.get_viewer().is_none());
@@ -91,7 +87,7 @@ fn test_process_popup_input_viewer_max_scroll() -> io::Result<()> {
     // Create a viewer with limited lines
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "test.txt",
-        vec!["Line 1".to_string(), "Line 2".to_string()],
+        vec!["Line 1".to_owned(), "Line 2".to_owned()],
     )));
 
     // Try to scroll beyond available lines
@@ -111,7 +107,7 @@ fn test_viewer_scroll_exact_bounds() -> io::Result<()> {
     // Single line: scroll should stay at 0
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "test.txt",
-        vec!["only line".to_string()],
+        vec!["only line".to_owned()],
     )));
     process_popup_input(&mut app, key_event(KeyCode::Down));
     assert_eq!(app.get_viewer().unwrap().scroll, ScrollTop::TOP);

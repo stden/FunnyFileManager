@@ -33,6 +33,24 @@ impl WslBackend for SystemWslBackend {
 #[cfg(any(windows, test))]
 const PACKAGE_UPDATE_SCRIPT: &str = include_str!("wsl/package_update.sh");
 
+/// Two bytes of UTF-16 in one byte order, as one code unit.
+#[cfg(any(windows, test))]
+type Utf16Decoder = fn([u8; 2]) -> u16;
+
+/// The one message for output that is neither UTF-8 nor UTF-16.
+#[cfg(any(windows, test))]
+const INVALID_TEXT: &str = "WSL returned invalid text encoding";
+
+/// An operation that runs `wsl.exe`: every one but opening a root, which
+/// needs no command, so nothing downstream has an `Open` to rule out.
+#[cfg(any(windows, test))]
+#[derive(Clone, Copy)]
+enum WslCommand<'a> {
+    Refresh,
+    Update,
+    UpdatePackages(&'a crate::models::DistributionName),
+}
+
 #[cfg(any(windows, test))]
 fn execute_with(
     operation: &WslOperation,
@@ -40,56 +58,63 @@ fn execute_with(
 ) -> Result<WslOutput, String> {
     use std::time::Duration;
 
-    let captured = match operation {
+    let (command, captured) = match operation {
         WslOperation::Open(distribution) => return Ok(WslOutput::Root(distribution.root_path())),
-        WslOperation::Refresh => runner(&["--list", "--quiet"], Duration::from_secs(20))?,
-        WslOperation::Update => runner(&["--update"], Duration::from_mins(5))?,
-        WslOperation::UpdatePackages(distribution) => runner(
-            &[
-                "--distribution",
-                distribution.as_str(),
-                "--user",
-                "root",
-                "--exec",
-                "sh",
-                "-lc",
-                PACKAGE_UPDATE_SCRIPT,
-            ],
-            Duration::from_hours(1),
-        )?,
+        WslOperation::Refresh => (
+            WslCommand::Refresh,
+            runner(&["--list", "--quiet"], Duration::from_secs(20))?,
+        ),
+        WslOperation::Update => (
+            WslCommand::Update,
+            runner(&["--update"], Duration::from_mins(5))?,
+        ),
+        WslOperation::UpdatePackages(distribution) => (
+            WslCommand::UpdatePackages(distribution),
+            runner(
+                &[
+                    "--distribution",
+                    distribution.as_str(),
+                    "--user",
+                    "root",
+                    "--exec",
+                    "sh",
+                    "-lc",
+                    PACKAGE_UPDATE_SCRIPT,
+                ],
+                Duration::from_hours(1),
+            )?,
+        ),
     };
-    check_exit(operation, &captured)?;
-    decode_output(operation, &captured)
+    check_exit(command, &captured)?;
+    decode_output(command, &captured)
 }
 
 #[cfg(any(windows, test))]
 fn decode_output(
-    operation: &WslOperation,
+    command: WslCommand<'_>,
     captured: &process::Captured,
 ) -> Result<WslOutput, String> {
-    match operation {
-        WslOperation::Refresh => decode_distributions(captured).map(WslOutput::Distributions),
-        WslOperation::Update => Ok(WslOutput::Updated(completed_message(
+    match command {
+        WslCommand::Refresh => decode_distributions(captured).map(WslOutput::Distributions),
+        WslCommand::Update => Ok(WslOutput::Updated(completed_message(
             captured,
             "WSL update completed.",
         )?)),
-        WslOperation::UpdatePackages(name) => Ok(WslOutput::PackagesUpdated(completed_message(
+        WslCommand::UpdatePackages(name) => Ok(WslOutput::PackagesUpdated(completed_message(
             captured,
             &format!("Package update completed: {}.", name.as_str()),
         )?)),
-        WslOperation::Open(_) => unreachable!("opening a root does not run a command"),
     }
 }
 
 #[cfg(any(windows, test))]
-fn check_exit(operation: &WslOperation, captured: &process::Captured) -> Result<(), String> {
+fn check_exit(command: WslCommand<'_>, captured: &process::Captured) -> Result<(), String> {
     if let process::Exit::Failed(code) = captured.exit {
         let details = output_message(captured)?;
-        let operation = match operation {
-            WslOperation::Refresh => "WSL distribution refresh".to_owned(),
-            WslOperation::Update => "WSL update".to_owned(),
-            WslOperation::UpdatePackages(name) => format!("Package update for {}", name.as_str()),
-            WslOperation::Open(_) => unreachable!("opening a root does not run a command"),
+        let operation = match command {
+            WslCommand::Refresh => "WSL distribution refresh".to_owned(),
+            WslCommand::Update => "WSL update".to_owned(),
+            WslCommand::UpdatePackages(name) => format!("Package update for {}", name.as_str()),
         };
         let code = code.map_or_else(
             || "unknown exit status".to_owned(),
@@ -153,38 +178,42 @@ fn output_message(captured: &process::Captured) -> Result<String, String> {
 
 /// WSL versions emit UTF-16LE (with or without a BOM) or UTF-8 on redirected pipes.
 #[cfg(any(windows, test))]
+#[expect(
+    clippy::map_err_ignore,
+    reason = "the offset of the bad UTF-8 sequence means nothing to the user; the fixed message does"
+)]
 fn decode_text(bytes: &[u8], truncated: bool) -> Result<String, String> {
-    let invalid = || "WSL returned invalid text encoding".to_owned();
-    let (bytes, encoding) = if let Some(bytes) = bytes.strip_prefix(&[0xff, 0xfe]) {
-        (bytes, Some(u16::from_le_bytes as fn([u8; 2]) -> u16))
-    } else if let Some(bytes) = bytes.strip_prefix(&[0xfe, 0xff]) {
-        (bytes, Some(u16::from_be_bytes as fn([u8; 2]) -> u16))
-    } else if bytes.as_chunks::<2>().0.iter().any(|pair| pair[1] == 0) {
-        (bytes, Some(u16::from_le_bytes as fn([u8; 2]) -> u16))
-    } else {
-        (
-            bytes.strip_prefix(&[0xef, 0xbb, 0xbf]).unwrap_or(bytes),
-            None,
-        )
-    };
+    let (bytes, encoding): (&[u8], Option<Utf16Decoder>) =
+        if let Some(bytes) = bytes.strip_prefix(&[0xff, 0xfe]) {
+            (bytes, Some(u16::from_le_bytes))
+        } else if let Some(bytes) = bytes.strip_prefix(&[0xfe, 0xff]) {
+            (bytes, Some(u16::from_be_bytes))
+        } else if bytes.as_chunks::<2>().0.iter().any(|pair| pair[1] == 0) {
+            (bytes, Some(u16::from_le_bytes))
+        } else {
+            (
+                bytes.strip_prefix(&[0xef, 0xbb, 0xbf]).unwrap_or(bytes),
+                None,
+            )
+        };
     let text = if let Some(decode) = encoding {
         decode_utf16(bytes, truncated, decode)?
     } else if truncated {
         String::from_utf8_lossy(bytes).into_owned()
     } else {
-        String::from_utf8(bytes.to_vec()).map_err(|_| invalid())?
+        String::from_utf8(bytes.to_vec()).map_err(|_| INVALID_TEXT.to_owned())?
     };
     Ok(text.trim_matches('\0').to_owned())
 }
 
 #[cfg(any(windows, test))]
-fn decode_utf16(
-    bytes: &[u8],
-    truncated: bool,
-    decode: fn([u8; 2]) -> u16,
-) -> Result<String, String> {
+#[expect(
+    clippy::map_err_ignore,
+    reason = "the offset of the lone surrogate means nothing to the user; the fixed message does"
+)]
+fn decode_utf16(bytes: &[u8], truncated: bool, decode: Utf16Decoder) -> Result<String, String> {
     if !bytes.len().is_multiple_of(2) && !truncated {
-        return Err("WSL returned invalid text encoding".to_owned());
+        return Err(INVALID_TEXT.to_owned());
     }
     let words: Vec<_> = bytes
         .as_chunks::<2>()
@@ -196,7 +225,7 @@ fn decode_utf16(
     if truncated {
         Ok(String::from_utf16_lossy(&words))
     } else {
-        String::from_utf16(&words).map_err(|_| "WSL returned invalid text encoding".to_owned())
+        String::from_utf16(&words).map_err(|_| INVALID_TEXT.to_owned())
     }
 }
 

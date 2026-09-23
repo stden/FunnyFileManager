@@ -32,9 +32,9 @@ pub(super) fn expand(text: &str, resolve: impl Fn(&str) -> Option<String>) -> Op
             out.push_str(&resolve(name)?);
             rest = tail;
         } else {
-            let ch = rest.chars().next()?;
-            out.push(ch);
-            rest = &rest[ch.len_utf8()..];
+            let mut chars = rest.chars();
+            out.push(chars.next()?);
+            rest = chars.as_str();
         }
     }
     Some(out)
@@ -57,7 +57,7 @@ fn variable(text: &str) -> Option<(&str, &str)> {
     if count == 0 {
         return None;
     }
-    Some((&rest[..count], &rest[count..]))
+    rest.split_at_checked(count)
 }
 
 #[cfg(test)]

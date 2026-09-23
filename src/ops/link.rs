@@ -137,7 +137,9 @@ fn symlink(target: &str, link: &Path) -> io::Result<()> {
 /// them lists its directory. The reload is what makes the entry exist to
 /// point at, so the two belong together.
 fn settle_on(app: &mut App, link: &Path) {
-    let _ = refresh_panels(app);
+    // The link exists either way; a listing that cannot be re-read keeps its
+    // old rows, and the cursor then simply finds nothing to settle on.
+    drop(refresh_panels(app));
     let (Some(parent), Some(name)) = (link.parent(), link.file_name()) else {
         return;
     };

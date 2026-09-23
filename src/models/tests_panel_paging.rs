@@ -3,12 +3,6 @@
 //! Paging clamps at both ends, unlike [`Panel::next`] / [`Panel::previous`],
 //! which wrap around — this mirrors Far Manager, where `PgDn` on the last screen
 //! parks on the final entry instead of jumping back to the top.
-#![allow(unused_imports)]
-
-use crate::models::EntryKind;
-use crate::models::FileSize;
-use crate::models::Modified;
-use std::path::PathBuf;
 
 use super::*;
 

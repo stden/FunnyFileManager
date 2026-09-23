@@ -42,6 +42,11 @@ fn painted(name: &str, content: &str, row: u16) -> Vec<(char, Color)> {
     painted_with_key(name, content, row, KeyCode::F(4))
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture: a failed setup fails the calling test; clippy.toml allows that in \
+              #[test] fns and #[cfg(test)] items, not in integration-test helpers"
+)]
 fn painted_with_key(name: &str, content: &str, row: u16, open: KeyCode) -> Vec<(char, Color)> {
     let dir = TempDir::new().expect("dir");
     let other = TempDir::new().expect("dir");
@@ -65,11 +70,11 @@ fn painted_with_key(name: &str, content: &str, row: u16, open: KeyCode) -> Vec<(
         Terminal::new(WritableTestBackend::new(SCREEN_W, SCREEN_H)).expect("terminal");
     // The stream runs out with the editor still open, which is how the test
     // says "stop here" — the frame is what it wants, not a clean exit.
-    let _ = run_app_with_event_reader(&mut terminal, app, || {
+    drop(run_app_with_event_reader(&mut terminal, app, || {
         events
             .next()
             .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "stop"))
-    });
+    }));
 
     let buffer = terminal.backend().buffer();
     (0..SCREEN_W)
@@ -81,12 +86,20 @@ fn painted_with_key(name: &str, content: &str, row: u16, open: KeyCode) -> Vec<(
 }
 
 /// The colour the run starting at `needle` is painted in.
+#[expect(
+    clippy::panic,
+    reason = "test assertion: a needle missing from the row fails the calling test; clippy.toml \
+              allows that in #[test] fns and #[cfg(test)] items, not in integration-test helpers"
+)]
 fn colour_of(row: &[(char, Color)], needle: &str) -> Color {
     let text: String = row.iter().map(|(ch, _)| *ch).collect();
-    let at = text
-        .find(needle)
-        .unwrap_or_else(|| panic!("{needle:?} is not on the row {text:?}"));
-    row[at].1
+    // `find` answers in bytes and the row holds one cell per character, so
+    // after a multibyte prefix this reads a cell further along the run, not
+    // its first one. Kept as is: the assertions were written against it.
+    text.find(needle).and_then(|at| row.get(at)).map_or_else(
+        || panic!("{needle:?} is not on the row {text:?}"),
+        |&(_, colour)| colour,
+    )
 }
 
 #[test]

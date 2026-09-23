@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 fn assert_profile_only_roundtrip(profile: &str) {
     let original = VirtualPath::S3 {
-        profile: profile.to_string(),
+        profile: profile.to_owned(),
         bucket: None,
         prefix: String::new(),
     };
@@ -17,8 +17,8 @@ fn assert_profile_only_roundtrip(profile: &str) {
 
 fn assert_profile_bucket_roundtrip(profile: &str, bucket: &str) {
     let original = VirtualPath::S3 {
-        profile: profile.to_string(),
-        bucket: Some(bucket.to_string()),
+        profile: profile.to_owned(),
+        bucket: Some(bucket.to_owned()),
         prefix: String::new(),
     };
     let displayed = original.display();
@@ -28,9 +28,9 @@ fn assert_profile_bucket_roundtrip(profile: &str, bucket: &str) {
 
 fn assert_profile_bucket_prefix_roundtrip(profile: &str, bucket: &str, prefix: &str) {
     let original = VirtualPath::S3 {
-        profile: profile.to_string(),
-        bucket: Some(bucket.to_string()),
-        prefix: prefix.to_string(),
+        profile: profile.to_owned(),
+        bucket: Some(bucket.to_owned()),
+        prefix: prefix.to_owned(),
     };
     let displayed = original.display();
     let reparsed = VirtualPath::parse(&displayed);

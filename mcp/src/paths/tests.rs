@@ -41,7 +41,9 @@ impl Drop for RootEnvGuard {
             Some(value) => std::env::set_var(ROOT_ENV, value),
             None => std::env::remove_var(ROOT_ENV),
         }
-        let _ = std::env::set_current_dir(&self.previous_cwd);
+        if let Err(error) = std::env::set_current_dir(&self.previous_cwd) {
+            eprintln!("could not restore the working directory: {error}");
+        }
     }
 }
 

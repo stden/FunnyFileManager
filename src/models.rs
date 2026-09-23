@@ -86,7 +86,7 @@ pub use file_name::FileName;
 pub use filter::{FilterPrompt, PanelFilter};
 pub use findfile::{FindFile, FindFileField};
 pub use histlist::HistoryList;
-pub use histories::{FolderHistory, PathHistory, ViewHistory};
+pub use histories::{FolderHistory, HistoryFile, PathHistory, ViewHistory, Viewed, Visited};
 pub use hotplug::DeviceList;
 pub use overlay::{
     Confirm, LinkType, MaskPrompt, MaskPurpose, NameField, NamePrompt, NamePurpose, Overlay,

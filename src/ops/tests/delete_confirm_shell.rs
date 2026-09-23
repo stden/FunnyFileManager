@@ -1,23 +1,16 @@
 //! Unit tests: delete confirm shell (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use super::support::*;
 use crate::ops::*;
 use crate::popup::process_popup_input;
 
-#[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
-
 use crate::models::{App, Overlay, Panel, PanelSide};
-
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
 
 use crossterm::event::KeyCode;
 
 use std::fs::{self, File};
 
-use std::io::{self, Write};
+use std::io;
 
 use std::path::PathBuf;
 
@@ -140,7 +133,7 @@ fn test_new_file_input_file_already_exists() -> io::Result<()> {
     let mut app = App::new()?;
     app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
     app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
-    app.set_overlay(Overlay::NewFileInput("exists.txt".to_string()));
+    app.set_overlay(Overlay::NewFileInput("exists.txt".to_owned()));
 
     process_popup_input(&mut app, key_event(KeyCode::Enter));
     assert!(
@@ -158,9 +151,7 @@ fn test_new_file_create_error_sets_status() -> io::Result<()> {
     app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
     app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
     // Try to create a file in a nonexistent subdirectory
-    app.set_overlay(Overlay::NewFileInput(
-        "nonexistent_dir/file.txt".to_string(),
-    ));
+    app.set_overlay(Overlay::NewFileInput("nonexistent_dir/file.txt".to_owned()));
 
     process_popup_input(&mut app, key_event(KeyCode::Enter));
     assert!(

@@ -193,11 +193,11 @@ pub(super) fn panel_layout(view: PanelView, interior: Cells) -> PanelLayout {
     let last_name = Cells::new(names - name.get() * (stripes - 1));
 
     let declared = table_columns(view).unwrap_or_default();
-    let taken = (0..=declared.len())
+    let columns = (0..=declared.len())
         .rev()
-        .find(|taken| name.saturating_sub(columns_width(&declared[..*taken])) >= MIN_NAME_WIDTH)
-        .unwrap_or(0);
-    let columns = &declared[..taken];
+        .filter_map(|taken| declared.get(..taken))
+        .find(|columns| name.saturating_sub(columns_width(columns)) >= MIN_NAME_WIDTH)
+        .unwrap_or_default();
     let spent = columns_width(columns);
     PanelLayout {
         stripes,
@@ -232,9 +232,9 @@ pub(super) fn split_extension(entry: &DirEntry) -> (&str, &str) {
     if entry.kind.is_dir() {
         return (&entry.name, "");
     }
-    match entry.name.rfind('.') {
-        Some(0) | None => (&entry.name, ""),
-        Some(dot) => (&entry.name[..dot], &entry.name[dot + 1..]),
+    match entry.name.rsplit_once('.') {
+        Some(("", _)) | None => (&entry.name, ""),
+        Some((stem, extension)) => (stem, extension),
     }
 }
 
@@ -245,7 +245,7 @@ pub(super) fn split_extension(entry: &DirEntry) -> (&str, &str) {
 /// Far user already reads as "there is more here".
 pub(super) fn clip_name(name: &str, width: Cells) -> String {
     if Cells::of(name) <= width {
-        return name.to_string();
+        return name.to_owned();
     }
     if width.is_zero() {
         return String::new();
@@ -318,24 +318,27 @@ pub(super) fn size_field(entry: &DirEntry) -> String {
 /// Far's compact byte count — "381 K", "49.4 G": the largest unit that keeps
 /// the value under 1000, carrying a decimal only while there is room for one.
 pub(super) fn abbreviate_bytes(bytes: u64) -> String {
-    const UNITS: [&str; 5] = ["", "K", "M", "G", "T"];
+    const UNITS: [&str; 4] = ["K", "M", "G", "T"];
 
     // Integer maths, exact for every u64: the value shown is `bytes / scale`.
     let bytes = u128::from(bytes);
     let mut scale = 1;
-    let mut unit = 0;
-    while bytes >= 1000 * scale && unit + 1 < UNITS.len() {
+    let mut unit = None;
+    for next in UNITS {
+        if bytes < 1000 * scale {
+            break;
+        }
         scale *= 1024;
-        unit += 1;
+        unit = Some(next);
     }
-    if unit == 0 {
+    let Some(unit) = unit else {
         return bytes.to_string();
-    }
+    };
     if bytes >= 100 * scale {
-        format!("{} {}", divide_rounded(bytes, scale), UNITS[unit])
+        format!("{} {unit}", divide_rounded(bytes, scale))
     } else {
         let tenths = divide_rounded(bytes * 10, scale);
-        format!("{}.{} {}", tenths / 10, tenths % 10, UNITS[unit])
+        format!("{}.{} {unit}", tenths / 10, tenths % 10)
     }
 }
 
@@ -565,7 +568,7 @@ fn panel_title(panel: &Panel, interior: Cells, is_active: bool) -> Line<'static>
 }
 
 pub(super) fn render_panel(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     panel: &mut Panel,
     area: Rect,
     is_active: bool,
@@ -591,7 +594,7 @@ pub(super) fn render_panel(
 }
 
 fn render_panel_contents(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     panel: &mut Panel,
     area: Rect,
     inner: Rect,
@@ -633,7 +636,13 @@ fn render_panel_contents(
 }
 
 /// The column rule on the `divider` row of a panel drawn in `area`.
-fn render_column_rule(f: &mut Frame, layout: PanelLayout, area: Rect, divider: Rect, style: Style) {
+fn render_column_rule(
+    f: &mut Frame<'_>,
+    layout: PanelLayout,
+    area: Rect,
+    divider: Rect,
+    style: Style,
+) {
     // The rule spans `area`, not `inner`: its two ends are the frame cells the
     // block already drew, and overwriting them is what turns a floating dash
     // into a divider joined to the border.
@@ -676,7 +685,7 @@ fn group_digits(value: u64) -> String {
 }
 
 fn render_entries(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     panel: &mut Panel,
     body: Rect,
     layout: PanelLayout,
@@ -704,7 +713,7 @@ fn render_entries(
     // give the screen two answers to "what does Enter act on".
     let cursor = panel.selected().filter(|_| is_active);
     let panel = &*panel;
-    let lines: Vec<Line> = (0..rows)
+    let lines: Vec<Line<'_>> = (0..rows)
         .map(|row| {
             let cells = (0..layout.stripes).map(|stripe| {
                 Some(window.start + stripe * rows + row).filter(|index| window.contains(index))
@@ -732,11 +741,11 @@ fn body_line(
             spans.push(Span::styled(COLUMN_SEPARATOR, separator_style()));
         }
         let name = layout.name_width(stripe);
-        let Some(index) = index else {
+        let entry = index.and_then(|index| panel.entries.get(index));
+        let (Some(index), Some(entry)) = (index, entry) else {
             spans.push(empty_cell(name, layout.columns));
             continue;
         };
-        let entry = &panel.entries[index];
         let cell = entry_cell(panel, entry, name, layout.columns);
         // The cursor covers its own stripe only, never the rule beside it.
         if cursor == Some(index) {
@@ -753,19 +762,16 @@ fn body_line(
 /// the panel shows short names, with anything the terminal will not draw
 /// replaced. Only the name changes — marks, hiding and every operation still
 /// go by the real one.
-fn displayed_entry<'a>(
-    short_names: Option<&ShortNames>,
-    entry: &'a DirEntry,
-) -> std::borrow::Cow<'a, DirEntry> {
+fn displayed_entry<'a>(short_names: Option<&ShortNames>, entry: &'a DirEntry) -> Cow<'a, DirEntry> {
     let short = short_names.and_then(|table| table.get(&entry.name));
     let shown = short.map_or(entry.name.as_str(), crate::models::ShortName::as_str);
     let printable = crate::ui::printable_name(shown);
-    if short.is_none() && matches!(printable, std::borrow::Cow::Borrowed(_)) {
-        return std::borrow::Cow::Borrowed(entry);
+    if short.is_none() && matches!(printable, Cow::Borrowed(_)) {
+        return Cow::Borrowed(entry);
     }
     let mut displayed = entry.clone();
     displayed.name = printable.into_owned();
-    std::borrow::Cow::Owned(displayed)
+    Cow::Owned(displayed)
 }
 
 /// The row above the bottom border, which Far gives to the current entry's
@@ -780,7 +786,7 @@ fn displayed_entry<'a>(
 /// A view whose table leaves out some of Size, Date and Time adds the current
 /// entry's after the name (see [`info_columns`]), as Far's status line does.
 fn render_panel_info(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     panel: &Panel,
     inner: Rect,
     footer: Option<&PathMessage<'_>>,

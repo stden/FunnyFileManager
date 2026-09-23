@@ -111,7 +111,7 @@ fn refuses_an_endless_device_node() {
     let outcome = crate::test_support::run_with_timeout(GUARD_TIMEOUT, || {
         read_for_text_ui(std::path::Path::new("/dev/zero")).map(|loaded| match loaded {
             Loaded::Bytes(bytes) => format!("read {} bytes", bytes.len()),
-            Loaded::NotRegular => "not-regular".to_string(),
+            Loaded::NotRegular => "not-regular".to_owned(),
             Loaded::TooLarge(size) => format!("too large: {size}"),
         })
     })
@@ -206,7 +206,7 @@ fn refuses_a_file_that_grows_past_the_limit_during_the_read() -> io::Result<()> 
                 );
                 return Ok(());
             }
-            Loaded::Bytes(bytes) if (bytes.len() as u64) > MAX_FILE_SIZE.bytes() => {
+            Loaded::Bytes(bytes) if u64::try_from(bytes.len()).unwrap() > MAX_FILE_SIZE.bytes() => {
                 // Should be impossible: Bytes is only returned under the limit.
                 panic!("Bytes larger than the limit escaped the guard");
             }
@@ -238,10 +238,12 @@ fn spawn_growth_writer(
         // Well past MAX_FILE_SIZE.bytes() so a concurrent take() can see
         // more than the limit even if it started from a zero-length snapshot.
         let limit = usize::try_from(MAX_FILE_SIZE.bytes()).expect("the limit fits usize");
+        // Best effort, like the race it feeds: a failed write only means the
+        // reader never sees the file grow.
         for _ in 0..(limit / chunk.len() + 2) {
-            let _ = file.write_all(&chunk);
+            drop(file.write_all(&chunk));
         }
-        let _ = file.flush();
+        drop(file.flush());
     })
 }
 

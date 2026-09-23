@@ -2,7 +2,7 @@
 //! never the file list hidden beneath it, and a double click is Enter.
 
 use super::*;
-use crate::models::{PanelKind, RowMotion, SessionsPanel};
+use crate::models::{RowMotion, SessionsPanel};
 use crate::test_support::netbox::{app_on_host, session};
 
 fn on_sessions(app: &mut App) {
@@ -68,7 +68,7 @@ fn a_click_below_the_last_session_selects_nothing_and_breaks_a_double_click() {
 
 #[test]
 fn a_double_click_on_a_remote_directory_enters_it() {
-    let dir = tempfile::TempDir::new().expect("temp dir");
+    let dir = TempDir::new().expect("temp dir");
     let mut app = app_on_host(dir.path(), &[("/etc/hostname", 5)], None);
     if let PanelKind::Remote(panel) = &mut app.left_panel.kind {
         panel.move_cursor(RowMotion::First);

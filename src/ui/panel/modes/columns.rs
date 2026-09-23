@@ -133,13 +133,12 @@ pub(super) struct Layout {
 impl Layout {
     pub(super) fn new(view: PanelView, width: Cells) -> Self {
         let wanted = columns(view);
-        for taken in (0..=wanted.len()).rev() {
-            let layout = Self::fit(view, &wanted[..taken], width);
-            if layout.name >= Cells::new(8) || taken == 0 {
-                return layout;
-            }
-        }
-        unreachable!("a name-only layout always fits")
+        (1..=wanted.len())
+            .rev()
+            .filter_map(|taken| wanted.get(..taken))
+            .map(|columns| Self::fit(view, columns, width))
+            .find(|layout| layout.name >= Cells::new(8))
+            .unwrap_or_else(|| Self::fit(view, &[], width))
     }
 
     fn fit(view: PanelView, columns: &[Column], width: Cells) -> Self {

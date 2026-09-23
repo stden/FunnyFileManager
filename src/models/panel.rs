@@ -210,7 +210,6 @@ impl Panel {
         panel
     }
 
-    #[allow(dead_code)]
     pub const fn cycle_sort_mode(&mut self) {
         self.sort_mode = self.sort_mode.next();
     }

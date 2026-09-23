@@ -71,14 +71,19 @@ fn subsequence_points(haystack: &[char], needle: &[char]) -> Option<i32> {
     let mut previous_match: Option<usize> = None;
 
     for &wanted in needle {
-        let found = haystack[haystack_index..]
+        let found = haystack
+            .get(haystack_index..)?
             .iter()
             .position(|&c| c == wanted)
             .map(|offset| haystack_index + offset)?;
 
         points += if previous_match == Some(found.wrapping_sub(1)) {
             CONSECUTIVE_BONUS
-        } else if found == 0 || WORD_BOUNDARIES.contains(&haystack[found - 1]) {
+        } else if found == 0
+            || haystack
+                .get(found - 1)
+                .is_some_and(|c| WORD_BOUNDARIES.contains(c))
+        {
             BOUNDARY_BONUS
         } else {
             PLAIN_MATCH
@@ -95,7 +100,7 @@ fn subsequence_points(haystack: &[char], needle: &[char]) -> Option<i32> {
 /// The query as compared — lowercased unless the query is case-sensitive.
 fn needle_of(query: &str, case_sensitive: bool) -> String {
     if case_sensitive {
-        query.to_string()
+        query.to_owned()
     } else {
         query.to_ascii_lowercase()
     }

@@ -12,7 +12,7 @@ use super::dialog::{self, Button, Ground, Row};
 use crate::models::{ExtractField, ExtractPrompt};
 
 pub(super) fn render(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     dialog: &ExtractPrompt,
 ) {

@@ -11,14 +11,17 @@ pub fn label(path: &Path) -> Cow<'_, str> {
 pub fn label(path: &Path) -> Cow<'_, str> {
     use std::path::{Component, Prefix};
     let text = path.to_string_lossy();
-    match path.components().next() {
+    let ordinary = match path.components().next() {
         Some(Component::Prefix(prefix)) => match prefix.kind() {
-            Prefix::VerbatimDisk(_) => Cow::Owned(text[4..].to_owned()),
-            Prefix::VerbatimUNC(_, _) => Cow::Owned(format!("\\\\{}", &text[8..])),
-            _ => text,
+            // `\\?\C:\…` drops its four-byte `\\?\`.
+            Prefix::VerbatimDisk(_) => text.get(4..).map(str::to_owned),
+            // `\\?\UNC\server\…` becomes `\\server\…`.
+            Prefix::VerbatimUNC(_, _) => text.get(8..).map(|rest| format!("\\\\{rest}")),
+            _ => None,
         },
-        _ => text,
-    }
+        _ => None,
+    };
+    ordinary.map_or(text, Cow::Owned)
 }
 
 #[cfg(test)]

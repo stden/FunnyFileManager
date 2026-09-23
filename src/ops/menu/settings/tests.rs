@@ -1,6 +1,4 @@
 use super::*;
-use crate::models::settings::{OptionsSection, PageValues};
-use crate::status::Status;
 use crate::test_support::{EnvVarGuard, CONFIG_HOME};
 use std::fs;
 
@@ -62,7 +60,7 @@ fn unavailable_language_rolls_back_loaded_panel_settings() -> io::Result<()> {
     let panel = crate::models::Panel::new(temp.path().to_owned())?;
     let mut app = App::from_panels(panel.clone(), panel);
     let path = temp.path().join("settings.yaml");
-    let values = std::collections::BTreeMap::from([
+    let values = BTreeMap::from([
         (SettingsPage::Panel, "off".to_owned()),
         (
             SettingsPage::Language,
@@ -146,7 +144,7 @@ fn save_setup_keeps_the_typed_settings_and_leaves_the_legacy_json_alone() -> io:
     app.settings.set(SettingsPage::Editor, "8").unwrap();
     save(&mut app)?;
     assert_eq!(fs::read_to_string(&legacy)?, json);
-    let stored = crate::config::document::read(&path)?.expect("settings.yaml");
+    let stored = document::read(&path)?.expect("settings.yaml");
     let typed: crate::config::Settings = stored.parse()?;
     assert!(!typed.lsp.0["python"].enabled);
     assert_eq!(typed.system.history_size, 5);
@@ -227,7 +225,7 @@ fn folder_description_settings_reload_the_quick_view() -> io::Result<()> {
 #[test]
 fn save_without_a_file_is_an_error() {
     let mut app = App::new().expect("app");
-    app.settings.persistence = crate::history::Persistence::SessionOnly;
+    app.settings.persistence = Persistence::SessionOnly;
     assert!(save(&mut app).is_err());
 }
 
@@ -258,8 +256,7 @@ fn a_fifo_is_refused_as_a_language_or_settings_file_without_blocking() {
 
     let settings =
         crate::test_support::run_with_timeout(std::time::Duration::from_secs(5), move || {
-            let panel =
-                crate::models::Panel::from_entries(std::path::PathBuf::from("/"), Vec::new());
+            let panel = crate::models::Panel::from_entries(PathBuf::from("/"), Vec::new());
             let mut app = App::with_panels(panel.clone(), panel);
             load(&mut app, &fifo).map_err(|error| error.to_string())
         })
@@ -302,12 +299,12 @@ fn save_setup_keeps_a_page_edited_by_hand_while_ffm_runs() -> io::Result<()> {
     app.settings.set(SettingsPage::Panel, "off").unwrap();
     save(&mut app)?;
     let expected = OptionsSection {
-        options: PageValues(std::collections::BTreeMap::from([
+        options: PageValues(BTreeMap::from([
             (SettingsPage::Panel, "off".to_owned()),
             (SettingsPage::Editor, "2".to_owned()),
         ])),
     };
-    let stored = crate::config::document::read(&path)?.expect("saved");
+    let stored = document::read(&path)?.expect("saved");
     assert_eq!(stored.parse::<OptionsSection>()?, expected);
     fs::write(&path, "options: {Editor: '3', Panel: 'off'}\n")?;
     save(&mut app)?;

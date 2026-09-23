@@ -7,7 +7,7 @@ use tempfile::TempDir;
 #[test]
 fn codex_uses_the_active_panel_and_preserves_arguments() {
     let temp = TempDir::new().expect("tempdir");
-    let mut app = super::tests::make_app(&temp);
+    let mut app = tests::make_app(&temp);
     let right = temp.path().join("My Project");
     std::fs::create_dir(&right).expect("right directory");
     app.right_panel = Panel::new(right.clone()).expect("right panel");
@@ -37,7 +37,7 @@ fn codex_uses_the_active_panel_and_preserves_arguments() {
 #[test]
 fn console_launch_errors_reach_the_caller_and_transcript() {
     let temp = TempDir::new().expect("tempdir");
-    let mut app = super::tests::make_app(&temp);
+    let mut app = tests::make_app(&temp);
     let error = execute_command_with_console(&mut app, "codex", |_, _| {
         Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
@@ -58,7 +58,7 @@ fn console_launch_errors_reach_the_caller_and_transcript() {
 #[test]
 fn ordinary_shell_commands_do_not_open_a_console() {
     let temp = TempDir::new().expect("tempdir");
-    let mut app = super::tests::make_app(&temp);
+    let mut app = tests::make_app(&temp);
     execute_command_with_console(&mut app, "echo codex", |_, _| {
         panic!("echo must stay in the captured shell")
     })

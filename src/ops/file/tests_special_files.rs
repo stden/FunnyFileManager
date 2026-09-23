@@ -5,7 +5,6 @@
 //! file manager with no key able to reach it — and, once a writer did come,
 //! leave an empty regular file behind, reported as "Copied".
 
-use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
@@ -33,7 +32,7 @@ fn unless_stuck<T: Send + 'static>(
     let (sender, receiver) = mpsc::channel();
     let worker = thread::spawn(move || {
         // The receiver is gone only once the test has already failed.
-        let _ = sender.send(transfer());
+        drop(sender.send(transfer()));
     });
     let outcome = receiver.recv_timeout(STUCK_AFTER).ok();
     while !worker.is_finished() {

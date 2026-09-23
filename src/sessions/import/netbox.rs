@@ -46,7 +46,7 @@ pub fn parse(text: &str, file: &Path) -> Result<Imported, ImportError> {
     if root.tag_name().name() != "NetBox" {
         return Err(ImportError::NotNetBox);
     }
-    let entries: Vec<Node> = elements(root, "Sessions")
+    let entries: Vec<Node<'_, '_>> = elements(root, "Sessions")
         .flat_map(|sessions| elements(sessions, "Session"))
         .collect();
     if entries.len() > MAX_SESSIONS {
@@ -58,7 +58,7 @@ pub fn parse(text: &str, file: &Path) -> Result<Imported, ImportError> {
 }
 
 /// Every `<Session>` as a session, or as a skipped entry with its reason.
-fn read_sessions(entries: &[Node], file: &Path) -> Imported {
+fn read_sessions(entries: &[Node<'_, '_>], file: &Path) -> Imported {
     let mut imported = Imported::default();
     let mut names = BTreeSet::new();
     for entry in entries.iter().copied() {
@@ -86,7 +86,7 @@ fn elements<'a, 'input: 'a>(
 }
 
 /// One `<Session>` as a session, or why it cannot be one.
-fn read_session(entry: Node, file: &Path) -> Result<Session, SkipReason> {
+fn read_session(entry: Node<'_, '_>, file: &Path) -> Result<Session, SkipReason> {
     let protocol = protocol(setting(entry, "FSProtocol")?, setting(entry, "Ftps")?)?;
     let host = HostName::new(&setting(entry, "HostName")?.unwrap_or_default())?;
     let port = match setting(entry, "PortNumber")? {
@@ -121,7 +121,7 @@ fn read_session(entry: Node, file: &Path) -> Result<Session, SkipReason> {
 
 /// The decoded text of the one child element `tag`; `None` when there is
 /// none, and an error when there are two.
-fn setting(entry: Node, tag: &'static str) -> Result<Option<String>, SkipReason> {
+fn setting(entry: Node<'_, '_>, tag: &'static str) -> Result<Option<String>, SkipReason> {
     let mut found = elements(entry, tag);
     let Some(first) = found.next() else {
         return Ok(None);
@@ -156,13 +156,13 @@ fn protocol(fs_protocol: Option<String>, ftps: Option<String>) -> Result<Protoco
 }
 
 /// Whether the entry carries a saved password. Looked at, never read.
-fn has_password(entry: Node) -> bool {
+fn has_password(entry: Node<'_, '_>) -> bool {
     elements(entry, "Password")
         .any(|password| password.text().is_some_and(|text| !text.trim().is_empty()))
 }
 
 /// What a skipped entry is reported as: its name, else its host, as written.
-fn shown_name(entry: Node) -> String {
+fn shown_name(entry: Node<'_, '_>) -> String {
     let host = || elements(entry, "HostName").find_map(|node| node.text());
     entry
         .attribute("name")
@@ -174,6 +174,10 @@ fn shown_name(entry: Node) -> String {
 /// `WinSCP`'s URL encoding undone: `%XX` is the byte `XX`, and the bytes
 /// must be UTF-8. A `%` without two hex digits after it is an error rather
 /// than a literal, so a damaged value is never half-decoded.
+#[expect(
+    clippy::map_err_ignore,
+    reason = "the offset of the bad UTF-8 sequence means nothing to the user; the reason names the setting"
+)]
 fn decode(text: &str, setting: &'static str) -> Result<String, SkipReason> {
     let bad = || SkipReason::BadEncoding(setting);
     let mut bytes = Vec::with_capacity(text.len());

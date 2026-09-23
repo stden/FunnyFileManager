@@ -54,7 +54,8 @@ impl Panel {
             Ok(listing) => listing,
             Err(error) => {
                 let previous_selection = self.selected();
-                let _ = self.load_entries();
+                // Best effort: the destination's error is the one reported.
+                drop(self.load_entries());
                 self.select(previous_selection);
                 self.ensure_selection();
                 return Err(error);
@@ -97,7 +98,7 @@ impl Panel {
     fn go_up(&mut self) -> io::Result<()> {
         let left = self.path.clone();
         let parent = left.parent().unwrap_or(&left);
-        let target = crate::directory::nearest_existing(parent).unwrap_or(parent);
+        let target = directory::nearest_existing(parent).unwrap_or(parent);
         self.navigate_to(target.to_path_buf())?;
         self.select_toward(&left);
         Ok(())

@@ -156,10 +156,8 @@ impl Search {
 
     /// Whether `needle` sits at `at` in `haystack`, honouring whole-word mode.
     fn matches_at(&self, haystack: &[char], needle: &[char], at: usize) -> bool {
-        if haystack.len() < at + needle.len() {
-            return false;
-        }
-        if haystack[at..at + needle.len()] != *needle {
+        let after = at + needle.len();
+        if haystack.get(at..after) != Some(needle) {
             return false;
         }
         if self.words == WordMatch::Anywhere {
@@ -168,9 +166,9 @@ impl Search {
         // A word boundary is the *absence* of a word character, and the ends of
         // the line count as absent — otherwise a match against the first word
         // on a line could never be whole.
-        let before_ok = at == 0 || !is_word_char(haystack[at - 1]);
-        let after = at + needle.len();
-        let after_ok = after >= haystack.len() || !is_word_char(haystack[after]);
+        let before = at.checked_sub(1).and_then(|index| haystack.get(index));
+        let before_ok = before.is_none_or(|&ch| !is_word_char(ch));
+        let after_ok = haystack.get(after).is_none_or(|&ch| !is_word_char(ch));
         before_ok && after_ok
     }
 
@@ -197,7 +195,10 @@ impl Search {
             } else {
                 (from.line.get() + step) % count
             };
-            let haystack = self.fold(&lines[line]);
+            let Some(text) = lines.get(line) else {
+                continue;
+            };
+            let haystack = self.fold(text);
             let Some(last_start) = haystack.len().checked_sub(needle.len()) else {
                 continue;
             };

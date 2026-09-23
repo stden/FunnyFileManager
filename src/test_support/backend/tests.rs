@@ -25,7 +25,7 @@ fn symbol_at(backend: &WritableTestBackend, x: u16, y: u16) -> String {
         .cell((x, y))
         .expect("cell in bounds")
         .symbol()
-        .to_string()
+        .to_owned()
 }
 
 /// `clear_region` must reach the wrapped backend and honour the clear type —

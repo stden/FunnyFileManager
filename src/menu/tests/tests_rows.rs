@@ -71,7 +71,7 @@ fn wsl_menu_is_hidden_on_other_platforms() {
     assert!(menu
         .entries()
         .iter()
-        .all(|entry| super::label_of(entry) != "&WSL manager"));
+        .all(|entry| label_of(entry) != "&WSL manager"));
 }
 
 /// The reconstruction is Far's, row for row.

@@ -272,12 +272,11 @@ fn a_named_report_copies_into_a_new_nested_relative_archive() {
 /// the count as well as the first error.
 #[test]
 fn one_failure_is_reported_without_losing_the_rest() {
-    let (mut app, from, to) = app_with(&[("good.txt", b"x")]);
+    let (mut app, _from, to) = app_with(&[("good.txt", b"x")]);
     mark(&mut app, "good.txt");
     // A marked name with nothing behind it: the source is gone by the time the
     // transfer runs, which is exactly what a stale panel does.
     mark(&mut app, "vanished.txt");
-    let _ = from;
 
     copy_with(&mut app, &settings(to.path()));
 
@@ -792,7 +791,7 @@ fn copying_a_fifo_reports_it_instead_of_waiting_for_a_writer() {
 
 /// Make a FIFO at `path`, or `None` where the platform will not have one.
 #[cfg(unix)]
-pub(super) fn make_fifo(path: &Path) -> Option<std::path::PathBuf> {
+pub(super) fn make_fifo(path: &Path) -> Option<PathBuf> {
     crate::test_support::make_fifo(path).ok()?;
     Some(path.to_path_buf())
 }
@@ -851,7 +850,7 @@ fn zz_probe_readonly_target_dir_permission_denied() {
     mark(&mut app, "notes.txt");
     fs::set_permissions(to.path(), fs::Permissions::from_mode(0o555)).expect("setup");
     let euid = crate::platform::effective_uid();
-    let result = super::handle_copy(&mut app);
+    let result = handle_copy(&mut app);
     fs::set_permissions(to.path(), fs::Permissions::from_mode(0o755)).expect("cleanup");
     let status = app.status.to_string();
     eprintln!("euid={euid} result={result:?} status={status}");

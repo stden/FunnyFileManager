@@ -38,7 +38,7 @@ fn an_existing_file_is_never_replaced_and_nothing_is_extracted() {
         let error = extract_archive(&archive, &destination).expect_err(format);
 
         let text = error.to_string();
-        let clash = std::path::Path::new("docs").join("README.md");
+        let clash = Path::new("docs").join("README.md");
         assert!(
             text.contains(&clash.display().to_string()),
             "{format}: {text}"

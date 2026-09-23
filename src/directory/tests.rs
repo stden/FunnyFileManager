@@ -1,7 +1,5 @@
 //! Filesystem adapter tests use isolated directories and real metadata.
 
-use std::fs;
-
 use tempfile::TempDir;
 
 use super::*;

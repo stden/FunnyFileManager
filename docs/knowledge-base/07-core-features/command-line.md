@@ -176,7 +176,7 @@ buffer simply closes without dispatch.
 - `src/console.rs`
 - `src/ops/dispatch.rs`
 - `src/ops/shell.rs`
-- `src/handlers/mod.rs` (compatibility re-exports only)
+- `src/handlers.rs` (compatibility re-exports only)
 - `docs/knowledge-base/03-rust-best-practices/type-system.md`
 
 The `:` command line is the only bookmark interface; there is no bookmark
