@@ -339,10 +339,13 @@ jobs:
   # A surviving (missed) mutant FAILS the job: a line this PR changed can be
   # broken without any test noticing. Kill it with a test that observes the
   # behaviour; only a mutant no test can observe by construction (see
-  # `is_root`) is excluded in .cargo/mutants.toml, with the reason. Exit code 3
-  # (timeouts, no survivors) passes: the mutant hung the suite, which the
-  # timeout detected. The baseline failing (4) or a diff that does not match
-  # the tree (5, 6) fails. mutants.out is uploaded in every case.
+  # `is_root`) is excluded in .cargo/mutants.toml, with the reason. A timeout
+  # alone passes: the mutant hung the suite, which the timeout detected.
+  # The verdict on survivors is read from missed.txt, not the exit code:
+  # cargo-mutants exits 3 (timeout) in preference to 2 (missed) when a run
+  # has both, so "3 passes" would wave survivors through. Any other exit code
+  # (baseline failed 4, diff does not match the tree 5/6) fails the step.
+  # mutants.out is uploaded in every case.
   mutants:
     name: Mutation testing (PR diff)
     if: github.event_name == 'pull_request'
@@ -377,7 +380,9 @@ jobs:
           status=0
           cargo mutants --in-diff "$RUNNER_TEMP/pr.diff" --jobs 2 \
             --output "$RUNNER_TEMP/mutants-app" || status=$?
-          case "$status" in 0 | 3) ;; *) exit "$status" ;; esac
+          case "$status" in 0 | 2 | 3) ;; *) exit "$status" ;; esac
+          missed="$RUNNER_TEMP/mutants-app/mutants.out/missed.txt"
+          if [ -s "$missed" ]; then cat "$missed"; exit 2; fi
 
       - name: Mutants in changed MCP code
         if: ${{ !cancelled() }}
@@ -387,7 +392,9 @@ jobs:
           status=0
           cargo mutants --in-diff "$RUNNER_TEMP/pr-mcp.diff" --jobs 2 \
             --output "$RUNNER_TEMP/mutants-mcp" || status=$?
-          case "$status" in 0 | 3) ;; *) exit "$status" ;; esac
+          case "$status" in 0 | 2 | 3) ;; *) exit "$status" ;; esac
+          missed="$RUNNER_TEMP/mutants-mcp/mutants.out/missed.txt"
+          if [ -s "$missed" ]; then cat "$missed"; exit 2; fi
 
       - name: Upload mutants.out
         if: always()
