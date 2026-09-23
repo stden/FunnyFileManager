@@ -112,7 +112,7 @@ impl<'ast> Visit<'ast> for Finder {
     }
 
     fn visit_signature(&mut self, node: &'ast syn::Signature) {
-        if let Some(token) = node.unsafety {
+        if let syn::Safety::Unsafe(token) = node.safety {
             self.record(token.span, format!("unsafe fn {}", node.ident));
         }
         visit::visit_signature(self, node);

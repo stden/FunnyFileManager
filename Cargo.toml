@@ -87,10 +87,11 @@ aws-smithy-types = "1.8.0"
 http_1x = { package = "http", version = "1.5.0" }
 # Architecture tests parse sources instead of matching text: tests/architecture/
 # (module boundaries) and tests/unsafe_boundary_test.rs (the unsafe allowlist).
-# Both crates are already in the lockfile through proc-macro dependencies;
+# proc-macro2 is already in the lockfile through proc-macro dependencies; syn 3
+# is a second copy beside their syn 2, used by these tests only.
 # `span-locations` gives the violations their line numbers.
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
-syn = { version = "2.0.119", features = ["full", "visit"] }
+syn = { version = "3.0.6", features = ["full", "visit"] }
 
 [features]
 # Colorer is how the editor prefers to highlight, so it is on. The build script
@@ -322,8 +323,9 @@ option_if_let_else = "allow"
 libc = "0.2.189"
 rustix = { version = "1.1.5", features = ["fs", "process"] }
 # Catches Ctrl+C / Ctrl+\ while a program owns the terminal, so the signal
-# stops that program and not FFM. Already in the tree through crossterm.
-signal-hook = "0.3.18"
+# stops that program and not FFM. crossterm still pulls signal-hook 0.3; both
+# versions install their handlers through the one signal-hook-registry 1.x.
+signal-hook = "0.4.4"
 
 # The same crate, for `tests/pty_session_test.rs`: a real pseudo-terminal to
 # run the binary on, without an `unsafe` block in the test.
