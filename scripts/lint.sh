@@ -19,6 +19,15 @@ cd "$ROOT"
 # shellcheck disable=SC2034  # used only for messaging
 mode="${1:-all}"
 
+# Debian dropped the unversioned `python`; CI runners still ship it. Prefer
+# `python3`, fall back, and fail with a readable message instead of
+# "python: command not found" halfway through the gate.
+PYTHON="${PYTHON:-$(command -v python3 || command -v python || true)}"
+if [[ -z "$PYTHON" ]]; then
+    echo "no python3 (or python) on PATH — needed by the readability checks" >&2
+    exit 127
+fi
+
 run_fmt_check() {
     echo "→ cargo fmt --all -- --check"
     cargo fmt --all -- --check
@@ -70,8 +79,8 @@ run_clippy_matrix() {
 run_architecture() {
     echo "→ architecture contracts (ownership, dependencies, test separation, file limits)"
     cargo test --test module_boundaries_test --test file_line_limit_test
-    python scripts/test_readability.py
-    python scripts/test_recording.py
+    "$PYTHON" scripts/test_readability.py
+    "$PYTHON" scripts/test_recording.py
 }
 
 case "$mode" in
@@ -98,7 +107,7 @@ case "$mode" in
         echo "✓ lint OK after format (fmt + clippy)"
         ;;
     self-test)
-        python scripts/test_readability.py
+        "$PYTHON" scripts/test_readability.py
         ;;
     architecture)
         run_architecture

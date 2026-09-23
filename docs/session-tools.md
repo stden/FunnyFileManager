@@ -44,8 +44,8 @@ apt-get (then Homebrew) on Linux. It shows the commands and defaults to Cancel:
 
 | Manager | Commands |
 |---|---|
-| Chocolatey | `choco upgrade all` |
-| apt-get | `apt-get update`, then `apt-get upgrade` |
+| Chocolatey | `choco upgrade all -y` |
+| apt-get | `apt-get update`, then `apt-get upgrade -y` |
 | Homebrew | `brew update`, then `brew upgrade` |
 
 Select Run to update all installed packages managed by that tool. The terminal

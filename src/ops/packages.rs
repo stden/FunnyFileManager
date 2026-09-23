@@ -89,11 +89,16 @@ fn command(plan: &UpdatePlan, path: &std::path::Path, args: &[&str]) -> Command 
     command
 }
 
+/// The elevation wrapper, kept as a real `.ps1` so it can be read, formatted
+/// and syntax-checked like any other PowerShell.
+#[cfg(windows)]
+const ELEVATED_UPGRADE_SCRIPT: &str = include_str!("packages/elevated_upgrade.ps1");
+
 #[cfg(windows)]
 fn command(_: &UpdatePlan, path: &std::path::Path, _args: &[&str]) -> Command {
     // Fixed arguments; quote the discovered executable as a PowerShell literal.
     let path = path.to_string_lossy().replace('\'', "''");
-    let script = format!("try {{ $p = Start-Process -FilePath '{path}' -ArgumentList 'upgrade','all' -Verb RunAs -Wait -PassThru; exit $p.ExitCode }} catch {{ Write-Error $_; exit 1 }}");
+    let script = ELEVATED_UPGRADE_SCRIPT.replace("{path}", &path);
     let mut command = Command::new("powershell.exe");
     command.args(["-NoProfile", "-Command", &script]);
     command

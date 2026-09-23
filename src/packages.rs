@@ -18,10 +18,17 @@ pub struct UpdatePlan {
 }
 
 impl Manager {
+    /// The commands to run, in order.
+    ///
+    /// Everything that prompts is answered up front: the menu suspends the TUI
+    /// and hands the terminal to the package manager, so a confirmation prompt
+    /// would sit there with nobody to type into it. `apt-get` and `choco` both
+    /// take `-y`; `brew` has no such flag and never asks.
     pub const fn commands(self) -> &'static [&'static [&'static str]] {
         match self {
-            Self::Chocolatey => &[&["upgrade", "all"]],
-            Self::Apt | Self::Brew => &[&["update"], &["upgrade"]],
+            Self::Chocolatey => &[&["upgrade", "all", "-y"]],
+            Self::Apt => &[&["update"], &["upgrade", "-y"]],
+            Self::Brew => &[&["update"], &["upgrade"]],
         }
     }
 
