@@ -102,7 +102,6 @@ scripts/
 | `PRESENTATION.md` | Marp slide deck for project presentation |
 | `.gitignore` | Git ignore rules |
 | `.mcp.json` | MCP server configuration for AI IDEs |
-| `.cargo-mutants.toml` | cargo-mutants configuration (mutation testing) |
 | `rustfmt.toml` | Rust formatter settings |
 | `tarpaulin.toml` | cargo-tarpaulin coverage configuration |
 | `ffm.sh` | Build/run/test script for Unix |
@@ -119,6 +118,7 @@ scripts/
 | Directory | Description |
 |-----------|-------------|
 | `.cargo/config.toml` | Cargo build settings: shared `target/`, mold linker on Linux, LLD on Windows, no compiler wrapper (sccache is opt-in via `RUSTC_WRAPPER`); parallelism is Cargo's default |
+| `.cargo/mutants.toml` | cargo-mutants configuration: exclusions, features, nextest test runner (read automatically) |
 | `.claude/` | Claude Code slash commands and local settings |
 | `.gemini/` | Gemini IDE settings |
 | `.junie/` | JetBrains Junie MCP config |

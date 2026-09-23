@@ -84,7 +84,8 @@ separate checks. The self-test can also run directly as
 
 ## 🧪 Mutation Testing
 
-The project uses `cargo-mutants` (configured via `.cargo-mutants.toml`).
+The project uses `cargo-mutants`, configured via `.cargo/mutants.toml` (the
+only path the tool reads; it selects `cargo-nextest` as the test runner).
 
 - Tests frequently contain comments like `// Kill: replace X with Y`.
 - Running mutation testing is encouraged on changed code.
