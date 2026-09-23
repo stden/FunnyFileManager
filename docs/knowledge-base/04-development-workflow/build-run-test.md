@@ -90,6 +90,9 @@ only path the tool reads; it selects `cargo-nextest` as the test runner).
 - Tests frequently contain comments like `// Kill: replace X with Y`.
 - Running mutation testing is encouraged on changed code.
 - The goal is very few surviving mutants on core logic.
+- CI runs `cargo mutants --in-diff` on every pull request for the application
+  and `mcp/`; a missed mutant in changed code fails that job. Evidence is the
+  `mutants.out` artifact, not a test named after a mutant.
 
 ## ✅ Recommended Daily Workflow
 
