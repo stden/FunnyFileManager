@@ -98,7 +98,6 @@ fn windows_scripts_and_installers_have_explicit_runners() {
     }
 }
 
-
 #[test]
 fn zz_probe_empty_selection_absolute_error() {
     let mut app = App::with_panels(

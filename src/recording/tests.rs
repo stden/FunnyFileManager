@@ -1,219 +1,211 @@
-//! Queued terminal text is one insertion, with key boundaries and errors retained.
-
-use std::{collections::VecDeque, path::Path};
-
+//! Recordings preserve input payloads without generating Python expressions.
+use super::*;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use tempfile::TempDir;
 
-use super::*;
-use crate::models::{EditState, Editor, ExitChoice, Overlay, Panel};
+struct TextClipboard(&'static str);
 
-struct Queue(VecDeque<io::Result<Event>>);
+fn replay_file(script: &Path, destination: &Path) {
+    let source = std::fs::read_to_string(script).expect("script");
+    let rows: Vec<_> = source
+        .lines()
+        .filter_map(|line| line.strip_prefix("# FFM "))
+        .collect();
+    std::fs::write(destination, rows.join("\n")).expect("replay data");
+}
 
-impl EventSource for Queue {
-    fn read(&mut self) -> io::Result<Option<Event>> {
-        self.0.pop_front().transpose()
+#[test]
+fn recorded_keys_replay_a_real_directory_creation_through_the_event_loop() {
+    let root = TempDir::new().expect("directory");
+    let script = root.path().join("session.py");
+    let data = root.path().join("events.jsonl");
+    let mut recorder = Recorder::create(&script, &header(root.path())).expect("recorder");
+    record_directory_workflow(&mut recorder);
+    replay_file(&script, &data);
+    let mut replay = Replay::load(&data, (80, 24)).expect("replay");
+    let mut app = crate::models::App::new().expect("app");
+    app.left_panel = crate::models::Panel::new(root.path().to_path_buf()).expect("panel");
+    app.right_panel = crate::models::Panel::new(root.path().to_path_buf()).expect("panel");
+    let mut terminal =
+        ratatui::Terminal::new(crate::WritableTestBackend::new(80, 24)).expect("terminal");
+    crate::application::run_app_with_wsl_backend(
+        &mut terminal,
+        app,
+        || replay.read(),
+        std::sync::Arc::new(crate::wsl::SystemWslBackend),
+    )
+    .expect("replay application");
+    assert!(root.path().join("x").is_dir());
+    assert!(replay.events.is_empty());
+}
+
+impl crate::clipboard::ClipboardBackend for TextClipboard {
+    fn get_native(&mut self) -> Result<String, String> {
+        Ok(self.0.to_owned())
     }
-
-    fn try_read(&mut self) -> io::Result<Option<Event>> {
-        self.read()
+    fn set_native(&mut self, _: &str) -> Result<(), String> {
+        Ok(())
+    }
+    fn emit_osc52(&mut self, _: &str) -> Result<(), String> {
+        Ok(())
     }
 }
 
-fn app_at(path: &Path) -> App {
-    let mut app = App::with_panels(
-        Panel::from_entries(path.to_owned(), Vec::new()),
-        Panel::from_entries(path.to_owned(), Vec::new()),
-    );
-    app.set_overlay(Overlay::Editor(Editor::from_content(
-        "text".to_owned(),
-        path.join("text.txt"),
-        "old",
-    )));
-    app
-}
-
-fn key(code: KeyCode) -> Event {
-    Event::Key(KeyEvent::new(code, KeyModifiers::NONE))
-}
-
-fn queued(events: impl IntoIterator<Item = Event>) -> BufferedInput<Queue> {
-    BufferedInput::new(Queue(events.into_iter().map(Ok).collect()))
-}
-
-fn text_events(text: &str) -> impl Iterator<Item = Event> + '_ {
-    text.chars().map(|ch| {
-        key(if ch == '\n' {
-            KeyCode::Enter
-        } else {
-            KeyCode::Char(ch)
-        })
-    })
-}
-
 #[test]
-fn queued_unicode_and_newlines_become_a_single_paste() -> io::Result<()> {
-    let temp = TempDir::new()?;
-    let app = app_at(temp.path());
-    let mut input = queued(text_events("Hello мир🙂\nsecond line\n"));
+fn replay_pastes_recorded_clipboard_text_instead_of_the_current_clipboard() {
+    let root = TempDir::new().expect("directory");
+    let script = root.path().join("session.py");
+    let input = Input::open_recorder(script.clone(), (80, 24)).expect("record");
+    let mut clipboard = input.clipboard(Box::new(TextClipboard("recorded Ж🙂")));
+    assert_eq!(clipboard.get_native().expect("read"), "recorded Ж🙂");
+    let json = std::fs::read_to_string(script)
+        .expect("script")
+        .lines()
+        .filter_map(|line| line.strip_prefix("# FFM "))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let path = root.path().join("events.jsonl");
+    std::fs::write(&path, json).expect("recording");
+    let replay = Input::Replay(Replay::load(&path, (80, 24)).expect("load"));
+    let mut clipboard = replay.clipboard(Box::new(TextClipboard("changed clipboard")));
     assert_eq!(
-        input.read(&app)?,
-        Some(Event::Paste("Hello мир🙂\nsecond line\n".to_owned()))
+        clipboard.get_native().expect("replayed read"),
+        "recorded Ж🙂"
     );
-    assert_eq!(input.read(&app)?, None);
-    Ok(())
-}
-
-#[test]
-fn shortcuts_remain_separate_and_in_order() -> io::Result<()> {
-    let temp = TempDir::new()?;
-    let app = app_at(temp.path());
-    let copy = Event::Key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
-    let mut input = queued(text_events("ab").chain([copy.clone(), key(KeyCode::Esc)]));
-    assert_eq!(input.read(&app)?, Some(Event::Paste("ab".to_owned())));
-    assert_eq!(input.read(&app)?, Some(copy));
-    assert_eq!(input.read(&app)?, Some(key(KeyCode::Esc)));
-    Ok(())
-}
-
-#[test]
-fn windows_release_and_repeat_records_do_not_split_the_text() -> io::Result<()> {
-    let temp = TempDir::new()?;
-    let app = app_at(temp.path());
-    let ignored = [KeyEventKind::Release, KeyEventKind::Repeat].map(|kind| {
-        Event::Key(KeyEvent::new_with_kind(
-            KeyCode::Char('x'),
-            KeyModifiers::NONE,
-            kind,
-        ))
-    });
-    let events = [
-        key(KeyCode::Char('界')),
-        ignored[0].clone(),
-        ignored[1].clone(),
-        key(KeyCode::Char('🙂')),
-    ];
-    let mut input = queued(events);
-    assert_eq!(input.read(&app)?, Some(Event::Paste("界🙂".to_owned())));
-    Ok(())
-}
-
-#[test]
-fn single_keys_and_idle_reads_do_not_wait_for_more_input() -> io::Result<()> {
-    let temp = TempDir::new()?;
-    let app = app_at(temp.path());
-    let mut reads = 0;
-    let mut input = BufferedInput::new(|| {
-        reads += 1;
-        assert_eq!(reads, 1, "batching must never use the blocking read");
-        Ok(Some(key(KeyCode::Char('a'))))
-    });
-    assert_eq!(input.read(&app)?, Some(key(KeyCode::Char('a'))));
-    assert_eq!(queued([]).read(&app)?, None);
-    Ok(())
-}
-
-#[test]
-fn stream_errors_arrive_after_the_text_already_received() -> io::Result<()> {
-    let temp = TempDir::new()?;
-    let app = app_at(temp.path());
-    let events = [
-        Ok(key(KeyCode::Char('a'))),
-        Ok(key(KeyCode::Char('b'))),
-        Err(io::Error::other("lost")),
-    ];
-    let mut input = BufferedInput::new(Queue(events.into()));
-    assert_eq!(input.read(&app)?, Some(Event::Paste("ab".to_owned())));
-    assert_eq!(input.read(&app).unwrap_err().to_string(), "lost");
-    Ok(())
-}
-
-#[test]
-fn batch_limit_yields_without_losing_the_rest() -> io::Result<()> {
-    let temp = TempDir::new()?;
-    let app = app_at(temp.path());
-    let payload = "界".repeat(MAX_BATCH_EVENTS + 3);
-    let mut input = queued(text_events(&payload));
-    assert_eq!(
-        input.read(&app)?,
-        Some(Event::Paste("界".repeat(MAX_BATCH_EVENTS)))
+    assert!(
+        clipboard.get_native().is_err(),
+        "missing recorded reads must not use live text"
     );
-    assert_eq!(input.read(&app)?, Some(Event::Paste("界".repeat(3))));
-    Ok(())
 }
 
 #[test]
-fn batching_is_disabled_outside_the_editor_document() -> io::Result<()> {
-    let temp = TempDir::new()?;
-    let mut app = app_at(temp.path());
-    app.get_editor_mut().unwrap().state = EditState::ConfirmingExit(ExitChoice::Save);
-    assert_unbatched(&app)?;
-    app.get_editor_mut().unwrap().state = EditState::Clean;
-    app.get_editor_mut().unwrap().search.prompt = Some(crate::search::SearchPrompt::default());
-    assert_unbatched(&app)?;
-    app.get_editor_mut().unwrap().search.prompt = None;
-    app.get_editor_mut().unwrap().encoding_choice = Some(crate::encoding::TextEncoding::Utf8);
-    assert_unbatched(&app)?;
-    app.close_overlay();
-    assert_unbatched(&app)
+fn live_clipboard_writes_reach_the_host_backend() {
+    let root = TempDir::new().expect("directory");
+    let recorded = Input::open_recorder(root.path().join("session.py"), (80, 24)).expect("record");
+    let mut clipboard = recorded.clipboard(Box::new(TextClipboard("host")));
+    assert!(clipboard.set_native("copied").is_ok());
+    assert!(clipboard.emit_osc52("copied").is_ok());
+
+    let mut passthrough = Input::Live(None).clipboard(Box::new(TextClipboard("host")));
+    assert_eq!(passthrough.get_native().expect("inner"), "host");
+    assert!(passthrough.set_native("x").is_ok());
+    assert!(passthrough.emit_osc52("x").is_ok());
 }
 
-fn assert_unbatched(app: &App) -> io::Result<()> {
-    let mut input = queued(text_events("ab"));
-    assert_eq!(input.read(app)?, Some(key(KeyCode::Char('a'))));
-    assert_eq!(input.read(app)?, Some(key(KeyCode::Char('b'))));
-    Ok(())
-}
-
-#[test]
-fn terminal_paste_cannot_edit_the_document_behind_a_subdialog() -> io::Result<()> {
-    let temp = TempDir::new()?;
-    let mut app = app_at(temp.path());
-    app.get_editor_mut().unwrap().search.prompt = Some(crate::search::SearchPrompt::default());
-    crate::popup::paste_editor_text(&mut app, "search text");
-    app.get_editor_mut().unwrap().search.prompt = None;
-    app.get_editor_mut().unwrap().encoding_choice = Some(crate::encoding::TextEncoding::Utf8);
-    crate::popup::paste_editor_text(&mut app, "encoding text");
-    app.get_editor_mut().unwrap().encoding_choice = None;
-    app.get_editor_mut().unwrap().state = EditState::ConfirmingExit(ExitChoice::Save);
-    crate::popup::paste_editor_text(&mut app, "confirmation text");
-    assert_eq!(app.get_editor().unwrap().content(), "old");
-    app.close_overlay();
-    crate::popup::paste_editor_text(&mut app, "panels");
-    assert!(matches!(app.overlay, Overlay::None));
-    Ok(())
+fn header(root: &Path) -> Header {
+    Header {
+        version: 1,
+        executable: root.join("ffm.exe"),
+        directory: root.to_path_buf(),
+        size: (80, 24),
+    }
 }
 
 #[test]
-fn zz_probe_recording_input_is_an_event_source() -> io::Result<()> {
-    let temp = TempDir::new()?;
-    let path = temp.path().join("events.jsonl");
+fn recording_is_a_valid_python_script_with_lossless_event_data() {
+    let root = TempDir::new().expect("temporary directory");
+    let path = root.path().join("session.py");
+    let mut recorder = Recorder::create(&path, &header(root.path())).expect("recorder");
+    let events = [
+        Event::Paste("Ж🙂\n'\"\\".to_owned()),
+        Event::Resize(120, 40),
+    ];
+    for event in &events {
+        recorder.record(event).expect("record");
+    }
+    let source = std::fs::read_to_string(&path).expect("script");
+    let rows: Vec<_> = source
+        .lines()
+        .filter_map(|line| line.strip_prefix("# FFM "))
+        .collect();
+    assert_eq!(rows.len(), 3);
+    for (row, expected) in rows[1..].iter().zip(events) {
+        assert_eq!(
+            serde_json::from_str::<RecordedEvent>(row)
+                .expect("event")
+                .event,
+            expected
+        );
+    }
+    assert!(
+        Recorder::create(&path, &header(root.path())).is_err(),
+        "never overwrite a session"
+    );
+}
+
+#[test]
+fn replay_preserves_keys_and_reports_truncated_sessions() {
+    let root = TempDir::new().expect("temporary directory");
+    let path = root.path().join("events.jsonl");
+    let event = Event::Key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL));
+    let record = RecordedEvent {
+        delay_ms: 0,
+        event: event.clone(),
+    };
     std::fs::write(
         &path,
         format!(
             "{}\n{}\n",
-            serde_json::json!({
-                "version": 1,
-                "executable": temp.path().join("ffm"),
-                "directory": temp.path(),
-                "size": [80, 24],
-            }),
-            serde_json::json!({ "delay_ms": 0, "event": { "Resize": [80, 24] } }),
+            serde_json::to_string(&header(root.path())).expect("header"),
+            serde_json::to_string(&record).expect("event")
         ),
-    )?;
-    let mut recording = crate::recording::Input::from_args(
-        &[
-            std::ffi::OsString::from("--replay"),
-            path.into_os_string(),
-        ],
-        (80, 24),
     )
-    .expect("replay input");
-    let app = App::with_panels(
-        Panel::from_entries(temp.path().to_owned(), Vec::new()),
-        Panel::from_entries(temp.path().to_owned(), Vec::new()),
+    .expect("recording");
+    let mut replay = Replay::load(&path, (80, 24)).expect("replay");
+    assert_eq!(replay.read().expect("read"), Some(event));
+    assert_eq!(
+        replay.read().expect_err("EOF").kind(),
+        io::ErrorKind::UnexpectedEof
     );
-    let mut buffered = BufferedInput::new(&mut recording);
-    assert_eq!(buffered.read(&app)?, Some(Event::Resize(80, 24)));
-    Ok(())
+    assert!(Replay::load(&path, (40, 12)).is_err());
+    assert!(Replay::load(&path, (120, 40)).is_ok());
+}
+
+#[test]
+fn replay_requires_room_for_every_recorded_resize() {
+    let root = TempDir::new().expect("directory");
+    let script = root.path().join("session.py");
+    let data = root.path().join("events.jsonl");
+    let mut recorder = Recorder::create(&script, &header(root.path())).expect("recorder");
+    recorder.record(&Event::Resize(120, 40)).expect("resize");
+    replay_file(&script, &data);
+    assert!(Replay::load(&data, (80, 24)).is_err());
+    let input = Input::Replay(Replay::load(&data, (120, 40)).expect("replay"));
+    assert_eq!(
+        input.terminal_options().viewport,
+        ratatui::Viewport::Fixed(ratatui::layout::Rect::new(0, 0, 80, 24))
+    );
+}
+
+#[test]
+fn nonblocking_lookahead_does_not_consume_recorded_events() {
+    let root = TempDir::new().expect("directory");
+    let script = root.path().join("session.py");
+    let data = root.path().join("events.jsonl");
+    let mut recorder = Recorder::create(&script, &header(root.path())).expect("recorder");
+    let event = Event::Paste("Hello мир🙂".to_owned());
+    recorder.record(&event).expect("paste");
+    replay_file(&script, &data);
+    let mut input = Input::Replay(Replay::load(&data, (80, 24)).expect("replay"));
+    assert_eq!(input.read_pending().unwrap(), None);
+    assert_eq!(input.read().unwrap(), Some(event));
+    assert_eq!(input.read_pending().unwrap(), None);
+    assert_eq!(
+        input.read().unwrap_err().kind(),
+        io::ErrorKind::UnexpectedEof
+    );
+}
+
+fn record_directory_workflow(recorder: &mut Recorder) {
+    for code in [
+        KeyCode::F(7),
+        KeyCode::Char('x'),
+        KeyCode::Enter,
+        KeyCode::F(10),
+        KeyCode::Enter,
+    ] {
+        recorder
+            .record(&Event::Key(KeyEvent::new(code, KeyModifiers::NONE)))
+            .expect("record key");
+    }
 }

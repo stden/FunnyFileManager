@@ -883,7 +883,11 @@ fn zz_probe_create_new_already_exists() {
     fs::write(&dest, b"y").expect("setup");
     let err = copy_entry(&source, &dest, LinkPolicy::Recreate).expect_err("must fail");
     assert_eq!(err.kind(), io::ErrorKind::AlreadyExists);
-    assert_eq!(fs::read(&dest).unwrap(), b"y", "the file in the way is untouched");
+    assert_eq!(
+        fs::read(&dest).unwrap(),
+        b"y",
+        "the file in the way is untouched"
+    );
 }
 
 #[cfg(unix)]
@@ -896,7 +900,10 @@ fn zz_probe_dangling_symlink_dest_via_public_copy() {
     dialog.existing = ExistingFiles::Overwrite;
     copy_with(&mut app, &dialog);
     let status = app.status.to_string();
-    assert!(status.contains("error") || status.contains("Error") || status.contains("exists"), "{status}");
+    assert!(
+        status.contains("error") || status.contains("Error") || status.contains("exists"),
+        "{status}"
+    );
 }
 
 #[cfg(unix)]
@@ -910,5 +917,10 @@ fn zz_probe_readonly_target_dir_permission_denied() {
     fs::set_permissions(to.path(), fs::Permissions::from_mode(0o755)).expect("cleanup");
     let status = app.status.to_string();
     eprintln!("euid={euid} result={result:?} status={status}");
-    assert!(euid == 0 || status.to_lowercase().contains("denied") || status.to_lowercase().contains("error"), "{status}");
+    assert!(
+        euid == 0
+            || status.to_lowercase().contains("denied")
+            || status.to_lowercase().contains("error"),
+        "{status}"
+    );
 }

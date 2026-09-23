@@ -1,130 +1,171 @@
 use super::*;
-use crate::models::{CommandLine, Panel};
-use crate::{
-    menu::{Heading, Menu, MenuCommand},
-    models::{ChoiceTarget, MenuChoice, MenuDialog},
-    packages::{Manager, UpdatePlan},
-};
-use std::time::Duration;
-
-fn app(temp: &tempfile::TempDir) -> App {
-    let panel = Panel::new(temp.path().to_path_buf()).expect("panel");
-    App::with_panels(panel.clone(), panel)
-}
 
 #[test]
-fn timing_records_processing_and_rendering_without_input_idle_time() {
-    let temp = tempfile::TempDir::new().expect("tempdir");
-    let mut app = app(&temp);
-    let input_delivered = Instant::now() + Duration::from_secs(600);
-    Pending::start(&app, &Event::Resize(80, 24), input_delivered).finish(
-        &mut app.performance,
-        input_delivered + Duration::from_millis(8),
-        input_delivered + Duration::from_millis(10),
-    );
-    let report = app.performance.report().join("\n");
-    assert!(report.contains("10.000"));
-    assert!(report.contains("2.000"));
-    assert!(!report.contains("600000"));
-}
-
-#[test]
-fn typed_and_pasted_payloads_never_become_action_labels() {
-    let temp = tempfile::TempDir::new().expect("tempdir");
-    let mut app = app(&temp);
-    app.set_overlay(Overlay::CommandLine(CommandLine::default()));
-    assert_eq!(
-        label(&app, &Event::Paste("private password".to_owned())),
-        "CommandLine/Paste"
-    );
-    assert_eq!(command_label("echo private-password"), "Command/Shell");
-    assert_eq!(command_label("cd private-path"), "Command/Cd");
-    assert_eq!(
-        command_label("codex private-prompt"),
-        if cfg!(windows) {
-            "Command/NewConsole"
+fn default_configuration_respects_environment_precedence_and_reports_invalid_files(
+) -> io::Result<()> {
+    let temp = tempfile::TempDir::new()?;
+    let panel = crate::models::Panel::new(temp.path().to_owned())?;
+    let mut app = App::from_panels(panel.clone(), panel);
+    for variable in ["APPDATA", "XDG_CONFIG_HOME", "HOME"] {
+        load_from_environment(&mut app, &|key| {
+            (key == variable).then(|| temp.path().as_os_str().to_owned())
+        });
+        let relative = if variable == "HOME" {
+            ".config/ffm/settings.json"
         } else {
-            "Command/Shell"
-        }
-    );
-}
-
-#[test]
-fn submitted_commands_never_persist_parameters_or_invalid_input() {
-    for (text, expected) in [
-        ("sort size", "Command/Sort"),
-        ("bookmark set 3", "Command/BookmarkSet"),
-        ("bookmark go 3", "Command/BookmarkGo"),
-        ("sort private-password", "Command/Invalid"),
-        ("  ", "Command/Empty"),
-    ] {
-        assert_eq!(command_label(text), expected);
+            "ffm/settings.json"
+        };
+        assert_eq!(
+            app.settings.persistence.file(),
+            Some(temp.path().join(relative).as_path())
+        );
     }
+    fs::create_dir_all(temp.path().join("ffm"))?;
+    fs::write(temp.path().join("ffm/settings.json"), "broken")?;
+    load_from_environment(&mut app, &|_| Some(temp.path().as_os_str().to_owned()));
+    assert!(matches!(app.status, crate::status::Status::Error(_)));
+    let previous = app.settings.persistence.clone();
+    load_from_environment(&mut app, &|_| None);
+    assert_eq!(app.settings.persistence, previous);
+    Ok(())
 }
 
 #[test]
-fn mouse_and_focus_events_never_store_screen_coordinates() {
-    use crossterm::event::{KeyModifiers, MouseEvent, MouseEventKind};
-    let temp = tempfile::TempDir::new().expect("tempdir");
-    let app = app(&temp);
-    let mouse = Event::Mouse(MouseEvent {
-        kind: MouseEventKind::ScrollDown,
-        column: 42,
-        row: 37,
-        modifiers: KeyModifiers::NONE,
-    });
-    assert_eq!(label(&app, &mouse), "Panels/Mouse(ScrollDown)");
-    assert_eq!(label(&app, &Event::FocusGained), "FocusGained");
-    assert_eq!(label(&app, &Event::FocusLost), "FocusLost");
-}
-
-#[test]
-fn submitted_menu_operations_have_distinct_payload_free_names() {
-    let temp = tempfile::TempDir::new().expect("tempdir");
-    let mut app = app(&temp);
-    let mut menu = Menu::open(Heading::Commands);
-    menu.row = menu
-        .entries()
+fn unavailable_language_rolls_back_loaded_panel_settings() -> io::Result<()> {
+    let temp = tempfile::TempDir::new()?;
+    fs::write(temp.path().join(".hidden"), "keep visible")?;
+    let panel = crate::models::Panel::new(temp.path().to_owned())?;
+    let mut app = App::from_panels(panel.clone(), panel);
+    let path = temp.path().join("settings.json");
+    let values = std::collections::BTreeMap::from([
+        (SettingsPage::Panel, "off".to_owned()),
+        (
+            SettingsPage::Language,
+            temp.path().join("missing.json").display().to_string(),
+        ),
+    ]);
+    fs::write(&path, serde_json::to_vec(&values)?)?;
+    assert!(load(&mut app, &path).is_err());
+    assert!(app.settings.enabled(SettingsPage::Panel));
+    assert!(!app.left_panel.options.hide_hidden);
+    assert!(app
+        .left_panel
+        .entries
         .iter()
-        .position(|entry| entry.menu_command() == Some(MenuCommand::UpdatePackages))
-        .expect("update row");
-    app.set_overlay(Overlay::Menu(menu));
-    assert_eq!(
-        key_label(&app, KeyEvent::from(KeyCode::Enter)),
-        "Menu/UpdatePackages"
-    );
+        .any(|entry| entry.name == ".hidden"));
+    Ok(())
 }
 
 #[test]
-fn submitted_package_update_excludes_paths_and_dialog_text() {
-    let temp = tempfile::TempDir::new().expect("tempdir");
-    let mut app = app(&temp);
-    app.set_overlay(Overlay::MenuDialog(Box::new(MenuDialog::Choices {
-        title: "private title".to_owned(),
-        selected: 0,
-        rows: vec![MenuChoice {
-            label: "private text".to_owned(),
-            target: ChoiceTarget::UpdatePackages(UpdatePlan {
-                manager: Manager::Apt,
-                executable: temp.path().join("private-path"),
-            }),
-        }],
-    })));
-    assert_eq!(
-        key_label(&app, KeyEvent::from(KeyCode::Enter)),
-        "PackageUpdate/apt-get"
-    );
+fn saved_setup_restores_validated_settings() -> io::Result<()> {
+    let temp = tempfile::TempDir::new()?;
+    let path = temp.path().join("config/settings.json");
+    let mut app = App::new()?;
+    load(&mut app, &path)?;
+    app.settings.set(SettingsPage::Editor, "8").unwrap();
+    save(&mut app)?;
+    let mut restored = App::new()?;
+    load(&mut restored, &path)?;
+    assert_eq!(restored.settings.number(SettingsPage::Editor), 8);
+    assert!(restored.settings.enabled(SettingsPage::Panel));
+    Ok(())
 }
 
 #[test]
-fn scratch_wipe_context_label() {
-    let temp = tempfile::TempDir::new().expect("tempdir");
-    let mut app = app(&temp);
-    for (overlay, expected) in [
-        (Overlay::WipeConfirm(Vec::new()), "Wipe/Paste"),
-        (Overlay::DeleteConfirm(Vec::new()), "Delete/Paste"),
-    ] {
-        app.set_overlay(overlay);
-        assert_eq!(label(&app, &Event::Paste(String::new())), expected);
-    }
+fn invalid_setup_does_not_replace_the_current_settings() -> io::Result<()> {
+    let temp = tempfile::TempDir::new()?;
+    let path = temp.path().join("settings.json");
+    fs::write(&path, r#"{"Editor":"0"}"#)?;
+    let mut app = App::new()?;
+    assert!(load(&mut app, &path).is_err());
+    assert_eq!(app.settings.number(SettingsPage::Editor), 4);
+    Ok(())
+}
+
+#[test]
+fn translation_dictionary_loads_and_invalid_replacements_preserve_it() -> io::Result<()> {
+    let temp = tempfile::TempDir::new()?;
+    let panel = crate::models::Panel::new(temp.path().to_owned())?;
+    let mut app = App::from_panels(panel.clone(), panel);
+    let path = temp.path().join("language.json");
+    fs::write(&path, r#"{"&Brief":"&Compact"}"#)?;
+    submit(
+        &mut app,
+        SettingsPage::Language,
+        &path.display().to_string(),
+    )?;
+    assert_eq!(app.settings.translate("&Brief"), "&Compact");
+    fs::write(&path, "not JSON")?;
+    assert!(submit(
+        &mut app,
+        SettingsPage::Language,
+        &path.display().to_string()
+    )
+    .is_err());
+    assert_eq!(app.settings.translate("&Brief"), "&Compact");
+    let large = fs::File::create(&path)?;
+    large.set_len(1_048_577)?;
+    assert!(translations(&path.display().to_string()).is_err());
+    assert!(load(&mut app, &path).is_err());
+    Ok(())
+}
+
+#[test]
+fn changing_description_filename_refreshes_the_current_description_view() -> io::Result<()> {
+    let temp = tempfile::TempDir::new()?;
+    fs::write(temp.path().join("item"), "body")?;
+    fs::write(temp.path().join("notes"), "item New description\n")?;
+    let panel = crate::models::Panel::new(temp.path().to_owned())?;
+    let mut app = App::from_panels(panel.clone(), panel);
+    app.left_panel.view = crate::models::PanelView::Descriptions;
+    submit(&mut app, SettingsPage::Descriptions, "notes")?;
+    assert_eq!(
+        app.left_panel.details.descriptions["item"],
+        "New description"
+    );
+    Ok(())
+}
+
+#[test]
+fn load_default_reads_whatever_the_process_environment_names() {
+    let temp = tempfile::TempDir::new().expect("dir");
+    let panel = crate::models::Panel::new(temp.path().to_owned()).expect("panel");
+    let mut app = App::from_panels(panel.clone(), panel);
+    load_default(&mut app);
+}
+
+#[test]
+fn panel_modes_apply_to_both_listings() -> io::Result<()> {
+    let temp = tempfile::TempDir::new()?;
+    let panel = crate::models::Panel::new(temp.path().to_owned())?;
+    let mut app = App::from_panels(panel.clone(), panel);
+    submit(&mut app, SettingsPage::PanelModes, "Wide")?;
+    assert_eq!(app.left_panel.view, crate::models::PanelView::Wide);
+    assert_eq!(app.right_panel.view, crate::models::PanelView::Wide);
+    Ok(())
+}
+
+#[test]
+fn folder_description_settings_reload_the_quick_view() -> io::Result<()> {
+    let temp = tempfile::TempDir::new()?;
+    let panel = crate::models::Panel::new(temp.path().to_owned())?;
+    let mut app = App::from_panels(panel.clone(), panel);
+    submit(&mut app, SettingsPage::FolderDescriptions, "README")?;
+    submit(&mut app, SettingsPage::Information, "off")?;
+    assert!(!app.settings.enabled(SettingsPage::Information));
+    Ok(())
+}
+
+#[test]
+fn save_without_a_file_is_an_error() {
+    let mut app = App::new().expect("app");
+    app.settings.persistence = crate::history::Persistence::SessionOnly;
+    assert!(save(&mut app).is_err());
+}
+
+#[test]
+fn open_puts_the_current_value_in_a_prompt() {
+    let mut app = App::new().expect("app");
+    open(&mut app, SettingsPage::Editor);
+    assert!(matches!(app.overlay, crate::models::Overlay::MenuDialog(_)));
 }

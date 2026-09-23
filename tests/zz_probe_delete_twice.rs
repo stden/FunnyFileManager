@@ -1,4 +1,4 @@
-//! Probe: does a second delete_entry_by_id with the same id reach write.rs:141?
+//! Probe: does a second `delete_entry_by_id` with the same id reach `write.rs:141`?
 
 use funny_file_manager::keepass::{
     create_database, delete_entry_by_id, list_entries, EntryDetails, KeepassError,
@@ -22,7 +22,9 @@ fn probe_second_delete_by_id_is_entry_not_found() {
     let id = list[0].id;
 
     delete_entry_by_id(&path, "pw", None, id).expect("first delete");
-    assert!(list_entries(&path, "pw", None).expect("list again").is_empty());
+    assert!(list_entries(&path, "pw", None)
+        .expect("list again")
+        .is_empty());
 
     let second = delete_entry_by_id(&path, "pw", None, id);
     assert!(
