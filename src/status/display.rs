@@ -34,7 +34,7 @@ const ERROR_PREFIX: &str = "Error: ";
 /// A partly failed batch: its `summary`, then the first failure — the path it
 /// failed on, quoted so a narrow row shortens that and keeps the reason.
 fn first_failure<'a>(summary: &str, first_error: &'a FailedEntry) -> PathMessage<'a> {
-    quote(
+    PathMessage::quoting(
         format!("{summary}: "),
         label(first_error.path()),
         format!(": {}", first_error.error()),
@@ -71,16 +71,19 @@ pub struct PathMessage<'a> {
     pub after: Cow<'a, str>,
 }
 
-/// A [`PathMessage`] from its parts; the words may be literals or formatted.
-fn quote<'a>(
-    before: impl Into<Cow<'a, str>>,
-    path: Cow<'a, str>,
-    after: impl Into<Cow<'a, str>>,
-) -> PathMessage<'a> {
-    PathMessage {
-        before: before.into(),
-        path,
-        after: after.into(),
+impl<'a> PathMessage<'a> {
+    /// A message quoting `path` between `before` and `after`; the words may
+    /// be literals or formatted.
+    pub fn quoting(
+        before: impl Into<Cow<'a, str>>,
+        path: impl Into<Cow<'a, str>>,
+        after: impl Into<Cow<'a, str>>,
+    ) -> Self {
+        Self {
+            before: before.into(),
+            path: path.into(),
+            after: after.into(),
+        }
     }
 }
 
@@ -105,9 +108,13 @@ fn transfer_message(
     };
     let after = format!("{skipped}{renamed}");
     match landed {
-        Landed::At(path) => quote(format!("{done} to "), label(path), after),
-        Landed::Many(count) => quote(format!("{done} {count} item(s)"), Cow::Borrowed(""), after),
-        Landed::Nowhere => quote(format!("{done} nothing"), Cow::Borrowed(""), after),
+        Landed::At(path) => PathMessage::quoting(format!("{done} to "), label(path), after),
+        Landed::Many(count) => {
+            PathMessage::quoting(format!("{done} {count} item(s)"), Cow::Borrowed(""), after)
+        }
+        Landed::Nowhere => {
+            PathMessage::quoting(format!("{done} nothing"), Cow::Borrowed(""), after)
+        }
     }
 }
 
@@ -123,7 +130,7 @@ const fn archive_noun(count: usize) -> &'static str {
 /// A message that quotes no path: all of it is `before`.
 impl From<String> for PathMessage<'static> {
     fn from(text: String) -> Self {
-        quote(text, Cow::Borrowed(""), "")
+        Self::quoting(text, "", "")
     }
 }
 
@@ -152,22 +159,26 @@ impl Status {
 
     fn view_path_message(&self) -> Option<PathMessage<'_>> {
         Some(match self {
-            Self::Path(path) => quote("", label(path), ""),
-            Self::BinaryFile(path) => quote("Cannot view binary file ", label(Path::new(path)), ""),
-            Self::NotRegularFile(path) => quote(
+            Self::Path(path) => PathMessage::quoting("", label(path), ""),
+            Self::BinaryFile(path) => {
+                PathMessage::quoting("Cannot view binary file ", label(Path::new(path)), "")
+            }
+            Self::NotRegularFile(path) => PathMessage::quoting(
                 "Cannot open ",
                 label(Path::new(path)),
                 ": not a regular file",
             ),
-            Self::Viewing(path) => quote("Viewing ", label(Path::new(path)), ""),
-            Self::CreatedDir(path) => quote("Created directory ", label(Path::new(path)), ""),
-            Self::Opened(path) => quote("Opened ", label(path), ""),
-            Self::ChangedTo(path) => quote("Changed to ", label(path), ""),
+            Self::Viewing(path) => PathMessage::quoting("Viewing ", label(Path::new(path)), ""),
+            Self::CreatedDir(path) => {
+                PathMessage::quoting("Created directory ", label(Path::new(path)), "")
+            }
+            Self::Opened(path) => PathMessage::quoting("Opened ", label(path), ""),
+            Self::ChangedTo(path) => PathMessage::quoting("Changed to ", label(path), ""),
             Self::BookmarkSet { slot, path } => {
-                quote(format!("Bookmark {slot} set to "), label(path), "")
+                PathMessage::quoting(format!("Bookmark {slot} set to "), label(path), "")
             }
             Self::OpenedBookmark { slot, path } => {
-                quote(format!("Opened bookmark {slot}: "), label(path), "")
+                PathMessage::quoting(format!("Opened bookmark {slot}: "), label(path), "")
             }
             _ => return None,
         })
@@ -175,12 +186,12 @@ impl Status {
 
     fn edit_path_message(&self) -> Option<PathMessage<'_>> {
         Some(match self {
-            Self::Editing(path) => quote("Editing ", label(Path::new(path)), ""),
-            Self::Edited(path) => quote("Edited ", label(Path::new(path)), ""),
+            Self::Editing(path) => PathMessage::quoting("Editing ", label(Path::new(path)), ""),
+            Self::Edited(path) => PathMessage::quoting("Edited ", label(Path::new(path)), ""),
             Self::CannotEdit { path, error } => {
-                quote("Cannot edit ", label(path), format!(": {error}"))
+                PathMessage::quoting("Cannot edit ", label(path), format!(": {error}"))
             }
-            Self::Saved(path) => quote("Saved ", label(path), ""),
+            Self::Saved(path) => PathMessage::quoting("Saved ", label(path), ""),
             _ => return None,
         })
     }
@@ -189,7 +200,7 @@ impl Status {
     /// where.
     fn file_path_message(&self) -> Option<PathMessage<'_>> {
         Some(match self {
-            Self::SetupSaved(path) => quote("Setup saved to ", label(path), ""),
+            Self::SetupSaved(path) => PathMessage::quoting("Setup saved to ", label(path), ""),
             Self::Transferred {
                 purpose,
                 landed,
@@ -197,10 +208,12 @@ impl Status {
                 renamed,
             } => transfer_message(*purpose, landed, *skipped, *renamed),
             Self::CreatedDirs { count, directory } => {
-                quote(format!("Created {count} folders in "), label(directory), "")
+                PathMessage::quoting(format!("Created {count} folders in "), label(directory), "")
             }
-            Self::AlreadyExists(path) => quote("", label(path), " already exists"),
-            Self::FileExists(name) => quote("File already exists: ", label(Path::new(name)), ""),
+            Self::AlreadyExists(path) => PathMessage::quoting("", label(path), " already exists"),
+            Self::FileExists(name) => {
+                PathMessage::quoting("File already exists: ", label(Path::new(name)), "")
+            }
             // The link is named by its name alone: it sits in the other
             // panel, under the cursor. Its target is the path that can be
             // long — Alt+F6 fills in an absolute one.
@@ -208,7 +221,7 @@ impl Status {
                 let name = link
                     .file_name()
                     .map_or_else(|| label(link), OsStr::to_string_lossy);
-                quote(format!("Link {name} -> "), label(target), "")
+                PathMessage::quoting(format!("Link {name} -> "), label(target), "")
             }
             _ => return None,
         })
@@ -217,7 +230,7 @@ impl Status {
     /// Archive outcomes, named by the archive or the folder they unpacked to.
     fn archive_path_message(&self) -> Option<PathMessage<'_>> {
         Some(match self {
-            Self::Extracted { count, destination } => quote(
+            Self::Extracted { count, destination } => PathMessage::quoting(
                 format!("Extracted {count} {} to ", archive_noun(*count)),
                 label(destination),
                 "",
@@ -232,7 +245,7 @@ impl Status {
                 } else {
                     String::new()
                 };
-                quote(
+                PathMessage::quoting(
                     format!("Added {count} item(s) to "),
                     label(archive),
                     leftovers,
@@ -246,9 +259,9 @@ impl Status {
     fn run_path_message(&self) -> Option<PathMessage<'_>> {
         Some(match self {
             Self::ProgramExited { program, status } => {
-                quote("", label(program), format!(": {status}"))
+                PathMessage::quoting("", label(program), format!(": {status}"))
             }
-            Self::CannotRun { program, error } => quote(
+            Self::CannotRun { program, error } => PathMessage::quoting(
                 format!("{ERROR_PREFIX}Cannot run "),
                 label(program),
                 format!(": {error}"),

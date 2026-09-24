@@ -17,7 +17,7 @@ use ratatui::{
 };
 
 use super::fkey_bar::{render_key_bar, KeyLabels};
-use super::{far_block, fit_name, head_cells, palette, Cells, FAR_BLUE};
+use super::{far_block, fit_name, fit_path, head_cells, palette, Cells, FAR_BLUE};
 use crate::config::LanguageId;
 use crate::models::lsp_editor::{Access, Drawn, Mode, Notice, ReadOnlyReason};
 use crate::models::LspEditor;
@@ -223,26 +223,41 @@ fn render_detail(f: &mut Frame<'_>, area: Rect, editor: &LspEditor) {
     f.render_widget(Paragraph::new(lines).style(ground()), area);
 }
 
+/// What row 1 starts with.
+const SETTINGS_CAPTION: &str = "Settings: ";
+
 /// Row 1: the file F2 writes, or why there is none.
+///
+/// A path too long for the row gives up its head first, keeping at least
+/// the file's name, and only then is the row cut at its end: the name and
+/// the reason are what the row is for.
 fn settings_line(editor: &LspEditor, width: u16) -> Line<'static> {
-    let path = |path: &std::path::Path| {
+    let failed = Style::default().fg(palette::STATUS_FAILED);
+    let (file, after) = match editor.access() {
+        Access::Writable { path } => (Some(path), None),
+        Access::ReadOnly(ReadOnlyReason::NoSettingsFile) => (
+            None,
+            Some(Span::styled("none for this session — read only", failed)),
+        ),
+        Access::ReadOnly(reason @ ReadOnlyReason::Document { path, .. }) => (
+            Some(path),
+            Some(Span::styled(format!(" — read only: {reason}"), failed)),
+        ),
+    };
+    let words = Cells::of(SETTINGS_CAPTION)
+        + after
+            .as_ref()
+            .map_or(Cells::ZERO, |span| Cells::of(&span.content));
+    let path = file.map(|file| {
         Span::styled(
-            path.display().to_string(),
+            fit_path(&file.display().to_string(), words, Cells::columns(width)),
             super::code::token_style(crate::highlight::Token::Str),
         )
-    };
-    let failed = Style::default().fg(palette::STATUS_FAILED);
-    let mut spans = vec![Span::raw("Settings: ")];
-    match editor.access() {
-        Access::Writable { path: file } => spans.push(path(file)),
-        Access::ReadOnly(ReadOnlyReason::NoSettingsFile) => {
-            spans.push(Span::styled("none for this session — read only", failed));
-        }
-        Access::ReadOnly(reason @ ReadOnlyReason::Document { path: file, .. }) => {
-            spans.push(path(file));
-            spans.push(Span::styled(format!(" — read only: {reason}"), failed));
-        }
-    }
+    });
+    let spans = std::iter::once(Span::raw(SETTINGS_CAPTION))
+        .chain(path)
+        .chain(after)
+        .collect();
     fit_line(spans, width)
 }
 

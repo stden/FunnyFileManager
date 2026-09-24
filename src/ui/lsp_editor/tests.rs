@@ -1,13 +1,16 @@
 //! Purpose: Pin the Language servers dialog on screen: the rows and columns
 //! at 80×24, the colours §6 of the design gives them, and small screens.
 
+use std::path::{Path, PathBuf};
+
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::{buffer::Buffer, style::Modifier, Terminal};
 
 use super::super::palette;
-use crate::models::App;
-use crate::test_support::buffer_string;
+use crate::config::document::FILE_NAME;
+use crate::models::{settings::Settings, App};
 use crate::test_support::lsp_machine::{editor_mut, press, press_with, select, LspMachine};
+use crate::test_support::{buffer_string, framed_row, last_component};
 use crate::WritableTestBackend;
 
 pub(super) fn draw(app: &mut App, width: u16, height: u16) -> Buffer {
@@ -65,7 +68,10 @@ fn the_list_screen_has_its_rows_labels_legend_and_key_bar() {
     select(&mut app, "python");
     let screen = buffer_string(&draw(&mut app, 80, 24));
     assert!(screen.contains(" Language servers "), "{screen}");
-    assert!(screen.contains(&format!("Settings: {}", machine.settings().display())));
+    assert!(
+        quotes_path(&framed_row(&screen, "Settings: "), &machine.settings()),
+        "{screen}"
+    );
     for label in ["Command:", "Arguments:", "Status:", "Auto-install:"] {
         assert!(screen.contains(label), "{label}\n{screen}");
     }
@@ -218,6 +224,85 @@ fn a_read_only_dialog_says_why_on_its_first_row() {
         ),
         "the message row has room for the whole reason\n{screen}"
     );
+}
+
+/// Whether `row` is its `Settings: ` caption and then `path`: whole, or cut
+/// from its head to a tail that still ends in the file's name.
+fn quotes_path(row: &str, path: &Path) -> bool {
+    let path = path.display().to_string();
+    let file = last_component(FILE_NAME);
+    row.strip_prefix("Settings: ").is_some_and(|shown| {
+        shown == path
+            || shown
+                .strip_prefix('…')
+                .is_some_and(|tail| path.ends_with(tail) && tail.ends_with(&file))
+    })
+}
+
+/// A directory name long enough that no 80-column row holds a path through
+/// it whole, whatever the temp directory's own length.
+const DEEP: &str = "a-settings-directory-long-enough-that-no-row-holds-the-whole-path";
+
+/// A settings file in a directory deeper than the row is wide.
+fn deep_settings(machine: &LspMachine) -> PathBuf {
+    let directory = machine.home.path().join(DEEP);
+    std::fs::create_dir(&directory).expect("directory");
+    directory.join(FILE_NAME)
+}
+
+/// The dialog open on the settings file `file`.
+fn opened_on(machine: &LspMachine, file: &Path) -> App {
+    let mut app = machine.app();
+    app.settings = Settings::with_file(file.to_owned());
+    crate::ops::lsp_editor::open(&mut app);
+    app
+}
+
+/// The Settings row keeps the file's name however deep it sits: the path
+/// gives up its head. On the Windows runner the temp directory alone was
+/// longer than the row, and the name was what fell off its end.
+#[test]
+fn a_deep_settings_file_keeps_its_name() {
+    let machine = LspMachine::new();
+    let file = deep_settings(&machine);
+    let mut app = opened_on(&machine, &file);
+    let screen = buffer_string(&draw(&mut app, 80, 24));
+    let row = framed_row(&screen, "Settings: ");
+    assert!(row.starts_with("Settings: …"), "{row:?}");
+    assert!(quotes_path(&row, &file), "{row:?}");
+}
+
+/// A read-only file deep in the tree keeps its name and the start of the
+/// reason: the path is cut before the reason is.
+#[test]
+fn a_deep_read_only_file_keeps_its_name_and_the_reason() {
+    let machine = LspMachine::new();
+    let file = deep_settings(&machine);
+    std::fs::write(&file, "{broken").expect("settings");
+    let mut app = opened_on(&machine, &file);
+    let screen = buffer_string(&draw(&mut app, 80, 24));
+    let row = framed_row(&screen, "Settings: ");
+    let expected = format!(
+        "Settings: …{} — read only: {FILE_NAME} does not parse",
+        last_component(FILE_NAME)
+    );
+    assert!(row.starts_with(&expected), "{row:?}");
+}
+
+/// A session without a settings file says so where the path would be.
+#[test]
+fn a_session_without_a_settings_file_says_so_on_its_first_row() {
+    let machine = LspMachine::new();
+    let mut app = machine.app();
+    app.settings.persistence = crate::history::Persistence::SessionOnly;
+    crate::ops::lsp_editor::open(&mut app);
+    let buffer = draw(&mut app, 80, 24);
+    let screen = buffer_string(&buffer);
+    assert_eq!(
+        framed_row(&screen, "Settings: "),
+        "Settings: none for this session — read only"
+    );
+    assert_eq!(fg(&buffer, "none for this session"), palette::STATUS_FAILED);
 }
 
 #[test]

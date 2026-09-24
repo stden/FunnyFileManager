@@ -3,7 +3,7 @@
 use std::{io, path::PathBuf};
 
 use crate::fileload::{read_for_text_ui, Loaded};
-use crate::mcp_clients::{server_lines, Host, ProjectDir, Scope};
+use crate::mcp_clients::{server_lines, Host, ProjectDir, Scope, Survey};
 use crate::models::{App, FileSize, Overlay, Viewer};
 use crate::ops::mcp_install::survey;
 use crate::status::Status;
@@ -68,11 +68,7 @@ fn mcp_client_lines(host: &Host, folder: Option<ProjectDir>) -> Vec<String> {
     let here = folder
         .is_some()
         .then(|| survey(host, Scope::CurrentFolder, folder));
-    let mut lines = server_lines(&everywhere.server);
-    lines.push(everywhere.folder.as_ref().map_or_else(
-        || "Folder: the active panel is not a local folder".to_owned(),
-        |folder| format!("Folder: {}", crate::path_display::label(folder.as_path())),
-    ));
+    let mut lines = server_and_folder(&everywhere);
     lines.push(String::new());
     lines.push(format!(
         "{:<32}{:<25}{}",
@@ -93,6 +89,19 @@ fn mcp_client_lines(host: &Host, folder: Option<ProjectDir>) -> Vec<String> {
         ));
     }
     lines
+}
+
+/// The server and the folder `survey` found, one line each.
+fn server_and_folder(survey: &Survey) -> Vec<String> {
+    let folder = survey.folder.as_ref().map_or_else(
+        || "Folder: the active panel is not a local folder".to_owned(),
+        |folder| format!("Folder: {}", crate::path_display::label(folder.as_path())),
+    );
+    server_lines(&survey.server)
+        .iter()
+        .map(ToString::to_string)
+        .chain([folder])
+        .collect()
 }
 
 pub fn handle_view(app: &mut App) -> io::Result<()> {

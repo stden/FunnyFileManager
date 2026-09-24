@@ -10,6 +10,7 @@ use ratatui::Frame;
 use super::dialog::{self, Button, Ground, Row};
 use crate::mcp_clients::{self, Scope};
 use crate::models::{Mark, McpInstallDialog, McpInstallField, McpInstallProgress};
+use crate::status::PathMessage;
 
 /// The dialog's title, which is the menu row's label without its hotkey.
 const TITLE: &str = "Install MCP server";
@@ -29,8 +30,8 @@ pub(super) fn render(
     let notes = mcp_clients::notes(dialog.scope);
     let scopes = Scope::ALL.map(Scope::label);
     // Paths and notes are drawn as they are: `&` in `/srv/x/R&D` is a letter,
-    // not a hotkey marker.
-    let mut rows: Vec<Row<'_>> = server.iter().map(|line| Row::Plain(line)).collect();
+    // not a hotkey marker. A path too long for its row keeps its name.
+    let mut rows: Vec<Row<'_>> = server.iter().map(Row::Path).collect();
     rows.extend([
         Row::Divider,
         Row::Radio {
@@ -39,7 +40,7 @@ pub(super) fn render(
             selected: dialog.scope_index(),
             focused: dialog.field == McpInstallField::Scope,
         },
-        Row::Plain(&folder),
+        Row::Path(&folder),
         Row::Divider,
     ]);
     rows.extend(client_rows(dialog, &labels));
@@ -56,13 +57,14 @@ pub(super) fn render(
 }
 
 /// The folder Current folder would register in, or why there is none.
-fn folder_line(dialog: &McpInstallDialog) -> String {
+fn folder_line(dialog: &McpInstallDialog) -> PathMessage<'_> {
     dialog.folder.as_ref().map_or_else(
-        || "Current folder: the active panel is not a local folder".to_owned(),
+        || PathMessage::from("Current folder: the active panel is not a local folder".to_owned()),
         |folder| {
-            format!(
-                "Current folder: {}",
-                crate::path_display::label(folder.as_path())
+            PathMessage::quoting(
+                "Current folder: ",
+                crate::path_display::label(folder.as_path()),
+                "",
             )
         },
     )

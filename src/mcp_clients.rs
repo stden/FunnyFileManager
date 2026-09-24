@@ -16,6 +16,8 @@ mod state;
 
 use std::path::PathBuf;
 
+use crate::status::PathMessage;
+
 pub use entry::{ProjectDir, ServerBinary, ServerEntry, ServerState};
 pub use host::{Captured, CliCall, Exit, Host, Runner};
 pub use state::{Blocker, ConfigState};
@@ -214,27 +216,36 @@ pub fn notes(scope: Scope) -> Vec<String> {
 /// How to get the server when it is missing.
 pub const INSTALL_HINT: &str = "Install it from the FFM sources: cargo install --path mcp";
 
-/// What the dialog and the `:mcp` screen say about the server.
+/// What the dialog and the `:mcp` screen say about the server, each line
+/// split around the path it quotes: a dialog row too narrow for it shortens
+/// the path and keeps the server's name.
 #[must_use]
-pub fn server_lines(server: &ServerState) -> Vec<String> {
+pub fn server_lines(server: &ServerState) -> Vec<PathMessage<'_>> {
     match server {
-        ServerState::Found(binary) => vec![format!(
-            "Server: {}",
-            crate::path_display::label(binary.as_path())
+        ServerState::Found(binary) => vec![PathMessage::quoting(
+            SERVER_CAPTION,
+            crate::path_display::label(binary.as_path()),
+            "",
         )],
         ServerState::Missing => vec![
-            format!("Server: {SERVER_NAME} was not found next to ffm or on PATH."),
-            INSTALL_HINT.to_owned(),
+            PathMessage::from(format!(
+                "{SERVER_CAPTION}{SERVER_NAME} was not found next to ffm or on PATH."
+            )),
+            PathMessage::from(INSTALL_HINT.to_owned()),
         ],
         ServerState::NotUnicode(path) => vec![
-            format!(
-                "Server: {} is not valid Unicode, so no config can name it.",
-                path.display()
+            PathMessage::quoting(
+                SERVER_CAPTION,
+                path.to_string_lossy(),
+                " is not valid Unicode, so no config can name it.",
             ),
-            INSTALL_HINT.to_owned(),
+            PathMessage::from(INSTALL_HINT.to_owned()),
         ],
     }
 }
+
+/// What every line naming the server starts with.
+const SERVER_CAPTION: &str = "Server: ";
 
 /// One client's row in the dialog: name, presence, state, in columns.
 #[must_use]

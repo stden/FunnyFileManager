@@ -298,8 +298,19 @@ pub(super) fn tail_cells(text: &str, width: Cells) -> String {
 /// about — and only then is the line cut at its end.
 pub(super) fn fit_quoting_path(before: &str, path: &str, after: &str, width: Cells) -> String {
     let words = Cells::of(before) + Cells::of(after);
+    head_cells(
+        &format!("{before}{}{after}", fit_path(path, words, width)),
+        width,
+    )
+}
+
+/// `path` as a line of `width` cells quotes it beside `words` cells of other
+/// text: whole when it fits, else cut from its head as [`tail_cells`] cuts,
+/// keeping at least its last component. [`fit_quoting_path`]'s rule, for a
+/// line whose parts are drawn in different styles.
+pub(super) fn fit_path(path: &str, words: Cells, width: Cells) -> String {
     let room = width.saturating_sub(words).max(last_component_cells(path));
-    head_cells(&format!("{before}{}{after}", tail_cells(path, room)), width)
+    tail_cells(path, room)
 }
 
 /// The cells `path` keeps cut to its last component: the ellipsis, the

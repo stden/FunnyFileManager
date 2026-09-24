@@ -21,7 +21,8 @@ use ratatui::{
     Frame,
 };
 
-use super::{far_block, palette, Cells};
+use super::{far_block, fit_quoting_path, palette, Cells};
+use crate::status::PathMessage;
 
 /// Blank dialog surface around the frame, top/bottom and left/right.
 ///
@@ -136,9 +137,14 @@ pub(super) enum Row<'a> {
     Text(&'a str),
     /// A field's caption, left-aligned above it.
     Label(&'a str),
-    /// Text left-aligned exactly as given, with no hotkey: a path or a note,
-    /// where `&` is a character like any other.
+    /// Text left-aligned exactly as given, with no hotkey: a note, where `&`
+    /// is a character like any other.
     Plain(&'a str),
+    /// A message quoting a path, drawn as [`Row::Plain`] is, except that a
+    /// row too narrow for it cuts the path from its head and keeps at least
+    /// its last component, as the panel's info row does. Cut at its end, the
+    /// row would lose the very name it quotes the path for.
+    Path(&'a PathMessage<'a>),
     /// A text field, sunk into the dialog on its own ground.
     ///
     /// `history` draws Far's `↓` marker at the right edge, which is how a
@@ -240,6 +246,9 @@ impl Row<'_> {
         match self {
             Self::Text(text) | Self::Label(text) => plain(text),
             Self::Plain(text) => Cells::of(text),
+            Self::Path(message) => {
+                Cells::of(&message.before) + Cells::of(&message.path) + Cells::of(&message.after)
+            }
             // The field is given room to grow rather than sized to what has
             // been typed, or the dialog would resize on every keystroke.
             Self::Input { value, .. } => Cells::of(value).max(Cells::new(INPUT_WIDTH)),
@@ -566,6 +575,7 @@ fn render_row(
         Row::Text(text) => Line::from(hotkey_spans(text, style, accent)).centered(),
         Row::Label(text) => Line::from(hotkey_spans(text, style, accent)),
         Row::Plain(text) => Line::from(Span::styled((*text).to_owned(), style)),
+        Row::Path(message) => path_line(message, style, width),
         Row::Input { value, history, .. } => input_line(value, focused, *history, style, width),
         Row::Radio {
             caption,
@@ -583,6 +593,17 @@ fn render_row(
     f.render_widget(Paragraph::new(line).style(style), area);
 }
 
+/// A [`Row::Path`] in `width` cells: the path gives way before the words do.
+fn path_line(message: &PathMessage<'_>, style: Style, width: u16) -> Line<'static> {
+    let text = fit_quoting_path(
+        &message.before,
+        &message.path,
+        &message.after,
+        Cells::columns(width),
+    );
+    Line::from(Span::styled(text, style))
+}
+
 impl Row<'_> {
     fn is_focused(&self) -> bool {
         match self {
@@ -591,7 +612,9 @@ impl Row<'_> {
             | Self::Choice { focused, .. }
             | Self::Field { focused, .. }
             | Self::Checkbox { focused, .. } => *focused,
-            Self::Text(_) | Self::Label(_) | Self::Plain(_) | Self::Divider => false,
+            Self::Text(_) | Self::Label(_) | Self::Plain(_) | Self::Path(_) | Self::Divider => {
+                false
+            }
         }
     }
 

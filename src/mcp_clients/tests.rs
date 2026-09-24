@@ -382,9 +382,15 @@ fn a_row_label_lines_up_name_presence_and_state() {
 
 #[test]
 fn server_lines_name_the_server_or_say_how_to_install_it() {
-    let found = server_lines(&ServerState::Found(server()));
-    assert_eq!(found, [format!("Server: {}", server().as_str())]);
-    let missing = server_lines(&ServerState::Missing);
+    let found = ServerState::Found(server());
+    assert_eq!(
+        server_lines(&found),
+        [PathMessage::quoting("Server: ", server().as_str(), "")]
+    );
+    let missing: Vec<String> = server_lines(&ServerState::Missing)
+        .iter()
+        .map(ToString::to_string)
+        .collect();
     assert_eq!(
         missing,
         [
@@ -392,9 +398,19 @@ fn server_lines_name_the_server_or_say_how_to_install_it() {
             "Install it from the FFM sources: cargo install --path mcp",
         ]
     );
-    let odd = server_lines(&ServerState::NotUnicode(absolute("/srv/x/odd")));
-    assert!(odd[0].contains("is not valid Unicode"), "{odd:?}");
-    assert_eq!(odd[1], INSTALL_HINT);
+    let odd_path = absolute("/srv/x/odd");
+    let odd = ServerState::NotUnicode(odd_path.clone());
+    assert_eq!(
+        server_lines(&odd),
+        [
+            PathMessage::quoting(
+                "Server: ",
+                odd_path.to_string_lossy(),
+                " is not valid Unicode, so no config can name it."
+            ),
+            PathMessage::from(INSTALL_HINT.to_owned()),
+        ]
+    );
 }
 
 /// The words the review's new states and blocker read as, on a dialog row.
