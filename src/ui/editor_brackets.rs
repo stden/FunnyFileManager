@@ -53,28 +53,60 @@ fn column_on_screen(
 }
 
 fn matching_pair(editor: &Editor) -> Option<(usize, usize, usize, usize)> {
-    let candidate = candidate(editor)?;
-    let positions: Vec<_> = editor
+    let (line, column, bracket) = candidate(editor)?;
+    let partner = if is_open(bracket) {
+        scan(after(editor, line, column), bracket)?
+    } else {
+        scan(before(editor, line, column), bracket)?
+    };
+    Some((line, column, partner.0, partner.1))
+}
+
+/// Every character after (`line`, `column`), in reading order. Lazy, so the
+/// scan stops at the partner instead of walking the whole buffer each frame.
+fn after(
+    editor: &Editor,
+    line: usize,
+    column: usize,
+) -> impl Iterator<Item = (usize, usize, char)> + '_ {
+    editor
         .lines
         .iter()
         .enumerate()
-        .flat_map(|(line, text)| {
+        .skip(line)
+        .flat_map(move |(index, text)| {
+            let first = if index == line {
+                column.saturating_add(1)
+            } else {
+                0
+            };
             text.chars()
                 .enumerate()
-                .map(move |(column, ch)| (line, column, ch))
+                .skip(first)
+                .map(move |(at, ch)| (index, at, ch))
         })
-        .collect();
-    let index = positions
+}
+
+/// Every character before (`line`, `column`), nearest first.
+fn before(
+    editor: &Editor,
+    line: usize,
+    column: usize,
+) -> impl Iterator<Item = (usize, usize, char)> + '_ {
+    editor
+        .lines
         .iter()
-        .position(|(line, column, _)| (*line, *column) == (candidate.0, candidate.1))?;
-    let (before, from_candidate) = positions.split_at_checked(index)?;
-    let (_, after) = from_candidate.split_first()?;
-    let partner = if is_open(candidate.2) {
-        scan(after.iter().copied(), candidate.2)?
-    } else {
-        scan(before.iter().copied().rev(), candidate.2)?
-    };
-    Some((candidate.0, candidate.1, partner.0, partner.1))
+        .enumerate()
+        .take(line.saturating_add(1))
+        .rev()
+        .flat_map(move |(index, text)| {
+            let count = text.chars().count();
+            text.chars()
+                .rev()
+                .enumerate()
+                .map(move |(back, ch)| (index, count.saturating_sub(back.saturating_add(1)), ch))
+                .filter(move |&(_, at, _)| index != line || at < column)
+        })
 }
 
 fn candidate(editor: &Editor) -> Option<(usize, usize, char)> {

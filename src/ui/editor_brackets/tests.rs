@@ -129,3 +129,11 @@ fn a_tab_before_the_bracket_moves_its_cell_to_the_tab_stop() {
     tabbed.tab_size = TabSize::new(4);
     assert_eq!(highlighted(&tabbed, 0, 0), [(4, 0), (5, 0)]);
 }
+
+#[test]
+fn columns_count_characters_not_bytes_in_both_directions() {
+    // Two-byte letters before and inside the pair: columns are characters.
+    let text = "éé(ü)";
+    assert_eq!(highlighted(&editor(text, 0, 2), 0, 0), [(2, 0), (4, 0)]);
+    assert_eq!(highlighted(&editor(text, 0, 4), 0, 0), [(2, 0), (4, 0)]);
+}
