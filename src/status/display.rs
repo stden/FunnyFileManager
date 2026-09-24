@@ -1,9 +1,11 @@
 //! Purpose: how each `Status` reads — its `Display` impl, one formatter per outcome family, and the `String` conversion.
 
 use std::borrow::Cow;
+use std::ffi::OsStr;
 use std::fmt;
 
-use super::{FailedEntry, Status};
+use super::{FailedEntry, Landed, Status};
+use crate::copy::Purpose;
 use crate::path_display::label;
 use std::path::Path;
 
@@ -13,6 +15,7 @@ impl fmt::Display for Status {
             Self::format_path,
             Self::format_view,
             Self::format_transfer,
+            Self::format_archive,
             Self::format_panel,
             Self::format_bookmark,
             Self::format_editor,
@@ -25,18 +28,30 @@ impl fmt::Display for Status {
     }
 }
 
-/// The one shape every partly failed batch reports in: the verb, the
-/// successes, the failures, and the first failure spelled out.
-fn with_errors(
-    f: &mut fmt::Formatter<'_>,
+/// What an error's message starts with, whichever outcome it reports.
+const ERROR_PREFIX: &str = "Error: ";
+
+/// A partly failed batch: its `summary`, then the first failure — the path it
+/// failed on, quoted so a narrow row shortens that and keeps the reason.
+fn first_failure<'a>(summary: &str, first_error: &'a FailedEntry) -> PathMessage<'a> {
+    quote(
+        format!("{summary}: "),
+        label(first_error.path()),
+        format!(": {}", first_error.error()),
+    )
+}
+
+/// The one shape a partly failed copy, move, delete or wipe reports in: the
+/// verb, the successes, the failures, and the first failure spelled out.
+fn with_errors<'a>(
     verb: &str,
     count: usize,
     error_count: usize,
-    first_error: &FailedEntry,
-) -> fmt::Result {
-    write!(
-        f,
-        "{verb} {count} item(s), {error_count} error(s): {first_error}"
+    first_error: &'a FailedEntry,
+) -> PathMessage<'a> {
+    first_failure(
+        &format!("{verb} {count} item(s), {error_count} error(s)"),
+        first_error,
     )
 }
 
@@ -69,6 +84,42 @@ fn quote<'a>(
     }
 }
 
+/// A copy or move that went through: the one place it names, or how many
+/// went, then what the dialog's "already existing files" choice changed.
+fn transfer_message(
+    purpose: Purpose,
+    landed: &Landed,
+    skipped: usize,
+    renamed: usize,
+) -> PathMessage<'_> {
+    let done = purpose.done();
+    let skipped = if skipped > 0 {
+        format!(", {skipped} skipped")
+    } else {
+        String::new()
+    };
+    let renamed = if renamed > 0 {
+        " (existing files kept, new ones renamed)"
+    } else {
+        ""
+    };
+    let after = format!("{skipped}{renamed}");
+    match landed {
+        Landed::At(path) => quote(format!("{done} to "), label(path), after),
+        Landed::Many(count) => quote(format!("{done} {count} item(s)"), Cow::Borrowed(""), after),
+        Landed::Nowhere => quote(format!("{done} nothing"), Cow::Borrowed(""), after),
+    }
+}
+
+/// "archive" or "archives", as `count` of them read.
+const fn archive_noun(count: usize) -> &'static str {
+    if count == 1 {
+        "archive"
+    } else {
+        "archives"
+    }
+}
+
 /// A message that quotes no path: all of it is `before`.
 impl From<String> for PathMessage<'static> {
     fn from(text: String) -> Self {
@@ -84,13 +135,19 @@ impl fmt::Display for PathMessage<'_> {
 
 impl Status {
     /// This outcome's message split around the path it quotes, or `None` for
-    /// one that quotes no path (every outcome the two families below leave
-    /// out). The one place these messages are worded: `Display` prints
-    /// exactly these parts.
+    /// one that never quotes a path (every outcome the families below leave
+    /// out). An outcome that quotes one only sometimes — a copy of several
+    /// entries counts them — has an empty `path` then. The one place these
+    /// messages are worded: `Display` prints exactly these parts.
     #[must_use]
     pub fn path_message(&self) -> Option<PathMessage<'_>> {
         self.view_path_message()
             .or_else(|| self.edit_path_message())
+            .or_else(|| self.file_path_message())
+            .or_else(|| self.archive_path_message())
+            .or_else(|| self.run_path_message())
+            .or_else(|| self.failure_path_message())
+            .or_else(|| self.attributes_path_message())
     }
 
     fn view_path_message(&self) -> Option<PathMessage<'_>> {
@@ -128,6 +185,122 @@ impl Status {
         })
     }
 
+    /// Outcomes that made a file or folder, or found its name taken, named by
+    /// where.
+    fn file_path_message(&self) -> Option<PathMessage<'_>> {
+        Some(match self {
+            Self::SetupSaved(path) => quote("Setup saved to ", label(path), ""),
+            Self::Transferred {
+                purpose,
+                landed,
+                skipped,
+                renamed,
+            } => transfer_message(*purpose, landed, *skipped, *renamed),
+            Self::CreatedDirs { count, directory } => {
+                quote(format!("Created {count} folders in "), label(directory), "")
+            }
+            Self::AlreadyExists(path) => quote("", label(path), " already exists"),
+            Self::FileExists(name) => quote("File already exists: ", label(Path::new(name)), ""),
+            // The link is named by its name alone: it sits in the other
+            // panel, under the cursor. Its target is the path that can be
+            // long — Alt+F6 fills in an absolute one.
+            Self::Linked { link, target } => {
+                let name = link
+                    .file_name()
+                    .map_or_else(|| label(link), OsStr::to_string_lossy);
+                quote(format!("Link {name} -> "), label(target), "")
+            }
+            _ => return None,
+        })
+    }
+
+    /// Archive outcomes, named by the archive or the folder they unpacked to.
+    fn archive_path_message(&self) -> Option<PathMessage<'_>> {
+        Some(match self {
+            Self::Extracted { count, destination } => quote(
+                format!("Extracted {count} {} to ", archive_noun(*count)),
+                label(destination),
+                "",
+            ),
+            Self::AddedToArchive {
+                count,
+                archive,
+                kept,
+            } => {
+                let leftovers = if *kept > 0 {
+                    format!("; {kept} could not be deleted")
+                } else {
+                    String::new()
+                };
+                quote(
+                    format!("Added {count} item(s) to "),
+                    label(archive),
+                    leftovers,
+                )
+            }
+            _ => return None,
+        })
+    }
+
+    /// How a program started with Enter ended, named by the program.
+    fn run_path_message(&self) -> Option<PathMessage<'_>> {
+        Some(match self {
+            Self::ProgramExited { program, status } => {
+                quote("", label(program), format!(": {status}"))
+            }
+            Self::CannotRun { program, error } => quote(
+                format!("{ERROR_PREFIX}Cannot run "),
+                label(program),
+                format!(": {error}"),
+            ),
+            _ => return None,
+        })
+    }
+
+    /// Copies, moves, deletes and wipes that partly failed, named by the
+    /// first entry that failed.
+    fn failure_path_message(&self) -> Option<PathMessage<'_>> {
+        Some(match self {
+            Self::CopiedWithErrors {
+                count,
+                error_count,
+                first_error,
+            } => with_errors("Copied", *count, *error_count, first_error),
+            Self::MovedWithErrors {
+                count,
+                error_count,
+                first_error,
+            } => with_errors("Moved", *count, *error_count, first_error),
+            Self::DeletedWithErrors {
+                count,
+                error_count,
+                first_error,
+            } => with_errors("Deleted", *count, *error_count, first_error),
+            Self::WipedWithErrors {
+                count,
+                error_count,
+                first_error,
+            } => with_errors("Wiped", *count, *error_count, first_error),
+            _ => return None,
+        })
+    }
+
+    /// Ctrl+A that failed on some entries, named by the first.
+    fn attributes_path_message(&self) -> Option<PathMessage<'_>> {
+        let Self::AttributesSetWithErrors {
+            count,
+            error_count,
+            first_error,
+        } = self
+        else {
+            return None;
+        };
+        Some(first_failure(
+            &format!("Attributes set on {count} object(s), {error_count} failed"),
+            first_error,
+        ))
+    }
+
     fn format_path(&self, f: &mut fmt::Formatter<'_>) -> Option<fmt::Result> {
         self.path_message().map(|message| write!(f, "{message}"))
     }
@@ -155,33 +328,29 @@ impl Status {
 
     fn format_transfer(&self, f: &mut fmt::Formatter<'_>) -> Option<fmt::Result> {
         Some(match self {
-            Self::CopiedWithErrors {
-                count,
-                error_count,
-                first_error,
-            } => with_errors(f, "Copied", *count, *error_count, first_error),
-            Self::MovedWithErrors {
-                count,
-                error_count,
-                first_error,
-            } => with_errors(f, "Moved", *count, *error_count, first_error),
             Self::Deleted { count } => write!(f, "Deleted {count} item(s)"),
-            Self::DeletedWithErrors {
-                count,
-                error_count,
-                first_error,
-            } => with_errors(f, "Deleted", *count, *error_count, first_error),
             Self::Wiped { count } => write!(f, "Wiped {count} item(s)"),
             Self::WipedSharedFiles { count, shared } => write!(
                 f,
                 "Wiped {count} item(s); {shared} hard-linked file(s) only unlinked, \
                  their data stays under the other names"
             ),
-            Self::WipedWithErrors {
-                count,
-                error_count,
+            Self::AttributesSet { count } => write!(f, "Attributes set on {count} object(s)"),
+            _ => return None,
+        })
+    }
+
+    fn format_archive(&self, f: &mut fmt::Formatter<'_>) -> Option<fmt::Result> {
+        Some(match self {
+            Self::ExtractedWithErrors {
+                done,
+                total,
                 first_error,
-            } => with_errors(f, "Wiped", *count, *error_count, first_error),
+            } => write!(
+                f,
+                "Extracted {done} of {total} {}, first error: {first_error}",
+                archive_noun(*total)
+            ),
             _ => return None,
         })
     }
@@ -233,7 +402,6 @@ impl Status {
     fn format_file(&self, f: &mut fmt::Formatter<'_>) -> Option<fmt::Result> {
         Some(match self {
             Self::FilenameEmpty => write!(f, "Filename cannot be empty"),
-            Self::FileExists(name) => write!(f, "File already exists: {name}"),
             Self::CreatedFile(name) => write!(f, "Created file: {name}"),
             Self::CreateFileFailed { error } => write!(f, "Failed to create file: {error}"),
             Self::DeleteFailed { error } => write!(f, "Delete failed: {error}"),
@@ -268,7 +436,7 @@ impl Status {
                 write!(f, "{} sent to the terminal via OSC 52", secret.label())
             }
             Self::CopyFailed { error } => write!(f, "Copy failed: {error}"),
-            Self::Error(error) => write!(f, "Error: {error}"),
+            Self::Error(error) => write!(f, "{ERROR_PREFIX}{error}"),
             Self::WindowsOnly { tool } => {
                 write!(f, "Windows {tool} checker is only available on Windows")
             }

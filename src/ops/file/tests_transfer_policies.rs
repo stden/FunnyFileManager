@@ -11,7 +11,7 @@ use std::os::unix::fs::PermissionsExt;
 
 use super::*;
 
-use crate::copy::{CopyPrompt, ExistingFiles, Purpose};
+use crate::copy::{CopyPrompt, ExistingFiles};
 use crate::models::{FileName, Panel, PanelSide};
 
 use tempfile::TempDir;
@@ -66,10 +66,15 @@ fn ask_keeps_the_original_and_renames_the_copy() {
     assert_eq!(fs::read(to.path().join("notes.txt")).unwrap(), b"old");
     assert_eq!(fs::read(to.path().join("notes_1.txt")).unwrap(), b"new");
     assert!(from.path().join("notes.txt").exists(), "a copy, not a move");
-    assert!(
-        app.status.to_string().contains("existing files kept"),
-        "the status has to say the copy was renamed, got {}",
-        app.status
+    assert_eq!(
+        app.status,
+        Status::Transferred {
+            purpose: Purpose::Copy,
+            landed: Landed::At(to.path().join("notes_1.txt")),
+            skipped: 0,
+            renamed: 1,
+        },
+        "the status has to say the copy was renamed"
     );
 }
 
@@ -446,10 +451,14 @@ fn only_newer_onto_itself_is_skipped() {
     copy_with(&mut app, &dialog);
 
     assert_eq!(fs::read(from.path().join("notes.txt")).unwrap(), b"payload");
-    assert!(
-        app.status.to_string().contains("1 skipped"),
-        "{}",
-        app.status
+    assert_eq!(
+        app.status,
+        Status::Transferred {
+            purpose: Purpose::Copy,
+            landed: Landed::Nowhere,
+            skipped: 1,
+            renamed: 0,
+        }
     );
 }
 

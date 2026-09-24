@@ -3,9 +3,9 @@ use funny_file_manager::handlers::{
     handle_delete_confirm, handle_view, open_mcp_status, process_popup_input,
 };
 /// Tests targeting coverage gaps identified by analysis.
-/// Covers: `open_mcp_status`, `handle_view` edge cases, `format_operation_status`,
-/// `get_source_paths`, UI rendering (console mode, overlays), Panel edge cases,
-/// and `VirtualPath` display variants.
+/// Covers: `open_mcp_status`, `handle_view` edge cases, `get_source_paths`,
+/// UI rendering (console mode, overlays), Panel edge cases, and `VirtualPath`
+/// display variants.
 use funny_file_manager::models::FileName;
 use funny_file_manager::models::FileSize;
 use funny_file_manager::models::ViewMode;

@@ -175,7 +175,7 @@ fn enter_creates_the_archive_and_reports_it() {
         "not deleted by default"
     );
     assert!(
-        matches!(&app.status, Status::CommandOutput(text) if text.contains("notes.tar.gz")),
+        matches!(&app.status, Status::AddedToArchive { archive: a, kept: 0, .. } if *a == archive),
         "{:?}",
         app.status
     );

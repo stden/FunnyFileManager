@@ -9,7 +9,7 @@
 use super::tests_transfer_policies::{app_between, mark, settings};
 use super::*;
 
-use crate::copy::{ExistingFiles, Purpose};
+use crate::copy::ExistingFiles;
 
 use tempfile::TempDir;
 

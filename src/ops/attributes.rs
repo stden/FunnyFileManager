@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 use crate::directory::owner::Owners;
 use crate::models::{App, Attributes, AttributesDialog, EntrySnapshot, Overlay, RequestedTimes};
-use crate::status::Status;
+use crate::status::{FailedEntry, Status};
 
 /// Ctrl+A: open the File attributes dialog on the selection.
 ///
@@ -62,7 +62,7 @@ fn snapshot(path: PathBuf, owners: &mut Owners) -> EntrySnapshot {
 struct Outcome {
     done: usize,
     failed: usize,
-    first_error: Option<String>,
+    first_error: Option<FailedEntry>,
 }
 
 impl Outcome {
@@ -72,16 +72,19 @@ impl Outcome {
             Err(error) => {
                 self.failed += 1;
                 self.first_error
-                    .get_or_insert_with(|| format!("{}: {error}", path.display()));
+                    .get_or_insert_with(|| FailedEntry::new(path, &error));
             }
         }
     }
 
-    fn summary(&self) -> String {
-        let done = format!("Attributes set on {} object(s)", self.done);
-        match &self.first_error {
-            Some(error) => format!("{done}, {} failed: {error}", self.failed),
-            None => done,
+    fn summary(self) -> Status {
+        match self.first_error {
+            Some(first_error) => Status::AttributesSetWithErrors {
+                count: self.done,
+                error_count: self.failed,
+                first_error,
+            },
+            None => Status::AttributesSet { count: self.done },
         }
     }
 }
@@ -99,7 +102,7 @@ pub fn apply(app: &mut App, dialog: &AttributesDialog) {
     for path in &dialog.targets {
         apply_path(path, dialog, times, &mut outcome);
     }
-    app.set_status(Status::CommandOutput(outcome.summary()));
+    app.set_status(outcome.summary());
     app.get_active_panel().clear_marks();
     // A refresh failure is not this operation's news: the status bar already
     // says what was set, and Ctrl+R reports listing trouble on its own.

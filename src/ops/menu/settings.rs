@@ -115,10 +115,7 @@ pub fn save(app: &mut App) -> io::Result<()> {
         &section(app.settings.values()),
     )?;
     app.settings.mark_saved();
-    app.set_status(Status::CommandOutput(format!(
-        "Setup saved to {}",
-        path.display()
-    )));
+    app.set_status(Status::SetupSaved(path));
     Ok(())
 }
 

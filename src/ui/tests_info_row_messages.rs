@@ -11,7 +11,7 @@ use ratatui::{backend::TestBackend, Terminal};
 
 use super::ui;
 use crate::models::{App, DirEntry, Panel};
-use crate::status::Status;
+use crate::status::{FailedEntry, Status};
 
 /// The left (active) panel's info row, inside its frame, after drawing
 /// `status` on a `width` x `height` screen.
@@ -86,6 +86,167 @@ fn a_binary_refusal_keeps_the_file_name() {
     let row = info_row(binary, 100, 30);
     assert!(
         row.starts_with("Cannot view binary file …") && row.ends_with("/docs/binary.bin"),
+        "{row:?}"
+    );
+}
+
+/// Save setup names the file it wrote, however deep the settings directory
+/// sits. The line used to be cut at its end: on the Windows CI runner the
+/// message with its temp path was 83 cells for a 78-cell row, and
+/// `settings.yaml` was what fell off.
+#[test]
+fn a_saved_setup_names_the_settings_file_however_deep_it_is() -> std::io::Result<()> {
+    let temp = tempfile::TempDir::new()?;
+    let path = temp
+        .path()
+        .join("a-settings-directory-longer-than-the-info-row")
+        .join("settings.yaml");
+    let panel = Panel::new(temp.path().to_owned())?;
+    let mut app = App::with_panels(panel.clone(), panel);
+    crate::ops::menu::settings::load(&mut app, &path)?;
+    crate::ops::menu::settings::save(&mut app)?;
+
+    let row = info_row(app.status, 80, 24);
+    assert!(row.starts_with("Setup saved to …"), "{row:?}");
+    assert!(row.ends_with("settings.yaml"), "{row:?}");
+    Ok(())
+}
+
+/// A copy into a deep folder names the file it made, and says it was
+/// renamed, before any of the folder's path: at 130 columns the row is 63
+/// cells, exactly the message with the path cut to its file name.
+#[test]
+fn a_copy_names_the_file_it_made_however_deep_the_folder() {
+    let copied = Status::Transferred {
+        purpose: crate::copy::Purpose::Copy,
+        landed: crate::status::Landed::At(PathBuf::from(
+            "/srv/x/agents/v-copy-3/work/a/deep/folder/notes_1.txt",
+        )),
+        skipped: 0,
+        renamed: 1,
+    };
+    assert_eq!(
+        info_row(copied, 130, 30),
+        "Copied to …/notes_1.txt (existing files kept, new ones renamed)"
+    );
+}
+
+/// A link refused for a name already taken says which name and why, even
+/// with the whole of the other panel's path in front of it.
+#[test]
+fn a_taken_link_name_keeps_the_name_and_the_reason() {
+    let taken = Status::AlreadyExists(PathBuf::from(
+        "/srv/x/agents/v-link-2/work/the/other/panel/notes.txt",
+    ));
+    let row = info_row(taken, 80, 24);
+    assert!(
+        row.starts_with('…') && row.ends_with("/notes.txt already exists"),
+        "{row:?}"
+    );
+}
+
+/// A program deep in the tree still reports how it ended: the exit status is
+/// what the user ran it to see.
+#[test]
+fn a_finished_program_keeps_its_name_and_its_exit_status() {
+    let status = std::process::ExitStatus::default();
+    let ran = Status::ProgramExited {
+        program: PathBuf::from("/srv/x/agents/v-run-4/work/project/scripts/run.sh"),
+        status,
+    };
+    let row = info_row(ran, 80, 24);
+    assert!(
+        row.starts_with('…') && row.ends_with(&format!("/run.sh: {status}")),
+        "{row:?}"
+    );
+}
+
+/// A file deep in the tree that a batch failed on first.
+fn deep_failure() -> FailedEntry {
+    FailedEntry::new(
+        "/srv/x/agents/v-copy-3/work/a/deep/folder/notes.txt",
+        &"Permission denied (os error 13)",
+    )
+}
+
+/// A copy, a move, a delete and a wipe of 3 entries that each failed on one.
+fn failed_batches() -> [Status; 4] {
+    [
+        Status::CopiedWithErrors {
+            count: 3,
+            error_count: 1,
+            first_error: deep_failure(),
+        },
+        Status::MovedWithErrors {
+            count: 3,
+            error_count: 1,
+            first_error: deep_failure(),
+        },
+        Status::DeletedWithErrors {
+            count: 3,
+            error_count: 1,
+            first_error: deep_failure(),
+        },
+        Status::WipedWithErrors {
+            count: 3,
+            error_count: 1,
+            first_error: deep_failure(),
+        },
+    ]
+}
+
+/// A partly failed batch names the file it failed on and why, however deep
+/// it sits: the head of its path gives way, not the name or the reason.
+#[test]
+fn a_partial_failure_keeps_the_failed_file_name_and_the_reason() {
+    let verbs = ["Copied", "Moved", "Deleted", "Wiped"];
+    for (verb, failure) in verbs.into_iter().zip(failed_batches()) {
+        let row = info_row(failure, 120, 40);
+        let kept = format!("{verb} 3 item(s), 1 error(s): …/notes.txt: Permission");
+        assert!(row.starts_with(&kept), "{row:?}");
+    }
+}
+
+/// Ctrl+A that failed on a deep file names it before the reason gives way.
+#[test]
+fn a_partial_attribute_failure_keeps_the_failed_file_name() {
+    let attributes = Status::AttributesSetWithErrors {
+        count: 2,
+        error_count: 1,
+        first_error: deep_failure(),
+    };
+    assert_eq!(
+        info_row(attributes, 120, 40),
+        "Attributes set on 2 object(s), 1 failed: …/notes.txt: Per…"
+    );
+}
+
+/// F7 with several names counts them and names the folder they went into,
+/// even on an 80-column screen's 38-cell row.
+#[test]
+fn several_new_folders_keep_the_name_of_their_folder() {
+    let made = Status::CreatedDirs {
+        count: 3,
+        directory: PathBuf::from("/srv/x/agents/v-mkdir-1/work/deep/folder/target"),
+    };
+    let row = info_row(made, 80, 24);
+    assert!(
+        row.starts_with("Created 3 folders in …") && row.ends_with("/folder/target"),
+        "{row:?}"
+    );
+}
+
+/// A link names itself by its name — it is under the other panel's cursor —
+/// and gives the room to its target, which Alt+F6 fills in absolute.
+#[test]
+fn a_new_link_keeps_the_name_of_its_target() {
+    let linked = Status::Linked {
+        link: PathBuf::from("/srv/x/agents/v-link-2/work/here/notes.lnk"),
+        target: PathBuf::from("/srv/x/agents/v-link-2/work/the/active/panel/notes.txt"),
+    };
+    let row = info_row(linked, 80, 24);
+    assert!(
+        row.starts_with("Link notes.lnk -> …") && row.ends_with("/panel/notes.txt"),
         "{row:?}"
     );
 }

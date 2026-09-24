@@ -79,7 +79,7 @@ fn apply_rename(app: &mut App, prompt: &NamePrompt) {
 
     // Refuse rather than overwrite. Far asks; this at least does not act.
     if destination.exists() {
-        app.set_status(Status::CommandOutput(format!("{target} already exists")));
+        app.set_status(Status::AlreadyExists(target.into()));
         return;
     }
     match std::fs::rename(directory.join(prompt.original()), &destination) {
@@ -122,9 +122,9 @@ fn apply_make_folder(app: &mut App, prompt: &NamePrompt) {
         settle_on(app, first);
     }
     app.set_status(match (failure, made) {
-        (Some(error), _) => Status::CommandOutput(error),
+        (Some(failed), _) => failed,
         (None, 1) => Status::CreatedDir(directory.join(first).display().to_string()),
-        (None, count) => Status::CreatedDir(format!("{count} folders in {}", directory.display())),
+        (None, count) => Status::CreatedDirs { count, directory },
     });
 }
 
@@ -132,10 +132,10 @@ fn create_folder(
     directory: &std::path::Path,
     name: &str,
     prompt: &NamePrompt,
-) -> Result<(), String> {
+) -> Result<(), Status> {
     let destination = directory.join(name);
     if destination.exists() {
-        return Err(format!("{name} already exists"));
+        return Err(Status::AlreadyExists(name.into()));
     }
     match prompt.link() {
         LinkType::None => std::fs::create_dir(&destination),
@@ -143,7 +143,7 @@ fn create_folder(
         // F7 never offers a hard link — see `NamePurpose::link_choices`.
         LinkType::Hard => Err(std::io::Error::other("a folder cannot be hard-linked")),
     }
-    .map_err(|error| error.to_string())
+    .map_err(|error| Status::CommandOutput(error.to_string()))
 }
 
 /// Re-read both panels and leave the cursor on `name`.

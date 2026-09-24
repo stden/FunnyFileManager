@@ -45,8 +45,14 @@ where
         _ => suspension.resume(),
     };
     app.record_run_outcome(match result {
-        Ok(status) => Status::CommandOutput(format!("{}: {status}", path.display())),
-        Err(error) => Status::Error(format!("Cannot run {}: {error}", path.display())),
+        Ok(status) => Status::ProgramExited {
+            program: path,
+            status,
+        },
+        Err(error) => Status::CannotRun {
+            program: path,
+            error: error.to_string(),
+        },
     });
     let refreshed = crate::utils::refresh_panels(app);
     crate::terminal::merge_run_and_cleanup(refreshed, restored)

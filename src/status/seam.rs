@@ -21,11 +21,14 @@ impl App {
 
     /// Report how a program FFM handed the terminal to ended: in the status
     /// bar, and as the closing line of that run in the Ctrl+O transcript, in
-    /// the same words. Plain command output reads as output; anything else
-    /// (an error, a cancel) as an error line.
+    /// the same words. Plain command output and a program's exit read as
+    /// output; anything else (an error, a cancel) as an error line.
     pub(crate) fn record_run_outcome(&mut self, status: Status) {
         let text = status.to_string();
-        if matches!(status, Status::CommandOutput(_)) {
+        if matches!(
+            status,
+            Status::CommandOutput(_) | Status::ProgramExited { .. }
+        ) {
             self.console.record_output(&text);
         } else {
             self.console.record_error(&text);

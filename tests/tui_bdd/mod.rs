@@ -170,6 +170,22 @@ fn contains(world: &mut TuiWorld, text: String) {
     assert!(screen.contains(&text), "missing {text:?}\n{screen}");
 }
 
+/// `first`, and `after` later on the same row: a message that names a file,
+/// rather than the name turning up somewhere else on the screen.
+#[then(expr = "one screen line contains {string} and then {string}")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Cucumber dictates step signatures: captured args arrive owned"
+)]
+fn contains_in_order(world: &mut TuiWorld, first: String, after: String) {
+    let screen = world.ui().text();
+    let found = screen.lines().any(|line| {
+        line.split_once(first.as_str())
+            .is_some_and(|(_, rest)| rest.contains(&after))
+    });
+    assert!(found, "no line with {first:?} and then {after:?}\n{screen}");
+}
+
 #[then(expr = "the screen does not contain {string}")]
 #[expect(
     clippy::needless_pass_by_value,

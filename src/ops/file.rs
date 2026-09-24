@@ -8,8 +8,9 @@ use std::{
 #[cfg(any(test, tarpaulin))]
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use crate::copy::Purpose;
 use crate::models::{App, Overlay};
-use crate::status::{FailedEntry, Status};
+use crate::status::{FailedEntry, Landed, Status};
 use crate::utils::{
     copy_dir_all_with, copy_file, copy_symlink, refresh_panels, unique_destination, CopyRules,
 };
@@ -69,16 +70,6 @@ fn refresh_after_operation(app: &mut App) {
 
 pub fn get_source_paths(app: &App) -> Vec<PathBuf> {
     app.get_active_panel_ref().action_paths()
-}
-
-pub fn format_operation_status(count: usize, op_name: &str, first_dest: Option<&Path>) -> String {
-    if count > 1 {
-        format!("{op_name} {count} item(s)")
-    } else if let Some(dest) = first_dest {
-        format!("{} to {}", op_name, dest.display())
-    } else {
-        String::new()
-    }
 }
 
 pub fn handle_create_file(app: &mut App, filename: &str) -> io::Result<()> {
@@ -304,11 +295,12 @@ pub fn handle_copy(app: &mut App) -> io::Result<()> {
             first_error: first_error.clone(),
         });
     } else {
-        app.set_status(Status::CommandOutput(format_operation_status(
-            outcome.count,
-            "Copied",
-            outcome.first_dest.as_deref(),
-        )));
+        app.set_status(Status::Transferred {
+            purpose: Purpose::Copy,
+            landed: Landed::of(outcome.count, outcome.first_dest),
+            skipped: 0,
+            renamed: 0,
+        });
     }
     refresh_after_operation(app);
     Ok(())
@@ -331,11 +323,12 @@ pub fn handle_move(app: &mut App) -> io::Result<()> {
             first_error: first_error.clone(),
         });
     } else {
-        app.set_status(Status::CommandOutput(format_operation_status(
-            outcome.count,
-            "Moved",
-            outcome.first_dest.as_deref(),
-        )));
+        app.set_status(Status::Transferred {
+            purpose: Purpose::Move,
+            landed: Landed::of(outcome.count, outcome.first_dest),
+            skipped: 0,
+            renamed: 0,
+        });
     }
     refresh_after_operation(app);
     Ok(())
@@ -512,9 +505,7 @@ impl DialogOutcome {
     }
 }
 
-fn report_copy_outcome(app: &mut App, outcome: &DialogOutcome, purpose: crate::copy::Purpose) {
-    use crate::copy::Purpose;
-
+fn report_copy_outcome(app: &mut App, outcome: &DialogOutcome, purpose: Purpose) {
     let batch = &outcome.batch;
     app.get_active_panel().clear_marks();
     if let Some(first_error) = batch.errors.first().cloned() {
@@ -533,15 +524,12 @@ fn report_copy_outcome(app: &mut App, outcome: &DialogOutcome, purpose: crate::c
         });
         return;
     }
-    let mut text =
-        format_operation_status(batch.count, purpose.done(), batch.first_dest.as_deref());
-    if outcome.skipped > 0 {
-        text = format!("{text}, {} skipped", outcome.skipped);
-    }
-    if outcome.renamed > 0 {
-        text.push_str(" (existing files kept, new ones renamed)");
-    }
-    app.set_status(Status::CommandOutput(text));
+    app.set_status(Status::Transferred {
+        purpose,
+        landed: Landed::of(batch.count, batch.first_dest.clone()),
+        skipped: outcome.skipped,
+        renamed: outcome.renamed,
+    });
 }
 
 /// Transfer one entry to where the dialog sends it.
@@ -637,8 +625,6 @@ fn reject_transfer_onto_itself(source: &Path, dest: &Path) -> io::Result<()> {
 /// operation and it is atomic. Across filesystems `rename` fails, and the only
 /// thing left is to copy and then remove, which is what every mover does.
 fn place(source: &Path, dest: &Path, settings: &crate::copy::CopyPrompt) -> io::Result<()> {
-    use crate::copy::Purpose;
-
     if settings.purpose == Purpose::Move && rename_or_fail(source, dest).is_ok() {
         return Ok(());
     }

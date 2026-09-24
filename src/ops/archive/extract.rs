@@ -193,14 +193,17 @@ struct Outcome {
 
 impl Outcome {
     fn summary(&self, total: usize, destination: &Path) -> Status {
-        let noun = if total == 1 { "archive" } else { "archives" };
-        Status::CommandOutput(match &self.first_error {
-            None => format!("Extracted {total} {noun} to {}", destination.display()),
-            Some(error) => format!(
-                "Extracted {} of {total} {noun}, first error: {error}",
-                self.done
-            ),
-        })
+        match &self.first_error {
+            None => Status::Extracted {
+                count: total,
+                destination: destination.to_owned(),
+            },
+            Some(error) => Status::ExtractedWithErrors {
+                done: self.done,
+                total,
+                first_error: error.to_string(),
+            },
+        }
     }
 }
 

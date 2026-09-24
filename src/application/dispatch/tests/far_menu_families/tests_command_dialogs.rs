@@ -200,11 +200,7 @@ fn shift_f9_is_the_menu_save_setup_and_keeps_the_keys_it_does_not_own() {
         yaml(&std::fs::read_to_string(&path).expect("saved")),
         yaml("lsp:\n  python:\n    enabled: false\noptions:\n  System: '5000'\n  Editor: '8'\nunknown: 1\n")
     );
-    assert!(
-        app.status.to_string().contains("Setup saved"),
-        "{}",
-        app.status
-    );
+    assert_eq!(app.status, status::Status::SetupSaved(path));
 }
 
 #[test]

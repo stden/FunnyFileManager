@@ -111,16 +111,11 @@ fn report(
     } else {
         0
     };
-    let leftovers = if kept > 0 {
-        format!("; {kept} could not be deleted")
-    } else {
-        String::new()
-    };
-    Status::CommandOutput(format!(
-        "Added {} item(s) to {}{leftovers}",
-        request.sources.len(),
-        request.archive.display()
-    ))
+    Status::AddedToArchive {
+        count: request.sources.len(),
+        archive: request.archive.to_owned(),
+        kept,
+    }
 }
 
 /// Remove every source; the count of those that would not go.

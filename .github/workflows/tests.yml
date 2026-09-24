@@ -195,11 +195,13 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Run TUI BDD scenarios (undefined steps fail)
         run: cargo test --features test-helpers --test tui_bdd
+      # Run even when the TUI scenarios failed: otherwise one red scenario
+      # hides every other Windows regression behind it until it is fixed.
       - name: Run the complete Windows test suite
-        if: runner.os == 'Windows'
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
         run: cargo test --features test-helpers --no-fail-fast
       - name: Lint Windows code and tests
-        if: runner.os == 'Windows'
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
         run: cargo clippy --all-targets --features test-helpers -- -D warnings
       - name: Upload terminal screen transcripts
         if: always()

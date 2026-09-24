@@ -65,16 +65,17 @@ pub fn create(app: &mut App, prompt: &NamePrompt) {
     // `symlink_metadata` rather than `exists`: a dangling link at that name
     // is still a name that is taken, and `exists` would say it is free.
     if fs::symlink_metadata(&link).is_ok() {
-        let taken = link.display();
-        app.set_status(Status::CommandOutput(format!("{taken} already exists")));
+        app.set_status(Status::AlreadyExists(link));
         return;
     }
     let target = prompt.link_target();
     match make(prompt.link(), target, &link) {
         Ok(()) => {
             settle_on(app, &link);
-            let made = link.display();
-            app.set_status(Status::CommandOutput(format!("Link {made} -> {target}")));
+            app.set_status(Status::Linked {
+                link,
+                target: target.into(),
+            });
         }
         Err(error) => app.set_status(Status::CommandOutput(error.to_string())),
     }

@@ -2,8 +2,6 @@
 
 use crate::models::FileName;
 
-use crate::ops::file::format_operation_status;
-
 use super::support::*;
 use crate::ops::*;
 use crate::popup::process_popup_input;
@@ -15,8 +13,6 @@ use crossterm::event::KeyCode;
 use std::fs::{self, File};
 
 use std::io;
-
-use std::path::Path;
 
 use tempfile::TempDir;
 
@@ -38,14 +34,6 @@ fn test_execute_command_bookmark_go_empty_slot_returns_error() -> io::Result<()>
     );
 
     Ok(())
-}
-
-// --- format_operation_status ---
-
-#[test]
-fn test_format_operation_status_no_source() {
-    let status = format_operation_status(0, "Copied", None);
-    assert!(status.is_empty());
 }
 
 // -----------------------------------------------------------------------
@@ -376,33 +364,6 @@ fn test_handle_delete_confirm_dotdot_is_noop() -> io::Result<()> {
     );
 
     Ok(())
-}
-
-// -----------------------------------------------------------------------
-// format_operation_status branches
-// -----------------------------------------------------------------------
-
-#[test]
-fn test_format_operation_status_multiple_items() {
-    let result = format_operation_status(3, "Copied", Some(Path::new("/tmp/file.txt")));
-    assert_eq!(result, "Copied 3 item(s)");
-}
-
-#[test]
-fn test_format_operation_status_single_item() {
-    let dest = Path::new("/tmp/target/file.txt");
-    let result = format_operation_status(1, "Moved", Some(dest));
-    assert!(
-        result.starts_with("Moved to"),
-        "single item should show destination: {result}"
-    );
-    assert!(result.contains("file.txt"));
-}
-
-#[test]
-fn test_format_operation_status_no_source_empty() {
-    let result = format_operation_status(0, "Copied", None);
-    assert_eq!(result, "");
 }
 
 // -----------------------------------------------------------------------

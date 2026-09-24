@@ -11,8 +11,9 @@ Feature: Settings file
       """
     When I open the TUI on the workspace settings at 160 by 30
     And I press "Shift+F9"
-    Then the screen contains "Setup saved to"
-    And the screen contains "settings.yaml"
+    # The path gives way from its head, never the file name: on a Windows
+    # runner the message, temp path and all, is wider than a panel's row.
+    Then one screen line contains "Setup saved to" and then "settings.yaml"
     And the workspace settings file "settings.yaml" contains:
       """
       lsp:

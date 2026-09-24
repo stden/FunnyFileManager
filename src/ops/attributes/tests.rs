@@ -25,10 +25,6 @@ fn dialog(app: &App) -> &AttributesDialog {
     dialog
 }
 
-fn status_text(app: &App) -> String {
-    app.status_text()
-}
-
 /// Space until the box reads `[x]` — one press for a file, two for a
 /// three-state box that opened on `[ ]`.
 #[cfg(unix)]
@@ -184,7 +180,7 @@ fn apply_changes_only_the_moved_bits_on_every_target() {
 
     assert_eq!(mode(&a), 0o744);
     assert_eq!(mode(&b), 0o700);
-    assert!(status_text(&app).contains('2'), "{}", status_text(&app));
+    assert!(app.status_text().contains('2'), "{}", app.status_text());
     assert!(
         app.left_panel.marked.is_empty(),
         "the operation consumed the marks"
@@ -310,7 +306,7 @@ fn process_subfolders_never_follows_a_link_out_of_the_selection() {
     assert_eq!(mode(&dir.join("a.txt")) & 0o002, 0o002, "inside changed");
     assert_eq!(mode(&outside), 0o755, "the link's target is outside");
     assert_eq!(mode(&outside.join("c.txt")), 0o644, "and so is its content");
-    assert_eq!(status_text(&app), "Attributes set on 2 object(s)");
+    assert_eq!(app.status_text(), "Attributes set on 2 object(s)");
 }
 
 /// A link back to its own folder is not a way down: the walk ends instead
@@ -327,7 +323,7 @@ fn process_subfolders_does_not_loop_through_a_link_to_its_own_folder() {
 
     set_other_write_recursively(&mut app, "attrtest2");
 
-    assert_eq!(status_text(&app), "Attributes set on 3 object(s)");
+    assert_eq!(app.status_text(), "Attributes set on 3 object(s)");
 }
 
 /// The owner of a mode-0000 file can give themselves read back and set a
@@ -350,7 +346,7 @@ fn the_owner_restores_read_and_a_time_on_a_mode_0000_file() {
 
     apply(&mut app, &dialog);
 
-    assert_eq!(status_text(&app), "Attributes set on 1 object(s)");
+    assert_eq!(app.status_text(), "Attributes set on 1 object(s)");
     assert_eq!(mode(&file), 0o400);
     assert_eq!(mtime(&file), "2001-02-03 04:05:06");
 }
@@ -375,7 +371,7 @@ fn a_time_is_set_in_the_same_set_that_drops_every_permission() {
 
     apply(&mut app, &dialog);
 
-    assert_eq!(status_text(&app), "Attributes set on 1 object(s)");
+    assert_eq!(app.status_text(), "Attributes set on 1 object(s)");
     assert_eq!(mode(&file), 0o000);
     assert_eq!(mtime(&file), "2001-02-03 04:05:06");
 }
@@ -486,7 +482,7 @@ fn a_bad_time_is_refused_before_anything_changes() {
     apply(&mut app, &dialog);
 
     assert_eq!(mode(&file), 0o644, "nothing was written");
-    assert!(status_text(&app).contains("soon"), "{}", status_text(&app));
+    assert!(app.status_text().contains("soon"), "{}", app.status_text());
 }
 
 /// A target that has gone is counted as a failure, not hidden.
@@ -505,7 +501,17 @@ fn a_missing_target_is_counted_and_named() {
 
     apply(&mut app, &dialog);
 
-    let text = status_text(&app);
-    assert!(text.contains("1 failed"), "{text}");
-    assert!(text.contains("gone.txt"), "{text}");
+    let crate::status::Status::AttributesSetWithErrors {
+        count: 0,
+        error_count: 1,
+        first_error,
+    } = &app.status
+    else {
+        panic!("one failure, and nothing set: {:?}", app.status);
+    };
+    assert_eq!(
+        first_error.path().file_name(),
+        file.file_name(),
+        "the failure names the target"
+    );
 }

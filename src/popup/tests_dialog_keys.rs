@@ -547,11 +547,40 @@ fn renaming_onto_a_name_that_is_taken_refuses() {
         dir.path().join("a.txt").exists(),
         "the original is still there"
     );
-    assert!(
-        app.status.to_string().contains("already exists"),
-        "{}",
-        app.status
+    assert_eq!(
+        app.status,
+        crate::status::Status::AlreadyExists("b.txt".into())
     );
+}
+
+/// F7 with several names makes each and counts them in the folder they went
+/// into; the first name already taken stops the run and is the one named.
+#[test]
+fn make_folder_counts_what_it_made_and_names_what_was_taken() {
+    use crate::status::Status;
+
+    let (mut app, _dir) = app_over(&["taken"]);
+    let directory = app.get_active_panel_ref().path.clone();
+    let make = |app: &mut App, names: &str| {
+        let mut prompt = NamePrompt::make_folder();
+        prompt.focus(NameField::Multiple);
+        prompt.toggle();
+        prompt.focus(NameField::Name);
+        names.chars().for_each(|ch| prompt.push(ch));
+        app.set_overlay(Overlay::NamePrompt(prompt));
+        press(app, KeyCode::Enter);
+    };
+
+    make(&mut app, "one;two");
+    assert_eq!(
+        app.status,
+        Status::CreatedDirs {
+            count: 2,
+            directory
+        }
+    );
+    make(&mut app, "three;taken");
+    assert_eq!(app.status, Status::AlreadyExists("taken".into()));
 }
 
 /// Enter on a rename dialog whose name was never touched is a no-op: the

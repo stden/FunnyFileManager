@@ -94,9 +94,8 @@ fn test_handle_copy_multiple_marked_files() -> io::Result<()> {
 
     assert!(right_dir.join("a.txt").exists());
     assert!(right_dir.join("b.txt").exists());
-    // count > 1 branch in format_operation_status
-    assert!(app.status_text().contains("Copied"));
-    assert!(app.status_text().contains('2'));
+    // More than one entry: counted, not named.
+    assert_eq!(app.status_text(), "Copied 2 item(s)");
 
     Ok(())
 }

@@ -33,7 +33,13 @@ fn launch_receives_literal_path_and_panel_working_directory() {
         },
     )
     .expect("terminal restored");
-    assert!(app.status_text().contains("deliberate launch failure"));
+    assert_eq!(
+        app.status,
+        Status::CannotRun {
+            program: root.path().join("my program.exe"),
+            error: "deliberate launch failure".to_owned(),
+        }
+    );
     terminal.draw(|_| {}).expect("terminal remains usable");
 }
 
@@ -142,6 +148,13 @@ fn a_program_started_with_enter_is_recorded_in_the_transcript() {
             format!("{}> {}", root.path().display(), program.display()),
             format!("{}: {}", program.display(), ExitStatus::default()),
         ]
+    );
+    assert_eq!(
+        app.status,
+        Status::ProgramExited {
+            program,
+            status: ExitStatus::default(),
+        }
     );
 }
 

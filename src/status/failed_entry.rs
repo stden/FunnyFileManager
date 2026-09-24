@@ -7,8 +7,9 @@ use std::fmt;
 /// A struct rather than a pre-formatted `"path: error"` string: the two halves
 /// were joined at the point of failure, which threw away the ability to show
 /// them differently — a name in the status bar, the full path in a dialog, the
-/// error alone in a log. The rendering lives in `Display`, so there is one of
-/// it, and nothing can put a bare error message where a failed entry belongs.
+/// error alone in a log. The one rendering is the status line's, in
+/// `status/display`, which quotes the path apart from the reason so a narrow
+/// info row can shorten the path and keep both the file name and the reason.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FailedEntry {
     path: std::path::PathBuf,
@@ -32,16 +33,5 @@ impl FailedEntry {
     #[must_use]
     pub fn error(&self) -> &str {
         &self.error
-    }
-}
-
-impl fmt::Display for FailedEntry {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}: {}",
-            crate::path_display::label(&self.path),
-            self.error
-        )
     }
 }
