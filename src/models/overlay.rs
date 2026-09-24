@@ -69,6 +69,8 @@ pub enum Overlay {
     /// Windows Subsystem for Linux distributions and maintenance commands.
     Wsl(Box<super::WslDialog>),
     PathEditor(Box<crate::path_env::PathEditor>),
+    /// F9 → Commands → Language servers, and the `lsp` command.
+    LspEditor(Box<super::LspEditor>),
 
     /// F3 file viewer (also reused for MCP status via F11 / :mcp)
     Viewer(Viewer),

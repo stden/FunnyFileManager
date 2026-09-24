@@ -65,7 +65,6 @@ const fn resolve_shift_function_key(key: KeyEvent) -> Action {
         KeyCode::F(3) => Action::File(FileCommand::ArchiveCommands),
         KeyCode::F(4) => Action::NewFile,
         KeyCode::F(6) => Action::Rename,
-        KeyCode::F(9) => Action::Tool(ToolCommand::SaveSetup),
         _ => resolve_bare_function_key(key),
     }
 }

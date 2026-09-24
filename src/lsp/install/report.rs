@@ -1,130 +1,209 @@
-//! Purpose: Inspect configured and cached servers without starting processes or installing packages.
+//! Purpose: Say what FFM would start for a configured server, without starting
+//! a process or installing a package.
 
-use super::{
-    environment::{Environment, System},
-    launch::Launch,
-    storage, InstallError,
+use super::{environment::Environment, launch::Launch, probe::Probe, storage, InstallError};
+use crate::config::{InstallRecipe, LspSettings, ServerSettings};
+use std::{
+    fs,
+    path::{Path, PathBuf},
 };
-use crate::config::{LspSettings, ServerSettings, Settings};
-use std::{fs, path::Path};
 
-pub fn inventory(settings: &LspSettings, directory: &Path) -> Vec<String> {
-    let mut lines =
-        vec!["Configured servers; availability does not mean a server is running.".into()];
-    if let Some(path) = Settings::path() {
-        lines.push(format!("Settings: {}", path.display()));
-    }
-    lines.extend(report(
-        settings,
-        directory,
-        super::cache_dir().as_deref(),
-        &System,
-    ));
-    lines
+/// A program FFM would run, and the arguments it would pass.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Resolved {
+    pub executable: PathBuf,
+    pub args: Vec<String>,
 }
 
-fn report(
-    settings: &LspSettings,
-    directory: &Path,
-    cache: Option<&Path>,
-    environment: &dyn Environment,
-) -> Vec<String> {
-    let mut lines =
-        vec!["Open a source file with F4 to start its server. Esc closes this report.".into()];
-    for (language, server) in &settings.0 {
-        lines.push(String::new());
-        lines.push(format!(
-            "{language} [{}] .{}",
-            if server.enabled {
-                "enabled"
-            } else {
-                "disabled"
-            },
-            server.extensions.join(" .")
-        ));
-        lines.push(format!("  Configured command: {}", server.command));
-        arguments(&mut lines, &server.args, "Configured argument");
-        availability(&mut lines, server, directory, cache, environment);
-        let recipe = server.install.as_ref().map_or_else(
-            || "disabled".into(),
-            |recipe| {
-                serde_json::to_string(recipe)
-                    .unwrap_or_else(|error| format!("unreadable recipe ({error})"))
-            },
-        );
-        lines.push(format!("  Auto-install: {recipe}"));
-    }
-    lines
+/// Why nothing is installed to run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NotInstalled {
+    AutoInstallOff,
+    NoCache,
+    AfterTrust,
 }
 
-fn availability(
-    lines: &mut Vec<String>,
+/// The configured command was not found, and the auto-install recipe's
+/// program runs instead of it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Replacement {
+    Cached(Resolved),
+    AfterTrust,
+}
+
+/// How a status reads at a glance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tone {
+    Good,
+    Pending,
+    Bad,
+}
+
+/// What FFM would start for one server — never a process list.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Availability {
+    /// The configured command was found.
+    Configured(Resolved),
+    /// The recipe that supplies the configured command is installed.
+    Cached(Resolved),
+    NotInstalled(NotInstalled),
+    Replaced(Replacement),
+    /// A corrupt receipt, an I/O error, or a missing runtime (Java 21, Node.js).
+    Failed(InstallError),
+}
+
+impl Availability {
+    /// The Status row's words.
+    #[must_use]
+    pub const fn label(&self) -> &'static str {
+        match self {
+            Self::Configured(_) => "found configured executable",
+            Self::Cached(_) => "installed in FFM cache",
+            Self::NotInstalled(NotInstalled::AfterTrust) => {
+                "not installed; installs after workspace trust"
+            }
+            Self::NotInstalled(NotInstalled::AutoInstallOff) => {
+                "not installed; auto-install disabled"
+            }
+            Self::NotInstalled(NotInstalled::NoCache) => "no installation cache configured",
+            Self::Replaced(Replacement::Cached(_)) => {
+                "command not found; FFM runs the auto-installed server instead"
+            }
+            Self::Replaced(Replacement::AfterTrust) => {
+                "command not found; FFM will install and run the auto-install server instead"
+            }
+            Self::Failed(error) => error.label(),
+        }
+    }
+
+    #[must_use]
+    pub const fn tone(&self) -> Tone {
+        match self {
+            Self::Configured(_) | Self::Cached(_) => Tone::Good,
+            Self::NotInstalled(NotInstalled::AfterTrust) | Self::Replaced(_) => Tone::Pending,
+            Self::NotInstalled(_) | Self::Failed(_) => Tone::Bad,
+        }
+    }
+
+    /// The one word the server list shows.
+    #[must_use]
+    pub const fn tag(&self) -> &'static str {
+        match self {
+            Self::Configured(_) | Self::Cached(_) => "ready",
+            Self::NotInstalled(NotInstalled::AfterTrust) => "auto",
+            Self::Replaced(_) => "recipe",
+            Self::NotInstalled(_) => "missing",
+            Self::Failed(_) => "error",
+        }
+    }
+
+    /// The program FFM would run now, when it has one.
+    #[must_use]
+    pub const fn resolved(&self) -> Option<&Resolved> {
+        match self {
+            Self::Configured(resolved)
+            | Self::Cached(resolved)
+            | Self::Replaced(Replacement::Cached(resolved)) => Some(resolved),
+            Self::NotInstalled(_) | Self::Replaced(Replacement::AfterTrust) | Self::Failed(_) => {
+                None
+            }
+        }
+    }
+}
+
+/// What FFM would start for `language`'s `server` in a file under
+/// `directory`, on the machine `probe` describes.
+#[must_use]
+pub fn availability(
+    language: &str,
     server: &ServerSettings,
     directory: &Path,
-    cache: Option<&Path>,
-    environment: &dyn Environment,
-) {
+    probe: &Probe,
+) -> Availability {
+    let found = resolve(server, probe.cache(), &workspace(server, directory), probe);
+    if recipe_supplies_command(language, server) {
+        return found;
+    }
+    match found {
+        Availability::Cached(resolved) => Availability::Replaced(Replacement::Cached(resolved)),
+        Availability::NotInstalled(NotInstalled::AfterTrust) => {
+            Availability::Replaced(Replacement::AfterTrust)
+        }
+        other => other,
+    }
+}
+
+/// The project root the server would open for a file in `directory`.
+fn workspace(server: &ServerSettings, directory: &Path) -> PathBuf {
     let directory = directory
         .canonicalize()
         .unwrap_or_else(|_| directory.to_path_buf());
-    let workspace =
-        super::super::worker::workspace_root(&directory.join("source"), &server.root_markers);
-    match resolve(server, cache, &workspace, environment) {
-        Ok((state, prepared)) => {
-            lines.push(format!("  Status: {state}"));
-            lines.push(format!("  Executable: {}", prepared.command));
-            arguments(lines, &prepared.args, "Launch argument");
-        }
-        Err(error) => lines.push(format!("  Status: {}", error.label())),
-    }
+    super::super::worker::workspace_root(&directory.join("source"), &server.root_markers)
 }
 
-fn arguments(lines: &mut Vec<String>, args: &[String], label: &str) {
-    if args.is_empty() {
-        lines.push(format!("  {label}s: (none)"));
-    }
-    for arg in args {
-        lines.push(format!("  {label}: {arg}"));
-    }
+/// Whether the auto-install recipe installs the command itself: the catalog's
+/// command and recipe, both unchanged. Otherwise an installed recipe runs
+/// *instead of* the configured command, and the status must say so.
+fn recipe_supplies_command(language: &str, server: &ServerSettings) -> bool {
+    LspSettings::catalog()
+        .0
+        .get(language)
+        .is_some_and(|catalog| {
+            catalog.command == server.command && catalog.install == server.install
+        })
 }
 
+/// The configured command when it is found, else what the recipe offers.
 fn resolve(
     server: &ServerSettings,
     cache: Option<&Path>,
     workspace: &Path,
     environment: &dyn Environment,
-) -> Result<(&'static str, ServerSettings), InstallError> {
-    if let Some(path) = configured(&server.command, workspace, environment) {
-        let mut prepared = server.clone();
-        prepared.command = path.to_string_lossy().into_owned();
-        return Ok(("found configured executable", prepared));
+) -> Availability {
+    if let Some(executable) = configured(&server.command, workspace, environment) {
+        return Availability::Configured(Resolved {
+            executable,
+            args: server.args.clone(),
+        });
     }
-    let recipe = server.install.as_ref().ok_or(InstallError::Missing(
-        "not installed; auto-install disabled",
-    ))?;
-    let cache = cache.ok_or(InstallError::Missing("no installation cache configured"))?;
+    let Some(recipe) = &server.install else {
+        return Availability::NotInstalled(NotInstalled::AutoInstallOff);
+    };
+    let Some(cache) = cache else {
+        return Availability::NotInstalled(NotInstalled::NoCache);
+    };
+    match cached(server, recipe, cache, workspace, environment) {
+        Ok(Some(resolved)) => Availability::Cached(resolved),
+        Ok(None) => Availability::NotInstalled(NotInstalled::AfterTrust),
+        Err(error) => Availability::Failed(error),
+    }
+}
+
+/// The recipe's installed program, `None` when it is not installed.
+fn cached(
+    server: &ServerSettings,
+    recipe: &InstallRecipe,
+    cache: &Path,
+    workspace: &Path,
+    environment: &dyn Environment,
+) -> Result<Option<Resolved>, InstallError> {
     let key = storage::digest(
         &serde_json::to_vec(recipe).map_err(crate::lsp::logged(InstallError::Recipe))?,
     );
     let root = cache.join(key);
     if !root.exists() {
-        return Err(InstallError::Missing(
-            "not installed; installs after workspace trust",
-        ));
+        return Ok(None);
     }
     let receipt: Launch = serde_json::from_slice(&fs::read(root.join("ready.json"))?)
         .map_err(crate::lsp::logged(InstallError::Recipe))?;
-    Ok((
-        "installed in FFM cache",
-        receipt.preview(server, &root, workspace, environment)?,
-    ))
+    let prepared = receipt.preview(server, &root, workspace, environment)?;
+    Ok(Some(Resolved {
+        executable: PathBuf::from(prepared.command),
+        args: prepared.args,
+    }))
 }
 
-fn configured(
-    command: &str,
-    workspace: &Path,
-    environment: &dyn Environment,
-) -> Option<std::path::PathBuf> {
+fn configured(command: &str, workspace: &Path, environment: &dyn Environment) -> Option<PathBuf> {
     let path = Path::new(command);
     if path.is_absolute() {
         return super::launch::runnable(path).then(|| path.to_path_buf());

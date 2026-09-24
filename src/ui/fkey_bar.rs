@@ -36,6 +36,15 @@ pub(super) const FKEY_LABELS: [(&str, &str); FKEY_COUNT] = [
     ("12", "Screen"),
 ];
 
+/// One cell of the key bar: the key's number and its label, empty when the
+/// key does nothing on the current screen.
+pub(super) type KeyLabels<'a> = [(&'a str, &'a str); FKEY_COUNT];
+
+/// The panels' key bar.
+pub(super) fn render_command_bar(f: &mut Frame<'_>, area: Rect) {
+    render_key_bar(f, area, &FKEY_LABELS);
+}
+
 /// Far's key bar fills the row: every cell is one tenth of the terminal, so
 /// the coloured blocks meet edge to edge instead of trailing off into
 /// background after the tenth label.
@@ -43,12 +52,16 @@ pub(super) const FKEY_LABELS: [(&str, &str); FKEY_COUNT] = [
 /// The remainder is spread over the leftmost cells rather than dumped on the
 /// last one, which is what keeps an 85-column terminal from ending in a cell
 /// five columns wider than its neighbours.
-pub(super) fn render_command_bar(f: &mut Frame<'_>, area: Rect) {
+///
+/// A screen with keys of its own (the Language servers dialog) passes its own
+/// labels; a label for a key that does nothing there is left empty, because a
+/// label that promises nothing is worse than none.
+pub(super) fn render_key_bar(f: &mut Frame<'_>, area: Rect, labels: &KeyLabels<'_>) {
     // The same arithmetic the hit test uses, so a click that lands on "5Copy"
     // runs F5 because one function put the label there and answered for it.
-    let widths = crate::mouse::fkey_widths(area.width, FKEY_LABELS.len());
+    let widths = crate::mouse::fkey_widths(area.width, labels.len());
 
-    let spans: Vec<Span<'_>> = FKEY_LABELS
+    let spans: Vec<Span<'_>> = labels
         .iter()
         .zip(widths)
         .flat_map(|((key, label), width)| {

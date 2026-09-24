@@ -30,6 +30,7 @@ mod findfile;
 mod histlist;
 mod histories;
 mod hotplug;
+pub mod lsp_editor;
 mod mcp_install;
 pub use mcp_install::{ClientRow, Mark, McpInstallDialog, McpInstallField, McpInstallProgress};
 mod overlay;
@@ -90,6 +91,7 @@ pub use findfile::{FindFile, FindFileField};
 pub use histlist::HistoryList;
 pub use histories::{FolderHistory, HistoryFile, PathHistory, ViewHistory, Viewed, Visited};
 pub use hotplug::DeviceList;
+pub use lsp_editor::LspEditor;
 pub use overlay::{
     Confirm, LinkType, MaskPrompt, MaskPurpose, NameField, NamePrompt, NamePurpose, Overlay,
 };

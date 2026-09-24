@@ -95,6 +95,18 @@ fn modal_paste_labels_identify_the_context_without_recording_private_text() {
     }
 }
 
+/// The Language servers dialog has its own label, like every other dialog
+/// with a name, rather than the generic `Dialog`.
+#[test]
+fn the_language_servers_dialog_labels_its_own_actions() {
+    let machine = crate::test_support::lsp_machine::LspMachine::new();
+    let app = machine.opened();
+    assert_eq!(
+        label(&app, &Event::Paste("private payload".into())),
+        "LspEditor/Paste"
+    );
+}
+
 #[test]
 fn mouse_and_focus_events_never_store_screen_coordinates() {
     use crossterm::event::{KeyModifiers, MouseEvent, MouseEventKind};

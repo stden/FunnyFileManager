@@ -1,10 +1,11 @@
 //! Purpose: run the real `ffm` binary on a pseudo-terminal, where the input
 //! loop meets crossterm's own event queue and a terminal that really hangs up.
 //!
-//! Every other test injects events into the loop. These two behaviours live
-//! between the kernel's pty and crossterm's reader, so only the binary on a
-//! pty can show them. Linux only: the hang-up is the one Linux reports, where
-//! `isatty` on the hung-up terminal fails with `EIO`.
+//! Every other test injects events and state into the loop. What lives
+//! between the kernel's pty and crossterm's reader, and what only the
+//! program's own start-up hands the app, can be seen only in the binary on a
+//! pty. Linux only: the hang-up is the one Linux reports, where `isatty` on
+//! the hung-up terminal fails with `EIO`.
 #![cfg(target_os = "linux")]
 
 use std::ffi::OsStr;
@@ -45,7 +46,18 @@ impl Ffm {
         reason = "test fixture: an error from the pty or the ffm process fails the test driving it"
     )]
     fn start() -> Self {
-        let sandbox = TempDir::new().expect("sandbox");
+        let path = std::env::var_os("PATH").unwrap_or_default();
+        Self::start_in(TempDir::new().expect("sandbox"), &path)
+    }
+
+    /// `ffm` with `sandbox/home` as its home, `sandbox/work` as its working
+    /// directory and `path` as its `PATH`; whatever the sandbox holds already
+    /// is there when it starts.
+    #[expect(
+        clippy::expect_used,
+        reason = "test fixture: an error from the pty or the ffm process fails the test driving it"
+    )]
+    fn start_in(sandbox: TempDir, path: &OsStr) -> Self {
         let home = sandbox.path().join("home");
         fs::create_dir_all(&home).expect("home");
         fs::create_dir_all(sandbox.path().join("work")).expect("work");
@@ -53,7 +65,7 @@ impl Ffm {
         let process = Command::new(env!("CARGO_BIN_EXE_ffm"))
             .current_dir(sandbox.path().join("work"))
             .env_clear()
-            .env("PATH", std::env::var_os("PATH").unwrap_or_default())
+            .env("PATH", path)
             .env("HOME", &home)
             .env("TERM", "xterm-256color")
             .env("LANG", "C.UTF-8")
@@ -70,9 +82,26 @@ impl Ffm {
             screen: Vec::new(),
             sandbox,
         };
-        let drawn = ffm.wait_for(STARTUP, |ffm| contains(&ffm.screen, b"Quit"));
-        assert!(drawn.is_some(), "ffm never drew its first frame");
+        ffm.wait_for_first_frame();
         ffm
+    }
+
+    /// Wait for the first frame; an ffm that ends at once fails here, not
+    /// when [`STARTUP`] runs out.
+    #[expect(
+        clippy::expect_used,
+        reason = "test fixture: an error from the pty or the ffm process fails the test driving it"
+    )]
+    fn wait_for_first_frame(&mut self) {
+        let drawn = self.wait_for(STARTUP, |ffm| {
+            contains(&ffm.screen, b"Quit") || ffm.process.try_wait().expect("ffm status").is_some()
+        });
+        assert!(drawn.is_some(), "ffm never drew its first frame");
+        let ended = self.process.try_wait().expect("ffm status");
+        assert!(
+            ended.is_none(),
+            "ffm ended before its first frame: {ended:?}"
+        );
     }
 
     fn work(&self) -> PathBuf {
@@ -198,6 +227,47 @@ fn a_burst_of_typed_keys_is_handled_without_waiting_between_keys() {
     assert!(
         took < Duration::from_secs(3),
         "80 queued keys took {took:?}; they must not wait for each other"
+    );
+}
+
+/// The Language servers dialog says what this machine would start, so the
+/// program has to hand it the `PATH` it runs with: a server whose command is
+/// there is found. Every other test gives the dialog a fake machine.
+#[test]
+fn the_language_servers_dialog_finds_a_server_on_the_path_ffm_runs_with() {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let sandbox = TempDir::new().expect("sandbox");
+    let bin = sandbox.path().join("bin");
+    fs::create_dir_all(&bin).expect("bin");
+    let server = bin.join("aaa-fixture-server");
+    fs::write(&server, "#!/bin/sh\n").expect("server");
+    fs::set_permissions(&server, fs::Permissions::from_mode(0o755)).expect("chmod");
+    let config = sandbox.path().join("home/.config/ffm");
+    fs::create_dir_all(&config).expect("config");
+    fs::write(
+        config.join("settings.yaml"),
+        "lsp:\n  aaa: {command: aaa-fixture-server, extensions: [aaafixture], install: null}\n",
+    )
+    .expect("settings");
+    let inherited = std::env::var_os("PATH").unwrap_or_default();
+    let path = std::env::join_paths(std::iter::once(bin).chain(std::env::split_paths(&inherited)))
+        .expect("PATH");
+    let mut ffm = Ffm::start_in(sandbox, &path);
+
+    ffm.type_keys(b":lsp\r");
+    // The status is checked before the dialog is drawn, so the first frame
+    // that shows aaa's status shows the answer.
+    let found = b"found configured executable";
+    let shown = ffm.wait_for(PATIENCE, |ffm| {
+        contains(&ffm.screen, found) || contains(&ffm.screen, b"not installed")
+    });
+
+    assert!(shown.is_some(), "the dialog never showed aaa's status");
+    assert!(
+        contains(&ffm.screen, found),
+        "aaa is not found on PATH:\n{}",
+        String::from_utf8_lossy(&ffm.screen)
     );
 }
 

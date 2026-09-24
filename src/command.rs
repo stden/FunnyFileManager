@@ -60,7 +60,7 @@ pub enum Command {
     Wsl,
     /// mcp
     Mcp,
-    /// Show installed language servers and launch parameters.
+    /// Open the Language servers dialog: inspect and edit the servers.
     Lsp,
     /// cleanup — open the disk cleanup dialog.
     DiskCleanup,

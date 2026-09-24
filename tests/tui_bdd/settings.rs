@@ -10,7 +10,7 @@ use ratatui::layout::Size;
 use super::{session::Session, TuiWorld};
 
 /// `name` in the scenario's own config directory, never the user's.
-fn settings_file(world: &TuiWorld, name: &str) -> PathBuf {
+pub(super) fn settings_file(world: &TuiWorld, name: &str) -> PathBuf {
     world.root().join("config").join(name)
 }
 

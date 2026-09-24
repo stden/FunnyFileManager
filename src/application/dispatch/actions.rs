@@ -108,15 +108,12 @@ fn apply_tool<B: Backend + Write>(
     app: &mut App,
     command: ToolCommand,
 ) {
-    match menu_tool(command) {
-        Some(command) => ops::menu::execute(app, command),
-        None => ops::savesetup::run(app),
-    }
+    ops::menu::execute(app, menu_tool(command));
 }
 
-fn menu_tool(command: ToolCommand) -> Option<crate::menu::MenuCommand> {
+const fn menu_tool(command: ToolCommand) -> crate::menu::MenuCommand {
     use crate::menu::MenuCommand;
-    Some(match command {
+    match command {
         ToolCommand::FindFile => MenuCommand::FindFile,
         ToolCommand::History => MenuCommand::History,
         ToolCommand::VideoMode => MenuCommand::VideoMode,
@@ -126,8 +123,7 @@ fn menu_tool(command: ToolCommand) -> Option<crate::menu::MenuCommand> {
         ToolCommand::Filter => MenuCommand::Filter,
         ToolCommand::Screens => MenuCommand::Screens,
         ToolCommand::Tasks => MenuCommand::Tasks,
-        ToolCommand::SaveSetup => return None,
-    })
+    }
 }
 
 fn apply_selection(app: &mut App, command: crate::action::SelectionCommand) {

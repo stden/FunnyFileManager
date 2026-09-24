@@ -147,13 +147,13 @@ fn editor_receives_completion_hover_and_definition_from_the_background_worker() 
 fn measure_editor_startup_and_typing_while_the_server_is_busy() {
     let root = TempDir::new().unwrap();
     let mut app = fixture(&root);
-    app.config.lsp.0.get_mut("rust").unwrap().enabled = false;
+    app.config.lsp.0.get_mut("rust").unwrap().enabled = crate::config::Enablement::Disabled;
     let start = Instant::now();
     let mut controller = EditorLspController::default();
     controller.pump(&mut app);
     eprintln!("editor startup without LSP: {:?}", start.elapsed());
     let settings = app.config.lsp.0.get_mut("rust").unwrap();
-    settings.enabled = true;
+    settings.enabled = crate::config::Enablement::Enabled;
     settings.args.push("busy".into());
     trust_fixture(&mut controller, &mut app);
     pump_until(&mut controller, &mut app, |editor| {

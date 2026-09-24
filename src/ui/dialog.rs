@@ -403,6 +403,9 @@ pub(super) fn render_tracked(
         tracker.body = Some(placement.body);
         tracker.buttons_y = placement.buttons_y;
         tracker.buttons = button_spans(&placement, buttons);
+        // Nothing is drawn over a dialog yet; one that hangs a popup over
+        // itself records it after this.
+        tracker.covered = None;
     } else {
         tracker.clear();
     }

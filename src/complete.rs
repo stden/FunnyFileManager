@@ -14,6 +14,7 @@ pub mod execs;
 mod fish;
 pub mod matcher;
 mod paths;
+pub mod servers;
 pub mod shellwords;
 
 use candidates::candidates_for;

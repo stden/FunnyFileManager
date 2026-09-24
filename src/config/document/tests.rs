@@ -1,5 +1,7 @@
 //! Unit tests: which file a load reads, what it reads from it, and when a
-//! save refuses to touch the file. What a save writes is in `tests/merge.rs`.
+//! save refuses to touch the file. What a save writes is in `tests/merge.rs`,
+//! an edit of the file's own mapping in `tests/edit.rs`, and the files no
+//! writer may replace in `tests/safety.rs`.
 
 use std::fs;
 
@@ -9,7 +11,9 @@ use tempfile::TempDir;
 
 use super::*;
 
+mod edit;
 mod merge;
+mod safety;
 
 /// A stand-in owner of one top-level key, `counter`.
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

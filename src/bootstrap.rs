@@ -45,15 +45,7 @@ fn run_session(input: &mut crate::recording::Input) -> Result<(), Box<dyn Error>
 
     app.clipboard
         .install(input.clipboard(Box::new(crate::clipboard::SystemClipboard::with_stdout())));
-    // The pause reads a live key; a replay has none to give it. Nor does a
-    // replay get the real machine: replaying a session never edits an MCP
-    // client's config.
-    if matches!(input, crate::recording::Input::Live(_)) {
-        app.live = crate::models::LiveInput {
-            program_pause: crate::models::ProgramPause::UntilKey,
-            mcp_host: crate::ops::mcp_install::system_host(),
-        };
-    }
+    app.live = live_input(input);
 
     let run_result = crate::application::run_loop(
         session.terminal_mut(),
@@ -63,6 +55,21 @@ fn run_session(input: &mut crate::recording::Input) -> Result<(), Box<dyn Error>
     );
     let cleanup_result = session.finish();
     end_session(&app, run_result, cleanup_result)
+}
+
+/// What only live input gets. The pause reads a live key; a replay has none to
+/// give it. Nor does a replay get the real machine: replaying a session never
+/// edits an MCP client's config, and its Language servers dialog probes
+/// nothing.
+fn live_input(input: &crate::recording::Input) -> crate::models::LiveInput {
+    if !matches!(input, crate::recording::Input::Live(_)) {
+        return crate::models::LiveInput::default();
+    }
+    crate::models::LiveInput {
+        program_pause: crate::models::ProgramPause::UntilKey,
+        mcp_host: crate::ops::mcp_install::system_host(),
+        lsp_probe: crate::lsp::Probe::from_process(),
+    }
 }
 
 /// Report how the session ended, and hand `main` its outcome.

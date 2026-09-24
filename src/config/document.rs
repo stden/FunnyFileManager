@@ -3,7 +3,9 @@
 //! changed.
 //!
 //! Two writers own disjoint keys of the one file: [`super::Settings`] owns its
-//! pages (`lsp`, `system`, …) and the Options menu owns `options`.
+//! pages (`lsp`, `system`, …) and the Options menu owns `options`. A third
+//! path, [`edit`], changes the file's own mapping in place: the Language
+//! servers dialog writes only the `lsp` fields it changed that way.
 //!
 //! **One parse.** The file is parsed once into a YAML value, and each writer
 //! reads its settings from that value, never from the text. A save writes the
@@ -19,7 +21,14 @@
 //! an entry changed both in the session and in the file refuses the save. A
 //! save that changes nothing leaves the file alone. An exclusive lock on
 //! `settings.yaml.lock` beside the file spans the read, the merge and the
-//! rename, so two FFMs saving at once cannot lose each other's changes.
+//! rename, so two FFMs saving at once cannot lose each other's changes. Other
+//! programs — an editor, `sed -i`, a dotfiles sync — take no lock, so the file
+//! is read again just before the write, and a save is refused when it changed
+//! since the first read.
+//!
+//! **One core.** [`update`] and [`edit`] share [`rewrite`]: parse the stored
+//! file, change a copy, parse the copy again, and write it unless nothing
+//! changed. What reaches the disk is thus always a file that loads.
 //!
 //! Builds before YAML wrote `settings.json`, with the Options pages beside the
 //! typed keys. While there is no `settings.yaml`, that file is read in its
@@ -29,6 +38,10 @@
 //! A save never replaces a file it cannot read back: when the stored file
 //! does not parse — as YAML, or as the saving writer's own keys — the save
 //! fails with the reason and the file stays exactly as the user left it.
+//!
+//! Nor one a rename would damage: the write goes through a symbolic link to
+//! the file it names, and refuses a link that leads nowhere, a file with
+//! other hard links, another user's file and a read-only one (see [`write`]).
 
 use std::{
     borrow::Cow,
@@ -75,7 +88,7 @@ enum Format {
 
 /// A settings file as read from disk: its top-level mapping, in the layout
 /// of `settings.yaml` whichever file it came from.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Stored {
     path: PathBuf,
     format: Format,
@@ -83,12 +96,28 @@ pub struct Stored {
 }
 
 impl Stored {
+    /// No stored file: an empty `settings.yaml` at `path`, which an edit that
+    /// adds nothing leaves unwritten.
+    fn empty(path: &Path) -> Self {
+        Self {
+            path: path.to_owned(),
+            format: Format::Yaml,
+            document: Mapping::new(),
+        }
+    }
+
     /// The stored settings as `T`. The error names the file and the setting:
     /// `settings.yaml does not parse: system.history_size: invalid type: …`.
     pub fn parse<T: DeserializeOwned>(&self) -> io::Result<T> {
-        serde_path_to_error::deserialize(Value::Mapping(self.document.clone()))
-            .map_err(|error| does_not_parse(&self.path, error))
+        parse_mapping(&self.document).map_err(|error| does_not_parse(&self.path, error))
     }
+}
+
+/// `document` as `T`; the error names the setting that failed by its path.
+fn parse_mapping<T: DeserializeOwned>(
+    document: &Mapping,
+) -> Result<T, serde_path_to_error::Error<serde_norway::Error>> {
+    serde_path_to_error::deserialize(Value::Mapping(document.clone()))
 }
 
 /// The stored settings for `path`: that file, else the legacy JSON file
@@ -174,13 +203,37 @@ pub fn update<T: Serialize + DeserializeOwned>(
     loaded: &T,
     current: &T,
 ) -> io::Result<()> {
-    locked(path, || save_changes(path, loaded, current))
-        .map_err(|error| io::Error::new(error.kind(), format!("{NOT_SAVED}{error}")))
+    not_saved(locked(path, || save_changes(path, loaded, current)))
+}
+
+/// Change the stored settings with `change` and write them back, under the
+/// lock every save takes.
+///
+/// `change` edits the file's own mapping in place, and gets the file's
+/// settings as `T` to check the edit against; its error is why the save is
+/// refused. With no stored file the mapping is empty and `T` its defaults.
+/// Nothing is written when the stored file cannot be read or does not parse
+/// (as YAML and as `T`), when `change` refuses, when the edited mapping would
+/// not parse as `T`, or when it changed nothing. Returns the settings the
+/// file holds afterwards. Every error begins with [`NOT_SAVED`].
+pub fn edit<T: DeserializeOwned>(
+    path: &Path,
+    change: impl FnOnce(&mut Mapping, &T) -> io::Result<()>,
+) -> io::Result<T> {
+    not_saved(locked(path, || {
+        let stored = read(path)?.unwrap_or_else(|| Stored::empty(path));
+        rewrite(path, &stored, change)
+    }))
+}
+
+/// `result`, its error prefixed with [`NOT_SAVED`].
+fn not_saved<R>(result: io::Result<R>) -> io::Result<R> {
+    result.map_err(|error| io::Error::new(error.kind(), format!("{NOT_SAVED}{error}")))
 }
 
 /// Run `save` while holding the lock beside `path`, which every FFM takes
 /// before it reads the file to save it.
-fn locked(path: &Path, save: impl FnOnce() -> io::Result<()>) -> io::Result<()> {
+fn locked<R>(path: &Path, save: impl FnOnce() -> io::Result<R>) -> io::Result<R> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir).map_err(|error| named(dir.display(), &error))?;
     }
@@ -214,23 +267,60 @@ fn save_changes<T: Serialize + DeserializeOwned>(
     let Some(stored) = read(path)? else {
         return write(path, &current);
     };
-    let on_disk = to_mapping(&stored.parse::<T>()?)?;
-    let sides = merge::Sides {
-        on_disk: &on_disk,
-        loaded: &to_mapping(loaded)?,
-        current: &current,
-    };
+    let loaded = to_mapping(loaded)?;
+    rewrite(path, &stored, |document, on_disk: &T| {
+        let sides = merge::Sides {
+            on_disk: &to_mapping(on_disk)?,
+            loaded: &loaded,
+            current: &current,
+        };
+        merge::merge(document, &sides).map_err(|entry| {
+            io::Error::other(format!(
+                "{} changed on disk: {entry} was edited there and in this session",
+                file_name(path)
+            ))
+        })
+    })?;
+    Ok(())
+}
+
+/// What every save does once the stored file is read: parse it as `T`, let
+/// `change` edit a copy, check that the copy still parses as `T`, and write
+/// it to `path` unless it is the YAML file unchanged or the file changed
+/// since `stored` was read. Returns the copy as `T`.
+fn rewrite<T: DeserializeOwned>(
+    path: &Path,
+    stored: &Stored,
+    change: impl FnOnce(&mut Mapping, &T) -> io::Result<()>,
+) -> io::Result<T> {
+    let on_disk: T = stored.parse()?;
     let mut document = stored.document.clone();
-    merge::merge(&mut document, &sides).map_err(|entry| {
-        io::Error::other(format!(
-            "{} changed on disk: {entry} was edited there and in this session",
-            file_name(path)
-        ))
+    change(&mut document, &on_disk)?;
+    let saved = parse_mapping(&document).map_err(|error| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("the change would not parse: {error}"),
+        )
     })?;
     if stored.format == Format::Yaml && document == stored.document {
+        return Ok(saved);
+    }
+    refuse_changed_since(stored, path)?;
+    write(path, &document)?;
+    Ok(saved)
+}
+
+/// Refuse the save when the stored settings for `path` are no longer
+/// `stored`. The lock keeps other FFMs out, but an editor, `sed -i` or a
+/// dotfiles sync takes none, and writing over its change would lose it.
+fn refuse_changed_since(stored: &Stored, path: &Path) -> io::Result<()> {
+    if read(path)?.unwrap_or_else(|| Stored::empty(path)) == *stored {
         return Ok(());
     }
-    write(path, &document)
+    Err(io::Error::other(format!(
+        "{} changed while it was being saved; save again",
+        file_name(path)
+    )))
 }
 
 /// `owned` as a YAML mapping: its keys are the ones its writer owns.
@@ -246,11 +336,54 @@ fn to_mapping(owned: &impl Serialize) -> io::Result<Mapping> {
 
 /// Write `document` to `path` under the header, atomically and readable by
 /// the owner only: a crash mid-write leaves the previous file intact.
+///
+/// The write lands on the file a symbolic link names, so a settings file kept
+/// in a dotfiles repository stays a link. A link that leads nowhere, a file
+/// with other hard links and another user's file are refused: renaming a new
+/// file over them would turn the link into a plain file, leave the other
+/// names holding the old text, or hand the file to this user.
 fn write(path: &Path, document: &Mapping) -> io::Result<()> {
     let body = serde_norway::to_string(document).map_err(io::Error::other)?;
-    crate::file_write::ensure_writable(path)?;
-    crate::history::write_owner_only(path, &format!("{HEADER}{body}"))
+    let target = crate::file_write::real_target(path)
+        .map_err(|link| named(file_name(path), &link.into_io_error()))?;
+    refuse_takeover(&target, path)?;
+    crate::file_write::ensure_writable(&target)?;
+    crate::history::write_owner_only(&target, &format!("{HEADER}{body}"))
         .map_err(|error| named(file_name(path), &error))
+}
+
+/// Why renaming a new file over the settings would damage them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Takeover {
+    /// The other names would keep the old text.
+    HardLinked,
+    /// The file would become this user's, readable by this user only.
+    NotOwned,
+}
+
+impl Display for Takeover {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::HardLinked => "has other hard links; FFM will not replace it",
+            Self::NotOwned => "belongs to another user; FFM will not replace it",
+        })
+    }
+}
+
+/// Refuse to replace `target`, the file `path` names, when a rename would
+/// damage it (see [`Takeover`]).
+fn refuse_takeover(target: &Path, path: &Path) -> io::Result<()> {
+    let takeover = if crate::file_write::has_other_names(target) {
+        Takeover::HardLinked
+    } else if crate::file_write::owned_by_us(target) {
+        return Ok(());
+    } else {
+        Takeover::NotOwned
+    };
+    Err(io::Error::new(
+        io::ErrorKind::PermissionDenied,
+        format!("{} {takeover}", file_name(path)),
+    ))
 }
 
 /// The text of a small configuration file — the settings, or a language

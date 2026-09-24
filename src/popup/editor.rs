@@ -61,26 +61,40 @@ fn process_editor_dialog(app: &mut App, code: KeyCode, modifiers: KeyModifiers) 
     lsp::process(app, code).then_some(true)
 }
 
+/// What a key does in a Save / Discard / Cancel question: move the focus
+/// between the buttons, or answer. The editor's exit dialog and the Language
+/// servers dialog ask the same question with the same keys.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ExitKey {
+    Focus(ExitChoice),
+    Answer(ExitChoice),
+}
+
+/// Arrows and Tab move the cursor between the buttons; the hotkeys act
+/// directly, so a user who knows the dialog never has to look at it.
+pub(super) const fn exit_key(code: KeyCode, choice: ExitChoice) -> Option<ExitKey> {
+    Some(match code {
+        KeyCode::Left => ExitKey::Focus(choice.previous()),
+        KeyCode::Right | KeyCode::Tab => ExitKey::Focus(choice.next()),
+        KeyCode::Enter => ExitKey::Answer(choice),
+        KeyCode::Char('y' | 'Y') => ExitKey::Answer(ExitChoice::Save),
+        KeyCode::Char('n' | 'N') => ExitKey::Answer(ExitChoice::Discard),
+        KeyCode::Char('c' | 'C') | KeyCode::Esc => ExitKey::Answer(ExitChoice::Cancel),
+        _ => return None,
+    })
+}
+
 fn confirm_exit(app: &mut App, code: KeyCode, choice: ExitChoice) {
     let Some(editor) = app.get_editor_mut() else {
         return;
     };
-    // Arrows and Tab move the cursor between the buttons; the hotkeys act
-    // directly, so a user who knows the dialog never has to look at it.
-    let acted = match code {
-        KeyCode::Left => {
-            editor.state = EditState::ConfirmingExit(choice.previous());
+    let acted = match exit_key(code, choice) {
+        Some(ExitKey::Focus(focus)) => {
+            editor.state = EditState::ConfirmingExit(focus);
             return;
         }
-        KeyCode::Right | KeyCode::Tab => {
-            editor.state = EditState::ConfirmingExit(choice.next());
-            return;
-        }
-        KeyCode::Enter => choice,
-        KeyCode::Char('y' | 'Y') => ExitChoice::Save,
-        KeyCode::Char('n' | 'N') => ExitChoice::Discard,
-        KeyCode::Char('c' | 'C') | KeyCode::Esc => ExitChoice::Cancel,
-        _ => return,
+        Some(ExitKey::Answer(answer)) => answer,
+        None => return,
     };
 
     match acted {

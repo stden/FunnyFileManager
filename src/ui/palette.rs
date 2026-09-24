@@ -182,3 +182,20 @@ pub(super) const DRIVE_SELECTED_BG: Color = Color::Rgb(0, 0, 0);
 /// The letter that activates a control from the keyboard — the one part of a
 /// dialog that is a promise about which key to press.
 pub(super) const HOTKEY: Color = Color::Rgb(255, 255, 0);
+
+// ── Language servers dialog ────────────────────────────────────────
+//
+// Names for what a colour means there, each an existing colour, so the dialog
+// adds no new ones.
+
+/// A server that will start: the green an executable file has.
+pub(super) const STATUS_OK: Color = EXECUTABLE;
+/// A server waiting for an install, or running the recipe's program instead:
+/// the yellow of a mark.
+pub(super) const STATUS_PENDING: Color = MARKED;
+/// A server that cannot start, and a problem that blocks a save: the red of a
+/// failed command.
+pub(super) const STATUS_FAILED: Color = PROMPT_FAILED;
+/// The completion dropdown's frame and highlight, shared by the command line
+/// and the dialog's form.
+pub(super) const COMPLETION_BG: Color = Color::Cyan;

@@ -125,6 +125,7 @@ fn context(overlay: &Overlay) -> &'static str {
         Overlay::Settings(_) => "Settings",
         Overlay::Wsl(_) => "WSL",
         Overlay::PathEditor(_) => "PathEditor",
+        Overlay::LspEditor(_) => "LspEditor",
         #[cfg(feature = "keepass")]
         Overlay::Kdbx(_) => "KeePass",
         Overlay::NewFileInput(_) => "NewFile",

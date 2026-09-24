@@ -7,7 +7,9 @@ mod client;
 mod document;
 pub mod features;
 mod install;
-pub use install::inventory;
+pub use install::{availability, launchable_name, program_file, Availability, Probe, Tone};
+#[cfg(test)]
+pub use install::{NotInstalled, Resolved};
 pub mod manager;
 pub mod positions;
 mod process;

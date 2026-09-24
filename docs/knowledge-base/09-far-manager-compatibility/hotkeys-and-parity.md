@@ -40,6 +40,7 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 | F8        | Delete                         | ✅         | With confirmation dialog |
 | Alt+Del   | Wipe                           | ✅         | Confirmation titled Wipe; each file is zero-filled, truncated, renamed to a temporary name and removed; directories recurse; symlinks are unlinked, never followed; pipes, sockets and devices are never opened, only unlinked; a file with other hard links is only unlinked and the status bar says so. Far's `System.WipeSymbol` filler is not offered (always zeros) |
 | F9        | Menu bar                       | ✅         |       |
+| Shift+F9  | Save setup                     | ✅         | Writes the Options entries under `options` in `settings.yaml`; every other key keeps what the file has. A file that does not parse is not rewritten (`Not saved: …`) |
 | Alt+F9    | Video mode (25 / 50 rows)      | ⚠️         | Asks the terminal to resize (`CSI 8 t`); many terminals, tmux among them, ignore it. The status bar says the height asked for and the height the terminal has |
 | F10       | Quit                           | ✅         | Also Ctrl+C and the `quit` command |
 | F11       | Plugin commands                | ✅         | Far's list: MCP status (the server, then Claude Code, Codex, Junie and Kiro at both scopes), NetBox: stored sessions, NetBox: import from `.netbox` file… |
@@ -138,6 +139,95 @@ at the host's root returns to the files.
   Left/Right one column, Ctrl+Left/Ctrl+Right twenty columns; Esc/Enter/F3/F10
   close
 - F2 (bookmark overlay) and 0-9 / Ctrl+0-9 slot keys — ❌ never implemented; use `:bookmark set|go <0-9>`
+- Shift+F9 (Save setup) writes only the Options entries under `options` and
+  refuses a file that does not parse, so it never erases the language servers
+  or the typed pages
+
+## 🧰 Language servers dialog
+
+F9 → Commands → Language servers (LSP), or `lsp` on the command line. While it
+is open every key goes to it, so none of these clash with a panel or
+command-line binding; each means what it already means in FFM or Far. Keys not
+listed do nothing (F1, F6, F9, F11, F12, Shift+F9, Ctrl+Z, Alt+letters). A list
+or view key with Shift, Ctrl or Alt held is another key and does nothing too:
+Shift+F8 does not reset, Alt+F7 does not add, Shift+F2 does not save.
+
+Each mode's key bar and bottom-border legend name only the keys that act
+there. The form and the exit question blank the key bar, since no F-key acts
+in them; the form's legend reads `Enter OK  Esc Cancel  Tab Next  Ctrl+Space
+List`, or with a suggestion list open what Up, Down, Enter and Esc do to it,
+and the exit question's reads `Y Yes  N No  Esc Cancel`.
+
+**List**
+
+| Key | Action | Far / FFM precedent |
+|-----|--------|---------------------|
+| Up / Down | Previous / next server | Far lists |
+| PgUp / PgDn | One list page | Far lists |
+| Home / End | First / last server | Far lists |
+| Enter, F4 | Edit the selected server | PATH editor Enter/F4; Far F4 = Edit |
+| Space | Toggle Enabled | Far checkbox |
+| Ins, F7 | Add a server | PATH editor Ins/F7 |
+| Del, F8 | Catalog server: reset its command, arguments, extensions and on/off; added server: remove | PATH editor Del/F8 |
+| F2 | Save to `settings.yaml` (only the changed fields) | Editor and PATH editor F2 |
+| F3 | View every server | Far F3 = View |
+| F5 | Check availability again | PATH editor F5 |
+| Esc, F10 | Close; with changes, ask Save / Discard / Cancel | Editor exit, Far F10 |
+
+A read-only dialog (no settings file, or one that does not load) answers
+Space, Enter/F4, Ins/F7, Del/F8 and F2 by repeating its reason.
+
+**View (F3)**: Up / Down one line, PgUp / PgDn one page, Home / End top /
+bottom, F5 check again, F3 / Esc / F10 back to the list with the selection kept.
+
+**Form**
+
+| Key | Action | Far / FFM precedent |
+|-----|--------|---------------------|
+| Tab / Shift+Tab | Next / previous control, wrapping; an existing server's language is skipped | Far dialogs |
+| Down / Up (no list open) | Next / previous control | Far dialogs |
+| Characters, Backspace, Delete, Left, Right, Home, End | Edit the field | FFM prompts |
+| Ctrl+Space, Ctrl+Down, Alt+Down | Open an active suggestion list | Editor Ctrl+Space; Far Ctrl+Down; Windows Alt+Down |
+| Space | On Enabled: toggle. On a button: press it. In a field: a space | Far dialogs |
+| Enter | OK, or Cancel when Cancel has the cursor | Far default button |
+| Esc | Cancel the form; the list is unchanged | Far dialogs |
+
+**Suggestion list.** A list opened by typing (Options → AutoComplete on) is
+*passive*: nothing is highlighted and Enter still presses OK. One opened by
+Ctrl+Space / Ctrl+Down / Alt+Down, or entered with Down / Up, is *active*.
+
+| Key | Passive list | Active list |
+|-----|--------------|-------------|
+| Down / Up | Enter it on the first / last row | Move the highlight, wrapping |
+| Enter | Close it, then the form's Enter (OK) | Put the highlighted suggestion in the field |
+| Esc | Close the list; the form stays | The same |
+| Tab / Shift+Tab | Close it and move the cursor | The same |
+| Characters, Backspace, Delete | Edit and refilter; it closes when nothing matches | Edit and refilter from the first row |
+| Left, Right, Home, End | Move the caret and close it | The same |
+
+**Exit question**: the editor's keys — Left / Right / Tab move between the
+buttons, Enter presses the focused one, Y = Yes (save, then close; a refused
+save returns to the list with the reason), N = No (discard, nothing written),
+C / Esc = Cancel.
+
+**Mouse**
+
+| Where | Wheel (sent as Up / Down) | Click |
+|-------|---------------------------|-------|
+| List | Previous / next server | Nothing: rows and the dialog's key bar are not hit-tested |
+| View | One line | Nothing |
+| Form | Previous / next control; with a list open, as Up / Down there | `{ OK }` / `[ Cancel ]` take the cursor, then Enter; a field takes the cursor and `Enabled` toggles, as in the Copy dialog; the frame drags the form; the suggestion list takes no click, so it never presses a button it covers |
+| Exit question | Nothing | `Yes`, `No`, `Cancel` send `y`, `n`, Esc |
+
+The form and the exit question open centred, however far the last one was
+dragged.
+
+**Terminal notes.** Ctrl+Space arrives as NUL on xterm-family terminals, which
+crossterm reports as Ctrl+Space; some input methods (IBus) take it first. On
+macOS, Ctrl+Space is "Select the previous input source" and Ctrl+Down is
+Mission Control's "Application windows" by default, so neither may reach the
+terminal; Alt+Down (Option+Down) does wherever the terminal sends Option as
+Alt, and with AutoComplete on, typing opens the list by itself.
 
 ## 🧭 Left / Right Menu
 

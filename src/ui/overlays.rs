@@ -253,6 +253,7 @@ pub fn render_overlays(f: &mut Frame<'_>, app: &mut App) {
         Overlay::None | Overlay::CommandLine(_) | Overlay::Menu(_) => {}
         Overlay::Wsl(dialog) => super::wsl::render(f, dialog),
         Overlay::PathEditor(dialog) => super::path_env::render(f, dialog),
+        Overlay::LspEditor(dialog) => super::lsp_editor::render(f, &mut app.dialog_mouse, dialog),
         Overlay::MenuDialog(dialog) => super::menu_dialog::render(f, dialog, &mut app.dialog_mouse),
         Overlay::Help => render_help(f),
         Overlay::Viewer(viewer) => super::viewer::render_viewer(f, viewer),

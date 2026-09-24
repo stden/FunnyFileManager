@@ -42,21 +42,22 @@ impl std::fmt::Debug for Session {
 }
 
 impl Session {
-    pub(super) fn inventory(left: PathBuf, right: PathBuf, size: Size) -> Self {
+    /// Start as [`Self::with_settings`] does, on a machine with `bin` as its
+    /// whole `PATH` and `cache` as its LSP cache: nothing depends on the real
+    /// home, `PATH` or LSP cache.
+    pub(super) fn language_servers(
+        panels: (PathBuf, PathBuf),
+        settings: PathBuf,
+        machine: (PathBuf, PathBuf),
+        size: Size,
+    ) -> Self {
         Self::start_app(
             move || {
-                let executable = left.join("fixture-server");
-                funny_file_manager::test_support::write_executable(&executable, b"fixture")?;
+                let (left, right) = panels;
+                let (cache, bin) = machine;
                 let mut app = App::with_panels(Panel::new(left)?, Panel::new(right)?);
-                app.config.lsp.0.clear();
-                app.config.lsp.0.insert(
-                    "fixture".into(),
-                    funny_file_manager::config::ServerSettings {
-                        command: executable.to_string_lossy().into_owned(),
-                        args: vec!["--stdio".into()],
-                        ..Default::default()
-                    },
-                );
+                funny_file_manager::test_support::restore_settings(&mut app, settings);
+                funny_file_manager::test_support::set_lsp_probe(&mut app, &cache, &[bin.as_path()]);
                 Ok(app)
             },
             size,

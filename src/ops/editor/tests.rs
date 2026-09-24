@@ -483,3 +483,25 @@ fn a_refused_save_names_the_directory_not_a_temp_file() -> io::Result<()> {
     assert!(message.contains("read-only-dir"), "{message}");
     Ok(())
 }
+
+/// A link whose target is gone: a rename would replace the link with a
+/// regular file, so the save is refused and the link is left as it was.
+#[cfg(unix)]
+#[test]
+fn saving_through_a_dangling_link_is_refused_and_the_link_is_kept() -> io::Result<()> {
+    let temp_dir = TempDir::new()?;
+    let missing = temp_dir.path().join("gone.txt");
+    let link = temp_dir.path().join("notes.txt");
+    std::os::unix::fs::symlink(&missing, &link)?;
+
+    let mut editor = Editor::from_content("notes.txt".to_owned(), link.clone(), "");
+    editor.insert_char('x');
+    let error = editor.save().expect_err("a dangling link is refused");
+
+    assert_eq!(error.kind(), io::ErrorKind::NotFound);
+    assert!(error.to_string().contains("gone.txt"), "{error}");
+    assert!(fs::symlink_metadata(&link)?.is_symlink());
+    assert!(!missing.exists());
+    assert!(editor.state.is_modified(), "the buffer keeps its changes");
+    Ok(())
+}

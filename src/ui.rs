@@ -40,6 +40,7 @@ mod hotplug;
 #[cfg(feature = "keepass")]
 mod kdbx;
 mod layout;
+mod lsp_editor;
 mod mcp_install;
 mod overlays;
 mod palette;

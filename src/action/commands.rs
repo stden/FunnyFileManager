@@ -130,8 +130,6 @@ pub enum ToolCommand {
     Screens,
     /// `Ctrl+W` — the processes this program started.
     Tasks,
-    /// `Shift+F9` — write the settings to disk.
-    SaveSetup,
 }
 
 /// Commands belonging to the dialog workflow.

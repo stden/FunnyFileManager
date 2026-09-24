@@ -5,9 +5,13 @@ mod executable;
 pub use executable::write_executable;
 #[cfg(any(test, feature = "test-helpers"))]
 mod environment;
+#[cfg(any(test, feature = "test-helpers"))]
+mod lsp;
 pub use backend::WritableTestBackend;
 #[cfg(any(test, feature = "test-helpers"))]
 pub use environment::*;
+#[cfg(any(test, feature = "test-helpers"))]
+pub use lsp::{program_file, set_lsp_probe};
 #[cfg(any(test, feature = "test-helpers"))]
 mod settings;
 #[cfg(any(test, feature = "test-helpers"))]
@@ -21,6 +25,8 @@ pub use mcp_install::{file_identity, ClaudeBehaviour, ClaudeEmulator, FakeMachin
 pub(crate) mod disk_cleanup;
 #[cfg(test)]
 mod events;
+#[cfg(test)]
+pub(crate) mod lsp_machine;
 #[cfg(test)]
 pub(crate) mod netbox;
 #[cfg(test)]

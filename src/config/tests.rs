@@ -6,7 +6,7 @@ use tempfile::TempDir;
 use super::*;
 use crate::test_support::{EnvVarGuard, CONFIG_HOME};
 
-mod persistence;
+pub(super) mod persistence;
 mod sharing;
 
 #[test]
@@ -127,5 +127,30 @@ fn the_current_platform_rule_reads_the_process_environment() {
         } else {
             Platform::Unix
         }
+    );
+}
+
+#[test]
+fn the_lsp_key_is_the_name_serde_gives_the_field() {
+    let value = serde_norway::to_value(Settings::default()).expect("settings serialize");
+    assert!(value.get(LSP_KEY).is_some());
+}
+
+/// Opening a FIFO blocks until something writes to it, and the settings load
+/// before the first frame: startup would hang.
+#[cfg(unix)]
+#[test]
+fn load_does_not_block_on_a_fifo() {
+    let temp = TempDir::new().expect("tempdir");
+    let fifo = temp.path().join(document::FILE_NAME);
+    crate::test_support::make_fifo(&fifo).expect("mkfifo");
+    let loaded =
+        crate::test_support::run_with_timeout(std::time::Duration::from_secs(5), move || {
+            Settings::load_from(&fifo).map_err(|error| error.to_string())
+        })
+        .expect("loading settings must not block on a FIFO");
+    assert_eq!(
+        loaded,
+        Err("settings.yaml is not a regular file".to_owned())
     );
 }

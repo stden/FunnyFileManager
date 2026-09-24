@@ -14,9 +14,14 @@ mod archive;
 mod environment;
 mod error;
 mod launch;
+mod probe;
 mod recipes;
 mod report;
-pub use report::inventory;
+pub use launch::{executable as program_file, launchable_name};
+pub use probe::Probe;
+pub use report::{availability, Availability, Tone};
+#[cfg(test)]
+pub use report::{NotInstalled, Resolved};
 mod runner;
 mod storage;
 pub(super) use error::InstallError;

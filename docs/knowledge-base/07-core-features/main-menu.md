@@ -10,7 +10,10 @@ updates, separate user/system PATH editors, and Install MCP server. Their
 owners are `performance` / `ops/performance`, `packages` / `ops/packages`,
 `path_env` / `ops/path_env`, and `mcp_clients` / `ops/mcp_install`. See
 [session tools](../../session-tools.md) for keyboard controls, persistence,
-and platform behavior.
+and platform behavior. Its **Language servers (LSP)** row opens the Language
+servers dialog (`models/lsp_editor`, `ops/lsp_editor`), which inspects and
+edits the editor's servers; see
+[the editor's language servers](../../editor-lsp.md#configuration).
 
 ## Panels
 
@@ -112,7 +115,7 @@ validates and applies it. Escape cancels when enabled; F10 always cancels.
 | Plugins configuration | Additional command offered from the user menu |
 | Plugins manager | Shell/plugin command timeout |
 | Dialog / Menu | Escape dismissal / wrapping row navigation |
-| Command line / AutoComplete | History length / completion and suggestions |
+| Command line / AutoComplete | History length / `Command-line completion and suggestions; dialog lists while typing: on/off` |
 | InfoPanel | Folder descriptions in quick view |
 | Groups of masks | Default semicolon-separated selection patterns |
 | Confirmations | Delete confirmation |
@@ -121,9 +124,11 @@ validates and applies it. Escape cancels when enabled; F10 always cancels.
 | Viewer / Editor | Tab display width / editor tab size (TAB display width and spaces inserted by Tab) |
 | Code pages | Encoding for new files |
 | Colors / Highlighting | Panel background / file-type colors |
-| Save setup | Atomically persists settings for future sessions |
+| Save setup | Atomically writes the Options entries under `options` in `settings.yaml` for future sessions |
 
-Invalid settings loads preserve the existing settings and both panels.
+Invalid settings loads preserve the existing settings and both panels, and
+still remember the file, so Save setup and the Language servers dialog know
+where it is.
 
 ### The settings file
 
@@ -146,7 +151,11 @@ The typed settings (`lsp`, `system`, `panel`, `editor`, …) are top-level keys,
 written at exit, and only when `system.auto_save_setup` is `true`. The entries
 have a key of their own so that none sits beside a typed key that differs from
 it only in case: the built-in editor reads `options.Editor`, not
-`editor.tab_size`. Nothing else writes the file.
+`editor.tab_size`. The Language servers dialog (F9 → Commands → Language
+servers) is the one other writer: F2 there writes only the `lsp` fields changed
+in it, and the exit auto-save then leaves `lsp` as F2 wrote it (see
+[what F2 writes](../../editor-lsp.md#what-f2-writes)). Nothing else writes the
+file.
 
 - **What a save writes.** Each writer remembers what it loaded (the Options
   entries: what they held at the last Save setup). A save writes only what
@@ -196,8 +205,16 @@ it only in case: the built-in editor reads `options.Editor`, not
   owner only. A save holds a lock on `settings.yaml.lock` beside the file from
   reading it to the rename, so two FFMs saving at once keep each other's
   changes; while one saves, the other stops with `Not saved: another FFM is
-  saving settings.yaml`. The empty lock file stays. FFM reads the file only
-  when it is a regular file of at most 1 MiB.
+  saving settings.yaml`. The empty lock file stays. Other programs take no
+  lock, so a save reads the file again just before it writes, and stops with
+  `Not saved: settings.yaml changed while it was being saved; save again`
+  when an editor or a sync changed it in between. FFM reads the file only
+  when it is a regular file of at most 1 MiB. Every save writes through a
+  symbolic link, so a settings file kept in a dotfiles repository stays a
+  link, and refuses what a rename would damage: a link to a missing file, a
+  file with other hard links, another user's file and one the user cannot
+  write (`Not saved: settings.yaml has other hard links; FFM will not replace
+  it`).
 
 ## Verification
 

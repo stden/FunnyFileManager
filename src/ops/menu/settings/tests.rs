@@ -146,7 +146,10 @@ fn save_setup_keeps_the_typed_settings_and_leaves_the_legacy_json_alone() -> io:
     assert_eq!(fs::read_to_string(&legacy)?, json);
     let stored = document::read(&path)?.expect("settings.yaml");
     let typed: crate::config::Settings = stored.parse()?;
-    assert!(!typed.lsp.0["python"].enabled);
+    assert_eq!(
+        typed.lsp.0["python"].enabled,
+        crate::config::Enablement::Disabled
+    );
     assert_eq!(typed.system.history_size, 5);
     let OptionsSection {
         options: PageValues(pages),

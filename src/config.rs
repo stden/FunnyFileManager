@@ -22,7 +22,10 @@ use crate::models::PanelView;
 pub(crate) mod document;
 mod lsp;
 mod pages;
-pub use lsp::{InstallCommand, InstallRecipe, LspSettings, ServerSettings};
+pub use lsp::values::{
+    quote, Arguments, Enablement, Extension, Extensions, LanguageId, ServerCommand, ValueError,
+};
+pub use lsp::{patch, InstallCommand, InstallRecipe, LspSettings, ServerSettings};
 
 pub use pages::{
     AutoCompleteSettings, CodePageSettings, ColorSettings, CommandLineSettings,
@@ -32,6 +35,10 @@ pub use pages::{
     PanelSettings, PluginsConfigurationSettings, PluginsManagerSettings, SystemSettings, Theme,
     TreeSettings, ViewerSettings,
 };
+
+/// The top-level key of the language servers: serde's name for
+/// [`Settings::lsp`], which the Language servers dialog edits in place.
+pub(crate) const LSP_KEY: &str = "lsp";
 
 /// Everything the Options menu edits, plus the folder shortcuts.
 ///
@@ -114,7 +121,7 @@ impl Settings {
 
     /// The settings stored at `path`, or in the legacy JSON file beside it;
     /// the defaults when neither file exists.
-    fn load_from(path: &Path) -> io::Result<Self> {
+    pub(crate) fn load_from(path: &Path) -> io::Result<Self> {
         let Some(stored) = document::read(path)? else {
             return Ok(Self::default());
         };
@@ -141,6 +148,18 @@ impl Settings {
         let defaults = Self::default();
         let loaded = self.loaded.0.as_deref().unwrap_or(&defaults);
         document::update(path, loaded, self)
+    }
+
+    /// Take `lsp`, which a Language servers save just wrote, as the servers
+    /// this session runs *and* as the ones it loaded, so the exit save finds
+    /// `lsp` unchanged and leaves it to the file: writing it would pin every
+    /// catalog field, and a later hand edit of the same field would read as a
+    /// conflict.
+    pub(crate) fn adopt_saved_lsp(&mut self, lsp: LspSettings) {
+        let mut loaded = self.loaded.0.take().unwrap_or_default();
+        loaded.lsp.clone_from(&lsp);
+        self.loaded = Loaded(Some(loaded));
+        self.lsp = lsp;
     }
 
     /// The column layout and fullscreen flag configured for `view`.

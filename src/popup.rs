@@ -5,6 +5,7 @@ use crate::search::{SearchField, SearchPrompt};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 mod disk_cleanup;
+mod lsp_editor;
 mod menu_dialog;
 mod path_env;
 pub(crate) use editor::paste_text as paste_editor_text;
@@ -22,6 +23,7 @@ pub fn process_popup_input(app: &mut App, key: KeyEvent) -> bool {
         Overlay::MenuDialog(_) => menu_dialog::process(app, code, modifiers),
         Overlay::Wsl(_) => wsl::process(app, code, modifiers),
         Overlay::PathEditor(_) => path_env::process(app, code, modifiers),
+        Overlay::LspEditor(_) => lsp_editor::process(app, code, modifiers),
         Overlay::Viewer(_) => viewer::process(app, code, modifiers),
         Overlay::Editor(_) => process_editor_input(app, code, modifiers),
         Overlay::Help => confirmation::help(app, code),

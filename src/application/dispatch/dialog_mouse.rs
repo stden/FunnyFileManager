@@ -98,7 +98,7 @@ fn click_dialog<B: Backend + Write>(
             }
         }
         DialogTarget::Row(index) => click_dialog_row(app, index),
-        DialogTarget::Outside => {}
+        DialogTarget::Outside | DialogTarget::Popup => {}
     }
 }
 
@@ -155,6 +155,7 @@ fn click_dialog_row(app: &mut App, index: usize) {
             }
         }
         Overlay::CopyPrompt(prompt) => click_copy_row(prompt, index),
+        Overlay::LspEditor(editor) => click_lsp_form_row(editor, index),
         Overlay::NamePrompt(prompt) => {
             let Some(field) = prompt.field_at_row(index) else {
                 return;
@@ -165,6 +166,24 @@ fn click_dialog_row(app: &mut App, index: usize) {
             }
         }
         _ => {}
+    }
+}
+
+/// The Language servers form, like the copy dialog: a field takes the cursor
+/// and Enabled toggles as well. The list, the view and the exit question have
+/// no clickable rows, and neither has an existing server's dimmed language.
+fn click_lsp_form_row(editor: &mut crate::models::LspEditor, index: usize) {
+    use crate::models::lsp_editor::FormField;
+
+    let (Some(form), Some(field)) = (editor.form_mut(), FormField::at_row(index)) else {
+        return;
+    };
+    if !field.allows(form.target()) {
+        return;
+    }
+    form.focus_on(field);
+    if field == FormField::Enabled {
+        form.toggle_enabled();
     }
 }
 

@@ -34,7 +34,7 @@ const TRICKY: [&str; 20] = [
     "&anchor",
 ];
 
-fn tricky() -> Vec<String> {
+pub(in crate::config) fn tricky() -> Vec<String> {
     TRICKY.map(str::to_owned).to_vec()
 }
 
@@ -136,7 +136,7 @@ fn populate_lsp(settings: &mut Settings) {
         executable: "{install_dir}/bin/zls".to_owned(),
     };
     let server = ServerSettings {
-        enabled: false,
+        enabled: Enablement::Disabled,
         command: "~".to_owned(),
         args: tricky(),
         extensions: vec!["zig".to_owned(), "on".to_owned()],

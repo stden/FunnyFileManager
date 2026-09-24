@@ -36,14 +36,115 @@ definition into another file when the current buffer has unsaved changes.
 
 ## Configuration
 
-Use **F9 → Commands → Language servers (LSP)**, or type `lsp` in FFM's command
-line, to inspect the catalog. The scrolling report shows enabled languages, file
-extensions, availability, configured commands, resolved executable paths, each
-launch argument and installation recipes. Java's displayed data directory belongs
-to the active panel's project. This is an availability report, not a process list;
-opening it never installs or starts a server. Close it with Esc.
+**F9 → Commands → Language servers (LSP)**, or `lsp` on FFM's command line,
+opens the Language servers dialog: every server FFM knows, what each would
+start, and a form to change them. Opening it never installs or starts a server,
+and never waits for the `PATH` scan.
 
-![LSP inventory rendered with example installation paths](images/lsp-inventory.png)
+![The Language servers dialog, drawn with example paths](images/lsp-inventory.png)
+
+The list shows each server's language, `[x]` or `[ ]` for enabled, its command,
+its extensions and one word of availability:
+
+| Tag | Meaning |
+|---|---|
+| `ready` (green) | The configured command is found, or the installed server that provides it |
+| `auto` (amber) | Not installed yet; installs after you trust a workspace |
+| `recipe` (amber) | The configured command is not found, so the auto-install recipe's own program runs instead |
+| `missing` (red) | Not found, and no auto-install (or no install cache) |
+| `error` (red) | A broken install receipt or a missing runtime such as Java 21 |
+
+`*` marks a server changed since the file was read; `!` marks a problem, red
+when it blocks F2 and amber when it only warns. The pane below details the
+selected server: command, arguments, status, the executable and launch
+arguments FFM would run (for Java, with the active panel's project data
+directory), and the auto-install recipe as highlighted JSON, which is also
+valid YAML and can be pasted into the settings file as it is. **F3** shows
+every server this way. Availability is what FFM would start, not a process
+list.
+
+### Editing
+
+| Key | Action |
+|---|---|
+| Up / Down, PgUp / PgDn, Home / End | Select a server |
+| Enter, F4 | Edit the selected server |
+| Space | Turn it on or off |
+| Ins, F7 | Add a server |
+| Del, F8 | Reset a catalog server's command, arguments, extensions and on/off to the catalog; remove an added server |
+| F2 | Save to `settings.yaml` (only the changed fields) |
+| F3 | Every server, scrolled; F3 or Esc returns |
+| F5 | Check availability again |
+| Esc, F10 | Close; with unsaved changes, asks Save / Discard / Cancel |
+
+In the form, Tab and Shift+Tab move between the fields, Space toggles
+**Enabled**, Enter presses OK and Esc drops the form's changes. The full key and
+mouse tables, with their Far precedents, are in the
+[hotkey parity document](knowledge-base/09-far-manager-compatibility/hotkeys-and-parity.md#-language-servers-dialog).
+
+**Suggestions.** Ctrl+Space, Ctrl+Down or Alt+Down opens a list for the
+focused field (on macOS the system may take the first two; Alt+Down, that is
+Option+Down, reaches FFM when the terminal sends Option as Alt). With
+Options → AutoComplete on, typing opens the list by itself without taking Enter
+away from the form; Down enters it and Enter then takes the highlighted row.
+**Command** offers the catalog's server programs and the commands your servers
+use, then, from two typed letters on, programs found on `PATH`; **Arguments**
+offers the arguments the catalog and your servers use (such as `--stdio`);
+**Extensions** offers known extensions with the languages that claim them, so a
+conflict shows before you make it. The `PATH` list is read once per session.
+
+**Arguments** are one line: spaces separate them; quote an argument that holds
+a space, `"a b"`, and write a quote inside quotes twice, `"a""b"`. There are no
+backslash escapes, so `C:\tools\server` is written as it is. OK refuses an
+empty command, a command starting with `~` (no shell runs the server, so
+nothing expands it), an unclosed quote, an extension with a dot inside
+(`d.ts` can never match: FFM compares the text after the last dot) and the same
+extension listed twice; the form keeps the cursor on the field and says why.
+
+### What F2 writes
+
+F2 writes only the fields you changed — `enabled`, `command`, `args`,
+`extensions` — under `lsp.<language>` in `settings.yaml`, quoting every value
+YAML would otherwise read as something else, so `123`, `~` or `a: b` come back
+as the text you typed. A catalog server's field set back to its catalog value
+is removed rather than pinned, so partial overrides stay partial and catalog
+updates keep reaching you. A server you add is written whole, `install: null`
+included. `root_markers`, `install` (an explicit `null` included) and every
+other key of the file, inside `lsp` and out, keep their values and their
+order. Like every save, it rewrites the file under a header comment and keeps
+no comments and no backup; a Discard or Del in the dialog is the way back.
+
+Changes apply the next time a file is opened in the editor: no server runs
+while the dialog is open, and the exit auto-save leaves what F2 wrote alone. A
+hand edit of `settings.yaml` applies after FFM restarts.
+
+A changed command that shows `recipe` is not the program being run. To make it
+stick, install it on `PATH`, enter its full path, or set `install: null` for
+that language by hand in `settings.yaml`.
+
+### When the dialog only shows, or F2 refuses
+
+The dialog opens read-only, naming the reason on its first row and in full on
+its message row, when the session has no settings file, or `settings.yaml` is
+not a regular file, is larger than 1 MiB or does not parse (the reason gives
+the line and column of a syntax error, or the key path of a wrong value such as
+`lsp: python: invalid type`). It then shows the servers FFM would start. While
+there is no `settings.yaml`, the dialog opens on the `settings.json` of an
+older FFM, and F2 writes `settings.yaml` beside it.
+
+F2 writes nothing, keeps your changes and says why when two enabled servers
+would claim one extension (the one earlier in the list would win). Every other
+refusal begins with `Not saved:`: another FFM is saving the file at that
+moment; another program changed the servers in `lsp` while the dialog was open
+(close without saving and open it again; edits outside `lsp` never block F2);
+another program wrote the file while F2 was saving it (press F2 again); the
+file stopped parsing; or the file cannot safely be replaced — like every
+save of the settings file, F2 writes through a symbolic link, and refuses a
+link to a missing file, a file with other hard links, another user's file and
+one it cannot write. Save setup (Shift+F9) and the exit auto-save keep the
+`lsp` key too; see [The settings file](knowledge-base/07-core-features/main-menu.md#the-settings-file).
+
+### The settings file
 
 Language servers live under the `lsp` key of the settings file,
 `ffm/settings.yaml` in the configuration directory: `%APPDATA%\ffm\settings.yaml`
@@ -65,9 +166,8 @@ lsp:
 An explicit command is used as configured; otherwise the default executable is
 resolved through PATH. Arguments are passed directly to the executable, not
 through a shell. Use an absolute executable path for an installation outside
-PATH. Set `enabled` to `false` to disable it. Restart FFM after changing settings.
-The nearest ancestor containing a configured root marker is the workspace root;
-without a marker, the source file's parent directory is used.
+PATH. The nearest ancestor containing a configured root marker is the workspace
+root; without a marker, the source file's parent directory is used.
 
 Catalog entries are merged with settings field by field. For example,
 `python: {enabled: false}` disables Python without replacing its other
@@ -153,7 +253,8 @@ During installation the header shows `LSP installing`. Closing the editor or
 quitting cancels the installer and terminates its process tree. Failed partial
 installations are removed; Ctrl+Alt+R retries explicitly, without an automatic
 restart loop. A corrupt cached receipt is reported instead of overwritten: close
-FFM, remove only that server's cache directory shown by `lsp`, and reopen the file.
+FFM, remove only that server's cache directory (the Language servers dialog
+shows its executable path), and reopen the file.
 Installations wait on a per-recipe lock when another FFM instance is installing.
 Commands have a ten-minute timeout; archive downloads have a five-minute timeout.
 Python needs its venv/pip components; npm must be installed beside Node.js. For
@@ -203,8 +304,8 @@ queue retains messages for retry in order, with a bounded backlog.
 
 Cached npm and Java servers discover their runtime again on each launch, so moving
 Node.js or changing `JAVA_HOME` does not require reinstalling the server. The
-inventory uses the same workspace identity and runtime discovery without running
-package managers or language servers.
+Language servers dialog uses the same workspace identity and runtime discovery
+without running package managers or language servers.
 
 The Java download requires curl 8.4+ because older versions do not enforce
 `--max-filesize` when the response has no known length; see the
@@ -216,6 +317,14 @@ owns package-manager process trees. A temporary staging directory becomes a cach
 entry only after installation and entry-point validation succeed. Atomic rename,
 a portable file lock and a launch receipt make reuse independent of editor widgets.
 No installer or recipe parsing runs in rendering code.
+
+The Language servers dialog is `models::lsp_editor` (its state, form and
+problems), `ops::lsp_editor` (opening, checking, saving, suggestions),
+`popup::lsp_editor` (keys) and `ui::lsp_editor` (drawing). Availability comes
+from `lsp::Probe`, which tests replace with a temporary cache and `PATH`;
+suggestions are pure, in `complete::servers`; every writer of the settings file
+— the dialog's F2, Save setup and the exit auto-save — goes through
+`config::document`, and the dialog's change is `config::lsp::patch`.
 
 The pure protocol client is independent of widgets and of rust-analyzer. Add
 language defaults in `src/config/lsp/catalog.json`; installation adapters live under

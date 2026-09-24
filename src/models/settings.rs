@@ -83,7 +83,7 @@ pub fn specification(page: SettingsPage) -> (&'static str, &'static str, &'stati
         P::Dialog => ("Dialog settings", "on", "Allow Escape to dismiss menu prompts: on/off"),
         P::Menu => ("Menu settings", "on", "Wrap menu navigation at the first/last entry: on/off"),
         P::CommandLine => ("Command line settings", "500", "Number of recent commands shown by History (1–500)"),
-        P::AutoComplete => ("AutoComplete settings", "on", "Command-line completion and suggestions: on/off"),
+        P::AutoComplete => ("AutoComplete settings", "on", "Command-line completion and suggestions; dialog lists while typing: on/off"),
         P::Information => ("InfoPanel settings", "on", "Include folder description files in quick view: on/off"),
         P::Masks => ("Groups of file masks", "", "Default group-selection mask (semicolon-separated patterns); empty uses the selected extension"),
         P::Confirmations => ("Confirmations", "on", "Confirm file deletion: on/off"),

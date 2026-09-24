@@ -9,6 +9,7 @@ use cucumber::{given, then, when};
 use ratatui::layout::Size;
 use tempfile::TempDir;
 
+mod lsp;
 mod restart;
 mod session;
 mod settings;
@@ -123,15 +124,6 @@ fn open(world: &mut TuiWorld, width: u16, height: u16) {
         Some(machine) => Session::start_on(left, right, size, machine.host()),
         None => Session::start(left, right, size),
     });
-}
-
-#[when("I open the LSP inventory fixture")]
-fn open_inventory(world: &mut TuiWorld) {
-    world.session = Some(Session::inventory(
-        world.path("left", ""),
-        world.path("right", ""),
-        Size::new(120, 30),
-    ));
 }
 
 #[when(expr = "I press {string}")]

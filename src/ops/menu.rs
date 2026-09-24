@@ -122,7 +122,7 @@ fn execute_tools(app: &mut App, command: MenuCommand) -> io::Result<()> {
             Ok(())
         }
         MenuCommand::LanguageServers => {
-            super::lsp_status::open(app);
+            super::lsp_editor::open(app);
             Ok(())
         }
         MenuCommand::McpInstall => {

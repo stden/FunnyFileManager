@@ -1,6 +1,6 @@
 //! Purpose: Dialog geometry recorded by the renderer, and what a click inside a dialog lands on.
 
-use ratatui::layout::Rect;
+use ratatui::layout::{Position, Rect};
 
 /// Where the dialog on screen was drawn, and how far it has been dragged.
 ///
@@ -28,6 +28,9 @@ pub struct DialogMouse {
     /// The screen the last frame was drawn on. The menu's geometry hangs off
     /// the top row, so a click on it needs the same rectangle the renderer had.
     pub screen: Rect,
+    /// A popup drawn over the dialog, such as a form's suggestion list. The
+    /// controls under it are hidden, so a click on it must not reach them.
+    pub covered: Option<Rect>,
 }
 
 /// What a click inside a dialog landed on.
@@ -42,6 +45,8 @@ pub enum DialogTarget {
     Chrome,
     /// Outside the dialog entirely.
     Outside,
+    /// A popup drawn over the dialog, which takes no click.
+    Popup,
 }
 
 impl DialogMouse {
@@ -51,6 +56,7 @@ impl DialogMouse {
         self.area = None;
         self.body = None;
         self.buttons.clear();
+        self.covered = None;
     }
 
     /// Forget everything, including the drag. A newly opened dialog opens
@@ -64,23 +70,33 @@ impl DialogMouse {
     /// What is at `(column, row)`.
     #[must_use]
     pub fn hit(&self, column: u16, row: u16) -> DialogTarget {
-        let Some(area) = self.area else {
-            return DialogTarget::Outside;
-        };
-        if column < area.x || column >= area.right() || row < area.y || row >= area.bottom() {
+        let point = Position::new(column, row);
+        if self.covered.is_some_and(|popup| popup.contains(point)) {
+            return DialogTarget::Popup;
+        }
+        if !self.area.is_some_and(|area| area.contains(point)) {
             return DialogTarget::Outside;
         }
         if row == self.buttons_y {
-            return self
-                .buttons
-                .iter()
-                .find_map(|&(index, left, right)| {
-                    (left..right)
-                        .contains(&column)
-                        .then_some(DialogTarget::Button(index))
-                })
-                .unwrap_or(DialogTarget::Chrome);
+            return self.button_at(column);
         }
+        self.body_row_at(column, row)
+    }
+
+    /// The button covering `column` on the button row, or the gap around it.
+    fn button_at(&self, column: u16) -> DialogTarget {
+        self.buttons
+            .iter()
+            .find_map(|&(index, left, right)| {
+                (left..right)
+                    .contains(&column)
+                    .then_some(DialogTarget::Button(index))
+            })
+            .unwrap_or(DialogTarget::Chrome)
+    }
+
+    /// The body row at `(column, row)`, or the chrome around the rows.
+    fn body_row_at(&self, column: u16, row: u16) -> DialogTarget {
         let Some(body) = self.body else {
             return DialogTarget::Chrome;
         };
