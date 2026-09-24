@@ -445,30 +445,39 @@ jobs:
   # ── Mutation testing of the lines a pull request changes ────
   # cargo mutants --in-diff mutates only code the PR touched and runs the
   # suite against each mutant. The application uses .cargo/mutants.toml
-  # (exclusions, features, nextest). MCP has no config and keeps cargo test:
-  # its cucumber suite is harness = false, which nextest cannot run. Its diff
-  # is taken with --relative, because cargo-mutants run inside mcp/ matches
-  # paths like src/paths.rs; an mcp/src/paths.rs diff matches nothing and
-  # passes silently.
+  # (exclusions, features, nextest, timeout). MCP has no config and keeps
+  # cargo test: its cucumber suite is harness = false, which nextest cannot
+  # run. Its diff is taken with --relative, because cargo-mutants run inside
+  # mcp/ matches paths like src/paths.rs; an mcp/src/paths.rs diff matches
+  # nothing and passes silently.
   #
-  # A surviving (missed) mutant FAILS the job: a line this PR changed can be
-  # broken without any test noticing. Kill it with a test that observes the
-  # behaviour; only a mutant no test can observe by construction (see
-  # `is_root`) is excluded in .cargo/mutants.toml, with the reason. A timeout
-  # alone passes: the mutant hung the suite, which the timeout detected.
-  # The verdict on survivors is read from missed.txt, not the exit code:
-  # cargo-mutants exits 3 (timeout) in preference to 2 (missed) when a run
-  # has both, so "3 passes" would wave survivors through. Any other exit code
-  # (baseline failed 4, diff does not match the tree 5/6) fails the step.
-  # mutants.out is uploaded in every case.
+  # Each shard tests its slice of the mutants, one at a time: two suites on
+  # this two-core runner pushed every test run past its timeout, so every
+  # mutant "timed out" and nothing was tested. Four shards keep a diff of
+  # about 150 mutants (at roughly 80 s each) inside the 60-minute step.
+  #
+  # scripts/mutants_verdict.py judges each step from the exit status and
+  # mutants.out: a surviving (missed) mutant fails, since a changed line can
+  # break without any test noticing; a run where every mutant timed out
+  # fails, since it tested nothing; any other exit code (baseline failed 4,
+  # diff does not match the tree) fails. A timeout among caught mutants
+  # passes with a warning: that mutant hung the suite, which the timeout
+  # detected. Kill a survivor with a test that observes the behaviour; only a
+  # mutant no test can observe by construction (see `is_root`) is excluded
+  # in .cargo/mutants.toml, with the reason. mutants.out is uploaded always.
   mutants:
-    name: Mutation testing (PR diff)
+    name: Mutation testing (PR diff, shard ${{ matrix.shard }})
     if: github.event_name == 'pull_request'
     needs: lockfile
     runs-on: ubuntu-24.04
     # Longer than the others: the two mutation steps below have their own
-    # bounds (60 and 20 minutes), after a few minutes of setup.
-    timeout-minutes: 90
+    # bounds (60 and 25 minutes), after a few minutes of setup.
+    timeout-minutes: 95
+    strategy:
+      fail-fast: false
+      matrix:
+        # `--shard k/n` below takes n from this list's length.
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -486,6 +495,20 @@ jobs:
       - name: Install Rust (rust-toolchain.toml)
         run: rustup toolchain install --no-self-update
 
+      # cargo-mutants builds in a copy of the tree, without its target/; the
+      # CARGO_TARGET_DIR of each step below puts the build where this cache
+      # saves it, one target dir per crate. The job runs on pull requests
+      # only, so the cache is scoped to the pull request and warms its later
+      # pushes; the first push builds every dependency.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: mutants
+          workspaces: |
+            . -> target
+            mcp -> target
+          # Every shard builds the same dependencies; one upload is enough.
+          save-if: ${{ matrix.shard == 0 }}
+
       - name: Install mutation + test tools (prebuilt)
         uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
         with:
@@ -500,31 +523,33 @@ jobs:
 
       - name: Mutants in changed application code
         timeout-minutes: 60
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+          SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
         run: |
           status=0
-          cargo mutants --in-diff "$RUNNER_TEMP/pr.diff" --jobs 2 \
+          cargo mutants --in-diff "$RUNNER_TEMP/pr.diff" --jobs 1 --shard "$SHARD" \
             --output "$RUNNER_TEMP/mutants-app" || status=$?
-          case "$status" in 0 | 2 | 3) ;; *) exit "$status" ;; esac
-          missed="$RUNNER_TEMP/mutants-app/mutants.out/missed.txt"
-          if [ -s "$missed" ]; then cat "$missed"; exit 2; fi
+          python3 scripts/mutants_verdict.py "$status" "$RUNNER_TEMP/mutants-app/mutants.out"
 
       - name: Mutants in changed MCP code
         if: ${{ !cancelled() }}
-        timeout-minutes: 20
+        timeout-minutes: 25
         working-directory: mcp
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/mcp/target
+          SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
         run: |
           status=0
-          cargo mutants --in-diff "$RUNNER_TEMP/pr-mcp.diff" --jobs 2 \
+          cargo mutants --in-diff "$RUNNER_TEMP/pr-mcp.diff" --jobs 1 --shard "$SHARD" \
             --output "$RUNNER_TEMP/mutants-mcp" || status=$?
-          case "$status" in 0 | 2 | 3) ;; *) exit "$status" ;; esac
-          missed="$RUNNER_TEMP/mutants-mcp/mutants.out/missed.txt"
-          if [ -s "$missed" ]; then cat "$missed"; exit 2; fi
+          python3 ../scripts/mutants_verdict.py "$status" "$RUNNER_TEMP/mutants-mcp/mutants.out"
 
       - name: Upload mutants.out
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: mutants-out
+          name: mutants-out-${{ matrix.shard }}
           path: |
             ${{ runner.temp }}/mutants-app/mutants.out
             ${{ runner.temp }}/mutants-mcp/mutants.out

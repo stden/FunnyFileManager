@@ -19,8 +19,13 @@ exclude_globs = [
 # Copy .git so tests that depend on git repo presence pass
 copy_vcs = true
 
-# Timeout for each mutation test (in seconds)
-timeout_multiplier = 1.5
+# A mutant's test run times out at this multiple of the unmutated run's time,
+# and never in under minimum_test_timeout seconds. At 1.5, two suites sharing
+# CI's two-core runner took longer than that, so every mutant "timed out" and
+# nothing was tested. A mutant that hangs the suite is still stopped, after
+# three normal runs; the minimum keeps a busy machine from failing a fast one.
+timeout_multiplier = 3.0
+minimum_test_timeout = 60
 
 # Features and targets go in keys that cargo-mutants applies to BOTH phases,
 # the build (`--no-run`) and the test run. `additional_cargo_test_args` reaches
