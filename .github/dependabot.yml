@@ -1,0 +1,17 @@
+# Purpose: Proposes updates to the GitHub Actions the workflows pin by commit SHA.
+#
+# The workflows name each action by SHA with its release in a comment;
+# Dependabot rewrites both. One weekly pull request carries every update, so
+# they are tested together. Rust toolchain, tool and Colorer versions are not
+# covered: they are bumped by hand (see .github/workflows/tests.yml).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
