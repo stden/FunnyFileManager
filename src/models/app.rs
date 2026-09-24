@@ -7,7 +7,7 @@ use crate::quicksearch::QuickSearch;
 
 use super::{
     settings, Bookmarks, ClipboardSlot, FolderHistory, Lifecycle, Overlay, Panel, PanelSide,
-    PanelsShown, ViewHistory, ViewMode, Viewport, WslRequests,
+    PanelsShown, TaskHostSlot, ViewHistory, ViewMode, Viewport, WslRequests,
 };
 
 /// What happens on the terminal after a program started from a panel ends.
@@ -18,6 +18,26 @@ pub enum ProgramPause {
     None,
     /// The output stays on screen until a key is pressed.
     UntilKey,
+}
+
+/// What the production entry point switches on for live input only.
+///
+/// A test's or a replayed recording's `App` keeps all three off: nobody is at
+/// its terminal to end a pause, replaying a session must never edit a real MCP
+/// client's config or start a real client, and no test or replay may read the
+/// real machine's `PATH` or LSP cache.
+#[derive(Clone, Default)]
+pub struct LiveInput {
+    /// Whether a finished program's output waits for a key before the panels
+    /// return.
+    pub program_pause: ProgramPause,
+    /// The machine the MCP installer and the `:mcp` screen look at. Inert by
+    /// default: no home folder, no PATH, no program runner.
+    pub mcp_host: crate::mcp_clients::Host,
+    /// What the Language servers dialog asks of this machine: the LSP install
+    /// cache, `PATH` and `JAVA_HOME`, and the program names it offers. Inert by
+    /// default: it finds nothing.
+    pub(crate) lsp_probe: crate::lsp::Probe,
 }
 
 /// Main application state: two panels, overlays, bookmarks, etc.
@@ -80,6 +100,9 @@ pub struct App {
     pub folder_history: FolderHistory,
     /// Last displayed directories; bootstrap explicitly enables persistence.
     pub(crate) panel_session: crate::panel_session::PanelSession,
+    /// `NetBox`'s stored sessions. Session-only here; bootstrap loads the
+    /// file, the way it does the settings, so no test reads the user's own.
+    pub sessions: crate::sessions::SessionStore,
     /// The terminal's height, refreshed at dispatch time — the one answer for
     /// every consumer that pages by the screen (panels, console, viewer).
     /// Stored through [`Self::set_viewport`], which keeps an open viewer
@@ -90,14 +113,16 @@ pub struct App {
     /// The backend stays alive across overlays; constructors leave it absent
     /// and production bootstrap installs the real adapter.
     pub clipboard: ClipboardSlot,
-    /// Whether a finished program's output waits for a key before the panels
-    /// return. Off by default: nobody is at a test's terminal to press one.
-    /// The production entry point turns it on for live input.
-    pub program_pause: ProgramPause,
+    /// What only live input gets; see [`LiveInput`].
+    pub live: LiveInput,
     #[cfg(feature = "keepass")]
     pub(crate) vault_cache: crate::kdbx::cache::SessionCache,
     /// Requests awaiting interpretation by the background WSL worker.
     pub wsl_requests: WslRequests,
+    /// The process host the task list reads and controls processes through.
+    /// Constructors leave it empty — the list then falls back to the text
+    /// report — and the production entry point installs the platform's.
+    pub task_host: TaskHostSlot,
 }
 
 impl App {
@@ -122,6 +147,10 @@ impl App {
     /// listed, so a new field cannot be initialised differently by `new()`
     /// and by a test that brings its own panels.
     #[must_use]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one line per App field: splitting it would list the defaults in two places"
+    )]
     pub fn with_panels(left_panel: Panel, right_panel: Panel) -> Self {
         Self {
             left_panel,
@@ -146,15 +175,17 @@ impl App {
             view_history: ViewHistory::default(),
             folder_history: FolderHistory::default(),
             panel_session: crate::panel_session::PanelSession::default(),
+            sessions: crate::sessions::SessionStore::default(),
             viewport: Viewport::default(),
             // Default is backend-less: installing the OS clipboard here would
             // put an X11/Wayland connection inside every test's `App::new()`.
             // The production entry point installs the real backend.
             clipboard: ClipboardSlot::default(),
-            program_pause: ProgramPause::default(),
+            live: LiveInput::default(),
             #[cfg(feature = "keepass")]
             vault_cache: crate::kdbx::cache::SessionCache::default(),
             wsl_requests: WslRequests::default(),
+            task_host: TaskHostSlot::default(),
         }
     }
 
@@ -187,7 +218,12 @@ impl App {
                 continue;
             }
             panel.description_names.clone_from(&names);
-            let _ = panel.load_entries();
+            if let Err(error) = panel.load_entries() {
+                crate::diagnostics::log_error(&format!(
+                    "re-reading {} for its descriptions: {error}",
+                    panel.path.display()
+                ));
+            }
         }
     }
 

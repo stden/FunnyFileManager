@@ -16,7 +16,7 @@ pub fn capture(command: &mut Command) -> io::Result<Output> {
 }
 
 /// Run `command`, its two streams spooled to files in `spool`.
-fn capture_with_timeout(
+pub fn capture_with_timeout(
     command: &mut Command,
     timeout: Duration,
     spool: &Path,
@@ -27,8 +27,9 @@ fn capture_with_timeout(
         .stdin(Stdio::null())
         .stdout(stdout.try_clone()?)
         .stderr(stderr.try_clone()?);
-    hide_window(command);
+    detach(command);
     let mut child = spawn(command)?;
+    let tree = Tree::of(&child);
     let deadline = Instant::now() + timeout;
     let status = loop {
         if let Some(status) = child.try_wait()? {
@@ -37,12 +38,7 @@ fn capture_with_timeout(
         if Instant::now() >= deadline
             || stdout.metadata()?.len() + stderr.metadata()?.len() > MAX_OUTPUT
         {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(io::Error::new(
-                io::ErrorKind::TimedOut,
-                "Command exceeded its time or output limit",
-            ));
+            return Err(stop(&mut child, tree));
         }
         thread::sleep(Duration::from_millis(20));
     };
@@ -51,6 +47,26 @@ fn capture_with_timeout(
         stdout: read_output(&mut stdout)?,
         stderr: read_output(&mut stderr)?,
     })
+}
+
+/// Kill a child that ran past its limits, with everything it started, and
+/// say so. A kill or a reap that fails is added to the message rather than
+/// dropped: the child may still be running, and the user should hear it.
+fn stop(child: &mut Child, tree: Tree) -> io::Error {
+    let problems = [
+        failed("stopping it", tree.kill(child)),
+        failed("waiting for it", child.wait().map(drop)),
+    ];
+    let message: Vec<String> =
+        std::iter::once("Command exceeded its time or output limit".to_owned())
+            .chain(problems.into_iter().flatten())
+            .collect();
+    io::Error::new(io::ErrorKind::TimedOut, message.join("; "))
+}
+
+/// `<what> failed: <error>` when `result` is an error.
+fn failed(what: &str, result: io::Result<()>) -> Option<String> {
+    result.err().map(|error| format!("{what} failed: {error}"))
 }
 
 /// A file in `spool` to catch one stream in. The OS error names no path, so
@@ -85,14 +101,67 @@ fn read_output(file: &mut File) -> io::Result<Vec<u8>> {
     Ok(bytes)
 }
 
+/// Everything the child starts, as one thing to stop. A shim stops only
+/// itself on a plain kill — npm's `claude.cmd` is a `cmd.exe`, Volta's is a
+/// program of its own — while the real CLI under it runs on and may write its
+/// config after the report said it did not finish.
+///
+/// Unix: the child leads a process group of its own (see [`detach`]).
+#[cfg(unix)]
+struct Tree;
+
+/// Windows: a job that kills every process in it when its handle closes;
+/// `None` when the job could not be made, and then a kill stops the child
+/// alone, as it always did.
 #[cfg(windows)]
-fn hide_window(command: &mut Command) {
+struct Tree(Option<std::os::windows::io::OwnedHandle>);
+
+impl Tree {
+    #[cfg(unix)]
+    const fn of(_child: &Child) -> Self {
+        Self
+    }
+
+    #[cfg(windows)]
+    fn of(child: &Child) -> Self {
+        Self(crate::windows::process_tree_job(child).ok())
+    }
+
+    /// Kill the child and everything in its tree.
+    #[cfg(unix)]
+    #[expect(
+        clippy::unused_self,
+        reason = "the Windows tree holds a job; Unix finds the group from the child"
+    )]
+    fn kill(self, child: &mut Child) -> io::Result<()> {
+        // No group left means nothing but the child itself to stop.
+        crate::platform::kill_process_group(child).or_else(|_| child.kill())
+    }
+
+    #[cfg(windows)]
+    fn kill(self, child: &mut Child) -> io::Result<()> {
+        // Closing the job kills every process in it; then the child itself,
+        // in case there was no job.
+        drop(self.0);
+        child.kill()
+    }
+}
+
+/// Start the child with no console window of its own.
+#[cfg(windows)]
+fn detach(command: &mut Command) {
     use std::os::windows::process::CommandExt;
     command.creation_flags(0x0800_0000);
 }
 
-#[cfg(not(windows))]
-fn hide_window(_command: &mut Command) {}
+/// Start the child as the leader of a process group of its own, so a stop
+/// reaches what it starts. Nothing it runs reads the terminal: stdin is
+/// empty.
+#[cfg(unix)]
+fn detach(command: &mut Command) {
+    use std::os::unix::process::CommandExt;
+    command.process_group(0);
+}
 
 #[cfg(test)]
 mod tests;

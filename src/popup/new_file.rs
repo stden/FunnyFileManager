@@ -14,7 +14,7 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
             app.close_overlay();
         }
         KeyCode::Enter => {
-            let filename = input.trim().to_string();
+            let filename = input.trim().to_owned();
             app.close_overlay();
             if let Err(err) = handle_create_file(app, &filename) {
                 app.set_status(crate::status::Status::CreateFileFailed {

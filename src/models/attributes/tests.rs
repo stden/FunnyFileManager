@@ -271,6 +271,23 @@ fn time_fields_parse_or_are_refused() {
     assert!(error.to_string().contains("yesterday"), "{error}");
 }
 
+/// The refusal quotes the typed text and escapes what the status line could
+/// not show as typed: a quote, a backslash, a tab. An apostrophe stays as it
+/// is.
+#[test]
+fn a_refused_time_quotes_and_escapes_the_typed_text() {
+    let mut dialog = AttributesDialog::from_snapshots(&[snapshot("a", 0o644, false)]);
+    dialog.modified.current.clear();
+    dialog.accessed.current = "12:00\" C:\\2024\tit's".to_owned();
+
+    let error = dialog.requested_times().expect_err("refused");
+
+    assert_eq!(
+        error.to_string(),
+        r#"Access time: "12:00\" C:\\2024\tit's" is not a time (YYYY-MM-DD HH:MM:SS)"#
+    );
+}
+
 /// A click on the button row names the button before Enter.
 #[test]
 fn focus_button_names_set_then_cancel() {

@@ -40,7 +40,7 @@ fn the_rows_include_the_machines_own_filesystems() {
     let disks: Vec<_> = rows.iter().filter(|row| row.is_disk()).collect();
     assert!(!disks.is_empty(), "the first section is never empty");
     let RowKind::Disk { space, label, .. } = &disks[0].kind else {
-        unreachable!("filtered to disks");
+        panic!("filtered to disks");
     };
     assert!(!label.is_empty());
     assert!(
@@ -166,8 +166,55 @@ fn a_local_path_becomes_a_disk_row_with_its_size() {
     let row = row_for((Some('/'), DriveEntry::Local("/".into())));
     assert!(row.is_disk());
     let RowKind::Disk { label, space, .. } = &row.kind else {
-        unreachable!("built as a disk");
+        panic!("built as a disk");
     };
     assert_eq!(label, "/");
     assert!(space.is_some_and(|space| space.total > 0));
+}
+
+/// Far lists its plugins after the disks and the profiles, numbered from 0
+/// in that order: the profiles first, then `NetBox`, then the process list.
+#[test]
+fn the_plugin_rows_follow_the_profiles_and_take_the_next_digits() {
+    let entries = vec![
+        DriveEntry::Local("/".into()),
+        DriveEntry::S3Profile("work".to_owned()),
+        DriveEntry::NetBox,
+        DriveEntry::ProcessList,
+    ];
+    assert_eq!(
+        keys(&entries),
+        vec![Some('/'), Some('0'), Some('1'), Some('2')]
+    );
+    let netbox = row_for((Some('1'), DriveEntry::NetBox));
+    assert!(!netbox.is_disk());
+    assert!(netbox.answers_to('1'));
+    assert_eq!(
+        netbox.kind,
+        RowKind::Plugin {
+            name: "NetBox".to_owned()
+        }
+    );
+    let tasks = row_for((Some('2'), DriveEntry::ProcessList));
+    assert_eq!(
+        tasks.kind,
+        RowKind::Plugin {
+            name: "Process list".to_owned()
+        }
+    );
+}
+
+/// The live dialog always ends with the two plugin rows, each reachable by
+/// its digit.
+#[test]
+fn the_live_rows_end_with_netbox_and_the_process_list() {
+    let rows = rows();
+    let tail: Vec<&DriveEntry> = rows.iter().rev().take(2).map(|row| &row.entry).collect();
+    assert_eq!(tail, [&DriveEntry::ProcessList, &DriveEntry::NetBox]);
+    let netbox = rows
+        .iter()
+        .find(|row| row.entry == DriveEntry::NetBox)
+        .expect("a NetBox row");
+    let digit = netbox.key.expect("a digit");
+    assert_eq!(find_by_key(&rows, digit), Some(DriveEntry::NetBox));
 }

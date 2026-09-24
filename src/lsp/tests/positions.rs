@@ -17,12 +17,10 @@ fn character_and_byte_positions_round_trip_ascii_cyrillic_emoji_and_lines() {
                 Some(byte),
                 "{text:?} at {byte}"
             );
-            let line = text.split('\n').nth(position.line as usize).unwrap();
+            let line_index = usize::try_from(position.line).unwrap();
+            let line = text.split('\n').nth(line_index).unwrap();
             let chars = to_chars(line, position.character).unwrap();
-            assert_eq!(
-                from_chars(position.line as usize, line, chars),
-                Some(position)
-            );
+            assert_eq!(from_chars(line_index, line, chars), Some(position));
         }
     }
 }

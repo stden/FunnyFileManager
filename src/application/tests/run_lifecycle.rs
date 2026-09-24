@@ -1,8 +1,6 @@
 //! Event-loop lifecycle: normal exit and terminal failures.
-#![allow(unused_imports)]
 
 use super::*;
-use crate::models::Lifecycle;
 
 use crate::models::Panel;
 

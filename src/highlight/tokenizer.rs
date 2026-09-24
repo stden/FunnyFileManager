@@ -12,16 +12,17 @@ pub(super) fn tokenize<'a>(
         return vec![(line, token)];
     }
     let mut runs = Vec::new();
-    let mut at = 0;
-    while at < line.len() {
-        let rest = &line[at..];
+    let mut rest = line;
+    while let Some(first) = rest.chars().next() {
         let (length, token) = comment_length(rest, syntax, in_block).map_or_else(
-            || next_token(rest, syntax),
+            || next_token(rest, first, syntax),
             |length| (length, Token::Comment),
         );
-        let end = at + length;
-        runs.push((&line[at..end], token));
-        at = end;
+        // Every length is counted in whole characters, so the split succeeds;
+        // were one ever off, the rest of the line stays in this run.
+        let (run, tail) = rest.split_at_checked(length).unwrap_or((rest, ""));
+        runs.push((run, token));
+        rest = tail;
     }
     runs
 }
@@ -47,13 +48,14 @@ fn whole_line_token(line: &str, syntax: Syntax, in_block: bool) -> Option<Token>
 
 fn comment_length(rest: &str, syntax: Syntax, in_block: &mut bool) -> Option<usize> {
     if *in_block {
-        let (_, close) = syntax
-            .block_comment
-            .expect("in_block is only set where a block comment exists");
-        return Some(rest.find(close).map_or(rest.len(), |offset| {
-            *in_block = false;
-            offset + close.len()
-        }));
+        if let Some((_, close)) = syntax.block_comment {
+            return Some(rest.find(close).map_or(rest.len(), |offset| {
+                *in_block = false;
+                offset + close.len()
+            }));
+        }
+        // Only a syntax with block comments sets `in_block`.
+        *in_block = false;
     }
     if syntax
         .line_comments
@@ -77,9 +79,8 @@ fn block_comment_length(rest: &str, syntax: Syntax, in_block: &mut bool) -> Opti
     })
 }
 
-/// Read one non-comment token. The caller passes a nonempty remainder of a line.
-fn next_token(rest: &str, syntax: Syntax) -> (usize, Token) {
-    let ch = rest.chars().next().expect("rest is non-empty");
+/// Read one non-comment token from `rest`, whose first character is `ch`.
+fn next_token(rest: &str, ch: char, syntax: Syntax) -> (usize, Token) {
     if syntax.quotes.contains(&ch) {
         return (string_length(rest, ch), Token::Str);
     }
@@ -99,7 +100,7 @@ fn next_token(rest: &str, syntax: Syntax) -> (usize, Token) {
         let length = run_length(rest, |c| {
             c.is_alphanumeric() || c == '_' || (syntax.word_hyphens && c == '-')
         });
-        let token = word_token(&rest[..length], syntax);
+        let token = word_token(rest.get(..length).unwrap_or(rest), syntax);
         return (length, token);
     }
 
@@ -121,7 +122,7 @@ fn word_token(word: &str, syntax: Syntax) -> Token {
 }
 
 fn prefixed_token(rest: &str, syntax: Syntax, ch: char) -> Option<(usize, Token)> {
-    let tail = &rest[ch.len_utf8()..];
+    let tail = rest.strip_prefix(ch).unwrap_or_default();
     if syntax.switch_prefix == Some(ch) && tail.chars().next().is_some_and(char::is_alphanumeric) {
         return Some((
             ch.len_utf8() + run_length(tail, char::is_alphanumeric),

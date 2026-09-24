@@ -85,13 +85,6 @@ fn console_text(app: &App) -> String {
         .join("\n")
 }
 
-fn status_text(app: &App) -> String {
-    match &app.status {
-        Status::CommandOutput(text) => text.clone(),
-        other => format!("{other:?}"),
-    }
-}
-
 #[test]
 fn every_far_extension_is_an_archive_and_nothing_else_is() {
     for name in [
@@ -336,8 +329,13 @@ fn run_unpacks_every_marked_archive_reports_and_clears_the_marks() {
         fs::read_to_string(right.join("payload/nested/hello.txt")).expect("unpacked"),
         "hello"
     );
-    let status = status_text(&app);
-    assert!(status.starts_with("Extracted 2 archives to "), "{status}");
+    assert_eq!(
+        app.status,
+        Status::Extracted {
+            count: 2,
+            destination: right,
+        }
+    );
     assert!(app.get_active_panel().marked.is_empty(), "marks are spent");
     assert!(
         console_text(&app).contains("tar -xf"),
@@ -383,9 +381,9 @@ fn run_with_an_empty_destination_keeps_the_dialog_and_says_why() {
     run_extract(&mut app);
     assert!(matches!(app.overlay, Overlay::ExtractPrompt(_)));
     assert!(
-        status_text(&app).contains("destination"),
+        app.status_text().contains("destination"),
         "{}",
-        status_text(&app)
+        app.status_text()
     );
 }
 
@@ -405,7 +403,7 @@ fn run_reports_the_first_failure_and_keeps_the_marks() {
     open_extract(&mut app);
     run_extract(&mut app);
 
-    let status = status_text(&app);
+    let status = app.status_text();
     assert!(status.starts_with("Extracted 1 of 2 archives"), "{status}");
     assert!(status.contains("bad.tar.gz"), "{status}");
     assert_eq!(
@@ -429,8 +427,8 @@ fn run_with_nothing_to_extract_closes_and_reports() {
     run_extract(&mut app);
     assert!(!app.overlay.is_active());
     assert!(
-        status_text(&app).contains("No archive selected"),
+        app.status_text().contains("No archive selected"),
         "{}",
-        status_text(&app)
+        app.status_text()
     );
 }

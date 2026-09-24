@@ -1,4 +1,5 @@
-//! Purpose: `DriveEntry` and the drive discovery behind the Alt+F1 / Alt+F2 menus.
+//! Purpose: `DriveEntry` and the drive discovery behind the Alt+F1 / Alt+F2 menus:
+//! the local drives, the S3 profiles, and the `NetBox` and Process list rows.
 
 use std::path::PathBuf;
 
@@ -16,20 +17,19 @@ impl App {
         vec![PathBuf::from("/")]
     }
 
-    /// Get all available "drives" including local drives and AWS S3 profiles
+    /// Every row of the Change drive dialog: local drives, AWS S3 profiles,
+    /// then the two plugin rows Far lists after them.
     pub fn get_all_drives() -> Vec<DriveEntry> {
-        #[cfg_attr(not(feature = "s3"), allow(unused_mut))]
-        let mut entries: Vec<DriveEntry> = Self::get_drives()
-            .into_iter()
-            .map(DriveEntry::Local)
-            .collect();
-
+        let entries = Self::get_drives().into_iter().map(DriveEntry::Local);
         #[cfg(feature = "s3")]
-        for profile in crate::s3::list_aws_profiles() {
-            entries.push(DriveEntry::S3Profile(profile.name));
-        }
-
+        let entries = entries.chain(
+            crate::s3::list_aws_profiles()
+                .into_iter()
+                .map(|profile| DriveEntry::S3Profile(profile.name)),
+        );
         entries
+            .chain([DriveEntry::NetBox, DriveEntry::ProcessList])
+            .collect()
     }
 }
 
@@ -45,12 +45,17 @@ pub(super) fn windows_drive_paths_from_mask(mask: u32) -> Vec<PathBuf> {
     drives
 }
 
-/// Represents a drive entry (local or S3)
-#[derive(Clone, Debug)]
+/// What a row of the Change drive dialog opens: a filesystem, or one of the
+/// plugins Far lists under the rule.
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum DriveEntry {
     Local(PathBuf),
     S3Profile(String),
+    /// `NetBox`'s stored-sessions panel.
+    NetBox,
+    /// The Task list dialog (`Ctrl+W`).
+    ProcessList,
 }
 
 impl DriveEntry {
@@ -59,6 +64,8 @@ impl DriveEntry {
         match self {
             Self::Local(path) => path.display().to_string(),
             Self::S3Profile(name) => format!("S3: {name}"),
+            Self::NetBox => "NetBox".to_owned(),
+            Self::ProcessList => "Process list".to_owned(),
         }
     }
 }

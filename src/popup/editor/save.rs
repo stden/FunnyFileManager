@@ -99,5 +99,5 @@ fn write_buffer(app: &mut App, then: AfterSave) {
     }
     // The save's own outcome is already on screen; a panel that cannot be
     // re-read keeps its old listing until the next refresh.
-    let _ = refresh_panels(app);
+    drop(refresh_panels(app));
 }

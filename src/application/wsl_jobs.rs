@@ -3,18 +3,12 @@
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
+use super::Redraw;
 use crate::models::{App, WslOutput, WslRequest, WslRequestId};
 use crate::ops::wsl::complete;
 use crate::wsl::WslBackend;
 
 type Completion = (WslRequestId, Result<WslOutput, String>);
-
-/// Whether pumping background work produced an outcome for presentation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Redraw {
-    Unchanged,
-    Needed,
-}
 
 struct Worker {
     requests: mpsc::Sender<WslRequest>,
@@ -102,6 +96,10 @@ enum Connection {
 }
 
 impl Worker {
+    #[expect(
+        clippy::map_err_ignore,
+        reason = "SendError only hands back the unsent request; a stopped worker is the whole cause"
+    )]
     fn submit(&mut self, request: WslRequest) -> Result<(), String> {
         let pending = Pending::new(&request);
         self.requests

@@ -26,7 +26,7 @@ fn finish_cleanup(first_error: Option<io::Error>) -> io::Result<()> {
     clippy::struct_excessive_bools,
     reason = "one flag per terminal mode still to undo; restore retries each alone, so every combination occurs"
 )]
-pub(crate) struct TerminalSession<'a, B, O>
+pub struct TerminalSession<'a, B, O>
 where
     B: Backend + Write,
     O: TerminalOps<B>,
@@ -116,7 +116,8 @@ where
     O: TerminalOps<B>,
 {
     fn drop(&mut self) {
-        let _ = self.restore();
+        // A destructor cannot report; `finish` is the path that returns it.
+        drop(self.restore());
     }
 }
 
@@ -124,7 +125,7 @@ where
     clippy::struct_excessive_bools,
     reason = "one flag per terminal mode still to resume; each is retried alone, so every combination occurs"
 )]
-pub(crate) struct TerminalSuspension<'a, B, O>
+pub struct TerminalSuspension<'a, B, O>
 where
     B: Backend + Write,
     O: TerminalOps<B>,
@@ -240,6 +241,7 @@ where
     O: TerminalOps<B>,
 {
     fn drop(&mut self) {
-        let _ = self.resume_all();
+        // A destructor cannot report; `resume` is the path that returns it.
+        drop(self.resume_all());
     }
 }

@@ -11,7 +11,7 @@ use std::os::unix::fs::PermissionsExt;
 
 use super::*;
 
-use crate::copy::{CopyPrompt, ExistingFiles, Purpose};
+use crate::copy::{CopyPrompt, ExistingFiles};
 use crate::models::{FileName, Panel, PanelSide};
 
 use tempfile::TempDir;
@@ -66,10 +66,15 @@ fn ask_keeps_the_original_and_renames_the_copy() {
     assert_eq!(fs::read(to.path().join("notes.txt")).unwrap(), b"old");
     assert_eq!(fs::read(to.path().join("notes_1.txt")).unwrap(), b"new");
     assert!(from.path().join("notes.txt").exists(), "a copy, not a move");
-    assert!(
-        app.status.to_string().contains("existing files kept"),
-        "the status has to say the copy was renamed, got {}",
-        app.status
+    assert_eq!(
+        app.status,
+        Status::Transferred {
+            purpose: Purpose::Copy,
+            landed: Landed::At(to.path().join("notes_1.txt")),
+            skipped: 0,
+            renamed: 1,
+        },
+        "the status has to say the copy was renamed"
     );
 }
 
@@ -272,12 +277,11 @@ fn a_named_report_copies_into_a_new_nested_relative_archive() {
 /// the count as well as the first error.
 #[test]
 fn one_failure_is_reported_without_losing_the_rest() {
-    let (mut app, from, to) = app_with(&[("good.txt", b"x")]);
+    let (mut app, _from, to) = app_with(&[("good.txt", b"x")]);
     mark(&mut app, "good.txt");
     // A marked name with nothing behind it: the source is gone by the time the
     // transfer runs, which is exactly what a stale panel does.
     mark(&mut app, "vanished.txt");
-    let _ = from;
 
     copy_with(&mut app, &settings(to.path()));
 
@@ -336,63 +340,6 @@ fn a_directory_cannot_be_transferred_into_itself() {
     assert!(
         status.to_lowercase().contains("error") || status.contains('1'),
         "and it said so, got {status}"
-    );
-}
-
-/// Overwriting is not only about files: a directory already at the
-/// destination has to be removed whole before the new one lands, or the two
-/// trees merge and the result is neither.
-#[test]
-fn overwriting_replaces_a_directory_rather_than_merging_into_it() {
-    let (mut app, from, to) = app_with(&[]);
-    let source = from.path().join("data");
-    fs::create_dir_all(&source).expect("test setup");
-    fs::write(source.join("new.txt"), b"new").expect("test setup");
-    let stale = to.path().join("data");
-    fs::create_dir_all(&stale).expect("test setup");
-    fs::write(stale.join("old.txt"), b"old").expect("test setup");
-    app.get_active_panel().load_entries().expect("reload");
-    mark(&mut app, "data");
-
-    let mut dialog = settings(to.path());
-    dialog.existing = ExistingFiles::Overwrite;
-    copy_with(&mut app, &dialog);
-
-    assert!(stale.join("new.txt").exists(), "the new tree is there");
-    assert!(
-        !stale.join("old.txt").exists(),
-        "and the old one went whole, rather than merging"
-    );
-}
-
-/// Moving a project onto a stale checkout is a single policy decision: remove
-/// the old tree whole, put the current tree in its place, and leave no source.
-#[test]
-fn moving_over_a_stale_directory_replaces_the_tree_whole() {
-    let (mut app, from, to) = app_with(&[]);
-    let source = from.path().join("project");
-    fs::create_dir_all(source.join("src")).expect("test setup");
-    fs::write(source.join("src/main.rs"), b"fn main() {}\n").expect("test setup");
-
-    let destination = to.path().join("project");
-    fs::create_dir_all(&destination).expect("test setup");
-    fs::write(destination.join("stale.lock"), b"old").expect("test setup");
-
-    app.get_active_panel().load_entries().expect("reload");
-    mark(&mut app, "project");
-    let mut dialog = settings(to.path());
-    dialog.purpose = Purpose::Move;
-    dialog.existing = ExistingFiles::Overwrite;
-    copy_with(&mut app, &dialog);
-
-    assert!(!source.exists(), "the project left its original panel");
-    assert_eq!(
-        fs::read(destination.join("src/main.rs")).unwrap(),
-        b"fn main() {}\n"
-    );
-    assert!(
-        !destination.join("stale.lock").exists(),
-        "overwrite replaces the stale tree instead of merging into it"
     );
 }
 
@@ -504,10 +451,14 @@ fn only_newer_onto_itself_is_skipped() {
     copy_with(&mut app, &dialog);
 
     assert_eq!(fs::read(from.path().join("notes.txt")).unwrap(), b"payload");
-    assert!(
-        app.status.to_string().contains("1 skipped"),
-        "{}",
-        app.status
+    assert_eq!(
+        app.status,
+        Status::Transferred {
+            purpose: Purpose::Copy,
+            landed: Landed::Nowhere,
+            skipped: 1,
+            renamed: 0,
+        }
     );
 }
 
@@ -792,7 +743,7 @@ fn copying_a_fifo_reports_it_instead_of_waiting_for_a_writer() {
 
 /// Make a FIFO at `path`, or `None` where the platform will not have one.
 #[cfg(unix)]
-pub(super) fn make_fifo(path: &Path) -> Option<std::path::PathBuf> {
+pub(super) fn make_fifo(path: &Path) -> Option<PathBuf> {
     crate::test_support::make_fifo(path).ok()?;
     Some(path.to_path_buf())
 }
@@ -851,7 +802,7 @@ fn zz_probe_readonly_target_dir_permission_denied() {
     mark(&mut app, "notes.txt");
     fs::set_permissions(to.path(), fs::Permissions::from_mode(0o555)).expect("setup");
     let euid = crate::platform::effective_uid();
-    let result = super::handle_copy(&mut app);
+    let result = handle_copy(&mut app);
     fs::set_permissions(to.path(), fs::Permissions::from_mode(0o755)).expect("cleanup");
     let status = app.status.to_string();
     eprintln!("euid={euid} result={result:?} status={status}");

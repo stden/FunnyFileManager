@@ -3,6 +3,8 @@
 //! Values are text. Quotes can span lines; hashes inside quotes remain text,
 //! and references are highlighted without expanding or reading their values.
 
+use std::ops::Range;
+
 use super::{run_length, Token};
 
 #[derive(Debug, Default)]
@@ -34,9 +36,9 @@ impl State {
         if !matches!(self, Self::Unquoted) {
             return Some(0);
         }
-        let trimmed = line.trim_start();
+        let (indent, trimmed) = split_run(line, char::is_whitespace);
         if trimmed.starts_with('#') {
-            push(runs, &line[..line.len() - trimmed.len()], Token::Normal);
+            push(runs, indent, Token::Normal);
             runs.push((trimmed, Token::Comment));
             return None;
         }
@@ -60,13 +62,10 @@ struct ValueScanner<'line, 'state> {
 
 impl<'line> ValueScanner<'line, '_> {
     fn scan(mut self) -> Vec<(&'line str, Token)> {
-        while let Some(ch) = self.line[self.at..].chars().next() {
+        while let Some(ch) = self.rest().chars().next() {
             if ch == '\\' {
                 self.at += ch.len_utf8();
-                self.at += self.line[self.at..]
-                    .chars()
-                    .next()
-                    .map_or(0, char::len_utf8);
+                self.at += self.rest().chars().next().map_or(0, char::len_utf8);
             } else if matches!(self.state, State::Unquoted) && ch == '#' {
                 self.emit(self.line.len() - self.at, Token::Comment);
                 return self.runs;
@@ -75,12 +74,24 @@ impl<'line> ValueScanner<'line, '_> {
                 self.at += ch.len_utf8();
             }
         }
-        push(&mut self.runs, &self.line[self.start..], Token::Str);
+        let unfinished = self.text(self.start..self.line.len());
+        push(&mut self.runs, unfinished, Token::Str);
         self.runs
     }
 
+    /// The part of the line not scanned yet.
+    fn rest(&self) -> &'line str {
+        self.text(self.at..self.line.len())
+    }
+
+    /// The line's bytes in `range`. The scanner only stops on character
+    /// boundaries, so this is never cut short.
+    fn text(&self, range: Range<usize>) -> &'line str {
+        self.line.get(range).unwrap_or_default()
+    }
+
     fn emit_special(&mut self, ch: char) -> bool {
-        let rest = &self.line[self.at..];
+        let rest = self.rest();
         let token = match (&*self.state, ch) {
             (State::Unquoted | State::DoubleQuoted, '$') => {
                 reference_length(rest).map(|length| (length, Token::Type))
@@ -98,9 +109,12 @@ impl<'line> ValueScanner<'line, '_> {
     }
 
     fn emit(&mut self, length: usize, token: Token) {
-        push(&mut self.runs, &self.line[self.start..self.at], Token::Str);
-        self.runs
-            .push((&self.line[self.at..self.at + length], token));
+        let (before, emitted) = (
+            self.text(self.start..self.at),
+            self.text(self.at..self.at + length),
+        );
+        push(&mut self.runs, before, Token::Str);
+        self.runs.push((emitted, token));
         self.at += length;
         self.start = self.at;
     }
@@ -123,35 +137,32 @@ impl<'line> ValueScanner<'line, '_> {
 
 /// Classify only a complete assignment prefix, leaving malformed input intact.
 fn assignment<'a>(line: &'a str, runs: &mut Vec<(&'a str, Token)>) -> Option<usize> {
-    let equals = line.find('=')?;
-    let prefix = &line[..equals];
-    let declaration = prefix.trim_start();
-    let (export, key) = declaration
-        .strip_prefix("export")
-        .filter(|tail| tail.starts_with(char::is_whitespace))
-        .map_or_else(
-            || (None, declaration.trim_end()),
-            |tail| (Some(prefix.len() - declaration.len()), tail.trim()),
-        );
+    let (prefix, after_equals) = line.split_once('=')?;
+    let (indent, declaration) = split_run(prefix, char::is_whitespace);
+    let (export_gap, key_part) = match declaration.strip_prefix("export") {
+        Some(tail) if tail.starts_with(char::is_whitespace) => {
+            let (gap, key_part) = split_run(tail, char::is_whitespace);
+            (Some(gap), key_part)
+        }
+        _ => (None, declaration),
+    };
+    let key = key_part.trim_end();
+    let padding = key_part.strip_prefix(key).unwrap_or_default();
     if !valid_name(key) {
         return None;
     }
 
-    let key_end = prefix.trim_end().len();
-    let key_start = key_end - key.len();
-    if let Some(export_start) = export {
-        push(runs, &line[..export_start], Token::Normal);
-        runs.push((&line[export_start..export_start + 6], Token::Keyword));
-        push(runs, &line[export_start + 6..key_start], Token::Normal);
-    } else {
-        push(runs, &line[..key_start], Token::Normal);
+    push(runs, indent, Token::Normal);
+    if let Some(gap) = export_gap {
+        runs.push(("export", Token::Keyword));
+        push(runs, gap, Token::Normal);
     }
-    runs.push((&line[key_start..key_end], Token::Type));
-    push(runs, &line[key_end..equals], Token::Normal);
-    runs.push((&line[equals..=equals], Token::Punctuation));
-    let value_start = line.len() - line[equals + 1..].trim_start().len();
-    push(runs, &line[equals + 1..value_start], Token::Normal);
-    Some(value_start)
+    runs.push((key, Token::Type));
+    push(runs, padding, Token::Normal);
+    runs.push(("=", Token::Punctuation));
+    let (value_indent, value) = split_run(after_equals, char::is_whitespace);
+    push(runs, value_indent, Token::Normal);
+    Some(line.len() - value.len())
 }
 
 fn valid_name(name: &str) -> bool {
@@ -166,13 +177,24 @@ fn valid_name(name: &str) -> bool {
 fn reference_length(text: &str) -> Option<usize> {
     let tail = text.strip_prefix('$')?;
     if let Some(braced) = tail.strip_prefix('{') {
-        let close = braced.find('}')?;
-        let expression = &braced[..close];
-        let name_length = run_length(expression, |ch| ch.is_ascii_alphanumeric() || ch == '_');
-        return valid_name(&expression[..name_length]).then_some(close + 3);
+        let (expression, _) = braced.split_once('}')?;
+        let (name, _) = split_run(expression, is_name_char);
+        // `$`, `{`, the expression and `}`.
+        return valid_name(name).then_some(expression.len() + 3);
     }
-    let length = run_length(tail, |ch| ch.is_ascii_alphanumeric() || ch == '_');
-    valid_name(&tail[..length]).then_some(length + 1)
+    let (name, _) = split_run(tail, is_name_char);
+    valid_name(name).then_some(name.len() + 1)
+}
+
+fn is_name_char(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || ch == '_'
+}
+
+/// Split `text` after its leading run of characters satisfying `keep`.
+fn split_run(text: &str, keep: impl Fn(char) -> bool) -> (&str, &str) {
+    let rest = text.trim_start_matches(keep);
+    // `rest` is a suffix of `text`, so the strip always succeeds.
+    (text.strip_suffix(rest).unwrap_or_default(), rest)
 }
 
 fn push<'a>(runs: &mut Vec<(&'a str, Token)>, text: &'a str, token: Token) {

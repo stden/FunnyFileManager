@@ -1,7 +1,4 @@
 //! Unit tests: event loop toggles (split out to keep files under 500 lines).
-#![allow(unused_imports)]
-
-use crate::models::ViewMode;
 
 use super::*;
 

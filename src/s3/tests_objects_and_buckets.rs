@@ -1,5 +1,4 @@
 //! Unit tests: objects and buckets (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use super::tests::*;
 use crate::models::EntryKind;
@@ -7,22 +6,6 @@ use crate::models::FileSize;
 use std::time::SystemTime;
 
 use super::*;
-
-use aws_sdk_s3::config::{Credentials, Region, SharedCredentialsProvider};
-
-use aws_sdk_s3::Client;
-
-use aws_smithy_http_client::test_util::{ReplayEvent, StaticReplayClient};
-
-use aws_smithy_types::body::SdkBody;
-
-use http_1x::{Request, Response};
-
-use std::env;
-
-use std::fs;
-
-use std::io;
 
 use std::path::PathBuf;
 
@@ -308,7 +291,7 @@ fn test_virtual_path_parse_bucket_only_no_slash() {
             prefix,
         } => {
             assert_eq!(profile, "default");
-            assert_eq!(bucket, Some("my-bucket".to_string()));
+            assert_eq!(bucket, Some("my-bucket".to_owned()));
             assert!(prefix.is_empty());
         }
         _ => panic!("Expected S3 path"),
@@ -325,7 +308,7 @@ fn test_virtual_path_parse_profile_at_bucket_no_prefix() {
             prefix,
         } => {
             assert_eq!(profile, "prod");
-            assert_eq!(bucket, Some("my-bucket".to_string()));
+            assert_eq!(bucket, Some("my-bucket".to_owned()));
             assert!(prefix.is_empty());
         }
         _ => panic!("Expected S3 path"),
@@ -377,7 +360,7 @@ fn test_virtual_path_parse_deep_prefix() {
             prefix,
         } => {
             assert_eq!(profile, "staging");
-            assert_eq!(bucket, Some("archive".to_string()));
+            assert_eq!(bucket, Some("archive".to_owned()));
             assert_eq!(prefix, "2024/01/15/logs/app.log");
         }
         _ => panic!("Expected S3 path"),
@@ -397,9 +380,9 @@ fn test_virtual_path_parse_relative_local() {
 fn test_virtual_path_equality() {
     let a = VirtualPath::parse("s3://prod@bucket/prefix");
     let b = VirtualPath::S3 {
-        profile: "prod".to_string(),
-        bucket: Some("bucket".to_string()),
-        prefix: "prefix".to_string(),
+        profile: "prod".to_owned(),
+        bucket: Some("bucket".to_owned()),
+        prefix: "prefix".to_owned(),
     };
     assert_eq!(a, b);
 
@@ -425,12 +408,12 @@ fn test_virtual_path_clone_and_debug() {
 #[test]
 fn test_aws_profile_clone_debug() {
     let profile = AwsProfile {
-        name: "prod".to_string(),
-        region: Some("eu-west-1".to_string()),
+        name: "prod".to_owned(),
+        region: Some("eu-west-1".to_owned()),
     };
     let cloned = profile.clone();
     assert_eq!(cloned.name, "prod");
-    assert_eq!(cloned.region, Some("eu-west-1".to_string()));
+    assert_eq!(cloned.region, Some("eu-west-1".to_owned()));
     let debug = format!("{profile:?}");
     assert!(debug.contains("prod"));
 }
@@ -438,7 +421,7 @@ fn test_aws_profile_clone_debug() {
 #[test]
 fn test_aws_profile_no_region() {
     let profile = AwsProfile {
-        name: "test".to_string(),
+        name: "test".to_owned(),
         region: None,
     };
     assert_eq!(profile.name, "test");
@@ -448,12 +431,12 @@ fn test_aws_profile_no_region() {
 #[test]
 fn test_s3_bucket_clone_debug() {
     let bucket = S3Bucket {
-        name: "my-data".to_string(),
-        creation_date: Some("2024-01-01".to_string()),
+        name: "my-data".to_owned(),
+        creation_date: Some("2024-01-01".to_owned()),
     };
     let cloned = bucket.clone();
     assert_eq!(cloned.name, "my-data");
-    assert_eq!(cloned.creation_date, Some("2024-01-01".to_string()));
+    assert_eq!(cloned.creation_date, Some("2024-01-01".to_owned()));
     let debug = format!("{bucket:?}");
     assert!(debug.contains("my-data"));
 }
@@ -461,7 +444,7 @@ fn test_s3_bucket_clone_debug() {
 #[test]
 fn test_s3_bucket_no_creation_date() {
     let bucket = S3Bucket {
-        name: "temp".to_string(),
+        name: "temp".to_owned(),
         creation_date: None,
     };
     assert!(bucket.creation_date.is_none());
@@ -470,7 +453,7 @@ fn test_s3_bucket_no_creation_date() {
 #[test]
 fn test_s3_object_clone_debug() {
     let obj = S3Object {
-        key: "file.txt".to_string(),
+        key: "file.txt".to_owned(),
         size: FileSize::from_bytes(1024),
         kind: EntryKind::File,
         last_modified: Some(SystemTime::UNIX_EPOCH),
@@ -516,7 +499,7 @@ fn test_object_size_conversion_boundaries() {
             .key("file.bin")
             .size(bytes)
             .build();
-        listing::file_from_object(&object, "").map(|row| row.size)
+        file_from_object(&object, "").map(|row| row.size)
     };
     assert_eq!(size_of(-1), Some(FileSize::from_bytes(0)));
     assert_eq!(size_of(i64::MIN), Some(FileSize::from_bytes(0)));

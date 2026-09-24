@@ -59,6 +59,8 @@ fn click_at(
 #[cfg(test)]
 mod tests_bars;
 #[cfg(test)]
+mod tests_netbox_rows;
+#[cfg(test)]
 mod tests_panel_focus;
 #[cfg(test)]
 mod tests_row_clicks;

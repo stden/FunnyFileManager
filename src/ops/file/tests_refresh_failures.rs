@@ -9,7 +9,7 @@
 
 use super::*;
 
-use crate::models::{Overlay, Panel, PanelSide};
+use crate::models::{Panel, PanelSide};
 
 use crate::utils::{refresh_panels_mutex, reset_forced_errors, set_refresh_panels_error};
 

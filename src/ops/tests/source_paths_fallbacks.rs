@@ -1,27 +1,18 @@
 //! Unit tests: source paths fallbacks (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use crate::models::FileName;
-
-use crate::ops::file::get_source_paths;
 
 use super::support::*;
 use crate::ops::*;
 use crate::popup::process_popup_input;
 
-#[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
-
 use crate::models::{App, Overlay, Panel, PanelSide};
-
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
 
 use crossterm::event::KeyCode;
 
-use std::fs::{self};
+use std::fs;
 
-use std::io::{self, Write};
+use std::io;
 
 use tempfile::TempDir;
 

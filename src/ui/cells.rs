@@ -23,15 +23,15 @@ pub const UNPRINTABLE: char = '\u{FFFD}';
 /// like the same file. Resolving it once, here, also keeps measuring, clipping
 /// and drawing in agreement. [`crate::console::printable`] does the analogous
 /// job for command output, which *is* a stream and so expands tabs instead.
-pub fn printable_name(name: &str) -> std::borrow::Cow<'_, str> {
+pub fn printable_name(name: &str) -> Cow<'_, str> {
     if name.chars().any(invisible) {
-        std::borrow::Cow::Owned(
+        Cow::Owned(
             name.chars()
                 .map(|ch| if invisible(ch) { UNPRINTABLE } else { ch })
                 .collect(),
         )
     } else {
-        std::borrow::Cow::Borrowed(name)
+        Cow::Borrowed(name)
     }
 }
 
@@ -84,8 +84,8 @@ impl Cells {
     }
 
     /// A terminal rectangle's width, as a budget to spend.
-    pub(crate) const fn columns(count: u16) -> Self {
-        Self(count as usize)
+    pub(crate) fn columns(count: u16) -> Self {
+        Self(usize::from(count))
     }
 
     /// A width already counted in cells — for a budget being shared out, where
@@ -153,14 +153,15 @@ pub(super) fn take_cells(text: &str, width: Cells) -> (String, Cells) {
 /// half-drawn, so the second value can exceed `width` by one; callers position
 /// against it, never against `width`.
 pub(super) fn skip_cells(text: &str, width: Cells) -> (&str, Cells) {
+    let mut rest = text.chars();
     let mut used = Cells::ZERO;
-    for (index, ch) in text.char_indices() {
-        if used >= width {
-            return (&text[index..], used);
-        }
+    while used < width {
+        let Some(ch) = rest.next() else {
+            break;
+        };
         used = used + Cells::of_char(ch);
     }
-    ("", used)
+    (rest.as_str(), used)
 }
 
 /// Cells occupied by the first `column` characters of the editor line `text`,
@@ -243,7 +244,7 @@ fn advance(at: Cells, ch: char, tab: TabSize) -> Cells {
 /// First `width` cells of `text`, marked with a trailing ellipsis when cut.
 pub(super) fn head_cells(text: &str, width: Cells) -> String {
     if Cells::of(text) <= width {
-        return text.to_string();
+        return text.to_owned();
     }
     if width.is_zero() {
         return String::new();
@@ -267,7 +268,7 @@ pub fn fit_name(text: &str, width: Cells) -> String {
 /// Paths are cut at the head: the tail names the current directory.
 pub(super) fn tail_cells(text: &str, width: Cells) -> String {
     if Cells::of(text) <= width {
-        return text.to_string();
+        return text.to_owned();
     }
     if width.is_zero() {
         return String::new();
@@ -297,8 +298,19 @@ pub(super) fn tail_cells(text: &str, width: Cells) -> String {
 /// about — and only then is the line cut at its end.
 pub(super) fn fit_quoting_path(before: &str, path: &str, after: &str, width: Cells) -> String {
     let words = Cells::of(before) + Cells::of(after);
+    head_cells(
+        &format!("{before}{}{after}", fit_path(path, words, width)),
+        width,
+    )
+}
+
+/// `path` as a line of `width` cells quotes it beside `words` cells of other
+/// text: whole when it fits, else cut from its head as [`tail_cells`] cuts,
+/// keeping at least its last component. [`fit_quoting_path`]'s rule, for a
+/// line whose parts are drawn in different styles.
+pub(super) fn fit_path(path: &str, words: Cells, width: Cells) -> String {
     let room = width.saturating_sub(words).max(last_component_cells(path));
-    head_cells(&format!("{before}{}{after}", tail_cells(path, room)), width)
+    tail_cells(path, room)
 }
 
 /// The cells `path` keeps cut to its last component: the ellipsis, the

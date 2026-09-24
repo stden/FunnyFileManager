@@ -71,10 +71,11 @@ impl Capabilities {
 
     pub fn save(&self, doc: &Document, saved: bool, rpc: &mut Session) {
         if let (true, Some(include_text)) = (saved, self.save) {
-            let mut params = json!({"textDocument":{"uri":doc.uri}});
-            if include_text {
-                params["text"] = json!(doc.snapshot.text);
-            }
+            let params = if include_text {
+                json!({"textDocument":{"uri":doc.uri}, "text":doc.snapshot.text})
+            } else {
+                json!({"textDocument":{"uri":doc.uri}})
+            };
             rpc.notify("textDocument/didSave", params);
         }
     }

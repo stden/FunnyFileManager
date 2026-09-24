@@ -48,11 +48,15 @@ pub(super) fn dialog_button_key(app: &mut App, index: usize) -> Option<KeyEvent>
         // like the name dialog's.
         Overlay::ArchivePrompt(prompt) => Some(archive_button_key(prompt, index)),
         Overlay::ExtractPrompt(prompt) => Some(extract_button_key(prompt, index)),
+        Overlay::McpInstall(dialog) => mcp_install_button_key(dialog, index),
         // Copy / Filter / Cancel. A click selects the named button before
         // Enter, so an old keyboard focus cannot make Copy act as Cancel.
         Overlay::CopyPrompt(prompt) => copy_button_key(prompt, index),
         Overlay::Editor(editor) => dialog_button_key_in_editor(editor, index),
         Overlay::MenuDialog(dialog) => menu_dialog_button_key(dialog, index),
+        Overlay::LspEditor(dialog) => lsp_editor_button_key(dialog, index),
+        // The task list's dialogs: each button its letter or its focus.
+        Overlay::Tasks(list) => super::tasks::tasks_button_key(list, index),
         #[cfg(feature = "keepass")]
         Overlay::Kdbx(session) => kdbx_button_key(&session.0, index),
         _ => None,
@@ -107,6 +111,28 @@ fn menu_dialog_button_key(dialog: &crate::models::MenuDialog, index: usize) -> O
     Some(code.into())
 }
 
+/// The form's `{ OK }` / `[ Cancel ]`: the clicked button takes the cursor
+/// before Enter, so an old keyboard focus cannot turn OK into Cancel. The exit
+/// question's Yes / No / Cancel are its hotkeys. The list has no buttons.
+fn lsp_editor_button_key(dialog: &mut crate::models::LspEditor, index: usize) -> Option<KeyEvent> {
+    use crate::models::lsp_editor::{FormField, Mode};
+
+    if matches!(dialog.mode(), Mode::ConfirmExit(_)) {
+        return Some(match index {
+            0 => plain(KeyCode::Char('y')),
+            1 => plain(KeyCode::Char('n')),
+            _ => plain(KeyCode::Esc),
+        });
+    }
+    let form = dialog.form_mut()?;
+    form.focus_on(if index == 0 {
+        FormField::Ok
+    } else {
+        FormField::Cancel
+    });
+    Some(plain(KeyCode::Enter))
+}
+
 fn attributes_button_key(dialog: &mut crate::models::AttributesDialog, index: usize) -> KeyEvent {
     dialog.focus_button(index);
     KeyCode::Enter.into()
@@ -147,6 +173,20 @@ fn extract_button_key(prompt: &mut crate::models::ExtractPrompt, index: usize) -
         crate::models::ExtractField::Cancel
     };
     KeyEvent::new(KeyCode::Enter, KeyModifiers::empty())
+}
+
+/// Register / Cancel. A click on a dimmed Register does nothing: there is no
+/// server to register.
+fn mcp_install_button_key(
+    dialog: &mut crate::models::McpInstallDialog,
+    index: usize,
+) -> Option<KeyEvent> {
+    dialog.field = match index {
+        0 if dialog.can_register() => crate::models::McpInstallField::Register,
+        0 => return None,
+        _ => crate::models::McpInstallField::Cancel,
+    };
+    Some(plain(KeyCode::Enter))
 }
 
 fn copy_button_key(prompt: &mut crate::copy::CopyPrompt, index: usize) -> Option<KeyEvent> {

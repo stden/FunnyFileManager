@@ -101,11 +101,7 @@ fn path_names(path: &Path) -> Names {
 }
 
 pub(super) fn display_path(path: &Path) -> String {
-    let text = path.to_string_lossy();
-    if let Some(unc) = text.strip_prefix("\\\\?\\UNC\\") {
-        return format!("\\\\{unc}");
-    }
-    text.strip_prefix("\\\\?\\").unwrap_or(&text).to_owned()
+    crate::path_display::without_verbatim_prefix(&path.to_string_lossy()).into_owned()
 }
 
 fn drive(path: &Path) -> String {
@@ -120,7 +116,7 @@ fn drive(path: &Path) -> String {
 mod tests;
 
 #[cfg(windows)]
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "GetShortPathNameW has no safe wrapper in std")]
 pub(super) fn short_path(path: &Path) -> PathBuf {
     use std::os::windows::ffi::{OsStrExt, OsStringExt};
     use windows_sys::Win32::Storage::FileSystem::GetShortPathNameW;
@@ -131,13 +127,19 @@ pub(super) fn short_path(path: &Path) -> PathBuf {
     if size == 0 {
         return path.to_owned();
     }
-    let mut buffer = vec![0; size as usize];
+    let Ok(capacity) = usize::try_from(size) else {
+        return path.to_owned();
+    };
+    let mut buffer = vec![0; capacity];
     // SAFETY: the writable buffer has the exact capacity passed to Windows.
     let written = unsafe { GetShortPathNameW(source.as_ptr(), buffer.as_mut_ptr(), size) };
     if written == 0 || written >= size {
         return path.to_owned();
     }
-    buffer.truncate(written as usize);
+    let Ok(length) = usize::try_from(written) else {
+        return path.to_owned();
+    };
+    buffer.truncate(length);
     PathBuf::from(std::ffi::OsString::from_wide(&buffer))
 }
 

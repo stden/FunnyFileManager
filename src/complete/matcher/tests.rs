@@ -1,5 +1,4 @@
 //! Unit tests: fuzzy matching and ranking.
-#![allow(unused_imports)]
 
 use super::*;
 
@@ -78,26 +77,23 @@ fn test_consecutive_run_outscores_a_scattered_match() {
 #[test]
 fn test_rank_puts_prefix_matches_above_fuzzy_ones() {
     // "cd" is a prefix of "cd" and a subsequence of "copy_dir".
-    let ranked = rank("cd", vec!["copy_dir".to_string(), "cd".to_string()]);
-    assert_eq!(ranked, vec!["cd".to_string(), "copy_dir".to_string()]);
+    let ranked = rank("cd", vec!["copy_dir".to_owned(), "cd".to_owned()]);
+    assert_eq!(ranked, vec!["cd".to_owned(), "copy_dir".to_owned()]);
 }
 
 #[test]
 fn test_rank_drops_non_matching_candidates() {
-    let ranked = rank("cd", vec!["cd".to_string(), "zzz".to_string()]);
-    assert_eq!(ranked, vec!["cd".to_string()]);
+    let ranked = rank("cd", vec!["cd".to_owned(), "zzz".to_owned()]);
+    assert_eq!(ranked, vec!["cd".to_owned()]);
 }
 
 #[test]
 fn test_rank_is_deterministic_for_equally_scored_candidates() {
     // All three are prefix matches of equal length, so the lexicographic
     // tiebreak decides — ranking must never vary between runs.
-    let ranked = rank(
-        "a",
-        vec!["ac".to_string(), "aa".to_string(), "ab".to_string()],
-    );
+    let ranked = rank("a", vec!["ac".to_owned(), "aa".to_owned(), "ab".to_owned()]);
     assert_eq!(
         ranked,
-        vec!["aa".to_string(), "ab".to_string(), "ac".to_string()]
+        vec!["aa".to_owned(), "ab".to_owned(), "ac".to_owned()]
     );
 }

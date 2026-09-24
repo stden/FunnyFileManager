@@ -113,7 +113,7 @@ impl Editor {
             } else {
                 line.len()
             };
-            parts.push(&line[start..end]);
+            parts.push(line.get(start..end).unwrap_or_default());
         }
         Some(parts.join(self.format.line_ending.as_str()))
     }
@@ -130,11 +130,17 @@ impl Editor {
         };
         let first = range.start.line.get();
         let last = range.end.line.get();
-        let start = byte_at(&self.lines[first], range.start.column.chars());
-        let end = byte_at(&self.lines[last], range.end.column.chars());
-        let suffix = self.lines[last][end..].to_owned();
-        self.lines[first].truncate(start);
-        self.lines[first].push_str(&suffix);
+        let suffix = self
+            .lines
+            .get(last)
+            .and_then(|line| line.get(byte_at(line, range.end.column.chars())..))
+            .unwrap_or_default()
+            .to_owned();
+        let Some(line) = self.lines.get_mut(first) else {
+            return false;
+        };
+        line.truncate(byte_at(line, range.start.column.chars()));
+        line.push_str(&suffix);
         self.lines.drain(first + 1..=last);
         self.cursor_line = first;
         self.cursor_col = range.start.column.chars();
@@ -166,10 +172,13 @@ impl Editor {
         self.ensure_line();
         let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
         let at = self.byte_col(self.cursor_col);
-        let suffix = self.lines[self.cursor_line].split_off(at);
+        let Some(line) = self.line_mut() else {
+            return;
+        };
+        let suffix = line.split_off(at);
         let mut parts = normalized.split('\n');
         if let Some(first) = parts.next() {
-            self.lines[self.cursor_line].push_str(first);
+            line.push_str(first);
             self.cursor_col += first.chars().count();
         }
         let rest: Vec<_> = parts.map(str::to_owned).collect();
@@ -179,7 +188,9 @@ impl Editor {
             self.cursor_col = last.chars().count();
             self.lines.splice(after..after, rest);
         }
-        self.lines[self.cursor_line].push_str(&suffix);
+        if let Some(line) = self.line_mut() {
+            line.push_str(&suffix);
+        }
         self.mark_modified();
     }
 

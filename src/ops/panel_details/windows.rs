@@ -19,7 +19,10 @@ pub(super) fn owners(directory: &Path) -> io::Result<BTreeMap<String, String>> {
     serde_json::from_slice(&output.stdout).map_err(io::Error::other)
 }
 
-#[allow(unsafe_code)]
+#[allow(
+    unsafe_code,
+    reason = "GetFileInformationByHandle has no safe wrapper in std"
+)]
 pub(super) fn link_count(path: &Path) -> String {
     use windows_sys::Win32::Storage::FileSystem::{
         GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,

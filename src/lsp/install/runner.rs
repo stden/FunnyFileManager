@@ -29,9 +29,9 @@ impl ChildTree {
 
     #[cfg(windows)]
     fn attach(mut self) -> Result<Self, InstallError> {
-        self.job = Some(crate::windows::lsp_job(
-            self.child.as_ref().expect("spawn owns the child"),
-        )?);
+        // `start` has just spawned the child, so it is always there.
+        let child = self.child.as_ref().ok_or(InstallError::Worker)?;
+        self.job = Some(crate::windows::process_tree_job(child)?);
         Ok(self)
     }
 
@@ -49,7 +49,8 @@ impl ChildTree {
     }
 
     fn finish(&mut self) -> Result<(), InstallError> {
-        let mut child = self.child.take().expect("finish consumes the child once");
+        // Only `finish` takes the child, and it runs once per tree.
+        let mut child = self.child.take().ok_or(InstallError::Worker)?;
         crate::lsp::process::terminate(&mut child);
         if child.wait()?.success() {
             Ok(())

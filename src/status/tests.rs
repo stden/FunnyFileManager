@@ -24,9 +24,29 @@ fn a_failed_entry_keeps_the_path_and_the_reason_apart() {
     let failure = FailedEntry::new("/srv/work/notes.txt", &"Permission denied");
     assert_eq!(failure.path(), std::path::Path::new("/srv/work/notes.txt"));
     assert_eq!(failure.error(), "Permission denied");
+}
+
+/// A partly failed batch quotes the path it failed on between its summary and
+/// the reason, so the info row can shorten the path and keep both.
+#[test]
+fn a_failure_quotes_its_path_between_the_summary_and_the_reason() {
+    let status = Status::DeletedWithErrors {
+        count: 2,
+        error_count: 1,
+        first_error: FailedEntry::new("/srv/work/notes.txt", &"Permission denied"),
+    };
+    let failure = status.path_message().expect("quotes a path");
     assert_eq!(
-        failure.to_string(),
-        "/srv/work/notes.txt: Permission denied"
+        (
+            failure.before.as_ref(),
+            failure.path.as_ref(),
+            failure.after.as_ref()
+        ),
+        (
+            "Deleted 2 item(s), 1 error(s): ",
+            "/srv/work/notes.txt",
+            ": Permission denied"
+        )
     );
 }
 
@@ -120,6 +140,132 @@ fn copy_move_statuses_match_legacy_strings() {
     ]);
 }
 
+/// A copy or move that went through, `skipped` and `renamed` by the F5 / F6
+/// dialog's "already existing files" choice.
+fn transferred(purpose: Purpose, landed: Landed, skipped: usize, renamed: usize) -> Status {
+    Status::Transferred {
+        purpose,
+        landed,
+        skipped,
+        renamed,
+    }
+}
+
+#[test]
+fn transfer_statuses_match_legacy_strings() {
+    let at = |path: &str| Landed::At(PathBuf::from(path));
+    assert_status_text(&[
+        (
+            transferred(Purpose::Copy, at("/d/a.txt"), 0, 0),
+            "Copied to /d/a.txt",
+        ),
+        (
+            transferred(Purpose::Move, Landed::Many(3), 0, 0),
+            "Moved 3 item(s)",
+        ),
+        (
+            transferred(Purpose::Copy, Landed::Many(2), 1, 1),
+            "Copied 2 item(s), 1 skipped (existing files kept, new ones renamed)",
+        ),
+        (
+            transferred(Purpose::Move, at("/d/a_1.txt"), 0, 1),
+            "Moved to /d/a_1.txt (existing files kept, new ones renamed)",
+        ),
+        (
+            transferred(Purpose::Copy, Landed::Nowhere, 2, 0),
+            "Copied nothing, 2 skipped",
+        ),
+    ]);
+}
+
+/// The status line names where one entry went, and counts several.
+#[test]
+fn a_transfer_names_one_destination_and_counts_several() {
+    let first = || Some(PathBuf::from("/d/a.txt"));
+    assert_eq!(
+        Landed::of(1, first()),
+        Landed::At(PathBuf::from("/d/a.txt"))
+    );
+    assert_eq!(Landed::of(2, first()), Landed::Many(2));
+    assert_eq!(Landed::of(0, None), Landed::Nowhere);
+}
+
+#[test]
+fn archive_statuses_match_legacy_strings() {
+    let extracted = |count| Status::Extracted {
+        count,
+        destination: "/d".into(),
+    };
+    let failed = |done, total| Status::ExtractedWithErrors {
+        done,
+        total,
+        first_error: "bad".into(),
+    };
+    let added = |kept| Status::AddedToArchive {
+        count: 2,
+        archive: "/a.tar".into(),
+        kept,
+    };
+    assert_status_text(&[
+        (extracted(1), "Extracted 1 archive to /d"),
+        (extracted(2), "Extracted 2 archives to /d"),
+        (failed(0, 1), "Extracted 0 of 1 archive, first error: bad"),
+        (failed(1, 2), "Extracted 1 of 2 archives, first error: bad"),
+        (added(0), "Added 2 item(s) to /a.tar"),
+        (
+            added(1),
+            "Added 2 item(s) to /a.tar; 1 could not be deleted",
+        ),
+    ]);
+}
+
+#[test]
+fn name_statuses_match_legacy_strings() {
+    assert_status_text(&[
+        (
+            Status::CreatedDirs {
+                count: 3,
+                directory: "/d".into(),
+            },
+            "Created 3 folders in /d",
+        ),
+        (
+            Status::AlreadyExists("notes.txt".into()),
+            "notes.txt already exists",
+        ),
+        (
+            Status::Linked {
+                link: "/d/l".into(),
+                target: "../t".into(),
+            },
+            "Link l -> ../t",
+        ),
+    ]);
+}
+
+/// How a program started with Enter ended, in the words the transcript and
+/// the status bar share.
+#[test]
+fn run_statuses_match_legacy_strings() {
+    let status = std::process::ExitStatus::default();
+    assert_status_text(&[
+        (
+            Status::ProgramExited {
+                program: "/x/run.sh".into(),
+                status,
+            },
+            &format!("/x/run.sh: {status}"),
+        ),
+        (
+            Status::CannotRun {
+                program: "/x/run.sh".into(),
+                error: "denied".into(),
+            },
+            "Error: Cannot run /x/run.sh: denied",
+        ),
+    ]);
+}
+
 #[test]
 fn delete_statuses_match_legacy_strings() {
     assert_status_text(&[
@@ -148,6 +294,24 @@ fn delete_statuses_match_legacy_strings() {
                 first_error: FailedEntry::new("/srv/x", &"boom"),
             },
             "Wiped 2 item(s), 1 error(s): /srv/x: boom",
+        ),
+    ]);
+}
+
+#[test]
+fn attribute_statuses_match_legacy_strings() {
+    assert_status_text(&[
+        (
+            Status::AttributesSet { count: 2 },
+            "Attributes set on 2 object(s)",
+        ),
+        (
+            Status::AttributesSetWithErrors {
+                count: 1,
+                error_count: 1,
+                first_error: FailedEntry::new("/srv/x", &"boom"),
+            },
+            "Attributes set on 1 object(s), 1 failed: /srv/x: boom",
         ),
     ]);
 }
@@ -252,6 +416,10 @@ fn editor_save_statuses_match_legacy_strings() {
         (Status::Saved(PathBuf::from("/s")), "Saved /s"),
         (Status::SaveFailed { error: "x".into() }, "Save failed: x"),
         (Status::ChangesDiscarded, "Changes discarded"),
+        (
+            Status::SetupSaved(PathBuf::from("/c/settings.yaml")),
+            "Setup saved to /c/settings.yaml",
+        ),
     ]);
 }
 
@@ -503,12 +671,11 @@ fn a_message_raised_under_a_quick_search_is_not_thrown_away() {
     );
 }
 
-/// Every message that quotes a path reads the same whole as in parts: the
-/// info row cuts the parts, and must not be showing a different sentence.
-#[test]
-fn a_path_message_is_the_display_text_in_three_parts() {
-    let path = std::path::PathBuf::from("/srv/x/perms/unreadable.txt");
-    let statuses = [
+/// One of every viewer, editor and program-run outcome that quotes a path,
+/// each under `/srv/x/`.
+fn view_edit_and_run_statuses_quoting_a_path() -> Vec<Status> {
+    let path = PathBuf::from("/srv/x/perms/unreadable.txt");
+    vec![
         Status::CannotEdit {
             path: path.clone(),
             error: "Permission denied (os error 13)".to_owned(),
@@ -518,12 +685,94 @@ fn a_path_message_is_the_display_text_in_three_parts() {
         Status::Viewing("/srv/x/a.txt".to_owned()),
         Status::Saved(path.clone()),
         Status::Opened(path),
-    ];
+        Status::ProgramExited {
+            program: "/srv/x/run.sh".into(),
+            status: std::process::ExitStatus::default(),
+        },
+        Status::CannotRun {
+            program: "/srv/x/run.sh".into(),
+            error: "denied".into(),
+        },
+    ]
+}
+
+/// One of every outcome that wrote or refused a file and quotes its path,
+/// each under `/srv/x/`.
+fn file_statuses_quoting_a_path() -> Vec<Status> {
+    vec![
+        Status::SetupSaved(PathBuf::from("/srv/x/config/settings.yaml")),
+        transferred(Purpose::Move, Landed::At("/srv/x/b/a.txt".into()), 1, 1),
+        Status::CreatedDirs {
+            count: 2,
+            directory: "/srv/x/new".into(),
+        },
+        Status::AlreadyExists("/srv/x/taken".into()),
+        Status::FileExists("/srv/x/a.tar".into()),
+        Status::Linked {
+            link: "/srv/x/l".into(),
+            target: "/srv/x/t".into(),
+        },
+        Status::Extracted {
+            count: 2,
+            destination: "/srv/x/out".into(),
+        },
+        Status::AddedToArchive {
+            count: 2,
+            archive: "/srv/x/a.tar".into(),
+            kept: 1,
+        },
+    ]
+}
+
+/// One of every partly failed batch, each failing first under `/srv/x/`.
+fn failure_statuses_quoting_a_path() -> Vec<Status> {
+    let first_error = || FailedEntry::new("/srv/x/a.txt", &"Permission denied");
+    vec![
+        Status::CopiedWithErrors {
+            count: 2,
+            error_count: 1,
+            first_error: first_error(),
+        },
+        Status::MovedWithErrors {
+            count: 2,
+            error_count: 1,
+            first_error: first_error(),
+        },
+        Status::DeletedWithErrors {
+            count: 2,
+            error_count: 1,
+            first_error: first_error(),
+        },
+        Status::WipedWithErrors {
+            count: 2,
+            error_count: 1,
+            first_error: first_error(),
+        },
+        Status::AttributesSetWithErrors {
+            count: 2,
+            error_count: 1,
+            first_error: first_error(),
+        },
+    ]
+}
+
+/// Every message that quotes a path reads the same whole as in parts: the
+/// info row cuts the parts, and must not be showing a different sentence.
+#[test]
+fn a_path_message_is_the_display_text_in_three_parts() {
+    let statuses = view_edit_and_run_statuses_quoting_a_path()
+        .into_iter()
+        .chain(file_statuses_quoting_a_path())
+        .chain(failure_statuses_quoting_a_path());
     for status in statuses {
         let message = status.path_message().expect("quotes a path");
         assert_eq!(message.to_string(), status.to_string());
         assert!(message.path.starts_with("/srv/x/"), "{message:?}");
     }
+}
+
+#[test]
+fn an_edit_error_quotes_the_path_between_the_verb_and_the_reason() {
     let status = Status::CannotEdit {
         path: "/srv/x/u.txt".into(),
         error: "denied".to_owned(),
@@ -556,17 +805,22 @@ fn a_run_outcome_reaches_the_status_and_closes_the_transcript() {
     use crate::models::Panel;
     let empty = || Panel::from_entries(PathBuf::from("/srv/x"), Vec::new());
     let mut app = App::with_panels(empty(), empty());
+    let ran = Status::ProgramExited {
+        program: PathBuf::from("/srv/x/run.sh"),
+        status: std::process::ExitStatus::default(),
+    };
+    let ran_text = ran.to_string();
 
-    app.record_run_outcome(Status::CommandOutput(
-        "/srv/x/run.sh: exit status: 0".into(),
-    ));
+    app.record_run_outcome(Status::CommandOutput("Updated".into()));
+    app.record_run_outcome(ran);
     app.record_run_outcome(Status::PackageUpdateCancelled);
 
     assert_eq!(app.status, Status::PackageUpdateCancelled);
     assert_eq!(
         app.console.visible(usize::MAX),
         [
-            &ConsoleLine::Output("/srv/x/run.sh: exit status: 0".to_owned()),
+            &ConsoleLine::Output("Updated".to_owned()),
+            &ConsoleLine::Output(ran_text),
             &ConsoleLine::Error("Package update cancelled".to_owned()),
         ]
     );

@@ -4,9 +4,12 @@
 //!
 //! Unix-only: modes and `faccessat` are what is under test.
 
+// The parent's `cfg(all(test, unix))` is not a plain `cfg(test)`, which is
+// the only form Clippy recognises as test code.
+#![cfg(test)]
+
 use std::fs;
 use std::os::unix::fs::PermissionsExt as _;
-use std::path::{Path, PathBuf};
 
 use tempfile::TempDir;
 

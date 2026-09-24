@@ -71,7 +71,7 @@ fn wsl_menu_is_hidden_on_other_platforms() {
     assert!(menu
         .entries()
         .iter()
-        .all(|entry| super::label_of(entry) != "&WSL manager"));
+        .all(|entry| label_of(entry) != "&WSL manager"));
 }
 
 /// The reconstruction is Far's, row for row.
@@ -99,8 +99,9 @@ fn every_far_menu_is_present_in_full() {
     );
     assert_eq!(
         rows(Heading::Commands),
-        23 + usize::from(cfg!(windows)),
-        "Far commands, root navigation, statistics, LSP, package updates, two PATH scopes and Windows WSL",
+        24 + usize::from(cfg!(windows)),
+        "Far commands, root navigation, statistics, LSP, package updates, two PATH scopes, \
+         the MCP server installer and Windows WSL",
     );
     assert_eq!(rows(Heading::Options), 23, "Far's Options menu");
 }

@@ -50,6 +50,10 @@ pub(super) fn open_command_line_with(app: &mut App, ch: char) {
     process_popup_input(app, KeyEvent::new(KeyCode::Char(ch), KeyModifiers::empty()));
 }
 
+/// What F5 and F6 say when the other panel is not a folder.
+const TRANSFER_NEEDS_FOLDER: &str =
+    "F5 and F6 need a folder in the other panel; it shows NetBox sessions or a host";
+
 /// F5 and F6: ask where the files are going, offering the other panel.
 ///
 /// Far asks rather than acting, and the reason is not caution for its own
@@ -58,6 +62,14 @@ pub(super) fn open_command_line_with(app: &mut App, ch: char) {
 /// point the other panel at it first. F6 gets the same dialog because moving
 /// within a directory *is* renaming, and Far treats them as one question.
 pub(super) fn open_transfer_prompt(app: &mut App, purpose: copy::Purpose) {
+    // The other panel's `path` is the local folder hidden under a sessions
+    // list or a host; offering it would copy somewhere the user cannot see.
+    if app.get_inactive_panel_ref().kind.is_netbox() {
+        app.set_status(crate::status::Status::CommandOutput(
+            TRANSFER_NEEDS_FOLDER.to_owned(),
+        ));
+        return;
+    }
     let sources = ops::get_source_paths(app);
     let what = match sources.as_slice() {
         [] => return,

@@ -24,6 +24,10 @@ fn bench_format_size(c: &mut Criterion) {
     group.finish();
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn bench_unique_destination(c: &mut Criterion) {
     let temp = TempDir::new().expect("benchmark temp dir");
     let base = temp.path();
@@ -31,7 +35,7 @@ fn bench_unique_destination(c: &mut Criterion) {
 
     for suffix in 0..50 {
         let name = if suffix == 0 {
-            "report.txt".to_string()
+            "report.txt".to_owned()
         } else {
             format!("report_{suffix}.txt")
         };
@@ -43,6 +47,10 @@ fn bench_unique_destination(c: &mut Criterion) {
     });
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn bench_copy_dir_all(c: &mut Criterion) {
     let temp = TempDir::new().expect("benchmark temp dir");
     let src = temp.path().join("src");
@@ -85,7 +93,7 @@ fn bench_sort_mode(c: &mut Criterion) {
 
 fn bench_drive_display(c: &mut Criterion) {
     let local = DriveEntry::Local(PathBuf::from("/"));
-    let s3 = DriveEntry::S3Profile("default".to_string());
+    let s3 = DriveEntry::S3Profile("default".to_owned());
 
     c.bench_function("drive_entry_display_local", |b| {
         b.iter(|| black_box(&local).display());
@@ -121,6 +129,10 @@ fn bench_virtual_path(c: &mut Criterion) {
     });
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn bench_panel_basics(c: &mut Criterion) {
     let temp = panel_fixture();
 
@@ -204,6 +216,10 @@ criterion_group!(
 
 criterion_main!(benches);
 
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn panel_fixture() -> TempDir {
     let temp = TempDir::new().expect("benchmark temp dir");
     for name in [

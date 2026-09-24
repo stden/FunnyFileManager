@@ -49,7 +49,7 @@ fn test_event_loop_unknown_key_clears_quick_search() -> io::Result<()> {
     let mut app = App::new()?;
     app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
     app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
-    app.quick_search = QuickSearch::Active("test".to_string());
+    app.quick_search = QuickSearch::Active("test".to_owned());
 
     let backend = WritableTestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend)?;

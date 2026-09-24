@@ -41,12 +41,12 @@ const fn press_mod(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
     }
 }
 
-fn ev(code: KeyCode) -> crossterm::event::Event {
-    crossterm::event::Event::Key(press(code))
+fn ev(code: KeyCode) -> Event {
+    Event::Key(press(code))
 }
 
-fn ev_mod(code: KeyCode, modifiers: KeyModifiers) -> crossterm::event::Event {
-    crossterm::event::Event::Key(press_mod(code, modifiers))
+fn ev_mod(code: KeyCode, modifiers: KeyModifiers) -> Event {
+    Event::Key(press_mod(code, modifiers))
 }
 
 fn setup(temp: &TempDir) -> io::Result<App> {
@@ -57,12 +57,12 @@ fn setup(temp: &TempDir) -> io::Result<App> {
     Ok(app)
 }
 
-fn terminal() -> Terminal<WritableTestBackend> {
-    Terminal::new(WritableTestBackend::new(80, 24)).unwrap()
+fn terminal() -> io::Result<Terminal<WritableTestBackend>> {
+    Terminal::new(WritableTestBackend::new(80, 24))
 }
 
-fn run(app: App, events: Vec<crossterm::event::Event>) -> io::Result<()> {
-    let mut t = terminal();
+fn run(app: App, events: Vec<Event>) -> io::Result<()> {
+    let mut t = terminal()?;
     let mut iter = events.into_iter();
     run_app_with_event_reader(&mut t, app, || {
         iter.next()
@@ -514,18 +514,18 @@ fn overlay_viewer_up_decrements_scroll() {
 }
 
 /// A hundred-line viewer as it stands after one frame with 23 body rows.
-fn drawn_viewer(temp: &TempDir) -> App {
-    let mut app = setup(temp).unwrap();
+fn drawn_viewer(temp: &TempDir) -> io::Result<App> {
+    let mut app = setup(temp)?;
     let lines: Vec<String> = (0..100).map(|i| format!("line {i}")).collect();
     app.set_overlay(Overlay::Viewer(Viewer::report("t", lines)));
     app.set_viewport(funny_file_manager::models::Viewport::new(24));
-    app
+    Ok(app)
 }
 
 #[test]
 fn overlay_viewer_down_stops_with_the_last_line_on_the_bottom_row() {
     let temp = TempDir::new().unwrap();
-    let mut app = drawn_viewer(&temp);
+    let mut app = drawn_viewer(&temp).unwrap();
     for _ in 0..200 {
         process_popup_input(&mut app, press(KeyCode::Down));
     }
@@ -535,7 +535,7 @@ fn overlay_viewer_down_stops_with_the_last_line_on_the_bottom_row() {
 #[test]
 fn overlay_viewer_pgdn_pgup_move_one_screen() {
     let temp = TempDir::new().unwrap();
-    let mut app = drawn_viewer(&temp);
+    let mut app = drawn_viewer(&temp).unwrap();
     process_popup_input(&mut app, press(KeyCode::PageDown));
     assert_eq!(app.get_viewer().unwrap().scroll.lines(), 23);
     process_popup_input(&mut app, press(KeyCode::PageUp));
@@ -545,7 +545,7 @@ fn overlay_viewer_pgdn_pgup_move_one_screen() {
 #[test]
 fn overlay_viewer_end_and_home_jump_to_the_last_and_first_screen() {
     let temp = TempDir::new().unwrap();
-    let mut app = drawn_viewer(&temp);
+    let mut app = drawn_viewer(&temp).unwrap();
     process_popup_input(&mut app, press(KeyCode::End));
     assert_eq!(app.get_viewer().unwrap().scroll.lines(), 77);
     process_popup_input(&mut app, press(KeyCode::Home));
@@ -555,7 +555,7 @@ fn overlay_viewer_end_and_home_jump_to_the_last_and_first_screen() {
 #[test]
 fn overlay_viewer_left_right_pan_one_column_and_ctrl_twenty() {
     let temp = TempDir::new().unwrap();
-    let mut app = drawn_viewer(&temp);
+    let mut app = drawn_viewer(&temp).unwrap();
     process_popup_input(&mut app, press(KeyCode::Left));
     assert_eq!(app.get_viewer().unwrap().col.cells(), 0, "Left at 0 stays");
     process_popup_input(&mut app, press(KeyCode::Right));
@@ -932,7 +932,7 @@ fn hotkey_alt_letter_starts_quick_search() {
     let mut app = setup(&temp).unwrap();
     assert!(app.quick_search.query().is_none());
     // Alt+letter logic
-    app.quick_search = QuickSearch::Active("a".to_string());
+    app.quick_search = QuickSearch::Active("a".to_owned());
     assert_eq!(app.quick_search.query(), Some("a"));
 }
 
@@ -942,7 +942,7 @@ fn hotkey_alt_letter_appends_to_existing_quick_search() {
     let mut app = setup(&temp).unwrap();
     // Through the real method: this used to re-implement the append inline,
     // so it could only ever agree with itself.
-    app.quick_search = QuickSearch::Active("al".to_string());
+    app.quick_search = QuickSearch::Active("al".to_owned());
     assert_eq!(app.quick_search.push('p'), "alp");
     assert_eq!(app.quick_search.query(), Some("alp"));
 }
@@ -951,7 +951,7 @@ fn hotkey_alt_letter_appends_to_existing_quick_search() {
 fn hotkey_backspace_pops_quick_search_char() {
     let temp = TempDir::new().unwrap();
     let mut app = setup(&temp).unwrap();
-    app.quick_search = QuickSearch::Active("abc".to_string());
+    app.quick_search = QuickSearch::Active("abc".to_owned());
     assert_eq!(app.quick_search.backspace(), Some("ab"));
     assert_eq!(app.quick_search.query(), Some("ab"));
 }
@@ -961,7 +961,7 @@ fn hotkey_backspace_clears_single_char_quick_search() {
     let temp = TempDir::new().unwrap();
     let mut app = setup(&temp).unwrap();
     // Emptying the query ends the search: `Active("")` is not representable.
-    app.quick_search = QuickSearch::Active("x".to_string());
+    app.quick_search = QuickSearch::Active("x".to_owned());
     assert_eq!(app.quick_search.backspace(), None);
     assert_eq!(app.quick_search, QuickSearch::Idle);
 }
@@ -970,7 +970,7 @@ fn hotkey_backspace_clears_single_char_quick_search() {
 fn hotkey_esc_clears_quick_search() {
     let temp = TempDir::new().unwrap();
     let mut app = setup(&temp).unwrap();
-    app.quick_search = QuickSearch::Active("abc".to_string());
+    app.quick_search = QuickSearch::Active("abc".to_owned());
     app.quick_search = QuickSearch::Idle; // Esc logic
     assert!(app.quick_search.query().is_none());
 }
@@ -1096,8 +1096,8 @@ fn test_hotkey_logic_in_app() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
     let left_path = temp_dir.path().join("left");
     let right_path = temp_dir.path().join("right");
-    std::fs::create_dir(&left_path)?;
-    std::fs::create_dir(&right_path)?;
+    fs::create_dir(&left_path)?;
+    fs::create_dir(&right_path)?;
 
     File::create(left_path.join("file1.txt"))?;
 

@@ -1,6 +1,6 @@
 //! Unit tests: the bounded, regular-file-only read shared by F3 and F4.
 
-use super::{read_for_text_ui, Loaded};
+use super::{read_for_text_ui, read_regular, Loaded};
 // Only the endless-stream test needs the raw bounded read, and /dev/zero is
 // Unix-only.
 #[cfg(unix)]
@@ -111,7 +111,7 @@ fn refuses_an_endless_device_node() {
     let outcome = crate::test_support::run_with_timeout(GUARD_TIMEOUT, || {
         read_for_text_ui(std::path::Path::new("/dev/zero")).map(|loaded| match loaded {
             Loaded::Bytes(bytes) => format!("read {} bytes", bytes.len()),
-            Loaded::NotRegular => "not-regular".to_string(),
+            Loaded::NotRegular => "not-regular".to_owned(),
             Loaded::TooLarge(size) => format!("too large: {size}"),
         })
     })
@@ -136,7 +136,7 @@ fn the_read_is_bounded_even_for_an_endless_file() {
     }
 
     let read = crate::test_support::run_with_timeout(GUARD_TIMEOUT, || {
-        read_bounded(File::open("/dev/zero")?).map(|bytes| bytes.len())
+        read_bounded(File::open("/dev/zero")?, MAX_FILE_SIZE.bytes()).map(|bytes| bytes.len())
     })
     .expect("a bounded read of /dev/zero must finish promptly");
 
@@ -206,7 +206,7 @@ fn refuses_a_file_that_grows_past_the_limit_during_the_read() -> io::Result<()> 
                 );
                 return Ok(());
             }
-            Loaded::Bytes(bytes) if (bytes.len() as u64) > MAX_FILE_SIZE.bytes() => {
+            Loaded::Bytes(bytes) if u64::try_from(bytes.len()).unwrap() > MAX_FILE_SIZE.bytes() => {
                 // Should be impossible: Bytes is only returned under the limit.
                 panic!("Bytes larger than the limit escaped the guard");
             }
@@ -238,9 +238,25 @@ fn spawn_growth_writer(
         // Well past MAX_FILE_SIZE.bytes() so a concurrent take() can see
         // more than the limit even if it started from a zero-length snapshot.
         let limit = usize::try_from(MAX_FILE_SIZE.bytes()).expect("the limit fits usize");
+        // Best effort, like the race it feeds: a failed write only means the
+        // reader never sees the file grow.
         for _ in 0..(limit / chunk.len() + 2) {
-            let _ = file.write_all(&chunk);
+            drop(file.write_all(&chunk));
         }
-        let _ = file.flush();
+        drop(file.flush());
     })
+}
+
+/// The limit is the caller's: the same guards, a smaller budget.
+#[test]
+fn read_regular_holds_to_the_limit_it_is_given() {
+    let dir = TempDir::new().expect("temp dir");
+    let file = dir.path().join("f");
+    fs::write(&file, "four").expect("write");
+    assert!(matches!(read_regular(&file, 4), Ok(Loaded::Bytes(bytes)) if bytes == b"four"));
+    assert!(matches!(read_regular(&file, 3), Ok(Loaded::TooLarge(4))));
+    assert!(matches!(
+        read_regular(dir.path(), 4),
+        Ok(Loaded::NotRegular)
+    ));
 }

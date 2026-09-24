@@ -30,11 +30,22 @@ mod findfile;
 mod histlist;
 mod histories;
 mod hotplug;
+pub mod lsp_editor;
+mod mcp_install;
+pub use mcp_install::{ClientRow, Mark, McpInstallDialog, McpInstallField, McpInstallProgress};
 mod overlay;
 mod panel;
 mod panelview;
+mod plugin_commands;
+mod prompts;
 mod quickview;
+pub mod remote_panel;
+mod remote_path;
+mod row_cursor;
 mod screens;
+mod session;
+mod session_edit;
+pub mod sessions_panel;
 mod settings_dialog;
 mod shortcuts;
 mod shortname;
@@ -48,7 +59,7 @@ mod viewer;
 mod viewport;
 mod wsl;
 
-pub use app::{App, ProgramPause};
+pub use app::{App, LiveInput, ProgramPause};
 pub use apply::ApplyPrompt;
 pub use archive::{
     ArchiveCommand, ArchiveField, ArchiveFormat, ArchiveMenu, ArchivePrompt, ExtractField,
@@ -78,21 +89,53 @@ pub use file_name::FileName;
 pub use filter::{FilterPrompt, PanelFilter};
 pub use findfile::{FindFile, FindFileField};
 pub use histlist::HistoryList;
-pub use histories::{FolderHistory, PathHistory, ViewHistory};
+pub use histories::{FolderHistory, HistoryFile, PathHistory, ViewHistory, Viewed, Visited};
 pub use hotplug::DeviceList;
+pub use lsp_editor::LspEditor;
 pub use overlay::{
     Confirm, LinkType, MaskPrompt, MaskPurpose, NameField, NamePrompt, NamePurpose, Overlay,
 };
 pub(crate) use panel::{DirectoryListing, PanelMetadata};
 pub use panel::{Panel, PanelDetails, PanelOptions, PanelView};
 pub use panelview::{PanelKind, PanelsShown, SortMode};
+pub use plugin_commands::{PluginCommand, PluginCommands};
+pub use prompts::{InputPrompt, InputPurpose, Question, QuestionPurpose};
 pub use quickview::{Preview, QuickView, Refusal, TextPreview};
+pub use remote_panel::RemotePanel;
+pub use remote_path::RemotePath;
+pub use row_cursor::{RowCursor, RowMotion};
 pub use screens::ScreenList;
+pub use session::{
+    Auth, AuthKind, Field, HostName, InvalidField, KeyFile, Origin, Port, Problem, Protocol,
+    Session, SessionName, UserName,
+};
+pub use session_edit::{EditPurpose, SessionEdit, SessionField};
+pub use sessions_panel::{SessionRow, SessionsPanel};
 pub use settings_dialog::SettingsDialog;
 pub use shortcuts::ShortcutList;
 pub use shortname::{ShortName, ShortNames};
 pub use sortmenu::{SortMenu, SortOrder, SortRow};
-pub use tasks::TaskList;
+pub use tasks::{
+    build_view, Arrangement, CommandView, FilterTerms, KernelThreads, Sibling, Sort, SortDirection,
+    SortKey, TreeLine, UserScope, ViewOptions, ViewRow,
+};
+pub use tasks::{
+    Arrival, Attempt, Cadence, ConfirmButton, ControlRefusal, Cursor, Failure, FormFocus, Found,
+    FrozenTargets, HeaderShape, Health, KillConfirm, ListMotion, MenuCursor, Modal, NiceConfirm,
+    NicePlan, Notice, Operation, PidQuery, PlannedChange, PriorityForm, Refresh, Relation, Renice,
+    ReniceButton, Request, Schedule, SearchBar, SearchFrom, Severity, Skipped, Table, Target,
+    TaskHostSlot, TaskMenu, TextBar, BARS_PER_ROW, OVERDUE_AFTER, REFRESH_INTERVAL, STALL_LIMIT,
+    WARM_UP,
+};
+pub use tasks::{
+    Baselines, ControlError, CoreGroup, CoreSample, CpuBar, CpuCounters, CpuMeter, CpuMeters,
+    CpuUsage, KernelPriority, KillOffer, Load, LoadAverage, MemoryBytes, MemoryMeter, MemorySample,
+    MemoryUsage, Meters, NiceOutOfRange, NiceStep, Niceness, Owner, Percent, Pid, Priority,
+    PriorityChange, PriorityClass, ProcessHost, ProcessKey, ProcessKind, ProcessReader, ProcessRow,
+    ProcessSample, ProcessState, Sample, SampleError, SettableClass, Signal, Snapshot, Start,
+    StartTime, StateLetter, SwapMeter, SwapSample, SystemPart, SystemSample, TaskCounts, TaskList,
+    TaskSession,
+};
 pub use tree::{Branch, Expansion, FolderTree, Guide, TreeRow};
 pub use usermenu::UserMenu;
 

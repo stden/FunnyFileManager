@@ -22,7 +22,7 @@ impl VirtualPath {
         let (bucket_part, prefix) = rest.split_once('/').unwrap_or((rest, ""));
         if bucket_part.is_empty() {
             return Self::S3 {
-                profile: "default".to_string(),
+                profile: "default".to_owned(),
                 bucket: None,
                 prefix: String::new(),
             };
@@ -33,9 +33,9 @@ impl VirtualPath {
             .split_once('@')
             .unwrap_or(("default", bucket_part));
         Self::S3 {
-            profile: profile.to_string(),
-            bucket: (!bucket.is_empty()).then(|| bucket.to_string()),
-            prefix: prefix.to_string(),
+            profile: profile.to_owned(),
+            bucket: (!bucket.is_empty()).then(|| bucket.to_owned()),
+            prefix: prefix.to_owned(),
         }
     }
 

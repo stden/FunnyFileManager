@@ -8,4 +8,4 @@ Shared rules for every agent are in `AGENTS.md`. Topic detail is in `docs/knowle
 
 Hotkey parity lives in `docs/knowledge-base/09-far-manager-compatibility/hotkeys-and-parity.md`.
 
-Claude Code slash commands are the prompts under `.claude/commands/`. The local quality gate is `./ffm.sh lint`, then the test command the change needs (`cargo test`, or `cargo test --features test-helpers` when the test uses those helpers).
+Claude Code slash commands are the prompts under `.claude/commands/`. The local quality gate is `./ffm.py lint`, then the test command the change needs (`cargo test`, or `cargo test --features test-helpers` when the test uses those helpers).

@@ -505,7 +505,8 @@ pub(super) fn refresh_ghost(app: &mut App) {
     let ghost = app
         .history
         .suggest(&buffer)
-        .map(|entry| entry[buffer.len()..].to_owned());
+        .and_then(|entry| entry.strip_prefix(buffer.as_str()))
+        .map(str::to_owned);
     if let Some(state) = state_mut(app) {
         state.ghost = ghost;
     }

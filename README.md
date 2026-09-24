@@ -20,7 +20,7 @@ experience for file system navigation and management.
 - 🔖 **Bookmarks**: Save and jump to frequently used directories.
 - 🌍 **Cross-Platform**: Seamless experience on Linux, macOS, and Windows.
 - **KeePass**: F3 views `.kdbx` / `.kbdx`; F4 opens the vault for editing.
-- **Editor language servers**: Background diagnostics, completion, hover and definitions; automatic installation for Java, Python and common web languages. Inspect servers through F9 → Commands → Language servers (LSP). See [setup and shortcuts](docs/editor-lsp.md).
+- **Editor language servers**: Background diagnostics, completion, hover and definitions; automatic installation for Java, Python and common web languages. Inspect and edit servers through F9 → Commands → Language servers (LSP). See [setup and shortcuts](docs/editor-lsp.md).
 - **System tools**: F9 → Commands includes package updates, user/system PATH editors,
   and action waiting statistics. See [the guide](docs/session-tools.md).
 
@@ -71,7 +71,7 @@ cargo build --release
 | **F8**                  | Delete marked or selected files                         |
 | **F9**                  | Open the menu bar                                       |
 | **F10**                 | Quit application (or type `quit`)                       |
-| **F11**                 | Show MCP/plugin status                                  |
+| **F11**                 | Plugin commands: MCP status, NetBox stored sessions     |
 | **F12**                 | Switch between panels and console                       |
 | **Alt+F1**              | Select drive/S3 for Left panel                          |
 | **Alt+F2**              | Select drive/S3 for Right panel                         |
@@ -121,6 +121,7 @@ Press `:` to enter command mode. Supported commands:
 - `mark all`: Mark all visible entries
 - `unmark`: Clear all marks
 - `help`, `mcp`, `winmsg`, `winperf`: Open built-in reports or help
+- `sessions`, `sessions import netbox [path]`: NetBox stored sessions, and importing NetBox's `.netbox` export
 - `stats`: Rank actions by accumulated waiting time in this session
 - `wsl`: Open the WSL manager on Windows
 - `quit` or `exit`: Close ffm
@@ -196,11 +197,10 @@ MCP package follows the same profile split; see the
 
 ```bash
 cargo test                         # Run unit and integration tests
-./ffm.sh lint                      # Shared local and CI format/Clippy gate
-./ffm.sh lint self-test            # Check readability limits with real compiler fixtures
-./ffm.sh coverage                  # Optional local tarpaulin report
-                                   # CI uses cargo llvm-cov: 98% of measured root lines, 75% for MCP
-                                   # (exclusions are in .github/workflows/tests.yml)
+./ffm.py lint                      # Shared local and CI format/Clippy gate
+./ffm.py lint self-test            # Script unit tests, then readability limits (real compiler fixtures)
+./ffm.py coverage                  # CI's coverage gate: 98% of measured root lines (scripts/coverage.py)
+                                   # MCP's 75% gate is its job in .github/workflows/tests.yml
 cargo mutants                      # Targeted mutation testing
 cargo bench --bench utils_bench    # Run Criterion benchmarks for basic helpers/models
 ```

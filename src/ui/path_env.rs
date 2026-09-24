@@ -11,7 +11,7 @@ use ratatui::{
 #[cfg(test)]
 mod tests;
 
-pub(super) fn render(f: &mut Frame, editor: &PathEditor) {
+pub(super) fn render(f: &mut Frame<'_>, editor: &PathEditor) {
     let area = centered_rect(94, 90, f.area());
     let capacity = usize::from(area.height.saturating_sub(9));
     let lines = rows(editor, capacity);
@@ -47,7 +47,7 @@ fn rows(editor: &PathEditor, capacity: usize) -> Vec<Line<'_>> {
     lines
 }
 
-fn render_editor(f: &mut Frame, editor: &PathEditor, area: Rect, row: u16) {
+fn render_editor(f: &mut Frame<'_>, editor: &PathEditor, area: Rect, row: u16) {
     let Mode::Edit { input, .. } = &editor.mode else {
         return;
     };

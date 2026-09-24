@@ -14,16 +14,19 @@
 //! verbatim. That is what makes `App::status` a single channel: before, two
 //! call sites assigned the field directly and bypassed this module entirely.
 
+use crate::copy::Purpose;
 use crate::models::{App, BookmarkSlot};
 use std::path::PathBuf;
 
 mod display;
 mod failed_entry;
+mod landed;
 mod seam;
 mod secret;
 
 pub use display::PathMessage;
 pub use failed_entry::FailedEntry;
+pub use landed::Landed;
 pub use secret::Secret;
 
 /// A user-facing application outcome shown in the status bar.
@@ -43,6 +46,16 @@ pub enum Status {
     CommandOutput(String),
     /// A command was started in its own console; it may still be running.
     ConsoleStarted(crate::command::ShellCommand),
+    /// A program started with Enter ended, with this exit status.
+    ProgramExited {
+        program: PathBuf,
+        status: std::process::ExitStatus,
+    },
+    /// A program started with Enter could not be started.
+    CannotRun {
+        program: PathBuf,
+        error: String,
+    },
     /// Ctrl+C or Ctrl+\ stopped Update packages while it had the terminal.
     PackageUpdateCancelled,
 
@@ -61,6 +74,26 @@ pub enum Status {
     Viewing(String),
     /// A directory was created at this path.
     CreatedDir(String),
+    /// F7 made `count` folders in `directory`.
+    CreatedDirs {
+        count: usize,
+        directory: PathBuf,
+    },
+    /// Rename, Make folder or Link found this name taken, and left it alone.
+    AlreadyExists(PathBuf),
+    /// A link was made at `link`, pointing at `target`.
+    Linked {
+        link: PathBuf,
+        target: PathBuf,
+    },
+    /// Copies or moves that all went through: where to, and how many the
+    /// F5 / F6 dialog's "already existing files" choice skipped or renamed.
+    Transferred {
+        purpose: Purpose,
+        landed: Landed,
+        skipped: usize,
+        renamed: usize,
+    },
     /// Some copies failed: success count, error count, first error message.
     CopiedWithErrors {
         count: usize,
@@ -95,6 +128,17 @@ pub enum Status {
     },
     /// Some wipes failed: success count, error count, first error message.
     WipedWithErrors {
+        count: usize,
+        error_count: usize,
+        first_error: FailedEntry,
+    },
+    /// Ctrl+A set the dialog's attributes on `count` objects, no errors.
+    AttributesSet {
+        count: usize,
+    },
+    /// Ctrl+A set them on `count` objects and failed on `error_count`; the
+    /// first failure.
+    AttributesSetWithErrors {
         count: usize,
         error_count: usize,
         first_error: FailedEntry,
@@ -150,7 +194,7 @@ pub enum Status {
     BookmarkEmpty {
         slot: BookmarkSlot,
     },
-    /// A bookmark slot index was out of range / unparseable.
+    /// A bookmark slot index was out of range / unparsable.
     InvalidBookmarkSlot {
         slot: String,
     },
@@ -188,6 +232,30 @@ pub enum Status {
     },
     /// Edits were discarded.
     ChangesDiscarded,
+
+    // ── archives ───────────────────────────────────────────────
+    /// Extract files unpacked all `count` archives into `destination`.
+    Extracted {
+        count: usize,
+        destination: PathBuf,
+    },
+    /// Extract files unpacked `done` of `total` archives; the first failure.
+    ExtractedWithErrors {
+        done: usize,
+        total: usize,
+        first_error: String,
+    },
+    /// Add to archive put `count` items into `archive`; `kept` of the sources
+    /// it was to delete afterwards could not be.
+    AddedToArchive {
+        count: usize,
+        archive: PathBuf,
+        kept: usize,
+    },
+
+    // ── settings ───────────────────────────────────────────────
+    /// Save setup wrote the settings file at this path.
+    SetupSaved(PathBuf),
 
     // ── new file dialog ────────────────────────────────────────
     /// The new-file name was empty.

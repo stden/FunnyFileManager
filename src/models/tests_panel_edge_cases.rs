@@ -1,5 +1,4 @@
 //! Unit tests: panel edge cases (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use crate::models::FileName;
 use crate::models::Modified;

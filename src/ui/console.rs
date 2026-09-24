@@ -37,7 +37,7 @@ use crate::scroll::ScrollBack;
 ///
 /// The prompt is drawn whether or not it is open, so the console always has a
 /// cursor waiting on it; typing is what opens it.
-pub(super) fn render_view(f: &mut Frame, app: &App, area: Rect) {
+pub(super) fn render_view(f: &mut Frame<'_>, app: &App, area: Rect) {
     if area.height == 0 {
         return;
     }
@@ -76,7 +76,7 @@ pub(super) fn render_view(f: &mut Frame, app: &App, area: Rect) {
 /// Separate from the text because the two cover different rectangles in Ctrl+O
 /// mode, and because the ground is needed even for an empty log — a
 /// transparent one would let the terminal's own colours show through the gaps.
-pub(super) fn render_backdrop(f: &mut Frame, area: Rect) {
+pub(super) fn render_backdrop(f: &mut Frame<'_>, area: Rect) {
     f.render_widget(
         Block::default().style(Style::default().bg(Color::Black)),
         area,
@@ -93,10 +93,10 @@ pub(super) fn render_backdrop(f: &mut Frame, area: Rect) {
 /// The row count is what lets the prompt follow the output instead of being
 /// pinned to the screen bottom, so it is returned from the one place that knows
 /// it rather than recomputed against a second copy of the same clamping.
-pub(super) fn render_text(f: &mut Frame, app: &App, area: Rect) -> u16 {
+pub(super) fn render_text(f: &mut Frame<'_>, app: &App, area: Rect) -> u16 {
     let height = usize::from(area.height);
     let width = Cells::columns(area.width);
-    let lines: Vec<Line> = app
+    let lines: Vec<Line<'_>> = app
         .console
         .visible(height)
         .into_iter()
@@ -135,7 +135,7 @@ pub(super) fn render_text(f: &mut Frame, app: &App, area: Rect) -> u16 {
 /// no scrollbar to draw, the count is the honest substitute — and at the
 /// bottom, where there is nothing to say, the console says nothing and looks
 /// like a console.
-fn render_scroll_note(f: &mut Frame, app: &App, row: Rect) {
+fn render_scroll_note(f: &mut Frame<'_>, app: &App, row: Rect) {
     let note = format!("↓ {} more line(s) below", app.console.scroll().lines());
     f.render_widget(Clear, row);
     f.render_widget(

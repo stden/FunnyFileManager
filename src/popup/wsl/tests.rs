@@ -65,7 +65,7 @@ fn operation_keys_queue_distinct_platform_and_distribution_requests() {
 fn busy_dialog_consumes_new_operations_but_allows_navigation_and_close() {
     let mut app = app();
     let Overlay::Wsl(state) = &mut app.overlay else {
-        unreachable!()
+        panic!("the WSL dialog is open");
     };
     state.activity = WslActivity::Busy {
         id: WslRequestId::new(7),

@@ -33,7 +33,7 @@ const fn resolve_bare_function_key(key: KeyEvent) -> Action {
         KeyCode::F(7) => Action::Mkdir,
         KeyCode::F(8) => Action::DeleteConfirm,
         KeyCode::F(9) => Action::MenuBar,
-        KeyCode::F(11) => Action::McpStatus,
+        KeyCode::F(11) => Action::PluginCommands,
         // Far's F12 lists the open screens; Ctrl+O keeps the console toggle.
         KeyCode::F(12) => Action::Tool(ToolCommand::Screens),
 
@@ -65,7 +65,6 @@ const fn resolve_shift_function_key(key: KeyEvent) -> Action {
         KeyCode::F(3) => Action::File(FileCommand::ArchiveCommands),
         KeyCode::F(4) => Action::NewFile,
         KeyCode::F(6) => Action::Rename,
-        KeyCode::F(9) => Action::Tool(ToolCommand::SaveSetup),
         _ => resolve_bare_function_key(key),
     }
 }

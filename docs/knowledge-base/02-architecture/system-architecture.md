@@ -217,9 +217,28 @@ and the clock's minute turning over request a redraw (the menu bar and the
 viewer's status line read the clock at draw time). An idle `None` poll pumps
 background work again without redrawing unchanged state. `Redraw::Needed` and
 `Redraw::Unchanged` make this decision explicit; `draw_frame` updates the
-viewport and renders when needed.
+viewport and renders when needed. `Redraw` is defined by the loop itself
+(`application.rs`), not by any one worker: the worker controllers answer
+with it (`WslJobs` and the task list's `TaskJobs`), while the LSP controller
+and vault maintenance still return a `bool` that the loop turns into
+`Redraw::Needed`.
 WSL system jobs run on a serial background worker. Ordinary directory scans,
 copies, and other synchronous operations still occupy the UI thread.
+The task list samples the process table on a second worker,
+`application/task_jobs.rs`, because a `/proc/<pid>/cmdline` read can block
+behind its process's mmap lock. `TaskJobs::pump` runs on every loop pass and
+costs a `match`, a `try_recv` and an `Instant` compare: while no
+`Overlay::Tasks` is open there is no thread at all, so an idle file manager
+draws exactly as before. With the list open, one `ffm-tasks` thread answers
+one request at a time over two one-slot channels; the model (`TaskList`)
+says when a sample is due and applies it, and each applied sample, failure or
+health mark asks for one frame, so an idle open list draws about once per
+refresh interval. A request unanswered for 5 s marks the table stale; at
+10 s its thread is abandoned, never joined, and no new one starts until it
+ends (a list reopened behind it says the reader is not responding). Closing
+the list or quitting FFM therefore never waits on a read stuck in the
+kernel. Signals and renices do not go through this worker: they run on the
+UI thread in `ops`, so they still work while a read hangs.
 
 ```mermaid
 sequenceDiagram

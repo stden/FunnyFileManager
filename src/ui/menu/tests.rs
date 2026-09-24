@@ -5,10 +5,7 @@
 //! as much as its answers. A screen too small for the box has to produce
 //! nothing rather than a rectangle off the edge.
 
-use ratatui::layout::Rect;
-
 use super::*;
-use crate::menu::{Heading, Menu};
 
 fn screen(width: u16, height: u16) -> Rect {
     Rect::new(0, 0, width, height)

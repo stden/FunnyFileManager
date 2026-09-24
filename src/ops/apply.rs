@@ -50,7 +50,7 @@ fn run_with_list_dir(app: &mut App, template: &str, list_dir: &Path) {
     app.set_status(status);
     // The commands may have created or removed files; a refresh failure is
     // not theirs, so it is deliberately not reported over their summary.
-    let _ = refresh_panels(app);
+    drop(refresh_panels(app));
 }
 
 fn run_batch(

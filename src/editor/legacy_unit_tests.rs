@@ -64,7 +64,7 @@ mod editor_tests {
             app.left_panel.entries.insert(
                 0,
                 DirEntry {
-                    name: "test_dir".to_string(),
+                    name: "test_dir".to_owned(),
                     kind: EntryKind::Directory,
                     size: FileSize::from_bytes(0),
                     modified: Modified::UNKNOWN,

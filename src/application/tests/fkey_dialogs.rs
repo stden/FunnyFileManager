@@ -1,5 +1,4 @@
 //! Unit tests: fkey dialogs (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use crate::models::BookmarkSlot;
 

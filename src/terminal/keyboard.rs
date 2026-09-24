@@ -18,7 +18,7 @@ use crossterm::execute;
 
 /// Which keyboard protocol this program has asked the host terminal for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum KeyboardProtocol {
+pub enum KeyboardProtocol {
     /// Nothing pushed. On Unix keys arrive as VT bytes, with the collisions
     /// listed above; the Windows console reports key codes and has none.
     Legacy,
@@ -54,7 +54,7 @@ impl KeyboardProtocol {
 
 /// An input event as the user typed it on this session's terminal.
 #[cfg(unix)]
-pub(crate) fn decode_input(event: Event) -> Event {
+pub fn decode_input(event: Event) -> Event {
     match event {
         Event::Key(key) => Event::Key(known_protocol().decode(key)),
         other => other,
@@ -63,7 +63,7 @@ pub(crate) fn decode_input(event: Event) -> Event {
 
 /// The Windows console reports key codes, and no two keys share one.
 #[cfg(windows)]
-pub(crate) fn decode_input(event: Event) -> Event {
+pub fn decode_input(event: Event) -> Event {
     event
 }
 

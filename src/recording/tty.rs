@@ -96,7 +96,10 @@ pub fn wait(_timeout: Duration) -> io::Result<Duration> {
 /// `SA_RESTART` says — and the zero-timeout `event::poll` that follows lets
 /// crossterm pick up the pending `SIGWINCH` as a resize.
 #[cfg(unix)]
-#[allow(unsafe_code)]
+#[allow(
+    unsafe_code,
+    reason = "poll(2) on one descriptor has no safe wrapper in std"
+)]
 fn wait_for_fd(fd: std::os::fd::RawFd, timeout: Duration) -> io::Result<Duration> {
     let mut watched = libc::pollfd {
         fd,

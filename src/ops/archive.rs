@@ -33,10 +33,12 @@ pub fn open_add(app: &mut App) {
         ));
         return;
     }
-    let single_is_dir = sources.len() == 1
-        && panel
+    let single_is_dir = match sources.as_slice() {
+        [only] => panel
             .get_selected_entry()
-            .is_some_and(|entry| entry.name == sources[0] && entry.kind.is_dir());
+            .is_some_and(|entry| entry.name == *only && entry.kind.is_dir()),
+        _ => false,
+    };
     let folder_name = panel.path.file_name().map_or_else(
         || "archive".to_owned(),
         |name| name.to_string_lossy().into_owned(),
@@ -56,10 +58,12 @@ pub fn open_add(app: &mut App) {
 pub fn open_extract(app: &mut App) {
     let panel = app.get_active_panel_ref();
     let archives = panel
-        .action_entry_names()
+        .action_paths()
         .into_iter()
-        .filter(|name| is_archive(name))
-        .map(|name| panel.path.join(name))
+        .filter(|path| {
+            path.file_name()
+                .is_some_and(|name| is_archive(&name.to_string_lossy()))
+        })
         .collect();
     let destination = app.get_inactive_panel_ref().path.clone();
     app.set_overlay(Overlay::ExtractPrompt(Box::new(ExtractPrompt::new(
@@ -217,7 +221,11 @@ impl Run {
     /// The shell line that stands for this run in the console transcript.
     fn command_line(&self) -> String {
         std::iter::once(self.program.to_owned())
-            .chain(self.args.iter().map(|arg| quote(&arg.to_string_lossy())))
+            .chain(
+                self.args
+                    .iter()
+                    .map(|arg| crate::console::shell_word(&arg.to_string_lossy())),
+            )
             .collect::<Vec<_>>()
             .join(" ")
     }
@@ -259,26 +267,6 @@ fn complaint(output: &Output) -> String {
         .map(str::trim)
         .find(|line| !line.is_empty() && !is_heading(line))
         .map_or_else(|| output.status.to_string(), crate::console::printable)
-}
-
-/// `argument` as one word of the platform shell, for the transcript.
-///
-/// A plain word passes as it is. Anything else is single-quoted on Unix,
-/// where the quotes protect everything but themselves, and double-quoted for
-/// `cmd`, which knows no other kind — and a Windows name cannot hold one.
-fn quote(argument: &str) -> String {
-    let plain = !argument.is_empty()
-        && argument
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || "-_./=:+,@%".contains(ch));
-    if plain {
-        return argument.to_owned();
-    }
-    if cfg!(windows) {
-        format!("\"{argument}\"")
-    } else {
-        format!("'{}'", argument.replace('\'', "'\\''"))
-    }
 }
 
 /// Refuse an archive that would write outside its destination or leave a

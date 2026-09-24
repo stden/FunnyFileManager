@@ -55,19 +55,44 @@ aws-sdk-s3 = { version = "1.148.0", default-features = false, features = [
 ], optional = true }
 tokio = { version = "1.53.1", features = ["full"], optional = true }
 
+# NetBox stored sessions: the `.netbox` import is WinSCP's XML. A DOM over a
+# small, size-bounded file is simpler than a streaming parser; its default
+# options refuse a DTD, so no entity is ever expanded or fetched.
+roxmltree = "0.21.1"
+
 # KeePass .kdbx read/edit (optional — enable with --features keepass).
 # default-features = false drops CLI extras; save_kdbx4 unlocks Database::save.
 # NOTE: keepass >= 0.13 declares rust-version 1.85, below the crate's 1.95 floor.
 # The write path is upstream-experimental, so the module backs up + writes
 # atomically (see src/keepass.rs).
 keepass = { version = "0.15.0", default-features = false, features = ["save_kdbx4"], optional = true }
-# Serialization for portable recordings and optional kdbx JSON/YAML export.
-# serde_norway is a maintained serde_yaml fork; serde_yaml itself is archived.
+# Serialization for portable recordings, the settings file (YAML, with the
+# JSON file older builds wrote read once for migration) and kdbx JSON/YAML
+# export. serde_norway is a maintained serde_yaml fork; serde_yaml itself is
+# archived.
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
+# `preserve_order` keeps a rewritten MCP client config (F9 Commands > Install
+# MCP server) in the key order its owner wrote. Without it the shipped binary
+# would sort a user's `.mcp.json`, while tests keep order through a
+# dev-dependency's copy of the feature and never see the difference.
+# `raw_value` lets that rewrite carry every value but the ffm-mcp entry as
+# the exact text it was read in: a `Value` round trip turns `1e3` into
+# `1000.0` and rounds a 24-digit integer.
+serde_json = { version = "1.0.151", features = ["preserve_order", "raw_value"] }
+# The ordered map those raw values are read into (already in the tree through
+# serde_json and toml_edit; `serde` reads a JSON object straight into it).
+indexmap = { version = "2.14.2", features = ["serde"] }
+serde_norway = "0.9.42"
+# Names the setting a load rejects (`system.history_size: invalid type …`):
+# the settings are read from a parsed YAML value, which carries no line numbers.
+serde_path_to_error = "0.1.20"
+# Codex keeps its MCP servers in TOML (`config.toml`). The installer reads its
+# status at both scopes and edits the file in place, keeping the comments and
+# layout the user wrote: a hand-rolled scan would break on inline tables and
+# dotted keys. Only the parser and the writer; no serde.
+toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }
 # File URI encoding/decoding, including Windows drive and UNC paths.
 url = "2.5.8"
-serde_norway = { version = "0.9.42", optional = true }
 # Text clipboard for editor selection and optional vault password copying.
 # Image support is unused; disabling it avoids image codec build dependencies.
 arboard = { version = "3.6.1", default-features = false }
@@ -87,10 +112,11 @@ aws-smithy-types = "1.8.0"
 http_1x = { package = "http", version = "1.5.0" }
 # Architecture tests parse sources instead of matching text: tests/architecture/
 # (module boundaries) and tests/unsafe_boundary_test.rs (the unsafe allowlist).
-# Both crates are already in the lockfile through proc-macro dependencies;
+# proc-macro2 is already in the lockfile through proc-macro dependencies; syn 3
+# is a second copy beside their syn 2, used by these tests only.
 # `span-locations` gives the violations their line numbers.
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
-syn = { version = "2.0.119", features = ["full", "visit"] }
+syn = { version = "3.0.6", features = ["full", "visit"] }
 
 [features]
 # Colorer is how the editor prefers to highlight, so it is on. The build script
@@ -102,10 +128,10 @@ test-helpers = []
 # Far's own HRC schemes. On by default, and harmless when the library is absent:
 # colorer-sys compiles to stubs and the built-in tokenizer does the work, so
 # `cargo build` never needs ICU, libxml2 or zlib. Install the engine itself with
-# `./ffm.sh colorer` or `ffm.cmd colorer`.
+# `./ffm.py colorer` or `ffm.cmd colorer`.
 colorer = ["dep:colorer-sys"]
 s3 = ["dep:aws-config", "dep:aws-sdk-s3", "dep:tokio"]
-keepass = ["dep:keepass", "dep:serde_norway"]
+keepass = ["dep:keepass"]
 
 # Drives the real event loop, so it needs the writable test backend.
 [[test]]
@@ -286,10 +312,37 @@ codegen-units = 16
 unfulfilled_lint_expectations = "deny"
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tarpaulin)", "cfg(coverage)"] }
 # Unsafe code lives only in reviewed platform/FFI boundaries: each one opts in
-# with an item-level `#[allow(unsafe_code)]`, and tests/unsafe_boundary_test.rs
-# keeps those items on an explicit file allowlist.
+# with an item-level `#[allow(unsafe_code, reason = "...")]`, and
+# tests/unsafe_boundary_test.rs keeps those items on an explicit file allowlist.
 unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "deny"
+# Reliability guards nothing trips today, kept so it stays that way: unused or
+# single-use lifetimes, macro and import noise, a numeric cast to its own type,
+# a binding of `()`, identifiers that are 2024 keywords or not ASCII, and an
+# unsafe attribute (`no_mangle`, `export_name`) not spelled `#[unsafe(...)]`.
+unused_lifetimes = "warn"
+single_use_lifetimes = "warn"
+redundant_lifetimes = "warn"
+explicit_outlives_requirements = "warn"
+unused_macro_rules = "warn"
+meta_variable_misuse = "warn"
+unused_import_braces = "warn"
+unused_extern_crates = "warn"
+macro_use_extern_crate = "warn"
+trivial_numeric_casts = "warn"
+unit_bindings = "warn"
+keyword_idents_2024 = "warn"
+non_ascii_idents = "warn"
+unsafe_attr_outside_unsafe = "warn"
+# Code that hides what it does: a destructor run by `let _ =`, a cast a coercion
+# would do, a `pub` type nobody outside can name, a path or import that says
+# nothing, a lifetime hidden in a path (`Formatter<'_>`, not `Formatter`).
+let_underscore_drop = "warn"
+trivial_casts = "warn"
+unnameable_types = "warn"
+unused_qualifications = "warn"
+redundant_imports = "warn"
+elided_lifetimes_in_paths = "warn"
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
@@ -300,6 +353,67 @@ undocumented_unsafe_blocks = "deny"
 cognitive_complexity = "warn"
 excessive_nesting = "warn"
 too_many_lines = "warn"
+# Production code never panics or exits: it returns the error, or proves the
+# invariant in an `#[expect(clippy::<lint>, reason = "...")]` on the smallest
+# item. clippy.toml lets tests unwrap, expect, index, panic, print and dbg!.
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+unreachable = "warn"
+exit = "warn"
+indexing_slicing = "warn"
+string_slice = "warn"
+as_conversions = "warn"
+# An error is handled or passed on, never dropped without a word.
+map_err_ignore = "warn"
+let_underscore_must_use = "warn"
+unused_result_ok = "warn"
+# The terminal belongs to the TUI: output goes through the UI or the log, and a
+# user never reads a `{:?}`. Hash-map order and `FileType::is_file` (false for
+# devices, pipes and sockets) are never relied on.
+print_stdout = "warn"
+print_stderr = "warn"
+dbg_macro = "warn"
+use_debug = "warn"
+iter_over_hash_type = "warn"
+filetype_is_file = "warn"
+# One unsafe operation per block, each with its own SAFETY comment; no SAFETY
+# comment or `# Safety` doc where nothing is unsafe; every allow and expect
+# attribute says why.
+multiple_unsafe_ops_per_block = "warn"
+unnecessary_safety_comment = "warn"
+unnecessary_safety_doc = "warn"
+allow_attributes_without_reason = "warn"
+# Guards against leaks, shared-state and float traps, wasted allocations, and
+# forms with a plainer spelling (`to_owned`, `?`, `name.rs` over `name/mod.rs`).
+mem_forget = "warn"
+rc_buffer = "warn"
+rc_mutex = "warn"
+clone_on_ref_ptr = "warn"
+mutex_atomic = "warn"
+mutex_integer = "warn"
+lossy_float_literal = "warn"
+float_cmp_const = "warn"
+empty_drop = "warn"
+verbose_file_reads = "warn"
+str_to_string = "warn"
+string_add = "warn"
+infinite_loop = "warn"
+large_include_file = "warn"
+get_unwrap = "warn"
+try_err = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+mod_module_files = "warn"
+needless_raw_strings = "warn"
+unnecessary_self_imports = "warn"
+redundant_type_annotations = "warn"
+deref_by_slicing = "warn"
+# Manifest hygiene: no `*` versions, no `no-`, `with-` or `use-` feature names.
+wildcard_dependencies = "warn"
+negative_feature_names = "warn"
+redundant_feature_names = "warn"
 # Crate-wide allowances, each a deliberate style choice rather than a bug class.
 # Test-only ergonomics (unnecessary_wraps, needless_pass_by_value, ...) are
 # allowed in test scope only: src/lib.rs and the integration-test files that need them.
@@ -315,15 +429,18 @@ missing_const_for_fn = "allow"
 option_if_let_else = "allow"
 
 # System calls std does not wrap. rustix covers the ones with a safe API
-# (uids, access checks, statvfs, process groups) and is what src/platform
+# (uids, access checks, statvfs, process groups, signals, renice, pidfds, and
+# through `param` the page size and clock rate) and is what src/platform
 # uses; libc remains for poll(2), the passwd/group lookups and errno values.
-# Both are already in the tree through crossterm, so neither costs a crate.
+# Both are already in the tree through crossterm, so neither costs a crate;
+# `param` is a feature without dependencies, so Cargo.lock does not change.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.189"
-rustix = { version = "1.1.5", features = ["fs", "process"] }
+rustix = { version = "1.1.5", features = ["fs", "param", "process"] }
 # Catches Ctrl+C / Ctrl+\ while a program owns the terminal, so the signal
-# stops that program and not FFM. Already in the tree through crossterm.
-signal-hook = "0.3.18"
+# stops that program and not FFM. crossterm still pulls signal-hook 0.3; both
+# versions install their handlers through the one signal-hook-registry 1.x.
+signal-hook = "0.4.4"
 
 # The same crate, for `tests/pty_session_test.rs`: a real pseudo-terminal to
 # run the binary on, without an `unsafe` block in the test.
@@ -340,4 +457,8 @@ windows-sys = { version = "0.61.2", features = [
     "Win32_System_JobObjects",
     "Win32_System_WindowsProgramming",
     "Win32_System_SystemInformation",
+    # The PATH editor reads and writes the registry's Path values, then tells
+    # running programs with WM_SETTINGCHANGE.
+    "Win32_System_Registry",
+    "Win32_UI_WindowsAndMessaging",
 ] }

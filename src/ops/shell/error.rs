@@ -10,7 +10,7 @@ use std::{fmt, io};
 
 /// Why a shell command has no output to report.
 #[derive(Debug)]
-pub(crate) enum ShellError {
+pub enum ShellError {
     /// The shell could not be started, or waiting for it failed.
     Launch(io::Error),
     /// The folder it was to run in is gone, typically deleted after the panel
@@ -30,7 +30,7 @@ impl ShellError {
     /// Asked after the fact rather than checked up front: only a failed start
     /// needs the answer, and a folder that cannot be looked up (no permission)
     /// is not reported as gone.
-    pub(crate) fn launching_in(folder: &Path, error: io::Error) -> Self {
+    pub fn launching_in(folder: &Path, error: io::Error) -> Self {
         if matches!(folder.try_exists(), Ok(false)) {
             return Self::MissingFolder(folder.to_path_buf());
         }
@@ -42,7 +42,7 @@ impl ShellError {
     /// Only a launch failure says "cannot run": a command that timed out or
     /// was cancelled did run, and saying otherwise sends the reader looking
     /// for a missing program.
-    pub(crate) fn report(&self, command: &str) -> String {
+    pub fn report(&self, command: &str) -> String {
         match self {
             Self::Launch(_) | Self::MissingFolder(_) => format!("cannot run '{command}': {self}"),
             Self::TimedOut(_) => format!("stopped '{command}': {self}"),

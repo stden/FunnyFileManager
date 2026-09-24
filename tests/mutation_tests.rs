@@ -283,8 +283,8 @@ fn test_refresh_panels_handles_deleted_files() -> io::Result<()> {
     // Verify the file list was updated
     assert!(app.left_panel.entries.len() < initial_count);
     let names: Vec<_> = app.left_panel.entries.iter().map(|e| &e.name).collect();
-    assert!(!names.contains(&&"temp1.txt".to_string()));
-    assert!(names.contains(&&"temp2.txt".to_string()));
+    assert!(!names.contains(&&"temp1.txt".to_owned()));
+    assert!(names.contains(&&"temp2.txt".to_owned()));
 
     Ok(())
 }

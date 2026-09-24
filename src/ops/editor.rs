@@ -1,10 +1,8 @@
 //! Persist the built-in editor buffer while preserving file identity and format.
 
-use std::{
-    fs, io,
-    path::{Path, PathBuf},
-};
+use std::{fs, io, path::Path};
 
+use crate::file_write::DanglingLink;
 use crate::models::{EditState, Editor, Fingerprint};
 
 mod clipboard;
@@ -18,7 +16,8 @@ impl Editor {
     /// truncates the original before the first new byte lands, so a full disk or
     /// a crash mid-write would leave nothing but an empty file behind.
     pub fn save(&mut self) -> io::Result<()> {
-        let target = resolve_save_target(&self.path);
+        let target =
+            crate::file_write::real_target(&self.path).map_err(DanglingLink::into_io_error)?;
         crate::file_write::ensure_writable(&target)?;
         let content = self.format.encoding.encode(&self.content())?;
         write_file(&target, &content)?;
@@ -73,20 +72,6 @@ fn write_file(target: &Path, content: &[u8]) -> io::Result<()> {
     }
 }
 
-/// The file a save must actually land on.
-///
-/// Persisting the temp file is `rename(2)`, which replaces the *name* it is
-/// given instead of writing through it. Handed `~/.vimrc -> ~/dotfiles/vimrc`,
-/// the rename would drop a fresh regular file over the link and leave the real
-/// file — the one under version control — holding the pre-edit text. Resolving
-/// first puts both the temp file and the rename on the file the user opened.
-///
-/// A path with nothing behind it yet (Shift+F4) cannot be canonicalised and is
-/// used as given.
-fn resolve_save_target(path: &Path) -> PathBuf {
-    fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
-}
-
 /// Whether the save writes through the file rather than replacing it.
 ///
 /// Replacing means `rename(2)`, which makes a new inode: the file's other
@@ -96,46 +81,7 @@ fn resolve_save_target(path: &Path) -> PathBuf {
 /// Losing atomicity is the lesser evil in both cases, and it is the trade-off
 /// vim makes by default (`backupcopy=auto`).
 fn rewrite_in_place(path: &Path) -> bool {
-    has_other_names(path) || !owned_by_us(path)
-}
-
-/// Whether this user owns the file. Unknown counts as owned: the atomic path
-/// is the better one, and a file that is not there yet has no owner to keep.
-#[cfg(unix)]
-fn owned_by_us(path: &Path) -> bool {
-    use std::os::unix::fs::MetadataExt;
-
-    let us = crate::platform::effective_uid();
-    fs::metadata(path).map_or(true, |info| info.uid() == us)
-}
-
-/// Windows has no cheap owner comparison here, and its ACLs survive a rename
-/// differently; the atomic path stays.
-#[cfg(not(unix))]
-const fn owned_by_us(_path: &Path) -> bool {
-    true
-}
-
-/// Whether the file has more than one name (a hard link).
-///
-/// A rename detaches only the name it replaces, so an atomic save would leave
-/// every other name pointing at the pre-edit inode — the same silent divergence
-/// a symlink suffers, and one `canonicalize` cannot resolve because hard links
-/// have no "real" name. Such files are rewritten in place instead: losing
-/// atomicity is the lesser evil, and it is the trade-off vim makes by default
-/// (`backupcopy=auto`).
-#[cfg(unix)]
-fn has_other_names(path: &Path) -> bool {
-    use std::os::unix::fs::MetadataExt;
-
-    fs::metadata(path).is_ok_and(|metadata| metadata.nlink() > 1)
-}
-
-/// Hard links are not reachable through the panel on non-Unix targets, so the
-/// atomic path is always taken there.
-#[cfg(not(unix))]
-const fn has_other_names(_path: &Path) -> bool {
-    false
+    crate::file_write::has_other_names(path) || !crate::file_write::owned_by_us(path)
 }
 
 #[cfg(test)]
@@ -171,9 +117,11 @@ fn reload_editor(editor: &mut Editor, encoding: crate::encoding::TextEncoding) -
     reloaded.cursor_line = editor
         .cursor_line
         .min(reloaded.lines.len().saturating_sub(1));
-    reloaded.cursor_col = editor
-        .cursor_col
-        .min(reloaded.lines[reloaded.cursor_line].chars().count());
+    let line_chars = reloaded
+        .lines
+        .get(reloaded.cursor_line)
+        .map_or(0, |line| line.chars().count());
+    reloaded.cursor_col = editor.cursor_col.min(line_chars);
     *editor = reloaded;
     Ok(())
 }

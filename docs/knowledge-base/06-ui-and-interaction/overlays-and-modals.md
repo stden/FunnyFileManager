@@ -12,7 +12,7 @@ Instead of many independent `bool` and `Option<T>` fields (`show_help`, `viewer`
 
 `CommandLine` owns both the editable text buffer and the fuzzy-completion menu state. Keeping them inside the overlay makes menu visibility and selection part of the same mutually exclusive modal state.
 
-The variant list changes as dialogs are added. Read `src/models/overlay.rs` rather than a copy of it. The groups today are help, the viewer, and the editor; drive selection; file prompts (new file, delete, quit, rename and mkdir, copy, wipe, archive, attributes, apply command, describe); the F9 menu bar and `MenuDialog`; search, history, filter, screens, tasks, and settings dialogs; WSL, the PATH editor, and disk cleanup; the information panel; and, with the `keepass` feature, the vault.
+The variant list changes as dialogs are added. Read `src/models/overlay.rs` rather than a copy of it. The groups today are help, the viewer, and the editor; drive selection; file prompts (new file, delete, quit, rename and mkdir, copy, wipe, archive, attributes, apply command, describe); the F9 menu bar and `MenuDialog`; search, history, filter, screens, tasks, and settings dialogs; WSL, the PATH editor, the Language servers dialog, and disk cleanup; the information panel; and, with the `keepass` feature, the vault.
 
 ## 👍 Benefits
 
@@ -32,16 +32,44 @@ The variant list changes as dialogs are added. Read `src/models/overlay.rs` rath
 - **CommandLine** (`:`) — modal buffer plus fuzzy command/path dropdown
 - **DriveSelection** (Alt+F1 / Alt+F2) — a drive remembers its current
   directory, as in Far: picking the drive a panel is already on opens that
-  panel's folder (the active panel's first), not the drive's root.
-- **DeleteConfirm** (F8)
+  panel's folder (the active panel's first), not the drive's root. Under the
+  rule: the S3 profiles, `NetBox` (the stored-sessions panel on that side) and
+  `Process list` (the Task list); the dialog closes before a row acts, so a
+  row that opens a window of its own keeps it.
+- **DeleteConfirm** (F8). It and **WipeConfirm** name the first five targets,
+  then `… and N more`, through the shared `ui::dialog::preview_lines`.
+- **MaskPrompt** (Gray `+` / Gray `-`). Its keys are
+  `popup::mask_prompt::mask_key`, which edits the prompt and answers
+  `Editing`, `Accepted(purpose, mask)` or `Cancelled`; the caller applies the
+  mask, so any list that selects by a Far mask reuses the same dialog.
 - **NewFileInput** (Shift+F4)
 - **NamePrompt** (Shift+F6 rename, F7 mkdir, Alt+F6 link)
 - **QuitConfirm** (F10)
 - **Information** (Ctrl+L)
-- **Menu** and **MenuDialog** (F9, and the commands that prompt or list choices)
+- **Menu** and **MenuDialog** (F9, and the commands that prompt or list choices).
+  A choice list is drawn and hit-tested by `ui::menu_dialog::choices`, which is
+  generic over any row that is `AsRef<str>` (`MenuChoice` reads as its label),
+  and moved by `popup::menu_dialog::navigate` (PageUp and PageDown move
+  `MENU_PAGE` rows); the task list's menus are to reuse both rather than copy
+  the geometry. The LSP popup and the vault list move their own cursors.
 - **CopyPrompt**, **WipeConfirm**, archive dialogs, **Attributes**, **ApplyCommand**, **Describe**
 - **FindFile** (Alt+F7)
+- **LspEditor** (F9 → Commands → Language servers, and `lsp`) — full screen like
+  the viewer: the server list with the selected server's highlighted detail,
+  an F3 view of every server, an edit form with suggestions, and an exit
+  question. Its own key bar and its mouse rows are in the
+  [parity document](../09-far-manager-compatibility/hotkeys-and-parity.md#-language-servers-dialog).
 - **SortModes** (Ctrl+F12)
+- **PluginCommands** (F11) — Far's Plugin commands list: MCP status, NetBox's
+  stored sessions, the NetBox `.netbox` import
+- **SessionEdit** (F4 / Shift+F4 on the sessions panel) — one stored session's
+  fields; no password field
+- **InputPrompt** and **Question** — the one-line input and the yes/no the
+  NetBox panels ask with; each carries its purpose (`InputPurpose`,
+  `QuestionPurpose`) and `ops::prompts` is the one match from a purpose to
+  its operation
+- **McpInstall** (F9 Commands > Install MCP server) — the scope radio, one
+  checkbox per AI client, and Register / Cancel
 - **Kdbx** when the `keepass` feature is on
 
 `Ctrl+O` is `ViewMode::Console`, not an overlay.
@@ -55,10 +83,18 @@ The older dedicated variants (`CommandHistory`, `FindFolder`, `ViewHistory`, `Fo
 ## Implementation locations
 
 - State: `src/models/overlay.rs`. Accessors such as `get_viewer` live in `src/models/app_overlay.rs`.
-- Input: `src/popup.rs` → `process_popup_input` (re-exported via `src/handlers/mod.rs` for compatibility).
+- Input: `src/popup.rs` → `process_popup_input` (re-exported via `src/handlers.rs` for compatibility).
 - Effects: `src/ops/`.
 - Opening from the main view: `src/application/dispatch.rs`. `src/lib.rs` re-exports `run_app`; it does not route keys.
 - Rendering: `src/ui/` children, routed from `src/ui/overlays.rs`. The viewer delegates to `src/ui/viewer.rs`. Highlighted text shared with the editor lives in `src/ui/code.rs`.
+- The Language servers dialog follows the pattern end to end: state in
+  `src/models/lsp_editor.rs` (with `form.rs` and `problems.rs`), effects in
+  `src/ops/lsp_editor.rs`, keys in `src/popup/lsp_editor.rs`, mouse buttons in
+  `src/application/dispatch/dialog_mouse/button_keys.rs` and form rows in
+  `src/application/dispatch/dialog_mouse.rs`, and drawing in
+  `src/ui/lsp_editor.rs` (with `list.rs`, `detail.rs` and `form.rs`). The
+  form's suggestion list is recorded as `DialogMouse::covered`, so a click on
+  it reaches nothing beneath.
 
 Every variant must be reachable from a key or a menu row and have an intentional presentation. A variant that is only constructed in tests is dead weight: it makes `process_popup_input` swallow every key while nothing is painted. There was once a `Search(String)` and a `Bookmarks` variant in exactly that state; both were deleted. Incremental search is `Alt+letter` (quick search); bookmarks are `:bookmark set|go <0-9>`.
 

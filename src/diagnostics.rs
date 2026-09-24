@@ -45,7 +45,8 @@ fn append_log_line(path: &Path, line: &str) {
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_millis());
-    let _ = writeln!(file, "[{timestamp}] {line}");
+    // A failed write is ignored on purpose, as the doc comment says.
+    drop(writeln!(file, "[{timestamp}] {line}"));
 }
 
 fn log_action_to(path: &Path, action: &str) {

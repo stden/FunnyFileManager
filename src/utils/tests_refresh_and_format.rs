@@ -1,12 +1,10 @@
 //! Unit tests: refresh and format (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use super::tests::*;
-use crate::models::FileSize;
 
 use super::*;
 
-use crate::models::{App, Panel};
+use crate::models::Panel;
 
 use std::ffi::OsStr;
 

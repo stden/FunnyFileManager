@@ -23,7 +23,7 @@ fn stopped_workers_report_submission_and_pending_failures_once() {
             .wsl_requests
             .enqueue(crate::models::WslOperation::Update);
         let pending = if submitted {
-            let _ = app.wsl_requests.take();
+            drop(app.wsl_requests.take());
             vec![Pending {
                 id,
                 action: "Background/WSL/Update",

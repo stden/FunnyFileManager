@@ -19,7 +19,7 @@ pub fn list_aws_profiles() -> Vec<AwsProfile> {
         .filter_map(|line| {
             let name = line.trim().strip_prefix('[')?.strip_suffix(']')?;
             Some(AwsProfile {
-                name: name.to_string(),
+                name: name.to_owned(),
                 region: None,
             })
         })
@@ -30,7 +30,7 @@ pub fn list_aws_profiles() -> Vec<AwsProfile> {
         profiles.insert(
             0,
             AwsProfile {
-                name: "default".to_string(),
+                name: "default".to_owned(),
                 region: None,
             },
         );

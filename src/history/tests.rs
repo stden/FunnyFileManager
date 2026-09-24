@@ -1,5 +1,4 @@
 //! Unit tests: command history store, durability gate, suggestions.
-#![allow(unused_imports)]
 
 use super::*;
 use std::fs;

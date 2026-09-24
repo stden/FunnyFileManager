@@ -176,8 +176,8 @@ fn a_symbolic_link_lands_in_the_other_panel_with_the_cursor_on_it() {
         "the cursor finds it"
     );
     assert_eq!(
-        status_text(&app),
-        format!("Link {} -> {}", link.display(), target.display()),
+        app.status,
+        Status::Linked { link, target },
         "the status line names both ends"
     );
 }
@@ -272,11 +272,7 @@ fn an_existing_name_is_refused_rather_than_replaced() {
     create(&mut app, &prompt);
 
     assert_eq!(fs::read(&taken).expect("still there"), b"mine");
-    assert!(
-        status_text(&app).contains("already exists"),
-        "{}",
-        status_text(&app)
-    );
+    assert_eq!(app.status, Status::AlreadyExists(taken));
 }
 
 /// A dangling link is a name that is taken even though nothing is behind it:
@@ -296,11 +292,7 @@ fn a_dangling_link_at_the_name_is_still_a_taken_name() {
         fs::read_link(&taken).expect("still the old link"),
         Path::new("ghost")
     );
-    assert!(
-        status_text(&app).contains("already exists"),
-        "{}",
-        status_text(&app)
-    );
+    assert_eq!(app.status, Status::AlreadyExists(taken));
 }
 
 /// A full path goes where it says, and the cursor follows it into whichever

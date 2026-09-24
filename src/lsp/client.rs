@@ -71,7 +71,8 @@ impl Client {
             crate::diagnostics::log_error(&format!("LSP initialize error {}", error.code));
             "LSP initialization rejected"
         })?;
-        self.capabilities = Some(Capabilities::parse(&value["capabilities"])?);
+        let capabilities = value.get("capabilities").unwrap_or(&Value::Null);
+        self.capabilities = Some(Capabilities::parse(capabilities)?);
         self.rpc.notify("initialized", json!({}));
         self.events
             .push(Event::State(super::types::ServerState::Ready));
@@ -186,7 +187,7 @@ impl Client {
         }
         let mut diagnostics: Vec<Diagnostic> =
             serde_json::from_value(params["diagnostics"].clone())
-                .map_err(|_| "Invalid LSP diagnostics")?;
+                .map_err(crate::lsp::logged("Invalid LSP diagnostics"))?;
         diagnostics.truncate(200);
         self.events
             .push(Event::Diagnostics(doc.snapshot.stamp, diagnostics));

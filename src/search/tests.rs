@@ -4,7 +4,7 @@
 use super::*;
 
 fn lines(text: &[&str]) -> Vec<String> {
-    text.iter().map(|line| (*line).to_string()).collect()
+    text.iter().map(|line| (*line).to_owned()).collect()
 }
 
 /// A plain search: forwards, ignoring case, matching anywhere.

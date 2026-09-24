@@ -93,19 +93,19 @@ fn export_group(group: &GroupRef<'_>) -> ExportGroup {
 }
 
 fn export_entry(entry: &EntryRef<'_>) -> ExportEntry {
-    let mut fields = std::collections::BTreeMap::new();
-    for key in entry.fields.keys() {
-        if let Some(value) = entry.get(key) {
-            fields.insert(key.clone(), value.to_string());
-        }
-    }
+    // Collected into the sorted map, so the hash map's order never shows.
+    let fields = entry
+        .fields
+        .keys()
+        .filter_map(|key| entry.get(key).map(|value| (key.clone(), value.to_owned())))
+        .collect();
     ExportEntry {
         uuid: entry.id().uuid().to_string(),
         fields,
         tags: entry.tags.clone(),
         attachments: entry
             .attachments_named()
-            .map(|(name, _)| name.to_string())
+            .map(|(name, _)| name.to_owned())
             .collect(),
         times: export_times(&entry.times),
     }

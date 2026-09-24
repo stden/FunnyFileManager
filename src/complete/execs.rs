@@ -7,7 +7,11 @@
 use std::collections::BTreeSet;
 use std::ffi::OsString;
 use std::path::Path;
-use std::sync::OnceLock;
+use std::sync::{Once, OnceLock};
+
+/// The memoized scan of the process `$PATH`, shared by [`executables`],
+/// [`ready`] and [`warm`].
+static EXECUTABLES: OnceLock<Vec<String>> = OnceLock::new();
 
 /// Every executable name on `$PATH`, sorted and de-duplicated.
 ///
@@ -17,8 +21,33 @@ use std::sync::OnceLock;
 /// argument so tests can point it at a `TempDir` without touching the
 /// process-global environment.
 pub fn executables() -> &'static [String] {
-    static CACHE: OnceLock<Vec<String>> = OnceLock::new();
-    CACHE.get_or_init(|| scan(std::env::var_os("PATH").as_deref()))
+    EXECUTABLES.get_or_init(|| scan(std::env::var_os("PATH").as_deref()))
+}
+
+/// The scan, once it has finished; `None` while it has not. Never blocks, so
+/// a dialog can offer `PATH` programs without waiting for them.
+pub fn ready() -> Option<&'static [String]> {
+    EXECUTABLES.get().map(Vec::as_slice)
+}
+
+/// Start the scan on a background thread, once per process.
+///
+/// The scan calls `metadata` for every entry of every `PATH` directory, which
+/// takes seconds on WSL's `/mnt/c/…` entries: the UI thread must not wait for
+/// it. A thread that cannot be started is logged, and [`ready`] stays `None`
+/// until something scans on its own thread.
+pub fn warm() {
+    static STARTED: Once = Once::new();
+    STARTED.call_once(|| {
+        let spawned = std::thread::Builder::new()
+            .name("ffm-path-scan".to_owned())
+            .spawn(|| {
+                executables();
+            });
+        if let Err(error) = spawned {
+            crate::diagnostics::log_error(&format!("PATH scan: {error}"));
+        }
+    });
 }
 
 /// Executable names found in the `PATH`-shaped variable `path_var`.
@@ -97,10 +126,17 @@ fn is_executable(entry: &std::fs::DirEntry) -> bool {
 /// programs.
 #[must_use]
 pub fn matching(prefix: &str) -> Vec<String> {
+    matching_in(executables(), prefix)
+}
+
+/// The names in `names` starting with `prefix`, or nothing for an empty
+/// prefix: [`matching`]'s one prefix rule, over any list of program names.
+#[must_use]
+pub fn matching_in(names: &[String], prefix: &str) -> Vec<String> {
     if prefix.is_empty() {
         return Vec::new();
     }
-    executables()
+    names
         .iter()
         .filter(|name| name.starts_with(prefix))
         .cloned()

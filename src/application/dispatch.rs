@@ -96,9 +96,9 @@ where
     apply_action(terminal, app, resolve(key));
 }
 
-/// A tree or quick-view panel is asked about a key before the file-panel
-/// actions are: its rows are folders or a preview, not the entries the
-/// actions would act on. `Ctrl+O`'s console has no panels to ask.
+/// A tree, quick-view, sessions or remote panel is asked about a key before
+/// the file-panel actions are: its rows are folders, a preview, sessions or
+/// a host's entries, not the local entries the actions would act on. `Ctrl+O`'s console has no panels to ask.
 fn panel_kind_consumes(app: &mut App, key: KeyEvent) -> bool {
     if app.view != ViewMode::Panels {
         return false;
@@ -107,6 +107,8 @@ fn panel_kind_consumes(app: &mut App, key: KeyEvent) -> bool {
         PanelKind::Files => false,
         PanelKind::Tree(_) => crate::popup::tree::process(app, key),
         PanelKind::QuickView(_) => crate::popup::quickview::process(app, key),
+        PanelKind::Sessions(_) => crate::popup::sessions::process(app, key),
+        PanelKind::Remote(_) => crate::popup::remote::process(app, key),
     }
 }
 

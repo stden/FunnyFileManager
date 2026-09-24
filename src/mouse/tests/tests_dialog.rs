@@ -12,6 +12,7 @@ fn dialog() -> DialogMouse {
         offset: (0, 0),
         grabbed: None,
         screen: Rect::new(0, 0, 80, 24),
+        covered: None,
     }
 }
 
@@ -92,4 +93,18 @@ fn clear_keeps_the_drag_and_reset_forgets_it() {
     dialog.reset();
     assert_eq!(dialog.offset, (0, 0));
     assert_eq!(dialog.grabbed, None);
+}
+
+/// A popup drawn over the dialog hides what is under it, inside the dialog
+/// or past its edge, and a cleared tracker forgets it.
+#[test]
+fn a_popup_over_the_dialog_takes_the_click_from_what_it_covers() {
+    let mut dialog = dialog();
+    dialog.covered = Some(Rect::new(13, 8, 10, 9));
+    assert_eq!(dialog.hit(14, 10), DialogTarget::Popup, "over a button");
+    assert_eq!(dialog.hit(13, 8), DialogTarget::Popup, "over a row");
+    assert_eq!(dialog.hit(15, 15), DialogTarget::Popup, "below the dialog");
+    assert_eq!(dialog.hit(27, 10), DialogTarget::Button(1), "not covered");
+    dialog.clear();
+    assert_eq!(dialog.covered, None);
 }

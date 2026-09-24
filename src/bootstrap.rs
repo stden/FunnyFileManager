@@ -43,12 +43,7 @@ fn run_session(input: &mut crate::recording::Input) -> Result<(), Box<dyn Error>
     let mut terminal_ops = crate::terminal::CrosstermOps;
     let mut session = crate::terminal::TerminalSession::enter(&mut terminal, &mut terminal_ops)?;
 
-    app.clipboard
-        .install(input.clipboard(Box::new(crate::clipboard::SystemClipboard::with_stdout())));
-    // The pause reads a live key; a replay has none to give it.
-    if matches!(input, crate::recording::Input::Live(_)) {
-        app.program_pause = crate::models::ProgramPause::UntilKey;
-    }
+    install_hosts(&mut app, input);
 
     let run_result = crate::application::run_loop(
         session.terminal_mut(),
@@ -58,6 +53,36 @@ fn run_session(input: &mut crate::recording::Input) -> Result<(), Box<dyn Error>
     );
     let cleanup_result = session.finish();
     end_session(&app, run_result, cleanup_result)
+}
+
+/// The machine the session works on, as `input` allows: a replay gets the
+/// recorded clipboard, the process table read-only, and none of what only
+/// live input gets.
+fn install_hosts(app: &mut App, input: &crate::recording::Input) {
+    app.clipboard
+        .install(input.clipboard(Box::new(crate::clipboard::SystemClipboard::with_stdout())));
+    // The task list reads and controls processes through this host. A replay
+    // gets it read-only: a recorded F8 Enter must not end whatever process
+    // sits under the cursor on the replaying machine.
+    if let Some(host) = crate::process_table::system_host() {
+        app.task_host.install(input.process_host(host));
+    }
+    app.live = live_input(input);
+}
+
+/// What only live input gets. The pause reads a live key; a replay has none to
+/// give it. Nor does a replay get the real machine: replaying a session never
+/// edits an MCP client's config, and its Language servers dialog probes
+/// nothing.
+fn live_input(input: &crate::recording::Input) -> crate::models::LiveInput {
+    if !matches!(input, crate::recording::Input::Live(_)) {
+        return crate::models::LiveInput::default();
+    }
+    crate::models::LiveInput {
+        program_pause: crate::models::ProgramPause::UntilKey,
+        mcp_host: crate::ops::mcp_install::system_host(),
+        lsp_probe: crate::lsp::Probe::from_process(),
+    }
 }
 
 /// Report how the session ended, and hand `main` its outcome.
@@ -99,6 +124,10 @@ fn load_app() -> io::Result<App> {
 /// Everything that has to wait for the screen to be the user's again: the
 /// state written back to disk, a recording that gave up halfway, and the
 /// failure that ended the session, if one did.
+#[expect(
+    clippy::print_stderr,
+    reason = "runs after the terminal is restored: stderr is the only channel left for a failure"
+)]
 fn report_at_exit(app: &App, run_result: &io::Result<()>) {
     persist_at_exit(app);
     if let Err(error) = app.performance.save_session() {
@@ -108,12 +137,28 @@ fn report_at_exit(app: &App, run_result: &io::Result<()>) {
         eprintln!("ffm: recording stopped: {reason}");
     }
     if let Err(error) = run_result {
-        eprintln!("Error: {error:?}");
+        eprintln!("{}", AtExitErrorLine(error));
     }
 }
 
-/// Load the command history, the settings, the view and folder histories and
-/// the bookmarks at the production entry point. `App::new()` scans the initial panels but
+/// The line a failed session leaves on stderr: the `io::Error` in its Debug
+/// form, which also names the `ErrorKind`. `main` prints the Display form
+/// after it.
+struct AtExitErrorLine<'error>(&'error io::Error);
+
+impl std::fmt::Display for AtExitErrorLine<'_> {
+    #[expect(
+        clippy::use_debug,
+        reason = "the exit line deliberately shows the io::Error's Debug form, which names its ErrorKind; main prints the Display form after it"
+    )]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Error: {:?}", self.0)
+    }
+}
+
+/// Load the command history, the settings, the view and folder histories,
+/// the bookmarks and the stored sessions at the production entry point.
+/// `App::new()` scans the initial panels but
 /// creates only session-local state, so constructing an App cannot pollute
 /// the user's real files. Tests exercise the application with explicitly
 /// injected state and event sources; persistence is covered in each store's
@@ -125,6 +170,7 @@ fn load_persisted(app: &mut App) {
     app.view_history = crate::models::ViewHistory::load();
     app.folder_history = crate::models::FolderHistory::load();
     app.bookmarks = crate::models::Bookmarks::load();
+    crate::ops::sessions::install(app, crate::sessions::SessionStore::load());
 }
 
 /// Write the histories, and the settings when "Auto save setup" is on, after
@@ -144,3 +190,6 @@ fn persist_at_exit(app: &App) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

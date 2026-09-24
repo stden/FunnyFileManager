@@ -29,41 +29,53 @@ impl DurableLine {
         if trimmed.contains(['\n', '\r']) {
             return None;
         }
-        match Command::parse(trimmed) {
-            // Allow-list, deliberately with no wildcard arm: every known
-            // verb is named explicitly, so adding a new `Command` variant
-            // is a compile error here until a human decides whether it can
-            // carry secrets. The gate fails closed on unrecognized variants
-            // instead of persisting them by default.
-            Command::Cd(_)
-            | Command::Pwd
-            | Command::Sort(_)
-            | Command::BookmarkSet(_)
-            | Command::BookmarkGo(_)
-            | Command::MarkAll
-            | Command::UnmarkAll
-            | Command::Help
-            | Command::Stats
-            | Command::WinMsg
-            | Command::Wsl
-            | Command::WinPerf
-            | Command::Mcp
-            | Command::Lsp
-            | Command::DiskCleanup
-            | Command::Quit => Some(Self(trimmed.to_owned())),
-            // Shell fall-through and known-verb-bad-args can carry secrets
-            // (raw user text) — never durable. `Empty` is unreachable here
-            // (the blank check above already returned) but is named rather
-            // than wildcarded, so a new variant stays a compile error.
-            Command::Shell(_)
-            | Command::NewConsole(_)
-            | Command::Invalid { .. }
-            | Command::Empty => None,
-        }
+        (durability(&Command::parse(trimmed)) == Durability::Durable)
+            .then(|| Self(trimmed.to_owned()))
     }
 
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+/// Whether a parsed line may reach disk.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Durability {
+    Durable,
+    SessionOnly,
+}
+
+const fn durability(command: &Command) -> Durability {
+    match command {
+        // Allow-list, deliberately with no wildcard arm: every known
+        // verb is named explicitly, so adding a new `Command` variant
+        // is a compile error here until a human decides whether it can
+        // carry secrets. The gate fails closed on unrecognized variants
+        // instead of persisting them by default.
+        Command::Cd(_)
+        | Command::Pwd
+        | Command::Sort(_)
+        | Command::BookmarkSet(_)
+        | Command::BookmarkGo(_)
+        | Command::MarkAll
+        | Command::UnmarkAll
+        | Command::Help
+        | Command::Stats
+        | Command::WinMsg
+        | Command::Wsl
+        | Command::WinPerf
+        | Command::Mcp
+        | Command::Lsp
+        | Command::DiskCleanup
+        | Command::Sessions(_)
+        | Command::Quit => Durability::Durable,
+        // Shell fall-through and known-verb-bad-args can carry secrets
+        // (raw user text) — never durable. `Empty` is unreachable here
+        // (`classify` returns before parsing a blank line) but is named rather
+        // than wildcarded, so a new variant stays a compile error.
+        Command::Shell(_) | Command::NewConsole(_) | Command::Invalid { .. } | Command::Empty => {
+            Durability::SessionOnly
+        }
     }
 }

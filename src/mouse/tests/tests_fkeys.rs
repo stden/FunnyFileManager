@@ -56,3 +56,11 @@ fn a_bar_too_narrow_for_twelve_keys_still_answers_consistently() {
         assert!(fkey_at(5, KEYS, column).is_some(), "column {column}");
     }
 }
+
+/// A bar of no keys has no cells and answers no click. Dividing the width by
+/// the key count would panic here, and a release build aborts on a panic.
+#[test]
+fn a_bar_of_no_keys_has_no_cells_and_hits_nothing() {
+    assert!(fkey_widths(80, 0).is_empty());
+    assert_eq!(fkey_at(80, 0, 0), None);
+}

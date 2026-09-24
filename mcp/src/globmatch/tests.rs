@@ -92,9 +92,9 @@ fn repeated_double_stars_mean_the_same_as_one() {
 fn matches_within(candidate: &str, pattern: &str, budget: Duration) -> bool {
     let (sender, receiver) = mpsc::channel();
     let (candidate, pattern) = (candidate.to_owned(), pattern.to_owned());
-    std::thread::spawn(move || {
-        let _ = sender.send(matches(&candidate, &pattern));
-    });
+    // A late answer, after the budget ran out, has no receiver left: the
+    // send error is the thread's result, and nobody joins the thread.
+    std::thread::spawn(move || sender.send(matches(&candidate, &pattern)));
     receiver
         .recv_timeout(budget)
         .unwrap_or_else(|_| panic!("matching did not finish within {budget:?}"))
@@ -107,21 +107,21 @@ fn matches_within(candidate: &str, pattern: &str, budget: Duration) -> bool {
 /// "milliseconds, not minutes".
 #[test]
 fn pathological_double_star_patterns_return_promptly() {
-    let candidate = (0..15)
+    let directories = (0..15)
         .map(|i| format!("dir{i}"))
         .collect::<Vec<_>>()
-        .join("/")
-        + "/target.rs";
+        .join("/");
+    let candidate = format!("{directories}/target.rs");
 
     let budget = Duration::from_secs(2);
 
     // The reported shape: a long run of `**`, which collapsing folds to one.
-    let collapsible = "**/".repeat(45) + "x";
+    let collapsible = format!("{}x", "**/".repeat(45));
     assert!(!matches_within(&candidate, &collapsible, budget));
 
     // Interleaved `**` cannot be collapsed, so this exercises the iterative
     // backtrack itself rather than the run-folding shortcut.
-    let interleaved = "**/a/".repeat(20) + "x";
+    let interleaved = format!("{}x", "**/a/".repeat(20));
     assert!(!matches_within(&candidate, &interleaved, budget));
 
     // The success path has to stay fast too, not just the rejecting one.
@@ -130,7 +130,7 @@ fn pathological_double_star_patterns_return_promptly() {
 
 #[test]
 fn oversized_patterns_are_rejected_and_never_match() {
-    let too_deep = "a/".repeat(MAX_PATTERN_COMPONENTS + 1) + "x";
+    let too_deep = format!("{}x", "a/".repeat(MAX_PATTERN_COMPONENTS + 1));
     assert!(validate_pattern(&too_deep)
         .expect_err("too many components")
         .contains("components"));

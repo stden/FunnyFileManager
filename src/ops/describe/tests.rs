@@ -268,7 +268,7 @@ fn the_cursor_stays_on_the_described_entry_after_the_relist() {
 }
 
 /// The names in `dir`, spelled as the file system stores them.
-fn file_names(dir: &std::path::Path) -> Vec<String> {
+fn file_names(dir: &Path) -> Vec<String> {
     fs::read_dir(dir)
         .expect("list")
         .map(|entry| {

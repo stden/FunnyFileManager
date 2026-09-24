@@ -2,6 +2,7 @@
 
 use crate::models::{App, Overlay, WslActivity, WslDialog, WslOperation, WslOutput, WslRequestId};
 use crate::status::Status;
+use std::path::PathBuf;
 
 pub fn open_manager(app: &mut App) {
     app.set_overlay(Overlay::Wsl(Box::new(WslDialog::new(Vec::new()))));
@@ -65,35 +66,54 @@ pub(crate) fn complete(app: &mut App, id: WslRequestId, result: Result<WslOutput
 }
 
 fn apply_current_result(app: &mut App, result: Result<WslOutput, String>) {
-    let result = match result {
-        Ok(WslOutput::Root(path)) => match app.get_active_panel().navigate_to(path.clone()) {
-            Ok(()) => {
-                app.close_overlay();
-                app.set_status(Status::Opened(path));
-                return;
+    match result {
+        Ok(WslOutput::Root(path)) => open_root(app, path),
+        Ok(WslOutput::Distributions(distributions)) => {
+            if let Overlay::Wsl(dialog) = &mut app.overlay {
+                dialog.replace_distributions(distributions);
+                dialog.activity = WslActivity::Ready;
             }
-            Err(error) => Err(format!("Cannot open WSL root {}: {error}", path.display())),
-        },
-        other => other,
-    };
+        }
+        Ok(WslOutput::Updated(output) | WslOutput::PackagesUpdated(output)) => {
+            show(
+                app,
+                WslActivity::Notice(output.clone()),
+                Status::CommandOutput(output),
+            );
+        }
+        Err(error) => fail(app, error),
+    }
+}
+
+fn open_root(app: &mut App, path: PathBuf) {
+    match app.get_active_panel().navigate_to(path.clone()) {
+        Ok(()) => {
+            app.close_overlay();
+            app.set_status(Status::Opened(path));
+        }
+        Err(error) => fail(
+            app,
+            format!("Cannot open WSL root {}: {error}", path.display()),
+        ),
+    }
+}
+
+fn fail(app: &mut App, error: String) {
+    show(
+        app,
+        WslActivity::Failed(error.clone()),
+        Status::Error(error),
+    );
+}
+
+/// Put `activity` in the dialog and `status` on the bar; a dialog that has
+/// closed meanwhile takes neither.
+fn show(app: &mut App, activity: WslActivity, status: Status) {
     let Overlay::Wsl(dialog) = &mut app.overlay else {
         return;
     };
-    match result {
-        Ok(WslOutput::Distributions(distributions)) => {
-            dialog.replace_distributions(distributions);
-            dialog.activity = WslActivity::Ready;
-        }
-        Ok(WslOutput::Updated(output) | WslOutput::PackagesUpdated(output)) => {
-            dialog.activity = WslActivity::Notice(output.clone());
-            app.set_status(Status::CommandOutput(output));
-        }
-        Err(error) => {
-            dialog.activity = WslActivity::Failed(error.clone());
-            app.set_status(Status::Error(error));
-        }
-        Ok(WslOutput::Root(_)) => unreachable!("root navigation handled above"),
-    }
+    dialog.activity = activity;
+    app.set_status(status);
 }
 
 fn report_background_result(app: &mut App, result: Result<WslOutput, String>) {

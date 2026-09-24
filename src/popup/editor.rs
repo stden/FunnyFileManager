@@ -2,6 +2,7 @@
 
 use super::{process_search_prompt, repeat_search, EDITOR_PAGE};
 use crate::action::editor::{self as editor_keymap, EditorCommand, EditorNavigation};
+use crate::encoding::TextEncoding;
 use crate::models::{AfterSave, App, EditState, EditorMotion, ExitChoice};
 use crate::search::SearchPrompt;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -60,26 +61,40 @@ fn process_editor_dialog(app: &mut App, code: KeyCode, modifiers: KeyModifiers) 
     lsp::process(app, code).then_some(true)
 }
 
+/// What a key does in a Save / Discard / Cancel question: move the focus
+/// between the buttons, or answer. The editor's exit dialog and the Language
+/// servers dialog ask the same question with the same keys.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ExitKey {
+    Focus(ExitChoice),
+    Answer(ExitChoice),
+}
+
+/// Arrows and Tab move the cursor between the buttons; the hotkeys act
+/// directly, so a user who knows the dialog never has to look at it.
+pub(super) const fn exit_key(code: KeyCode, choice: ExitChoice) -> Option<ExitKey> {
+    Some(match code {
+        KeyCode::Left => ExitKey::Focus(choice.previous()),
+        KeyCode::Right | KeyCode::Tab => ExitKey::Focus(choice.next()),
+        KeyCode::Enter => ExitKey::Answer(choice),
+        KeyCode::Char('y' | 'Y') => ExitKey::Answer(ExitChoice::Save),
+        KeyCode::Char('n' | 'N') => ExitKey::Answer(ExitChoice::Discard),
+        KeyCode::Char('c' | 'C') | KeyCode::Esc => ExitKey::Answer(ExitChoice::Cancel),
+        _ => return None,
+    })
+}
+
 fn confirm_exit(app: &mut App, code: KeyCode, choice: ExitChoice) {
     let Some(editor) = app.get_editor_mut() else {
         return;
     };
-    // Arrows and Tab move the cursor between the buttons; the hotkeys act
-    // directly, so a user who knows the dialog never has to look at it.
-    let acted = match code {
-        KeyCode::Left => {
-            editor.state = EditState::ConfirmingExit(choice.previous());
+    let acted = match exit_key(code, choice) {
+        Some(ExitKey::Focus(focus)) => {
+            editor.state = EditState::ConfirmingExit(focus);
             return;
         }
-        KeyCode::Right | KeyCode::Tab => {
-            editor.state = EditState::ConfirmingExit(choice.next());
-            return;
-        }
-        KeyCode::Enter => choice,
-        KeyCode::Char('y' | 'Y') => ExitChoice::Save,
-        KeyCode::Char('n' | 'N') => ExitChoice::Discard,
-        KeyCode::Char('c' | 'C') | KeyCode::Esc => ExitChoice::Cancel,
-        _ => return,
+        Some(ExitKey::Answer(answer)) => answer,
+        None => return,
     };
 
     match acted {
@@ -171,25 +186,19 @@ fn close_editor(app: &mut App) {
     }
 }
 fn process_encoding(app: &mut App, code: KeyCode) {
-    use crate::encoding::TextEncoding;
     let Some(editor) = app.get_editor_mut() else {
         return;
     };
     let Some(choice) = editor.encoding_choice else {
         return;
     };
-    let choices = TextEncoding::ALL;
-    let index = choices
-        .iter()
-        .position(|encoding| *encoding == choice)
-        .unwrap_or(0);
     match code {
         KeyCode::Esc => editor.encoding_choice = None,
         KeyCode::Up | KeyCode::Left => {
-            editor.encoding_choice = Some(choices[(index + choices.len() - 1) % choices.len()]);
+            editor.encoding_choice = cycle_encoding(choice, TextEncoding::ALL.len() - 1);
         }
         KeyCode::Down | KeyCode::Right | KeyCode::Tab => {
-            editor.encoding_choice = Some(choices[(index + 1) % choices.len()]);
+            editor.encoding_choice = cycle_encoding(choice, 1);
         }
         KeyCode::Char('r' | 'R') => {
             editor.encoding_choice = None;
@@ -201,4 +210,14 @@ fn process_encoding(app: &mut App, code: KeyCode) {
         }
         _ => {}
     }
+}
+
+/// The encoding `offset` places after `choice` in the list, wrapping around.
+fn cycle_encoding(choice: TextEncoding, offset: usize) -> Option<TextEncoding> {
+    let choices = TextEncoding::ALL;
+    let index = choices
+        .iter()
+        .position(|encoding| *encoding == choice)
+        .unwrap_or(0);
+    choices.get((index + offset) % choices.len()).copied()
 }

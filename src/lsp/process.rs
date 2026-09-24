@@ -47,7 +47,7 @@ impl Process {
         };
         #[cfg(windows)]
         {
-            process.job = Some(crate::windows::lsp_job(&process.child)?);
+            process.job = Some(crate::windows::process_tree_job(&process.child)?);
         }
         process.start_threads()?;
         crate::diagnostics::log_action("LSP process started");
@@ -55,33 +55,23 @@ impl Process {
     }
 
     fn start_threads(&mut self) -> io::Result<()> {
-        let (input, output, stderr) = self.pipes();
+        let (input, output, stderr) = self.pipes()?;
         self.spawn_threads(input, output, stderr)
     }
 
     fn pipes(
         &mut self,
-    ) -> (
+    ) -> io::Result<(
         std::process::ChildStdout,
         std::process::ChildStdin,
         std::process::ChildStderr,
-    ) {
-        let input = self
-            .child
-            .stdout
-            .take()
-            .expect("stdout was configured as piped");
-        let output = self
-            .child
-            .stdin
-            .take()
-            .expect("stdin was configured as piped");
-        let stderr = self
-            .child
-            .stderr
-            .take()
-            .expect("stderr was configured as piped");
-        (input, output, stderr)
+    )> {
+        // `start` configures all three as piped and takes them once.
+        let missing = || io::Error::other("LSP process pipe is not connected");
+        let input = self.child.stdout.take().ok_or_else(missing)?;
+        let output = self.child.stdin.take().ok_or_else(missing)?;
+        let stderr = self.child.stderr.take().ok_or_else(missing)?;
+        Ok((input, output, stderr))
     }
 
     fn spawn_threads(
@@ -170,7 +160,7 @@ fn writer(mut output: impl io::Write, messages: &Receiver<Value>, events: &SyncS
     for message in messages {
         if transport::write_frame(&mut output, &message).is_err() {
             // The receiver may already be gone during normal shutdown.
-            let _ = events.send(Signal::Failed);
+            drop(events.send(Signal::Failed));
             return;
         }
     }
@@ -224,7 +214,9 @@ pub(super) fn exited(child: &mut Child) -> bool {
 #[cfg(unix)]
 pub(super) fn terminate(child: &mut Child) {
     // The leader has not been reaped: its PID cannot belong to an unrelated group.
-    let _ = crate::platform::kill_process_group(child);
+    // A group that is already gone needs no signal, and `reap` kills the
+    // leader either way.
+    drop(crate::platform::kill_process_group(child));
     reap(child);
 }
 
@@ -236,7 +228,7 @@ pub(super) fn terminate(child: &mut Child) {
 fn reap(child: &mut Child) {
     if !child.try_wait().is_ok_and(|status| status.is_some()) {
         // The job/group may have terminated the process between try_wait and kill.
-        let _ = child.kill();
+        drop(child.kill());
     }
     if child.wait().is_err() {
         crate::diagnostics::log_error("LSP process reap failed");

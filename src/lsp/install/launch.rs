@@ -62,7 +62,9 @@ fn installed(path: &Path) -> Result<(), InstallError> {
 }
 
 fn template(root: &Path, path: &Path) -> Result<String, InstallError> {
-    let relative = path.strip_prefix(root).map_err(|_| InstallError::Recipe)?;
+    let relative = path
+        .strip_prefix(root)
+        .map_err(crate::lsp::logged(InstallError::Recipe))?;
     Ok(format!("{{install_dir}}/{}", relative.to_string_lossy()))
 }
 
@@ -76,10 +78,12 @@ fn node(
     let package = storage::relative(&root.join("node_modules"), package)?;
     let manifest: serde_json::Value =
         serde_json::from_slice(&fs::read(package.join("package.json"))?)
-            .map_err(|_| InstallError::Recipe)?;
-    let bin = manifest["bin"]
+            .map_err(crate::lsp::logged(InstallError::Recipe))?;
+    // `bin` is either the one script's path or a map from command to path.
+    let bin = manifest.get("bin").ok_or(InstallError::Recipe)?;
+    let bin = bin
         .as_str()
-        .or_else(|| manifest["bin"][binary].as_str())
+        .or_else(|| bin.get(binary).and_then(serde_json::Value::as_str))
         .ok_or(InstallError::Recipe)?;
     let script = storage::relative(&package, bin)?;
     installed(&script)?;
@@ -209,7 +213,7 @@ pub(super) fn runnable(path: &Path) -> bool {
 }
 
 #[cfg(windows)]
-pub(super) fn executable(name: &str) -> String {
+pub fn executable(name: &str) -> String {
     if Path::new(name)
         .extension()
         .is_some_and(|ext| ext.eq_ignore_ascii_case("exe"))
@@ -220,8 +224,24 @@ pub(super) fn executable(name: &str) -> String {
     }
 }
 #[cfg(unix)]
-pub(super) fn executable(name: &str) -> String {
+pub fn executable(name: &str) -> String {
     name.to_owned()
+}
+
+/// Whether a program found on `PATH` under `name` is one LSP lookup would
+/// start. Windows lookup appends `.exe` ([`executable`]), so only an `.exe`
+/// counts there — not a `.dll`, a `.mui` or npm's extensionless shim. Unix
+/// lookup takes the name as it is, and the `PATH` scan already required the
+/// execute bit.
+#[cfg(windows)]
+pub fn launchable_name(name: &str) -> bool {
+    Path::new(name)
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("exe"))
+}
+#[cfg(unix)]
+pub const fn launchable_name(_name: &str) -> bool {
+    true
 }
 #[cfg(windows)]
 pub(super) fn venv_python(root: &Path) -> PathBuf {

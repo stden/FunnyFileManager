@@ -1,15 +1,14 @@
 //! Unit tests: F5/F6 must refuse a destination inside the source, must survive
 //! a failing item in a marked batch, and F3 must not choke on binary files.
-#![allow(unused_imports)]
 
 use crate::models::FileName;
 use crate::ops::*;
 
 use crate::models::{App, Overlay, Panel, PanelSide};
 
-use std::fs::{self};
+use std::fs;
 
-use std::io::{self, Write};
+use std::io;
 
 use std::path::Path;
 

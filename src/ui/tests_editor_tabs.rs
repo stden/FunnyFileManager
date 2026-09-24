@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 
 use super::*;
-use crate::models::{App, Editor, EditorMotion, Overlay, Panel, SelectionMode};
+use crate::models::{Editor, EditorMotion, Panel, SelectionMode};
 
 const WIDTH: u16 = 40;
 
@@ -86,7 +86,7 @@ fn a_selected_tab_is_painted_across_its_whole_width() {
 
     let buffer = terminal.backend().buffer();
     let painted: Vec<u16> = (0..WIDTH)
-        .filter(|&x| buffer[(x, 1)].bg == super::palette::CURSOR_BG)
+        .filter(|&x| buffer[(x, 1)].bg == palette::CURSOR_BG)
         .collect();
     assert_eq!(painted, [1, 2, 3, 4], "the TAB's three cells and the 'y'");
 }

@@ -8,7 +8,7 @@
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::{CallToolResult, ContentBlock, ServerCapabilities, ServerInfo},
-    schemars, tool, tool_handler, tool_router,
+    tool, tool_handler, tool_router,
     transport::stdio,
     ErrorData as McpError, ServerHandler, ServiceExt,
 };
@@ -86,6 +86,12 @@ fn two_decimals(size: u64, unit: u64) -> String {
 /// narrower: a line offset or limit past `usize::MAX` means "all of them".
 fn saturating_usize(value: u64) -> usize {
     usize::try_from(value).unwrap_or(usize::MAX)
+}
+
+/// A `usize` count or length as a `u64`: lossless on every supported target,
+/// saturating on one whose `usize` is wider.
+fn saturating_u64(value: usize) -> u64 {
+    u64::try_from(value).unwrap_or(u64::MAX)
 }
 
 /// An S3 object size as bytes. The SDK models it as `i64`; a missing or
@@ -191,6 +197,10 @@ struct CollectedFile {
 ///
 /// Not following them is what keeps `a -> ..` from walking forever; the budget
 /// is what keeps a tree without a loop from doing the same.
+#[expect(
+    clippy::filetype_is_file,
+    reason = "only regular files are collected: hashing a FIFO or a device would block or never end"
+)]
 fn collect_files(root: &Path, dir: &Path, out: &mut Vec<CollectedFile>, budget: usize) {
     if out.len() >= budget {
         return;
@@ -301,11 +311,9 @@ fn read_line_range(path: &Path, start: usize, count: usize) -> io::Result<(Vec<S
 
 /// At most `limit` bytes from the front of `path`.
 fn read_capped(path: &Path, limit: usize) -> io::Result<Vec<u8>> {
-    use io::Read;
-
     let mut buffer = Vec::new();
     fs::File::open(path)?
-        .take(limit as u64)
+        .take(saturating_u64(limit))
         .read_to_end(&mut buffer)?;
     Ok(buffer)
 }
@@ -391,16 +399,13 @@ fn first_difference(left: &Path, right: &Path) -> io::Result<Option<u64>> {
             return Ok(Some(offset));
         }
         let step = left_block.len().min(right_block.len());
-        if let Some(at) = left_block[..step]
-            .iter()
-            .zip(&right_block[..step])
-            .position(|(a, b)| a != b)
-        {
-            return Ok(Some(offset + at as u64));
+        // `zip` stops at the shorter block, so it compares exactly `step` bytes.
+        if let Some(at) = left_block.iter().zip(right_block).position(|(a, b)| a != b) {
+            return Ok(Some(offset + saturating_u64(at)));
         }
         left.consume(step);
         right.consume(step);
-        offset += step as u64;
+        offset += saturating_u64(step);
     }
 }
 
@@ -458,24 +463,25 @@ fn candidate_names(name: &str) -> Vec<String> {
 
 /// SHA-256 of `path`, streaming so a large duplicate costs a read, not a copy.
 fn checksum_file(path: &Path) -> io::Result<String> {
-    let mut file = fs::File::open(path)?;
+    use io::BufRead;
+
+    let mut reader = io::BufReader::with_capacity(8192, fs::File::open(path)?);
     let mut hasher = Sha256::new();
-    let mut buffer = [0u8; 8192];
     loop {
-        let read = file.read(&mut buffer)?;
-        if read == 0 {
+        let block = reader.fill_buf()?;
+        if block.is_empty() {
             break;
         }
-        hasher.update(&buffer[..read]);
+        hasher.update(block);
+        let length = block.len();
+        reader.consume(length);
     }
     let digest = hasher.finalize();
-    Ok(digest
-        .iter()
-        .fold(String::with_capacity(digest.len() * 2), |mut hex, byte| {
-            // Writing into a `String` cannot fail.
-            let _ = write!(hex, "{byte:02x}");
-            hex
-        }))
+    let mut hex = String::with_capacity(digest.len() * 2);
+    for byte in &digest {
+        write!(hex, "{byte:02x}").map_err(io::Error::other)?;
+    }
+    Ok(hex)
 }
 
 /// The last `wanted` lines of a file, and its size.
@@ -570,6 +576,18 @@ fn dirs_home() -> Option<PathBuf> {
     std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
+}
+
+/// The root filesystem's line of `df -h /`, trimmed; `None` when `df` fails.
+#[cfg(unix)]
+fn root_disk_usage() -> Option<String> {
+    let output = std::process::Command::new("df")
+        .args(["-h", "/"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())?;
+    let text = String::from_utf8_lossy(&output.stdout);
+    text.lines().nth(1).map(|line| line.trim().to_owned())
 }
 
 /// Join a caller-supplied name onto a directory that is already confined to
@@ -1425,7 +1443,7 @@ impl FfmServer {
                 .map_err(|e| McpError::internal_error(e.to_string(), None))?;
         }
 
-        let mut file = fs::OpenOptions::new()
+        let mut file = OpenOptions::new()
             .create(true)
             .append(true)
             .open(&path)
@@ -2076,42 +2094,33 @@ impl FfmServer {
         description = "Get system information: hostname, OS, architecture, home directory, current directory."
     )]
     fn system_info() -> CallToolResult {
-        let mut info = json!({
-            "os": std::env::consts::OS,
-            "arch": std::env::consts::ARCH,
-            "family": std::env::consts::FAMILY,
-        });
+        let mut info = serde_json::Map::new();
+        info.insert("os".to_owned(), json!(std::env::consts::OS));
+        info.insert("arch".to_owned(), json!(std::env::consts::ARCH));
+        info.insert("family".to_owned(), json!(std::env::consts::FAMILY));
 
         if let Ok(cwd) = std::env::current_dir() {
-            info["current_directory"] = json!(cwd.display().to_string());
+            let cwd = cwd.display().to_string();
+            info.insert("current_directory".to_owned(), json!(cwd));
         }
         if let Some(home) = dirs_home() {
-            info["home_directory"] = json!(home.display().to_string());
+            let home = home.display().to_string();
+            info.insert("home_directory".to_owned(), json!(home));
         }
 
         // Hostname
         #[cfg(unix)]
-        {
-            if let Ok(hostname) = fs::read_to_string("/etc/hostname") {
-                info["hostname"] = json!(hostname.trim());
-            }
+        if let Ok(hostname) = fs::read_to_string("/etc/hostname") {
+            info.insert("hostname".to_owned(), json!(hostname.trim()));
         }
 
         // Disk space for root/home
         #[cfg(unix)]
-        if let Some(output) = std::process::Command::new("df")
-            .args(["-h", "/"])
-            .output()
-            .ok()
-            .filter(|output| output.status.success())
-        {
-            let text = String::from_utf8_lossy(&output.stdout);
-            if let Some(line) = text.lines().nth(1) {
-                info["root_disk"] = json!(line.trim());
-            }
+        if let Some(line) = root_disk_usage() {
+            info.insert("root_disk".to_owned(), json!(line));
         }
 
-        json_response(&info)
+        json_response(&serde_json::Value::Object(info))
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -2475,7 +2484,7 @@ impl FfmServer {
     fn which(Parameters(params): Parameters<WhichParams>) -> Result<CallToolResult, McpError> {
         if params.name.is_empty() || params.name.contains(['/', '\\']) {
             return Err(McpError::invalid_params(
-                "name must be a bare executable name, with no directory part".to_string(),
+                "name must be a bare executable name, with no directory part".to_owned(),
                 None,
             ));
         }
@@ -2524,7 +2533,7 @@ impl FfmServer {
             .map(|b| {
                 json!({
                     "name": b.name().unwrap_or(""),
-                    "creation_date": b.creation_date().map(std::string::ToString::to_string),
+                    "creation_date": b.creation_date().map(ToString::to_string),
                 })
             })
             .collect();
@@ -2596,7 +2605,7 @@ impl FfmServer {
             "key": params.key,
             "local_path": local_path.display().to_string(),
             "size": bytes.len(),
-            "size_human": format_size(bytes.len() as u64),
+            "size_human": format_size(saturating_u64(bytes.len())),
         });
         Ok(json_response(&result))
     }
@@ -2628,7 +2637,7 @@ impl FfmServer {
             "key": params.key,
             "local_path": local_path.display().to_string(),
             "size": bytes.len(),
-            "size_human": format_size(bytes.len() as u64),
+            "size_human": format_size(saturating_u64(bytes.len())),
         });
         Ok(json_response(&result))
     }
@@ -2724,7 +2733,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tracing_subscriber::EnvFilter::from_default_env()
                 .add_directive(tracing::Level::INFO.into()),
         )
-        .with_writer(std::io::stderr)
+        .with_writer(io::stderr)
         .with_ansi(false)
         .init();
 
@@ -2888,16 +2897,14 @@ fn permissions_report(path: &Path) -> Result<serde_json::Value, McpError> {
     #[cfg(not(unix))]
     let reported_mode: Option<String> = None;
 
-    let mut result = json!({
-        "path": path.display().to_string(),
-        "readonly": perms.readonly(),
-    });
-
+    let mut result = serde_json::Map::new();
+    result.insert("path".to_owned(), json!(path.display().to_string()));
+    result.insert("readonly".to_owned(), json!(perms.readonly()));
     if let Some(mode) = reported_mode {
-        result["mode"] = json!(mode);
+        result.insert("mode".to_owned(), json!(mode));
     }
 
-    Ok(result)
+    Ok(serde_json::Value::Object(result))
 }
 
 fn directory_sizes(root: &Path) -> BTreeMap<String, u64> {
@@ -2950,14 +2957,14 @@ fn count_file_text(path: &Path) -> Result<TextCounts, McpError> {
         let text = String::from_utf8_lossy(&line);
         let char_count = text.chars().count();
         lines += 1;
-        words += text.split_whitespace().count() as u64;
-        chars += char_count as u64;
+        words += saturating_u64(text.split_whitespace().count());
+        chars += saturating_u64(char_count);
         // `split` dropped the separator; every line but a last one without
         // a trailing newline had one.
-        bytes += line.len() as u64 + 1;
+        bytes += saturating_u64(line.len()) + 1;
         if char_count > longest {
             longest = char_count;
-            longest_at = number as u64 + 1;
+            longest_at = saturating_u64(number) + 1;
         }
     }
     Ok(TextCounts {

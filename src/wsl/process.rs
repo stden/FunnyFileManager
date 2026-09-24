@@ -24,9 +24,10 @@ pub(super) struct StreamOutput {
 
 impl StreamOutput {
     fn append(&mut self, bytes: &[u8]) {
-        let retained = bytes.len().min(OUTPUT_LIMIT - self.bytes.len());
-        self.bytes.extend_from_slice(&bytes[..retained]);
-        self.truncated |= retained < bytes.len();
+        let room = OUTPUT_LIMIT.saturating_sub(self.bytes.len());
+        let retained = bytes.get(..room).unwrap_or(bytes);
+        self.bytes.extend_from_slice(retained);
+        self.truncated |= retained.len() < bytes.len();
     }
 }
 
@@ -53,16 +54,17 @@ fn read_pipe(reader: impl Read + Send + 'static) -> Result<Pipe, String> {
 fn pump_pipe(mut reader: impl Read, sender: &mpsc::SyncSender<Result<Vec<u8>, String>>) {
     let mut buffer = [0; PIPE_CHUNK];
     loop {
-        let bytes = match reader.read(&mut buffer) {
+        let chunk = match reader.read(&mut buffer) {
             Ok(0) => break,
-            Ok(length) => buffer[..length].to_vec(),
+            Ok(length) => buffer.get(..length).map(<[u8]>::to_vec).ok_or_else(|| {
+                "Cannot read WSL output: the pipe reported more bytes than it read".to_owned()
+            }),
             Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
-            Err(error) => {
-                let _ = sender.send(Err(format!("Cannot read WSL output: {error}")));
-                break;
-            }
+            Err(error) => Err(format!("Cannot read WSL output: {error}")),
         };
-        if sender.send(Ok(bytes)).is_err() {
+        // A read error is the stream's last word, whether or not it arrives.
+        let failed = chunk.is_err();
+        if sender.send(chunk).is_err() || failed {
             break;
         }
     }
@@ -185,7 +187,8 @@ impl Drop for ChildGuard {
         if matches!(self.0.try_wait(), Ok(Some(_))) {
             return;
         }
-        let _ = self.0.kill();
+        // Best effort: a failed kill still gets the bounded wait below.
+        drop(self.0.kill());
         let deadline = Instant::now() + DRAIN_GRACE;
         while matches!(self.0.try_wait(), Ok(None)) && Instant::now() < deadline {
             thread::sleep(POLL_INTERVAL);
@@ -212,7 +215,10 @@ impl ManagedProcess for ChildGuard {
 }
 
 #[cfg(windows)]
-#[allow(unsafe_code)]
+#[allow(
+    unsafe_code,
+    reason = "std cannot locate the Windows directory, and a PATH lookup could run another wsl.exe"
+)]
 fn windows_directory() -> Result<std::path::PathBuf, String> {
     use std::os::windows::ffi::OsStringExt;
     use windows_sys::Win32::System::SystemInformation::GetWindowsDirectoryW;
@@ -228,13 +234,15 @@ fn windows_directory() -> Result<std::path::PathBuf, String> {
                 std::io::Error::last_os_error()
             ));
         }
-        if (length as usize) < buffer.len() {
-            return Ok(std::ffi::OsString::from_wide(&buffer[..length as usize]).into());
+        let length = usize::try_from(length).map_err(|error| error.to_string())?;
+        if length < buffer.len() {
+            buffer.truncate(length);
+            return Ok(std::ffi::OsString::from_wide(&buffer).into());
         }
         if length > 32_768 {
             return Err("Windows installation path is too long".to_owned());
         }
-        buffer.resize(length as usize + 1, 0);
+        buffer.resize(length + 1, 0);
     }
 }
 

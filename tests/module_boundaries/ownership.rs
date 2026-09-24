@@ -9,6 +9,10 @@ use std::fs;
 use std::path::Path;
 
 /// The single source file at `relative` in `sources`.
+#[expect(
+    clippy::panic,
+    reason = "test support: a file missing from the source set fails the test that named it"
+)]
 fn source<'s>(sources: &'s [SourceFile], relative: &str) -> &'s SourceFile {
     sources
         .iter()

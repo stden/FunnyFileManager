@@ -50,6 +50,10 @@ const FILESYSTEM_API: [&str; 4] = [
     "tokio::fs",
 ];
 
+#[expect(
+    clippy::panic,
+    reason = "test support: a file the checker cannot read fails the test that asked for it"
+)]
 fn read(relative: &str) -> String {
     fs::read_to_string(super::repository().join(relative))
         .unwrap_or_else(|error| panic!("read {relative}: {error}"))
@@ -293,5 +297,21 @@ fn tool_rule_reports_validation_that_is_not_the_first_statement() {
     assert_eq!(
         unvalidated_tool_violations(&sources),
         ["mcp/src/grep.rs:1: `grep` is handed the server but does not start with `server.safe_path*`"]
+    );
+}
+
+/// The installer writes the server's root variable into client configs, but
+/// may not compile `paths.rs` (see [`shared_source_violations`]), so it keeps
+/// its own copy of the name. This reads the server's declaration as text and
+/// holds the two together.
+#[test]
+fn the_installer_names_the_root_variable_the_server_reads() {
+    let declaration = format!(
+        "pub const ROOT_ENV: &str = \"{}\";",
+        funny_file_manager::mcp_clients::ROOT_ENV
+    );
+    assert!(
+        read(CONFINEMENT).contains(&declaration),
+        "{CONFINEMENT} must still declare `{declaration}`"
     );
 }

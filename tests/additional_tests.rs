@@ -30,10 +30,10 @@ fn test_drive_entry_display_local() {
 
 #[test]
 fn test_drive_entry_display_s3() {
-    let drive = DriveEntry::S3Profile("production".to_string());
+    let drive = DriveEntry::S3Profile("production".to_owned());
     assert_eq!(drive.display(), "S3: production");
 
-    let drive2 = DriveEntry::S3Profile("default".to_string());
+    let drive2 = DriveEntry::S3Profile("default".to_owned());
     assert_eq!(drive2.display(), "S3: default");
 }
 
@@ -375,8 +375,8 @@ fn test_action_entry_names_with_marks() {
     panel.marked.insert(FileName::from("b.txt"));
 
     let names = panel.action_entry_names();
-    assert!(names.contains(&"a.txt".to_string()));
-    assert!(names.contains(&"b.txt".to_string()));
+    assert!(names.contains(&"a.txt".to_owned()));
+    assert!(names.contains(&"b.txt".to_owned()));
 }
 
 #[test]
@@ -548,7 +548,7 @@ fn row_text(terminal: &Terminal<TestBackend>, y: u16) -> String {
     for x in 0..width {
         s.push_str(buf[(x, y)].symbol());
     }
-    s.trim_end().to_string()
+    s.trim_end().to_owned()
 }
 
 fn all_text(terminal: &Terminal<TestBackend>) -> String {
@@ -637,7 +637,7 @@ fn test_ui_new_file_overlay() {
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).unwrap();
     let mut app = App::new().unwrap();
-    app.set_overlay(Overlay::NewFileInput("test.rs".to_string()));
+    app.set_overlay(Overlay::NewFileInput("test.rs".to_owned()));
 
     terminal.draw(|f| ui(f, &mut app)).unwrap();
 
@@ -653,7 +653,7 @@ fn test_ui_viewer_bar_names_the_viewer() {
     let mut app = App::new().unwrap();
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "notes.txt",
-        vec!["Line 1".to_string()],
+        vec!["Line 1".to_owned()],
     )));
 
     terminal.draw(|f| ui(f, &mut app)).unwrap();

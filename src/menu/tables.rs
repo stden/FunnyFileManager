@@ -146,6 +146,7 @@ pub(super) const COMMANDS: &[Entry] = &[
     Entry::command("F&ile panel filter", "Ctrl+I", MenuCommand::Filter),
     Entry::Separator,
     Entry::item("Pl&ugin commands", "F11", Shortcut::plain(KeyCode::F(11))),
+    Entry::command("Install MCP s&erver", "", MenuCommand::McpInstall),
     Entry::command("Sc&reens list", "F12", MenuCommand::Screens),
     Entry::command("Task &list", "Ctrl+W", MenuCommand::Tasks),
     Entry::command("Ho&tplug devices list", "", MenuCommand::Devices),

@@ -144,3 +144,50 @@ fn a_dangling_symlink_is_not_a_command() {
     let path_var = join_paths([path_dir.path()]).expect("PATH");
     assert!(!scan(Some(&path_var)).contains(&"broken".to_owned()));
 }
+
+/// `ready` never blocks: it is `None` until the scan has finished, and
+/// `warm` finishes it on a background thread.
+#[test]
+fn warm_scans_in_the_background_until_ready_answers() {
+    warm();
+    warm();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    let ready = loop {
+        if let Some(ready) = ready() {
+            break ready;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the background scan finishes"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    };
+    assert_eq!(ready, executables());
+}
+
+/// The scan `executables` makes is the one `ready` hands out from then on:
+/// the same list, not a second scan.
+#[test]
+fn ready_answers_with_the_scan_executables_made() {
+    let scanned = executables();
+    let ready = ready().expect("the scan has run");
+    assert!(std::ptr::eq(ready, scanned));
+}
+
+/// `matching` is `matching_in` over the process scan: one prefix rule for
+/// the command line and the Language servers dialog.
+#[test]
+fn matching_in_applies_the_same_prefix_rule_to_any_list() {
+    let names: Vec<String> = ["pydoc3", "pylsp", "python3", "rust-analyzer"]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+    assert_eq!(matching_in(&names, "py"), ["pydoc3", "pylsp", "python3"]);
+    assert_eq!(
+        matching_in(&names, "lsp"),
+        Vec::<String>::new(),
+        "prefix, not fuzzy"
+    );
+    assert!(matching_in(&names, "").is_empty());
+    assert_eq!(matching("py"), matching_in(executables(), "py"));
+}

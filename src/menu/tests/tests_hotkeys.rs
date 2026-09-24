@@ -6,7 +6,7 @@ fn every_heading_has_a_hotkey_and_they_are_all_different() {
     let mut letters: Vec<char> = Heading::ALL
         .into_iter()
         .map(|heading| {
-            super::hotkey_of(heading.label()).unwrap_or_else(|| panic!("{heading:?} has no hotkey"))
+            hotkey_of(heading.label()).unwrap_or_else(|| panic!("{heading:?} has no hotkey"))
         })
         .collect();
     letters.sort_unstable();
@@ -54,7 +54,7 @@ fn no_drop_down_has_two_rows_on_one_letter() {
             .entries()
             .iter()
             .filter(|entry| Entry::is_selectable(entry))
-            .filter_map(|entry| super::hotkey_of(super::label_of(entry)))
+            .filter_map(|entry| hotkey_of(label_of(entry)))
             .collect();
         let count = letters.len();
         letters.sort_unstable();

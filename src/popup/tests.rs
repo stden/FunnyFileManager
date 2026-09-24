@@ -1,5 +1,4 @@
 //! Unit tests and shared test helpers for `popup`.
-#![allow(unused_imports)]
 
 use super::process_popup_input;
 
@@ -18,7 +17,7 @@ pub fn key(code: KeyCode) -> KeyEvent {
 pub fn app_with_editor(content: &str, path: PathBuf) -> App {
     let mut app = App::new().expect("test app");
     app.set_overlay(Overlay::Editor(Editor::from_content(
-        "test.txt".to_string(),
+        "test.txt".to_owned(),
         path,
         content,
     )));

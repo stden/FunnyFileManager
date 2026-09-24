@@ -40,6 +40,10 @@ pub(super) fn set_times(path: &Path, times: RequestedTimes) -> io::Result<()> {
 
 /// A time as `utimensat` reads it; `None` is `UTIME_OMIT`, "leave it".
 #[cfg(unix)]
+#[expect(
+    clippy::map_err_ignore,
+    reason = "`TryFromIntError` says only \"out of range\", which the message already does"
+)]
 fn timespec(time: Option<std::time::SystemTime>) -> io::Result<rustix::fs::Timespec> {
     use rustix::fs::{Timespec, UTIME_OMIT};
 

@@ -78,3 +78,24 @@ fn a_fullscreen_active_panel_takes_the_whole_width() {
         "a half-width view changes nothing"
     );
 }
+
+/// Only a `NetBox` panel takes a click on its own rows; every other kind
+/// leaves the click to the file list's handling.
+#[test]
+fn only_a_netbox_panel_selects_its_own_clicked_row() {
+    let mut store = crate::sessions::SessionStore::default();
+    store.upsert(crate::test_support::netbox::session("a.test", None));
+    let mut sessions =
+        PanelKind::Sessions(Box::new(crate::models::SessionsPanel::from_store(&store)));
+    assert_eq!(sessions.select_visible_row(1), Some(1));
+    assert_eq!(sessions.select_visible_row(2), None);
+    assert!(sessions.is_netbox());
+    for mut other in [
+        PanelKind::Files,
+        PanelKind::Tree(Box::default()),
+        PanelKind::QuickView(Box::default()),
+    ] {
+        assert_eq!(other.select_visible_row(0), None);
+        assert!(!other.is_netbox());
+    }
+}

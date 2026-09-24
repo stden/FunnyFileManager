@@ -1,15 +1,9 @@
 //! Unit tests: panel enter marks (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
-use crate::models::EntryKind;
 use crate::models::FileName;
-use crate::models::FileSize;
-use crate::models::Modified;
 use std::fs;
 
 use super::*;
-
-use std::io::Write;
 
 use tempfile::TempDir;
 
@@ -46,7 +40,7 @@ fn test_ensure_selection_empty_entries_noop() {
 #[test]
 fn test_dir_entry_properties() {
     let dir = DirEntry {
-        name: "mydir".to_string(),
+        name: "mydir".to_owned(),
         kind: EntryKind::Directory,
         size: FileSize::from_bytes(0),
         modified: Modified::UNKNOWN,
@@ -57,7 +51,7 @@ fn test_dir_entry_properties() {
     assert_eq!(dir.size, FileSize::from_bytes(0));
 
     let file = DirEntry {
-        name: "myfile.rs".to_string(),
+        name: "myfile.rs".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(4096),
         modified: Modified::UNKNOWN,

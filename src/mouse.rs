@@ -21,14 +21,17 @@ mod dialog;
 
 pub use dialog::{DialogMouse, DialogTarget};
 
-/// The twelve cells of the F-key bar, in columns, for a terminal this wide.
+/// The `count` cells of the F-key bar, in columns, for a terminal this wide.
 ///
 /// The remainder is spread over the leftmost cells rather than dumped on the
 /// last one — that is what keeps an 85-column terminal from ending in a cell
 /// five columns wider than its neighbours, and it is why this cannot simply be
-/// `column / (width / 12)`.
+/// `column / (width / 12)`. A bar of no keys has no cells.
 #[must_use]
 pub fn fkey_widths(width: u16, count: usize) -> Vec<u16> {
+    if count == 0 {
+        return Vec::new();
+    }
     let total = usize::from(width);
     let base = total / count;
     let remainder = total % count;

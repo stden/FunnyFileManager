@@ -54,9 +54,9 @@ fn collect_summaries(group: &GroupRef<'_>, path: &mut Vec<String>, out: &mut Vec
     for entry in group.entries() {
         out.push(EntrySummary {
             id: entry.id(),
-            title: entry.get(fields::TITLE).unwrap_or_default().to_string(),
-            username: entry.get(fields::USERNAME).unwrap_or_default().to_string(),
-            url: entry.get(fields::URL).unwrap_or_default().to_string(),
+            title: entry.get(fields::TITLE).unwrap_or_default().to_owned(),
+            username: entry.get(fields::USERNAME).unwrap_or_default().to_owned(),
+            url: entry.get(fields::URL).unwrap_or_default().to_owned(),
             group_path: path.clone(),
         });
     }
@@ -110,10 +110,10 @@ pub fn read_entry_by_id(
 
 fn details_of(entry: &EntryRef<'_>) -> EntryDetails {
     EntryDetails {
-        title: entry.get(fields::TITLE).unwrap_or_default().to_string(),
-        username: entry.get(fields::USERNAME).unwrap_or_default().to_string(),
-        url: entry.get(fields::URL).unwrap_or_default().to_string(),
-        notes: entry.get(fields::NOTES).unwrap_or_default().to_string(),
-        password: entry.get_password().unwrap_or_default().to_string(),
+        title: entry.get(fields::TITLE).unwrap_or_default().to_owned(),
+        username: entry.get(fields::USERNAME).unwrap_or_default().to_owned(),
+        url: entry.get(fields::URL).unwrap_or_default().to_owned(),
+        notes: entry.get(fields::NOTES).unwrap_or_default().to_owned(),
+        password: entry.get_password().unwrap_or_default().to_owned(),
     }
 }

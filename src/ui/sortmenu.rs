@@ -38,7 +38,11 @@ const GAP: usize = 2;
 const INSET: u16 = 4;
 
 /// Draw the menu and record where it landed, for a drag.
-pub(super) fn render(f: &mut Frame, tracker: &mut crate::mouse::DialogMouse, dialog: &SortMenu) {
+pub(super) fn render(
+    f: &mut Frame<'_>,
+    tracker: &mut crate::mouse::DialogMouse,
+    dialog: &SortMenu,
+) {
     let Some(area) = place(f.area(), dialog.side, tracker.offset) else {
         tracker.clear();
         return;
@@ -55,7 +59,7 @@ pub(super) fn render(f: &mut Frame, tracker: &mut crate::mouse::DialogMouse, dia
 }
 
 /// The shadow, the cleared box and the titled frame; returns the area inside it.
-fn render_frame(f: &mut Frame, area: Rect, ground: Style) -> Rect {
+fn render_frame(f: &mut Frame<'_>, area: Rect, ground: Style) -> Rect {
     super::dialog::render_shadow(f, area, f.area());
     f.render_widget(Clear, area);
     let frame = far_block()
@@ -68,7 +72,7 @@ fn render_frame(f: &mut Frame, area: Rect, ground: Style) -> Rect {
 }
 
 /// The rows and the rule, scrolled so the cursor row is always drawn.
-fn render_lines(f: &mut Frame, dialog: &SortMenu, body: Rect, ground: Style) {
+fn render_lines(f: &mut Frame<'_>, dialog: &SortMenu, body: Rect, ground: Style) {
     let first = first_line(dialog, body.height);
     let shown = lines()
         .into_iter()
@@ -169,7 +173,7 @@ fn interior_width() -> usize {
     PAD + 2 + widest + PAD
 }
 
-fn render_row(f: &mut Frame, row: SortRow, menu: &SortMenu, ground: Style, area: Rect) {
+fn render_row(f: &mut Frame<'_>, row: SortRow, menu: &SortMenu, ground: Style, area: Rect) {
     let selected = menu.row() == row;
     let style = if selected {
         ground
@@ -215,7 +219,7 @@ fn hotkey_spans<'a>(label: &str, style: Style, accented: bool) -> Vec<Span<'a>> 
 
 /// The rule between the modes and the order switch, joined to the frame at
 /// both ends so it reads as part of it.
-fn render_rule(f: &mut Frame, ground: Style, area: Rect) {
+fn render_rule(f: &mut Frame<'_>, ground: Style, area: Rect) {
     let rule = format!("╟{}╢", "─".repeat(usize::from(area.width)));
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(rule, ground))).style(ground),

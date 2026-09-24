@@ -1,0 +1,10 @@
+# Purpose: Bounds every test nextest runs, so a hung test fails instead of stalling the run.
+#
+# CI's coverage gate (`./ffm.py coverage`) and `cargo mutants` run the suite
+# with nextest. A test that has run for one `period` is reported as SLOW; after
+# `terminate-after` periods nextest kills it and it fails. The slowest test
+# takes about a second under coverage in CI, so three minutes means stuck, not
+# slow: a deadlocked TUI worker, or a child process that never exits. The job's
+# own timeout would otherwise wait for hours.
+[profile.default]
+slow-timeout = { period = "60s", terminate-after = 3 }

@@ -13,7 +13,7 @@ maintainable and testable.
 - Command representation and parsing (`src/command.rs`)
 - Modal input handling (`src/popup.rs`)
 - Canonical operations (`src/ops/{mod,dispatch,file,shell,viewer}.rs`)
-- Compatibility re-exports (`src/handlers/mod.rs`)
+- Compatibility re-exports (`src/handlers.rs`)
 - Dispatch from the event loop in `src/application/` (`run_app` is re-exported from `src/lib.rs`)
 
 Rendering, the full `App`/`Overlay` model, and low-level utilities remain in
@@ -100,7 +100,7 @@ rejects NUL-containing binary files, and decodes non-UTF-8 text lossily.
 `open_mcp_status` reports the known IDE MCP configuration locations by scanning
 for the `ffm-mcp` marker.
 
-## 🧑‍💻 Handlers Compatibility Facade (`src/handlers/mod.rs`)
+## 🧑‍💻 Handlers Compatibility Facade (`src/handlers.rs`)
 
 - Re-exports the established operation functions from `ops` and
   `process_popup_input` from `popup`.

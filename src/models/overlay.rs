@@ -18,8 +18,8 @@ use std::path::PathBuf;
 use super::{
     ApplyPrompt, ArchiveMenu, ArchivePrompt, AssociationList, AttributesDialog, CommandLine,
     DescribePrompt, DeviceList, DriveRow, Editor, ExtractPrompt, FilterPrompt, FindFile,
-    FolderTree, HistoryList, PanelSide, ScreenList, SettingsDialog, ShortcutList, SortMenu,
-    TaskList, UserMenu, Viewer,
+    FolderTree, HistoryList, InputPrompt, PanelSide, PluginCommands, Question, ScreenList,
+    SessionEdit, SettingsDialog, ShortcutList, SortMenu, TaskList, UserMenu, Viewer,
 };
 
 /// Which button a two-answer dialog has focus on.
@@ -69,6 +69,8 @@ pub enum Overlay {
     /// Windows Subsystem for Linux distributions and maintenance commands.
     Wsl(Box<super::WslDialog>),
     PathEditor(Box<crate::path_env::PathEditor>),
+    /// F9 → Commands → Language servers, and the `lsp` command.
+    LspEditor(Box<super::LspEditor>),
 
     /// F3 file viewer (also reused for MCP status via F11 / :mcp)
     Viewer(Viewer),
@@ -150,14 +152,26 @@ pub enum Overlay {
     Filter(FilterPrompt),
     /// F12: Screens list.
     Screens(ScreenList),
-    /// Ctrl+W: Task list.
+    /// Ctrl+W: the task list, a full-screen live view of every process with
+    /// its own bars, menus and dialogs nested inside it.
     Tasks(Box<TaskList>),
     /// Commands menu: Hotplug devices list.
     Hotplug(Box<DeviceList>),
+    /// Commands menu: Install MCP server.
+    McpInstall(Box<super::McpInstallDialog>),
     /// Ctrl+F12: Sort modes.
     SortModes(SortMenu),
     /// Options menu: one settings page.
     Settings(Box<SettingsDialog>),
+    /// F4 / Shift+F4 on the sessions panel: one stored session's fields.
+    SessionEdit(Box<SessionEdit>),
+    /// F11: Far's Plugin commands list.
+    PluginCommands(PluginCommands),
+    /// One line of text — a path, a name, a password — asked for by a
+    /// feature that names what it is for in [`super::InputPurpose`].
+    InputPrompt(Box<InputPrompt>),
+    /// A yes/no question whose Yes is named in [`super::QuestionPurpose`].
+    Question(Question),
 
     /// `:cleanup` — the disk cleanup checklist.
     DiskCleanup(Box<super::DiskCleanupDialog>),

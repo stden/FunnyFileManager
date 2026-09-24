@@ -93,10 +93,9 @@ fn fallback_shift_function_keys_still_name_the_file_rows() {
         resolve_main(key_mod(KeyCode::F(3), shift)),
         Action::File(FileCommand::ArchiveCommands)
     );
-    assert_eq!(
-        resolve_main(key_mod(KeyCode::F(9), shift)),
-        Action::Tool(ToolCommand::SaveSetup)
-    );
+    // Shift+F9 is Save setup, a menu command resolved before this table; the
+    // table itself has no row for it and falls through to the bare key.
+    assert_eq!(resolve_main(key_mod(KeyCode::F(9), shift)), Action::MenuBar);
 }
 
 #[test]

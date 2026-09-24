@@ -45,7 +45,10 @@ struct SessionGuard;
 impl SessionGuard {
     fn enter() -> Self {
         #[cfg(windows)]
-        let _ = crossterm::execute!(io::stdout(), crossterm::event::EnableMouseCapture);
+        drop(crossterm::execute!(
+            io::stdout(),
+            crossterm::event::EnableMouseCapture
+        ));
         Self
     }
 }
@@ -53,8 +56,11 @@ impl SessionGuard {
 impl Drop for SessionGuard {
     fn drop(&mut self) {
         #[cfg(windows)]
-        let _ = crossterm::execute!(io::stdout(), crossterm::event::DisableMouseCapture);
-        let _ = crossterm::terminal::disable_raw_mode();
+        drop(crossterm::execute!(
+            io::stdout(),
+            crossterm::event::DisableMouseCapture
+        ));
+        drop(crossterm::terminal::disable_raw_mode());
     }
 }
 
@@ -91,7 +97,7 @@ fn external_editor_receives_the_editor_flags_and_then_the_selected_path() -> io:
 
     // The resume half calls `enable_raw_mode`, which fails without a tty; the
     // launch under test has already happened by then.
-    let _ = handle_edit(&mut terminal, &mut app);
+    drop(handle_edit(&mut terminal, &mut app));
 
     assert_eq!(
         fs::read_to_string(&argv_log)?,
@@ -116,7 +122,7 @@ fn external_editor_reports_a_launch_failure_from_the_real_command() -> io::Resul
     let _editor = EditorEnvGuard::set(Path::new("ffm-no-such-editor-b7f19c4e"));
     let mut terminal = Terminal::new(WritableTestBackend::new(40, 8))?;
 
-    let _ = handle_edit(&mut terminal, &mut app);
+    drop(handle_edit(&mut terminal, &mut app));
 
     assert!(
         app.status_text().starts_with("Failed to launch editor:"),

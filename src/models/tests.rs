@@ -1,5 +1,4 @@
 //! Unit tests and shared test helpers for `models`.
-#![allow(unused_imports)]
 
 use crate::models::BookmarkSlot;
 use crate::models::EntryKind;
@@ -34,7 +33,7 @@ pub fn file_names(panel: &Panel) -> Vec<String> {
 }
 
 pub fn editor_from(content: &str) -> Editor {
-    Editor::from_content("test.txt".to_string(), PathBuf::from("test.txt"), content)
+    Editor::from_content("test.txt".to_owned(), PathBuf::from("test.txt"), content)
 }
 
 #[cfg(windows)]
@@ -54,7 +53,7 @@ fn test_windows_drive_paths_from_mask() {
 #[test]
 fn test_dir_entry_creation() {
     let entry = DirEntry {
-        name: "test.txt".to_string(),
+        name: "test.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(1024),
         modified: Modified::UNKNOWN,
@@ -101,14 +100,14 @@ fn test_drive_entry_display() {
     let local = DriveEntry::Local(PathBuf::from("/"));
     assert_eq!(local.display(), "/");
 
-    let s3 = DriveEntry::S3Profile("default".to_string());
+    let s3 = DriveEntry::S3Profile("default".to_owned());
     assert_eq!(s3.display(), "S3: default");
 }
 
 #[test]
 fn test_dir_entry_clone() {
     let entry = DirEntry {
-        name: "test.txt".to_string(),
+        name: "test.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(1024),
         modified: Modified::UNKNOWN,
@@ -134,7 +133,7 @@ fn test_viewer_default() {
 fn test_viewer_creation() {
     let viewer = Viewer {
         scroll: ScrollTop::TOP.down(5, usize::MAX),
-        ..Viewer::report("test.txt", vec!["Line 1".to_string(), "Line 2".to_string()])
+        ..Viewer::report("test.txt", vec!["Line 1".to_owned(), "Line 2".to_owned()])
     };
 
     assert_eq!(viewer.title(), "test.txt");

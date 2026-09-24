@@ -2,9 +2,8 @@
 //! verb. The names are listed because a name is what the user checks before
 //! Enter; the ground is red because the colour lands before the text is read.
 //!
-//! The list rule is the one `render_delete_confirm` in `overlays` keeps; two
-//! copies for now, a shared renderer when a third question of this shape
-//! arrives.
+//! The list rule is `dialog::preview_lines`, shared with the Delete dialog and
+//! every other red question that names what it acts on.
 
 use std::path::{Path, PathBuf};
 
@@ -12,15 +11,13 @@ use ratatui::Frame;
 
 use super::dialog;
 
-/// How many names are listed before the rest become a count.
-const PREVIEW: usize = 5;
-
-pub(super) fn render(f: &mut Frame, tracker: &mut crate::mouse::DialogMouse, files: &[PathBuf]) {
+pub(super) fn render(
+    f: &mut Frame<'_>,
+    tracker: &mut crate::mouse::DialogMouse,
+    files: &[PathBuf],
+) {
     let mut message = vec![question(files.len())];
-    message.extend(files.iter().take(PREVIEW).map(|path| shown_name(path)));
-    if files.len() > PREVIEW {
-        message.push(format!("… and {} more", files.len() - PREVIEW));
-    }
+    dialog::preview_lines(files, |path| shown_name(path), &mut message);
 
     dialog::render_warning(
         f,

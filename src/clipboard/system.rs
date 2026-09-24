@@ -56,7 +56,7 @@ impl ClipboardBackend for SystemClipboard {
         let clipboard = self
             .native
             .as_mut()
-            .ok_or_else(|| "no OS clipboard available".to_string())?;
+            .ok_or_else(|| "no OS clipboard available".to_owned())?;
         clipboard.get_text().map_err(|error| error.to_string())
     }
 
@@ -64,7 +64,7 @@ impl ClipboardBackend for SystemClipboard {
         let clipboard = self
             .native
             .as_mut()
-            .ok_or_else(|| "no OS clipboard available".to_string())?;
+            .ok_or_else(|| "no OS clipboard available".to_owned())?;
         clipboard.set_text(text).map_err(|error| error.to_string())
     }
 

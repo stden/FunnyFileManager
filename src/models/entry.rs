@@ -13,7 +13,7 @@
 /// records that the entry is a link, which the raw `is_dir` flag would
 /// otherwise lose. Both are needed: a broken link is neither a directory nor a
 /// plain file.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DirEntry {
     pub name: String,
     pub kind: EntryKind,
@@ -45,6 +45,20 @@ pub struct DirEntry {
     pub attributes: Attributes,
     /// The line the directory's description file gives this entry, if any.
     pub description: Option<String>,
+    /// The name on disk, kept only when it is not UTF-8 and [`Self::name`] is
+    /// therefore a lossy rendering of it (`caf\xE9.txt` shown as `caf�.txt`).
+    /// Paths are built from [`Self::disk_name`], never from the display name.
+    pub on_disk: Option<std::ffi::OsString>,
+}
+
+impl DirEntry {
+    /// The name that reaches this entry on disk.
+    #[must_use]
+    pub fn disk_name(&self) -> &std::ffi::OsStr {
+        self.on_disk
+            .as_deref()
+            .unwrap_or_else(|| std::ffi::OsStr::new(&self.name))
+    }
 }
 
 /// One of an entry's timestamps — modified, created or accessed — as the

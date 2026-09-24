@@ -72,7 +72,7 @@ fn editor_with_numbered_body(title: &str) -> Editor {
         .map(|i| format!("{}BODY{i:02}", " ".repeat(20)))
         .collect::<Vec<_>>()
         .join("\n");
-    Editor::from_content(title.to_string(), PathBuf::from("notes.txt"), &content)
+    Editor::from_content(title.to_owned(), PathBuf::from("notes.txt"), &content)
 }
 
 fn draw(app: &mut App) -> Terminal<TestBackend> {
@@ -342,7 +342,7 @@ fn test_editor_scrolls_horizontally_so_the_cursor_column_stays_visible() {
 
     let (mut app, _left, _right) = app_on_empty_dirs();
     let line = alphabet_line(LINE_LEN);
-    let mut editor = Editor::from_content("wide.txt".to_string(), PathBuf::from("wide.txt"), &line);
+    let mut editor = Editor::from_content("wide.txt".to_owned(), PathBuf::from("wide.txt"), &line);
     editor.move_end();
     assert_eq!(editor.cursor_col, LINE_LEN, "precondition: cursor at EOL");
     app.set_overlay(Overlay::Editor(editor));

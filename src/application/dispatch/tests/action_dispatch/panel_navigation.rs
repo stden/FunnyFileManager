@@ -136,9 +136,6 @@ fn a_kitty_terminals_ctrl_4_is_wide_view() {
     let key = crate::terminal::KeyboardProtocol::Kitty.decode(ctrl_4);
     dispatch_key(&mut terminal, &mut app, key);
 
-    assert_eq!(
-        app.get_active_panel_ref().view,
-        crate::models::PanelView::Wide
-    );
+    assert_eq!(app.get_active_panel_ref().view, models::PanelView::Wide);
     assert_eq!(app.get_active_panel_ref().path, dir.path());
 }

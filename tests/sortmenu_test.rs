@@ -15,6 +15,10 @@ use ratatui::{backend::TestBackend, Terminal};
 use tempfile::TempDir;
 
 /// Files whose name order and size order disagree.
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture: a directory that cannot be set up fails the test that asked for it"
+)]
 fn app_over(temp: &TempDir) -> App {
     fs::write(temp.path().join("alpha.txt"), "a").expect("test setup");
     fs::write(temp.path().join("beta.txt"), "bbbbbbbb").expect("test setup");

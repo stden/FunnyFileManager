@@ -32,7 +32,7 @@ const MIN_SHORTCUT_GAP: usize = 2;
 const TICK: char = '√';
 
 /// The whole bar: the headings, and the clock at the far end.
-pub(super) fn render_bar(f: &mut Frame, app: &App, area: Rect) {
+pub(super) fn render_bar(f: &mut Frame<'_>, app: &App, area: Rect) {
     let ground = Style::default().bg(palette::MENU_BG).fg(palette::MENU_FG);
     // `Paragraph::new("")` restyles the row without writing a symbol to it, so
     // whatever was drawn underneath would keep showing through the gaps
@@ -70,7 +70,7 @@ pub(super) fn render_bar(f: &mut Frame, app: &App, area: Rect) {
 ///
 /// Read at draw time rather than kept in `App`: a clock is a fact about now,
 /// and storing it would mean a second thing to keep in step with the truth.
-fn render_clock(f: &mut Frame, ground: Style, area: Rect) {
+fn render_clock(f: &mut Frame<'_>, ground: Style, area: Rect) {
     let text = crate::clock::now();
     let width = u16::try_from(Cells::of(&text).get()).unwrap_or(0);
     if width + 1 >= area.width {
@@ -87,7 +87,7 @@ fn render_clock(f: &mut Frame, ground: Style, area: Rect) {
 }
 
 /// The open heading's drop-down, hanging from the bar.
-pub(super) fn render_drop_down(f: &mut Frame, app: &App, bar: Rect) {
+pub(super) fn render_drop_down(f: &mut Frame<'_>, app: &App, bar: Rect) {
     let Overlay::Menu(menu) = &app.overlay else {
         return;
     };
@@ -106,7 +106,7 @@ pub(super) fn render_drop_down(f: &mut Frame, app: &App, bar: Rect) {
     render_drop_down_entries(f, app, menu, ground, body);
 }
 
-fn render_drop_down_entries(f: &mut Frame, app: &App, menu: &Menu, ground: Style, body: Rect) {
+fn render_drop_down_entries(f: &mut Frame<'_>, app: &App, menu: &Menu, ground: Style, body: Rect) {
     let first = menu
         .row
         .saturating_sub(usize::from(body.height.saturating_sub(1)));
@@ -150,7 +150,7 @@ pub fn checked_entry(app: &App, mut entry: Entry) -> Entry {
 
 /// One drop-down row.
 fn render_entry(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     entry: &Entry,
     selected: bool,
     ground: Style,
@@ -182,7 +182,7 @@ fn render_entry(
         .saturating_sub(Cells::of(shortcut).get())
         .saturating_sub(PAD);
     spans.push(Span::styled(" ".repeat(gap), style));
-    spans.push(Span::styled((*shortcut).to_string(), style));
+    spans.push(Span::styled((*shortcut).to_owned(), style));
     spans.push(Span::styled(" ".repeat(PAD), style));
 
     f.render_widget(Paragraph::new(Line::from(spans)).style(style), area);
@@ -197,7 +197,7 @@ fn entry_label_spans(label: &str, checked: bool, accent: bool, style: Style) -> 
     spans
 }
 
-fn render_separator(f: &mut Frame, ground: Style, area: Rect) {
+fn render_separator(f: &mut Frame<'_>, ground: Style, area: Rect) {
     // A rule, joined to the frame at both ends so it reads as part of it.
     let rule = format!("╟{}╢", "─".repeat(usize::from(area.width)));
     f.render_widget(

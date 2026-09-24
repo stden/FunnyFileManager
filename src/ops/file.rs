@@ -1,6 +1,5 @@
 //! File operations: create, copy, move, mkdir, and delete.
 
-use std::fmt::Write as _;
 use std::{
     fs, io,
     path::{Path, PathBuf},
@@ -9,8 +8,9 @@ use std::{
 #[cfg(any(test, tarpaulin))]
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use crate::copy::Purpose;
 use crate::models::{App, Overlay};
-use crate::status::{FailedEntry, Status};
+use crate::status::{FailedEntry, Landed, Status};
 use crate::utils::{
     copy_dir_all_with, copy_file, copy_symlink, refresh_panels, unique_destination, CopyRules,
 };
@@ -65,32 +65,11 @@ pub fn rename_or_fail(source: &Path, dest: &Path) -> io::Result<()> {
 /// does. That stale listing is for Ctrl+R to report, on purpose, because there
 /// the refresh *is* the operation.
 fn refresh_after_operation(app: &mut App) {
-    let _ = refresh_panels(app);
+    drop(refresh_panels(app));
 }
 
 pub fn get_source_paths(app: &App) -> Vec<PathBuf> {
-    let panel = app.get_active_panel_ref();
-    if !panel.marked.is_empty() {
-        panel
-            .marked
-            .iter()
-            .map(|name| panel.path.join(name))
-            .collect()
-    } else if let Some(path) = panel.selected_path() {
-        vec![path]
-    } else {
-        Vec::new()
-    }
-}
-
-pub fn format_operation_status(count: usize, op_name: &str, first_dest: Option<&Path>) -> String {
-    if count > 1 {
-        format!("{op_name} {count} item(s)")
-    } else if let Some(dest) = first_dest {
-        format!("{} to {}", op_name, dest.display())
-    } else {
-        String::new()
-    }
+    app.get_active_panel_ref().action_paths()
 }
 
 pub fn handle_create_file(app: &mut App, filename: &str) -> io::Result<()> {
@@ -193,7 +172,8 @@ fn copy_directory_entry(source: &Path, dest: &Path, rules: CopyRules) -> io::Res
     fs::create_dir(dest)?;
     let result = copy_dir_all_with(source, dest, rules);
     if result.is_err() {
-        let _ = fs::remove_dir_all(dest);
+        // Best effort: the copy's own error is the one worth reporting.
+        drop(fs::remove_dir_all(dest));
     }
     result
 }
@@ -315,11 +295,12 @@ pub fn handle_copy(app: &mut App) -> io::Result<()> {
             first_error: first_error.clone(),
         });
     } else {
-        app.set_status(Status::CommandOutput(format_operation_status(
-            outcome.count,
-            "Copied",
-            outcome.first_dest.as_deref(),
-        )));
+        app.set_status(Status::Transferred {
+            purpose: Purpose::Copy,
+            landed: Landed::of(outcome.count, outcome.first_dest),
+            skipped: 0,
+            renamed: 0,
+        });
     }
     refresh_after_operation(app);
     Ok(())
@@ -342,11 +323,12 @@ pub fn handle_move(app: &mut App) -> io::Result<()> {
             first_error: first_error.clone(),
         });
     } else {
-        app.set_status(Status::CommandOutput(format_operation_status(
-            outcome.count,
-            "Moved",
-            outcome.first_dest.as_deref(),
-        )));
+        app.set_status(Status::Transferred {
+            purpose: Purpose::Move,
+            landed: Landed::of(outcome.count, outcome.first_dest),
+            skipped: 0,
+            renamed: 0,
+        });
     }
     refresh_after_operation(app);
     Ok(())
@@ -380,20 +362,10 @@ pub fn handle_mkdir(app: &mut App) -> io::Result<()> {
 
 /// Show delete confirmation dialog (F8)
 pub fn handle_delete_confirm(app: &mut App) -> io::Result<()> {
-    let panel = app.get_active_panel();
-
-    // Collect files to delete (marked files or selected file)
-    let files_to_delete: Vec<PathBuf> = if !panel.marked.is_empty() {
-        panel
-            .marked
-            .iter()
-            .map(|name| panel.path.join(name))
-            .collect()
-    } else if let Some(path) = panel.selected_path() {
-        vec![path]
-    } else {
+    let files_to_delete = get_source_paths(app);
+    if files_to_delete.is_empty() {
         return Ok(());
-    };
+    }
 
     app.set_overlay(Overlay::DeleteConfirm(files_to_delete));
     if !app
@@ -442,19 +414,29 @@ pub fn handle_delete(app: &mut App) -> io::Result<()> {
     Ok(())
 }
 
+mod merge;
+
 #[cfg(test)]
 mod tests_destinations;
 #[cfg(test)]
 mod tests_exhaustion;
 #[cfg(test)]
 mod tests_mkdir_errors;
-#[cfg(all(test, unix))]
+#[cfg(test)]
+#[cfg(unix)]
 mod tests_modes;
 #[cfg(test)]
+#[cfg(unix)]
+mod tests_non_utf8_names;
+#[cfg(test)]
+mod tests_overwrite_safety;
+#[cfg(test)]
 mod tests_refresh_failures;
-#[cfg(all(test, unix))]
+#[cfg(test)]
+#[cfg(unix)]
 mod tests_sparse;
-#[cfg(all(test, unix))]
+#[cfg(test)]
+#[cfg(unix)]
 mod tests_special_files;
 #[cfg(test)]
 mod tests_symlinks;
@@ -523,9 +505,7 @@ impl DialogOutcome {
     }
 }
 
-fn report_copy_outcome(app: &mut App, outcome: &DialogOutcome, purpose: crate::copy::Purpose) {
-    use crate::copy::Purpose;
-
+fn report_copy_outcome(app: &mut App, outcome: &DialogOutcome, purpose: Purpose) {
     let batch = &outcome.batch;
     app.get_active_panel().clear_marks();
     if let Some(first_error) = batch.errors.first().cloned() {
@@ -544,15 +524,12 @@ fn report_copy_outcome(app: &mut App, outcome: &DialogOutcome, purpose: crate::c
         });
         return;
     }
-    let mut text =
-        format_operation_status(batch.count, purpose.done(), batch.first_dest.as_deref());
-    if outcome.skipped > 0 {
-        let _ = write!(text, ", {} skipped", outcome.skipped);
-    }
-    if outcome.renamed > 0 {
-        text.push_str(" (existing files kept, new ones renamed)");
-    }
-    app.set_status(Status::CommandOutput(text));
+    app.set_status(Status::Transferred {
+        purpose,
+        landed: Landed::of(batch.count, batch.first_dest.clone()),
+        skipped: outcome.skipped,
+        renamed: outcome.renamed,
+    });
 }
 
 /// Transfer one entry to where the dialog sends it.
@@ -576,17 +553,27 @@ fn copy_one(
 /// `dest` is taken: do what the "already existing files" choice says.
 ///
 /// Skipping is a normal outcome, not a failure — reporting it as an error
-/// would put a red count on a deliberate choice.
+/// would put a red count on a deliberate choice. Overwriting never removes
+/// what the transfer does not bring; see [`merge`].
 fn place_over_existing(
     source: &Path,
     dest: &Path,
     settings: &crate::copy::CopyPrompt,
 ) -> io::Result<Placed> {
     use crate::copy::ExistingFiles;
+    use merge::Shape;
 
+    let shapes = (
+        Shape::of_source(source, settings),
+        Shape::of_existing(dest)?,
+    );
+    let folders = shapes == (Shape::Folder, Shape::Folder);
     match settings.existing {
         ExistingFiles::Skip => return Ok(Placed::Skipped),
-        ExistingFiles::OnlyNewer if !is_newer(source, dest) => return Ok(Placed::Skipped),
+        // Two folders merge, and "only newer" is decided file by file inside.
+        ExistingFiles::OnlyNewer if !folders && !is_newer(source, dest) => {
+            return Ok(Placed::Skipped);
+        }
         _ => {}
     }
     reject_transfer_onto_itself(source, dest)?;
@@ -599,8 +586,14 @@ fn place_over_existing(
         place(source, &beside, settings)?;
         return Ok(Placed::Beside(beside));
     }
-    remove_existing(dest)?;
-    place(source, dest, settings)?;
+    merge::reject_mixed_shapes(shapes.0, shapes.1)?;
+    if folders {
+        merge::reject_merge_into_holder(source, dest)?;
+        merge::merge_into(source, dest, settings)?;
+    } else {
+        remove_existing(dest)?;
+        place(source, dest, settings)?;
+    }
     Ok(Placed::AsSent(dest.to_path_buf()))
 }
 
@@ -632,8 +625,6 @@ fn reject_transfer_onto_itself(source: &Path, dest: &Path) -> io::Result<()> {
 /// operation and it is atomic. Across filesystems `rename` fails, and the only
 /// thing left is to copy and then remove, which is what every mover does.
 fn place(source: &Path, dest: &Path, settings: &crate::copy::CopyPrompt) -> io::Result<()> {
-    use crate::copy::Purpose;
-
     if settings.purpose == Purpose::Move && rename_or_fail(source, dest).is_ok() {
         return Ok(());
     }

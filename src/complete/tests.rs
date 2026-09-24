@@ -40,6 +40,29 @@ fn fish_is_installed() -> bool {
     Command::new("fish").arg("--version").output().is_ok()
 }
 
+/// Wait until the freshly written `stub` can be executed, by running it once.
+///
+/// `fs::write` closes its own handle, but a sibling test thread that forks
+/// while it is open hands its child a copy, and until that child execs, running
+/// `stub` fails with ETXTBSY ("text file busy"). No copy can appear after the
+/// write, so once one run starts, every later one does too.
+/// `fish_poll_loop_waits_for_a_slow_completer` retries instead, for the same race.
+#[cfg(unix)]
+fn wait_until_executable(stub: &Path) {
+    for _ in 0..40 {
+        match Command::new(stub)
+            .stdout(std::process::Stdio::null())
+            .status()
+        {
+            Err(error) if error.kind() == std::io::ErrorKind::ExecutableFileBusy => {
+                std::thread::sleep(std::time::Duration::from_millis(25));
+            }
+            _ => return,
+        }
+    }
+    panic!("{} stayed busy for a second", stub.display());
+}
+
 #[cfg(test)]
 mod tests_bookmarks;
 #[cfg(test)]

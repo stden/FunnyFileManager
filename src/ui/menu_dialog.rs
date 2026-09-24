@@ -5,10 +5,10 @@ use ratatui::{layout::Rect, style::Style, widgets::Paragraph, Frame};
 
 use super::{dialog, palette, Cells};
 
-mod choices;
+pub(super) mod choices;
 pub use choices::row_at;
 
-pub(super) fn render(f: &mut Frame, modal: &MenuDialog, tracker: &mut DialogMouse) {
+pub(super) fn render(f: &mut Frame<'_>, modal: &MenuDialog, tracker: &mut DialogMouse) {
     match modal {
         MenuDialog::Prompt {
             title,
@@ -29,7 +29,7 @@ pub(super) fn render(f: &mut Frame, modal: &MenuDialog, tracker: &mut DialogMous
 }
 
 fn render_prompt(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut DialogMouse,
     title: &str,
     caption: &str,
@@ -69,15 +69,18 @@ fn caption_lines(caption: &str, width: Cells) -> Vec<String> {
                 .rfind(' ')
                 .filter(|index| *index > 0)
                 .unwrap_or(head.len());
-            lines.push(remaining[..split].to_owned());
-            remaining = remaining[split..].trim_start();
+            let Some((line, rest)) = remaining.split_at_checked(split) else {
+                break;
+            };
+            lines.push(line.to_owned());
+            remaining = rest.trim_start();
         }
         lines.push(remaining.to_owned());
     }
     lines
 }
 
-pub(super) fn render_input(f: &mut Frame, area: Rect, input: &crate::lineedit::LineEditor) {
+pub(super) fn render_input(f: &mut Frame<'_>, area: Rect, input: &crate::lineedit::LineEditor) {
     let head = super::tail_cells(input.before_cursor(), Cells::columns(area.width - 1));
     let caret = u16::try_from(Cells::of(&head).get()).unwrap_or(0);
     let text = format!("{head}{}", input.after_cursor());

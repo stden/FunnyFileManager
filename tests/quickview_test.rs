@@ -18,7 +18,7 @@ fn screen(terminal: &Terminal<WritableTestBackend>) -> String {
     buffer
         .content
         .iter()
-        .map(|cell| cell.symbol().to_string())
+        .map(|cell| cell.symbol().to_owned())
         .collect::<Vec<_>>()
         .chunks(width)
         .map(<[String]>::concat)
@@ -26,6 +26,10 @@ fn screen(terminal: &Terminal<WritableTestBackend>) -> String {
         .join("\n")
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture: a viewport that cannot be built fails the test that asked for it"
+)]
 fn terminal_for_preview(path: &Path) -> Terminal<WritableTestBackend> {
     // Keep the complete preview title visible even with long Windows temp paths.
     let columns = u16::try_from(path.to_string_lossy().len() * 2 + 12).expect("test viewport");

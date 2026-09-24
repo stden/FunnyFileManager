@@ -21,7 +21,7 @@ use std::io;
 ///
 /// One at a time: the event loop is blocked for as long as a program owns the
 /// terminal, so hand-offs never overlap.
-pub(crate) struct InterruptShield {
+pub struct InterruptShield {
     #[cfg(unix)]
     flags: &'static unix::Flags,
 }

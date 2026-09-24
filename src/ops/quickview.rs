@@ -80,7 +80,7 @@ fn target_of(panel: &Panel) -> Option<PathBuf> {
     match &panel.kind {
         PanelKind::Files => panel.selected_path(),
         PanelKind::Tree(tree) => tree.selected().map(Path::to_path_buf),
-        PanelKind::QuickView(_) => None,
+        PanelKind::QuickView(_) | PanelKind::Sessions(_) | PanelKind::Remote(_) => None,
     }
 }
 

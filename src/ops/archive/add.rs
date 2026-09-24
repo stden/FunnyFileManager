@@ -73,7 +73,7 @@ pub fn add(app: &mut App, prompt: &ArchivePrompt) {
     };
     app.set_status(status);
     // A refresh failure is not the archiver's failure.
-    let _ = crate::utils::refresh_panels(app);
+    drop(crate::utils::refresh_panels(app));
 }
 
 /// A typed name is absolute or lives in the active panel's folder, the way
@@ -90,7 +90,7 @@ fn resolve_archive(name: &str, cwd: &Path) -> PathBuf {
 /// What a finished run says, once its output is in the transcript.
 fn report(
     app: &mut App,
-    request: &ArchiveRequest,
+    request: &ArchiveRequest<'_>,
     cwd: &Path,
     output: &Output,
     delete_after: bool,
@@ -111,16 +111,11 @@ fn report(
     } else {
         0
     };
-    let leftovers = if kept > 0 {
-        format!("; {kept} could not be deleted")
-    } else {
-        String::new()
-    };
-    Status::CommandOutput(format!(
-        "Added {} item(s) to {}{leftovers}",
-        request.sources.len(),
-        request.archive.display()
-    ))
+    Status::AddedToArchive {
+        count: request.sources.len(),
+        archive: request.archive.to_owned(),
+        kept,
+    }
 }
 
 /// Remove every source; the count of those that would not go.
@@ -147,19 +142,19 @@ fn remove_path(path: &Path) -> io::Result<()> {
 
 /// Write the archive `request` describes, running the tool in `cwd` so the
 /// stored names are relative to it.
-pub fn create_archive(request: &ArchiveRequest, cwd: &Path) -> io::Result<Output> {
+pub fn create_archive(request: &ArchiveRequest<'_>, cwd: &Path) -> io::Result<Output> {
     run(request).execute(cwd)
 }
 
 /// The shell line that stands for `request` in the transcript.
 #[must_use]
-pub fn command_line(request: &ArchiveRequest) -> String {
+pub fn command_line(request: &ArchiveRequest<'_>) -> String {
     run(request).command_line()
 }
 
 /// The tool run that writes `request`: `tar -c` or `-r` for the tar family,
 /// `zip -r` for a zip, which updates an archive that is already there.
-fn run(request: &ArchiveRequest) -> Run {
+fn run(request: &ArchiveRequest<'_>) -> Run {
     let flags = match (request.format, request.append) {
         (ArchiveFormat::TarGz, _) => "-czf",
         (ArchiveFormat::Tar, false) => "-cf",

@@ -26,7 +26,7 @@ pub fn open(app: &mut App) {
         .get_active_panel_ref()
         .get_selected_entry()
         .filter(|entry| entry.name != "..")
-        .map(|entry| app.get_active_panel_ref().path.join(&entry.name));
+        .map(|entry| app.get_active_panel_ref().path.join(entry.disk_name()));
     let Some(target) = target else {
         app.set_status(Status::CommandOutput("Nothing to link".to_owned()));
         return;
@@ -65,16 +65,17 @@ pub fn create(app: &mut App, prompt: &NamePrompt) {
     // `symlink_metadata` rather than `exists`: a dangling link at that name
     // is still a name that is taken, and `exists` would say it is free.
     if fs::symlink_metadata(&link).is_ok() {
-        let taken = link.display();
-        app.set_status(Status::CommandOutput(format!("{taken} already exists")));
+        app.set_status(Status::AlreadyExists(link));
         return;
     }
     let target = prompt.link_target();
     match make(prompt.link(), target, &link) {
         Ok(()) => {
             settle_on(app, &link);
-            let made = link.display();
-            app.set_status(Status::CommandOutput(format!("Link {made} -> {target}")));
+            app.set_status(Status::Linked {
+                link,
+                target: target.into(),
+            });
         }
         Err(error) => app.set_status(Status::CommandOutput(error.to_string())),
     }
@@ -137,7 +138,9 @@ fn symlink(target: &str, link: &Path) -> io::Result<()> {
 /// them lists its directory. The reload is what makes the entry exist to
 /// point at, so the two belong together.
 fn settle_on(app: &mut App, link: &Path) {
-    let _ = refresh_panels(app);
+    // The link exists either way; a listing that cannot be re-read keeps its
+    // old rows, and the cursor then simply finds nothing to settle on.
+    drop(refresh_panels(app));
     let (Some(parent), Some(name)) = (link.parent(), link.file_name()) else {
         return;
     };

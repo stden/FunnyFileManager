@@ -29,7 +29,7 @@ fn the_panel_menus_differ_only_where_they_name_a_side() {
         .iter()
         .zip(right.entries())
         .filter(|(a, b)| a != b)
-        .map(|(a, _)| super::label_of(a))
+        .map(|(a, _)| label_of(a))
         .collect();
 
     assert_eq!(
@@ -63,10 +63,7 @@ fn the_panel_headings_name_the_side_they_act_on() {
                 // Without the marker: letter assignment moves the `&` around,
                 // and a test that matched the raw label would break whenever
                 // a neighbouring row took the letter this one wanted.
-                super::label_of(entry)
-                    .replace('&', "")
-                    .contains("Info panel")
-                    && entry.is_selectable()
+                label_of(entry).replace('&', "").contains("Info panel") && entry.is_selectable()
             }),
             "{heading:?} offers Info panel"
         );

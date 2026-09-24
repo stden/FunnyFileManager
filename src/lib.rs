@@ -53,14 +53,14 @@
 //!   copy + delete when crossing filesystems.
 //! - **Never overwrite:** destinations get a `_N` suffix via `unique_destination`.
 
-// Unit-test ergonomics only; the non-test library build still enforces all four.
 #![cfg_attr(
     test,
     allow(
         clippy::unnecessary_wraps,
         clippy::needless_pass_by_value,
         clippy::needless_pass_by_ref_mut,
-        clippy::match_wildcard_for_single_variants
+        clippy::match_wildcard_for_single_variants,
+        reason = "unit-test ergonomics only; the non-test library build still enforces all four"
     )
 )]
 
@@ -104,6 +104,7 @@ pub mod keepass;
 pub mod lineedit;
 pub(crate) mod lsp;
 pub mod mask;
+pub mod mcp_clients;
 pub mod menu;
 pub mod models;
 pub mod mouse;
@@ -115,12 +116,15 @@ pub mod path_env;
 pub mod performance;
 mod platform;
 pub mod popup;
+mod process_table;
 pub mod prompt;
 pub mod quicksearch;
+pub mod remote;
 #[cfg(feature = "s3")]
 pub mod s3;
 pub mod scroll;
 pub mod search;
+pub mod sessions;
 pub mod stats;
 pub mod status;
 mod terminal;

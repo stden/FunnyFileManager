@@ -10,7 +10,7 @@ fn test_open_report_with_populates_viewer() {
     let mut app = App::new().expect("test setup");
 
     open_report_with(&mut app, SYSTEM_MESSAGES_TITLE, || {
-        Ok("first line\nsecond line".to_string())
+        Ok("first line\nsecond line".to_owned())
     })
     .expect("the report runner cannot fail");
 
@@ -24,7 +24,7 @@ fn test_open_report_with_populates_viewer() {
 fn test_open_report_with_uses_placeholder_for_empty_output() {
     let mut app = App::new().expect("test setup");
 
-    open_report_with(&mut app, PERFORMANCE_TITLE, || Ok(" \n\n".to_string()))
+    open_report_with(&mut app, PERFORMANCE_TITLE, || Ok(" \n\n".to_owned()))
         .expect("the report runner cannot fail");
 
     let viewer = app.get_viewer().expect("viewer should open");
@@ -218,17 +218,17 @@ fn test_run_powershell_report_failure_status_only() {
 }
 #[cfg(windows)]
 #[test]
-fn dropping_the_lsp_job_terminates_its_owned_process() {
+fn dropping_the_process_tree_job_terminates_its_owned_process() {
     use std::os::windows::process::CommandExt;
     use std::time::{Duration, Instant};
     let root = tempfile::TempDir::new().unwrap();
-    let mut child = std::process::Command::new("powershell.exe")
+    let mut child = Command::new("powershell.exe")
         .args(["-NoProfile", "-Command", "Start-Sleep -Seconds 30"])
         .current_dir(root.path())
         .creation_flags(0x0800_0000)
         .spawn()
         .unwrap();
-    let job = lsp_job(&child).unwrap();
+    let job = process_tree_job(&child).unwrap();
     assert!(child.try_wait().unwrap().is_none());
     drop(job);
     let deadline = Instant::now() + Duration::from_secs(3);

@@ -3,9 +3,15 @@
 use crate::menu::SettingsPage;
 use std::collections::BTreeMap;
 
+mod page_values;
+pub use page_values::{nest_legacy_pages, OptionsSection, PageValues};
+
 #[derive(Debug, Clone, Default)]
 pub struct Settings {
     values: BTreeMap<SettingsPage, String>,
+    /// The values as of the last load or save of the settings file: a save
+    /// writes only the pages changed since, and keeps the file's others.
+    saved: BTreeMap<SettingsPage, String>,
     pub translations: BTreeMap<String, String>,
     pub persistence: crate::history::Persistence,
 }
@@ -50,6 +56,18 @@ impl Settings {
     pub fn values(&self) -> &BTreeMap<SettingsPage, String> {
         &self.values
     }
+
+    /// The values as of the last load or save of the settings file.
+    #[must_use]
+    pub fn saved_values(&self) -> &BTreeMap<SettingsPage, String> {
+        &self.saved
+    }
+
+    /// Record that the settings file now holds these values: call after a
+    /// load or a save.
+    pub fn mark_saved(&mut self) {
+        self.saved.clone_from(&self.values);
+    }
 }
 
 pub fn specification(page: SettingsPage) -> (&'static str, &'static str, &'static str) {
@@ -65,7 +83,7 @@ pub fn specification(page: SettingsPage) -> (&'static str, &'static str, &'stati
         P::Dialog => ("Dialog settings", "on", "Allow Escape to dismiss menu prompts: on/off"),
         P::Menu => ("Menu settings", "on", "Wrap menu navigation at the first/last entry: on/off"),
         P::CommandLine => ("Command line settings", "500", "Number of recent commands shown by History (1–500)"),
-        P::AutoComplete => ("AutoComplete settings", "on", "Command-line completion and suggestions: on/off"),
+        P::AutoComplete => ("AutoComplete settings", "on", "Command-line completion and suggestions; dialog lists while typing: on/off"),
         P::Information => ("InfoPanel settings", "on", "Include folder description files in quick view: on/off"),
         P::Masks => ("Groups of file masks", "", "Default group-selection mask (semicolon-separated patterns); empty uses the selected extension"),
         P::Confirmations => ("Confirmations", "on", "Confirm file deletion: on/off"),

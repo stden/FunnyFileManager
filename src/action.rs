@@ -21,15 +21,18 @@ mod keymap;
 mod menu;
 
 pub mod editor;
+pub mod tasks;
 pub mod wsl;
 
 mod commands;
 mod function_keys;
+mod scope;
 
 pub use commands::{
     DialogCommand, FileCommand, Navigation, PanelCommand, SelectionCommand, ToolCommand,
 };
 use function_keys::resolve_function_key;
+pub use scope::{menu_scope, ActionScope};
 
 /// A single user-triggerable operation in the main dual-panel view.
 ///
@@ -83,8 +86,9 @@ pub enum Action {
     Move,
     /// `F8` — open the delete confirmation dialog.
     DeleteConfirm,
-    /// `F11` — open the MCP/plugin status view.
-    McpStatus,
+    /// `F11` — Far's Plugin commands list: MCP status, `NetBox`'s stored
+    /// sessions and their import.
+    PluginCommands,
     /// `Ctrl+O` — toggle console mode (hide panels).
     ToggleConsole,
     /// `Ctrl+R` — reload both panels.

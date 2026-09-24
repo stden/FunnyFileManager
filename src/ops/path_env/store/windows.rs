@@ -1,66 +1,100 @@
+//! Purpose: The Windows PATH store: the current user's and the machine's
+//! `Path` values in the registry, read and written through the registry API.
+//!
+//! PowerShell used to do this. Its start took seconds on a cold machine, on
+//! the UI thread, before the PATH editor could open; a registry read takes
+//! microseconds. After a save, running programs are told the environment
+//! changed, as `setx` tells them.
+
+use std::io;
+
+use super::registry::{replacement, revision, stored};
+use super::CHANGED_OUTSIDE;
 use crate::path_env::{Scope, Snapshot};
-use serde_json::{json, Value};
-use std::{
-    io::{self, Write},
-    process::{Command, Stdio},
-};
+use crate::platform::{self, RegistryHive};
+
+/// The value both scopes keep PATH in.
+const VALUE: &str = "Path";
+
+/// Where a scope's PATH lives.
+struct Place {
+    scope: Scope,
+    hive: RegistryHive,
+    subkey: &'static str,
+}
+
+impl Place {
+    const fn of(scope: Scope) -> Self {
+        let (hive, subkey) = match scope {
+            Scope::User => (RegistryHive::CurrentUser, "Environment"),
+            Scope::System => (
+                RegistryHive::LocalMachine,
+                r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment",
+            ),
+        };
+        Self {
+            scope,
+            hive,
+            subkey,
+        }
+    }
+
+    /// The key as the editor names it on its first row.
+    fn location(&self) -> String {
+        format!(r"{}\{}", self.hive.label(), self.subkey)
+    }
+
+    /// `error` naming the key it happened at, and saying so when it is the
+    /// administrator rights the machine's PATH needs.
+    fn failed(&self, error: &io::Error) -> io::Error {
+        let rights =
+            if self.scope == Scope::System && error.kind() == io::ErrorKind::PermissionDenied {
+                "; the PATH of all users needs administrator rights"
+            } else {
+                ""
+            };
+        io::Error::new(
+            error.kind(),
+            format!("{}: {error}{rights}", self.location()),
+        )
+    }
+}
 
 pub fn read(scope: Scope) -> io::Result<Snapshot> {
-    let result = invoke(&json!({"action": "read", "scope": scope_name(scope)}))?;
+    let place = Place::of(scope);
+    let value = platform::read_registry_string(place.hive, place.subkey, VALUE)
+        .map(stored)
+        .map_err(|error| place.failed(&error))?;
     Ok(Snapshot {
-        value: field(&result, "value")?,
-        revision: field(&result, "revision")?,
-        location: field(&result, "location")?,
+        revision: revision(&value),
+        value: value.text,
+        location: place.location(),
     })
 }
 
+/// Replace `scope`'s PATH with `value`, unless it changed since `previous`
+/// was read; then tell running programs.
 pub fn write(scope: Scope, previous: &Snapshot, value: &str) -> io::Result<()> {
-    invoke(&json!({"action": "write", "scope": scope_name(scope), "expected": previous.revision, "value": value})).map(|_| ())
-}
-
-fn scope_name(scope: Scope) -> &'static str {
-    match scope {
-        Scope::User => "User",
-        Scope::System => "Machine",
-    }
-}
-
-fn field(result: &Value, name: &str) -> io::Result<String> {
-    result[name]
-        .as_str()
-        .map(str::to_owned)
-        .ok_or_else(|| io::Error::other("Invalid PATH response"))
-}
-
-fn invoke(input: &Value) -> io::Result<Value> {
-    use std::os::windows::process::CommandExt;
-    let system =
-        std::env::var_os("SystemRoot").ok_or_else(|| io::Error::other("SystemRoot is missing"))?;
-    let executable =
-        std::path::PathBuf::from(system).join("System32/WindowsPowerShell/v1.0/powershell.exe");
-    let mut child = Command::new(executable)
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            include_str!("path.ps1"),
-        ])
-        .creation_flags(0x0800_0000)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-    let mut input_pipe = child
-        .stdin
-        .take()
-        .ok_or_else(|| io::Error::other("No PATH input pipe"))?;
-    input_pipe.write_all(input.to_string().as_bytes())?;
-    drop(input_pipe);
-    let output = child.wait_with_output()?;
-    if !output.status.success() {
-        return Err(io::Error::other(
-            String::from_utf8_lossy(&output.stderr).trim().to_owned(),
+    let place = Place::of(scope);
+    let unchanged = |current| {
+        let current = stored(current);
+        if revision(&current) == previous.revision {
+            Ok(replacement(&current, value))
+        } else {
+            Err(io::Error::other(CHANGED_OUTSIDE))
+        }
+    };
+    platform::update_registry_string(place.hive, place.subkey, VALUE, unchanged)
+        .map_err(|error| place.failed(&error))?;
+    // PATH is saved either way; a program that missed the news sees it in a
+    // new session, which the editor's message already asks for.
+    if let Err(error) = platform::broadcast_environment_change() {
+        crate::diagnostics::log_error(&format!(
+            "PATH saved, but telling running programs failed: {error}"
         ));
     }
-    serde_json::from_slice(&output.stdout).map_err(io::Error::other)
+    Ok(())
 }
+
+#[cfg(test)]
+mod tests;

@@ -62,6 +62,10 @@ fn entry(index: usize) -> DirEntry {
 /// the frame prints them, and each row is checked against its directory to
 /// decide whether it is hidden. The returned [`TempDir`] is the caller's to
 /// hold, since dropping it takes the directories with it.
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn app_with(count: usize) -> (App, TempDir) {
     let root = TempDir::new().expect("benchmark temp dir");
     let left = root.path().join("left");
@@ -90,6 +94,10 @@ fn terminal(width: u16, height: u16) -> Terminal<TestBackend> {
 /// Built rather than borrowed: pointing a benchmark at the repository makes
 /// its result a function of how large the repository happens to be that week
 /// — and `target/` alone would dominate it.
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn sample_tree() -> TempDir {
     let root = TempDir::new().expect("benchmark tree");
     for (directory, files) in [

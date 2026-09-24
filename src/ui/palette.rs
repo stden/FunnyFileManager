@@ -182,3 +182,41 @@ pub(super) const DRIVE_SELECTED_BG: Color = Color::Rgb(0, 0, 0);
 /// The letter that activates a control from the keyboard — the one part of a
 /// dialog that is a promise about which key to press.
 pub(super) const HOTKEY: Color = Color::Rgb(255, 255, 0);
+
+// ── Language servers dialog ────────────────────────────────────────
+//
+// Names for what a colour means there, each an existing colour, so the dialog
+// adds no new ones.
+
+/// A server that will start: the green an executable file has.
+pub(super) const STATUS_OK: Color = EXECUTABLE;
+/// A server waiting for an install, or running the recipe's program instead:
+/// the yellow of a mark.
+pub(super) const STATUS_PENDING: Color = MARKED;
+/// A server that cannot start, and a problem that blocks a save: the red of a
+/// failed command.
+pub(super) const STATUS_FAILED: Color = PROMPT_FAILED;
+/// The completion dropdown's frame and highlight, shared by the command line
+/// and the dialog's form.
+pub(super) const COMPLETION_BG: Color = Color::Cyan;
+
+// ── The task list's meters ─────────────────────────────────────────
+//
+// htop's meter colours, each an alias of the scheme colour that already
+// means the same hue, so the meters never add a colour of their own.
+
+/// CPU time in user code, and memory in use: green.
+pub(super) const METER_USER: Color = EXECUTABLE;
+/// CPU time at a changed nice value, and buffer memory: blue.
+pub(super) const METER_NICE: Color = PROMPT_OK;
+/// CPU time in the kernel, and swap in use: red.
+pub(super) const METER_KERNEL: Color = PROMPT_FAILED;
+/// CPU time stolen by or given to virtual machines: cyan.
+pub(super) const METER_VIRT: Color = FRAME;
+/// Shared memory: magenta.
+pub(super) const METER_SHARED: Color = PROMPT_BRANCH;
+/// The page cache and the swap cache: yellow.
+pub(super) const METER_CACHE: Color = MARKED;
+/// The `D` and `Z` state letters: a process stuck in the kernel, or dead
+/// and not yet reaped.
+pub(super) const STATE_ALERT: Color = PROMPT_FAILED;

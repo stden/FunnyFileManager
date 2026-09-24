@@ -109,6 +109,25 @@ fn context(overlay: &Overlay) -> &'static str {
         Overlay::Editor(_) => "Editor",
         Overlay::Viewer(_) => "Viewer",
         Overlay::CommandLine(_) => "CommandLine",
+        Overlay::Menu(_) => "Menu",
+        Overlay::Settings(_) => "Settings",
+        Overlay::Wsl(_) => "WSL",
+        Overlay::PathEditor(_) => "PathEditor",
+        Overlay::LspEditor(_) => "LspEditor",
+        #[cfg(feature = "keepass")]
+        Overlay::Kdbx(_) => "KeePass",
+        Overlay::DriveSelection { .. } => "DriveSelection",
+        Overlay::QuitConfirm(_) => "QuitConfirm",
+        Overlay::Help => "Help",
+        Overlay::Tasks(_) => "Tasks",
+        other => file_dialog_context(other),
+    }
+}
+
+/// The dialogs that act on the panels' files, each by its own name; any other
+/// overlay is a "Dialog".
+fn file_dialog_context(overlay: &Overlay) -> &'static str {
+    match overlay {
         Overlay::CopyPrompt(_) => "Transfer",
         Overlay::NamePrompt(_) => "NamePrompt",
         Overlay::DeleteConfirm(_) => "Delete",
@@ -121,16 +140,7 @@ fn context(overlay: &Overlay) -> &'static str {
         Overlay::Describe(_) => "Describe",
         Overlay::FindFile(_) => "FindFile",
         Overlay::FindFolder(_) => "FindFolder",
-        Overlay::Menu(_) => "Menu",
-        Overlay::Settings(_) => "Settings",
-        Overlay::Wsl(_) => "WSL",
-        Overlay::PathEditor(_) => "PathEditor",
-        #[cfg(feature = "keepass")]
-        Overlay::Kdbx(_) => "KeePass",
         Overlay::NewFileInput(_) => "NewFile",
-        Overlay::DriveSelection { .. } => "DriveSelection",
-        Overlay::QuitConfirm(_) => "QuitConfirm",
-        Overlay::Help => "Help",
         _ => "Dialog",
     }
 }

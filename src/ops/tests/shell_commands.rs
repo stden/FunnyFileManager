@@ -1,27 +1,16 @@
 //! Unit tests: shell commands (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use crate::models::FileName;
-
-use crate::ops::file::{format_operation_status, get_source_paths};
 
 use crate::ops::*;
 
 use crate::command::Command;
 
-#[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
-
 use crate::models::{App, BookmarkSlot, Overlay, Panel, SortMode};
 
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
+use std::fs;
 
-use std::fs::{self};
-
-use std::io::{self, Write};
-
-use std::path::Path;
+use std::io;
 
 use tempfile::TempDir;
 
@@ -410,27 +399,6 @@ fn test_execute_command_empty_string() -> io::Result<()> {
     let err = execute_command(&mut app, "").unwrap_err();
     assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
     Ok(())
-}
-
-#[test]
-fn test_format_operation_status_multi() {
-    let msg = format_operation_status(3, "Copied", Some(Path::new("/tmp/foo")));
-    assert!(msg.contains('3'));
-    assert!(msg.contains("Copied"));
-}
-
-#[test]
-fn test_format_operation_status_single() {
-    let dest = Path::new("/tmp/bar.txt");
-    let msg = format_operation_status(1, "Moved", Some(dest));
-    assert!(msg.contains("Moved"));
-    assert!(msg.contains("bar.txt"));
-}
-
-#[test]
-fn test_format_operation_status_none() {
-    let msg = format_operation_status(1, "Copied", None);
-    assert!(msg.is_empty());
 }
 
 #[test]

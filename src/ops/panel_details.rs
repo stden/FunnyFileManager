@@ -15,7 +15,7 @@ pub fn set_view(panel: &mut Panel, view: PanelView) -> io::Result<()> {
     if matches!(view, PanelView::Owners | PanelView::Links) {
         let mut names = crate::directory::owner::Owners::default();
         for entry in &panel.entries {
-            let path = panel.path.join(&entry.name);
+            let path = panel.path.join(entry.disk_name());
             if let Ok(metadata) = fs::symlink_metadata(&path) {
                 let owner = names.user_and_group(&metadata).unwrap_or_default();
                 details.owners.insert(entry.name.clone(), owner);

@@ -3,6 +3,14 @@ use cucumber::given;
 use keepass::{config::KdfConfig, db::fields, Database, DatabaseKey};
 
 #[given("a password protected vault with nested and empty groups")]
+#[expect(
+    clippy::expect_used,
+    reason = "a Cucumber step fails by panicking, as a #[test] does"
+)]
+#[expect(
+    clippy::needless_pass_by_ref_mut,
+    reason = "Cucumber dictates step signatures: the world arrives as `&mut`"
+)]
 fn vault(world: &mut TuiWorld) {
     let mut db = Database::new();
     if let KdfConfig::Argon2 {

@@ -42,11 +42,11 @@ fn test_viewer_scroll_down_up() -> io::Result<()> {
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "test.txt",
         vec![
-            "Line 1".to_string(),
-            "Line 2".to_string(),
-            "Line 3".to_string(),
-            "Line 4".to_string(),
-            "Line 5".to_string(),
+            "Line 1".to_owned(),
+            "Line 2".to_owned(),
+            "Line 3".to_owned(),
+            "Line 4".to_owned(),
+            "Line 5".to_owned(),
         ],
     )));
     app.set_viewport(funny_file_manager::models::Viewport::new(2));
@@ -71,7 +71,7 @@ fn test_viewer_close_with_f3() -> io::Result<()> {
     let mut app = App::new()?;
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "test.txt",
-        vec!["Line 1".to_string()],
+        vec!["Line 1".to_owned()],
     )));
 
     process_popup_input(&mut app, key_event(KeyCode::F(3)));

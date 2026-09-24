@@ -63,7 +63,7 @@ fn head_label(head: &str) -> Option<String> {
         let name = reference.trim();
         // `refs/heads/feature/x` is the branch `feature/x`, so only the known
         // prefix is removed rather than everything up to the last slash.
-        return Some(name.strip_prefix("refs/heads/").unwrap_or(name).to_string());
+        return Some(name.strip_prefix("refs/heads/").unwrap_or(name).to_owned());
     }
     // A detached head: a bare hash, which is shown abbreviated.
     let looks_like_hash = head.len() >= SHORT_HASH && head.chars().all(|ch| ch.is_ascii_hexdigit());

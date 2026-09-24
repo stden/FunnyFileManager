@@ -98,7 +98,7 @@ fn test_resolve_fkeys() {
     assert_eq!(resolve(key(KeyCode::F(7))), Action::Mkdir);
     assert_eq!(resolve(key(KeyCode::F(8))), Action::DeleteConfirm);
     assert_eq!(resolve(key(KeyCode::F(9))), Action::MenuBar);
-    assert_eq!(resolve(key(KeyCode::F(11))), Action::McpStatus);
+    assert_eq!(resolve(key(KeyCode::F(11))), Action::PluginCommands);
     // Far's F12 lists the screens; the console toggle stays on Ctrl+O.
     assert_eq!(
         resolve(key(KeyCode::F(12))),

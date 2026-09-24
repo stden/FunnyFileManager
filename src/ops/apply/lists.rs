@@ -102,7 +102,7 @@ fn native_encode(text: &str, encoding: ListEncoding) -> io::Result<Vec<u8>> {
 }
 
 #[cfg(windows)]
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "WideCharToMultiByte has no safe wrapper in std")]
 fn native_convert(wide: &[u16], code_page: u32, bytes: &mut [u8]) -> io::Result<usize> {
     use windows_sys::Win32::Globalization::WideCharToMultiByte;
     let length = i32::try_from(wide.len()).map_err(io::Error::other)?;

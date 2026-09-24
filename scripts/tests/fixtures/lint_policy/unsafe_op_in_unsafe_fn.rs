@@ -6,7 +6,7 @@
 ///
 /// `pointer` must be valid for reads.
 #[must_use]
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "the fixture needs an unsafe fn")]
 pub const unsafe fn read(pointer: *const u8) -> u8 {
     *pointer
 }

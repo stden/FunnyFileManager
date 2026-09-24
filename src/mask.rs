@@ -32,7 +32,13 @@ impl Mask {
     #[must_use]
     pub fn parse(line: &str) -> Self {
         let bar = unquoted(line).find(|&(_, ch)| ch == '|');
-        let (take, drop) = bar.map_or((line, ""), |(at, _)| (&line[..at], &line[at + 1..]));
+        // `at` is a character boundary and `|` one byte, so both halves exist.
+        let (take, drop) = bar.map_or((line, ""), |(at, _)| {
+            (
+                line.get(..at).unwrap_or_default(),
+                line.get(at + 1..).unwrap_or_default(),
+            )
+        });
         Self {
             include: patterns(take),
             exclude: patterns(drop),
@@ -69,13 +75,14 @@ impl Mask {
 /// Only separators outside quotes split. Each part is trimmed before its
 /// quotes are removed, so the blanks inside them stay part of the name.
 fn patterns(half: &str) -> Vec<String> {
+    // Separators are one byte at character boundaries, so every `get` succeeds.
     let mut parts = Vec::new();
     let mut start = 0;
     for (at, _) in unquoted(half).filter(|&(_, ch)| ch == ',' || ch == ';') {
-        parts.push(&half[start..at]);
+        parts.push(half.get(start..at).unwrap_or_default());
         start = at + 1;
     }
-    parts.push(&half[start..]);
+    parts.push(half.get(start..).unwrap_or_default());
     parts
         .into_iter()
         .map(|part| part.trim().replace('"', ""))
@@ -118,7 +125,7 @@ fn glob(pattern: &str, name: &str) -> bool {
                 swallowed = at_name;
                 at_pattern += 1;
             }
-            Some(ch) if *ch == '?' || *ch == name[at_name] => {
+            Some(ch) if *ch == '?' || name.get(at_name) == Some(ch) => {
                 at_pattern += 1;
                 at_name += 1;
             }
@@ -134,9 +141,7 @@ fn glob(pattern: &str, name: &str) -> bool {
         }
     }
     // Whatever is left of the pattern must be able to match nothing.
-    pattern[at_pattern.min(pattern.len())..]
-        .iter()
-        .all(|ch| *ch == '*')
+    pattern.iter().skip(at_pattern).all(|ch| *ch == '*')
 }
 
 #[cfg(test)]

@@ -154,6 +154,10 @@ fn click_panel_row<B: Backend + Write>(
     panel_clicks: &mut crate::mouse::PanelClicks,
 ) {
     app.active_panel = side;
+    if app.get_active_panel_ref().kind.is_netbox() {
+        click_netbox_row(terminal, app, side, row, panel_clicks);
+        return;
+    }
     let panel = app.get_active_panel();
     let index = panel.list_state_mut().offset() + row;
     if index >= panel.entries.len() {
@@ -163,6 +167,28 @@ fn click_panel_row<B: Backend + Write>(
     let click = panel_clicks.press(side, index, Instant::now());
     panel.select(Some(index));
     if click == crate::mouse::PanelRowClick::Activate {
+        dispatch_key(
+            terminal,
+            app,
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
+        );
+    }
+}
+
+/// A click on a row of a `NetBox` panel: the panel's own cursor moves there —
+/// never the hidden file list's — and a double click is Enter on it.
+fn click_netbox_row<B: Backend + Write>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+    side: models::PanelSide,
+    row: usize,
+    panel_clicks: &mut crate::mouse::PanelClicks,
+) {
+    let Some(index) = app.get_active_panel().kind.select_visible_row(row) else {
+        panel_clicks.reset();
+        return;
+    };
+    if panel_clicks.press(side, index, Instant::now()) == crate::mouse::PanelRowClick::Activate {
         dispatch_key(
             terminal,
             app,

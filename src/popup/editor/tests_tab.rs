@@ -3,7 +3,6 @@
 
 use std::fs;
 
-use crossterm::event::KeyEvent;
 use tempfile::TempDir;
 
 use crate::menu::MenuCommand;
@@ -58,7 +57,7 @@ fn edit_command_file(temp: &TempDir, command: MenuCommand) -> App {
     let panel = crate::models::Panel::new(temp.path().to_path_buf()).expect("panel");
     let mut app = App::with_panels(panel.clone(), panel);
     app.settings =
-        crate::models::settings::Settings::with_file(temp.path().join("config/settings.json"));
+        crate::models::settings::Settings::with_file(temp.path().join("config/settings.yaml"));
     crate::ops::menu::execute(&mut app, command);
     assert!(app.get_editor().is_some(), "test setup: the editor opened");
     app

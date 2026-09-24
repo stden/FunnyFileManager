@@ -156,6 +156,10 @@ impl TabSize {
     }
 
     #[must_use]
+    #[expect(
+        clippy::as_conversions,
+        reason = "u8 to usize widens losslessly, and `usize::from` is not const"
+    )]
     pub const fn columns(self) -> usize {
         self.0 as usize
     }
@@ -340,6 +344,12 @@ impl Editor {
         self.lines.get(self.cursor_line).map_or("", String::as_str)
     }
 
+    /// The caret's line, for editing in place. Always there once
+    /// `ensure_line` has run.
+    fn line_mut(&mut self) -> Option<&mut String> {
+        self.lines.get_mut(self.cursor_line)
+    }
+
     fn line_char_len(&self) -> usize {
         self.line().chars().count()
     }
@@ -358,7 +368,10 @@ impl Editor {
         self.delete_selection();
         self.ensure_line();
         let at = self.byte_col(self.cursor_col);
-        self.lines[self.cursor_line].insert(at, ch);
+        let Some(line) = self.line_mut() else {
+            return;
+        };
+        line.insert(at, ch);
         self.cursor_col += 1;
         self.mark_modified();
     }
@@ -367,7 +380,10 @@ impl Editor {
         self.delete_selection();
         self.ensure_line();
         let at = self.byte_col(self.cursor_col);
-        let rest = self.lines[self.cursor_line].split_off(at);
+        let Some(line) = self.line_mut() else {
+            return;
+        };
+        let rest = line.split_off(at);
         self.lines.insert(self.cursor_line + 1, rest);
         self.cursor_line += 1;
         self.cursor_col = 0;
@@ -381,14 +397,19 @@ impl Editor {
         }
         if self.cursor_col > 0 {
             let at = self.byte_col(self.cursor_col - 1);
-            self.lines[self.cursor_line].remove(at);
+            let Some(line) = self.line_mut() else {
+                return;
+            };
+            line.remove(at);
             self.cursor_col -= 1;
             self.mark_modified();
         } else if self.cursor_line > 0 {
             let current = self.lines.remove(self.cursor_line);
             self.cursor_line -= 1;
             self.cursor_col = self.line_char_len();
-            self.lines[self.cursor_line].push_str(&current);
+            if let Some(previous) = self.line_mut() {
+                previous.push_str(&current);
+            }
             self.mark_modified();
         }
     }
@@ -400,11 +421,16 @@ impl Editor {
         }
         if self.cursor_col < self.line_char_len() {
             let at = self.byte_col(self.cursor_col);
-            self.lines[self.cursor_line].remove(at);
+            let Some(line) = self.line_mut() else {
+                return;
+            };
+            line.remove(at);
             self.mark_modified();
         } else if self.cursor_line + 1 < self.lines.len() {
             let next = self.lines.remove(self.cursor_line + 1);
-            self.lines[self.cursor_line].push_str(&next);
+            if let Some(line) = self.line_mut() {
+                line.push_str(&next);
+            }
             self.mark_modified();
         }
     }

@@ -54,10 +54,12 @@ fn each_tool_opens_its_own_dialog() {
         (ToolCommand::Screens, |o| {
             matches!(o, Overlay::MenuDialog(_))
         }),
-        (ToolCommand::Tasks, |o| matches!(o, Overlay::Viewer(_))),
+        (ToolCommand::Tasks, |o| matches!(o, Overlay::Tasks(_))),
     ];
     for (command, is_open) in cases {
         let mut app = App::new().expect("test app");
+        let host = crate::test_support::processes::FixtureHost::new(Vec::new());
+        app.task_host.install(std::sync::Arc::new(host));
         apply_action(&mut terminal(), &mut app, Action::Tool(command));
         assert!(is_open(&app.overlay), "{command:?}");
     }
@@ -173,21 +175,32 @@ fn wsl_management_opens_the_manager() {
     assert!(matches!(app.overlay, Overlay::Wsl(_)));
 }
 
+/// Shift+F9 is the menu's Save setup, not a second route to another writer:
+/// it writes the page values and keeps every key it does not own.
 #[test]
-fn save_setup_reports_where_the_file_went() {
+fn shift_f9_is_the_menu_save_setup_and_keeps_the_keys_it_does_not_own() {
+    let shift_f9 = KeyEvent::new(KeyCode::F(9), KeyModifiers::SHIFT);
+    let action = resolve(shift_f9);
+    assert_eq!(action, Action::MenuCommand(MenuCommand::SaveSetup));
+
     let temp = tempfile::TempDir::new().expect("dir");
-    let _home = crate::test_support::EnvVarGuard::set("XDG_CONFIG_HOME", temp.path());
+    let path = temp.path().join("settings.yaml");
+    std::fs::write(
+        &path,
+        "lsp:\n  python:\n    enabled: false\noptions:\n  System: '5000'\nunknown: 1\n",
+    )
+    .expect("fixture");
     let mut app = App::new().expect("app");
-    apply_action(
-        &mut terminal(),
-        &mut app,
-        Action::Tool(ToolCommand::SaveSetup),
+    app.settings = models::settings::Settings::with_file(path.clone());
+    app.settings.set(SettingsPage::Editor, "8").expect("valid");
+    apply_action(&mut terminal(), &mut app, action);
+
+    let yaml = |text: &str| -> serde_norway::Value { serde_norway::from_str(text).expect("YAML") };
+    assert_eq!(
+        yaml(&std::fs::read_to_string(&path).expect("saved")),
+        yaml("lsp:\n  python:\n    enabled: false\noptions:\n  System: '5000'\n  Editor: '8'\nunknown: 1\n")
     );
-    let text = app.status.to_string();
-    assert!(
-        text.contains("Setup saved") || text.contains("Save setup"),
-        "{text}"
-    );
+    assert_eq!(app.status, status::Status::SetupSaved(path));
 }
 
 #[test]

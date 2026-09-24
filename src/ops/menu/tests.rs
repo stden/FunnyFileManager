@@ -4,7 +4,6 @@ use super::*;
 use crate::{
     menu::{Heading, Menu, SettingsPage},
     models::{Panel, PanelSide, PanelsShown, ViewMode},
-    status::Status,
 };
 use std::fs;
 use tempfile::TempDir;
@@ -17,7 +16,7 @@ fn fixture() -> (TempDir, App) {
     let panel = Panel::new(temp.path().to_owned()).unwrap();
     let mut app = App::from_panels(panel.clone(), panel);
     app.settings =
-        crate::models::settings::Settings::with_file(temp.path().join("config/settings.json"));
+        crate::models::settings::Settings::with_file(temp.path().join("config/settings.yaml"));
     select(&mut app, "alpha.txt");
     (temp, app)
 }
@@ -151,7 +150,7 @@ fn search_keeps_matches_when_a_child_directory_cannot_be_read() {
     let blocked = temp.path().join("blocked");
     fs::create_dir(&blocked).unwrap();
     fs::write(blocked.join("secret.txt"), "secret").unwrap();
-    let _deny = super::search::DenyReads::named("blocked");
+    let _deny = search::DenyReads::named("blocked");
     submit(&mut app, MenuCommand::FindFile, "*").unwrap();
     let labels: Vec<_> = rows(&app).iter().map(|row| row.label.clone()).collect();
     assert!(labels.iter().any(|label| label.contains("alpha.txt")));
@@ -164,7 +163,7 @@ fn search_says_how_many_unreadable_folders_it_skipped() {
     let (temp, mut app) = fixture();
     fs::create_dir(temp.path().join("blocked")).unwrap();
     fs::create_dir(temp.path().join("folder/blocked")).unwrap();
-    let _deny = super::search::DenyReads::named("blocked");
+    let _deny = search::DenyReads::named("blocked");
     submit(&mut app, MenuCommand::FindFolder, "*").unwrap();
     assert_eq!(rows(&app).len(), 3, "folder, blocked and folder/blocked");
     assert_eq!(
@@ -317,11 +316,20 @@ fn the_apply_command_row_opens_its_own_dialog() {
     assert!(submit(&mut app, MenuCommand::ApplyCommand, "echo").is_err());
 }
 
+/// The Task list row opens the live viewer on the installed host, never a
+/// second copy of the old report.
 #[test]
-fn task_and_device_menus_show_host_information() {
+fn the_task_list_row_opens_the_live_viewer() {
     let (_temp, mut app) = fixture();
+    let host = crate::test_support::processes::FixtureHost::new(Vec::new());
+    app.task_host.install(std::sync::Arc::new(host));
     execute_result(&mut app, MenuCommand::Tasks).unwrap();
-    assert!(matches!(app.overlay, Overlay::Viewer(_)));
+    assert!(matches!(app.overlay, Overlay::Tasks(_)));
+}
+
+#[test]
+fn the_devices_row_lists_the_mounted_devices() {
+    let (_temp, mut app) = fixture();
     execute_result(&mut app, MenuCommand::Devices).unwrap();
     assert!(!rows(&app).is_empty());
 }

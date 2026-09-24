@@ -1,15 +1,44 @@
 # Purpose: Runs the GitHub Actions quality gate for the Rust workspace.
+#
+# Every action is pinned by commit SHA, with its release in a comment, since a
+# tag can be moved; .github/dependabot.yml proposes the updates.
+#
+# Runner images are named by version (ubuntu-24.04, windows-2025), never
+# -latest: a new image arrives as an edit here that CI tests, not as a silent
+# migration. Every job has a timeout, so a hung step fails in minutes instead
+# of holding a runner for the 6-hour default.
+#
+# Nothing else floats either: the compiler is the release rust-toolchain.toml
+# names (installed by `rustup toolchain install`, which reads that file), the
+# tools come at the versions in `env` below, Colorer at fixed commits, and
+# every job that builds the application uses the one Cargo.lock the lockfile
+# job resolved for this run. Bump any of them on purpose, in its own commit.
 name: CI
 
 on:
   push:
     branches: ["main", "master"]
   pull_request:
+  # The application's lockfile is resolved afresh in every run, so a crate
+  # release can turn main red without a push. A weekly run shows it within
+  # a week; a manual one shows it now.
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
 
-# Cancel in-progress runs for the same ref — don't waste minutes on stale pushes.
+# A pull request keeps only its newest run. Every other run (a push to main)
+# gets a group of its own and always finishes: a cancelled run shows a red job
+# as grey, and the breakage is then blamed on a later commit. Sharing the
+# group without cancel-in-progress would not do: a third push still cancels
+# the run that waits behind the one in progress.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# No job writes to the repository. Caches and artifacts use the runner's own
+# token, not this one.
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,109 +48,156 @@ env:
   # Tiny registry index + no debuginfo in CI binaries.
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
   RUSTFLAGS: "-C debuginfo=0"
-  # cargo-llvm-cov concatenates build.rustc-wrapper with rustc. An empty
-  # wrapper (project or user config) becomes ` rustc` and ENOENT. env is a
-  # no-op. Set here — not only on coverage jobs — because the MCP job runs
-  # with working-directory: mcp and must still see a real wrapper.
+  # cargo-llvm-cov (coverage and MCP jobs) concatenates build.rustc-wrapper
+  # with rustc: the empty wrapper in .cargo/config.toml becomes ` rustc` and
+  # ENOENT. env(1) is a no-op wrapper. The Windows jobs set it back to "".
   CARGO_BUILD_RUSTC_WRAPPER: /usr/bin/env
+  # The tools CI installs, at exact versions: a new typos dictionary or
+  # cargo-deny release can fail a run with no code change.
+  TOOL_TYPOS: typos@1.50.2
+  TOOL_CARGO_DENY: cargo-deny@0.20.2
+  TOOL_LLVM_COV: cargo-llvm-cov@0.9.1
+  TOOL_NEXTEST: cargo-nextest@0.9.146
+  TOOL_MUTANTS: cargo-mutants@27.1.0
 
 jobs:
+  # ── One Cargo.lock for the whole run ────────────────────────
+  # The application's and colorer-sys's lockfiles are not tracked: a first
+  # build resolves them. This job resolves them once and hands the same files
+  # to every job that builds, so all jobs test one dependency set and the
+  # rust-cache keys follow it. To reproduce a red run, download its
+  # `cargo-lock` artifact into a checkout of the same commit. mcp/Cargo.lock
+  # is tracked and needs none of this.
+  lockfile:
+    name: Resolve Cargo.lock
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
+
+      - name: Resolve the application's and colorer-sys's dependencies
+        run: |
+          cargo generate-lockfile
+          cargo generate-lockfile --manifest-path colorer-sys/Cargo.toml
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cargo-lock
+          path: |
+            Cargo.lock
+            colorer-sys/Cargo.lock
+          if-no-files-found: error
+
   # ── Format + clippy (deny warnings) ─────────────────────────
   # Runs in parallel with the heavier coverage/bdd jobs; fails fast
   # when style or lint drifts.
   lint:
     name: Lint (format, readability, architecture)
-    runs-on: ubuntu-latest
+    needs: lockfile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Fetch this run's Cargo.lock
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cargo-lock
 
       - name: Install mold (fast linker)
-        uses: rui314/setup-mold@v1
+        uses: rui314/setup-mold@10ca16bf91dc22e05ebdc935cad9c75ea248f621 # v1
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
 
-      - uses: Swatinem/rust-cache@v2
+      # mcp builds into the shared target/ (.cargo/config.toml). Listing it
+      # with a target dir it never writes keys the cache on mcp/Cargo.lock and
+      # keeps its crates in the registry. `mcp -> ../target` would not do:
+      # rust-cache cleans each listed target with that workspace's crate list,
+      # and a second pass over target/ would delete the root's dependencies.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: lint
+          workspaces: |
+            . -> target
+            mcp -> target
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      # Keep local and CI gates identical, including MCP/Colorer and test targets.
-      - name: Format and Clippy (all crates, -D warnings)
-        run: ./ffm.sh lint
+      # The spell check in ./ffm.py lint; typos.toml holds the project words.
+      - name: Install typos
+        uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
+        with:
+          tool: ${{ env.TOOL_TYPOS }}
 
-      # Readability fixtures, then the manifest lint policy (scripts/test_lint_policy.py).
-      - name: Lint gate self-tests (readability, lint policy)
-        run: ./ffm.sh lint self-test
+      # Keep local and CI gates identical: fmt, typos and Clippy (all targets)
+      # for the root, MCP and colorer-sys, then the architecture contracts
+      # (module boundaries, unsafe allowlist, file limits) — scripts/lint.py.
+      - name: Format, spelling, Clippy and architecture (all crates, -D warnings)
+        run: ./ffm.py lint
 
-      - name: Architecture contracts
-        run: cargo test --test module_boundaries_test
+      # Spelling probes, script unit tests (scripts/tests), readability
+      # fixtures, then the manifest lint policy (scripts/test_lint_policy.py).
+      - name: Lint gate self-tests (spelling, script tests, readability, lint policy)
+        run: ./ffm.py lint self-test
 
   # ── Tests + coverage (llvm-cov + nextest, no s3) ────────────
-  # cargo-llvm-cov uses LLVM source-based instrumentation natively — no
-  # ptrace dance like tarpaulin — and nextest parallelises test binaries
-  # more aggressively than `cargo test`. Together they replace the
-  # previous tarpaulin step at ~2× the throughput.
+  # cargo-llvm-cov uses LLVM source-based instrumentation natively, and
+  # nextest runs every test in its own process (.config/nextest.toml bounds
+  # each one). The same command is the local gate: ./ffm.py coverage.
   coverage:
     name: Tests & Coverage
-    runs-on: ubuntu-latest
+    needs: lockfile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     env:
-      # .cargo/config.toml sets an empty rustc-wrapper (no wrapper), which
-      # cargo-llvm-cov would exec as ` rustc` (ENOENT); env is a no-op wrapper.
-      CARGO_BUILD_RUSTC_WRAPPER: /usr/bin/env
+      # Every TUI BDD scenario writes its frames here; uploaded below.
+      FFM_TUI_ARTIFACT_DIR: target/tui-bdd
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Fetch this run's Cargo.lock
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cargo-lock
 
       - name: Install mold (fast linker)
-        uses: rui314/setup-mold@v1
+        uses: rui314/setup-mold@10ca16bf91dc22e05ebdc935cad9c75ea248f621 # v1
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
+      - name: Install Rust (rust-toolchain.toml) and llvm-tools
+        run: |
+          rustup toolchain install --no-self-update
+          rustup component add llvm-tools
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: coverage
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install coverage + test tools (prebuilt)
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
         with:
-          tool: cargo-llvm-cov,cargo-nextest
+          tool: ${{ env.TOOL_LLVM_COV }},${{ env.TOOL_NEXTEST }}
 
-      - name: Tests + coverage (fail under 98% lines)
-        # Mirror tarpaulin.toml's exclude-files (keep in sync). Excluded from
-        # MEASUREMENT (they still run/compile in the suite):
-        #  - main/bootstrap/editor: real-TTY / external-process entry points
-        #  - clipboard/system.rs: OS clipboard glue (headless CI has none)
-        #  - ops/shell/tty.rs: drains the live crossterm event queue
-        #  - test files: tests are not code under test; their unreached lines
-        #    are assertion-failure arms that never fire in a passing suite
-        #
-        # `highlight/colorer.rs` is the Colorer FFI wrapper. This job does not
-        # build Colorer-library, so those lines cannot run here; the Colorer
-        # job covers them when the C++ engine is present.
-        #
-        # The summary table reports ~98.6% of the measured set. What is left
-        # is nearly all error handling that needs fault injection to reach: the
-        # `?` on a `create_dir`, a `write` that fails halfway, a `metadata`
-        # the filesystem refuses. Plus a handful that no test can reach at all
-        # — a `cfg!(windows)` arm, an `unreachable!`, and `try_from` on values
-        # that cannot be out of range. llvm also counts a line missed when any
-        # instantiation group leaves it unexecuted. The gate sits at 98, just
-        # under the number. Raise it as those paths gain tests — do not lower
-        # it to hide a regression.
-        run: |
-          cargo llvm-cov nextest \
-            --features test-helpers \
-            --ignore-filename-regex 'src/(main|editor|bootstrap)\.rs$|src/clipboard/system\.rs$|src/ops/shell/tty\.rs$|src/highlight/colorer\.rs$|/tests[_.\/]|_tests\.rs$|/test_support/' \
-            --fail-under-lines 98 \
-            --show-missing-lines \
-            --summary-only
+      # The whole root suite under llvm-cov, failing under the floor.
+      # scripts/coverage.py is the one definition of the gate: its features,
+      # the files left out of the measurement and why, and the floor.
+      - name: Tests + coverage gate (./ffm.py coverage)
+        run: ./ffm.py coverage
 
-      # KeePass and the libtest-wrapped TUI Cucumber suite participate in the
-      # default coverage run. Fixture vaults use a cheap KDF and fake clipboard.
+      # KeePass and the libtest-wrapped TUI Cucumber suite (tests/tui_bdd.rs)
+      # participate in the default coverage run: this is where the TUI
+      # scenarios run on Linux. Fixture vaults use a cheap KDF and a fake
+      # clipboard.
+      - name: Upload terminal screen transcripts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tui-screens-Linux
+          path: target/tui-bdd/
+          if-no-files-found: warn
 
   # ── BDD tests (need the s3 feature to compile) ──────────────
   # Kept separate because enabling `s3` drags in aws-sdk-s3, which adds
@@ -129,27 +205,34 @@ jobs:
   # fast while still running every test declared in Cargo.toml.
   bdd:
     name: BDD (s3 feature, ${{ matrix.os }})
+    needs: lockfile
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-2025]
     env:
       CARGO_BUILD_RUSTC_WRAPPER: ""
       CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: link.exe
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Fetch this run's Cargo.lock
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cargo-lock
 
       - name: Install mold (fast linker)
         if: runner.os == 'Linux'
-        uses: rui314/setup-mold@v1
+        uses: rui314/setup-mold@10ca16bf91dc22e05ebdc935cad9c75ea248f621 # v1
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: bdd-${{ matrix.os }}
+          shared-key: bdd
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       # The src/s3/ unit suite only compiles under the `s3` feature, so the
@@ -163,81 +246,85 @@ jobs:
       - name: Run BDD tests
         run: cargo test --features test-helpers,s3 --test bdd --test bdd_ru
 
-  # Keyboard -> production event loop -> rendered cells, on both host platforms.
-  tui-bdd:
-    name: TUI BDD (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+  # ── Windows: the whole root suite and Clippy ────────────────
+  # The coverage job runs the suite on Linux. This runs it on the other host
+  # platform, the TUI BDD scenarios (keyboard -> production event loop ->
+  # rendered cells) included, plus Clippy for the cfg(windows) code.
+  windows:
+    name: Windows (tests, TUI BDD, clippy)
+    needs: lockfile
+    runs-on: windows-2025
+    # Longer than the others: the suite and then Clippy's own build of every
+    # target took 12-13 minutes with a warm cache, and a cache miss rebuilds
+    # every dependency twice.
+    timeout-minutes: 45
     env:
       # No LLVM coverage wrapper in this job; /usr/bin/env is not a Windows path.
       CARGO_BUILD_RUSTC_WRAPPER: ""
       CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: link.exe
       FFM_TUI_ARTIFACT_DIR: target/tui-bdd
     steps:
-      - uses: actions/checkout@v7
-      - uses: rui314/setup-mold@v1
-        if: runner.os == 'Linux'
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Fetch this run's Cargo.lock
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          shared-key: tui-bdd-${{ runner.os }}
+          name: cargo-lock
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: windows
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - name: Run TUI BDD scenarios (undefined steps fail)
-        run: cargo test --features test-helpers --test tui_bdd
+      # --no-fail-fast: one red test target must not hide the others. The
+      # TUI BDD scenarios (tests/tui_bdd.rs; undefined steps fail) run here,
+      # once.
       - name: Run the complete Windows test suite
-        if: runner.os == 'Windows'
         run: cargo test --features test-helpers --no-fail-fast
+      # Runs even when the suite failed, so a Clippy regression in Windows
+      # code is not hidden behind a red test.
       - name: Lint Windows code and tests
-        if: runner.os == 'Windows'
+        if: ${{ !cancelled() }}
         run: cargo clippy --all-targets --features test-helpers -- -D warnings
       - name: Upload terminal screen transcripts
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: tui-screens-${{ runner.os }}
+          name: tui-screens-Windows
           path: target/tui-bdd/
           if-no-files-found: warn
 
-  # ── MCP workspace: fmt + clippy + tests ─────────────────────
+  # ── MCP workspace: tests + coverage ─────────────────────────
+  # Its fmt check and Clippy (all targets, -D warnings) run in the lint job,
+  # through scripts/lint.py. It uses its tracked mcp/Cargo.lock, so it does
+  # not wait for the lockfile job.
   mcp:
     name: MCP Server
-    runs-on: ubuntu-latest
-    env:
-      # Same rustc-wrapper / cargo-llvm-cov guard as the coverage job.
-      CARGO_BUILD_RUSTC_WRAPPER: /usr/bin/env
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: mcp
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install mold (fast linker)
-        uses: rui314/setup-mold@v1
+        uses: rui314/setup-mold@10ca16bf91dc22e05ebdc935cad9c75ea248f621 # v1
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy, llvm-tools-preview
+      - name: Install Rust (rust-toolchain.toml) and llvm-tools
+        run: |
+          rustup toolchain install --no-self-update
+          rustup component add llvm-tools
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: mcp
           workspaces: "mcp -> ../target"
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install coverage tool (prebuilt)
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
         with:
-          tool: cargo-llvm-cov
-
-      - name: Format check
-        run: cargo fmt --all -- --check
-
-      - name: Clippy (deny warnings)
-        run: cargo clippy --all -- -D warnings
+          tool: ${{ env.TOOL_LLVM_COV }}
 
       # MCP has a cucumber BDD test with harness = false; nextest doesn't
       # handle custom harnesses, so llvm-cov drives `cargo test` here.
@@ -255,7 +342,7 @@ jobs:
       # headroom for platform-dependent branches, tight enough that losing a
       # whole tool's scenarios turns the job red.
       - name: Tests + coverage (fail under 75% lines)
-        run: cargo llvm-cov --all --fail-under-lines 75 --summary-only
+        run: cargo llvm-cov --workspace --fail-under-lines 75 --summary-only
 
   # ── Colorer (optional C++ engine) ───────────────────────────
   # The `colorer` feature links Colorer-library, so nothing else in this
@@ -263,18 +350,36 @@ jobs:
   # on one machine, and CI would never notice it stop.
   colorer:
     name: Colorer feature (FFI + real schemes)
-    runs-on: ubuntu-latest
+    needs: lockfile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # The Colorer commits this job builds and tests against: upstream HEAD
+      # of 2026-09-13, which CI built until now. Bump them on purpose.
+      COLORER_LIBRARY_SHA: b3c4d81bf9057945d10469168d29b95f59271b44
+      COLORER_SCHEMES_SHA: ebc9b537fd62e8a070410124940f9dc31dfbe555
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Fetch this run's Cargo.lock
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cargo-lock
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: colorer
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: System libraries Colorer needs
         run: sudo apt-get update && sudo apt-get install -y libicu-dev libxml2-dev zlib1g-dev libminizip-dev
 
       - name: Build Colorer-library
         run: |
-          git clone --depth 1 https://github.com/colorer/Colorer-library /tmp/Colorer-library
+          git init --quiet /tmp/Colorer-library
+          git -C /tmp/Colorer-library fetch --quiet --depth 1 \
+            https://github.com/colorer/Colorer-library "$COLORER_LIBRARY_SHA"
+          git -C /tmp/Colorer-library checkout --quiet FETCH_HEAD
           cmake -S /tmp/Colorer-library -B /tmp/Colorer-library/_build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCOLORER_USE_VCPKG=OFF \
@@ -283,7 +388,11 @@ jobs:
           cmake --build /tmp/Colorer-library/_build --parallel
 
       - name: Fetch the schemes
-        run: git clone --depth 1 https://github.com/colorer/Colorer-schemes /tmp/Colorer-schemes
+        run: |
+          git init --quiet /tmp/Colorer-schemes
+          git -C /tmp/Colorer-schemes fetch --quiet --depth 1 \
+            https://github.com/colorer/Colorer-schemes "$COLORER_SCHEMES_SHA"
+          git -C /tmp/Colorer-schemes checkout --quiet FETCH_HEAD
 
       - name: Test with the feature on
         env:
@@ -298,24 +407,32 @@ jobs:
   # One policy (deny.toml) for all three manifests, each with every feature on
   # so optional dependencies (s3, keepass, colorer) are judged too. Every step
   # runs even when an earlier one fails, so each manifest reports its own
-  # result. The application and colorer-sys have no tracked lockfile: each
-  # resolves fresh, the way a first build does, and cannot pass --locked.
+  # result. Each judges the lockfile the rest of the run builds: the lockfile
+  # job's for the application and colorer-sys, the tracked one for MCP.
+  # --locked fails the step rather than let cargo resolve another.
   deny:
     name: Dependencies (cargo-deny)
-    runs-on: ubuntu-latest
+    needs: lockfile
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Fetch this run's Cargo.lock
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cargo-lock
+
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
 
       - name: Install cargo-deny (prebuilt)
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
         with:
-          tool: cargo-deny
+          tool: ${{ env.TOOL_CARGO_DENY }}
 
       - name: cargo deny — application
-        run: cargo deny --all-features --manifest-path Cargo.toml --config deny.toml check
+        run: cargo deny --locked --all-features --manifest-path Cargo.toml --config deny.toml check
 
       - name: cargo deny — MCP server
         if: ${{ !cancelled() }}
@@ -323,47 +440,79 @@ jobs:
 
       - name: cargo deny — colorer-sys
         if: ${{ !cancelled() }}
-        run: cargo deny --all-features --manifest-path colorer-sys/Cargo.toml --config deny.toml check
+        run: cargo deny --locked --all-features --manifest-path colorer-sys/Cargo.toml --config deny.toml check
 
   # ── Mutation testing of the lines a pull request changes ────
   # cargo mutants --in-diff mutates only code the PR touched and runs the
   # suite against each mutant. The application uses .cargo/mutants.toml
-  # (exclusions, features, nextest). MCP has no config and keeps cargo test:
-  # its cucumber suite is harness = false, which nextest cannot run. Its diff
-  # is taken with --relative, because cargo-mutants run inside mcp/ matches
-  # paths like src/paths.rs; an mcp/src/paths.rs diff matches nothing and
-  # passes silently.
+  # (exclusions, features, nextest, timeout). MCP has no config and keeps
+  # cargo test: its cucumber suite is harness = false, which nextest cannot
+  # run. Its diff is taken with --relative, because cargo-mutants run inside
+  # mcp/ matches paths like src/paths.rs; an mcp/src/paths.rs diff matches
+  # nothing and passes silently.
   #
-  # A surviving (missed) mutant FAILS the job: a line this PR changed can be
-  # broken without any test noticing. Kill it with a test that observes the
-  # behaviour; only a mutant no test can observe by construction (see
-  # `is_root`) is excluded in .cargo/mutants.toml, with the reason. A timeout
-  # alone passes: the mutant hung the suite, which the timeout detected.
-  # The verdict on survivors is read from missed.txt, not the exit code:
-  # cargo-mutants exits 3 (timeout) in preference to 2 (missed) when a run
-  # has both, so "3 passes" would wave survivors through. Any other exit code
-  # (baseline failed 4, diff does not match the tree 5/6) fails the step.
-  # mutants.out is uploaded in every case.
+  # Each shard tests its slice of the mutants, one at a time: two suites on
+  # this two-core runner pushed every test run past its timeout, so every
+  # mutant "timed out" and nothing was tested. Four shards keep a diff of
+  # about 150 mutants (at roughly 80 s each) inside the 60-minute step.
+  #
+  # scripts/mutants_verdict.py judges each step from the exit status and
+  # mutants.out: a surviving (missed) mutant fails, since a changed line can
+  # break without any test noticing; a run where every mutant timed out
+  # fails, since it tested nothing; any other exit code (baseline failed 4,
+  # diff does not match the tree) fails. A timeout among caught mutants
+  # passes with a warning: that mutant hung the suite, which the timeout
+  # detected. Kill a survivor with a test that observes the behaviour; only a
+  # mutant no test can observe by construction (see `is_root`) is excluded
+  # in .cargo/mutants.toml, with the reason. mutants.out is uploaded always.
   mutants:
-    name: Mutation testing (PR diff)
+    name: Mutation testing (PR diff, shard ${{ matrix.shard }})
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
+    needs: lockfile
+    runs-on: ubuntu-24.04
+    # Longer than the others: the two mutation steps below have their own
+    # bounds (60 and 25 minutes), after a few minutes of setup.
+    timeout-minutes: 95
+    strategy:
+      fail-fast: false
+      matrix:
+        # `--shard k/n` below takes n from this list's length.
+        shard: [0, 1, 2, 3]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The base branch must be present to diff against it.
           fetch-depth: 0
 
-      - name: Install mold (fast linker)
-        uses: rui314/setup-mold@v1
+      - name: Fetch this run's Cargo.lock
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cargo-lock
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install mold (fast linker)
+        uses: rui314/setup-mold@10ca16bf91dc22e05ebdc935cad9c75ea248f621 # v1
+
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
+
+      # cargo-mutants builds in a copy of the tree, without its target/; the
+      # CARGO_TARGET_DIR of each step below puts the build where this cache
+      # saves it, one target dir per crate. The job runs on pull requests
+      # only, so the cache is scoped to the pull request and warms its later
+      # pushes; the first push builds every dependency.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: mutants
+          workspaces: |
+            . -> target
+            mcp -> target
+          # Every shard builds the same dependencies; one upload is enough.
+          save-if: ${{ matrix.shard == 0 }}
 
       - name: Install mutation + test tools (prebuilt)
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
         with:
-          tool: cargo-mutants,cargo-nextest
+          tool: ${{ env.TOOL_MUTANTS }},${{ env.TOOL_NEXTEST }}
 
       - name: Diff of this pull request
         env:
@@ -374,31 +523,33 @@ jobs:
 
       - name: Mutants in changed application code
         timeout-minutes: 60
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+          SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
         run: |
           status=0
-          cargo mutants --in-diff "$RUNNER_TEMP/pr.diff" --jobs 2 \
+          cargo mutants --in-diff "$RUNNER_TEMP/pr.diff" --jobs 1 --shard "$SHARD" \
             --output "$RUNNER_TEMP/mutants-app" || status=$?
-          case "$status" in 0 | 2 | 3) ;; *) exit "$status" ;; esac
-          missed="$RUNNER_TEMP/mutants-app/mutants.out/missed.txt"
-          if [ -s "$missed" ]; then cat "$missed"; exit 2; fi
+          python3 scripts/mutants_verdict.py "$status" "$RUNNER_TEMP/mutants-app/mutants.out"
 
       - name: Mutants in changed MCP code
         if: ${{ !cancelled() }}
-        timeout-minutes: 20
+        timeout-minutes: 25
         working-directory: mcp
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/mcp/target
+          SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
         run: |
           status=0
-          cargo mutants --in-diff "$RUNNER_TEMP/pr-mcp.diff" --jobs 2 \
+          cargo mutants --in-diff "$RUNNER_TEMP/pr-mcp.diff" --jobs 1 --shard "$SHARD" \
             --output "$RUNNER_TEMP/mutants-mcp" || status=$?
-          case "$status" in 0 | 2 | 3) ;; *) exit "$status" ;; esac
-          missed="$RUNNER_TEMP/mutants-mcp/mutants.out/missed.txt"
-          if [ -s "$missed" ]; then cat "$missed"; exit 2; fi
+          python3 ../scripts/mutants_verdict.py "$status" "$RUNNER_TEMP/mutants-mcp/mutants.out"
 
       - name: Upload mutants.out
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: mutants-out
+          name: mutants-out-${{ matrix.shard }}
           path: |
             ${{ runner.temp }}/mutants-app/mutants.out
             ${{ runner.temp }}/mutants-mcp/mutants.out

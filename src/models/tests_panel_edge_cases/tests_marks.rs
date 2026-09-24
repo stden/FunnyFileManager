@@ -44,9 +44,9 @@ fn test_panel_action_entry_names_with_special_cases() -> io::Result<()> {
 
     let names = panel.action_entry_names();
     assert_eq!(names.len(), 3);
-    assert!(names.contains(&"regular.txt".to_string()));
-    assert!(names.contains(&".hidden".to_string()));
-    assert!(names.contains(&"directory".to_string()));
+    assert!(names.contains(&"regular.txt".to_owned()));
+    assert!(names.contains(&".hidden".to_owned()));
+    assert!(names.contains(&"directory".to_owned()));
 
     Ok(())
 }

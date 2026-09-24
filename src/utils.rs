@@ -30,19 +30,18 @@ const COPY_DIR_ALL_FAIL_RECURSE: u8 = 4;
 const COPY_DIR_ALL_FAIL_COPY_FILE: u8 = 5;
 
 #[cfg(any(test, tarpaulin))]
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 #[cfg(any(test, tarpaulin))]
-static FORCE_REFRESH_ERROR: Mutex<bool> = Mutex::new(false);
+static FORCE_REFRESH_ERROR: AtomicBool = AtomicBool::new(false);
 
 #[cfg(any(test, tarpaulin))]
-static FORCE_COPY_DIR_ALL_STEP: Mutex<u8> = Mutex::new(0);
+static FORCE_COPY_DIR_ALL_STEP: AtomicU8 = AtomicU8::new(0);
 
-/// Poison-tolerant lock of a FORCE_* test flag. A panicking test must not
-/// cascade failures into unrelated tests that only read the flag.
+/// The `copy_dir_all` step a test forced to fail, or 0 for none.
 #[cfg(any(test, tarpaulin))]
-fn force_lock<T>(mutex: &'static Mutex<T>) -> MutexGuard<'static, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
+fn forced_copy_step() -> u8 {
+    FORCE_COPY_DIR_ALL_STEP.load(Ordering::SeqCst)
 }
 
 /// Largest file the viewer (F3) and the built-in editor (F4) will load.
@@ -115,7 +114,7 @@ pub fn symlink_dir(target: &str, link: &Path) -> io::Result<()> {
 
 pub fn refresh_panels(app: &mut App) -> io::Result<()> {
     #[cfg(any(test, tarpaulin))]
-    if *force_lock(&FORCE_REFRESH_ERROR) {
+    if FORCE_REFRESH_ERROR.load(Ordering::SeqCst) {
         return Err(io::Error::other("forced refresh_panels failure"));
     }
     // Both panels are reloaded unconditionally, and only then is the first
@@ -131,18 +130,18 @@ pub fn refresh_panels(app: &mut App) -> io::Result<()> {
 
 #[cfg(test)]
 pub(crate) fn reset_forced_errors() {
-    *force_lock(&FORCE_COPY_DIR_ALL_STEP) = 0;
-    *force_lock(&FORCE_REFRESH_ERROR) = false;
+    FORCE_COPY_DIR_ALL_STEP.store(0, Ordering::SeqCst);
+    FORCE_REFRESH_ERROR.store(false, Ordering::SeqCst);
 }
 
 #[cfg(test)]
 pub(crate) fn set_copy_dir_all_step(step: u8) {
-    *force_lock(&FORCE_COPY_DIR_ALL_STEP) = step;
+    FORCE_COPY_DIR_ALL_STEP.store(step, Ordering::SeqCst);
 }
 
 #[cfg(test)]
 pub(crate) fn set_refresh_panels_error(value: bool) {
-    *force_lock(&FORCE_REFRESH_ERROR) = value;
+    FORCE_REFRESH_ERROR.store(value, Ordering::SeqCst);
 }
 
 /// Serialise tests that call `refresh_panels` — one of them flips

@@ -5,9 +5,19 @@ use crate::search::{SearchField, SearchPrompt};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 mod disk_cleanup;
+mod lsp_editor;
 mod menu_dialog;
 mod path_env;
-pub(crate) use editor::paste_text as paste_editor_text;
+
+/// A terminal paste: text for the editor's document, or for the task list's
+/// open bar. Nothing else takes a paste as text.
+pub(crate) fn paste_text(app: &mut App, text: &str) {
+    match app.overlay {
+        Overlay::Editor(_) => editor::paste_text(app, text),
+        Overlay::Tasks(_) => tasks::paste(app, text),
+        _ => {}
+    }
+}
 
 /// Handle keyboard input for popup overlays (help, viewer, editor, dialogs).
 ///
@@ -22,6 +32,7 @@ pub fn process_popup_input(app: &mut App, key: KeyEvent) -> bool {
         Overlay::MenuDialog(_) => menu_dialog::process(app, code, modifiers),
         Overlay::Wsl(_) => wsl::process(app, code, modifiers),
         Overlay::PathEditor(_) => path_env::process(app, code, modifiers),
+        Overlay::LspEditor(_) => lsp_editor::process(app, code, modifiers),
         Overlay::Viewer(_) => viewer::process(app, code, modifiers),
         Overlay::Editor(_) => process_editor_input(app, code, modifiers),
         Overlay::Help => confirmation::help(app, code),
@@ -79,8 +90,13 @@ fn process_commands_dialog(app: &mut App, code: KeyCode, modifiers: KeyModifiers
         Overlay::Screens(_) => screens::process(app, code, modifiers),
         Overlay::Tasks(_) => tasks::process(app, code, modifiers),
         Overlay::Hotplug(_) => hotplug::process(app, code, modifiers),
+        Overlay::McpInstall(_) => mcp_install::process(app, code, modifiers),
         Overlay::SortModes(_) => sortmenu::process(app, code, modifiers),
         Overlay::Settings(_) => settings::process(app, code, modifiers),
+        Overlay::SessionEdit(_) => session_edit::process(app, code, modifiers),
+        Overlay::PluginCommands(_) => plugin_commands::process(app, code, modifiers),
+        Overlay::InputPrompt(_) => input_prompt::process(app, code, modifiers),
+        Overlay::Question(_) => question::process(app, code, modifiers),
         _ => false,
     }
 }
@@ -183,12 +199,20 @@ mod findfolder;
 mod folder_history;
 mod history_list;
 mod hotplug;
+mod input_prompt;
 mod mask_prompt;
+mod mcp_install;
 mod menu;
 mod name_prompt;
+mod netbox;
 mod new_file;
+mod plugin_commands;
+mod question;
 pub(crate) mod quickview;
+pub(crate) mod remote;
 mod screens;
+mod session_edit;
+pub(crate) mod sessions;
 mod settings;
 mod shortcuts;
 mod sortmenu;

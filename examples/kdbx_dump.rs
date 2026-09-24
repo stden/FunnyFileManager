@@ -12,6 +12,11 @@
 //! Output goes to stdout only — it is never written to a file or the app logs.
 
 #[cfg(feature = "keepass")]
+#[expect(
+    clippy::print_stdout,
+    clippy::print_stderr,
+    reason = "a command-line example: stdout is the dump and stderr says why there is none"
+)]
 fn main() {
     use funny_file_manager::keepass;
     use std::path::Path;
@@ -45,6 +50,10 @@ fn main() {
 }
 
 #[cfg(feature = "keepass")]
+#[expect(
+    clippy::print_stdout,
+    reason = "a command-line example: stdout is the dump"
+)]
 fn walk_group(group: &funny_file_manager::keepass::ExportGroup, prefix: &str) {
     let here = if prefix.is_empty() {
         group.name.clone()
@@ -67,6 +76,10 @@ fn walk_group(group: &funny_file_manager::keepass::ExportGroup, prefix: &str) {
 }
 
 #[cfg(not(feature = "keepass"))]
+#[expect(
+    clippy::print_stderr,
+    reason = "a command-line example: stderr says why there is no dump"
+)]
 fn main() {
     eprintln!("rebuild with --features keepass");
 }

@@ -1,23 +1,16 @@
 //! Unit tests: popup input keys (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use super::support::*;
 use crate::ops::*;
 use crate::popup::process_popup_input;
 
-#[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
-
 use crate::models::{App, BookmarkSlot, Overlay, Panel, SortMode};
-
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
 
 use crossterm::event::{KeyCode, KeyModifiers};
 
-use std::fs::{self};
+use std::fs;
 
-use std::io::{self, Write};
+use std::io;
 
 use tempfile::TempDir;
 
@@ -27,7 +20,7 @@ use tempfile::TempDir;
 #[test]
 fn test_new_file_input_ctrl_char_ignored() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("abc".to_string()));
+    app.set_overlay(Overlay::NewFileInput("abc".to_owned()));
 
     process_popup_input(
         &mut app,
@@ -73,7 +66,7 @@ fn test_process_popup_input_command_line_alt_char_ignored() -> io::Result<()> {
 #[test]
 fn test_new_file_input_alt_char_ignored() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("abc".to_string()));
+    app.set_overlay(Overlay::NewFileInput("abc".to_owned()));
 
     process_popup_input(
         &mut app,
@@ -108,7 +101,7 @@ fn test_process_popup_input_command_line_other_key() -> io::Result<()> {
 #[test]
 fn test_new_file_input_other_key_ignored() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("abc".to_string()));
+    app.set_overlay(Overlay::NewFileInput("abc".to_owned()));
 
     process_popup_input(&mut app, key_event(KeyCode::F(5)));
 
@@ -310,7 +303,7 @@ fn test_execute_command_bookmark_no_slot() -> io::Result<()> {
     let result = execute_command(&mut app, "bookmark set");
     // It no longer short-circuits with InvalidInput at parse time.
     // The important thing is it doesn't panic.
-    let _ = result;
+    drop(result);
     Ok(())
 }
 

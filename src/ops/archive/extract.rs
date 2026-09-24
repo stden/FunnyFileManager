@@ -68,6 +68,10 @@ pub(super) fn plain_tree(staging: &Path) -> io::Result<()> {
     plain_below(staging, Path::new(""))
 }
 
+#[expect(
+    clippy::filetype_is_file,
+    reason = "exactly regular files and folders may be extracted; anything else is refused"
+)]
 fn plain_below(staging: &Path, relative: &Path) -> io::Result<()> {
     for entry in fs::read_dir(staging.join(relative))? {
         let entry = entry?;
@@ -168,7 +172,7 @@ pub fn run_extract(app: &mut App) {
     app.set_status(outcome.summary(prompt.archives.len(), &destination));
     // The archives may have unpacked into either panel; a refresh failure is
     // not the extraction's failure, so it is deliberately not propagated.
-    let _ = crate::utils::refresh_panels(app);
+    drop(crate::utils::refresh_panels(app));
 }
 
 /// A typed relative destination is taken from the active panel, the way a
@@ -189,14 +193,17 @@ struct Outcome {
 
 impl Outcome {
     fn summary(&self, total: usize, destination: &Path) -> Status {
-        let noun = if total == 1 { "archive" } else { "archives" };
-        Status::CommandOutput(match &self.first_error {
-            None => format!("Extracted {total} {noun} to {}", destination.display()),
-            Some(error) => format!(
-                "Extracted {} of {total} {noun}, first error: {error}",
-                self.done
-            ),
-        })
+        match &self.first_error {
+            None => Status::Extracted {
+                count: total,
+                destination: destination.to_owned(),
+            },
+            Some(error) => Status::ExtractedWithErrors {
+                done: self.done,
+                total,
+                first_error: error.to_string(),
+            },
+        }
     }
 }
 

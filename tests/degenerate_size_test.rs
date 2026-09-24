@@ -34,7 +34,7 @@ fn populated() -> App {
     );
     let entries = vec![
         DirEntry {
-            name: "..".to_string(),
+            name: "..".to_owned(),
             kind: EntryKind::Directory,
             size: FileSize::from_bytes(0),
             modified: Modified::UNKNOWN,
@@ -42,7 +42,7 @@ fn populated() -> App {
             ..DirEntry::default()
         },
         DirEntry {
-            name: "a-rather-long-file-name.rs".to_string(),
+            name: "a-rather-long-file-name.rs".to_owned(),
             kind: EntryKind::File,
             size: FileSize::from_bytes(4096),
             modified: Modified::UNKNOWN,
@@ -64,7 +64,7 @@ fn overlays() -> Vec<(&'static str, Overlay)> {
     vec![
         ("none", Overlay::None),
         ("help", Overlay::Help),
-        ("new file", Overlay::NewFileInput("name".to_string())),
+        ("new file", Overlay::NewFileInput("name".to_owned())),
         (
             "delete",
             Overlay::DeleteConfirm(vec![PathBuf::from("/tmp/x")]),
@@ -80,6 +80,7 @@ fn overlays() -> Vec<(&'static str, Overlay)> {
             Overlay::NamePrompt(NamePrompt::make_folder()),
         ),
         ("information", Overlay::Information(Box::default())),
+        ("tasks", Overlay::Tasks(Box::default())),
     ]
 }
 
@@ -115,6 +116,85 @@ fn the_information_panel_survives_a_full_report() {
         for height in 0..=24u16 {
             let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
             terminal.draw(|frame| ui(frame, &mut app)).unwrap();
+        }
+    }
+}
+
+/// The task list over forty processes, each the child of half its PID, on
+/// eight cores, two samples in.
+#[cfg(feature = "test-helpers")]
+fn sampled_task_list() -> funny_file_manager::models::TaskList {
+    use funny_file_manager::models::{Pid, ProcessSample, TaskList};
+    use funny_file_manager::test_support::processes::{counters, process, sample, system};
+
+    let mut list = TaskList::default();
+    for seconds in [1_u64, 2] {
+        let processes: Vec<ProcessSample> = (1..=40)
+            .filter_map(Pid::new)
+            .map(|pid| ProcessSample {
+                parent: Pid::new(pid.get() / 2),
+                cpu_time: std::time::Duration::from_secs(u64::from(pid.get()) * seconds),
+                ..process(pid, "a-rather-long-process-name")
+            })
+            .collect();
+        let busy = counters(seconds, 1, 1);
+        let now = std::time::Instant::now();
+        list.take_request(now);
+        list.apply_sample(Ok(sample(system(busy, &[busy; 8]), processes)), now);
+    }
+    list
+}
+
+/// [`sampled_task_list`] with each thing that can be open on it: the
+/// table, the help page, a menu, a text bar, the kill confirmation, and the
+/// tree.
+#[cfg(feature = "test-helpers")]
+fn task_lists() -> Vec<(&'static str, Overlay)> {
+    use funny_file_manager::models::{KillConfirm, KillOffer, Modal, Operation, TaskMenu, TextBar};
+    use funny_file_manager::scroll::ScrollTop;
+
+    let list = sampled_task_list();
+    let targets = list.freeze_targets(Operation::Signal);
+    let modals = [
+        ("tasks, populated", Modal::Browse),
+        ("tasks, help", Modal::Help(ScrollTop::TOP)),
+        (
+            "tasks, sort menu",
+            Modal::Menu(TaskMenu::sort(list.options().sort)),
+        ),
+        ("tasks, filter bar", Modal::Filter(TextBar::new("a-rather"))),
+        (
+            "tasks, confirmation",
+            Modal::Confirm(KillConfirm::new(targets, KillOffer::TerminateOrKill)),
+        ),
+    ];
+    let mut tree = list.clone();
+    tree.toggle_tree();
+    let opened = modals.into_iter().map(|(name, modal)| {
+        let mut open = list.clone();
+        open.set_modal(modal);
+        (name, Overlay::Tasks(Box::new(open)))
+    });
+    let tree = ("tasks, tree", Overlay::Tasks(Box::new(tree)));
+    opened.chain(std::iter::once(tree)).collect()
+}
+
+#[cfg(feature = "test-helpers")]
+#[test]
+fn a_populated_task_list_survives_every_small_terminal() {
+    let prototype = populated();
+    for (name, overlay) in task_lists() {
+        let mut app = prototype.clone();
+        app.overlay = overlay;
+        for width in 0..=24u16 {
+            for height in 0..=24u16 {
+                let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+                let result = terminal.draw(|frame| ui(frame, &mut app));
+                assert!(
+                    result.is_ok(),
+                    "{width}x{height} with {name} failed: {result:?}"
+                );
+            }
         }
     }
 }

@@ -31,8 +31,10 @@ pub fn copy_file(src: &Path, dst: &Path, mode: FileMode) -> io::Result<()> {
         .open(dst)?;
     let result = fill(&input, &mut output, mode);
     if result.is_err() {
-        // Ours to remove: the exclusive create above is what made it.
-        let _ = fs::remove_file(dst);
+        // Ours to remove: the exclusive create above is what made it. The
+        // copy's own error is the one to report; a failed cleanup must not
+        // replace it.
+        drop(fs::remove_file(dst));
     }
     result
 }

@@ -8,6 +8,10 @@ use ratatui::{backend::TestBackend, Terminal};
 use std::{hint::black_box, time::Duration};
 use tempfile::TempDir;
 
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn editor_fixture(root: &TempDir, lines: usize) -> App {
     let mut app = App::new().expect("app");
     app.left_panel = Panel::new(root.path().to_path_buf()).expect("panel");
@@ -22,6 +26,10 @@ fn editor_fixture(root: &TempDir, lines: usize) -> App {
     app
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn cursor_redraw(c: &mut Criterion) {
     let root = TempDir::new().expect("directory");
     let mut group = c.benchmark_group("editor_cursor/cached_redraw");
@@ -49,6 +57,10 @@ criterion_group! {
 }
 criterion_main!(benches);
 
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 fn move_and_draw(app: &mut App, terminal: &mut Terminal<TestBackend>) {
     let editor = app.get_editor_mut().expect("editor");
     if editor.cursor_col == 0 {

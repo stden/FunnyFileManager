@@ -32,7 +32,7 @@ pub fn from_chars(line: usize, text: &str, column: usize) -> Option<Position> {
 
 pub fn to_chars(text: &str, units: u32) -> Option<usize> {
     let byte = column_byte(text, units)?;
-    Some(text[..byte].chars().count())
+    Some(text.get(..byte)?.chars().count())
 }
 
 fn column_byte(text: &str, units: u32) -> Option<usize> {
@@ -62,8 +62,8 @@ pub fn byte_offset(text: &str, position: Position) -> Option<usize> {
 }
 
 pub fn at_byte(text: &str, offset: usize) -> Option<Position> {
-    let prefix = text.get(..offset)?;
-    if prefix.ends_with('\r') && text[offset..].starts_with('\n') {
+    let (prefix, rest) = text.split_at_checked(offset)?;
+    if prefix.ends_with('\r') && rest.starts_with('\n') {
         return None;
     }
     let line = prefix.bytes().filter(|byte| *byte == b'\n').count();

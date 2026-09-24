@@ -1,5 +1,5 @@
-# Purpose: Shared, enforced readability limits for the TUI, MCP and Colorer crates.
-# Lint levels belong to each Cargo manifest; thresholds are shared here.
+# Purpose: Shared Clippy settings for the TUI, MCP and Colorer crates.
+# Lint levels belong to each Cargo manifest; thresholds and test allowances live here.
 msrv = "1.95.0"
 
 # Counted by Clippy rather than physical file length. Keep coherent functions small.
@@ -11,3 +11,13 @@ cognitive-complexity-threshold = 25
 # Clippy counts surrounding blocks, including inline modules and impls.
 # Zero disables this check, so keep the nesting budget explicit and nonzero.
 excessive-nesting-threshold = 4
+
+# The panic-family restriction lints (unwrap_used, expect_used, panic,
+# indexing_slicing, print_stdout/print_stderr, dbg_macro) judge production code
+# only: a test that unwraps, indexes or panics fails loudly, which is its job.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true
+allow-print-in-tests = true
+allow-dbg-in-tests = true

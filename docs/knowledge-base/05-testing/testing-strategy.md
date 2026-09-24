@@ -77,6 +77,10 @@ Windows also runs the complete default-feature test suite and Clippy.
 | Diagnostics | Pass log paths inside a test's temporary directory |
 | Complete editor workflow | `tests/editor_workflow_test.rs` drives the real event loop with a fake clipboard and shared frame backend; verifies `.env` colors, selection, copy/paste, saved bytes, resizing, and clipboard failure |
 | Complete WSL workflow | `tests/wsl_workflow_test.rs` drives real keys and rendered frames with a fake backend; verifies distinct update operations, selected-distribution root navigation, compact controls, and completion after closing a busy manager |
+| Task list sampling | `application/task_jobs/tests.rs`, `tests_stall.rs` and `tests_failures.rs` drive `TaskJobs::pump_at(app, now)` with synthetic instants over `FixtureHost::gated()`, so staleness at 5 s and abandonment at 10 s are checked to the millisecond without sleeping; only the worker's answer is waited for, with a real-time deadline. `application/tests/task_refresh.rs` runs the real loop with `CountingBackend`: one frame per sample applied, none while the list is closed |
+| Process host | `test_support::processes::FixtureHost` stands in for the platform's `ProcessHost` wherever a test sits above the ports (controller, ops, popup, BDD): its readers serve canned samples and it records signals and renices without sending them, so those tests never reach a real process. `FixtureHost::gated()` gives readers that block until the test opens their `Gate`, to hold a sample in flight, late or stuck without sleeping |
+| Process reader | `src/process_table/procfs/tests_reader.rs` builds a fake `/proc` in a `TempDir`, which `tests_reader_cache.rs` and `tests_reader_system.rs` share (lines end with a newline, as the kernel writes them) and points `ProcFs` at it; a file replaced by a directory fails every read even for root, so unreadable files need no `chmod`. One `cfg(target_os = "linux")` test samples the real `/proc` and finds its own process and start time |
+| Untrusted text parsers | `src/process_table/procfs/tests_robustness.rs` feeds each `/proc` parser every prefix of its fixture (a file cut short by an exiting process), ten thousand byte flips from a fixed-seed linear congruential generator (no new dependency), and every number at and past `u32` and `u64` limits; nothing may panic, because release builds abort on a panic and do not check overflow, and a file read for one value, cut anywhere, must read as nothing or as the whole, never as a smaller number. Each whole fixture must still parse, so the corpus cannot silently test nothing |
 
 The application loop tests live under `src/application/tests/`; private
 dispatch tests live under `src/application/dispatch/tests/`. Logging tests live
@@ -124,18 +128,18 @@ functions; avoid tests that merely duplicate implementation statements.
 ```sh
 cargo test
 cargo test --features test-helpers
-./ffm.sh lint
+./ffm.py lint
 ```
 
 To verify the readability policy itself:
 
 ```sh
-./ffm.sh lint self-test
+./ffm.py lint self-test
 ```
 
 This check requires Python and also runs directly as
-`python scripts/test_readability.py`. The full `./ffm.sh lint` gate includes it
-through its architecture checks; `./ffm.sh lint self-test` runs it on its own.
+`python scripts/test_readability.py`. The full `./ffm.py lint` gate includes it
+through its architecture checks; `./ffm.py lint self-test` runs it on its own.
 CI also runs it explicitly after the shared lint gate. It resolves `clippy-driver`
 and `rustc` through the selected rustup toolchain. It verifies all three diagnostics from the TUI, MCP, and
 Colorer crate directories, so each must discover the shared root configuration.
@@ -143,6 +147,17 @@ The refactored fixture must pass, and three compiled tests compare its behavior
 with the rejected version. Generated artifacts stay under
 `target/readability-selftest/`. The script supplies lint levels directly;
 ordinary Clippy gates verify the Cargo manifests' lint settings.
+
+Before the readability check, `./ffm.py lint self-test` runs the developer
+scripts' unit tests, `scripts/tests/test_*.py`, with the standard library's
+`unittest`. Each test runs its script through `scripts/tests/sandbox.py`: a
+fresh HOME, TMPDIR and checkout copy, and a PATH on which Cargo, Git, the AI
+tools and the cloud clients are recording fakes, so no test builds, registers
+a tool or reaches the network. They also run on their own:
+
+```sh
+python3 -m unittest discover -s scripts/tests
+```
 
 For the editor DSL and complete workflow specifically:
 
@@ -183,11 +198,12 @@ checks every target in these configurations, always denying warnings:
 | MCP | Package defaults |
 | Colorer | Package defaults |
 
-The shared `./ffm.sh lint` script also runs `module_boundaries_test`,
+The shared `./ffm.py lint` script also runs `module_boundaries_test`,
 `file_line_limit_test`, `scripts/test_readability.py`, and
 `scripts/test_recording.py`. These checks can be run together with
-`./ffm.sh lint architecture`. The CI lint job calls the full script, then
-explicitly reruns the readability fixtures and `module_boundaries_test`.
+`./ffm.py lint architecture`. The CI lint job calls the full script, then
+runs the self-test (script unit tests, readability fixtures, lint policy) and
+`module_boundaries_test`.
 Optional-feature behavior needs its own test run when changed:
 
 ```sh
@@ -200,6 +216,6 @@ For focused work, select the relevant unit/integration target first, then run
 the required gate before committing. Ignored tests are for explicitly manual
 or environment-dependent cases; do not make normal validation interactive.
 
-Use `cargo mutants` when evaluating assertion strength and repository coverage
-scripts or `cargo tarpaulin` when refreshing coverage. Neither tool replaces
+Use `cargo mutants` when evaluating assertion strength and `./ffm.py coverage`
+(CI's line-coverage gate) when refreshing coverage. Neither tool replaces
 targeted tests of observable outcomes and failure handling.

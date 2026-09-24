@@ -23,11 +23,19 @@ fn navigate(app: &mut App, target: &Definition) -> Result<(), &'static str> {
     if editor.state.is_modified() {
         return Err("Save this file with F2 before opening a definition in another file");
     }
+    #[expect(
+        clippy::map_err_ignore,
+        reason = "the editor notice is one fixed line per failure; the loader's detail is not shown there"
+    )]
     let loaded = crate::fileload::read_for_text_ui(&target.path)
         .map_err(|_| "Cannot read definition target")?;
     let crate::fileload::Loaded::Bytes(bytes) = loaded else {
         return Err("Definition target is not an editable text file");
     };
+    #[expect(
+        clippy::map_err_ignore,
+        reason = "the editor notice is one fixed line per failure; the editor's detail is not shown there"
+    )]
     let mut editor = crate::editor::editor_for(app, target.path.clone(), &bytes)
         .map_err(|_| "Definition target is not an editable text file")?;
     move_cursor(&mut editor, target)?;
@@ -37,13 +45,15 @@ fn navigate(app: &mut App, target: &Definition) -> Result<(), &'static str> {
 
 fn move_cursor(editor: &mut Editor, target: &Definition) -> Result<(), &'static str> {
     let position = target.range.start;
+    // A line number `usize` cannot hold is past the end of any file.
+    let line_index = usize::try_from(position.line).unwrap_or(usize::MAX);
     let line = editor
         .lines
-        .get(position.line as usize)
+        .get(line_index)
         .ok_or("Definition range is outside the file")?;
     let column =
         positions::to_chars(line, position.character).ok_or("Invalid definition position")?;
-    editor.cursor_line = position.line as usize;
+    editor.cursor_line = line_index;
     editor.cursor_col = column;
     editor.selection = crate::models::EditorSelection::None;
     editor.lsp.popup = None;

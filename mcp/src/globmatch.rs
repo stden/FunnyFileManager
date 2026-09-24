@@ -90,12 +90,13 @@ fn match_components(candidate: &[&str], pattern: &[&str]) -> bool {
     let mut star: Option<usize> = None;
     let mut star_ci = 0usize;
 
-    while ci < candidate.len() {
-        if pi < pattern.len() && pattern[pi] == "**" {
+    while let Some(&part) = candidate.get(ci) {
+        let current = pattern.get(pi).copied();
+        if current == Some("**") {
             star = Some(pi);
             star_ci = ci;
             pi += 1;
-        } else if pi < pattern.len() && match_segment(candidate[ci], pattern[pi]) {
+        } else if current.is_some_and(|segment| match_segment(part, segment)) {
             ci += 1;
             pi += 1;
         } else if let Some(star_pi) = star {
@@ -108,7 +109,7 @@ fn match_components(candidate: &[&str], pattern: &[&str]) -> bool {
         }
     }
 
-    pattern[pi..].iter().all(|part| *part == "**")
+    pattern.iter().skip(pi).all(|part| *part == "**")
 }
 
 /// Wildcard match within a single path component: `*` matches any run of
@@ -121,11 +122,12 @@ fn match_segment(text: &str, pattern: &str) -> bool {
     let mut star: Option<usize> = None;
     let mut star_ti = 0usize;
 
-    while ti < text.len() {
-        if pi < pattern.len() && (pattern[pi] == '?' || pattern[pi] == text[ti]) {
+    while let Some(&character) = text.get(ti) {
+        let current = pattern.get(pi).copied();
+        if current.is_some_and(|wanted| wanted == '?' || wanted == character) {
             ti += 1;
             pi += 1;
-        } else if pi < pattern.len() && pattern[pi] == '*' {
+        } else if current == Some('*') {
             star = Some(pi);
             star_ti = ti;
             pi += 1;
@@ -138,5 +140,5 @@ fn match_segment(text: &str, pattern: &str) -> bool {
         }
     }
 
-    pattern[pi..].iter().all(|c| *c == '*')
+    pattern.iter().skip(pi).all(|c| *c == '*')
 }

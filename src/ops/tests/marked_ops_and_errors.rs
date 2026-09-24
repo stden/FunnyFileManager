@@ -1,5 +1,4 @@
 //! Unit tests: marked ops and errors (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use crate::models::EntryKind;
 use crate::models::FileName;
@@ -10,19 +9,13 @@ use super::support::*;
 use crate::ops::*;
 use crate::popup::process_popup_input;
 
-#[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
-
 use crate::models::{App, Overlay, Panel, PanelSide};
-
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
 
 use crossterm::event::KeyCode;
 
-use std::fs::{self};
+use std::fs;
 
-use std::io::{self, Write};
+use std::io;
 
 use tempfile::TempDir;
 
@@ -101,9 +94,8 @@ fn test_handle_copy_multiple_marked_files() -> io::Result<()> {
 
     assert!(right_dir.join("a.txt").exists());
     assert!(right_dir.join("b.txt").exists());
-    // count > 1 branch in format_operation_status
-    assert!(app.status_text().contains("Copied"));
-    assert!(app.status_text().contains('2'));
+    // More than one entry: counted, not named.
+    assert_eq!(app.status_text(), "Copied 2 item(s)");
 
     Ok(())
 }
@@ -429,7 +421,7 @@ fn test_process_popup_input_drive_selection_unhandled_key() -> io::Result<()> {
 fn select_missing_file(panel: &mut Panel) {
     panel.entries.clear();
     panel.entries.push(crate::models::DirEntry {
-        name: "..".to_string(),
+        name: "..".to_owned(),
         kind: EntryKind::Directory,
         size: FileSize::from_bytes(0),
         modified: Modified::UNKNOWN,
@@ -437,7 +429,7 @@ fn select_missing_file(panel: &mut Panel) {
         ..crate::models::DirEntry::default()
     });
     panel.entries.push(crate::models::DirEntry {
-        name: "missing.txt".to_string(),
+        name: "missing.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(0),
         modified: Modified::UNKNOWN,

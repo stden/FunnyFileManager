@@ -35,6 +35,11 @@ fn dialog_with(candidates: Vec<CleanupCandidate>) -> DiskCleanupDialog {
     dialog
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture: a failed setup fails the calling test; clippy.toml allows that in \
+              #[test] fns and #[cfg(test)] items, not in integration-test helpers"
+)]
 fn app_with(temp: &TempDir, dialog: DiskCleanupDialog) -> App {
     let panel = Panel::new(temp.path().to_path_buf()).expect("panel");
     let mut app = App::with_panels(panel.clone(), panel);
@@ -42,6 +47,11 @@ fn app_with(temp: &TempDir, dialog: DiskCleanupDialog) -> App {
     app
 }
 
+#[expect(
+    clippy::panic,
+    reason = "test assertion: a closed cleanup dialog fails the calling test; clippy.toml allows \
+              that in #[test] fns and #[cfg(test)] items, not in integration-test helpers"
+)]
 fn dialog_of(app: &App) -> &DiskCleanupDialog {
     let Overlay::DiskCleanup(ref dialog) = app.overlay else {
         panic!("the cleanup dialog must still be open");

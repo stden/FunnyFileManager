@@ -104,8 +104,29 @@ Rust's exhaustive `match` is a superpower. Adding a new variant to an enum force
 - `QuickSearch` — `Active` never holds an empty query
 - `Persistence` — a history that writes to a file, or deliberately nowhere
 - `ConsoleLine`, `DriveEntry`, `SortMode`, `PanelSide`, `VirtualPath`, `Status`
+- `Auth` — a session logs in by password, key file or agent; the password
+  variant carries nothing, because no password is ever stored
+- `ActionScope` — whether an action reaches for the active panel's entries or
+  the program at large, which is what a NetBox panel refuses or lets through
+- `Schedule` — when the task list samples next: `Due`, `At(Instant)`,
+  `Waiting` with the `Request` that asked, `Held`, or `Stopped` once the
+  worker is gone; it replaced what would otherwise be a deadline, an
+  in-flight flag, a held flag and a "worker lost" flag that had to agree
+- `Modal` — the one thing open inside the task list, so a bar, a menu and a
+  kill confirmation can never be open at once
+- The task list's switches — `Arrangement` (flat or tree), `CommandView`,
+  `KernelThreads` (hidden by default), `UserScope` — and `Sort`, a `SortKey`
+  with a `SortOrder` relative to the key's natural `SortDirection`, where a
+  pair of flags would let "descending" mean opposite things for CPU and PID
 
 **Newtypes (a named unit instead of a bare primitive):**
+
+- `SessionName`, `HostName`, `Port`, `UserName`, `KeyFile`, `RemotePath` —
+  one checking constructor each, which `serde` also goes through, so a value
+  from the dialog, `sessions.json` or an imported `.netbox` file is refused
+  by the same rule; the refusal (`InvalidField`) names the field and the
+  reason, never the value
+- `RowCursor` — a list cursor that every move clamps to its list
 
 - `BookmarkSlot` (0..=9) and `Bookmarks` (one entry per slot, so indexing is
   total and needs no bounds check)
@@ -120,9 +141,22 @@ Rust's exhaustive `match` is a superpower. Adding a new variant to an enum force
 - `DurableLine` — a command line proven safe to persist
 - `FailedEntry` — a failure's path and reason, kept apart
 - `FileFormat` — the EOL style and final newline a file is written back with
+- `Pid` — 1..=`i32::MAX`, so `kill(0)`, `kill(-1)` and a group kill cannot
+  be written; `ProcessKey` — a `Pid` plus its `Start` (`Known(StartTime)` or
+  `Unknown`), so a PID reused by a newcomer is a different process to the
+  cursor, the marks and a kill
+- `Percent` (hundredths, `ratio` rounds half up and never divides by zero),
+  `MemoryBytes` (checked KiB and page conversions) and `Load` — the process
+  viewer's units, all integer because release builds do not check overflow
+- `Niceness` (−20..=19, stepped by a `NiceStep`) and `SettableClass` — a
+  Windows priority class that cannot be Realtime, beside the `PriorityClass`
+  that reports one
+- `MenuCursor` (always less than its menu's length) and `PidQuery` (ASCII
+  digits, at most ten, never above `i32::MAX` as a `Pid`)
 
 **Constructor gates ("parse, don't validate"):** `ShellCommand::new`,
-`DurableLine::classify`, `Menu::new`, `BookmarkSlot::new` — each returns
+`DurableLine::classify`, `Menu::new`, `BookmarkSlot::new`, `Pid::new`,
+`Niceness::try_from` — each returns
 `Option`/`Result` and is the only way in, so the invalid state has no
 representation for a later `if` to check for.
 

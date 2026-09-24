@@ -71,15 +71,23 @@ fn count_entries(root: &Path) -> u64 {
     count
 }
 
-fn write_files(path: &Path, count: usize) -> u64 {
+#[expect(
+    clippy::expect_used,
+    reason = "criterion gives a bench no error channel: a fixture it cannot seed must abort the run"
+)]
+fn write_files(path: &Path, count: u64) -> u64 {
     for index in 0..count {
         fs::write(path.join(format!("file_{index:04}.bin")), [b'x'; 128])
             .expect("seed benchmark file");
     }
-    count as u64
+    count
 }
 
-fn seed_balanced_level(path: &Path, depth: usize, fanout: usize, files: usize) -> u64 {
+#[expect(
+    clippy::expect_used,
+    reason = "criterion gives a bench no error channel: a fixture it cannot seed must abort the run"
+)]
+fn seed_balanced_level(path: &Path, depth: usize, fanout: usize, files: u64) -> u64 {
     let mut entries = write_files(path, files);
     if depth == 0 {
         return entries;
@@ -93,12 +101,20 @@ fn seed_balanced_level(path: &Path, depth: usize, fanout: usize, files: usize) -
     entries
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "criterion gives a bench no error channel: a fixture it cannot seed must abort the run"
+)]
 fn balanced_fixture() -> TreeFixture {
     let temp = TempDir::new().expect("benchmark temp dir");
     let entries = seed_balanced_level(temp.path(), 4, 4, 8);
     TreeFixture::generated(temp, entries)
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "criterion gives a bench no error channel: a fixture it cannot seed must abort the run"
+)]
 fn wide_fixture() -> TreeFixture {
     let temp = TempDir::new().expect("benchmark temp dir");
     let mut entries = write_files(temp.path(), 2_048);
@@ -110,6 +126,10 @@ fn wide_fixture() -> TreeFixture {
     TreeFixture::generated(temp, entries)
 }
 
+#[expect(
+    clippy::print_stderr,
+    reason = "a bench names its fixtures on stderr, beside criterion's own report"
+)]
 fn fixtures() -> Vec<(String, TreeFixture)> {
     let mut fixtures = vec![
         ("balanced".to_owned(), balanced_fixture()),

@@ -14,7 +14,7 @@
 
 use super::*;
 
-use crate::models::{App, Editor, Overlay};
+use crate::models::Editor;
 use crate::search::{Case, Direction, SearchField, SearchPrompt, WordMatch};
 use crate::stats::{Coverage, DirectoryStats};
 
@@ -93,11 +93,7 @@ fn test_editor_highlights_rust_keywords_types_strings_comments_and_numbers() {
 fn test_editor_highlights_python_decorator_as_meta() {
     let mut app = App::new().unwrap();
 
-    let editor = Editor::from_content(
-        "deco.py".to_string(),
-        PathBuf::from("deco.py"),
-        "@decorator",
-    );
+    let editor = Editor::from_content("deco.py".to_owned(), PathBuf::from("deco.py"), "@decorator");
     app.set_overlay(Overlay::Editor(editor));
 
     let terminal = draw(&mut app, SCREEN_W, SCREEN_H);
@@ -123,8 +119,7 @@ fn test_editor_horizontal_scroll_drops_an_entire_leading_run() {
     // on to the third run instead of drawing an empty span for either.
     let tail = "z".repeat(100);
     let content = format!("let {tail}");
-    let mut editor =
-        Editor::from_content("wide.rs".to_string(), PathBuf::from("wide.rs"), &content);
+    let mut editor = Editor::from_content("wide.rs".to_owned(), PathBuf::from("wide.rs"), &content);
     editor.move_end();
     assert_eq!(
         editor.cursor_col,
@@ -268,7 +263,7 @@ fn test_information_overlay_marks_totals_with_unread_folders_as_lower_bounds() {
 }
 
 fn unscrolled_rust_editor(content: &str) -> Editor {
-    let editor = Editor::from_content("tokens.rs".to_string(), PathBuf::from("tokens.rs"), content);
+    let editor = Editor::from_content("tokens.rs".to_owned(), PathBuf::from("tokens.rs"), content);
     assert_eq!(
         (editor.cursor_line, editor.cursor_col),
         (0, 0),
@@ -279,12 +274,12 @@ fn unscrolled_rust_editor(content: &str) -> Editor {
 
 fn editor_with_search_prompt() -> Editor {
     let mut editor = Editor::from_content(
-        "notes.txt".to_string(),
+        "notes.txt".to_owned(),
         PathBuf::from("notes.txt"),
         "one\ntwo\n",
     );
     editor.search.prompt = Some(SearchPrompt {
-        query: "zzzneedle".to_string(),
+        query: "zzzneedle".to_owned(),
         case: Case::Ignore,
         words: WordMatch::Anywhere,
         direction: Direction::Forward,

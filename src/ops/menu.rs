@@ -41,10 +41,26 @@ pub fn activate(app: &mut App, entry: crate::menu::Entry) {
         // A leftover F-key from an earlier row must not run after this
         // command has already opened its own dialog (Alt+F7 vs F7).
         app.pending_key = None;
+        if acts_on_hidden_entries(app, command) {
+            app.set_status(Status::CommandOutput(HIDDEN_ENTRIES.to_owned()));
+            return;
+        }
         execute(app, command);
     } else {
         app.pending_key = entry.key();
     }
+}
+
+/// What a menu row that would act on the files under a `NetBox` panel says.
+const HIDDEN_ENTRIES: &str =
+    "NetBox: this command works on files; press Enter on `..` to return to them";
+
+/// Whether `command` would act on the entries of a file list that a `NetBox`
+/// panel hides. A keyed row is refused by the panel itself, since its key
+/// comes back through the dispatcher; a row run here must be asked the same.
+fn acts_on_hidden_entries(app: &App, command: MenuCommand) -> bool {
+    app.get_active_panel_ref().kind.is_netbox()
+        && crate::action::menu_scope(command) == crate::action::ActionScope::Entries
 }
 
 pub fn execute(app: &mut App, command: MenuCommand) {
@@ -77,13 +93,13 @@ fn execute_result(app: &mut App, command: MenuCommand) -> io::Result<()> {
         MenuCommand::Shortcuts => shortcuts(app),
         MenuCommand::Settings(page) => settings::open(app, page),
         MenuCommand::SaveSetup => settings::save(app)?,
+        MenuCommand::Tasks => super::tasks::open(app)?,
         MenuCommand::Filter
         | MenuCommand::LongNames
         | MenuCommand::TogglePanel(_)
         | MenuCommand::FolderHistory
         | MenuCommand::ViewHistory
         | MenuCommand::Screens
-        | MenuCommand::Tasks
         | MenuCommand::Devices
         | MenuCommand::VideoMode => workflows::execute(app, command)?,
         MenuCommand::Archive => crate::ops::archive::open_add(app),
@@ -106,7 +122,11 @@ fn execute_tools(app: &mut App, command: MenuCommand) -> io::Result<()> {
             Ok(())
         }
         MenuCommand::LanguageServers => {
-            super::lsp_status::open(app);
+            super::lsp_editor::open(app);
+            Ok(())
+        }
+        MenuCommand::McpInstall => {
+            super::mcp_install::open(app);
             Ok(())
         }
         MenuCommand::UserMenu | MenuCommand::Associations => user::edit(app, command),
@@ -205,3 +225,5 @@ fn choices(app: &mut App, title: &str, rows: Vec<MenuChoice>) {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_netbox;

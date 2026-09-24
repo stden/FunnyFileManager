@@ -59,13 +59,13 @@ fn hide_process_identity() {
 fn fixture_dialog(state: &std::ffi::OsStr) -> Result<WslDialog, Box<dyn std::error::Error>> {
     let names = ["Ubuntu-24.04", "Debian", "Alpine"]
         .into_iter()
-        .map(|name| DistributionName::new(name).expect("fixture distribution"))
-        .collect();
+        .map(|name| DistributionName::new(name).ok_or("invalid fixture distribution"))
+        .collect::<Result<_, _>>()?;
     let mut dialog = WslDialog::new(names);
     dialog.move_down();
     let selected = dialog
         .selected_distribution()
-        .expect("selected fixture")
+        .ok_or("no fixture distribution is selected")?
         .clone();
     dialog.activity = match state.to_str() {
         Some("ready") => WslActivity::Ready,

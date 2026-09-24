@@ -33,7 +33,13 @@ fn launch_receives_literal_path_and_panel_working_directory() {
         },
     )
     .expect("terminal restored");
-    assert!(app.status_text().contains("deliberate launch failure"));
+    assert_eq!(
+        app.status,
+        Status::CannotRun {
+            program: root.path().join("my program.exe"),
+            error: "deliberate launch failure".to_owned(),
+        }
+    );
     terminal.draw(|_| {}).expect("terminal remains usable");
 }
 
@@ -143,6 +149,13 @@ fn a_program_started_with_enter_is_recorded_in_the_transcript() {
             format!("{}: {}", program.display(), ExitStatus::default()),
         ]
     );
+    assert_eq!(
+        app.status,
+        Status::ProgramExited {
+            program,
+            status: ExitStatus::default(),
+        }
+    );
 }
 
 /// Remembers every pause prompt; otherwise does nothing.
@@ -151,7 +164,7 @@ struct PauseOps {
     prompts: Vec<String>,
 }
 
-impl crate::terminal::TerminalOps<WritableTestBackend> for PauseOps {
+impl TerminalOps<WritableTestBackend> for PauseOps {
     fn enable_raw(&mut self) -> io::Result<()> {
         Ok(())
     }
@@ -191,7 +204,7 @@ impl crate::terminal::TerminalOps<WritableTestBackend> for PauseOps {
 #[test]
 fn the_panels_come_back_only_after_a_key_once_the_program_has_run() {
     let (_root, mut app, mut terminal) = fixture();
-    app.program_pause = crate::models::ProgramPause::UntilKey;
+    app.live.program_pause = ProgramPause::UntilKey;
     let mut ops = PauseOps::default();
     launch_with(&mut terminal, &mut app, &mut ops, |_, _| {
         Ok(ExitStatus::default())
@@ -229,7 +242,7 @@ fn a_launch_failure_returns_to_the_panels_at_once() {
 #[test]
 fn without_a_pause_the_panels_return_as_soon_as_the_program_ends() {
     let (_root, mut app, mut terminal) = fixture();
-    assert_eq!(app.program_pause, crate::models::ProgramPause::None);
+    assert_eq!(app.live.program_pause, ProgramPause::None);
     let mut ops = PauseOps::default();
     launch_with(&mut terminal, &mut app, &mut ops, |_, _| {
         Ok(ExitStatus::default())

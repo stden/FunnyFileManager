@@ -33,6 +33,7 @@ pub enum MenuCommand {
     Screens,
     Tasks,
     Devices,
+    McpInstall,
     Settings(SettingsPage),
     SaveSetup,
 }

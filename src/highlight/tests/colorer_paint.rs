@@ -102,7 +102,7 @@ fn paint_handles_an_empty_line() {
 #[cfg(feature = "colorer")]
 #[test]
 fn colorer_regions_and_paint_are_unreachable_without_a_native_library() {
-    // This documents a no-native-library build. Once `./ffm.sh colorer` has
+    // This documents a no-native-library build. Once `./ffm.py colorer` has
     // installed one, `Colorer::shared()` legitimately returns `Some`, and the
     // scenario this test names no longer applies — so it steps aside, the
     // same way the sibling tests in `highlight/colorer/tests.rs` do.

@@ -2,7 +2,19 @@
 
 # Change drive parity and NetBox connections: design
 
-_2026-09-22. Status: open plan. The drive dialog already draws Far's table. Stored NetBox connections are not in the tree yet. This file is the plan, not a description of current behavior._
+_2026-09-22. Status: open plan; wave 0 is in the tree (2026-09-23). This file is the plan, not a description of current behavior — that is `docs/knowledge-base/07-core-features/netbox-sessions.md`._
+
+_What landed with wave 0, and how it differs from the plan below: the session
+store, the sessions panel with F3/F4/Shift+F4/F5/F8, the session dialog, the
+F11 Plugin commands list, the Change drive `NetBox` and `Process list` rows,
+`:sessions` and the `.netbox` importer; the `RemoteFs` seam with an in-memory
+fake and the remote panel's browsing. Decided against the plan: no password is
+ever stored — not in `sessions.json`, not from an import (saved passwords are
+counted and left out); `Auth` is `Password` (asked at connect) / `KeyFile` /
+`Agent`, and `Secret` is gone with the password field. Left for later waves
+and removed from the tree rather than kept as stubs: the SFTP transport and
+the `netbox` feature (russh, russh-sftp), the Far-profile importer (rusqlite),
+the `pwd.json` and KeePass importers, and the Change drive legend keys._
 
 ## 1. What the user asked for
 

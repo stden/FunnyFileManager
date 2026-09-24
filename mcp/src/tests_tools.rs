@@ -28,8 +28,7 @@ fn tool_json(result: &CallToolResult) -> serde_json::Value {
 /// `line 1` through `line {last}`, one per line, newline-terminated.
 fn numbered_lines(last: u32) -> String {
     (1..=last).fold(String::new(), |mut body, n| {
-        // Writing into a `String` cannot fail.
-        let _ = writeln!(body, "line {n}");
+        writeln!(body, "line {n}").expect("writing into a `String` cannot fail");
         body
     })
 }

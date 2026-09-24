@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use crate::lineedit::LineEditor;
 
-use super::{App, Editor, Overlay, Viewer, Viewport};
+use super::{App, Editor, Overlay, TaskList, Viewer, Viewport};
 
 impl App {
     // === Overlay helpers (new enum-based API) ===
@@ -48,6 +48,15 @@ impl App {
     pub const fn get_editor(&self) -> Option<&Editor> {
         if let Overlay::Editor(e) = &self.overlay {
             Some(e)
+        } else {
+            None
+        }
+    }
+
+    /// The task list, when it is what is open.
+    pub fn task_list_mut(&mut self) -> Option<&mut TaskList> {
+        if let Overlay::Tasks(list) = &mut self.overlay {
+            Some(list)
         } else {
             None
         }
@@ -158,17 +167,23 @@ impl App {
         self.dialog_mouse.reset();
     }
 
-    /// Record the terminal's height, and keep an open viewer within it.
+    /// Record the terminal's height, and keep an open viewer or task list
+    /// within it.
     ///
     /// The viewer's scroll limit moves with the height: a terminal that grows
     /// taller after End would otherwise leave the old top row in place with
     /// blank rows under the last line, and the next Down would jump the view
     /// *up* to the new limit. Far re-anchors on resize; so does this, here, so
-    /// no caller can record a height without the clamp that goes with it.
+    /// no caller can record a height without the clamp that goes with it. The
+    /// task list's page shrinks with the terminal too, and its cursor must
+    /// stay on screen.
     pub fn set_viewport(&mut self, viewport: Viewport) {
         self.viewport = viewport;
-        if let Overlay::Viewer(viewer) = &mut self.overlay {
-            viewer.clamp(Viewer::page_for(viewport));
+        match &mut self.overlay {
+            Overlay::Viewer(viewer) => viewer.clamp(Viewer::page_for(viewport)),
+            Overlay::Tasks(list) => list.clamp_to(viewport),
+            // Every other overlay is laid out afresh on each frame.
+            _ => {}
         }
     }
 }

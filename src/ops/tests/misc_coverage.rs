@@ -1,7 +1,6 @@
 //! Unit tests: misc coverage (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
-use crate::ops::file::{get_source_paths, rename_or_fail, RENAME_TEST_MUTEX};
+use crate::ops::file::{rename_or_fail, RENAME_TEST_MUTEX};
 
 use crate::ops::shell::{run_shell_command, windows_shell_args};
 
@@ -9,19 +8,13 @@ use super::support::*;
 use crate::ops::*;
 use crate::popup::process_popup_input;
 
-#[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
-
 use crate::models::{App, Overlay, Panel};
-
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
 
 use crossterm::event::KeyCode;
 
 use std::fs::{self, File};
 
-use std::io::{self, Write};
+use std::io;
 
 use tempfile::TempDir;
 

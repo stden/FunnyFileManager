@@ -18,6 +18,10 @@ use tempfile::TempDir;
 /// build a key per entry and cache it, `Size` compares numbers and falls back
 /// to the name. If one of them is much worse than the others on a large
 /// directory, this is where it shows.
+#[expect(
+    clippy::expect_used,
+    reason = "criterion has no error channel: a failed fixture or measured call must stop the run"
+)]
 pub fn bench_sort_modes(c: &mut Criterion) {
     // Ten thousand real files: enough for the ordering to dominate, few enough
     // that creating them once does not dominate the benchmark's own runtime.

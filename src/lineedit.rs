@@ -84,13 +84,22 @@ impl LineEditor {
     /// The text before the caret — the part completion treats as typed.
     #[must_use]
     pub fn before_cursor(&self) -> &str {
-        &self.text[..self.cursor]
+        self.halves().0
     }
 
     /// The text from the caret onwards, preserved across a completion.
     #[must_use]
     pub fn after_cursor(&self) -> &str {
-        &self.text[self.cursor..]
+        self.halves().1
+    }
+
+    /// The text split at the caret. The caret always sits on a `char` boundary
+    /// within the text (see the struct), so the fallback — everything before
+    /// the caret, nothing after it — is never taken.
+    fn halves(&self) -> (&str, &str) {
+        self.text
+            .split_at_checked(self.cursor)
+            .unwrap_or((&self.text, ""))
     }
 
     /// Replace the whole line, caret to the end (history recall, ghost accept,
@@ -217,10 +226,14 @@ impl LineEditor {
     /// leaves the previous kill intact — `Ctrl+K` at the end of the line must
     /// not silently erase what `Ctrl+W` just captured.
     fn kill_range(&mut self, start: usize, end: usize) {
-        if start >= end {
+        let Some(killed) = self
+            .text
+            .get(start..end)
+            .filter(|killed| !killed.is_empty())
+        else {
             return;
-        }
-        self.kill = self.text[start..end].to_owned();
+        };
+        self.kill = killed.to_owned();
         self.text.replace_range(start..end, "");
     }
 
@@ -228,7 +241,7 @@ impl LineEditor {
 
     /// Byte index of the character before the caret, or the caret at the start.
     fn prev_boundary(&self) -> usize {
-        self.text[..self.cursor]
+        self.before_cursor()
             .chars()
             .next_back()
             .map_or(self.cursor, |ch| self.cursor - ch.len_utf8())
@@ -236,7 +249,7 @@ impl LineEditor {
 
     /// Byte index past the character under the caret, or the caret at the end.
     fn next_boundary(&self) -> usize {
-        self.text[self.cursor..]
+        self.after_cursor()
             .chars()
             .next()
             .map_or(self.cursor, |ch| self.cursor + ch.len_utf8())
@@ -248,8 +261,7 @@ impl LineEditor {
     /// thing bash's `unix-word-rubout` does, and the reason `Ctrl+W` is useful
     /// on a path in the first place.
     fn word_start(&self) -> usize {
-        let head = &self.text[..self.cursor];
-        let trimmed = head.trim_end();
+        let trimmed = self.before_cursor().trim_end();
         match trimmed.rfind(char::is_whitespace) {
             // `rfind` gives the byte index of the separator's first byte; the
             // word starts after that whole character.
@@ -261,9 +273,9 @@ impl LineEditor {
     /// End of the word after the caret: skip whitespace forwards, then the run
     /// of non-whitespace.
     fn word_end(&self) -> usize {
-        let tail = &self.text[self.cursor..];
-        let skipped = tail.len() - tail.trim_start().len();
-        let rest = &tail[skipped..];
+        let tail = self.after_cursor();
+        let rest = tail.trim_start();
+        let skipped = tail.len() - rest.len();
         let word = rest.find(char::is_whitespace).unwrap_or(rest.len());
         self.cursor + skipped + word
     }
@@ -275,7 +287,9 @@ impl LineEditor {
 /// `char::is_whitespace` — so advancing past a separator by `+ 1` would land
 /// mid-character and panic the next slice.
 fn whitespace_len_at(text: &str, index: usize) -> usize {
-    text[index..].chars().next().map_or(1, char::len_utf8)
+    text.get(index..)
+        .and_then(|rest| rest.chars().next())
+        .map_or(1, char::len_utf8)
 }
 
 impl From<&str> for LineEditor {

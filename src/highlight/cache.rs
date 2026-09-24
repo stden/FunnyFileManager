@@ -46,10 +46,13 @@ impl HighlightCache {
         else {
             return vec![(line, Token::Normal)];
         };
+        // Spans are byte ranges of the line they were computed from; a line
+        // they do not fit is drawn plain rather than cut mid-character.
         spans
             .iter()
-            .map(|&(start, end, token)| (&line[start..end], token))
-            .collect()
+            .map(|&(start, end, token)| line.get(start..end).map(|text| (text, token)))
+            .collect::<Option<_>>()
+            .unwrap_or_else(|| vec![(line, Token::Normal)])
     }
 }
 
@@ -58,8 +61,10 @@ impl Document {
         if !self.engine.is_active() {
             return;
         }
-        while self.spans.len() < end.min(self.source.len()) {
-            let line = &self.source[self.spans.len()];
+        while self.spans.len() < end {
+            let Some(line) = self.source.get(self.spans.len()) else {
+                break;
+            };
             let mut start = 0;
             let spans = self
                 .engine

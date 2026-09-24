@@ -292,7 +292,7 @@ fn read_step(
     }
 }
 
-fn assert_pasted_buffer(buffer: &ratatui::buffer::Buffer) {
+fn assert_pasted_buffer(buffer: &Buffer) {
     assert_highlighted_buffer(buffer);
     assert_eq!(buffer[(13, 1)].symbol(), "界");
 }
@@ -308,7 +308,7 @@ fn assert_highlighted_buffer(buffer: &Buffer) {
     assert_eq!(buffer[(10, 1)].fg, ENV_VALUE);
 }
 
-fn assert_failed_paste_header(buffer: &ratatui::buffer::Buffer) {
+fn assert_failed_paste_header(buffer: &Buffer) {
     assert_selection(buffer);
     let header = row(buffer, 0);
     assert!(header.contains("Paste failed"));

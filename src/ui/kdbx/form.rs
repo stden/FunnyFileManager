@@ -2,7 +2,7 @@ use super::super::dialog;
 use crate::kdbx::{EditField, EntryForm, FormMode};
 use ratatui::Frame;
 
-pub(super) fn render(f: &mut Frame, path: &str, form: &EntryForm) {
+pub(super) fn render(f: &mut Frame<'_>, path: &str, form: &EntryForm) {
     let password = form.password_visible().to_owned();
     let mut rows = fields(form, &password);
     append_help(&mut rows, form);

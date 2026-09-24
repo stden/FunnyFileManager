@@ -51,18 +51,20 @@ See `docs/knowledge-base/03-rust-best-practices/type-system.md` for details and 
 - `src/ui.rs`: TUI rendering with ratatui.
 - `src/popup.rs`: Modal input handling; depends directly on canonical operations.
 - `src/ops/`: Canonical command, file, directory navigation, editor save, shell, viewer, and MCP-status operations.
-- `src/handlers/mod.rs`: Backward-compatible re-exports; no operation implementation.
+- `src/handlers.rs`: Backward-compatible re-exports; no operation implementation.
 - `src/terminal.rs`: RAII lifecycle for the TUI session and external-editor suspension.
 - `src/utils.rs`: Utility functions (`format_size`, `unique_destination`, `copy_dir_all`).
-- `src/platform.rs`: Safe wrappers for OS calls std lacks (uids, write access, process-group kill, Windows drives and attributes).
+- `src/platform.rs`: Safe wrappers for OS calls std lacks (uids, write access, process-group kill, process signals and renice, pidfds, page size and clock rate, Windows drives and attributes).
 - `src/editor.rs`: Built-in F4 editor opening and external Alt+F4 integration.
 - `src/s3.rs`: AWS S3 integration.
+- `src/sessions.rs`: NetBox stored sessions (`sessions.json`) and the `.netbox` importer under `src/sessions/import/`.
+- `src/remote.rs`: The `RemoteFs` seam a stored session's remote panel is written against; no network transport in this build.
 - `src/keepass.rs`: Optional KeePass backend (`--features keepass`).
 - `mcp/`: Standalone `ffm-mcp` crate; exposes root-confined file and S3 tools over MCP stdio.
 - `src/<owner>/tests.rs` or `src/<owner>/tests/`: Private unit tests, included only under `cfg(test)`.
 - `src/test_support/`: Explicit test adapters, fixtures and coverage probes.
 - `tests/`: Public integration, mutation, coverage, and hotkey tests.
-- `coverage/` and `tarpaulin-report.html`: Stored coverage artifacts (update only when intentionally refreshing coverage).
+- `coverage/`: Stored coverage artifacts (update only when intentionally refreshing coverage).
 - `target/`: Cargo build output (ignored by git).
 
 If you add major features, prefer extracting modules under `src/` and keeping `main.rs` focused on wiring and startup.
@@ -138,7 +140,7 @@ flowchart LR
 
 - `src/ops/` is the sole implementation owner for command dispatch, file
   operations, shell execution, viewing, and MCP-status operations.
-- `src/handlers/mod.rs` only re-exports stable paths. Do not add implementations
+- `src/handlers.rs` only re-exports stable paths. Do not add implementations
   there, and do not make `popup` depend on `handlers`.
 - `action` performs no filesystem or terminal I/O. `ui` renders state but does
   not execute operations. `terminal` and `bootstrap` own host-terminal effects.
@@ -184,13 +186,24 @@ Full module-level detail remains in
 - `cargo test -- --ignored`: Run tests marked `#[ignore]` (used for manual/interactive cases).
 - `cargo fmt`: Format code with `rustfmt`.
 - `cargo clippy -- -D warnings`: Lint and fail on warnings.
-- `./ffm.sh lint`: Run the shared local/CI format and Clippy gate: root default,
-  all features, and no-default-features with test-helpers, plus MCP and Colorer;
-  Clippy checks all targets.
-- `./ffm.sh lint self-test`: Verify readability rejection, acceptance, and
-  equivalent behavior with compiler fixtures; requires Python.
+- `./ffm.py lint`: Run the shared local/CI format, spelling and Clippy gate:
+  `typos` over every text file (project words in `typos.toml`), then Clippy for
+  root default, all features, and no-default-features with test-helpers, plus
+  MCP and Colorer; Clippy checks all targets. Needs `cargo install typos-cli`.
+- `./ffm.py lint spelling`: Run only the spell check.
+- `./ffm.py lint self-test`: Prove the spell check rejects a misspelling, run
+  the developer scripts' unit tests (`scripts/tests`), then verify readability
+  rejection, acceptance, and equivalent behavior with compiler fixtures;
+  requires Python.
+- `./ffm.py coverage`: CI's line-coverage gate, the root suite under
+  `cargo llvm-cov nextest`, failing under 98% of the measured lines. The
+  features, exclusions and floor live only in `scripts/coverage.py`. Needs
+  `cargo-llvm-cov`, `cargo-nextest` and `rustup component add llvm-tools`.
 
-Optional coverage (tooling may be platform-dependent): `cargo tarpaulin --out Html --output-dir coverage`.
+`rust-toolchain.toml` pins the exact Rust release CI uses; bump it on purpose,
+in its own commit. CI's jobs, their pinned tools and actions, and the per-run
+`cargo-lock` artifact are described in
+`docs/knowledge-base/04-development-workflow/build-run-test.md`.
 
 ## Rust Best Practices (Strongly Enforced)
 
@@ -200,12 +213,12 @@ Rules that must be followed when writing or reviewing code. This project is inte
 
 ### Core Mandatory Rules
 
-- Use `?` for error propagation. Never use `unwrap()` in library code (except tests/main).
+- Use `?` for error propagation. Never use `unwrap()` or `expect()` outside tests; Clippy's `unwrap_used` and `expect_used` enforce it.
 - Prefer `&str` / `&Path` over owned types in function signatures when possible.
 - **Strongly prefer enums for state** instead of multiple `bool`/`Option` fields (see the `Overlay` enum).
 - Use **newtypes** instead of raw primitives for domain concepts (`BookmarkSlot`, `FileSize`, IDs, etc.).
 - "Make illegal states unrepresentable" using the type system whenever feasible.
-- Follow all enforced Clippy rules and run the shared gate (`./ffm.sh lint`).
+- Follow all enforced Clippy rules and run the shared gate (`./ffm.py lint`).
 - Enforce the shared `clippy.toml` complexity limits: at most 30 lines per
   function as counted by Clippy, nesting depth 4, and cognitive-complexity
   score 25. Nesting includes surrounding blocks such as `impl`; the score is
@@ -265,8 +278,8 @@ Rules that must be followed when writing or reviewing code. This project is inte
 ### Modules and File Layout
 
 **A module is a file; the directory next to it holds that module's children.**
-This is the Rust 2018 form, and it is what you will see almost everywhere
-here — 201 modules use it against 11 `mod.rs` files:
+This is the Rust 2018 form, and Clippy's `mod_module_files` makes it the only
+one here:
 
 ```
 src/action/
@@ -283,25 +296,22 @@ If you came looking for `src/action/editor/` and found only tests, the code is
 the **sibling file**, `src/action/editor.rs`. A directory holding nothing but
 `tests.rs` is normal and not a missing implementation.
 
-- **Do not add new `mod.rs` files.** The older `foo/mod.rs` form puts the code
+- **No `mod.rs` files.** The older `foo/mod.rs` form puts the code
   inside the directory, which reads more naturally in a file tree but leaves
   an editor showing ten tabs all called `mod.rs` with nothing to tell them
   apart. Naming the file after the module is why the 2018 form exists.
-- The eleven existing `mod.rs` files (`ops/`, `application/`, `handlers/`,
-  `test_support/`, and test aggregators under them) are deliberate: each is a
-  façade whose whole job is re-exporting a subsystem, so "the directory" *is*
-  the unit. Leave them.
+  Clippy's `mod_module_files` rejects every `mod.rs`, including the façades
+  (`ops/`, `application/`, `handlers/`, `test_support/`, and test aggregators
+  under them) that predate the lint: each becomes `<name>.rs` beside its
+  directory.
 - **Moving some module files breaks the architecture test.**
   `tests/module_boundaries_test.rs` names exact paths: `src/bootstrap.rs`,
   `src/editor.rs`, `src/lib.rs`, the canonical owners under `src/ops/`, the
   removed `src/handlers/*` files and the MCP modules. A moved file fails with
   `<path> is not in the source set` or a wrong-owner message. Renaming one of
   them is therefore a two-file change: the file and that test.
-- Either form is otherwise a pure file-placement choice: `git mv foo.rs
-  foo/mod.rs` changes no module path, no `use`, no public API. Because nothing
-  observable changes, converting one module in isolation buys nothing and
-  costs an exception the next reader trips over. Convert the whole tree or
-  none of it.
+- Converting a `mod.rs` is a pure file move: `git mv foo/mod.rs foo.rs`
+  changes no module path, no `use`, no public API.
 - Target ≤ 300 lines per file; the guard test in
   `tests/file_line_limit_test.rs` enforces the hard cap. Split by
   responsibility into `<module>/<part>.rs` child modules, never by line count.
@@ -386,9 +396,16 @@ the **sibling file**, `src/action/editor.rs`. A directory holding nothing but
 - `cargo clippy --all-targets --features test-helpers -- -D warnings` is
   the gate; `all`, `pedantic` and `nursery` are on, exceptions live only in
   `Cargo.toml [lints.clippy]` with a reason.
-- `#[allow]`/`#[expect]` on an item needs a one-line justification and is
-  reviewed like `unsafe`. `unfulfilled_lint_expectations` is `deny`, so a
-  stale `#[expect]` fails the build.
+- Reliability restriction lints are on in every crate: no `unwrap`/`expect`,
+  `panic!`, indexing, string slicing or `as` casts in production code, no
+  dropped errors, no `print!`/`dbg!`/`{:?}` output, no hash-map iteration.
+  Tests are exempt from the panic family through `clippy.toml`. The families,
+  and how to fix or justify a violation, are in
+  `docs/knowledge-base/04-development-workflow/build-run-test.md` ("Lint Policy").
+- `#[allow]`/`#[expect]` on an item needs `reason = "..."`
+  (`allow_attributes_without_reason`) and is reviewed like `unsafe`.
+  `unfulfilled_lint_expectations` is `deny`, so a stale `#[expect]` fails the
+  build.
 - `rustfmt.toml`: `max_width = 100`, field-init shorthand. `cargo fmt --all`
   before every commit; CI checks it.
 
@@ -406,7 +423,7 @@ what each buys, is in `docs/knowledge-base/03-rust-best-practices/type-system.md
 
 - **Commit and push when a task is done.** Finishing a task means the work is in
   the repository, not sitting in a dirty working tree: run the gate
-  (`cargo test`, `./ffm.sh lint`), commit, and push. Work left uncommitted is
+  (`cargo test`, `./ffm.py lint`), commit, and push. Work left uncommitted is
   invisible to the next session and to anyone else working the same files — and
   this repo is worked from more than one machine, so a local-only change is one
   force-push away from gone.
@@ -443,7 +460,7 @@ what each buys, is in `docs/knowledge-base/03-rust-best-practices/type-system.md
 - Filesystem isolation via `tempfile::TempDir`.
 - **Fault-injection points**: cfg-gated in-memory controls `FORCE_RENAME_FAILURE` (move fallback), `FORCE_COPY_DIR_ALL_STEP` (recursive-copy steps), and `FORCE_REFRESH_ERROR` (panel refresh). They are not environment variables.
 - Logging tests pass explicit paths inside their own temporary directories; do not change process-wide `cwd` to redirect logs.
-- Coverage: `cargo tarpaulin --out Html --output-dir coverage`. Mutation testing: `cargo mutants` (`.cargo/mutants.toml`, read automatically; runs tests with `cargo-nextest`).
+- Coverage: `./ffm.py coverage` (`scripts/coverage.py`, the gate CI runs). Mutation testing: `cargo mutants` (`.cargo/mutants.toml`, read automatically; runs tests with `cargo-nextest`).
 
 ## Dependencies
 

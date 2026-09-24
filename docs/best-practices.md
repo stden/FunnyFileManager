@@ -30,14 +30,15 @@
 - Baseline local validation:
   - `cargo test`
   - `cargo test --features test-helpers`
-  - `./ffm.sh lint`
+  - `./ffm.py lint`
 - Use coverage tooling only when intentionally refreshing coverage artifacts.
 
 ## Complexity and readability
 
 The TUI, MCP, and Colorer crates use the shared root `clippy.toml`, targeting
-Rust 1.95. The lint gate treats warnings as errors and applies the same policy
-to production code and tests:
+Rust 1.95. The lint gate treats warnings as errors and applies the same
+readability limits to production code and tests (the reliability lint families
+are in `docs/knowledge-base/04-development-workflow/build-run-test.md`):
 
 | Rule | Limit | What to improve |
 |---|---|---|
@@ -61,7 +62,7 @@ Do not raise thresholds or introduce accepted-warning baselines. Extract named
 fixtures and assertions for tests, and separate production responsibilities.
 The same 30-line limit applies to exhaustive formatting and dispatch code.
 
-Run `./ffm.sh lint self-test` (or `python scripts/test_readability.py`) to check
+Run `./ffm.py lint self-test` (or `python scripts/test_readability.py`) to check
 the policy with the real compiler. It rejects intentionally complex fixtures, admits their refactored
 equivalents, and compares their behavior. It also verifies shared configuration
 discovery from all three crate directories without invoking Cargo. These

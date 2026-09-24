@@ -120,6 +120,7 @@ fn execute_command_with_console(
         Command::WinPerf => return open_windows_performance_checker(app),
         Command::DiskCleanup => return crate::ops::disk_cleanup::open(app),
         Command::Mcp => return open_mcp_status(app),
+        Command::Sessions(command) => return super::sessions::execute(app, command),
         Command::Shell(shell) => return cmd_shell(app, &shell),
         Command::NewConsole(shell) => return cmd_new_console(app, &shell, spawn_console),
         Command::Invalid { usage, .. } => {
@@ -132,7 +133,7 @@ fn execute_command_with_console(
         Command::UnmarkAll => cmd_unmark_all(app),
         Command::Help => app.set_overlay(Overlay::Help),
         Command::Stats => super::performance::open(app),
-        Command::Lsp => super::lsp_status::open(app),
+        Command::Lsp => super::lsp_editor::open(app),
         Command::Wsl => super::wsl::open_manager(app),
         Command::Quit => app.lifecycle = Lifecycle::Quitting,
     }
@@ -182,10 +183,10 @@ fn cmd_shell(app: &mut App, command: &ShellCommand) -> io::Result<()> {
     // so "run nothing" is not a state this function can be called in.
     let command = command.as_str();
     let panel_path = app.get_active_panel().path.clone();
-    let timeout = std::time::Duration::from_secs(
-        app.settings
-            .number(crate::menu::SettingsPage::PluginManager) as u64,
-    );
+    let seconds = app
+        .settings
+        .number(crate::menu::SettingsPage::PluginManager);
+    let timeout = std::time::Duration::from_secs(u64::try_from(seconds).unwrap_or(u64::MAX));
     match run_shell_command_with_timeout(command, &panel_path, timeout) {
         Ok(output) => record_shell_output(app, command, &output),
         Err(ShellError::Cancelled) => record_cancel(app, command),
@@ -196,7 +197,7 @@ fn cmd_shell(app: &mut App, command: &ShellCommand) -> io::Result<()> {
 
     // The command may have created or removed files; a refresh failure is not
     // the command's failure, so it is deliberately not propagated.
-    let _ = refresh_panels(app);
+    drop(refresh_panels(app));
     Ok(())
 }
 

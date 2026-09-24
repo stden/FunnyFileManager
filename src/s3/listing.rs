@@ -47,7 +47,7 @@ pub(super) fn folder_from_prefix(key: &str, prefix: &str) -> Option<S3Object> {
         return None;
     }
     Some(S3Object {
-        key: name.to_string(),
+        key: name.to_owned(),
         size: FileSize::from_bytes(0),
         kind: EntryKind::Directory,
         last_modified: None,
@@ -68,7 +68,7 @@ pub(super) fn file_from_object(
         return None;
     }
     Some(S3Object {
-        key: name.to_string(),
+        key: name.to_owned(),
         // A negative size is malformed metadata; show it as empty.
         size: FileSize::from_bytes(u64::try_from(object.size().unwrap_or(0)).unwrap_or(0)),
         kind: EntryKind::File,

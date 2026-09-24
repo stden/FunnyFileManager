@@ -7,8 +7,6 @@
 //! ignored child test in a fresh copy of this test binary and checks that the
 //! copy lived to report success.
 
-use std::process::Command;
-
 use super::*;
 use crate::{
     models::Panel,

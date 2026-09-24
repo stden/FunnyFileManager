@@ -58,11 +58,11 @@ pub fn handle_edit<B: Backend + Write>(
 /// program plus arguments.
 fn split_editor_command(env_editor: &str) -> (String, Vec<String>) {
     if std::path::Path::new(env_editor).is_file() {
-        return (env_editor.to_string(), Vec::new());
+        return (env_editor.to_owned(), Vec::new());
     }
     let mut parts = env_editor.split_whitespace();
-    let program = parts.next().unwrap_or(DEFAULT_EDITOR).to_string();
-    (program, parts.map(ToString::to_string).collect())
+    let program = parts.next().unwrap_or(DEFAULT_EDITOR).to_owned();
+    (program, parts.map(str::to_owned).collect())
 }
 
 /// Pick the editor to launch: VS Code when installed, else `$EDITOR`.
@@ -71,9 +71,9 @@ fn resolve_editor() -> (String, Vec<String>) {
     // Code probe there; the $EDITOR path stays shared so it is actually tested.
     #[cfg(not(any(test, coverage)))]
     if command_succeeds_in_background("code", &["--version"]) {
-        return ("code".to_string(), vec!["-w".to_string(), "-n".to_string()]);
+        return ("code".to_owned(), vec!["-w".to_owned(), "-n".to_owned()]);
     }
-    split_editor_command(&std::env::var("EDITOR").unwrap_or_else(|_| DEFAULT_EDITOR.to_string()))
+    split_editor_command(&std::env::var("EDITOR").unwrap_or_else(|_| DEFAULT_EDITOR.to_owned()))
 }
 
 /// Shared body of [`handle_edit`], with terminal and process operations injected.
@@ -132,7 +132,13 @@ fn editor_outcome(
 }
 
 #[cfg(any(test, coverage))]
-#[cfg_attr(coverage, allow(dead_code))]
+#[cfg_attr(
+    coverage,
+    allow(
+        dead_code,
+        reason = "only tests call it; the coverage library build compiles it without them"
+    )
+)]
 pub(crate) fn handle_edit_impl<B, F>(
     terminal: &mut Terminal<B>,
     app: &mut App,
@@ -172,12 +178,12 @@ pub fn handle_edit_test_mode(app: &mut App, behavior: TestEditorBehavior) -> io:
     match behavior {
         TestEditorBehavior::FailLaunch => {
             app.set_status(Status::LaunchEditorFailed {
-                error: "No such file or directory (os error 2)".to_string(),
+                error: "No such file or directory (os error 2)".to_owned(),
             });
         }
         TestEditorBehavior::ExitError => {
             app.set_status(Status::EditorExited {
-                status: "exit status: 1".to_string(),
+                status: "exit status: 1".to_owned(),
             });
         }
         TestEditorBehavior::Success => {

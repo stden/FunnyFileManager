@@ -6,10 +6,14 @@ behavior is tailored to FunnyFileManager rather than reproducing every Far
 Manager dialog.
 
 The Commands menu also provides action timing statistics, installed-package
-updates, and separate user/system PATH editors. Their owners are
-`performance` / `ops/performance`, `packages` / `ops/packages`, and
-`path_env` / `ops/path_env`. See [session tools](../../session-tools.md) for
-keyboard controls, persistence, and platform behavior.
+updates, separate user/system PATH editors, and Install MCP server. Their
+owners are `performance` / `ops/performance`, `packages` / `ops/packages`,
+`path_env` / `ops/path_env`, and `mcp_clients` / `ops/mcp_install`. See
+[session tools](../../session-tools.md) for keyboard controls, persistence,
+and platform behavior. Its **Language servers (LSP)** row opens the Language
+servers dialog (`models/lsp_editor`, `ops/lsp_editor`), which inspects and
+edits the editor's servers; see
+[the editor's language servers](../../editor-lsp.md#configuration).
 
 ## Panels
 
@@ -88,7 +92,8 @@ with their shortcuts. Additional operations are:
 | Panel filter | Filters files by mask; directories remain available for navigation. |
 | Screens | Chooses file panels or console transcript. F9 from the console returns to panels and opens the menu. |
 | Tasks / hotplug devices | Shows host process information or currently mounted drives. |
-| Plugin commands | Opens the existing MCP status interface. |
+| Plugin commands | Far's F11 list: MCP status, NetBox's stored sessions, and the NetBox `.netbox` import (which asks for the file). |
+| Install MCP server | Registers ffm-mcp with Claude Code, Codex, Junie and Kiro, for all projects or the active panel's folder; see [session tools](../../session-tools.md#mcp-server-setup). |
 
 The F9 row and its shortcut call the same `ops/menu` operation. Alt+F7 opens the Find file dialog, whose containing-text field narrows the name search. See [overlays](../../06-ui-and-interaction/overlays-and-modals.md).
 
@@ -110,7 +115,7 @@ validates and applies it. Escape cancels when enabled; F10 always cancels.
 | Plugins configuration | Additional command offered from the user menu |
 | Plugins manager | Shell/plugin command timeout |
 | Dialog / Menu | Escape dismissal / wrapping row navigation |
-| Command line / AutoComplete | History length / completion and suggestions |
+| Command line / AutoComplete | History length / `Command-line completion and suggestions; dialog lists while typing: on/off` |
 | InfoPanel | Folder descriptions in quick view |
 | Groups of masks | Default semicolon-separated selection patterns |
 | Confirmations | Delete confirmation |
@@ -119,13 +124,97 @@ validates and applies it. Escape cancels when enabled; F10 always cancels.
 | Viewer / Editor | Tab display width / editor tab size (TAB display width and spaces inserted by Tab) |
 | Code pages | Encoding for new files |
 | Colors / Highlighting | Panel background / file-type colors |
-| Save setup | Atomically persists settings for future sessions |
+| Save setup | Atomically writes the Options entries under `options` in `settings.yaml` for future sessions |
 
-Settings are stored at `ffm/settings.json` beneath `APPDATA`, `XDG_CONFIG_HOME`,
-or `HOME/.config`, in that order. User-menu and association files live beside
-it. Sessions constructed without a configuration location use `.ffm` under the
-active directory for command files. Settings are only persisted by Save setup.
-Invalid settings loads preserve the existing settings and both panels.
+Invalid settings loads preserve the existing settings and both panels, and
+still remember the file, so Save setup and the Language servers dialog know
+where it is.
+
+### The settings file
+
+Settings are stored in `ffm/settings.yaml` in the configuration directory:
+`%APPDATA%` on Windows; elsewhere `$XDG_CONFIG_HOME` when it is an absolute
+path, otherwise `~/.config`. User-menu and association files live beside it.
+Sessions constructed without a configuration location use `.ffm` under the
+active directory for command files.
+
+The file is one YAML mapping with two owners. Save setup writes the Options
+entries under `options`, one key per entry named after it:
+
+```yaml
+options:
+  Panel: off
+  Editor: '8'
+```
+
+The typed settings (`lsp`, `system`, `panel`, `editor`, …) are top-level keys,
+written at exit, and only when `system.auto_save_setup` is `true`. The entries
+have a key of their own so that none sits beside a typed key that differs from
+it only in case: the built-in editor reads `options.Editor`, not
+`editor.tab_size`. The Language servers dialog (F9 → Commands → Language
+servers) is the one other writer: F2 there writes only the `lsp` fields changed
+in it, and the exit auto-save then leaves `lsp` as F2 wrote it (see
+[what F2 writes](../../editor-lsp.md#what-f2-writes)). Nothing else writes the
+file.
+
+- **What a save writes.** Each writer remembers what it loaded (the Options
+  entries: what they held at the last Save setup). A save writes only what
+  changed since then and keeps every other value as the file holds it: the
+  other writer's keys, keys a newer FFM wrote, and anything edited by hand
+  while FFM runs, including in its own editor. A save with nothing to change
+  leaves the file alone, comments included. The first save to a new file
+  writes all of the writer's settings.
+- **Hand edits.** YAML reads `Editor: 8` and `Panel: on` without quotes. Quote
+  any other value with single quotes (`Masks: '!*.tmp'`,
+  `Plugins: 'make # all'`): YAML changes some plain values without an error.
+  In an Options entry an empty value, `~` and `null` are empty (a typed
+  setting that expects text reports them instead); `#` after a space starts
+  a comment, so `README.md #notes` is `README.md`; `0x10` is `16` and `+32`
+  is `32`.
+  Inside double quotes a backslash starts an escape (`"C:\temp"` holds a TAB),
+  so write Windows paths in single quotes. A value that starts with `!` is a
+  YAML tag, which the file refuses (see below); one that starts with `&` or `*`
+  is an anchor or an alias. A save that writes the file rewrites all of it
+  under a one-line header, so comments are then lost. An empty or
+  comment-only file holds no settings.
+- **A change made both by hand and in FFM** to the same value while FFM runs is
+  not merged: Save setup stops with `Not saved: settings.yaml changed on disk:
+  options.Editor was edited there and in this session`, and the exit auto-save
+  logs the same line and writes nothing. Restart FFM to load the file as it is.
+- **A file that does not parse** is never overwritten. A syntax error, a tab
+  indent, a duplicate key or a YAML tag is reported at startup as `Settings:
+  settings.yaml does not parse: …`, with the line and column of a syntax error
+  and the path of the value otherwise (`options.Masks: !*.tmp is a YAML tag`).
+  A value of the wrong type in an Options entry is reported the same way, and
+  so is an empty value where a typed setting expects text
+  (`command_line.prompt_format: invalid type: unit value, expected a string`).
+  Save setup then stops with `Not saved: settings.yaml does not parse: …` and
+  the exit auto-save writes nothing. A wrong value in a typed setting (`lsp`,
+  `system`, …) makes FFM use the defaults for all typed settings and is only
+  logged (with `FFM_LOG=1`); no save replaces it. Fix or remove the file, and
+  the next save writes it again.
+- **Migration from `settings.json`.** Older releases wrote `settings.json`, with
+  the Options entries beside the typed keys. While there is no `settings.yaml`,
+  FFM reads `settings.json` in its place with the entries moved under
+  `options`, and the first save writes everything it held to `settings.yaml`.
+  FFM never changes or removes `settings.json`; once `settings.yaml` exists, it
+  is ignored. A save that cannot read `settings.json` names it:
+  `Not saved: settings.json is not a regular file`.
+- **Safety.** A save writes a temp file beside the settings and renames it over
+  them, so a crash leaves the previous file whole; the file is readable by its
+  owner only. A save holds a lock on `settings.yaml.lock` beside the file from
+  reading it to the rename, so two FFMs saving at once keep each other's
+  changes; while one saves, the other stops with `Not saved: another FFM is
+  saving settings.yaml`. The empty lock file stays. Other programs take no
+  lock, so a save reads the file again just before it writes, and stops with
+  `Not saved: settings.yaml changed while it was being saved; save again`
+  when an editor or a sync changed it in between. FFM reads the file only
+  when it is a regular file of at most 1 MiB. Every save writes through a
+  symbolic link, so a settings file kept in a dotfiles repository stays a
+  link, and refuses what a rename would damage: a link to a missing file, a
+  file with other hard links, another user's file and one the user cannot
+  write (`Not saved: settings.yaml has other hard links; FFM will not replace
+  it`).
 
 ## Verification
 

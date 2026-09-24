@@ -79,8 +79,8 @@ Feature: End-to-end user workflows
     Then the active panel should have marks
     When I select all files
     Then the active panel should have no marks
-    And I mark "b.txt" in the left panel
-    When I press F5
+    When I mark "b.txt" in the left panel
+    And I press F5
     Then "b.txt" should exist in the destination
     And the status message should contain "Copied"
 

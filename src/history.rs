@@ -140,8 +140,8 @@ impl History {
     /// Rewrite the history file from `self.durable`, owner-only where the OS
     /// supports it. A no-op when `self.path` is `None` (session-only
     /// history — the common case in tests, and the default `App::new()`
-    /// starts with). All failures are swallowed: losing history is
-    /// acceptable, breaking the file manager is not.
+    /// starts with). All failures are swallowed, a failed write only
+    /// logged: losing history is acceptable, breaking the file manager is not.
     fn save(&self) {
         let Some(path) = self.persistence.file() else {
             return;
@@ -156,7 +156,9 @@ impl History {
             text.push_str(line.as_str());
             text.push('\n');
         }
-        let _ = write_owner_only(path, &text);
+        if let Err(error) = write_owner_only(path, &text) {
+            crate::diagnostics::log_error(&format!("saving command history: {error}"));
+        }
     }
 
     /// The most recent entry having `prefix` as a literal prefix and more

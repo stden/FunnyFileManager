@@ -115,13 +115,13 @@ fn save_distinct_group_paths(path: &Path) {
         let mut root = db.root_mut();
         {
             let mut work = root.add_group();
-            work.name = "Work".to_string();
+            work.name = "Work".to_owned();
             let mut ci = work.add_group();
-            ci.name = "CI".to_string();
+            ci.name = "CI".to_owned();
             write_entry_fields(&mut ci.add_entry(), &entry("Deploy", "", "", "", "nested"));
         }
         let mut literal = root.add_group();
-        literal.name = "Work/CI".to_string();
+        literal.name = "Work/CI".to_owned();
         write_entry_fields(
             &mut literal.add_entry(),
             &entry("Deploy", "", "", "", "literal"),

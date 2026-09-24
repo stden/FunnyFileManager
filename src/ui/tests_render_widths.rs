@@ -3,7 +3,6 @@
 //! Everything here renders through the real `ui`/`render_overlays` path — the
 //! bugs these pin were invisible to tests that only asserted "does not panic"
 //! or that used an artificially wide terminal.
-#![allow(unused_imports)]
 
 use super::*;
 use crate::models::CharColumn;
@@ -13,9 +12,8 @@ use crate::models::Modified;
 use crate::models::PanelView;
 use crate::scroll::ScrollTop;
 use crate::status::Status;
-use crate::ui::Cells;
 
-use crate::models::{App, DirEntry, Editor, Overlay, Panel, Viewer};
+use crate::models::{DirEntry, Editor, Panel};
 
 use ratatui::backend::TestBackend;
 
@@ -32,7 +30,7 @@ fn row_text(terminal: &Terminal<TestBackend>, y: u16) -> String {
         .map(|x| buf[(x, y)].symbol())
         .collect::<String>()
         .trim_end()
-        .to_string()
+        .to_owned()
 }
 
 /// Column of the caret on `y`, found by its reversed background.
@@ -70,7 +68,7 @@ fn left_panel_text(terminal: &Terminal<TestBackend>) -> String {
                 .map(|x| buf[(x, y)].symbol())
                 .collect::<String>()
                 .trim_end()
-                .to_string()
+                .to_owned()
         })
         .collect::<Vec<_>>()
         .join("\n")
@@ -171,7 +169,7 @@ fn test_panel_shows_full_size_column_at_80_columns() {
     let (mut app, _temp) = blank_app();
     app.left_panel.entries = vec![
         DirEntry {
-            name: "docs".to_string(),
+            name: "docs".to_owned(),
             kind: EntryKind::Directory,
             size: FileSize::from_bytes(0),
             modified: Modified::UNKNOWN,
@@ -179,7 +177,7 @@ fn test_panel_shows_full_size_column_at_80_columns() {
             ..DirEntry::default()
         },
         DirEntry {
-            name: "image.jpg".to_string(),
+            name: "image.jpg".to_owned(),
             kind: EntryKind::File,
             size: FileSize::from_bytes(1_572_864), // 1.50 MB,
             modified: Modified::UNKNOWN,
@@ -208,7 +206,7 @@ fn test_panel_truncates_long_name_and_keeps_size_visible() {
 
     let (mut app, _temp) = blank_app();
     app.left_panel.entries = vec![DirEntry {
-        name: "очень-длинное-имя-файла-которое-не-помещается.txt".to_string(),
+        name: "очень-длинное-имя-файла-которое-не-помещается.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(4096),
         modified: Modified::UNKNOWN,
@@ -234,7 +232,7 @@ fn test_command_line_keeps_typed_text_visible_on_long_path() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let (mut app, _temp) = blank_app();
-    app.left_panel.path = PathBuf::from("/".to_string() + &vec!["component"; 30].join("/"));
+    app.left_panel.path = PathBuf::from(format!("/{}", vec!["component"; 30].join("/")));
     app.set_overlay(Overlay::CommandLine("ls".into()));
 
     terminal.draw(|f| ui(f, &mut app)).unwrap();
@@ -265,7 +263,7 @@ fn test_panel_keeps_size_visible_beside_a_double_width_name() {
     let (mut app, _temp) = blank_app();
     app.left_panel.entries = vec![DirEntry {
         // 10 chars / 20 cells against a 25-cell name column.
-        name: "文档档案资料备份目录".to_string(),
+        name: "文档档案资料备份目录".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(4096),
         modified: Modified::UNKNOWN,
@@ -292,7 +290,7 @@ fn test_panel_does_not_clip_size_after_a_short_double_width_name() {
 
     let (mut app, _temp) = blank_app();
     app.left_panel.entries = vec![DirEntry {
-        name: "文档.txt".to_string(),
+        name: "文档.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(4096),
         modified: Modified::UNKNOWN,
@@ -314,7 +312,7 @@ fn test_command_line_survives_a_double_width_path() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let (mut app, _temp) = blank_app();
-    app.left_panel.path = PathBuf::from("/".to_string() + &vec!["文档目录"; 30].join("/"));
+    app.left_panel.path = PathBuf::from(format!("/{}", vec!["文档目录"; 30].join("/")));
     app.set_overlay(Overlay::CommandLine("ls".into()));
 
     terminal.draw(|f| ui(f, &mut app)).unwrap();
@@ -340,7 +338,7 @@ fn test_status_message_reaches_the_active_panels_info_row() {
 
     let (mut app, _temp) = blank_app();
     app.left_panel.entries = vec![DirEntry {
-        name: "secret.txt".to_string(),
+        name: "secret.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(4096),
         modified: Modified::UNKNOWN,
@@ -350,7 +348,7 @@ fn test_status_message_reaches_the_active_panels_info_row() {
     app.left_panel.select(Some(0));
     app.set_status(Status::CommandOutput(
         "Copied 0 item(s), 1 error(s): /srv/x/secret.txt: Permission denied (os error 13)"
-            .to_string(),
+            .to_owned(),
     ));
 
     terminal.draw(|f| ui(f, &mut app)).unwrap();
@@ -376,7 +374,7 @@ fn test_only_the_active_panel_gives_its_info_row_to_the_message() {
 
     let (mut app, _temp) = blank_app();
     app.right_panel.entries = vec![DirEntry {
-        name: "untouched.txt".to_string(),
+        name: "untouched.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(1),
         modified: Modified::UNKNOWN,
@@ -384,7 +382,7 @@ fn test_only_the_active_panel_gives_its_info_row_to_the_message() {
         ..DirEntry::default()
     }];
     app.right_panel.select(Some(0));
-    app.set_status(Status::CommandOutput("busy".to_string()));
+    app.set_status(Status::CommandOutput("busy".to_owned()));
 
     terminal.draw(|f| ui(f, &mut app)).unwrap();
 
@@ -405,7 +403,7 @@ fn test_command_line_windows_a_command_longer_than_the_row() {
 
     let (mut app, _temp) = blank_app();
     app.left_panel.path = PathBuf::from("/tmp");
-    let command = "cd ".to_string() + &"a".repeat(117);
+    let command = format!("cd {}", "a".repeat(117));
     app.set_overlay(Overlay::CommandLine(command.as_str().into()));
 
     terminal.draw(|f| ui(f, &mut app)).unwrap();
@@ -435,7 +433,7 @@ fn test_narrow_terminal_still_renders_file_names() {
 
     let (mut app, _temp) = blank_app();
     app.left_panel.entries = vec![DirEntry {
-        name: "notes.md".to_string(),
+        name: "notes.md".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(4096),
         modified: Modified::UNKNOWN,
@@ -461,9 +459,9 @@ fn test_editor_scrolls_past_u16_without_wrapping() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let (mut app, _temp) = blank_app();
-    let content = "x".repeat(70_000) + "MARKER";
+    let content = format!("{}MARKER", "x".repeat(70_000));
     let mut editor =
-        Editor::from_content("bundle.min.js".to_string(), PathBuf::from("b.js"), &content);
+        Editor::from_content("bundle.min.js".to_owned(), PathBuf::from("b.js"), &content);
     editor.move_end();
     app.set_overlay(Overlay::Editor(editor));
 
@@ -488,9 +486,8 @@ fn test_editor_overlay_scrolls_and_places_the_cursor_in_cells() {
 
     let (mut app, _temp) = blank_app();
     // 40 CJK chars = 80 cells, far wider than the ~25-cell editor window.
-    let content = "文".repeat(40) + "标记";
-    let mut editor =
-        Editor::from_content("cjk.txt".to_string(), PathBuf::from("cjk.txt"), &content);
+    let content = format!("{}标记", "文".repeat(40));
+    let mut editor = Editor::from_content("cjk.txt".to_owned(), PathBuf::from("cjk.txt"), &content);
     editor.move_end();
     app.set_overlay(Overlay::Editor(editor));
 
@@ -528,7 +525,7 @@ fn test_viewer_scrolls_past_u16_without_wrapping() {
 
     let (mut app, _temp) = blank_app();
     let mut lines: Vec<String> = (0..70_000).map(|i| format!("line {i}")).collect();
-    lines[69_000] = "MARKER".to_string();
+    lines[69_000] = "MARKER".to_owned();
     app.set_overlay(Overlay::Viewer(Viewer {
         scroll: ScrollTop::TOP.down(69_000, usize::MAX),
         ..Viewer::report("huge.log", lines)
@@ -687,7 +684,7 @@ fn test_panel_layout_sheds_columns_from_the_right_on_a_narrow_panel() {
 #[test]
 fn test_size_field_speaks_fars_vocabulary() {
     let dir = DirEntry {
-        name: "docs".to_string(),
+        name: "docs".to_owned(),
         kind: EntryKind::Directory,
         size: FileSize::from_bytes(0),
         modified: Modified::UNKNOWN,
@@ -697,14 +694,14 @@ fn test_size_field_speaks_fars_vocabulary() {
     assert_eq!(size_field(&dir), "Folder");
 
     let parent = DirEntry {
-        name: "..".to_string(),
+        name: "..".to_owned(),
         ..dir
     };
     assert_eq!(size_field(&parent), "Up");
 
     // A byte count is printed outright while it fits the seven-cell column.
     let file = DirEntry {
-        name: "a.txt".to_string(),
+        name: "a.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(78_743),
         modified: Modified::UNKNOWN,
@@ -736,7 +733,7 @@ fn test_abbreviate_bytes_matches_fars_footer_format() {
 #[test]
 fn test_split_extension_follows_fars_rules() {
     let file = |name: &str| DirEntry {
-        name: name.to_string(),
+        name: name.to_owned(),
         kind: EntryKind::File,
         ..DirEntry::default()
     };
@@ -757,7 +754,7 @@ fn test_split_extension_follows_fars_rules() {
     assert_eq!(split_extension(&file("README")), ("README", ""));
 
     let dir = DirEntry {
-        name: ".cargo".to_string(),
+        name: ".cargo".to_owned(),
         kind: EntryKind::Directory,
         ..DirEntry::default()
     };
@@ -769,7 +766,7 @@ fn test_split_extension_follows_fars_rules() {
 #[test]
 fn test_name_field_right_aligns_the_extension() {
     let entry = DirEntry {
-        name: "a.txt".to_string(),
+        name: "a.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(0),
         modified: Modified::UNKNOWN,
@@ -790,7 +787,7 @@ fn test_name_field_right_aligns_the_extension() {
     // A name longer than its column is cut with Far's marker, and the
     // extension still lands against the right edge.
     let long = DirEntry {
-        name: "очень-длинное-имя.txt".to_string(),
+        name: "очень-длинное-имя.txt".to_owned(),
         ..entry
     };
     let field = name_field(&long, Cells::new(12));
@@ -872,31 +869,93 @@ fn prompt_spans_colours_the_at_between_user_and_host() {
 /// drifts one column right of where `fkey_at` — and so a click — expects it.
 #[test]
 fn test_narrow_key_bar_keeps_every_cell_where_the_hit_test_expects_it() {
-    const WIDTH: u16 = 20;
-    let backend = TestBackend::new(WIDTH, 8);
+    let backend = TestBackend::new(NARROW_KEY_BAR, 8);
     let mut terminal = Terminal::new(backend).unwrap();
     let (mut app, _temp) = blank_app();
 
     terminal.draw(|f| ui(f, &mut app)).unwrap();
 
+    assert_key_bar_agrees_with_the_hit_test(&terminal, &FKEY_LABELS);
+}
+
+/// Twelve labels of a full-screen view's own, as the task list passes them.
+const CUSTOM_KEYS: [(&str, &str); FKEY_COUNT] = [
+    ("1", "Help"),
+    ("2", "Name"),
+    ("3", "Info"),
+    ("4", "Filter"),
+    ("5", "Tree"),
+    ("6", "Sort"),
+    ("7", "Nice"),
+    ("8", "Kill"),
+    ("9", "Signal"),
+    ("10", "Quit"),
+    ("11", "Hold"),
+    ("12", ""),
+];
+
+/// `CUSTOM_KEYS` drawn on the bottom row of a terminal `width` wide.
+fn custom_key_bar(width: u16) -> Terminal<TestBackend> {
+    let mut terminal = Terminal::new(TestBackend::new(width, 3)).unwrap();
+    terminal
+        .draw(|f| {
+            let area = f.area();
+            let bottom = Rect::new(0, area.height - 1, area.width, 1);
+            render_key_bar(f, bottom, &CUSTOM_KEYS);
+        })
+        .unwrap();
+    terminal
+}
+
+/// A full-screen view that passes its own twelve labels gets the same
+/// agreement, narrow or at the classic width: the cells are laid out by the
+/// hit test's arithmetic whatever the labels say.
+#[test]
+fn a_custom_key_bar_keeps_every_cell_where_the_hit_test_expects_it() {
+    for width in [NARROW_KEY_BAR, 80] {
+        assert_key_bar_agrees_with_the_hit_test(&custom_key_bar(width), &CUSTOM_KEYS);
+    }
+}
+
+/// The labels a view passes are the ones on screen. The agreement test above
+/// cannot tell: its key digits are Far's, so a bar that drew `FKEY_LABELS`
+/// whatever it was given would pass it.
+#[test]
+fn a_custom_key_bar_draws_its_own_labels_not_fars() {
+    let terminal = custom_key_bar(80);
+    assert_eq!(
+        row_text(&terminal, 2),
+        "1Help  2Name  3Info  4Filter5Tree  6Sort  7Nice  8Kill  9Sign…10Quit11Hold12"
+    );
+}
+
+/// The narrowest bar the agreement tests draw: the last four keys get one
+/// column each.
+const NARROW_KEY_BAR: u16 = 20;
+
+/// Every key number on the bottom row starts where `fkey_at` says its cell does.
+fn assert_key_bar_agrees_with_the_hit_test(
+    terminal: &Terminal<TestBackend>,
+    labels: &[(&str, &str); FKEY_COUNT],
+) {
     let buf = terminal.backend().buffer();
-    let y = buf.area.height - 1;
+    let (width, y) = (buf.area.width, buf.area.height - 1);
     let mut left = 0u16;
-    let widths = crate::mouse::fkey_widths(WIDTH, FKEY_LABELS.len());
-    for (index, width) in widths.into_iter().enumerate() {
-        let (key, _) = FKEY_LABELS[index];
+    let widths = crate::mouse::fkey_widths(width, labels.len());
+    for (index, cell) in widths.into_iter().enumerate() {
+        let (key, _) = labels[index];
         assert_eq!(
-            buf[(left, y)].symbol(),
-            &key[..1],
+            Some(buf[(left, y)].symbol()),
+            key.get(..1),
             "key {} must start at column {left}, row: {:?}",
             index + 1,
-            row_text(&terminal, y)
+            row_text(terminal, y)
         );
         assert_eq!(
-            crate::mouse::fkey_at(WIDTH, FKEY_LABELS.len(), left),
+            crate::mouse::fkey_at(width, labels.len(), left),
             u8::try_from(index + 1).ok(),
             "and the hit test must agree"
         );
-        left += width;
+        left += cell;
     }
 }

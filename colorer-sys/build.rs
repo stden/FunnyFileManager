@@ -8,12 +8,12 @@
 //!
 //! Looked for in order:
 //!   1. `COLORER_INCLUDE_DIR` + `COLORER_BUILD_DIR` — a build you point at.
-//!   2. `~/.local/share/ffm/Colorer-library` — where `ffm.sh colorer` puts one.
+//!   2. `~/.local/share/ffm/Colorer-library` — where `ffm.py colorer` puts one.
 //!   3. `/usr/local` and `/usr` — a system install.
 //!
 //! Network and `CMake` are deliberately not used here. A build script that clones
 //! a C++ repository turns `cargo build` into something that needs the internet
-//! and can take ten minutes; `ffm.sh colorer` does that once, on purpose.
+//! and can take ten minutes; `ffm.py colorer` does that once, on purpose.
 
 use std::env;
 use std::path::{Path, PathBuf};
@@ -106,7 +106,7 @@ fn main() {
 
     // No native engine is a supported configuration: the Rust crate supplies
     // stubs and the editor falls back to its built-in tokenizer. Installation
-    // remains an explicit `ffm.sh colorer` / `ffm.cmd colorer` step, so a
+    // remains an explicit `ffm.py colorer` / `ffm.cmd colorer` step, so a
     // normal build should not report this expected fallback as a warning.
     let Some(found) = locate() else { return };
 
@@ -146,7 +146,7 @@ fn has_library(name: &str) -> bool {
 }
 
 fn locate_user_install() -> Option<Found> {
-    // Where `ffm.sh colorer` and `ffm.cmd colorer` install it. Windows has no
+    // Where `ffm.py colorer` and `ffm.cmd colorer` install it. Windows has no
     // HOME, so USERPROFILE stands in and both scripts use the same layout.
     if let Some(home) = env::var_os("HOME").or_else(|| env::var_os("USERPROFILE")) {
         let root = PathBuf::from(home).join(".local/share/ffm/Colorer-library");

@@ -26,11 +26,14 @@ pub(super) fn read_frame(input: &mut impl Read) -> io::Result<Option<Value>> {
     input.read_exact(&mut body)?;
     serde_json::from_slice(&body)
         .map(Some)
-        .map_err(|_| invalid("Invalid LSP JSON"))
+        .map_err(crate::lsp::logged("Invalid LSP JSON"))
+        .map_err(invalid)
 }
 
 fn content_length(header: &[u8]) -> io::Result<usize> {
-    let text = std::str::from_utf8(header).map_err(|_| invalid("Invalid LSP header"))?;
+    let text = std::str::from_utf8(header)
+        .map_err(crate::lsp::logged("Invalid LSP header"))
+        .map_err(invalid)?;
     let mut length = None;
     for line in text.split("\r\n").filter(|line| !line.is_empty()) {
         let (name, value) = line
@@ -43,7 +46,8 @@ fn content_length(header: &[u8]) -> io::Result<usize> {
             let value = value
                 .trim()
                 .parse::<usize>()
-                .map_err(|_| invalid("Invalid LSP length"))?;
+                .map_err(crate::lsp::logged("Invalid LSP length"))
+                .map_err(invalid)?;
             if value > MAX_BODY {
                 return Err(invalid("LSP message too large"));
             }

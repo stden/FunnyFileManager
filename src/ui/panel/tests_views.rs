@@ -9,7 +9,7 @@ use std::time::{Duration, UNIX_EPOCH};
 
 use ratatui::{backend::TestBackend, buffer::Buffer, Terminal};
 
-use crate::models::{FileSize, Modified, PanelView};
+use crate::models::{FileSize, Modified};
 
 use super::*;
 

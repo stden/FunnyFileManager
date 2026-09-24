@@ -174,7 +174,7 @@ fn visit_glob_entry(
             "name": entry.file_name().to_string_lossy(),
             "relative_path": relative,
             "type": if is_dir { "dir" } else { "file" },
-            "size": meta.as_ref().map_or(0, std::fs::Metadata::len),
+            "size": meta.as_ref().map_or(0, fs::Metadata::len),
         }));
     }
 

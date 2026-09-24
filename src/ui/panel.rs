@@ -20,6 +20,7 @@ use super::{far_block, fit_quoting_path, head_cells, tail_cells, take_cells, Cel
 use super::{FAR_BLUE, PANEL_BORDERS};
 use super::{PANEL_COLUMN_HEADER, PANEL_COLUMN_RULE, PANEL_INFO_ROW, PANEL_NON_ENTRY_ROWS};
 use crate::models::{divide_rounded, App, DirEntry, Panel, PanelView, ShortNames, SortMode};
+use crate::scroll::visible_window;
 use crate::status::PathMessage;
 
 mod modes;
@@ -39,7 +40,7 @@ const DATE_COLUMN_WIDTH: Cells = Cells(8);
 const TIME_COLUMN_WIDTH: Cells = Cells(5);
 
 /// The rule Far draws between panel columns, and the one cell it costs.
-const COLUMN_SEPARATOR: &str = "\u{2502}";
+pub(super) const COLUMN_SEPARATOR: &str = "\u{2502}";
 const COLUMN_SEPARATOR_WIDTH: Cells = Cells(1);
 
 /// The row that leads out of a directory, which the Size column labels "Up".
@@ -193,11 +194,11 @@ pub(super) fn panel_layout(view: PanelView, interior: Cells) -> PanelLayout {
     let last_name = Cells::new(names - name.get() * (stripes - 1));
 
     let declared = table_columns(view).unwrap_or_default();
-    let taken = (0..=declared.len())
+    let columns = (0..=declared.len())
         .rev()
-        .find(|taken| name.saturating_sub(columns_width(&declared[..*taken])) >= MIN_NAME_WIDTH)
-        .unwrap_or(0);
-    let columns = &declared[..taken];
+        .filter_map(|taken| declared.get(..taken))
+        .find(|columns| name.saturating_sub(columns_width(columns)) >= MIN_NAME_WIDTH)
+        .unwrap_or_default();
     let spent = columns_width(columns);
     PanelLayout {
         stripes,
@@ -232,9 +233,9 @@ pub(super) fn split_extension(entry: &DirEntry) -> (&str, &str) {
     if entry.kind.is_dir() {
         return (&entry.name, "");
     }
-    match entry.name.rfind('.') {
-        Some(0) | None => (&entry.name, ""),
-        Some(dot) => (&entry.name[..dot], &entry.name[dot + 1..]),
+    match entry.name.rsplit_once('.') {
+        Some(("", _)) | None => (&entry.name, ""),
+        Some((stem, extension)) => (stem, extension),
     }
 }
 
@@ -245,7 +246,7 @@ pub(super) fn split_extension(entry: &DirEntry) -> (&str, &str) {
 /// Far user already reads as "there is more here".
 pub(super) fn clip_name(name: &str, width: Cells) -> String {
     if Cells::of(name) <= width {
-        return name.to_string();
+        return name.to_owned();
     }
     if width.is_zero() {
         return String::new();
@@ -271,7 +272,7 @@ pub(super) fn right_cells(text: &str, width: Cells) -> String {
 }
 
 /// `text` centred in exactly `width` cells — the column headers' alignment.
-fn center_cells(text: &str, width: Cells) -> String {
+pub(super) fn center_cells(text: &str, width: Cells) -> String {
     let fitted = head_cells(text, width);
     let slack = width.saturating_sub(Cells::of(&fitted)).get();
     let left = slack / 2;
@@ -318,24 +319,44 @@ pub(super) fn size_field(entry: &DirEntry) -> String {
 /// Far's compact byte count — "381 K", "49.4 G": the largest unit that keeps
 /// the value under 1000, carrying a decimal only while there is room for one.
 pub(super) fn abbreviate_bytes(bytes: u64) -> String {
-    const UNITS: [&str; 5] = ["", "K", "M", "G", "T"];
+    const UNITS: [&str; 4] = ["K", "M", "G", "T"];
 
     // Integer maths, exact for every u64: the value shown is `bytes / scale`.
     let bytes = u128::from(bytes);
     let mut scale = 1;
-    let mut unit = 0;
-    while bytes >= 1000 * scale && unit + 1 < UNITS.len() {
+    let mut unit = None;
+    for next in UNITS {
+        if bytes < 1000 * scale {
+            break;
+        }
         scale *= 1024;
-        unit += 1;
+        unit = Some(next);
     }
-    if unit == 0 {
+    let Some(unit) = unit else {
         return bytes.to_string();
-    }
+    };
     if bytes >= 100 * scale {
-        format!("{} {}", divide_rounded(bytes, scale), UNITS[unit])
+        format!("{} {unit}", divide_rounded(bytes, scale))
     } else {
         let tenths = divide_rounded(bytes * 10, scale);
-        format!("{}.{} {}", tenths / 10, tenths % 10, UNITS[unit])
+        format!("{}.{} {unit}", tenths / 10, tenths % 10)
+    }
+}
+
+/// Whether the user marked a row: a panel entry, or a process in the task
+/// list. A marked row is yellow throughout, under the cursor bar too.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Mark {
+    Marked,
+    Unmarked,
+}
+
+/// Whether `entry` is marked in `panel`.
+fn mark_of(panel: &Panel, entry: &DirEntry) -> Mark {
+    if panel.marked.contains(entry.name.as_str()) {
+        Mark::Marked
+    } else {
+        Mark::Unmarked
     }
 }
 
@@ -345,8 +366,8 @@ pub(super) fn abbreviate_bytes(bytes: u64) -> String {
 /// survive whatever the row is. Hidden next, because a dimmed row is dimmed
 /// whether it is a folder, a program or a file. Only then does the entry's own
 /// nature get a say.
-fn entry_colour(entry: &DirEntry, is_marked: bool, hidden: bool) -> Color {
-    if is_marked {
+fn entry_colour(entry: &DirEntry, mark: Mark, hidden: bool) -> Color {
+    if mark == Mark::Marked {
         return palette::MARKED;
     }
     if hidden {
@@ -362,12 +383,12 @@ fn entry_colour(entry: &DirEntry, is_marked: bool, hidden: bool) -> Color {
 }
 
 /// The style for a row's name: its colour, bold where Far bolds it.
-fn entry_style(entry: &DirEntry, is_marked: bool, hidden: bool) -> Style {
-    let style = Style::default().fg(entry_colour(entry, is_marked, hidden));
+fn entry_style(entry: &DirEntry, mark: Mark, hidden: bool) -> Style {
+    let style = Style::default().fg(entry_colour(entry, mark, hidden));
     if hidden {
         return style;
     }
-    if is_marked || entry.kind.is_dir() {
+    if mark == Mark::Marked || entry.kind.is_dir() {
         return style.add_modifier(Modifier::BOLD);
     }
     style
@@ -407,26 +428,25 @@ fn header_line(sort_mode: SortMode, layout: PanelLayout) -> Line<'static> {
 }
 
 /// The colour of the column rules, which is the frame's.
-fn separator_style() -> Style {
+pub(super) fn separator_style() -> Style {
     Style::default().fg(palette::FRAME)
 }
 
-/// The style of the entry under the active panel's cursor.
-fn cursor_style(is_marked: bool) -> Style {
+/// The style of the row under the active cursor.
+pub(super) fn cursor_style(mark: Mark) -> Style {
     Style::default()
         .bg(palette::CURSOR_BG)
-        .fg(cursor_colour(is_marked))
+        .fg(cursor_colour(mark))
         .add_modifier(Modifier::BOLD)
 }
 
-/// The text colour on the cursor bar: Far's marked yellow when the entry under
+/// The text colour on the cursor bar: Far's marked yellow when the row under
 /// it is marked, so the bar never hides the mark — the one thing Insert on
 /// the last row changes.
-const fn cursor_colour(is_marked: bool) -> Color {
-    if is_marked {
-        palette::MARKED
-    } else {
-        palette::CURSOR_FG
+pub(super) const fn cursor_colour(mark: Mark) -> Color {
+    match mark {
+        Mark::Marked => palette::MARKED,
+        Mark::Unmarked => palette::CURSOR_FG,
     }
 }
 
@@ -451,16 +471,16 @@ fn entry_cell(
     name: Cells,
     columns: &[PanelColumn],
 ) -> Vec<Span<'static>> {
-    let is_marked = panel.marked.contains(entry.name.as_str());
+    let mark = mark_of(panel, entry);
     let hidden = panel.is_hidden(&entry.name);
     let displayed = displayed_entry(modes::short_names(panel).as_ref(), entry);
-    let name_style = entry_style(entry, is_marked, hidden);
+    let name_style = entry_style(entry, mark, hidden);
     // The data columns are plain white — reading down them for meaning would
     // find none — except where the row as a whole is making a statement: a
     // marked row is yellow throughout and a hidden one is dimmed throughout,
     // and a bright date beside a recessed name would break both.
-    let data_style = Style::default().fg(if is_marked || hidden {
-        entry_colour(entry, is_marked, hidden)
+    let data_style = Style::default().fg(if mark == Mark::Marked || hidden {
+        entry_colour(entry, mark, hidden)
     } else {
         palette::DATA
     });
@@ -565,7 +585,7 @@ fn panel_title(panel: &Panel, interior: Cells, is_active: bool) -> Line<'static>
 }
 
 pub(super) fn render_panel(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     panel: &mut Panel,
     area: Rect,
     is_active: bool,
@@ -591,7 +611,7 @@ pub(super) fn render_panel(
 }
 
 fn render_panel_contents(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     panel: &mut Panel,
     area: Rect,
     inner: Rect,
@@ -633,7 +653,13 @@ fn render_panel_contents(
 }
 
 /// The column rule on the `divider` row of a panel drawn in `area`.
-fn render_column_rule(f: &mut Frame, layout: PanelLayout, area: Rect, divider: Rect, style: Style) {
+fn render_column_rule(
+    f: &mut Frame<'_>,
+    layout: PanelLayout,
+    area: Rect,
+    divider: Rect,
+    style: Style,
+) {
     // The rule spans `area`, not `inner`: its two ends are the frame cells the
     // block already drew, and overwriting them is what turns a floating dash
     // into a divider joined to the border.
@@ -676,7 +702,7 @@ fn group_digits(value: u64) -> String {
 }
 
 fn render_entries(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     panel: &mut Panel,
     body: Rect,
     layout: PanelLayout,
@@ -704,7 +730,7 @@ fn render_entries(
     // give the screen two answers to "what does Enter act on".
     let cursor = panel.selected().filter(|_| is_active);
     let panel = &*panel;
-    let lines: Vec<Line> = (0..rows)
+    let lines: Vec<Line<'_>> = (0..rows)
         .map(|row| {
             let cells = (0..layout.stripes).map(|stripe| {
                 Some(window.start + stripe * rows + row).filter(|index| window.contains(index))
@@ -732,15 +758,15 @@ fn body_line(
             spans.push(Span::styled(COLUMN_SEPARATOR, separator_style()));
         }
         let name = layout.name_width(stripe);
-        let Some(index) = index else {
+        let entry = index.and_then(|index| panel.entries.get(index));
+        let (Some(index), Some(entry)) = (index, entry) else {
             spans.push(empty_cell(name, layout.columns));
             continue;
         };
-        let entry = &panel.entries[index];
         let cell = entry_cell(panel, entry, name, layout.columns);
         // The cursor covers its own stripe only, never the rule beside it.
         if cursor == Some(index) {
-            let style = cursor_style(panel.marked.contains(entry.name.as_str()));
+            let style = cursor_style(mark_of(panel, entry));
             spans.extend(cell.into_iter().map(|span| span.patch_style(style)));
         } else {
             spans.extend(cell);
@@ -753,19 +779,16 @@ fn body_line(
 /// the panel shows short names, with anything the terminal will not draw
 /// replaced. Only the name changes — marks, hiding and every operation still
 /// go by the real one.
-fn displayed_entry<'a>(
-    short_names: Option<&ShortNames>,
-    entry: &'a DirEntry,
-) -> std::borrow::Cow<'a, DirEntry> {
+fn displayed_entry<'a>(short_names: Option<&ShortNames>, entry: &'a DirEntry) -> Cow<'a, DirEntry> {
     let short = short_names.and_then(|table| table.get(&entry.name));
     let shown = short.map_or(entry.name.as_str(), crate::models::ShortName::as_str);
     let printable = crate::ui::printable_name(shown);
-    if short.is_none() && matches!(printable, std::borrow::Cow::Borrowed(_)) {
-        return std::borrow::Cow::Borrowed(entry);
+    if short.is_none() && matches!(printable, Cow::Borrowed(_)) {
+        return Cow::Borrowed(entry);
     }
     let mut displayed = entry.clone();
     displayed.name = printable.into_owned();
-    std::borrow::Cow::Owned(displayed)
+    Cow::Owned(displayed)
 }
 
 /// The row above the bottom border, which Far gives to the current entry's
@@ -780,7 +803,7 @@ fn displayed_entry<'a>(
 /// A view whose table leaves out some of Size, Date and Time adds the current
 /// entry's after the name (see [`info_columns`]), as Far's status line does.
 fn render_panel_info(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     panel: &Panel,
     inner: Rect,
     footer: Option<&PathMessage<'_>>,
@@ -849,40 +872,6 @@ pub(super) fn panel_footer(app: &App) -> Option<PathMessage<'static>> {
     ))
 }
 
-/// Which entries a panel body `rows` tall will actually show.
-///
-/// The same rule `List` applies to its own state, worked out before the items
-/// are built rather than after: the offset holds unless the cursor has moved
-/// outside it, and then it moves by just enough to bring the cursor back.
-///
-/// Returned as a range so the caller can slice with it, and pure so that the
-/// scrolling behaviour can be checked without a terminal.
-pub(super) fn visible_window(
-    len: usize,
-    rows: usize,
-    offset: usize,
-    selected: Option<usize>,
-) -> std::ops::Range<usize> {
-    if len == 0 || rows == 0 {
-        return 0..0;
-    }
-    let mut start = offset.min(len.saturating_sub(1));
-    if let Some(selected) = selected.filter(|at| *at < len) {
-        if selected < start {
-            // Scrolled up past the cursor: the cursor becomes the first row.
-            start = selected;
-        } else if selected >= start + rows {
-            // …and down past it: the cursor becomes the last.
-            start = selected + 1 - rows;
-        }
-    }
-    // A short listing is shown from the top rather than with blank rows above
-    // it, which is what a stale offset into a directory that just shrank would
-    // otherwise leave behind.
-    start = start.min(len.saturating_sub(rows));
-    start..(start + rows).min(len)
-}
-
 #[cfg(test)]
 mod tests_cursor;
 #[cfg(test)]
@@ -897,5 +886,3 @@ mod tests_snapshot;
 mod tests_title;
 #[cfg(test)]
 mod tests_views;
-#[cfg(test)]
-mod tests_window;

@@ -114,7 +114,7 @@ const HOTKEY_CELLS: usize = 4;
 /// The rows come in from the overlay, built once when it opened: a row
 /// carries its filesystem's size, and rebuilding them here would run a
 /// `statvfs` per drive on every redraw.
-pub(super) fn render(f: &mut Frame, _side: PanelSide, rows: &[DriveRow], selected: usize) {
+pub(super) fn render(f: &mut Frame<'_>, _side: PanelSide, rows: &[DriveRow], selected: usize) {
     let widths = Widths::of(rows);
     let lines = body(rows, &widths, selected);
 
@@ -279,7 +279,7 @@ fn styled(text: String) -> Line<'static> {
 /// The dialog's own rectangle: its natural size, clamped to the screen and
 /// centred, rather than a percentage of it — a one-drive machine should not
 /// get a half-empty box.
-fn centered(screen: Rect, width: usize, height: usize) -> Rect {
+pub(super) fn centered(screen: Rect, width: usize, height: usize) -> Rect {
     let width = u16::try_from(width).unwrap_or(u16::MAX).min(screen.width);
     let height = u16::try_from(height).unwrap_or(u16::MAX).min(screen.height);
     Rect {

@@ -1,28 +1,30 @@
 //! Gherkin steps only interact with the running UI and isolated fixture files.
 
-// Cucumber dictates step signatures: captured args arrive owned and the world as `&mut`.
-#![allow(clippy::needless_pass_by_value, clippy::needless_pass_by_ref_mut)]
-
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use cucumber::{given, then, when};
 use ratatui::layout::Size;
 use tempfile::TempDir;
 
+mod lsp;
 mod restart;
 mod session;
+mod settings;
 #[then(expr = "the clipboard contains {string}")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Cucumber dictates step signatures: captured args arrive owned"
+)]
 fn clipboard(world: &mut TuiWorld, text: String) {
     assert_eq!(world.ui().clipboard(), text);
 }
 #[when("I type the missing workspace directory")]
 fn missing_directory(world: &mut TuiWorld) {
     let path = world.path("left", "missing-directory");
-    world
-        .session
-        .as_mut()
-        .expect("session")
-        .type_text(&path.to_string_lossy());
+    world.ui().type_text(&path.to_string_lossy());
 }
 #[cfg(feature = "keepass")]
 mod vault;
@@ -33,23 +35,36 @@ pub struct TuiWorld {
     pub name: String,
     workspace: Option<TempDir>,
     session: Option<Session>,
+    /// The machine the MCP installer sees, when a scenario brings one.
+    mcp: Option<funny_file_manager::test_support::FakeMachine>,
 }
 
 impl TuiWorld {
     fn path(&self, side: &str, file: &str) -> PathBuf {
         assert!(matches!(side, "left" | "right"));
-        self.workspace
-            .as_ref()
-            .expect("workspace")
-            .path()
-            .join(side)
-            .join(file)
+        self.root().join(side).join(file)
     }
 
+    #[expect(
+        clippy::expect_used,
+        reason = "the workspace step runs first; a scenario that skips it must fail here"
+    )]
+    fn root(&self) -> &Path {
+        self.workspace.as_ref().expect("workspace").path()
+    }
+
+    #[expect(
+        clippy::expect_used,
+        reason = "the open step runs first; a scenario that skips it must fail here"
+    )]
     fn ui(&mut self) -> &mut Session {
         self.session.as_mut().expect("TUI is open")
     }
 
+    #[expect(
+        clippy::expect_used,
+        reason = "a scenario whose transcript cannot be saved must fail, not lose its evidence"
+    )]
     pub fn finish(&mut self) {
         if let Some(mut session) = self.session.take() {
             session.stop();
@@ -59,6 +74,10 @@ impl TuiWorld {
 }
 
 #[given("a TUI workspace")]
+#[expect(
+    clippy::expect_used,
+    reason = "a Cucumber step fails by panicking, as a #[test] does"
+)]
 fn workspace(world: &mut TuiWorld) {
     let workspace = TempDir::new().expect("workspace");
     for side in ["left", "right"] {
@@ -68,29 +87,50 @@ fn workspace(world: &mut TuiWorld) {
 }
 
 #[given(expr = "the {word} file {string} contains {string}")]
+#[expect(
+    clippy::expect_used,
+    reason = "a Cucumber step fails by panicking, as a #[test] does"
+)]
+#[expect(
+    clippy::needless_pass_by_value,
+    clippy::needless_pass_by_ref_mut,
+    reason = "Cucumber dictates step signatures: captured args arrive owned and the world as `&mut`"
+)]
 fn fixture(world: &mut TuiWorld, side: String, file: String, contents: String) {
     fs::write(world.path(&side, &file), contents).expect("fixture file");
 }
 
+#[given("a TUI workspace with a fake MCP machine")]
+#[expect(
+    clippy::expect_used,
+    reason = "a Cucumber step fails by panicking, as a #[test] does"
+)]
+fn mcp_workspace(world: &mut TuiWorld) {
+    workspace(world);
+    let machine = funny_file_manager::test_support::FakeMachine::new().expect("fake machine");
+    machine.install_clients().expect("clients on PATH");
+    machine.install_server().expect("ffm-mcp next to ffm");
+    world.mcp = Some(machine);
+}
+
 #[when(expr = "I open the TUI at {int} by {int}")]
 fn open(world: &mut TuiWorld, width: u16, height: u16) {
-    world.session = Some(Session::start(
+    let (left, right, size) = (
         world.path("left", ""),
         world.path("right", ""),
         Size::new(width, height),
-    ));
-}
-
-#[when("I open the LSP inventory fixture")]
-fn open_inventory(world: &mut TuiWorld) {
-    world.session = Some(Session::inventory(
-        world.path("left", ""),
-        world.path("right", ""),
-        Size::new(120, 30),
-    ));
+    );
+    world.session = Some(match &world.mcp {
+        Some(machine) => Session::start_on(left, right, size, machine.host()),
+        None => Session::start(left, right, size),
+    });
 }
 
 #[when(expr = "I press {string}")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Cucumber dictates step signatures: captured args arrive owned"
+)]
 fn press(world: &mut TuiWorld, keys: String) {
     for key in keys.split_whitespace() {
         world.ui().press(key);
@@ -98,11 +138,19 @@ fn press(world: &mut TuiWorld, keys: String) {
 }
 
 #[when(expr = "I type {string}")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Cucumber dictates step signatures: captured args arrive owned"
+)]
 fn type_text(world: &mut TuiWorld, text: String) {
     world.ui().type_text(&text);
 }
 
 #[when(expr = "the terminal pastes {string}")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Cucumber dictates step signatures: captured args arrive owned"
+)]
 fn paste(world: &mut TuiWorld, text: String) {
     world.ui().paste(&text);
 }
@@ -113,18 +161,46 @@ fn resize(world: &mut TuiWorld, width: u16, height: u16) {
 }
 
 #[then(expr = "the screen contains {string}")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Cucumber dictates step signatures: captured args arrive owned"
+)]
 fn contains(world: &mut TuiWorld, text: String) {
     let screen = world.ui().text();
     assert!(screen.contains(&text), "missing {text:?}\n{screen}");
 }
 
+/// `first`, and `after` later on the same row: a message that names a file,
+/// rather than the name turning up somewhere else on the screen.
+#[then(expr = "one screen line contains {string} and then {string}")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Cucumber dictates step signatures: captured args arrive owned"
+)]
+fn contains_in_order(world: &mut TuiWorld, first: String, after: String) {
+    let screen = world.ui().text();
+    let found = screen.lines().any(|line| {
+        line.split_once(first.as_str())
+            .is_some_and(|(_, rest)| rest.contains(&after))
+    });
+    assert!(found, "no line with {first:?} and then {after:?}\n{screen}");
+}
+
 #[then(expr = "the screen does not contain {string}")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Cucumber dictates step signatures: captured args arrive owned"
+)]
 fn does_not_contain(world: &mut TuiWorld, text: String) {
     let screen = world.ui().text();
     assert!(!screen.contains(&text), "unexpected {text:?}\n{screen}");
 }
 
 #[then(expr = "the {word} panel shows {string}")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Cucumber dictates step signatures: captured args arrive owned"
+)]
 fn panel_contains(world: &mut TuiWorld, side: String, text: String) {
     let screen = world.ui().panel_text(&side);
     let rows = usize::from(world.ui().size().height.saturating_sub(8));
@@ -139,6 +215,15 @@ fn panel_contains(world: &mut TuiWorld, side: String, text: String) {
 }
 
 #[then(expr = "the {word} file {string} contains {string}")]
+#[expect(
+    clippy::expect_used,
+    reason = "a Cucumber step fails by panicking, as a #[test] does"
+)]
+#[expect(
+    clippy::needless_pass_by_value,
+    clippy::needless_pass_by_ref_mut,
+    reason = "Cucumber dictates step signatures: captured args arrive owned and the world as `&mut`"
+)]
 fn file_contents(world: &mut TuiWorld, side: String, file: String, expected: String) {
     assert_eq!(
         fs::read_to_string(world.path(&side, &file)).expect("file"),
@@ -147,11 +232,21 @@ fn file_contents(world: &mut TuiWorld, side: String, file: String, expected: Str
 }
 
 #[then(expr = "the {word} file {string} does not exist")]
+#[expect(
+    clippy::needless_pass_by_value,
+    clippy::needless_pass_by_ref_mut,
+    reason = "Cucumber dictates step signatures: captured args arrive owned and the world as `&mut`"
+)]
 fn absent(world: &mut TuiWorld, side: String, file: String) {
     assert!(!world.path(&side, &file).exists());
 }
 
 #[then(expr = "the {word} directory {string} exists")]
+#[expect(
+    clippy::needless_pass_by_value,
+    clippy::needless_pass_by_ref_mut,
+    reason = "Cucumber dictates step signatures: captured args arrive owned and the world as `&mut`"
+)]
 fn directory(world: &mut TuiWorld, side: String, name: String) {
     assert!(world.path(&side, &name).is_dir());
 }

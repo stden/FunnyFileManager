@@ -220,7 +220,10 @@ fn rename_collision_reports_already_exists_text() {
 }
 
 #[test]
-#[allow(unsafe_code)]
+#[allow(
+    unsafe_code,
+    reason = "reads the wiped buffer back through a raw pointer to prove its bytes were overwritten"
+)]
 fn lock_while_editing_drops_and_zeroizes_the_form() {
     let (_dir, mut session, now) = unlocked_sample();
     focus(&mut session, "GitHub", now);

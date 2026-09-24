@@ -39,11 +39,11 @@ impl S3Client {
         }))
         .map_err(|panic_payload| {
             let message = if let Some(message) = panic_payload.downcast_ref::<&str>() {
-                (*message).to_string()
+                (*message).to_owned()
             } else if let Some(message) = panic_payload.downcast_ref::<String>() {
                 message.clone()
             } else {
-                "unknown panic during S3 client initialization".to_string()
+                "unknown panic during S3 client initialization".to_owned()
             };
             io::Error::other(format!("failed to initialize S3 client: {message}"))
         })?;
@@ -51,7 +51,7 @@ impl S3Client {
         Ok(Self {
             client,
             runtime,
-            profile: profile_name.to_string(),
+            profile: profile_name.to_owned(),
             current_bucket: None,
             current_prefix: String::new(),
         })
@@ -71,8 +71,8 @@ impl S3Client {
                 .buckets()
                 .iter()
                 .map(|b| S3Bucket {
-                    name: b.name().unwrap_or_default().to_string(),
-                    creation_date: b.creation_date().map(std::string::ToString::to_string),
+                    name: b.name().unwrap_or_default().to_owned(),
+                    creation_date: b.creation_date().map(ToString::to_string),
                 })
                 .collect();
 

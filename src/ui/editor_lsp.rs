@@ -9,7 +9,6 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
     Frame,
 };
-use std::fmt::Write;
 
 pub(super) fn status(editor: &Editor) -> String {
     if editor.lsp.state == ServerState::Stopped {
@@ -45,19 +44,18 @@ pub(super) fn label(editor: &Editor, marker: &str) -> String {
     }
 }
 
-pub(super) fn popup(frame: &mut Frame, editor: &Editor) -> bool {
+pub(super) fn popup(frame: &mut Frame<'_>, editor: &Editor, caret: (u16, u16)) -> bool {
     let Some(dialog) = &editor.lsp.popup else {
         return false;
     };
     let screen = frame.area();
     let width = screen.width.min(86);
     let height = screen.height.min(18);
-    let area = Rect::new(
-        screen.x + (screen.width - width) / 2,
-        screen.y + (screen.height - height) / 2,
-        width,
-        height,
-    );
+    let area = if matches!(dialog, Dialog::Completion { .. }) {
+        completion_area(screen, caret, width, height)
+    } else {
+        centered_area(screen, width, height)
+    };
     let (title, text, scroll) = contents(dialog);
     frame.render_widget(Clear, area);
     frame.render_widget(
@@ -69,6 +67,35 @@ pub(super) fn popup(frame: &mut Frame, editor: &Editor) -> bool {
         area,
     );
     true
+}
+
+fn centered_area(screen: Rect, width: u16, height: u16) -> Rect {
+    Rect::new(
+        screen.x + (screen.width - width) / 2,
+        screen.y + (screen.height - height) / 2,
+        width,
+        height,
+    )
+}
+
+fn completion_area(screen: Rect, caret: (u16, u16), width: u16, height: u16) -> Rect {
+    let right = screen.right();
+    let bottom = screen.bottom();
+    let width = width.min(screen.width);
+    let height = height.min(screen.height);
+    let x = caret.0.min(right.saturating_sub(width)).max(screen.x);
+    let below_y = caret.1.saturating_add(1).min(bottom);
+    let below = bottom.saturating_sub(below_y);
+    let above = caret.1.saturating_sub(screen.y);
+    let place_below = below >= height || below >= above;
+    let available = if place_below { below } else { above };
+    let height = height.min(available);
+    let y = if place_below {
+        below_y
+    } else {
+        caret.1.saturating_sub(height)
+    };
+    Rect::new(x, y, width, height)
 }
 
 fn contents(dialog: &Dialog) -> (&'static str, String, u16) {
@@ -101,18 +128,15 @@ fn completions(items: &[crate::lsp::features::Completion], selected: usize) -> S
         .skip(selected.saturating_sub(5))
         .take(8)
     {
-        writeln!(
-            text,
-            "{} {} [{}]",
+        text = format!(
+            "{text}{} {} [{}]\n",
             marker(index, selected),
             item.label,
             item.kind.map_or(String::new(), |kind| kind.to_string())
-        )
-        .expect("writing to a String cannot fail");
+        );
     }
     if let Some(item) = items.get(selected) {
-        write!(text, "\n{}\n{}", item.detail, item.documentation)
-            .expect("writing to a String cannot fail");
+        text = format!("{text}\n{}\n{}", item.detail, item.documentation);
     }
     text
 }
@@ -125,15 +149,13 @@ fn definitions(items: &[crate::lsp::features::Definition], selected: usize) -> S
         .skip(selected.saturating_sub(5))
         .take(12)
     {
-        writeln!(
-            text,
-            "{} {}:{}:{}",
+        text = format!(
+            "{text}{} {}:{}:{}\n",
             marker(index, selected),
             crate::path_display::label(&item.path),
             item.range.start.line + 1,
             item.range.start.character + 1
-        )
-        .expect("writing to a String cannot fail");
+        );
     }
     text
 }
@@ -146,7 +168,13 @@ const fn marker(index: usize, selected: usize) -> &'static str {
     }
 }
 
-pub(super) fn diagnostics(frame: &mut Frame, editor: &Editor, area: Rect, top: usize, skip: Cells) {
+pub(super) fn diagnostics(
+    frame: &mut Frame<'_>,
+    editor: &Editor,
+    area: Rect,
+    top: usize,
+    skip: Cells,
+) {
     for diagnostic in &editor.lsp.diagnostics {
         for (row, line) in editor
             .lines
@@ -180,15 +208,17 @@ fn diagnostic_columns(
     width: u16,
 ) -> Option<std::ops::Range<usize>> {
     let range = diagnostic.range;
-    if range.start > range.end || row < range.start.line as usize || row > range.end.line as usize {
+    let start_line = usize::try_from(range.start.line).ok()?;
+    let end_line = usize::try_from(range.end.line).ok()?;
+    if range.start > range.end || row < start_line || row > end_line {
         return None;
     }
-    let first = if row == range.start.line as usize {
+    let first = if row == start_line {
         positions::to_chars(line.text, range.start.character)?
     } else {
         0
     };
-    let last = if row == range.end.line as usize {
+    let last = if row == end_line {
         positions::to_chars(line.text, range.end.character)?
     } else {
         line.text.chars().count()
@@ -208,7 +238,7 @@ fn diagnostic_columns(
 }
 
 fn paint(
-    frame: &mut Frame,
+    frame: &mut Frame<'_>,
     x: u16,
     y: u16,
     columns: std::ops::Range<usize>,

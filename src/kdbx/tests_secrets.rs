@@ -36,9 +36,10 @@ trait MaybeDebug {
 impl<T> MaybeDebug for DebugProbe<T> {}
 
 impl<T: fmt::Debug> DebugProbe<T> {
-    // `self` exists only to make this a method, which is what gives it priority
-    // over the trait's default body; there is nothing to read from it.
-    #[allow(clippy::unused_self)]
+    #[expect(
+        clippy::unused_self,
+        reason = "`self` only makes this a method, which outranks the trait's default body"
+    )]
     fn implements_debug(&self) -> bool {
         true
     }
@@ -74,7 +75,10 @@ fn no_type_holding_a_secret_can_be_formatted() {
 }
 
 #[test]
-#[allow(unsafe_code)]
+#[allow(
+    unsafe_code,
+    reason = "reads the wiped buffer back through a raw pointer to prove its bytes were overwritten"
+)]
 fn zeroize_overwrites_the_secret_in_place_rather_than_just_shortening_it() {
     let mut key = MasterKey::new("hunter2-master".to_owned());
     let ptr = key.expose().as_ptr();
@@ -94,7 +98,10 @@ fn zeroize_overwrites_the_secret_in_place_rather_than_just_shortening_it() {
 }
 
 #[test]
-#[allow(unsafe_code)]
+#[allow(
+    unsafe_code,
+    reason = "reads the wiped buffer back through a raw pointer to prove its bytes were overwritten"
+)]
 fn revealed_zeroize_overwrites_the_secret_in_place() {
     let mut revealed = Revealed::new("entry-password".to_owned());
     let ptr = revealed.expose().as_ptr();
@@ -112,7 +119,10 @@ fn revealed_zeroize_overwrites_the_secret_in_place() {
 }
 
 #[test]
-#[allow(unsafe_code)]
+#[allow(
+    unsafe_code,
+    reason = "reads the wiped buffer back through a raw pointer to prove its bytes were overwritten"
+)]
 fn deleting_a_typed_character_erases_it_from_the_buffer() {
     let mut key = MasterKey::typing();
     for ch in "abcd".chars() {
@@ -133,7 +143,10 @@ fn deleting_a_typed_character_erases_it_from_the_buffer() {
 }
 
 #[test]
-#[allow(unsafe_code)]
+#[allow(
+    unsafe_code,
+    reason = "reads the wiped buffer back through a raw pointer to prove its bytes were overwritten"
+)]
 fn zeroizing_a_vault_wipes_the_master_key_and_the_revealed_password() {
     let (_dir, mut session, now) = unlocked_sample();
     assert!(session.reveal(now).expect("reveal"));

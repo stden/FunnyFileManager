@@ -16,10 +16,15 @@ const PERFORMANCE_TITLE: &str = "Windows Performance";
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-/// Own an LSP process tree so a crashed or unresponsive server cannot orphan children.
+/// Own a child's process tree: closing the returned handle kills every
+/// process in it, so a crashed or unresponsive LSP server, or a CLI stopped
+/// at its time limit, cannot orphan children.
 #[cfg(windows)]
-#[allow(unsafe_code)]
-pub(crate) fn lsp_job(
+#[allow(
+    unsafe_code,
+    reason = "std has no job objects, the only way to end a process tree with its handle"
+)]
+pub(crate) fn process_tree_job(
     child: &std::process::Child,
 ) -> io::Result<std::os::windows::io::OwnedHandle> {
     use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
@@ -31,7 +36,7 @@ pub(crate) fn lsp_job(
     }
     // SAFETY: CreateJobObjectW returned a unique live handle; ownership transfers once.
     let job = unsafe { OwnedHandle::from_raw_handle(raw) };
-    configure_lsp_job(raw)?;
+    configure_kill_on_close(raw)?;
     // SAFETY: both handles remain live throughout the call; the child is owned by the caller.
     if unsafe { AssignProcessToJobObject(raw, child.as_raw_handle()) } == 0 {
         return Err(io::Error::last_os_error());
@@ -40,15 +45,18 @@ pub(crate) fn lsp_job(
 }
 
 #[cfg(windows)]
-#[allow(unsafe_code)]
-fn configure_lsp_job(handle: windows_sys::Win32::Foundation::HANDLE) -> io::Result<()> {
+#[allow(
+    unsafe_code,
+    reason = "std has no job objects, the only way to end a process tree with its handle"
+)]
+fn configure_kill_on_close(handle: windows_sys::Win32::Foundation::HANDLE) -> io::Result<()> {
     use windows_sys::Win32::System::JobObjects::{
         JobObjectExtendedLimitInformation, SetInformationJobObject,
         JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
     };
     let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
     limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-    let size = u32::try_from(std::mem::size_of_val(&limits)).map_err(io::Error::other)?;
+    let size = u32::try_from(size_of_val(&limits)).map_err(io::Error::other)?;
     // SAFETY: limits points to an initialized structure of the supplied size for this class.
     let result = unsafe {
         SetInformationJobObject(
@@ -80,7 +88,7 @@ fn report_lines(report: &str) -> Vec<String> {
         .collect();
 
     if lines.is_empty() {
-        lines.push("<no data>".to_string());
+        lines.push("<no data>".to_owned());
     }
 
     lines
@@ -92,7 +100,7 @@ fn open_report_viewer(app: &mut App, title: &str, report: &str) {
         title,
         report_lines(report),
     )));
-    app.set_status(crate::status::Status::OpenedView(title.to_string()));
+    app.set_status(crate::status::Status::OpenedView(title.to_owned()));
 }
 
 #[cfg(any(test, windows))]
@@ -131,8 +139,8 @@ fn run_powershell_report(script: &str) -> io::Result<String> {
     command.creation_flags(CREATE_NO_WINDOW);
     let output = command.args(powershell_report_args(script)).output()?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
 
     if output.status.success() {
         Ok(stdout)
@@ -189,7 +197,7 @@ fn classify_command_output(success: bool, stdout: &str, stderr: &str) -> io::Res
         Err(io::Error::other(stderr.to_owned()))
     } else {
         Err(io::Error::other(
-            "Command exited with failure status".to_string(),
+            "Command exited with failure status".to_owned(),
         ))
     }
 }
@@ -208,10 +216,16 @@ pub(crate) fn console_directory(path: &std::path::Path) -> std::path::PathBuf {
         return path.to_path_buf();
     };
     let text: Vec<u16> = path.as_os_str().encode_wide().collect();
+    // `\\?\C:\…` drops its `\\?\`; `\\?\UNC\server\…` trades `\\?\UNC\` for `\\`.
     let normal = match prefix.kind() {
-        Prefix::VerbatimDisk(_) => text[4..].to_vec(),
-        Prefix::VerbatimUNC(_, _) => [vec![92, 92], text[8..].to_vec()].concat(),
-        _ => return path.to_path_buf(),
+        Prefix::VerbatimDisk(_) => text.get(4..).map(<[u16]>::to_vec),
+        Prefix::VerbatimUNC(_, _) => text
+            .get(8..)
+            .map(|share| [[92, 92].as_slice(), share].concat()),
+        _ => None,
     };
-    OsString::from_wide(&normal).into()
+    normal.map_or_else(
+        || path.to_path_buf(),
+        |normal| OsString::from_wide(&normal).into(),
+    )
 }

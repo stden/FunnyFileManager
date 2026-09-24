@@ -98,7 +98,7 @@ impl Panel {
             if entry.name == ".." {
                 None
             } else {
-                Some(self.path.join(&entry.name))
+                Some(self.path.join(entry.disk_name()))
             }
         })
     }

@@ -90,9 +90,11 @@ fn is_vault_file(path: &std::path::Path) -> bool {
         })
 }
 
-#[cfg(all(test, feature = "keepass"))]
+#[cfg(test)]
+#[cfg(feature = "keepass")]
 mod tests;
-#[cfg(all(test, feature = "keepass"))]
+#[cfg(test)]
+#[cfg(feature = "keepass")]
 mod tests_maintenance;
 
 #[cfg_attr(
@@ -125,7 +127,9 @@ fn maintain_secrets(app: &mut App, now: std::time::Instant) -> bool {
     }
     if app.clipboard.take_if_due(now) {
         if let Some(backend) = app.clipboard.backend_mut() {
-            let _ = crate::clipboard::clear(backend);
+            // Best effort: a clipboard that refuses the wipe keeps its text,
+            // and there is no status line to spend on a background timer.
+            drop(crate::clipboard::clear(backend));
         }
     }
     locked

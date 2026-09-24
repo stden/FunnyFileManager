@@ -230,3 +230,37 @@ fn zz_probe_extract_buttons_name_extract_and_cancel_before_enter() {
     };
     assert_eq!(prompt.field, ExtractField::Extract);
 }
+
+/// Register / Cancel of the Install MCP server dialog name the button before
+/// Enter; a click on a dimmed Register — no server to register — does nothing.
+#[test]
+fn mcp_install_buttons_name_register_and_cancel_before_enter() {
+    use crate::mcp_clients::{Scope, ServerBinary, ServerState, Survey};
+    use crate::models::{McpInstallDialog, McpInstallField};
+
+    let dir = TempDir::new().expect("temp");
+    let mut app = app_at(&dir);
+    let survey = |server| Survey {
+        server,
+        folder: None,
+        scope: Scope::AllProjects,
+        clients: Vec::new(),
+    };
+    let found = ServerState::Found(ServerBinary::new(dir.path().join("ffm-mcp")).expect("unicode"));
+    app.set_overlay(Overlay::McpInstall(Box::new(McpInstallDialog::new(
+        survey(found),
+    ))));
+    let field = |app: &App| match &app.overlay {
+        Overlay::McpInstall(dialog) => dialog.field,
+        _ => panic!("the MCP dialog"),
+    };
+    assert_eq!(code(&mut app, 0), KeyCode::Enter);
+    assert_eq!(field(&app), McpInstallField::Register);
+    assert_eq!(code(&mut app, 1), KeyCode::Enter);
+    assert_eq!(field(&app), McpInstallField::Cancel);
+
+    let missing = McpInstallDialog::new(survey(ServerState::Missing));
+    app.set_overlay(Overlay::McpInstall(Box::new(missing)));
+    assert_eq!(dialog_button_key(&mut app, 0), None);
+    assert_eq!(field(&app), McpInstallField::Scope);
+}

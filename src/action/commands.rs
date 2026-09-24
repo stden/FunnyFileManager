@@ -29,8 +29,10 @@ pub enum Navigation {
     SwapPanels,
 }
 
-// Preserve established Action names for keymaps and callers.
-#[allow(non_upper_case_globals)]
+#[expect(
+    non_upper_case_globals,
+    reason = "established Action names kept in variant case for keymaps and callers"
+)]
 impl Action {
     pub const NavDown: Self = Self::Navigate(Navigation::NavDown);
     pub const NavUp: Self = Self::Navigate(Navigation::NavUp);
@@ -59,8 +61,10 @@ pub enum SelectionCommand {
     RestoreSelection,
 }
 
-// Preserve established Action names for keymaps and callers.
-#[allow(non_upper_case_globals)]
+#[expect(
+    non_upper_case_globals,
+    reason = "established Action names kept in variant case for keymaps and callers"
+)]
 impl Action {
     pub const ToggleMark: Self = Self::Selection(SelectionCommand::ToggleMark);
     pub const SelectGroup: Self = Self::Selection(SelectionCommand::SelectGroup);
@@ -124,10 +128,8 @@ pub enum ToolCommand {
     Filter,
     /// `F12` — the screens this program has: panels and console.
     Screens,
-    /// `Ctrl+W` — the processes this program started.
+    /// `Ctrl+W` — the task list: the live process viewer.
     Tasks,
-    /// `Shift+F9` — write the settings to disk.
-    SaveSetup,
 }
 
 /// Commands belonging to the dialog workflow.
@@ -151,8 +153,10 @@ pub enum DialogCommand {
     Information,
 }
 
-// Preserve established Action names for keymaps and callers.
-#[allow(non_upper_case_globals)]
+#[expect(
+    non_upper_case_globals,
+    reason = "established Action names kept in variant case for keymaps and callers"
+)]
 impl Action {
     pub const ConfirmQuit: Self = Self::Dialog(DialogCommand::ConfirmQuit);
     pub const NewFile: Self = Self::Dialog(DialogCommand::NewFile);

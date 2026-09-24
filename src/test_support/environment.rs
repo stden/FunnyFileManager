@@ -1,8 +1,6 @@
 //! Test utilities for process-global environment management.
 //! Provides a single crate-wide lock for any `set_var` / `remove_var` in tests.
 
-#![allow(dead_code)]
-
 use std::ffi::OsString;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
@@ -72,6 +70,14 @@ impl Drop for EditorEnvGuard {
         }
     }
 }
+
+/// The variable that names the configuration home on this platform: point it
+/// at a temp dir, and the settings, user menu and associations go there.
+pub const CONFIG_HOME: &str = if cfg!(windows) {
+    "APPDATA"
+} else {
+    "XDG_CONFIG_HOME"
+};
 
 /// RAII override of any one environment variable.
 ///

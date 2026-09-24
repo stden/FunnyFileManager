@@ -77,7 +77,7 @@ fn test_ctrl_r_refresh_renders_failure_status() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
     app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
     app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
-    app.left_panel.path = std::path::PathBuf::from("no-such-folder-for-a-refresh-test");
+    app.left_panel.path = PathBuf::from("no-such-folder-for-a-refresh-test");
 
     let backend = WritableTestBackend::new(240, 24);
     let mut terminal = Terminal::new(backend).expect("test setup");
@@ -122,7 +122,7 @@ fn test_ctrl_r_leaves_a_deleted_folder_for_the_one_above() -> io::Result<()> {
     let _refresh = crate::utils::refresh_panels_mutex()
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    crate::application::dispatch::dispatch_key(
+    dispatch_key(
         &mut terminal,
         &mut app,
         key_event_with_mods(KeyCode::Char('r'), KeyModifiers::CONTROL),

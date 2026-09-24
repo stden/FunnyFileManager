@@ -251,9 +251,9 @@ fn save_nested_deploy_entry(path: &Path) {
     {
         let mut root = db.root_mut();
         let mut work = root.add_group();
-        work.name = "Work".to_string();
+        work.name = "Work".to_owned();
         let mut ci = work.add_group();
-        ci.name = "CI".to_string();
+        ci.name = "CI".to_owned();
         write_entry_fields(&mut ci.add_entry(), &entry("Deploy", "d", "", "", "old"));
     }
     let key = build_key("pw", None).expect("key");

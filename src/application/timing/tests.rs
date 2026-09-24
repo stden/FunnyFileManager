@@ -95,6 +95,18 @@ fn modal_paste_labels_identify_the_context_without_recording_private_text() {
     }
 }
 
+/// The Language servers dialog has its own label, like every other dialog
+/// with a name, rather than the generic `Dialog`.
+#[test]
+fn the_language_servers_dialog_labels_its_own_actions() {
+    let machine = crate::test_support::lsp_machine::LspMachine::new();
+    let app = machine.opened();
+    assert_eq!(
+        label(&app, &Event::Paste("private payload".into())),
+        "LspEditor/Paste"
+    );
+}
+
 #[test]
 fn mouse_and_focus_events_never_store_screen_coordinates() {
     use crossterm::event::{KeyModifiers, MouseEvent, MouseEventKind};
@@ -186,4 +198,16 @@ fn wipe_confirmation_labels_never_carry_the_paths_being_wiped() {
         label(&app, &Event::Paste("private payload".into())),
         "Wipe/Paste"
     );
+}
+
+#[test]
+fn keys_in_the_task_list_are_labelled_by_it() {
+    let temp = tempfile::TempDir::new().expect("tempdir");
+    let mut app = app(&temp);
+    app.set_overlay(Overlay::Tasks(Box::default()));
+    let key = Event::Key(KeyEvent::new(
+        KeyCode::F(5),
+        crossterm::event::KeyModifiers::NONE,
+    ));
+    assert_eq!(label(&app, &key), "Tasks/KeyModifiers(0x0)/F(5)");
 }

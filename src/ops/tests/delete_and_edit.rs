@@ -1,5 +1,4 @@
 //! Unit tests: delete and edit (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use super::support::*;
 use crate::ops::*;
@@ -17,7 +16,7 @@ use crossterm::event::KeyCode;
 
 use std::fs::{self, File};
 
-use std::io::{self};
+use std::io;
 
 use tempfile::TempDir;
 
@@ -98,7 +97,7 @@ fn test_process_popup_input_viewer_other_key() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
     app.set_overlay(Overlay::Viewer(Viewer::report(
         "test.txt",
-        vec!["Line 1".to_string()],
+        vec!["Line 1".to_owned()],
     )));
 
     // Test with a key that doesn't do anything in viewer

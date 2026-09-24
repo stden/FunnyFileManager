@@ -44,7 +44,10 @@ fn filesystem_root(path: &Path) -> PathBuf {
 pub fn tree_mut(app: &mut App) -> Option<&mut FolderTree> {
     match &mut app.get_active_panel().kind {
         PanelKind::Tree(tree) => Some(tree),
-        PanelKind::Files | PanelKind::QuickView(_) => None,
+        PanelKind::Files
+        | PanelKind::QuickView(_)
+        | PanelKind::Sessions(_)
+        | PanelKind::Remote(_) => None,
     }
 }
 

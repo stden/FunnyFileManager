@@ -202,14 +202,14 @@ fn test_panel_action_entry_names() -> io::Result<()> {
 
     let names = panel.action_entry_names();
     assert_eq!(names.len(), 2);
-    assert!(names.contains(&"file1.txt".to_string()));
-    assert!(names.contains(&"file3.txt".to_string()));
+    assert!(names.contains(&"file1.txt".to_owned()));
+    assert!(names.contains(&"file3.txt".to_owned()));
 
     // Clear marks and test with selection only
     panel.marked.clear();
     let names = panel.action_entry_names();
     assert_eq!(names.len(), 1);
-    assert!(names.contains(&"file2.txt".to_string()));
+    assert!(names.contains(&"file2.txt".to_owned()));
 
     Ok(())
 }
@@ -219,7 +219,7 @@ fn test_viewer_scroll_limits() -> io::Result<()> {
     let mut app = App::new()?;
     app.set_overlay(Overlay::Viewer(funny_file_manager::models::Viewer::report(
         "test.txt",
-        vec!["Line 1".to_string(), "Line 2".to_string()],
+        vec!["Line 1".to_owned(), "Line 2".to_owned()],
     )));
 
     // Try to scroll down beyond limit
@@ -319,7 +319,7 @@ fn test_app_switch_panel() -> io::Result<()> {
 #[test]
 fn test_dir_entry_creation() {
     let entry = DirEntry {
-        name: "test.txt".to_string(),
+        name: "test.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(1024),
         modified: Modified::UNKNOWN,
@@ -383,7 +383,7 @@ fn test_copy_dir_all_permission_errors() -> io::Result<()> {
         .unwrap_or_else(|_| fs::metadata(&src_dir).unwrap())
         .permissions();
     perms.set_mode(0o755);
-    let _ = fs::set_permissions(&protected_dir, perms);
+    drop(fs::set_permissions(&protected_dir, perms));
 
     assert!(result.is_err() || dst_dir.exists());
 
@@ -518,7 +518,7 @@ fn test_format_size_edge_cases() {
 }
 
 #[test]
-fn test_writeable_backend_full_coverage() -> io::Result<()> {
+fn test_writable_backend_full_coverage() -> io::Result<()> {
     use funny_file_manager::WritableTestBackend;
     use ratatui::backend::Backend;
     use std::io::Write;

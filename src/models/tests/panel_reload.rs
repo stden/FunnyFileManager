@@ -63,7 +63,7 @@ fn test_select_after_reload_preserves_selected_name() {
         PathBuf::new(),
         vec![
             DirEntry {
-                name: "alpha.txt".to_string(),
+                name: "alpha.txt".to_owned(),
                 kind: EntryKind::File,
                 size: FileSize::from_bytes(10),
                 modified: Modified::UNKNOWN,
@@ -71,7 +71,7 @@ fn test_select_after_reload_preserves_selected_name() {
                 ..DirEntry::default()
             },
             DirEntry {
-                name: "beta.txt".to_string(),
+                name: "beta.txt".to_owned(),
                 kind: EntryKind::File,
                 size: FileSize::from_bytes(20),
                 modified: Modified::UNKNOWN,
@@ -93,7 +93,7 @@ fn test_select_after_reload_stays_put_when_the_entry_is_gone() {
         PathBuf::new(),
         vec![
             DirEntry {
-                name: "alpha.txt".to_string(),
+                name: "alpha.txt".to_owned(),
                 kind: EntryKind::File,
                 size: FileSize::from_bytes(10),
                 modified: Modified::UNKNOWN,
@@ -101,7 +101,7 @@ fn test_select_after_reload_stays_put_when_the_entry_is_gone() {
                 ..DirEntry::default()
             },
             DirEntry {
-                name: "beta.txt".to_string(),
+                name: "beta.txt".to_owned(),
                 kind: EntryKind::File,
                 size: FileSize::from_bytes(20),
                 modified: Modified::UNKNOWN,
@@ -125,7 +125,7 @@ fn test_select_after_reload_keeps_selection_when_none() {
         PathBuf::new(),
         vec![
             DirEntry {
-                name: "alpha.txt".to_string(),
+                name: "alpha.txt".to_owned(),
                 kind: EntryKind::File,
                 size: FileSize::from_bytes(10),
                 modified: Modified::UNKNOWN,
@@ -133,7 +133,7 @@ fn test_select_after_reload_keeps_selection_when_none() {
                 ..DirEntry::default()
             },
             DirEntry {
-                name: "beta.txt".to_string(),
+                name: "beta.txt".to_owned(),
                 kind: EntryKind::File,
                 size: FileSize::from_bytes(20),
                 modified: Modified::UNKNOWN,

@@ -58,7 +58,7 @@ fn malformed_or_truncated_frames_are_errors() {
         b"Content-Length: 8\r\n\r\n{}",
         b"Content-Length: 2\r",
     ] {
-        assert!(read_frame(&mut &bytes[..]).is_err(), "accepted {bytes:?}");
+        assert!(read_frame(&mut &*bytes).is_err(), "accepted {bytes:?}");
     }
 }
 #[test]
@@ -69,5 +69,29 @@ fn oversized_and_non_utf8_headers_are_rejected_without_reading_a_body() {
         b"broken header\r\n\r\n".to_vec(),
     ] {
         assert!(read_frame(&mut frame.as_slice()).is_err());
+    }
+}
+
+/// The three parse failures keep their own fixed message and kind: the parser's
+/// detail goes to the diagnostics log, never into the returned error.
+#[test]
+fn a_malformed_frame_names_the_part_that_is_invalid() {
+    for (frame, message) in [
+        (
+            b"Content-Length: 2\r\n\r\nxx".as_slice(),
+            "Invalid LSP JSON",
+        ),
+        (
+            b"\xff: value\r\nContent-Length: 2\r\n\r\n{}".as_slice(),
+            "Invalid LSP header",
+        ),
+        (
+            b"Content-Length: x\r\n\r\n{}".as_slice(),
+            "Invalid LSP length",
+        ),
+    ] {
+        let error = read_frame(&mut &*frame).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData, "{message}");
+        assert_eq!(error.to_string(), message);
     }
 }

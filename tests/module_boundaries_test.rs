@@ -52,6 +52,9 @@ fn handlers_keeps_stable_operation_signatures() {
 /// Compile-time contract: the historical module path still resolves.
 #[test]
 fn handlers_keeps_shell_module_path() {
-    #[allow(unused_imports)]
+    #[expect(
+        unused_imports,
+        reason = "the contract is that the path resolves, not that it is used"
+    )]
     use funny_file_manager::handlers::shell;
 }

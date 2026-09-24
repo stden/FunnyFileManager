@@ -21,7 +21,8 @@ use ratatui::{
     Frame,
 };
 
-use super::{far_block, palette, Cells};
+use super::{far_block, fit_quoting_path, palette, Cells};
+use crate::status::PathMessage;
 
 /// Blank dialog surface around the frame, top/bottom and left/right.
 ///
@@ -136,6 +137,14 @@ pub(super) enum Row<'a> {
     Text(&'a str),
     /// A field's caption, left-aligned above it.
     Label(&'a str),
+    /// Text left-aligned exactly as given, with no hotkey: a note, where `&`
+    /// is a character like any other.
+    Plain(&'a str),
+    /// A message quoting a path, drawn as [`Row::Plain`] is, except that a
+    /// row too narrow for it cuts the path from its head and keeps at least
+    /// its last component, as the panel's info row does. Cut at its end, the
+    /// row would lose the very name it quotes the path for.
+    Path(&'a PathMessage<'a>),
     /// A text field, sunk into the dialog on its own ground.
     ///
     /// `history` draws Far's `↓` marker at the right edge, which is how a
@@ -236,6 +245,10 @@ impl Row<'_> {
         let plain = |text: &str| Cells::of(&text.replace(HOTKEY_MARK, ""));
         match self {
             Self::Text(text) | Self::Label(text) => plain(text),
+            Self::Plain(text) => Cells::of(text),
+            Self::Path(message) => {
+                Cells::of(&message.before) + Cells::of(&message.path) + Cells::of(&message.after)
+            }
             // The field is given room to grow rather than sized to what has
             // been typed, or the dialog would resize on every keystroke.
             Self::Input { value, .. } => Cells::of(value).max(Cells::new(INPUT_WIDTH)),
@@ -281,8 +294,8 @@ pub(super) struct Placement {
 pub(super) fn place(
     screen: Rect,
     title: &str,
-    rows: &[Row],
-    buttons: &[Button],
+    rows: &[Row<'_>],
+    buttons: &[Button<'_>],
     offset: (i32, i32),
 ) -> Option<Placement> {
     let (width, height) = dialog_size(screen, title, rows, buttons);
@@ -316,7 +329,7 @@ pub(super) fn place(
     })
 }
 
-fn dialog_size(screen: Rect, title: &str, rows: &[Row], buttons: &[Button]) -> (u16, u16) {
+fn dialog_size(screen: Rect, title: &str, rows: &[Row<'_>], buttons: &[Button<'_>]) -> (u16, u16) {
     let button_row: Cells = buttons
         .iter()
         .map(|button| button.width() + Cells::of(BUTTON_GAP))
@@ -355,8 +368,11 @@ fn frame_area(area: Rect) -> Rect {
 ///
 /// The same centring `button_line` draws with, so a click lands on the button
 /// the user is looking at.
-pub(super) fn button_spans(placement: &Placement, buttons: &[Button]) -> Vec<(usize, u16, u16)> {
-    let total: usize = buttons
+pub(super) fn button_spans(
+    placement: &Placement,
+    buttons: &[Button<'_>],
+) -> Vec<(usize, u16, u16)> {
+    let total = buttons
         .iter()
         .map(|button| button.width().get() + Cells::of(BUTTON_GAP).get())
         .sum::<usize>()
@@ -382,12 +398,12 @@ pub(super) fn button_spans(placement: &Placement, buttons: &[Button]) -> Vec<(us
 /// The loop draws immediately before it reads an event, so what is recorded
 /// here is exactly the frame the user was looking at.
 pub(super) fn render_tracked(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     title: &str,
     ground: Ground,
-    rows: &[Row],
-    buttons: &[Button],
+    rows: &[Row<'_>],
+    buttons: &[Button<'_>],
 ) -> Option<(u16, u16)> {
     let offset = tracker.offset;
     let caret = render_at(f, title, ground, rows, buttons, offset);
@@ -396,6 +412,9 @@ pub(super) fn render_tracked(
         tracker.body = Some(placement.body);
         tracker.buttons_y = placement.buttons_y;
         tracker.buttons = button_spans(&placement, buttons);
+        // Nothing is drawn over a dialog yet; one that hangs a popup over
+        // itself records it after this.
+        tracker.covered = None;
     } else {
         tracker.clear();
     }
@@ -404,11 +423,11 @@ pub(super) fn render_tracked(
 
 /// The same dialog, shifted by however far it has been dragged.
 pub(super) fn render_at(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     title: &str,
     ground: Ground,
-    rows: &[Row],
-    buttons: &[Button],
+    rows: &[Row<'_>],
+    buttons: &[Button<'_>],
     offset: (i32, i32),
 ) -> Option<(u16, u16)> {
     let screen = f.area();
@@ -445,8 +464,8 @@ pub(super) fn render_at(
 }
 
 fn render_body(
-    f: &mut Frame,
-    rows: &[Row],
+    f: &mut Frame<'_>,
+    rows: &[Row<'_>],
     style: Style,
     body: Rect,
     framed: Rect,
@@ -483,7 +502,7 @@ fn render_body(
     caret
 }
 
-fn row_caret(row: &Row) -> Option<u16> {
+fn row_caret(row: &Row<'_>) -> Option<u16> {
     match row {
         Row::Input {
             value,
@@ -500,20 +519,51 @@ fn row_caret(row: &Row) -> Option<u16> {
     }
 }
 
+/// Names a dialog lists before it starts counting instead: enough to check
+/// what an action is about, few enough to leave room for the buttons.
+const PREVIEWED_NAMES: usize = 5;
+
+/// Appends the `name` of the first few `items` to `into`, one per line, then
+/// `… and N more` for the items left unnamed.
+///
+/// Far names what a dialog is about and counts the rest: the name is what the
+/// user checks before pressing Enter, and a bare count is the one thing that
+/// cannot be checked. Only the listed items are named, so a dialog over a
+/// hundred thousand files formats five names, not all of them. The count
+/// comes from the same slice as the names, so the two cannot disagree.
+pub(super) fn preview_lines<T>(
+    items: &[T],
+    name: impl FnMut(&T) -> String,
+    into: &mut Vec<String>,
+) {
+    into.extend(items.iter().take(PREVIEWED_NAMES).map(name));
+    let unnamed = items.len().saturating_sub(PREVIEWED_NAMES);
+    if unnamed > 0 {
+        into.push(format!("… and {unnamed} more"));
+    }
+}
+
 /// A red warning dialog: a few sentences and some buttons.
 pub(super) fn render_warning(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     title: &str,
     message: &[String],
-    buttons: &[Button],
+    buttons: &[Button<'_>],
 ) {
-    let rows: Vec<Row> = message.iter().map(|line| Row::Text(line)).collect();
+    let rows: Vec<Row<'_>> = message.iter().map(|line| Row::Text(line)).collect();
     render_tracked(f, tracker, title, Ground::Warning, &rows, buttons);
 }
 
 /// One body row, drawn according to what it is.
-fn render_row(f: &mut Frame, row: &Row, style: Style, width: u16, area: Rect, framed: Rect) {
+fn render_row(
+    f: &mut Frame<'_>,
+    row: &Row<'_>,
+    style: Style,
+    width: u16,
+    area: Rect,
+    framed: Rect,
+) {
     let accent = style.fg(palette::HOTKEY).add_modifier(Modifier::BOLD);
     let focused = row.is_focused();
     let enabled = row.is_enabled();
@@ -524,6 +574,8 @@ fn render_row(f: &mut Frame, row: &Row, style: Style, width: u16, area: Rect, fr
         }
         Row::Text(text) => Line::from(hotkey_spans(text, style, accent)).centered(),
         Row::Label(text) => Line::from(hotkey_spans(text, style, accent)),
+        Row::Plain(text) => Line::from(Span::styled((*text).to_owned(), style)),
+        Row::Path(message) => path_line(message, style, width),
         Row::Input { value, history, .. } => input_line(value, focused, *history, style, width),
         Row::Radio {
             caption,
@@ -541,6 +593,17 @@ fn render_row(f: &mut Frame, row: &Row, style: Style, width: u16, area: Rect, fr
     f.render_widget(Paragraph::new(line).style(style), area);
 }
 
+/// A [`Row::Path`] in `width` cells: the path gives way before the words do.
+fn path_line(message: &PathMessage<'_>, style: Style, width: u16) -> Line<'static> {
+    let text = fit_quoting_path(
+        &message.before,
+        &message.path,
+        &message.after,
+        Cells::columns(width),
+    );
+    Line::from(Span::styled(text, style))
+}
+
 impl Row<'_> {
     fn is_focused(&self) -> bool {
         match self {
@@ -549,7 +612,9 @@ impl Row<'_> {
             | Self::Choice { focused, .. }
             | Self::Field { focused, .. }
             | Self::Checkbox { focused, .. } => *focused,
-            Self::Text(_) | Self::Label(_) | Self::Divider => false,
+            Self::Text(_) | Self::Label(_) | Self::Plain(_) | Self::Path(_) | Self::Divider => {
+                false
+            }
         }
     }
 
@@ -701,7 +766,7 @@ pub(super) fn field_caret(caption: &str, value: &str) -> u16 {
 /// Double, like the frame it meets: a single rule ending on a double border
 /// leaves two half-joined corners, which is what makes a dialog look drawn by
 /// two different programs.
-fn render_rule(f: &mut Frame, style: Style, y: u16, framed: Rect) {
+fn render_rule(f: &mut Frame<'_>, style: Style, y: u16, framed: Rect) {
     let rule = format!(
         "╠{}╣",
         "═".repeat(usize::from(framed.width.saturating_sub(2)))
@@ -733,7 +798,7 @@ fn hotkey_spans<'a>(label: &str, base: Style, accent: Style) -> Vec<Span<'a>> {
 }
 
 /// The buttons, centred, each with its hotkey letter picked out.
-fn button_line<'a>(buttons: &[Button], ground: Style) -> Line<'a> {
+fn button_line<'a>(buttons: &[Button<'_>], ground: Style) -> Line<'a> {
     let mut spans = Vec::new();
     for button in buttons {
         // The focused button is the one Enter acts on, so it is the one lit up.
@@ -762,7 +827,7 @@ fn button_line<'a>(buttons: &[Button], ground: Style) -> Line<'a> {
     Line::from(spans).centered()
 }
 
-fn button_style(button: &Button, ground: Style) -> Style {
+fn button_style(button: &Button<'_>, ground: Style) -> Style {
     if !button.is_enabled {
         ground.fg(palette::DISABLED_FG)
     } else if button.is_focused {
@@ -791,7 +856,7 @@ fn focused_control_style(ground: Style) -> Style {
 ///
 /// Drawn before the dialog and never over it: the two rectangles overlap, and
 /// painting the shadow second would darken the dialog's own right edge.
-pub(super) fn render_shadow(f: &mut Frame, area: Rect, screen: Rect) {
+pub(super) fn render_shadow(f: &mut Frame<'_>, area: Rect, screen: Rect) {
     let x = area.x + SHADOW_X;
     let y = area.y + SHADOW_Y;
     if x >= screen.right() || y >= screen.bottom() {
@@ -831,3 +896,5 @@ fn shadowed_component(value: u8) -> u8 {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_preview;

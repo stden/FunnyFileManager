@@ -1,29 +1,18 @@
 //! Unit tests: new file and drives (split out to keep files under 500 lines).
-#![allow(unused_imports)]
 
 use crate::models::FileName;
-
-use crate::ops::file::{format_operation_status, get_source_paths};
 
 use super::support::*;
 use crate::ops::*;
 use crate::popup::process_popup_input;
 
-#[cfg(feature = "test-helpers")]
-use crate::editor::{handle_edit_impl, handle_edit_test_mode, TestEditorBehavior};
-
 use crate::models::{App, BookmarkSlot, Overlay, Panel};
-
-#[cfg(feature = "test-helpers")]
-use crate::WritableTestBackend;
 
 use crossterm::event::KeyCode;
 
 use std::fs::{self, File};
 
-use std::io::{self, Write};
-
-use std::path::Path;
+use std::io;
 
 use tempfile::TempDir;
 
@@ -47,14 +36,6 @@ fn test_execute_command_bookmark_go_empty_slot_returns_error() -> io::Result<()>
     Ok(())
 }
 
-// --- format_operation_status ---
-
-#[test]
-fn test_format_operation_status_no_source() {
-    let status = format_operation_status(0, "Copied", None);
-    assert!(status.is_empty());
-}
-
 // -----------------------------------------------------------------------
 // New-file input overlay -- Enter with already-existing file sets error msg
 // but keeps the new_file_input set to None (the overlay is cleared)
@@ -69,7 +50,7 @@ fn test_new_file_input_enter_existing_file_sets_error_message() -> io::Result<()
     let mut app = App::new().expect("test setup");
     app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
     app.left_panel.load_entries().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("exists.txt".to_string()));
+    app.set_overlay(Overlay::NewFileInput("exists.txt".to_owned()));
 
     process_popup_input(&mut app, key_event(KeyCode::Enter));
 
@@ -109,7 +90,7 @@ fn test_new_file_input_enter_creates_new_file() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
     app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
     app.left_panel.load_entries().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("brand_new.txt".to_string()));
+    app.set_overlay(Overlay::NewFileInput("brand_new.txt".to_owned()));
 
     process_popup_input(&mut app, key_event(KeyCode::Enter));
 
@@ -383,33 +364,6 @@ fn test_handle_delete_confirm_dotdot_is_noop() -> io::Result<()> {
     );
 
     Ok(())
-}
-
-// -----------------------------------------------------------------------
-// format_operation_status branches
-// -----------------------------------------------------------------------
-
-#[test]
-fn test_format_operation_status_multiple_items() {
-    let result = format_operation_status(3, "Copied", Some(Path::new("/tmp/file.txt")));
-    assert_eq!(result, "Copied 3 item(s)");
-}
-
-#[test]
-fn test_format_operation_status_single_item() {
-    let dest = Path::new("/tmp/target/file.txt");
-    let result = format_operation_status(1, "Moved", Some(dest));
-    assert!(
-        result.starts_with("Moved to"),
-        "single item should show destination: {result}"
-    );
-    assert!(result.contains("file.txt"));
-}
-
-#[test]
-fn test_format_operation_status_no_source_empty() {
-    let result = format_operation_status(0, "Copied", None);
-    assert_eq!(result, "");
 }
 
 // -----------------------------------------------------------------------

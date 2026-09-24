@@ -70,7 +70,7 @@ fn unix_backslashes_are_literal_filename_characters() {
 #[cfg(windows)]
 #[test]
 fn status_paths_use_ordinary_spelling_even_when_stored_as_strings() {
-    let root = tempfile::TempDir::new().unwrap();
+    let root = TempDir::new().unwrap();
     let canonical = root.path().canonicalize().unwrap();
     let raw = canonical.to_string_lossy().into_owned();
     for status in [
@@ -83,5 +83,24 @@ fn status_paths_use_ordinary_spelling_even_when_stored_as_strings() {
     ] {
         assert!(!status.to_string().contains(r"\\?\"));
         assert!(status.to_string().contains(label(&canonical).as_ref()));
+    }
+}
+
+/// Review finding: a canonicalized Windows panel path put `\\?\` into
+/// `FFM_MCP_ROOT`; the same text rule now serves every caller, on every
+/// platform.
+#[test]
+fn the_verbatim_prefix_goes_from_drives_and_shares_only() {
+    for (raw, plain) in [
+        (r"\\?\C:\work\проект", r"C:\work\проект"),
+        (r"\\?\c:", "c:"),
+        (r"\\?\UNC\server\share\x", r"\\server\share\x"),
+        (r"\\?\Volume{example}\", r"\\?\Volume{example}\"),
+        (r"\\?\", r"\\?\"),
+        (r"\\.\COM1", r"\\.\COM1"),
+        (r"C:\work", r"C:\work"),
+        ("/srv/x/R&D", "/srv/x/R&D"),
+    ] {
+        assert_eq!(without_verbatim_prefix(raw), plain, "{raw}");
     }
 }

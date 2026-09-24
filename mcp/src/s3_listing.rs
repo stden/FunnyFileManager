@@ -78,7 +78,7 @@ fn file(object: &aws_sdk_s3::types::Object) -> ListedObject {
         key: object.key().unwrap_or("").to_owned(),
         folder: false,
         size: object.size().unwrap_or(0).max(0),
-        modified: object.last_modified().map(std::string::ToString::to_string),
+        modified: object.last_modified().map(ToString::to_string),
     }
 }
 

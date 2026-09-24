@@ -22,7 +22,7 @@ const PROMPT_SUFFIX: &str = "> ";
 /// the prompt is open, the typed text carries that caret **where it actually
 /// is**. A trailing glyph would be a lie now that the caret can sit mid-line,
 /// and a caret the user cannot see is the same as no caret at all.
-pub(super) fn render_command_line(f: &mut Frame, app: &App, area: Rect) {
+pub(super) fn render_command_line(f: &mut Frame<'_>, app: &App, area: Rect) {
     let state = match &app.overlay {
         Overlay::CommandLine(state) => Some(state),
         _ => None,
@@ -79,7 +79,7 @@ fn window_command_row(
 }
 
 fn render_inactive_prompt(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     area: Rect,
     prompt_text: Vec<crate::prompt::Segment>,
     width: Cells,
@@ -147,7 +147,7 @@ struct CommandRow {
 
 /// Paint one command-line row from its pre-windowed runs.
 fn render_command_row(
-    f: &mut Frame,
+    f: &mut Frame<'_>,
     area: Rect,
     prompt: &[crate::prompt::Segment],
     row: CommandRow,

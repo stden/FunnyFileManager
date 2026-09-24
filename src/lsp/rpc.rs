@@ -43,17 +43,15 @@ impl Session {
         self.next += 1;
         let id = RequestId(self.next);
         self.pending.insert(id, context);
-        let mut message = json!({"jsonrpc":"2.0", "id":id, "method":method});
-        message["params"] = params;
-        self.outbox.push(message);
+        let message = json!({"jsonrpc":"2.0", "id":id, "method":method});
+        self.outbox.push(with_params(message, params));
         crate::diagnostics::log_action(&format!("LSP request {} {method}", id.0));
         id
     }
 
     pub fn notify(&mut self, method: &str, params: Value) {
-        let mut message = json!({"jsonrpc":"2.0", "method":method});
-        message["params"] = params;
-        self.outbox.push(message);
+        let message = json!({"jsonrpc":"2.0", "method":method});
+        self.outbox.push(with_params(message, params));
     }
 
     pub fn cancel_queries(&mut self) {
@@ -69,26 +67,38 @@ impl Session {
     }
 
     pub fn receive(&mut self, mut message: Value) -> Result<Incoming, &'static str> {
-        if message["jsonrpc"] != "2.0" {
+        if message.get("jsonrpc").and_then(Value::as_str) != Some("2.0") {
             return Err("Invalid JSON-RPC version");
         }
         if let Some(method) = message.get("method") {
             let method = method.as_str().ok_or("Invalid JSON-RPC method")?.to_owned();
-            // An object (it has a version), so indexing takes `params` or `Null`.
-            let params = message["params"].take();
+            // Absent `params` are `Null`, as JSON-RPC treats them.
+            let params = message
+                .get_mut("params")
+                .map(Value::take)
+                .unwrap_or_default();
             return Ok(match message.get("id") {
                 Some(id) => Incoming::Request(id.clone(), method, params),
                 None => Incoming::Notification(method, params),
             });
         }
         let result = response(&message)?;
-        let pending = message["id"]
-            .as_u64()
+        let pending = message
+            .get("id")
+            .and_then(Value::as_u64)
             .and_then(|id| self.pending.remove(&RequestId(id)));
         Ok(pending.map_or(Incoming::Unknown, |pending| {
             Incoming::Response(pending, result)
         }))
     }
+}
+
+/// `message`, a `json!` object, with `params` moved in rather than copied.
+fn with_params(mut message: Value, params: Value) -> Value {
+    if let Some(fields) = message.as_object_mut() {
+        fields.insert("params".to_owned(), params);
+    }
+    message
 }
 
 fn response(message: &Value) -> Result<Result<Value, ResponseError>, &'static str> {
@@ -102,7 +112,7 @@ fn response(message: &Value) -> Result<Result<Value, ResponseError>, &'static st
         (Some(result), None) => Ok(Ok(result.clone())),
         (None, Some(error)) => serde_json::from_value(error.clone())
             .map(Err)
-            .map_err(|_| "Invalid JSON-RPC error"),
+            .map_err(crate::lsp::logged("Invalid JSON-RPC error")),
         _ => Err("Invalid JSON-RPC response"),
     }
 }

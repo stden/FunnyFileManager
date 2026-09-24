@@ -26,6 +26,7 @@ pub const VERBS: &[&str] = &[
     "mcp",
     "lsp",
     "cleanup",
+    "sessions",
     "quit",
     "exit",
 ];
@@ -59,10 +60,12 @@ pub enum Command {
     Wsl,
     /// mcp
     Mcp,
-    /// Show installed language servers and launch parameters.
+    /// Open the Language servers dialog: inspect and edit the servers.
     Lsp,
     /// cleanup — open the disk cleanup dialog.
     DiskCleanup,
+    /// `sessions …`: `NetBox`'s stored sessions.
+    Sessions(SessionsCommand),
     /// quit / exit
     Quit,
     /// Any other input is treated as a shell command.
@@ -112,6 +115,17 @@ impl std::fmt::Display for ShellCommand {
     }
 }
 
+/// What `sessions` does.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SessionsCommand {
+    /// `sessions`: show the stored-sessions panel.
+    Open,
+    /// `sessions import netbox [path]`: import a `.netbox` file. The path is
+    /// the rest of the line, so a path with spaces needs no quoting; without
+    /// one, the `.netbox` file under a file panel's cursor.
+    ImportNetBox(Option<PathBuf>),
+}
+
 /// Correct forms for the verbs that take arguments. These are the single
 /// source of truth for both the parse failure and the message the user reads,
 /// so a syntax change can never leave the status bar advertising the old one.
@@ -119,12 +133,13 @@ const CD_USAGE: &str = "cd requires a path";
 const SORT_USAGE: &str = SortMode::USAGE;
 const BOOKMARK_USAGE: &str = "bookmark expects set|go <0-9>";
 const MARK_USAGE: &str = "mark expects all";
+const SESSIONS_USAGE: &str = "sessions expects nothing, or import netbox [path]";
 
 impl Command {
     /// A known verb used with arguments it does not accept.
     fn invalid(input: &str, usage: &'static str) -> Self {
         Self::Invalid {
-            input: input.to_string(),
+            input: input.to_owned(),
             usage,
         }
     }
@@ -156,6 +171,7 @@ impl Command {
             "mcp" => Self::Mcp,
             "lsp" => Self::Lsp,
             "cleanup" => Self::DiskCleanup,
+            "sessions" => Self::parse_sessions(input, &mut parts),
             "quit" | "exit" => Self::Quit,
             // `input` has a non-whitespace token — `parts.next()` just yielded
             // one — so the constructor cannot fail; `Empty` above owns the
@@ -184,6 +200,16 @@ impl Command {
             Self::MarkAll
         } else {
             Self::invalid(input, MARK_USAGE)
+        }
+    }
+
+    fn parse_sessions(input: &str, parts: &mut std::str::SplitWhitespace<'_>) -> Self {
+        match (parts.next(), parts.next()) {
+            (None, _) => Self::Sessions(SessionsCommand::Open),
+            (Some("import"), Some("netbox")) => {
+                Self::Sessions(SessionsCommand::ImportNetBox(rest_after(input, 3)))
+            }
+            _ => Self::invalid(input, SESSIONS_USAGE),
         }
     }
 
@@ -216,7 +242,19 @@ impl Command {
 /// happily produces such lines. One matching pair of surrounding quotes is
 /// stripped so `cd "My Documents"` behaves the way a shell taught the user.
 fn cd_argument(input: &str) -> Option<PathBuf> {
-    let (_, rest) = input.trim_start().split_once(char::is_whitespace)?;
+    rest_after(input, 1)
+}
+
+/// Everything after the first `words` whitespace-separated words, quotes
+/// stripped, as a path — `None` when nothing follows. Whole-rest rather than
+/// one token for the reason [`cd_argument`] gives; `sessions import netbox`
+/// takes its path the same way.
+fn rest_after(input: &str, words: usize) -> Option<PathBuf> {
+    let mut rest = input.trim_start();
+    for _ in 0..words {
+        let (_, tail) = rest.split_once(char::is_whitespace)?;
+        rest = tail.trim_start();
+    }
     let arg = strip_quotes(rest.trim());
     (!arg.is_empty()).then(|| PathBuf::from(arg))
 }

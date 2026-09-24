@@ -1,23 +1,20 @@
-//! Unit tests: defaults, the config path rule, and the load/save round trip.
+//! Unit tests: defaults and the config path rule; the load/save behaviour is
+//! in `tests/persistence.rs`.
 
 use tempfile::TempDir;
 
 use super::*;
-use crate::test_support::EnvVarGuard;
+use crate::test_support::{EnvVarGuard, CONFIG_HOME};
 
-/// The variable that names the config root on this platform.
-const CONFIG_HOME: &str = if cfg!(windows) {
-    "APPDATA"
-} else {
-    "XDG_CONFIG_HOME"
-};
+pub(super) mod persistence;
+mod sharing;
 
 #[test]
 fn defaults_follow_far() {
     let settings = Settings::default();
     assert!(!settings.system.auto_save_setup);
     assert_eq!(
-        settings.system.history_size as usize,
+        usize::try_from(settings.system.history_size).unwrap(),
         crate::history::HISTORY_CAP
     );
     assert!(settings.panel.show_hidden);
@@ -45,66 +42,115 @@ fn the_path_sits_under_the_config_home() {
     let _home = EnvVarGuard::set(CONFIG_HOME, temp.path());
     assert_eq!(
         Settings::path(),
-        Some(temp.path().join("ffm").join("settings.json"))
+        Some(temp.path().join("ffm").join("settings.yaml"))
     );
 }
 
-#[cfg(not(windows))]
+/// An environment holding exactly `variables`, for the pure path rules.
+fn environment<'a>(
+    variables: &'a [(&'static str, &'a Path)],
+) -> impl Fn(&'static str) -> Option<OsString> + 'a {
+    |name| {
+        variables
+            .iter()
+            .find(|(variable, _)| *variable == name)
+            .map(|(_, value)| value.as_os_str().to_owned())
+    }
+}
+
 #[test]
-fn a_relative_xdg_config_home_is_ignored() {
-    let _home = EnvVarGuard::set(CONFIG_HOME, std::path::Path::new("relative/dir"));
-    let path = Settings::path();
-    assert!(
-        path.as_ref().is_none_or(|path| path.is_absolute()),
-        "{path:?} must not be launch-directory relative"
+fn windows_keeps_the_config_directory_under_appdata() {
+    let temp = TempDir::new().expect("tempdir");
+    let appdata = Path::new("C:/Users/bob/AppData/Roaming");
+    let unix_homes = [("XDG_CONFIG_HOME", temp.path()), ("HOME", temp.path())];
+    assert_eq!(
+        Platform::Windows.dir(environment(&[
+            ("APPDATA", appdata),
+            unix_homes[0],
+            unix_homes[1]
+        ])),
+        Some(appdata.join("ffm"))
+    );
+    assert_eq!(
+        Platform::Windows.dir(environment(&unix_homes)),
+        None,
+        "Windows never falls back to the Unix variables"
     );
 }
 
 #[test]
-fn load_survives_a_missing_and_a_corrupt_file() -> io::Result<()> {
-    let temp = TempDir::new()?;
-    let _home = EnvVarGuard::set(CONFIG_HOME, temp.path());
-    assert_eq!(Settings::load(), Settings::default());
-    fs::create_dir_all(temp.path().join("ffm"))?;
-    fs::write(temp.path().join("ffm/settings.json"), "{ not json")?;
-    assert_eq!(Settings::load(), Settings::default());
-    fs::write(
-        temp.path().join("ffm/settings.json"),
-        r#"{"system":{"wipe_on_delete":true}}"#,
-    )?;
-    let partial = Settings::load();
-    assert!(
-        partial.system.wipe_on_delete,
-        "a partial file loads its fields"
+fn unix_prefers_an_absolute_xdg_config_home_to_home() {
+    let xdg = TempDir::new().expect("tempdir");
+    let home = TempDir::new().expect("tempdir");
+    let variables = [
+        ("XDG_CONFIG_HOME", xdg.path()),
+        ("HOME", home.path()),
+        ("APPDATA", home.path()),
+    ];
+    assert_eq!(
+        Platform::Unix.dir(environment(&variables)),
+        Some(xdg.path().join("ffm"))
     );
-    assert!(partial.panel.show_hidden, "and defaults the rest");
-    Ok(())
+    assert_eq!(
+        Platform::Unix.dir(environment(&[("HOME", home.path())])),
+        Some(home.path().join(".config").join("ffm"))
+    );
 }
 
 #[test]
-fn save_then_load_round_trips_every_page() -> io::Result<()> {
-    let temp = TempDir::new()?;
-    let _home = EnvVarGuard::set(CONFIG_HOME, temp.path());
-    let mut settings = Settings::default();
-    settings.system.auto_save_setup = true;
-    settings.shortcuts[3] = Some(PathBuf::from("/srv"));
-    settings
-        .mask_groups
-        .groups
-        .push(("code".to_owned(), "*.rs,*.py".to_owned()));
-    settings.colors.theme = Theme::Grey;
-    settings.panel_modes.modes[0].columns = "N,S".to_owned();
-    settings.save()?;
-    assert!(temp.path().join("ffm/settings.json").is_file());
-    assert_eq!(Settings::load(), settings);
-    Ok(())
+fn unix_ignores_a_relative_xdg_config_home() {
+    let home = TempDir::new().expect("tempdir");
+    let relative = Path::new("relative/dir");
+    assert_eq!(
+        Platform::Unix.dir(environment(&[
+            ("XDG_CONFIG_HOME", relative),
+            ("HOME", home.path())
+        ])),
+        Some(home.path().join(".config").join("ffm")),
+        "settings must never land in the launch directory"
+    );
+    assert_eq!(
+        Platform::Unix.dir(environment(&[("XDG_CONFIG_HOME", relative)])),
+        None
+    );
 }
 
 #[test]
-fn load_survives_an_unreadable_settings_file() -> io::Result<()> {
-    let temp = TempDir::new()?;
+fn the_current_platform_rule_reads_the_process_environment() {
+    let temp = TempDir::new().expect("tempdir");
     let _home = EnvVarGuard::set(CONFIG_HOME, temp.path());
-    fs::create_dir_all(temp.path().join("ffm").join("settings.json"))?;
-    assert_eq!(Settings::load(), Settings::default());
-    Ok(())
+    assert_eq!(dir(), Some(temp.path().join("ffm")));
+    assert_eq!(
+        Platform::CURRENT,
+        if cfg!(windows) {
+            Platform::Windows
+        } else {
+            Platform::Unix
+        }
+    );
+}
+
+#[test]
+fn the_lsp_key_is_the_name_serde_gives_the_field() {
+    let value = serde_norway::to_value(Settings::default()).expect("settings serialize");
+    assert!(value.get(LSP_KEY).is_some());
+}
+
+/// Opening a FIFO blocks until something writes to it, and the settings load
+/// before the first frame: startup would hang.
+#[cfg(unix)]
+#[test]
+fn load_does_not_block_on_a_fifo() {
+    let temp = TempDir::new().expect("tempdir");
+    let fifo = temp.path().join(document::FILE_NAME);
+    crate::test_support::make_fifo(&fifo).expect("mkfifo");
+    let loaded =
+        crate::test_support::run_with_timeout(std::time::Duration::from_secs(5), move || {
+            Settings::load_from(&fifo).map_err(|error| error.to_string())
+        })
+        .expect("loading settings must not block on a FIFO");
+    assert_eq!(
+        loaded,
+        Err("settings.yaml is not a regular file".to_owned())
+    );
 }

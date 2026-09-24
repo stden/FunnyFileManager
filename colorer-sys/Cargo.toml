@@ -24,6 +24,31 @@ unfulfilled_lint_expectations = "deny"
 # This crate IS the FFI boundary, so unsafe is allowed crate-wide — but every
 # unsafe operation still needs its own block and every block its reason.
 unsafe_op_in_unsafe_fn = "deny"
+# Reliability guards nothing trips today, kept so it stays that way (the root
+# manifest names what each catches).
+unused_lifetimes = "warn"
+single_use_lifetimes = "warn"
+redundant_lifetimes = "warn"
+explicit_outlives_requirements = "warn"
+unused_macro_rules = "warn"
+meta_variable_misuse = "warn"
+unused_import_braces = "warn"
+unused_extern_crates = "warn"
+macro_use_extern_crate = "warn"
+trivial_numeric_casts = "warn"
+unit_bindings = "warn"
+keyword_idents_2024 = "warn"
+non_ascii_idents = "warn"
+unsafe_attr_outside_unsafe = "warn"
+# Code that hides what it does: a destructor run by `let _ =`, a cast a coercion
+# would do, a `pub` type nobody outside can name, a path or import that says
+# nothing, a lifetime hidden in a path (`Formatter<'_>`, not `Formatter`).
+let_underscore_drop = "warn"
+trivial_casts = "warn"
+unnameable_types = "warn"
+unused_qualifications = "warn"
+redundant_imports = "warn"
+elided_lifetimes_in_paths = "warn"
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
@@ -34,3 +59,64 @@ missing_safety_doc = "deny"
 cognitive_complexity = "warn"
 excessive_nesting = "warn"
 too_many_lines = "warn"
+# Production code never panics or exits: it returns the error, or proves the
+# invariant in an `#[expect(clippy::<lint>, reason = "...")]` on the smallest
+# item. clippy.toml lets tests unwrap, expect, index, panic, print and dbg!.
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+unreachable = "warn"
+exit = "warn"
+indexing_slicing = "warn"
+string_slice = "warn"
+as_conversions = "warn"
+# An error is handled or passed on, never dropped without a word.
+map_err_ignore = "warn"
+let_underscore_must_use = "warn"
+unused_result_ok = "warn"
+# A library prints nothing (Clippy exempts the build script's `cargo:` lines),
+# and a caller never reads a `{:?}`. Hash-map order and `FileType::is_file`
+# (false for devices, pipes and sockets) are never relied on.
+print_stdout = "warn"
+print_stderr = "warn"
+dbg_macro = "warn"
+use_debug = "warn"
+iter_over_hash_type = "warn"
+filetype_is_file = "warn"
+# One unsafe operation per block, each with its own SAFETY comment; no SAFETY
+# comment or `# Safety` doc where nothing is unsafe; every allow and expect
+# attribute says why.
+multiple_unsafe_ops_per_block = "warn"
+unnecessary_safety_comment = "warn"
+unnecessary_safety_doc = "warn"
+allow_attributes_without_reason = "warn"
+# Guards against leaks, shared-state and float traps, wasted allocations, and
+# forms with a plainer spelling (`to_owned`, `?`, `name.rs` over `name/mod.rs`).
+mem_forget = "warn"
+rc_buffer = "warn"
+rc_mutex = "warn"
+clone_on_ref_ptr = "warn"
+mutex_atomic = "warn"
+mutex_integer = "warn"
+lossy_float_literal = "warn"
+float_cmp_const = "warn"
+empty_drop = "warn"
+verbose_file_reads = "warn"
+str_to_string = "warn"
+string_add = "warn"
+infinite_loop = "warn"
+large_include_file = "warn"
+get_unwrap = "warn"
+try_err = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+mod_module_files = "warn"
+needless_raw_strings = "warn"
+unnecessary_self_imports = "warn"
+redundant_type_annotations = "warn"
+deref_by_slicing = "warn"
+# Manifest hygiene: no `*` versions, no `no-`, `with-` or `use-` feature names.
+wildcard_dependencies = "warn"
+negative_feature_names = "warn"
+redundant_feature_names = "warn"

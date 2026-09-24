@@ -41,9 +41,10 @@ use std::path::{Path, PathBuf};
 /// exemption. This list may only shrink — [`the_baseline_has_no_stale_entries`]
 /// fails when an entry becomes testable and is left here.
 const UNEXERCISED: &[&str] = &[
-    "after_caret",
     "apply_navigation",
     "association_command",
+    // Windows: sends WM_SETTINGCHANGE to every window on the machine.
+    "broadcast_environment_change",
     "canonical_existing_ancestor",
     "changes_bits",
     "clear_with_lock",
@@ -76,7 +77,6 @@ const UNEXERCISED: &[&str] = &[
     "read_catalog",
     "remember_marks",
     "run_command",
-    "run_pending",
     "save_session",
     "show_tree",
     "symlink_dir",

@@ -46,13 +46,13 @@ Two options run the **Rust linter gate** on every commit: `cargo fmt` plus
 uses: root default features, all features, and no default features with
 `test-helpers`, plus the MCP and Colorer crates.
 
-The shared entry point is `scripts/lint.sh` (also exposed as `./ffm.sh lint`).
+The shared entry point is `scripts/lint.py` (also exposed as `./ffm.py lint`).
 
 ### ⚙️ Option 1: pre-commit framework (recommended)
 
 A `.pre-commit-config.yaml` is committed at the root.
 
-It auto-formats with `cargo fmt`, then runs `scripts/lint.sh clippy`, plus a
+It auto-formats with `cargo fmt`, then runs `scripts/lint.py clippy`, plus a
 few basic checks (trailing whitespace, YAML, large files). Formatting changes
 are applied in-place and **automatically re-staged** by the framework.
 
@@ -71,7 +71,7 @@ Run manually:
 pre-commit run --all-files
 pre-commit run cargo-fmt
 pre-commit run cargo-clippy
-./scripts/lint.sh               # full gate without the pre-commit framework
+./scripts/lint.py               # full gate without the pre-commit framework
 ```
 
 Skip clippy once (slow machines / WIP):
@@ -80,16 +80,23 @@ Skip clippy once (slow machines / WIP):
 SKIP=cargo-clippy git commit -m "wip"
 ```
 
-### ⚙️ Option 2: Zero-dependency shell hook
+### ⚙️ Option 2: Zero-dependency Python hook
 
-A simple script lives at `scripts/pre-commit`.
+A simple script lives at `scripts/pre_commit_hook.py`; it needs only `python3`.
 
 ```bash
-chmod +x scripts/pre-commit
-ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
+ln -sf ../../scripts/pre_commit_hook.py .git/hooks/pre-commit
 ```
 
-This version runs `cargo fmt` (main + `mcp/`) then `scripts/lint.sh clippy`.
+A link made for the old bash hook (`../../scripts/pre-commit`) now leads
+nowhere, and git skips a missing hook without a word: run the `ln -sf` line
+above again.
+
+This version runs `cargo fmt` (main + `mcp/`) then `scripts/lint.py clippy`.
+On `git commit` it checks the working tree being committed, in a linked
+worktree too. A worktree without `scripts/lint.py` (a branch from before the
+Python scripts) stops the commit with status 1 instead of checking another
+tree: run that branch's own `./ffm.sh lint`, then commit with `--no-verify`.
 It does **not** automatically re-stage formatting changes — `git add -u` if
 fmt rewrote files. Skip clippy with `SKIP_CLIPPY=1 git commit ...`.
 
@@ -102,10 +109,11 @@ git commit --no-verify
 ### ⚙️ Notes for both options
 
 - Both use your local Rust toolchain (`cargo fmt` / `clippy` / `rustfmt.toml`).
-- The `mcp/` helper crate is included in the lint script and the shell hook.
+- The `mcp/` helper crate is included in the lint script and the Python hook.
 - Clippy is slower than fmt alone; that is intentional so local commits match CI.
-- CI enforces the same gate in the `lint` job (`.github/workflows/tests.yml`).
+- CI enforces the same gate in the `lint` job (`.github/workflows/tests.yml`),
+  with the Rust release `rust-toolchain.toml` pins.
 
 Using a pre-commit hook keeps formatting and clippy regressions out of PRs.
 
-See also `.pre-commit-config.yaml`, `scripts/pre-commit`, and `scripts/lint.sh`.
+See also `.pre-commit-config.yaml`, `scripts/pre_commit_hook.py`, and `scripts/lint.py`.

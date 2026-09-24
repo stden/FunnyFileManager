@@ -1,7 +1,6 @@
 //! Purpose: Verify recipe validation and literal custom installer arguments without network access.
 
 use super::*;
-use crate::config::InstallCommand;
 use crate::lsp::install::environment::System;
 use std::{collections::BTreeMap, fs};
 use tempfile::TempDir;

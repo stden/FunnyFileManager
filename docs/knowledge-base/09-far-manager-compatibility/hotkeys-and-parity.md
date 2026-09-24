@@ -40,11 +40,12 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 | F8        | Delete                         | ✅         | With confirmation dialog |
 | Alt+Del   | Wipe                           | ✅         | Confirmation titled Wipe; each file is zero-filled, truncated, renamed to a temporary name and removed; directories recurse; symlinks are unlinked, never followed; pipes, sockets and devices are never opened, only unlinked; a file with other hard links is only unlinked and the status bar says so. Far's `System.WipeSymbol` filler is not offered (always zeros) |
 | F9        | Menu bar                       | ✅         |       |
+| Shift+F9  | Save setup                     | ✅         | Writes the Options entries under `options` in `settings.yaml`; every other key keeps what the file has. A file that does not parse is not rewritten (`Not saved: …`) |
 | Alt+F9    | Video mode (25 / 50 rows)      | ⚠️         | Asks the terminal to resize (`CSI 8 t`); many terminals, tmux among them, ignore it. The status bar says the height asked for and the height the terminal has |
 | F10       | Quit                           | ✅         | Also Ctrl+C and the `quit` command |
-| F11       | Plugin commands                | ✅         | Opens MCP/plugin status |
+| F11       | Plugin commands                | ✅         | Far's list: MCP status (the server, then Claude Code, Codex, Junie and Kiro at both scopes), NetBox: stored sessions, NetBox: import from `.netbox` file… |
 | F12       | Switch screens                 | ✅         | The same list as F9 Screens: file panels or the console transcript. Ctrl+O toggles the console directly |
-| Alt+F1/F2 | Drive selection                | ✅         |       |
+| Alt+F1/F2 | Drive selection                | ✅         | Under the rule, with digit keys from 0: every S3 profile, then `NetBox` (the stored-sessions panel on that side) and `Process list` (the Task list, as Ctrl+W). Del, Shift+Del, F3, F4, F9 and Ctrl+R of Far's dialog are not implemented |
 | Ctrl+O    | Toggle console (hide panels)   | ✅         |       |
 | Ctrl+U    | Swap panels                    | ✅         | Ignored while a panel is hidden (Ctrl+F1 / Ctrl+F2), as in Far; the status line says so |
 | Ctrl+Z    | Describe files                 | ✅         | One prompt per marked entry (else the cursor), opening on the current text; writes Far's `name text` line (name quoted when it holds a space) to the first of `Settings.descriptions.names`, an empty text removes it, and the panel is re-listed |
@@ -98,6 +99,7 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 | `bookmark set/go`    | ✅        | Uses `BookmarkSlot` type; the only way to reach bookmarks — F2 opens Commands and there is no bookmark overlay |
 | `mark all`, `unmark` | ✅        |       |
 | `mcp`, `winmsg`, etc.| ✅        |       |
+| `sessions`           | ✅        | NetBox's stored-sessions panel; `sessions import netbox [path]` imports a `.netbox` export (the file under a file panel's cursor when no path is given) |
 | Shell fallback       | ✅        | Any unknown command runs in shell |
 
 ## 🧭 Panel Kinds (Left / Right menu)
@@ -105,6 +107,28 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 | Key     | Far Manager Action      | FFM Status | Notes |
 |---------|-------------------------|------------|-------|
 | Ctrl+Q  | Toggle quick view panel | ✅         | As in Far, the *passive* panel becomes the preview and the cursor stays on the file list; pressed inside the preview it turns that panel back into a file list. A file shows its first screen through the viewer's decoder and highlighter (the encoding label, size and percent in the info row; binary, oversized and non-regular files are declined with a one-line reason); a folder shows its first readable configured description (`README.md`, then `README.txt` by default) while InfoPanel settings is on, otherwise `crate::stats` totals (size, files, folders) — a folder that cannot be read says `Cannot read: <reason>`, and folders inside it that could not be read mark the totals as lower bounds, as F3's Information box does. Unusable descriptions are skipped; changing the description settings updates the open preview. The preview follows the cursor of a file or tree panel on every event. With the preview panel active, Up/Down, PgUp/PgDn, Home/End, Left/Right and Ctrl+Left/Ctrl+Right scroll it like the viewer; every other key falls through. The key and the Left/Right menu row share one path: `MenuCommand::QuickView` → `ops::quickview::toggle`. |
+
+## 🌐 NetBox Panels
+
+Far's NetBox plugin keeps SFTP/SCP/FTP connections as stored sessions. FFM
+stores the sessions and imports NetBox's `.netbox` export; it has no network
+transport yet, so connecting says so. See
+`docs/knowledge-base/07-core-features/netbox-sessions.md`.
+
+| Key (sessions panel) | Far NetBox Action        | FFM Status | Notes |
+|----------------------|--------------------------|------------|-------|
+| Enter on `..`        | Back to the file list    | ✅         |       |
+| Enter on a session   | Connect                  | ⚠️         | This build has no SFTP/SCP/FTP transport: the status bar says so and the session stays stored |
+| F3                   | Show the session         | ✅         | Its settings in the viewer; there is never a password to show |
+| F4 / Shift+F4        | Edit / new session       | ✅         | Name, protocol, host, port, user, login (password / key file / agent), start directory. No password field: a password is asked for when connecting, never stored |
+| F5                   | Copy session             | ✅         | Asks for the copy's name |
+| F8                   | Delete session           | ✅         | Asks first |
+| Alt+Letter           | Quick search             | ❌         | Refused with the other keys that act on files |
+| Other file keys      | —                        | ✅         | F5–F8, marking, Alt+Del, Ctrl+A … are refused with a status line instead of acting on the file list hidden beneath; Tab, Alt+F1/F2, F9–F12 and the command line still work. F5/F6 from a file panel refuse a sessions or remote panel as the destination |
+
+A remote panel (the seam the transport will fill; reached in this build only
+through tests) moves with the list keys, Enter enters a directory, and `..`
+at the host's root returns to the files.
 
 ## 🪟 Overlay / Dialog Keys
 
@@ -115,6 +139,95 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
   Left/Right one column, Ctrl+Left/Ctrl+Right twenty columns; Esc/Enter/F3/F10
   close
 - F2 (bookmark overlay) and 0-9 / Ctrl+0-9 slot keys — ❌ never implemented; use `:bookmark set|go <0-9>`
+- Shift+F9 (Save setup) writes only the Options entries under `options` and
+  refuses a file that does not parse, so it never erases the language servers
+  or the typed pages
+
+## 🧰 Language servers dialog
+
+F9 → Commands → Language servers (LSP), or `lsp` on the command line. While it
+is open every key goes to it, so none of these clash with a panel or
+command-line binding; each means what it already means in FFM or Far. Keys not
+listed do nothing (F1, F6, F9, F11, F12, Shift+F9, Ctrl+Z, Alt+letters). A list
+or view key with Shift, Ctrl or Alt held is another key and does nothing too:
+Shift+F8 does not reset, Alt+F7 does not add, Shift+F2 does not save.
+
+Each mode's key bar and bottom-border legend name only the keys that act
+there. The form and the exit question blank the key bar, since no F-key acts
+in them; the form's legend reads `Enter OK  Esc Cancel  Tab Next  Ctrl+Space
+List`, or with a suggestion list open what Up, Down, Enter and Esc do to it,
+and the exit question's reads `Y Yes  N No  Esc Cancel`.
+
+**List**
+
+| Key | Action | Far / FFM precedent |
+|-----|--------|---------------------|
+| Up / Down | Previous / next server | Far lists |
+| PgUp / PgDn | One list page | Far lists |
+| Home / End | First / last server | Far lists |
+| Enter, F4 | Edit the selected server | PATH editor Enter/F4; Far F4 = Edit |
+| Space | Toggle Enabled | Far checkbox |
+| Ins, F7 | Add a server | PATH editor Ins/F7 |
+| Del, F8 | Catalog server: reset its command, arguments, extensions and on/off; added server: remove | PATH editor Del/F8 |
+| F2 | Save to `settings.yaml` (only the changed fields) | Editor and PATH editor F2 |
+| F3 | View every server | Far F3 = View |
+| F5 | Check availability again | PATH editor F5 |
+| Esc, F10 | Close; with changes, ask Save / Discard / Cancel | Editor exit, Far F10 |
+
+A read-only dialog (no settings file, or one that does not load) answers
+Space, Enter/F4, Ins/F7, Del/F8 and F2 by repeating its reason.
+
+**View (F3)**: Up / Down one line, PgUp / PgDn one page, Home / End top /
+bottom, F5 check again, F3 / Esc / F10 back to the list with the selection kept.
+
+**Form**
+
+| Key | Action | Far / FFM precedent |
+|-----|--------|---------------------|
+| Tab / Shift+Tab | Next / previous control, wrapping; an existing server's language is skipped | Far dialogs |
+| Down / Up (no list open) | Next / previous control | Far dialogs |
+| Characters, Backspace, Delete, Left, Right, Home, End | Edit the field | FFM prompts |
+| Ctrl+Space, Ctrl+Down, Alt+Down | Open an active suggestion list | Editor Ctrl+Space; Far Ctrl+Down; Windows Alt+Down |
+| Space | On Enabled: toggle. On a button: press it. In a field: a space | Far dialogs |
+| Enter | OK, or Cancel when Cancel has the cursor | Far default button |
+| Esc | Cancel the form; the list is unchanged | Far dialogs |
+
+**Suggestion list.** A list opened by typing (Options → AutoComplete on) is
+*passive*: nothing is highlighted and Enter still presses OK. One opened by
+Ctrl+Space / Ctrl+Down / Alt+Down, or entered with Down / Up, is *active*.
+
+| Key | Passive list | Active list |
+|-----|--------------|-------------|
+| Down / Up | Enter it on the first / last row | Move the highlight, wrapping |
+| Enter | Close it, then the form's Enter (OK) | Put the highlighted suggestion in the field |
+| Esc | Close the list; the form stays | The same |
+| Tab / Shift+Tab | Close it and move the cursor | The same |
+| Characters, Backspace, Delete | Edit and refilter; it closes when nothing matches | Edit and refilter from the first row |
+| Left, Right, Home, End | Move the caret and close it | The same |
+
+**Exit question**: the editor's keys — Left / Right / Tab move between the
+buttons, Enter presses the focused one, Y = Yes (save, then close; a refused
+save returns to the list with the reason), N = No (discard, nothing written),
+C / Esc = Cancel.
+
+**Mouse**
+
+| Where | Wheel (sent as Up / Down) | Click |
+|-------|---------------------------|-------|
+| List | Previous / next server | Nothing: rows and the dialog's key bar are not hit-tested |
+| View | One line | Nothing |
+| Form | Previous / next control; with a list open, as Up / Down there | `{ OK }` / `[ Cancel ]` take the cursor, then Enter; a field takes the cursor and `Enabled` toggles, as in the Copy dialog; the frame drags the form; the suggestion list takes no click, so it never presses a button it covers |
+| Exit question | Nothing | `Yes`, `No`, `Cancel` send `y`, `n`, Esc |
+
+The form and the exit question open centred, however far the last one was
+dragged.
+
+**Terminal notes.** Ctrl+Space arrives as NUL on xterm-family terminals, which
+crossterm reports as Ctrl+Space; some input methods (IBus) take it first. On
+macOS, Ctrl+Space is "Select the previous input source" and Ctrl+Down is
+Mission Control's "Application windows" by default, so neither may reach the
+terminal; Alt+Down (Option+Down) does wherever the terminal sends Option as
+Alt, and with AutoComplete on, typing opens the list by itself.
 
 ## 🧭 Left / Right Menu
 
@@ -156,6 +269,7 @@ those terminals.
 
 - F4 opens the built-in editor, with syntax highlighting and optional language servers. Alt+F4 delegates to the external editor.
 - Some advanced Far plugins and menu systems have no equivalent.
+- F9 → Commands → `Install MCP server` (hotkey `e`) is an FFM extra with no Far counterpart: it registers `ffm-mcp` with AI clients. See [session tools](../../session-tools.md#mcp-server-setup).
 - Drive letters on Unix are simulated as `/`.
 - With the `s3` feature, credential-file profiles appear as extra drive-menu rows. Selecting one does not open a bucket. See [S3](../../tutorials/s3.md).
 

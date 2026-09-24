@@ -27,8 +27,10 @@ fn assignments_distinguish_export_names_values_and_comments() {
 }
 
 #[test]
-// The fallback expression is dotenv syntax, not a Rust formatting argument.
-#[allow(clippy::literal_string_with_formatting_args)]
+#[expect(
+    clippy::literal_string_with_formatting_args,
+    reason = "the `${HOST}` reference is dotenv syntax, not a Rust formatting argument"
+)]
 fn quoted_hashes_and_variable_references_keep_their_context() {
     let result = runs(r#"URL="${HOST}:$PORT/#fragment" # trailing"#);
     assert!(result.contains(&("${HOST}", Token::Type)));
@@ -89,7 +91,7 @@ fn escapes_unicode_and_incomplete_input_preserve_every_character() {
         "REFERENCE=${}",
         "REFERENCE=${UNFINISHED",
     ] {
-        let _ = runs(line);
+        drop(runs(line));
     }
     let escaped = runs(r"LITERAL=\$NAME\#value");
     assert!(escaped.contains(&(r"\$NAME\#value", Token::Str)));
