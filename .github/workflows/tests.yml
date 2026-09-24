@@ -4,12 +4,24 @@
 # -latest: a new image arrives as an edit here that CI tests, not as a silent
 # migration. Every job has a timeout, so a hung step fails in minutes instead
 # of holding a runner for the 6-hour default.
+#
+# Nothing else floats either: the compiler is the release rust-toolchain.toml
+# names (installed by `rustup toolchain install`, which reads that file), the
+# tools come at the versions in `env` below, Colorer at fixed commits, and
+# every job that builds the application uses the one Cargo.lock the lockfile
+# job resolved for this run. Bump any of them on purpose, in its own commit.
 name: CI
 
 on:
   push:
     branches: ["main", "master"]
   pull_request:
+  # The application's lockfile is resolved afresh in every run, so a crate
+  # release can turn main red without a push. A weekly run shows it within
+  # a week; a manual one shows it now.
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
 
 # A pull request keeps only its newest run. Every other run (a push to main)
 # gets a group of its own and always finishes: a cancelled run shows a red job
@@ -33,24 +45,66 @@ env:
   # no-op. Set here — not only on coverage jobs — because the MCP job runs
   # with working-directory: mcp and must still see a real wrapper.
   CARGO_BUILD_RUSTC_WRAPPER: /usr/bin/env
+  # The tools CI installs, at exact versions: a new typos dictionary or
+  # cargo-deny release can fail a run with no code change.
+  TOOL_TYPOS: typos@1.50.2
+  TOOL_CARGO_DENY: cargo-deny@0.20.2
+  TOOL_LLVM_COV: cargo-llvm-cov@0.9.1
+  TOOL_NEXTEST: cargo-nextest@0.9.146
+  TOOL_MUTANTS: cargo-mutants@27.1.0
 
 jobs:
+  # ── One Cargo.lock for the whole run ────────────────────────
+  # The application's and colorer-sys's lockfiles are not tracked: a first
+  # build resolves them. This job resolves them once and hands the same files
+  # to every job that builds, so all jobs test one dependency set and the
+  # rust-cache keys follow it. To reproduce a red run, download its
+  # `cargo-lock` artifact into a checkout of the same commit. mcp/Cargo.lock
+  # is tracked and needs none of this.
+  lockfile:
+    name: Resolve Cargo.lock
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
+
+      - name: Resolve the application's and colorer-sys's dependencies
+        run: |
+          cargo generate-lockfile
+          cargo generate-lockfile --manifest-path colorer-sys/Cargo.toml
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cargo-lock
+          path: |
+            Cargo.lock
+            colorer-sys/Cargo.lock
+          if-no-files-found: error
+
   # ── Format + clippy (deny warnings) ─────────────────────────
   # Runs in parallel with the heavier coverage/bdd jobs; fails fast
   # when style or lint drifts.
   lint:
     name: Lint (format, readability, architecture)
+    needs: lockfile
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
+      - name: Fetch this run's Cargo.lock
+        uses: actions/download-artifact@v8
+        with:
+          name: cargo-lock
+
       - name: Install mold (fast linker)
         uses: rui314/setup-mold@v1
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -61,7 +115,7 @@ jobs:
       - name: Install typos
         uses: taiki-e/install-action@v2
         with:
-          tool: typos
+          tool: ${{ env.TOOL_TYPOS }}
 
       # Keep local and CI gates identical, including MCP/Colorer and test targets.
       - name: Format, spelling and Clippy (all crates, -D warnings)
@@ -82,6 +136,7 @@ jobs:
   # previous tarpaulin step at ~2× the throughput.
   coverage:
     name: Tests & Coverage
+    needs: lockfile
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -91,12 +146,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Fetch this run's Cargo.lock
+        uses: actions/download-artifact@v8
+        with:
+          name: cargo-lock
+
       - name: Install mold (fast linker)
         uses: rui314/setup-mold@v1
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
+      - name: Install Rust (rust-toolchain.toml) and llvm-tools
+        run: |
+          rustup toolchain install --no-self-update
+          rustup component add llvm-tools
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -106,7 +167,7 @@ jobs:
       - name: Install coverage + test tools (prebuilt)
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-llvm-cov,cargo-nextest
+          tool: ${{ env.TOOL_LLVM_COV }},${{ env.TOOL_NEXTEST }}
 
       - name: Tests + coverage (fail under 98% lines)
         # Mirror tarpaulin.toml's exclude-files (keep in sync). Excluded from
@@ -147,6 +208,7 @@ jobs:
   # fast while still running every test declared in Cargo.toml.
   bdd:
     name: BDD (s3 feature, ${{ matrix.os }})
+    needs: lockfile
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -159,11 +221,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Fetch this run's Cargo.lock
+        uses: actions/download-artifact@v8
+        with:
+          name: cargo-lock
+
       - name: Install mold (fast linker)
         if: runner.os == 'Linux'
         uses: rui314/setup-mold@v1
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -184,6 +252,7 @@ jobs:
   # Keyboard -> production event loop -> rendered cells, on both host platforms.
   tui-bdd:
     name: TUI BDD (${{ matrix.os }})
+    needs: lockfile
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -197,9 +266,14 @@ jobs:
       FFM_TUI_ARTIFACT_DIR: target/tui-bdd
     steps:
       - uses: actions/checkout@v7
+      - name: Fetch this run's Cargo.lock
+        uses: actions/download-artifact@v8
+        with:
+          name: cargo-lock
       - uses: rui314/setup-mold@v1
         if: runner.os == 'Linux'
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: tui-bdd-${{ runner.os }}
@@ -239,9 +313,10 @@ jobs:
       - name: Install mold (fast linker)
         uses: rui314/setup-mold@v1
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy, llvm-tools-preview
+      - name: Install Rust (rust-toolchain.toml) and llvm-tools
+        run: |
+          rustup toolchain install --no-self-update
+          rustup component add llvm-tools
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -252,7 +327,7 @@ jobs:
       - name: Install coverage tool (prebuilt)
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-llvm-cov
+          tool: ${{ env.TOOL_LLVM_COV }}
 
       - name: Format check
         run: cargo fmt --all -- --check
@@ -284,11 +359,22 @@ jobs:
   # on one machine, and CI would never notice it stop.
   colorer:
     name: Colorer feature (FFI + real schemes)
+    needs: lockfile
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      # The Colorer commits this job builds and tests against: upstream HEAD
+      # of 2026-09-13, which CI built until now. Bump them on purpose.
+      COLORER_LIBRARY_SHA: b3c4d81bf9057945d10469168d29b95f59271b44
+      COLORER_SCHEMES_SHA: ebc9b537fd62e8a070410124940f9dc31dfbe555
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Fetch this run's Cargo.lock
+        uses: actions/download-artifact@v8
+        with:
+          name: cargo-lock
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
       - uses: Swatinem/rust-cache@v2
 
       - name: System libraries Colorer needs
@@ -296,7 +382,10 @@ jobs:
 
       - name: Build Colorer-library
         run: |
-          git clone --depth 1 https://github.com/colorer/Colorer-library /tmp/Colorer-library
+          git init --quiet /tmp/Colorer-library
+          git -C /tmp/Colorer-library fetch --quiet --depth 1 \
+            https://github.com/colorer/Colorer-library "$COLORER_LIBRARY_SHA"
+          git -C /tmp/Colorer-library checkout --quiet FETCH_HEAD
           cmake -S /tmp/Colorer-library -B /tmp/Colorer-library/_build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCOLORER_USE_VCPKG=OFF \
@@ -305,7 +394,11 @@ jobs:
           cmake --build /tmp/Colorer-library/_build --parallel
 
       - name: Fetch the schemes
-        run: git clone --depth 1 https://github.com/colorer/Colorer-schemes /tmp/Colorer-schemes
+        run: |
+          git init --quiet /tmp/Colorer-schemes
+          git -C /tmp/Colorer-schemes fetch --quiet --depth 1 \
+            https://github.com/colorer/Colorer-schemes "$COLORER_SCHEMES_SHA"
+          git -C /tmp/Colorer-schemes checkout --quiet FETCH_HEAD
 
       - name: Test with the feature on
         env:
@@ -320,24 +413,32 @@ jobs:
   # One policy (deny.toml) for all three manifests, each with every feature on
   # so optional dependencies (s3, keepass, colorer) are judged too. Every step
   # runs even when an earlier one fails, so each manifest reports its own
-  # result. The application and colorer-sys have no tracked lockfile: each
-  # resolves fresh, the way a first build does, and cannot pass --locked.
+  # result. Each judges the lockfile the rest of the run builds: the lockfile
+  # job's for the application and colorer-sys, the tracked one for MCP.
+  # --locked fails the step rather than let cargo resolve another.
   deny:
     name: Dependencies (cargo-deny)
+    needs: lockfile
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Fetch this run's Cargo.lock
+        uses: actions/download-artifact@v8
+        with:
+          name: cargo-lock
+
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
 
       - name: Install cargo-deny (prebuilt)
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-deny
+          tool: ${{ env.TOOL_CARGO_DENY }}
 
       - name: cargo deny — application
-        run: cargo deny --all-features --manifest-path Cargo.toml --config deny.toml check
+        run: cargo deny --locked --all-features --manifest-path Cargo.toml --config deny.toml check
 
       - name: cargo deny — MCP server
         if: ${{ !cancelled() }}
@@ -345,7 +446,7 @@ jobs:
 
       - name: cargo deny — colorer-sys
         if: ${{ !cancelled() }}
-        run: cargo deny --all-features --manifest-path colorer-sys/Cargo.toml --config deny.toml check
+        run: cargo deny --locked --all-features --manifest-path colorer-sys/Cargo.toml --config deny.toml check
 
   # ── Mutation testing of the lines a pull request changes ────
   # cargo mutants --in-diff mutates only code the PR touched and runs the
@@ -369,6 +470,7 @@ jobs:
   mutants:
     name: Mutation testing (PR diff)
     if: github.event_name == 'pull_request'
+    needs: lockfile
     runs-on: ubuntu-24.04
     # Longer than the others: the two mutation steps below have their own
     # bounds (60 and 20 minutes), after a few minutes of setup.
@@ -379,15 +481,21 @@ jobs:
           # The base branch must be present to diff against it.
           fetch-depth: 0
 
+      - name: Fetch this run's Cargo.lock
+        uses: actions/download-artifact@v8
+        with:
+          name: cargo-lock
+
       - name: Install mold (fast linker)
         uses: rui314/setup-mold@v1
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
 
       - name: Install mutation + test tools (prebuilt)
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-mutants,cargo-nextest
+          tool: ${{ env.TOOL_MUTANTS }},${{ env.TOOL_NEXTEST }}
 
       - name: Diff of this pull request
         env:
