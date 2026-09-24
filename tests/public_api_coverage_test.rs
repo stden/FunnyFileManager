@@ -43,6 +43,8 @@ use std::path::{Path, PathBuf};
 const UNEXERCISED: &[&str] = &[
     "apply_navigation",
     "association_command",
+    // Windows: sends WM_SETTINGCHANGE to every window on the machine.
+    "broadcast_environment_change",
     "canonical_existing_ancestor",
     "changes_bits",
     "clear_with_lock",

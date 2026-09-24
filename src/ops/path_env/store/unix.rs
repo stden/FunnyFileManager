@@ -136,9 +136,7 @@ fn profile_block(text: &str) -> io::Result<Option<&str>> {
 fn write_at(path: &Path, format: Format, previous: &Snapshot, value: &str) -> io::Result<()> {
     let current = contents(path)?;
     if current != previous.revision {
-        return Err(io::Error::other(
-            "PATH changed outside FFM; reopen before saving",
-        ));
+        return Err(io::Error::other(super::CHANGED_OUTSIDE));
     }
     if fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_symlink()) {
         return Err(io::Error::other(

@@ -67,7 +67,7 @@ const BOUNDARIES: &[(&str, &str)] = &[
     ),
     (
         "src/platform/windows.rs",
-        "Win32 drive mask and file attributes",
+        "Win32 drive mask, file attributes, registry strings and the environment broadcast",
     ),
     ("src/recording/tty.rs", "poll(2) on the terminal descriptor"),
     ("src/windows.rs", "job objects that own LSP process trees"),
