@@ -10,7 +10,7 @@ Commands:
   run              Run FFM (assumes already built)
   test             Run all tests
   lint [mode]      Rust linter gate (fmt + clippy; see scripts/lint.py)
-  coverage         Run test coverage analysis
+  coverage         CI's line-coverage gate (llvm-cov; see scripts/coverage.py)
   clean            Clean build artifacts
   colorer          Install Colorer + Far's syntax schemes, then rebuild
   install          Rebuild and install FFM to ~/.cargo/bin (--force)
@@ -48,6 +48,7 @@ from shell_path import find, find_all, resolve  # noqa: E402
 
 PREFLIGHT = ROOT / "scripts/cargo_preflight.py"
 LINT = ROOT / "scripts/lint.py"
+COVERAGE = ROOT / "scripts/coverage.py"
 COLORER_REPOSITORIES = "https://github.com/colorer"
 HELP_WORDS = ("help", "-h", "--help")
 # The file descriptor itself: sys.stdout is None when it was closed.
@@ -307,10 +308,7 @@ def lint_command(args):
 def coverage_command(_args):
     check_rust()
     status("Running test coverage...")
-    if not find("cargo-tarpaulin"):
-        warning("cargo-tarpaulin not installed. Installing...")
-        run(["cargo", "install", "cargo-tarpaulin"])
-    return run(["cargo", "tarpaulin"])
+    return run([sys.executable, COVERAGE])
 
 
 def clean_command(_args):

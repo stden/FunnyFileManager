@@ -144,10 +144,9 @@ jobs:
         run: ./ffm.py lint self-test
 
   # ── Tests + coverage (llvm-cov + nextest, no s3) ────────────
-  # cargo-llvm-cov uses LLVM source-based instrumentation natively — no
-  # ptrace dance like tarpaulin — and nextest parallelises test binaries
-  # more aggressively than `cargo test`. Together they replace the
-  # previous tarpaulin step at ~2× the throughput.
+  # cargo-llvm-cov uses LLVM source-based instrumentation natively, and
+  # nextest runs every test in its own process (.config/nextest.toml bounds
+  # each one). The same command is the local gate: ./ffm.py coverage.
   coverage:
     name: Tests & Coverage
     needs: lockfile
@@ -182,35 +181,11 @@ jobs:
         with:
           tool: ${{ env.TOOL_LLVM_COV }},${{ env.TOOL_NEXTEST }}
 
-      - name: Tests + coverage (fail under 98% lines)
-        # Mirror tarpaulin.toml's exclude-files (keep in sync). Excluded from
-        # MEASUREMENT (they still run/compile in the suite):
-        #  - main/bootstrap/editor: real-TTY / external-process entry points
-        #  - clipboard/system.rs: OS clipboard glue (headless CI has none)
-        #  - ops/shell/tty.rs: drains the live crossterm event queue
-        #  - test files: tests are not code under test; their unreached lines
-        #    are assertion-failure arms that never fire in a passing suite
-        #
-        # `highlight/colorer.rs` is the Colorer FFI wrapper. This job does not
-        # build Colorer-library, so those lines cannot run here; the Colorer
-        # job covers them when the C++ engine is present.
-        #
-        # The summary table reports ~98.6% of the measured set. What is left
-        # is nearly all error handling that needs fault injection to reach: the
-        # `?` on a `create_dir`, a `write` that fails halfway, a `metadata`
-        # the filesystem refuses. Plus a handful that no test can reach at all
-        # — a `cfg!(windows)` arm, an `unreachable!`, and `try_from` on values
-        # that cannot be out of range. llvm also counts a line missed when any
-        # instantiation group leaves it unexecuted. The gate sits at 98, just
-        # under the number. Raise it as those paths gain tests — do not lower
-        # it to hide a regression.
-        run: |
-          cargo llvm-cov nextest \
-            --features test-helpers \
-            --ignore-filename-regex 'src/(main|editor|bootstrap)\.rs$|src/clipboard/system\.rs$|src/ops/shell/tty\.rs$|src/highlight/colorer\.rs$|/tests[_.\/]|_tests\.rs$|/test_support(/|\.rs$)' \
-            --fail-under-lines 98 \
-            --show-missing-lines \
-            --summary-only
+      # The whole root suite under llvm-cov, failing under the floor.
+      # scripts/coverage.py is the one definition of the gate: its features,
+      # the files left out of the measurement and why, and the floor.
+      - name: Tests + coverage gate (./ffm.py coverage)
+        run: ./ffm.py coverage
 
       # KeePass and the libtest-wrapped TUI Cucumber suite (tests/tui_bdd.rs)
       # participate in the default coverage run: this is where the TUI

@@ -52,7 +52,7 @@ Commands:
   run              Run FFM (assumes already built)
   test             Run all tests
   lint [mode]      Rust linter gate (fmt + clippy; see scripts/lint.py)
-  coverage         Run test coverage analysis
+  coverage         CI's line-coverage gate (llvm-cov; see scripts/coverage.py)
   clean            Clean build artifacts
   colorer          Install Colorer + Far's syntax schemes, then rebuild
   install          Rebuild and install FFM to ~/.cargo/bin (--force)
@@ -79,7 +79,7 @@ class LauncherTest(unittest.TestCase):
         self.sandbox.copy("ffm.py")
         # ffm.py finds its programs through it.
         self.sandbox.copy("scripts/shell_path.py")
-        for name in ("cargo_preflight", "lint"):
+        for name in ("cargo_preflight", "lint", "coverage"):
             helper = self.sandbox.fake(name, path=self.repo / f"scripts/{name}.py")
             helper.chmod(0o644)
         self.sandbox.fake("cargo")
@@ -393,9 +393,10 @@ class TestCommandTests(LauncherTest):
 class SignalStatusTests(LauncherTest):
     def test_a_command_killed_by_signal_n_exits_128_plus_n(self):
         lint = self.repo / "scripts/lint.py"
+        coverage = self.repo / "scripts/coverage.py"
         commands = {
             "lint": ("lint", lint, shlex.join([sys.executable, str(lint), "all"])),
-            "coverage": ("cargo", None, "cargo tarpaulin"),
+            "coverage": ("coverage", coverage, shlex.join([sys.executable, str(coverage)])),
             "clean": ("cargo", None, "cargo clean"),
         }
         for command, (fake, path, shown) in commands.items():
@@ -436,23 +437,18 @@ class LintTests(LauncherTest):
 
 
 class CoverageTests(LauncherTest):
-    def test_an_installed_tarpaulin_runs_directly(self):
-        self.sandbox.fake("cargo", status=4)
-        result = self.ffm("coverage")
-        self.assertEqual((result.returncode, result.stdout), (4, status("Running test coverage...")))
-        self.assertEqual(self.sandbox.args("cargo"), [["tarpaulin"]])
+    def test_coverage_runs_coverage_py_from_the_checkout_after_the_rust_check(self):
+        # Words after the command are not passed on: the gate takes none.
+        result = self.ffm("coverage", "--html", cwd=self.sandbox.home)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, status("Running test coverage..."))
+        self.assertEqual(self.names(), ["cargo_preflight", "coverage"])
+        call = self.sandbox.calls("coverage")[0]
+        self.assertEqual((call.args, call.cwd), ([], str(self.repo)))
 
-    def test_a_missing_tarpaulin_is_installed_first(self):
-        env = self.hide("cargo-tarpaulin")
-        # A failed install is ignored; tarpaulin's own status is the result.
-        self.sandbox.fake("cargo", effect="sys.exit(1 if args[0] == 'install' else 6)")
-        result = self.ffm("coverage", env=env)
-        self.assertEqual(result.returncode, 6)
-        self.assertEqual(
-            result.stdout,
-            status("Running test coverage...") + warning("cargo-tarpaulin not installed. Installing..."),
-        )
-        self.assertEqual(self.sandbox.args("cargo"), [["install", "cargo-tarpaulin"], ["tarpaulin"]])
+    def test_coverage_exits_with_the_gate_status(self):
+        self.sandbox.fake("coverage", path=self.repo / "scripts/coverage.py", status=3)
+        self.assertEqual(self.ffm("coverage").returncode, 3)
 
 
 class CleanTests(LauncherTest):
@@ -759,10 +755,9 @@ class PathLookupTests(LauncherTest):
 
     def test_cargo_behind_a_tilde_entry_is_found_and_path_is_passed_on_as_it_was(self):
         self.hide("cargo")
-        for name in ("cargo", "cargo-tarpaulin"):
-            self.sandbox.fake(name, path=self.sandbox.home / ".cargo/bin" / name)
+        self.sandbox.fake("cargo", path=self.sandbox.home / ".cargo/bin/cargo")
         path = os.pathsep.join(["~/.cargo/bin", str(self.sandbox.bin)])
-        for args, expected in ((["build"], [["build"]]), (["clean"], [["clean"]]), (["coverage"], [["tarpaulin"]])):
+        for args, expected in ((["build"], [["build"]]), (["clean"], [["clean"]])):
             with self.subTest(args=args):
                 self.forget_calls()
                 result = self.ffm(*args, env={"PATH": path})

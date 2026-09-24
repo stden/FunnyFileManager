@@ -37,7 +37,7 @@ GUARDED = (
     # AI tools, cloud and cluster clients.
     "claude", "codex", "aws", "kubectl", "k9s", "fzf",
     # The Rust toolchain: builds are faked, never run.
-    "cargo", "cargo-tarpaulin", "rustup", "rustc", "clippy-driver", "sccache", "cmake",
+    "cargo", "cargo-llvm-cov", "cargo-nextest", "rustup", "rustc", "clippy-driver", "sccache", "cmake",
     # The file manager itself: `./ffm.py install` overwrites every ffm on PATH.
     "ffm", "ffm-mcp",
     # Desktop integration, scheduling and privilege.
