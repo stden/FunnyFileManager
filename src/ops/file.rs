@@ -68,18 +68,7 @@ fn refresh_after_operation(app: &mut App) {
 }
 
 pub fn get_source_paths(app: &App) -> Vec<PathBuf> {
-    let panel = app.get_active_panel_ref();
-    if !panel.marked.is_empty() {
-        panel
-            .marked
-            .iter()
-            .map(|name| panel.path.join(name))
-            .collect()
-    } else if let Some(path) = panel.selected_path() {
-        vec![path]
-    } else {
-        Vec::new()
-    }
+    app.get_active_panel_ref().action_paths()
 }
 
 pub fn format_operation_status(count: usize, op_name: &str, first_dest: Option<&Path>) -> String {
@@ -380,20 +369,10 @@ pub fn handle_mkdir(app: &mut App) -> io::Result<()> {
 
 /// Show delete confirmation dialog (F8)
 pub fn handle_delete_confirm(app: &mut App) -> io::Result<()> {
-    let panel = app.get_active_panel();
-
-    // Collect files to delete (marked files or selected file)
-    let files_to_delete: Vec<PathBuf> = if !panel.marked.is_empty() {
-        panel
-            .marked
-            .iter()
-            .map(|name| panel.path.join(name))
-            .collect()
-    } else if let Some(path) = panel.selected_path() {
-        vec![path]
-    } else {
+    let files_to_delete = get_source_paths(app);
+    if files_to_delete.is_empty() {
         return Ok(());
-    };
+    }
 
     app.set_overlay(Overlay::DeleteConfirm(files_to_delete));
     if !app
@@ -442,6 +421,8 @@ pub fn handle_delete(app: &mut App) -> io::Result<()> {
     Ok(())
 }
 
+mod merge;
+
 #[cfg(test)]
 mod tests_destinations;
 #[cfg(test)]
@@ -451,6 +432,11 @@ mod tests_mkdir_errors;
 #[cfg(test)]
 #[cfg(unix)]
 mod tests_modes;
+#[cfg(test)]
+#[cfg(unix)]
+mod tests_non_utf8_names;
+#[cfg(test)]
+mod tests_overwrite_safety;
 #[cfg(test)]
 mod tests_refresh_failures;
 #[cfg(test)]
@@ -579,17 +565,27 @@ fn copy_one(
 /// `dest` is taken: do what the "already existing files" choice says.
 ///
 /// Skipping is a normal outcome, not a failure — reporting it as an error
-/// would put a red count on a deliberate choice.
+/// would put a red count on a deliberate choice. Overwriting never removes
+/// what the transfer does not bring; see [`merge`].
 fn place_over_existing(
     source: &Path,
     dest: &Path,
     settings: &crate::copy::CopyPrompt,
 ) -> io::Result<Placed> {
     use crate::copy::ExistingFiles;
+    use merge::Shape;
 
+    let shapes = (
+        Shape::of_source(source, settings),
+        Shape::of_existing(dest)?,
+    );
+    let folders = shapes == (Shape::Folder, Shape::Folder);
     match settings.existing {
         ExistingFiles::Skip => return Ok(Placed::Skipped),
-        ExistingFiles::OnlyNewer if !is_newer(source, dest) => return Ok(Placed::Skipped),
+        // Two folders merge, and "only newer" is decided file by file inside.
+        ExistingFiles::OnlyNewer if !folders && !is_newer(source, dest) => {
+            return Ok(Placed::Skipped);
+        }
         _ => {}
     }
     reject_transfer_onto_itself(source, dest)?;
@@ -602,8 +598,14 @@ fn place_over_existing(
         place(source, &beside, settings)?;
         return Ok(Placed::Beside(beside));
     }
-    remove_existing(dest)?;
-    place(source, dest, settings)?;
+    merge::reject_mixed_shapes(shapes.0, shapes.1)?;
+    if folders {
+        merge::reject_merge_into_holder(source, dest)?;
+        merge::merge_into(source, dest, settings)?;
+    } else {
+        remove_existing(dest)?;
+        place(source, dest, settings)?;
+    }
     Ok(Placed::AsSent(dest.to_path_buf()))
 }
 

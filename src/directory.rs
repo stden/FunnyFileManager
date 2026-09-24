@@ -36,11 +36,15 @@ pub fn read(path: &Path, description_names: &[String]) -> io::Result<DirectoryLi
         let Ok(attributes) = entry.metadata() else {
             continue;
         };
-        let name = entry.file_name().to_string_lossy().into_owned();
+        let disk_name = entry.file_name();
+        let name = disk_name.to_string_lossy().into_owned();
+        let on_disk = disk_name.to_str().is_none().then_some(disk_name);
         if is_hidden(&attributes) {
             metadata.hidden_names.insert(FileName::new(name.clone()));
         }
-        entries.push(context.entry(&entry.path(), name, &attributes));
+        let mut row = context.entry(&entry.path(), name, &attributes);
+        row.on_disk = on_disk;
+        entries.push(row);
     }
     let parent = read_parent(path, &mut metadata);
     metadata.available_space = crate::diskfree::available_bytes(path).map(FileSize::from_bytes);
@@ -70,6 +74,7 @@ impl Context {
             // The map is not reused: moving the text out saves a clone per row.
             description: self.descriptions.remove(&name),
             name,
+            on_disk: None,
         }
     }
 }

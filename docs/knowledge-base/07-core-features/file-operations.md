@@ -54,6 +54,22 @@ path, relative to the active panel. What was typed means, following Far
   panels start in the same directory, so this is the dialog's default.
   "Overwrite" would empty the source before reading it, and "Ask" would
   rename a moved file to `name_1`.
+- "Overwrite" and "Only newer" never remove what the transfer does not
+  bring (`ops/file/merge.rs`). A folder onto a folder of the same name is
+  merged into it, as Far, mc and Explorer do: each entry inside follows the
+  same choice, "Only newer" is decided file by file, and what only the
+  destination holds stays; the existing folder keeps its own times and
+  rights. A moved folder is removed once empty, and kept when something in
+  it was skipped. A file or link and a folder never replace one another
+  ("a file or link cannot overwrite a folder", "a folder cannot overwrite a
+  file or link"), and a
+  folder is never sent onto a folder that holds it (`pkg/pkg` onto `pkg`),
+  which would take the source with it.
+- A name that is not UTF-8 is shown lossily (`caf\xE9.txt` as `caf�.txt`),
+  but every operation reaches the file by its name on disk
+  (`DirEntry::disk_name`). F8 on such a row never touches another file shown
+  the same way; a mark shows on, and reaches, every row with its name
+  (`Panel::action_paths`).
 - The status line says "Copied" or "Moved", and adds "(existing files kept,
   new ones renamed)" only when an item was put beside an existing one under
   a new name.

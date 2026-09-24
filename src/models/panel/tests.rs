@@ -61,3 +61,28 @@ fn file_entry(name: &str) -> DirEntry {
         ..DirEntry::default()
     }
 }
+
+#[test]
+fn action_paths_follow_the_cursor_when_nothing_is_marked() {
+    let panel = Panel::from_entries(PathBuf::from("/dir"), vec![file_entry("a.txt")]);
+    assert_eq!(panel.action_paths(), [PathBuf::from("/dir/a.txt")]);
+}
+
+#[test]
+fn action_paths_reach_a_row_by_its_name_on_disk() {
+    let mut row = file_entry("caf\u{FFFD}.txt");
+    row.on_disk = Some(std::ffi::OsString::from("caf-on-disk.txt"));
+    let mut panel = Panel::from_entries(PathBuf::from("/dir"), vec![row]);
+    panel.marked.insert(FileName::new("caf\u{FFFD}.txt"));
+    assert_eq!(
+        panel.action_paths(),
+        [PathBuf::from("/dir/caf-on-disk.txt")]
+    );
+}
+
+#[test]
+fn action_paths_keep_a_mark_whose_row_is_gone() {
+    let mut panel = Panel::from_entries(PathBuf::from("/dir"), vec![file_entry("a.txt")]);
+    panel.marked.insert(FileName::new("gone.txt"));
+    assert_eq!(panel.action_paths(), [PathBuf::from("/dir/gone.txt")]);
+}

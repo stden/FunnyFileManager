@@ -85,7 +85,7 @@ impl Panel {
         } else {
             // Build the target first: the listing (and the entry we selected in
             // it) must stay valid until `navigate_to` has proven it readable.
-            let target = self.path.join(&entry.name);
+            let target = self.path.join(entry.disk_name());
             self.navigate_to(target)?;
             self.select(self.entries.first().map(|_| 0));
         }

@@ -1,6 +1,7 @@
 //! Purpose: marks entries for file operations and remembers the previous selection.
 
 use std::collections::BTreeSet;
+use std::path::PathBuf;
 
 use crate::models::FileName;
 
@@ -94,6 +95,37 @@ impl Panel {
     /// by mistake expects.
     pub fn restore_marks(&mut self) {
         std::mem::swap(&mut self.marked, &mut self.previous_marks);
+    }
+
+    /// The paths the next action works on: every marked row, or else the row
+    /// under the cursor.
+    ///
+    /// A mark is a displayed name, and a name that is not UTF-8 is displayed
+    /// lossily, so two files can show the same name; the mark then shows on
+    /// both rows and reaches both, each by its own name on disk. A mark that no
+    /// row carries any more still names its path, so the action reports the
+    /// file as gone instead of skipping it in silence.
+    #[must_use]
+    pub fn action_paths(&self) -> Vec<PathBuf> {
+        if self.marked.is_empty() {
+            return self.selected_path().into_iter().collect();
+        }
+        let mut shown = BTreeSet::new();
+        let mut paths: Vec<PathBuf> = self
+            .entries
+            .iter()
+            .filter(|entry| self.marked.contains(entry.name.as_str()))
+            .inspect(|entry| {
+                shown.insert(entry.name.as_str());
+            })
+            .map(|entry| self.path.join(entry.disk_name()))
+            .collect();
+        let gone = self.marked.iter().map(FileName::as_str);
+        paths.extend(
+            gone.filter(|name| !shown.contains(name))
+                .map(|name| self.path.join(name)),
+        );
+        paths
     }
 
     pub fn action_entry_names(&self) -> Vec<String> {

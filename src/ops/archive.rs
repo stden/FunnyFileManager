@@ -58,10 +58,12 @@ pub fn open_add(app: &mut App) {
 pub fn open_extract(app: &mut App) {
     let panel = app.get_active_panel_ref();
     let archives = panel
-        .action_entry_names()
+        .action_paths()
         .into_iter()
-        .filter(|name| is_archive(name))
-        .map(|name| panel.path.join(name))
+        .filter(|path| {
+            path.file_name()
+                .is_some_and(|name| is_archive(&name.to_string_lossy()))
+        })
         .collect();
     let destination = app.get_inactive_panel_ref().path.clone();
     app.set_overlay(Overlay::ExtractPrompt(Box::new(ExtractPrompt::new(

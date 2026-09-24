@@ -26,7 +26,7 @@ pub fn open(app: &mut App) {
         .get_active_panel_ref()
         .get_selected_entry()
         .filter(|entry| entry.name != "..")
-        .map(|entry| app.get_active_panel_ref().path.join(&entry.name));
+        .map(|entry| app.get_active_panel_ref().path.join(entry.disk_name()));
     let Some(target) = target else {
         app.set_status(Status::CommandOutput("Nothing to link".to_owned()));
         return;

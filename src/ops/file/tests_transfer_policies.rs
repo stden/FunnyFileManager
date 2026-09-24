@@ -338,63 +338,6 @@ fn a_directory_cannot_be_transferred_into_itself() {
     );
 }
 
-/// Overwriting is not only about files: a directory already at the
-/// destination has to be removed whole before the new one lands, or the two
-/// trees merge and the result is neither.
-#[test]
-fn overwriting_replaces_a_directory_rather_than_merging_into_it() {
-    let (mut app, from, to) = app_with(&[]);
-    let source = from.path().join("data");
-    fs::create_dir_all(&source).expect("test setup");
-    fs::write(source.join("new.txt"), b"new").expect("test setup");
-    let stale = to.path().join("data");
-    fs::create_dir_all(&stale).expect("test setup");
-    fs::write(stale.join("old.txt"), b"old").expect("test setup");
-    app.get_active_panel().load_entries().expect("reload");
-    mark(&mut app, "data");
-
-    let mut dialog = settings(to.path());
-    dialog.existing = ExistingFiles::Overwrite;
-    copy_with(&mut app, &dialog);
-
-    assert!(stale.join("new.txt").exists(), "the new tree is there");
-    assert!(
-        !stale.join("old.txt").exists(),
-        "and the old one went whole, rather than merging"
-    );
-}
-
-/// Moving a project onto a stale checkout is a single policy decision: remove
-/// the old tree whole, put the current tree in its place, and leave no source.
-#[test]
-fn moving_over_a_stale_directory_replaces_the_tree_whole() {
-    let (mut app, from, to) = app_with(&[]);
-    let source = from.path().join("project");
-    fs::create_dir_all(source.join("src")).expect("test setup");
-    fs::write(source.join("src/main.rs"), b"fn main() {}\n").expect("test setup");
-
-    let destination = to.path().join("project");
-    fs::create_dir_all(&destination).expect("test setup");
-    fs::write(destination.join("stale.lock"), b"old").expect("test setup");
-
-    app.get_active_panel().load_entries().expect("reload");
-    mark(&mut app, "project");
-    let mut dialog = settings(to.path());
-    dialog.purpose = Purpose::Move;
-    dialog.existing = ExistingFiles::Overwrite;
-    copy_with(&mut app, &dialog);
-
-    assert!(!source.exists(), "the project left its original panel");
-    assert_eq!(
-        fs::read(destination.join("src/main.rs")).unwrap(),
-        b"fn main() {}\n"
-    );
-    assert!(
-        !destination.join("stale.lock").exists(),
-        "overwrite replaces the stale tree instead of merging into it"
-    );
-}
-
 /// A destination name already taken by a *file* while the source is a
 /// directory is a plain failure, not a merge or a silent skip.
 #[test]
