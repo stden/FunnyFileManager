@@ -1,4 +1,9 @@
 # Purpose: Runs the GitHub Actions quality gate for the Rust workspace.
+#
+# Runner images are named by version (ubuntu-24.04, windows-2025), never
+# -latest: a new image arrives as an edit here that CI tests, not as a silent
+# migration. Every job has a timeout, so a hung step fails in minutes instead
+# of holding a runner for the 6-hour default.
 name: CI
 
 on:
@@ -6,10 +11,14 @@ on:
     branches: ["main", "master"]
   pull_request:
 
-# Cancel in-progress runs for the same ref — don't waste minutes on stale pushes.
+# A pull request keeps only its newest run. Every other run (a push to main)
+# gets a group of its own and always finishes: a cancelled run shows a red job
+# as grey, and the breakage is then blamed on a later commit. Sharing the
+# group without cancel-in-progress would not do: a third push still cancels
+# the run that waits behind the one in progress.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -31,7 +40,8 @@ jobs:
   # when style or lint drifts.
   lint:
     name: Lint (format, readability, architecture)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
@@ -72,7 +82,8 @@ jobs:
   # previous tarpaulin step at ~2× the throughput.
   coverage:
     name: Tests & Coverage
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     env:
       # .cargo/config.toml sets an empty rustc-wrapper (no wrapper), which
       # cargo-llvm-cov would exec as ` rustc` (ENOENT); env is a no-op wrapper.
@@ -141,7 +152,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-2025]
     env:
       CARGO_BUILD_RUSTC_WRAPPER: ""
       CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: link.exe
@@ -178,7 +189,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-2025]
     env:
       # No LLVM coverage wrapper in this job; /usr/bin/env is not a Windows path.
       CARGO_BUILD_RUSTC_WRAPPER: ""
@@ -214,7 +225,8 @@ jobs:
   # ── MCP workspace: fmt + clippy + tests ─────────────────────
   mcp:
     name: MCP Server
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     env:
       # Same rustc-wrapper / cargo-llvm-cov guard as the coverage job.
       CARGO_BUILD_RUSTC_WRAPPER: /usr/bin/env
@@ -272,7 +284,8 @@ jobs:
   # on one machine, and CI would never notice it stop.
   colorer:
     name: Colorer feature (FFI + real schemes)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -311,7 +324,7 @@ jobs:
   # resolves fresh, the way a first build does, and cannot pass --locked.
   deny:
     name: Dependencies (cargo-deny)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -356,7 +369,9 @@ jobs:
   mutants:
     name: Mutation testing (PR diff)
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    # Longer than the others: the two mutation steps below have their own
+    # bounds (60 and 20 minutes), after a few minutes of setup.
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
