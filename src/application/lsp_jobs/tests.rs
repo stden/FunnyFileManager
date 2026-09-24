@@ -1,6 +1,7 @@
 //! Purpose: Ensure background results cannot update an unrelated editor or older revision.
 
 use super::*;
+use crate::lsp::manager::{Envelope, Event};
 use crate::{
     lsp::{
         features::{Diagnostic, Reply},

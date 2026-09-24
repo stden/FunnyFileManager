@@ -1,4 +1,5 @@
 use super::*;
+use crossterm::event::{KeyCode, KeyModifiers};
 
 mod fallback_rows;
 mod modifiers;

@@ -17,8 +17,9 @@ use crate::popup::menu_dialog::edit;
 
 use super::browse;
 
-/// The most characters one paste puts into a bar.
-const PASTE_LIMIT: usize = 256;
+mod paste;
+
+pub(super) use paste::paste;
 
 /// `F4` and `\`: the filter bar, holding the filter in force.
 pub(super) fn open_filter(list: &mut TaskList) {
@@ -135,39 +136,6 @@ pub(super) fn pid_jump(app: &mut App, key: KeyEvent) {
     }
     let pid = query.pid();
     jump(list, pid, page);
-}
-
-/// A terminal paste into the open bar, its control characters dropped and
-/// cut at [`PASTE_LIMIT`]; with no bar open it goes nowhere.
-pub(super) fn paste(app: &mut App, text: &str) {
-    let viewport = app.viewport;
-    let Some(list) = app.task_list_mut() else {
-        return;
-    };
-    let page = list.page_for(viewport);
-    let clean: String = text
-        .chars()
-        .filter(|ch| !ch.is_control())
-        .take(PASTE_LIMIT)
-        .collect();
-    match list.modal_mut() {
-        Modal::Filter(bar) => {
-            bar.line_mut().insert_str(&clean);
-            let text = bar.line().text().to_owned();
-            list.set_filter(&text);
-        }
-        Modal::Search(bar) => {
-            bar.line_mut().insert_str(&clean);
-            let query = bar.line().text().to_owned();
-            find(list, &query, SearchFrom::Cursor, page);
-        }
-        Modal::PidJump(query) => {
-            clean.chars().for_each(|digit| query.push(digit));
-            let pid = query.pid();
-            jump(list, pid, page);
-        }
-        _ => {}
-    }
 }
 
 /// Moves the cursor to `query`'s next match and marks the search bar found

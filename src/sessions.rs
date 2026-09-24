@@ -11,88 +11,24 @@
 //! the next change. `App::new()` never loads it; `bootstrap` does, so no test
 //! reads the user's own sessions.
 
-use std::collections::BTreeSet;
-use std::fmt;
-use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::fileload::{read_regular, Loaded};
 use crate::models::{Session, SessionName};
 
+mod file;
 pub mod import;
+mod read;
 
+pub use file::StoreError;
 use import::{ImportReport, Imported, SkipReason, Skipped};
+pub use read::{read_text, ReadError};
 
 /// The file's name under the `ffm` config directory.
 pub const FILE_NAME: &str = "sessions.json";
 /// The largest sessions file read or written, in bytes: room for thousands of sessions.
 pub const MAX_FILE_BYTES: u64 = 1024 * 1024;
-
-/// Why a file this module reads was not read.
-#[derive(Debug)]
-pub enum ReadError {
-    Io(io::Error),
-    /// A directory, FIFO or device: never opened, since opening some of them
-    /// blocks forever.
-    NotAFile,
-    TooLarge {
-        limit: u64,
-    },
-    NotUtf8,
-}
-
-impl fmt::Display for ReadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Io(error) => write!(f, "{error}"),
-            Self::NotAFile => f.write_str("not a regular file"),
-            Self::TooLarge { limit } => write!(f, "larger than {limit} bytes"),
-            Self::NotUtf8 => f.write_str("not UTF-8 text"),
-        }
-    }
-}
-
-/// The text of the regular file at `path`, if it is at most `limit` bytes of
-/// UTF-8.
-#[expect(
-    clippy::map_err_ignore,
-    reason = "the offset of the bad UTF-8 sequence means nothing to the user; the fixed message does"
-)]
-pub fn read_text(path: &Path, limit: u64) -> Result<String, ReadError> {
-    match read_regular(path, limit).map_err(ReadError::Io)? {
-        Loaded::Bytes(bytes) => String::from_utf8(bytes).map_err(|_| ReadError::NotUtf8),
-        Loaded::NotRegular => Err(ReadError::NotAFile),
-        Loaded::TooLarge(_) => Err(ReadError::TooLarge { limit }),
-    }
-}
-
-/// Why the store was not written.
-#[derive(Debug)]
-pub enum StoreError {
-    /// The file did not load at start-up, so it is kept as it is.
-    Damaged,
-    /// The serialized store would be too large to load again.
-    TooLarge {
-        limit: u64,
-    },
-    Write(io::Error),
-}
-
-impl fmt::Display for StoreError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Damaged => f.write_str(
-                "the sessions file did not load, so it is not overwritten; fix or move it first",
-            ),
-            Self::TooLarge { limit } => {
-                write!(f, "the sessions file would exceed {limit} bytes")
-            }
-            Self::Write(error) => write!(f, "cannot write the sessions file: {error}"),
-        }
-    }
-}
 
 /// Where the store is kept.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -120,72 +56,6 @@ pub struct SessionStore {
 }
 
 impl SessionStore {
-    /// `<config dir>/ffm/sessions.json`; `None` when the environment names no
-    /// home at all.
-    #[must_use]
-    pub fn path() -> Option<PathBuf> {
-        crate::config::dir().map(|dir| dir.join(FILE_NAME))
-    }
-
-    /// The saved sessions, from [`Self::path`].
-    #[must_use]
-    pub fn load() -> Self {
-        Self::path().map_or_else(Self::default, Self::load_from)
-    }
-
-    /// The sessions in the file at `path`: none when there is no file, and
-    /// none — in a store that will not save — when the file is unusable. Why
-    /// it was unusable goes to the log, never to the screen.
-    #[must_use]
-    pub fn load_from(path: PathBuf) -> Self {
-        match read_sessions(&path) {
-            Ok(sessions) => Self {
-                sessions,
-                backing: Backing::File(path),
-            },
-            Err(reason) => {
-                crate::diagnostics::log_error(&format!(
-                    "sessions: {} did not load: {reason}",
-                    path.display()
-                ));
-                Self {
-                    sessions: Vec::new(),
-                    backing: Backing::Damaged(path),
-                }
-            }
-        }
-    }
-
-    /// Whether the file existed and did not load.
-    #[must_use]
-    pub const fn is_damaged(&self) -> bool {
-        matches!(self.backing, Backing::Damaged(_))
-    }
-
-    /// Write the store where it was loaded from: a sibling temp file with
-    /// mode `0600` replaces the old one in a single rename. A session-only
-    /// store has nowhere to go and succeeds; a damaged one refuses.
-    pub fn save(&self) -> Result<(), StoreError> {
-        let path = match &self.backing {
-            Backing::SessionOnly => return Ok(()),
-            Backing::Damaged(_) => return Err(StoreError::Damaged),
-            Backing::File(path) => path,
-        };
-        let text = serde_json::to_string_pretty(&StoredFile {
-            sessions: self.sessions.clone(),
-        })
-        .map_err(|error| StoreError::Write(io::Error::other(error)))?;
-        if u64::try_from(text.len()).unwrap_or(u64::MAX) > MAX_FILE_BYTES {
-            return Err(StoreError::TooLarge {
-                limit: MAX_FILE_BYTES,
-            });
-        }
-        if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir).map_err(StoreError::Write)?;
-        }
-        crate::history::write_owner_only(path, &text).map_err(StoreError::Write)
-    }
-
     /// Add `session`, or replace the one stored under its name.
     pub fn upsert(&mut self, session: Session) {
         match self
@@ -257,41 +127,6 @@ impl SessionStore {
             .iter()
             .position(|session| &session.name == name)
     }
-}
-
-/// Why a sessions file did not load; for the log.
-#[derive(Debug)]
-enum LoadError {
-    Read(ReadError),
-    Parse(serde_json::Error),
-    DuplicateName,
-}
-
-impl fmt::Display for LoadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Read(error) => write!(f, "{error}"),
-            Self::Parse(error) => write!(f, "{error}"),
-            Self::DuplicateName => f.write_str("two sessions share a name"),
-        }
-    }
-}
-
-/// The sessions in `path`, or none when there is no file.
-fn read_sessions(path: &Path) -> Result<Vec<Session>, LoadError> {
-    let text = match read_text(path, MAX_FILE_BYTES) {
-        Ok(text) => text,
-        Err(ReadError::Io(error)) if error.kind() == io::ErrorKind::NotFound => {
-            return Ok(Vec::new())
-        }
-        Err(error) => return Err(LoadError::Read(error)),
-    };
-    let file: StoredFile = serde_json::from_str(&text).map_err(LoadError::Parse)?;
-    let names: BTreeSet<&SessionName> = file.sessions.iter().map(|s| &s.name).collect();
-    if names.len() != file.sessions.len() {
-        return Err(LoadError::DuplicateName);
-    }
-    Ok(file.sessions)
 }
 
 #[cfg(test)]

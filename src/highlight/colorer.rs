@@ -16,26 +16,12 @@
 use std::ffi::{c_void, CStr, CString};
 use std::os::raw::{c_char, c_int};
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::Mutex;
 
-use super::Token;
+mod catalog;
+mod token;
 
-/// Where a catalog is looked for, in order, when `COLORER_CATALOG` is unset.
-///
-/// The first is where `FarColorer` keeps it on a Far install; the rest are where
-/// a hand-built scheme checkout tends to land.
-const CATALOG_CANDIDATES: [&str; 3] = [
-    "/usr/share/colorer/catalog.xml",
-    "/usr/local/share/colorer/catalog.xml",
-    "/opt/colorer/catalog.xml",
-];
-
-/// The same, relative to the user's home — where `ffm.py colorer` and
-/// `ffm.cmd colorer` install the schemes, since that needs no root.
-const HOME_CANDIDATES: [&str; 2] = [
-    ".local/share/ffm/colorer/catalog.xml",
-    ".local/share/ffm/Colorer-schemes/base/catalog.base.xml",
-];
+pub use token::{region_token, Span};
 
 /// Serialises every call into Colorer, process-wide.
 ///
@@ -44,9 +30,6 @@ const HOME_CANDIDATES: [&str; 2] = [
 /// threads building parsers at once race on those and segfault — which is what
 /// the test suite did, in parallel, while each individual test passed.
 static FFI: Mutex<()> = Mutex::new(());
-
-/// The one scheme database this process loads.
-static SHARED: OnceLock<Option<Colorer>> = OnceLock::new();
 
 /// A loaded Colorer scheme database.
 pub struct Colorer {
@@ -79,45 +62,6 @@ impl Drop for Colorer {
 }
 
 impl Colorer {
-    /// Load the catalog named by `COLORER_CATALOG`, or the first of
-    /// [`CATALOG_CANDIDATES`] that exists.
-    ///
-    /// `None` rather than an error: no scheme database is an ordinary state,
-    /// not a failure, and the caller's answer to it is the same either way.
-    /// The process's scheme database, loaded once.
-    ///
-    /// Shared rather than per-editor: `catalog.xml` pulls in hundreds of
-    /// schemes, and re-reading them every time a file is opened would be felt.
-    #[must_use]
-    pub fn shared() -> Option<&'static Self> {
-        SHARED.get_or_init(Self::discover).as_ref()
-    }
-
-    #[must_use]
-    fn discover() -> Option<Self> {
-        let catalog = std::env::var_os("COLORER_CATALOG")
-            .map(PathBuf::from)
-            .filter(|path| path.is_file())
-            .or_else(|| {
-                CATALOG_CANDIDATES
-                    .iter()
-                    .map(PathBuf::from)
-                    .find(|path| path.is_file())
-            })
-            .or_else(|| {
-                // Windows has no HOME; USERPROFILE is the same directory, and
-                // the installer scripts put the schemes under the same tail.
-                let home = std::env::var_os("HOME")
-                    .or_else(|| std::env::var_os("USERPROFILE"))
-                    .map(PathBuf::from)?;
-                HOME_CANDIDATES
-                    .iter()
-                    .map(|tail| home.join(tail))
-                    .find(|path| path.is_file())
-            })?;
-        Self::open(&catalog)
-    }
-
     /// Load a specific catalog.
     #[must_use]
     #[allow(unsafe_code, reason = "opens a catalog through the Colorer C API")]
@@ -132,12 +76,6 @@ impl Colorer {
             handle: Handle(handle),
             catalog: catalog.to_path_buf(),
         })
-    }
-
-    /// The catalog this was loaded from, for reporting.
-    #[must_use]
-    pub fn catalog(&self) -> &Path {
-        &self.catalog
     }
 
     /// The language Colorer chooses for `path` — `rust`, `python` — or `None`
@@ -206,14 +144,6 @@ impl Colorer {
     }
 }
 
-/// One region Colorer found: a half-open character range and what it is.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Span {
-    pub start: usize,
-    pub end: usize,
-    pub token: Token,
-}
-
 /// The C callback. Anything it cannot make sense of is dropped rather than
 /// guessed at — a region on a line that does not exist is a bug in the shim,
 /// not something to paint.
@@ -253,46 +183,6 @@ unsafe extern "C" fn collect_region(
         end,
         token: region_token(name),
     });
-}
-
-/// Map one of Colorer's region names onto a token class.
-///
-/// Colorer's vocabulary is far larger than the editor's palette — every
-/// language adds its own `python:pyKeyword`, `rust:rustMacro` — but the names
-/// are systematic: a language region is conventionally the `def:` one with a
-/// prefix. Matching on the *suffix* therefore covers languages this code has
-/// never heard of, which is the point of using Colorer at all.
-#[must_use]
-pub fn region_token(region: &str) -> Token {
-    // `python:pyKeyword` → `pyKeyword`; `def:Keyword` → `Keyword`.
-    let tail = region.rsplit(':').next().unwrap_or(region);
-    let lower = tail.to_ascii_lowercase();
-
-    // Order matters: `CommentContent` must be a comment before `Content`
-    // matches anything else, and `StringEdge` a string before `Edge` does.
-    for (needle, token) in [
-        ("comment", Token::Comment),
-        ("string", Token::Str),
-        ("character", Token::Str),
-        ("number", Token::Number),
-        ("keyword", Token::Keyword),
-        ("word", Token::Keyword),
-        ("directive", Token::Meta),
-        ("preprocessor", Token::Meta),
-        ("outline", Token::Meta),
-        ("type", Token::Type),
-        ("class", Token::Type),
-        ("function", Token::Type),
-        ("symbol", Token::Punctuation),
-        ("operator", Token::Punctuation),
-        ("delimiter", Token::Punctuation),
-        ("pair", Token::Punctuation),
-    ] {
-        if lower.contains(needle) {
-            return token;
-        }
-    }
-    Token::Normal
 }
 
 #[cfg(test)]

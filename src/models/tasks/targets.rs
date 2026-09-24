@@ -7,13 +7,13 @@
 //! rows, but the targets are the identities the user saw, never whatever sits
 //! under the cursor when Enter is pressed.
 
-use std::fmt;
+mod freeze;
+mod refusals;
 
-use super::tree::ancestors;
-use super::{
-    Niceness, Owner, Pid, ProcessKey, ProcessKind, ProcessRow, ProcessSample, Start, Table,
-    TaskList,
-};
+use super::{Niceness, Owner, ProcessKey, Table, TaskList};
+
+pub use refusals::ControlRefusal;
+pub(super) use refusals::{first_refusal, refusal};
 
 /// A process a dialog is about, frozen when it opened.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,48 +57,6 @@ pub enum Relation {
     /// ending it ends this session, so the confirmation says so.
     Ancestor,
     Other,
-}
-
-/// Why a target is refused before any system call.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ControlRefusal {
-    /// TERM would leave the terminal raw and STOP would freeze the screen.
-    OwnProcess,
-    /// SIGINT to systemd as PID 1 starts a reboot.
-    Init,
-    /// Kernel threads ignore signals.
-    KernelThread,
-    /// The source cannot tell this process from a successor.
-    Unverifiable,
-    /// A nice step would leave -20..=19.
-    AtLimit(Niceness),
-    /// A Windows Realtime class is never changed from here.
-    RealtimeClass,
-    /// A step would leave the Idle..=High classes.
-    ClassAtLimit,
-    /// The source could not read the priority, so there is nothing to step
-    /// from.
-    UnknownPriority,
-    /// Nothing is marked and the list is empty.
-    NoTarget,
-}
-
-impl fmt::Display for ControlRefusal {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::OwnProcess => f.write_str("This is FFM itself; quit with F10."),
-            Self::Init => f.write_str("PID 1 (init) is never signalled from here."),
-            Self::KernelThread => f.write_str("Kernel threads ignore signals."),
-            Self::Unverifiable => {
-                f.write_str("FFM cannot confirm which process this is; nothing was sent.")
-            }
-            Self::AtLimit(nice) => write!(f, "Nice is already {}.", nice.get()),
-            Self::RealtimeClass => f.write_str("The Realtime class is not changed from here."),
-            Self::ClassAtLimit => f.write_str("The priority class is already at its limit."),
-            Self::UnknownPriority => f.write_str("The priority of this process is not known."),
-            Self::NoTarget => f.write_str("No process is selected."),
-        }
-    }
 }
 
 /// A target left out of an operation, and why.
@@ -158,123 +116,6 @@ impl FrozenTargets {
         self.targets
             .is_empty()
             .then(|| first_refusal(&self.skipped))
-    }
-}
-
-/// Why an operation left with no target does nothing: the first target's
-/// refusal, or [`ControlRefusal::NoTarget`] when nothing was chosen at all.
-pub(super) fn first_refusal(skipped: &[Skipped]) -> ControlRefusal {
-    skipped
-        .first()
-        .map_or(ControlRefusal::NoTarget, Skipped::refusal)
-}
-
-/// Why `sample` is refused for `operation` when FFM's own PID is `own`, or
-/// `None` when it may go ahead.
-#[must_use]
-pub(super) fn refusal(
-    sample: &ProcessSample,
-    own: Option<Pid>,
-    operation: Operation,
-) -> Option<ControlRefusal> {
-    let for_signals = match operation {
-        Operation::Signal => signal_refusal(sample, own),
-        Operation::Renice => None,
-    };
-    let unknown = sample.key.start() == Start::Unknown;
-    for_signals.or_else(|| unknown.then_some(ControlRefusal::Unverifiable))
-}
-
-/// The refusals only a signal has: FFM itself, init and kernel threads.
-fn signal_refusal(sample: &ProcessSample, own: Option<Pid>) -> Option<ControlRefusal> {
-    ControlRefusal::signal_to_pid(sample.key.pid(), own)
-        .or_else(|| ControlRefusal::signal_to_kind(sample.kind))
-}
-
-impl ControlRefusal {
-    /// Why no signal may go to `pid`, whatever runs there: it is FFM itself
-    /// (`own`), or init. Asked with the PID alone, so the platform can ask
-    /// before its first system call.
-    #[must_use]
-    pub fn signal_to_pid(pid: Pid, own: Option<Pid>) -> Option<Self> {
-        if own == Some(pid) {
-            Some(Self::OwnProcess)
-        } else if pid.get() == INIT {
-            Some(Self::Init)
-        } else {
-            None
-        }
-    }
-
-    /// Why no signal may go to a process of `kind`: kernel threads ignore
-    /// them.
-    #[must_use]
-    pub fn signal_to_kind(kind: ProcessKind) -> Option<Self> {
-        match kind {
-            ProcessKind::KernelThread => Some(Self::KernelThread),
-            ProcessKind::User => None,
-        }
-    }
-}
-
-/// The PID of init, or of a container's first process.
-const INIT: u32 = 1;
-
-/// The rows `chosen` of `rows`, in that order, frozen for `operation`.
-fn freeze(
-    rows: &[ProcessRow],
-    chosen: &[usize],
-    own: Option<Pid>,
-    operation: Operation,
-) -> FrozenTargets {
-    let above = own.map(|own| ancestors(rows, own)).unwrap_or_default();
-    let mut frozen = FrozenTargets::default();
-    for (row, process) in chosen
-        .iter()
-        .filter_map(|&row| rows.get(row).map(|process| (row, process)))
-    {
-        let sample = process.sample();
-        let relation = if own == Some(sample.key.pid()) {
-            Relation::Itself
-        } else if above.contains(&row) {
-            Relation::Ancestor
-        } else {
-            Relation::Other
-        };
-        let target = Target {
-            key: sample.key,
-            name: sample.name.clone(),
-            owner: sample.owner.clone(),
-            relation,
-        };
-        match refusal(sample, own, operation) {
-            Some(refusal) => frozen.skipped.push(Skipped::new(target, refusal)),
-            None => frozen.targets.push(target),
-        }
-    }
-    frozen
-}
-
-impl TaskList {
-    /// The targets of `operation` as they stand now: the marked shown
-    /// processes in view order, or else the cursor's process.
-    #[must_use]
-    pub fn freeze_targets(&self, operation: Operation) -> FrozenTargets {
-        let marked: Vec<usize> = self
-            .view
-            .iter()
-            .filter(|shown| self.is_marked(shown.key()))
-            .map(|shown| shown.row())
-            .collect();
-        let chosen = if marked.is_empty() {
-            let cursor = self
-                .cursor()
-                .and_then(|cursor| self.view.get(cursor.index()));
-            cursor.map(|shown| shown.row()).into_iter().collect()
-        } else {
-            marked
-        };
-        freeze(self.rows(), &chosen, self.own, operation)
     }
 }
 

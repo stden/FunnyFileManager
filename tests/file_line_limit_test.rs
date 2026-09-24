@@ -1,14 +1,28 @@
 //! Purpose: Enforce source-size limits and reject duplicate handler definitions.
 //!
-//! Hard limit: no file under `src/` may exceed [`MAX_LINES`] lines.
-//! Convention: target at most 300 lines, split by responsibility
-//! (see `docs/knowledge-base/02-architecture/module-structure.md`).
+//! Hard limit: no Rust or Python source in the repository may exceed
+//! [`MAX_LINES`] lines — application, tests, benches, examples, the MCP server,
+//! colorer-sys and the developer scripts alike. Split by responsibility (see
+//! `docs/knowledge-base/02-architecture/module-structure.md`). [`EXEMPT`] names
+//! the only files allowed past it, each with its reason, and may only shrink.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+
+#[path = "file_line_limit_test/sources.rs"]
+mod sources;
+
+use sources::{collect_rs_files, read_sources, repository_sources};
 
 /// Hard cap enforced by this test.
-const MAX_LINES: usize = 1000;
+const MAX_LINES: usize = 200;
+
+/// The files allowed past [`MAX_LINES`], and why.
+const EXEMPT: [(&str, &str); 1] = [(
+    "src/status.rs",
+    "one `pub enum Status` of 76 documented variants; an enum cannot span files, and \
+     grouping it into nested enums would change 448 call sites",
+)];
 
 /// Handlers that once existed twice: `src/ops.rs` held a byte-identical fork of
 /// `handlers::mcp::open_mcp_status` and a stale copy of
@@ -25,38 +39,6 @@ const SINGLE_DEFINITION_HANDLERS: &[&str] = &[
     "execute_command",
     "process_popup_input",
 ];
-
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: an unreadable src/ fails the calling test; clippy.toml allows that in \
-              #[test] fns and #[cfg(test)] items, not in integration-test helpers"
-)]
-fn collect_rs_files(dir: &Path, out: &mut Vec<PathBuf>) {
-    for entry in fs::read_dir(dir).expect("read source directory") {
-        let path = entry.expect("directory entry").path();
-        if path.is_dir() {
-            collect_rs_files(&path, out);
-        } else if path.extension().is_some_and(|ext| ext == "rs") {
-            out.push(path);
-        }
-    }
-}
-
-#[expect(
-    clippy::panic,
-    reason = "test assertion: an unreadable source must fail the guard, and the should_panic \
-              tests below pin exactly that panic"
-)]
-fn read_sources(files: Vec<PathBuf>) -> Vec<(PathBuf, String)> {
-    files
-        .into_iter()
-        .map(|path| {
-            let text = fs::read_to_string(&path)
-                .unwrap_or_else(|error| panic!("read Rust source {}: {error}", path.display()));
-            (path, text)
-        })
-        .collect()
-}
 
 #[test]
 #[should_panic(expected = "read Rust source")]
@@ -75,18 +57,14 @@ fn invalid_utf8_source_fails_the_guard() {
 }
 
 #[test]
-fn no_src_file_exceeds_line_limit() {
-    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
-    let mut files = Vec::new();
-    collect_rs_files(&src, &mut files);
-    assert!(!files.is_empty(), "no .rs files found under src/");
+fn no_source_exceeds_line_limit() {
+    let sources = repository_sources();
+    assert!(sources.len() > 1000, "found only {} sources", sources.len());
 
-    let mut offenders: Vec<String> = read_sources(files)
+    let mut offenders: Vec<String> = sources
         .iter()
-        .filter_map(|(path, text)| {
-            let lines = text.lines().count();
-            (lines > MAX_LINES).then(|| format!("{} ({lines} lines)", path.display()))
-        })
+        .filter(|(path, lines)| *lines > MAX_LINES && !EXEMPT.iter().any(|(name, _)| name == path))
+        .map(|(path, lines)| format!("{path} ({lines} lines)"))
         .collect();
     offenders.sort();
 
@@ -94,6 +72,24 @@ fn no_src_file_exceeds_line_limit() {
         offenders.is_empty(),
         "files exceed the {MAX_LINES}-line limit — split them into modules:\n{}",
         offenders.join("\n")
+    );
+}
+
+#[test]
+fn every_exemption_is_still_needed() {
+    let sources = repository_sources();
+    let stale: Vec<&str> = EXEMPT
+        .iter()
+        .filter(|(name, _)| {
+            !sources
+                .iter()
+                .any(|(path, lines)| path == name && *lines > MAX_LINES)
+        })
+        .map(|(name, _)| *name)
+        .collect();
+    assert!(
+        stale.is_empty(),
+        "exempt files that no longer exceed the limit (or no longer exist) — drop them from EXEMPT: {stale:?}"
     );
 }
 

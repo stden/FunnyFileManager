@@ -93,3 +93,5 @@ pub(super) fn render_input(f: &mut Frame<'_>, area: Rect, input: &crate::lineedi
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_choices;

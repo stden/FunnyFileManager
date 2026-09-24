@@ -145,3 +145,5 @@ fn file_fields(viewer: &Viewer, file: &ViewedFile, clock: &str, page: usize) -> 
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_body;

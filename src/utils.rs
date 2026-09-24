@@ -160,7 +160,3 @@ mod tests;
 mod tests_copy_dir_errors;
 #[cfg(test)]
 mod tests_copy_guards;
-#[cfg(test)]
-mod tests_error_paths;
-#[cfg(test)]
-mod tests_refresh_and_format;

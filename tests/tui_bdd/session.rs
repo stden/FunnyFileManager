@@ -12,6 +12,17 @@ use ratatui::{buffer::Buffer, layout::Size, Terminal};
 
 use crate::editor_backend::SharedBackend;
 
+#[path = "session/keys.rs"]
+mod keys;
+#[path = "session/screen.rs"]
+mod screen;
+#[path = "session/start.rs"]
+mod start;
+#[path = "session/worker.rs"]
+mod worker;
+use keys::parse_key;
+use worker::run;
+
 const DEADLINE: Duration = Duration::from_secs(10);
 
 enum Input {
@@ -42,108 +53,6 @@ impl std::fmt::Debug for Session {
 }
 
 impl Session {
-    /// Start as [`Self::with_settings`] does, on a machine with `bin` as its
-    /// whole `PATH` and `cache` as its LSP cache: nothing depends on the real
-    /// home, `PATH` or LSP cache.
-    pub(super) fn language_servers(
-        panels: (PathBuf, PathBuf),
-        settings: PathBuf,
-        machine: (PathBuf, PathBuf),
-        size: Size,
-    ) -> Self {
-        Self::start_app(
-            move || {
-                let (left, right) = panels;
-                let (cache, bin) = machine;
-                let mut app = App::with_panels(Panel::new(left)?, Panel::new(right)?);
-                funny_file_manager::test_support::restore_settings(&mut app, settings);
-                funny_file_manager::test_support::set_lsp_probe(&mut app, &cache, &[bin.as_path()]);
-                Ok(app)
-            },
-            size,
-        )
-    }
-
-    pub(super) fn start(left: PathBuf, right: PathBuf, size: Size) -> Self {
-        Self::start_app(
-            move || Ok(App::with_panels(Panel::new(left)?, Panel::new(right)?)),
-            size,
-        )
-    }
-
-    /// Start as production does, with the Options pages loaded from
-    /// `settings` instead of the user's config home.
-    pub(super) fn with_settings(
-        left: PathBuf,
-        right: PathBuf,
-        settings: PathBuf,
-        size: Size,
-    ) -> Self {
-        Self::start_app(
-            move || {
-                let mut app = App::with_panels(Panel::new(left)?, Panel::new(right)?);
-                funny_file_manager::test_support::restore_settings(&mut app, settings);
-                Ok(app)
-            },
-            size,
-        )
-    }
-
-    /// The same, looking at a fake machine for the MCP installer.
-    pub(super) fn start_on(
-        left: PathBuf,
-        right: PathBuf,
-        size: Size,
-        host: funny_file_manager::mcp_clients::Host,
-    ) -> Self {
-        Self::start_app(
-            move || {
-                let mut app = App::with_panels(Panel::new(left)?, Panel::new(right)?);
-                app.live.mcp_host = host;
-                Ok(app)
-            },
-            size,
-        )
-    }
-
-    pub(super) fn resume(directory: &std::path::Path, file: PathBuf, size: Size) -> Self {
-        let directory = directory.to_owned();
-        Self::start_app(
-            move || {
-                funny_file_manager::ops::panel_session::load(
-                    &directory,
-                    funny_file_manager::history::Persistence::File(file),
-                )
-            },
-            size,
-        )
-    }
-
-    fn start_app(
-        create_app: impl FnOnce() -> io::Result<App> + Send + 'static,
-        size: Size,
-    ) -> Self {
-        let (input, incoming) = mpsc::channel();
-        let (outgoing, output) = mpsc::channel();
-        let clipboard = Arc::new(Mutex::new(String::new()));
-        let copied = Arc::clone(&clipboard);
-        let worker = thread::spawn(move || {
-            let result = create_app().and_then(|app| run(app, size, &incoming, &outgoing, copied));
-            // A session dropped before the app exits no longer listens.
-            drop(outgoing.send(Output::Exited(result)));
-        });
-        let mut session = Self {
-            input,
-            output,
-            current: Output::Exited(Ok(())),
-            worker: Some(worker),
-            trace: Vec::new(),
-            clipboard,
-        };
-        session.receive("Initial screen");
-        session
-    }
-
     #[expect(
         clippy::expect_used,
         reason = "the BDD harness: a TUI that stops answering or panics fails the scenario driving it"
@@ -196,54 +105,6 @@ impl Session {
     }
 
     #[expect(
-        clippy::panic,
-        reason = "the BDD harness: a scenario reading a screen after the TUI exited fails here"
-    )]
-    fn buffer(&self) -> &Buffer {
-        match &self.current {
-            Output::Frame(buffer) => buffer,
-            Output::Exited(result) => panic!("expected a frame, got {result:?}"),
-        }
-    }
-
-    pub(super) fn size(&self) -> Size {
-        self.buffer().area.as_size()
-    }
-
-    pub(super) fn text(&self) -> String {
-        buffer_text(self.buffer(), 0..self.size().width)
-    }
-
-    #[expect(
-        clippy::expect_used,
-        reason = "the BDD harness: a TUI that stops answering or panics fails the scenario driving it"
-    )]
-    pub(super) fn clipboard(&self) -> String {
-        self.clipboard.lock().expect("clipboard").clone()
-    }
-
-    #[expect(
-        clippy::panic,
-        reason = "the BDD harness: a scenario naming no panel side is a test bug and fails here"
-    )]
-    pub(super) fn panel_text(&self, side: &str) -> String {
-        let width = self.size().width;
-        let columns = match side {
-            "left" => 0..width / 2,
-            "right" => width / 2..width,
-            _ => panic!("unknown panel {side}"),
-        };
-        buffer_text(self.buffer(), columns)
-    }
-
-    pub(super) fn assert_exited(&self) {
-        assert!(
-            matches!(self.current, Output::Exited(Ok(()))),
-            "session must exit normally"
-        );
-    }
-
-    #[expect(
         clippy::expect_used,
         reason = "the BDD harness: a TUI worker that panicked fails the scenario that stops it"
     )]
@@ -281,60 +142,6 @@ impl Drop for Session {
     }
 }
 
-fn run(
-    mut app: App,
-    size: Size,
-    input: &mpsc::Receiver<Input>,
-    output: &mpsc::Sender<Output>,
-    clipboard: Arc<Mutex<String>>,
-) -> io::Result<()> {
-    app.clipboard.install(Box::new(MemoryClipboard(clipboard)));
-    let backend = SharedBackend::new(size.width, size.height);
-    let mut terminal = Terminal::new(backend.clone())?;
-    run_app_with_event_reader(&mut terminal, app, || {
-        output
-            .send(Output::Frame(backend.buffer()))
-            .map_err(io::Error::other)?;
-        match input.recv_timeout(DEADLINE).map_err(io::Error::other)? {
-            Input::Event(event) => {
-                if let Event::Resize(width, height) = event {
-                    backend.resize(Size::new(width, height));
-                }
-                Ok(event)
-            }
-            Input::Stop => Err(io::Error::new(io::ErrorKind::Interrupted, "BDD cleanup")),
-        }
-    })
-}
-
-struct MemoryClipboard(Arc<Mutex<String>>);
-
-impl funny_file_manager::clipboard::ClipboardBackend for MemoryClipboard {
-    #[expect(
-        clippy::expect_used,
-        reason = "a poisoned lock means a panic already failed the scenario; Err would show as a failed paste"
-    )]
-    fn get_native(&mut self) -> Result<String, String> {
-        Ok(self.0.lock().expect("clipboard").clone())
-    }
-
-    #[expect(
-        clippy::expect_used,
-        reason = "a poisoned lock means a panic already failed the scenario; Err would hit the OSC 52 tripwire"
-    )]
-    fn set_native(&mut self, text: &str) -> Result<(), String> {
-        text.clone_into(&mut self.0.lock().expect("clipboard"));
-        Ok(())
-    }
-    #[expect(
-        clippy::panic,
-        reason = "a tripwire: BDD reaching the terminal clipboard is a test bug and fails the scenario"
-    )]
-    fn emit_osc52(&mut self, _: &str) -> Result<(), String> {
-        panic!("BDD must use its own clipboard")
-    }
-}
-
 fn buffer_text(buffer: &Buffer, columns: std::ops::Range<u16>) -> String {
     (0..buffer.area.height)
         .map(|y| {
@@ -347,114 +154,6 @@ fn buffer_text(buffer: &Buffer, columns: std::ops::Range<u16>) -> String {
         .join("\n")
 }
 
-fn parse_key(key: &str) -> KeyEvent {
-    let (modifiers, key) = if let Some(key) = key.strip_prefix("Ctrl+") {
-        (KeyModifiers::CONTROL, key)
-    } else if let Some(key) = key.strip_prefix("Shift+") {
-        (KeyModifiers::SHIFT, key)
-    } else {
-        (KeyModifiers::NONE, key)
-    };
-    KeyEvent::new(key_code(key, modifiers), modifiers)
-}
-
-#[expect(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "the BDD harness: a scenario naming a key it does not know is a test bug and fails here"
-)]
-fn key_code(key: &str, modifiers: KeyModifiers) -> KeyCode {
-    match key {
-        "Enter" => KeyCode::Enter,
-        "Esc" => KeyCode::Esc,
-        "Tab" if modifiers == KeyModifiers::SHIFT => KeyCode::BackTab,
-        "Tab" => KeyCode::Tab,
-        "Up" => KeyCode::Up,
-        "Down" => KeyCode::Down,
-        "Left" => KeyCode::Left,
-        "Right" => KeyCode::Right,
-        "Home" => KeyCode::Home,
-        "End" => KeyCode::End,
-        "Delete" => KeyCode::Delete,
-        "Backspace" => KeyCode::Backspace,
-        "Space" => KeyCode::Char(' '),
-        value => match value.strip_prefix('F') {
-            Some(number) => KeyCode::F(number.parse().expect("function key")),
-            None if value.chars().count() == 1 => KeyCode::Char(
-                value
-                    .to_ascii_lowercase()
-                    .chars()
-                    .next()
-                    .expect("character"),
-            ),
-            None => panic!("unknown key {key}"),
-        },
-    }
-}
-
 #[cfg(test)]
-mod tests {
-    use std::panic::{self, AssertUnwindSafe};
-    use std::sync::{mpsc, Arc, Mutex};
-    use std::thread;
-
-    use funny_file_manager::clipboard::{copy_secret, ClipboardBackend};
-
-    use super::{MemoryClipboard, Output, Session};
-
-    fn poisoned_clipboard() -> MemoryClipboard {
-        let shared = Arc::new(Mutex::new(String::new()));
-        let holder = Arc::clone(&shared);
-        let poisoner = thread::spawn(move || {
-            let _guard = holder.lock();
-            panic!("a step panics while it holds the clipboard");
-        });
-        assert!(poisoner.join().is_err());
-        MemoryClipboard(shared)
-    }
-
-    #[test]
-    #[should_panic(expected = "clipboard: PoisonError")]
-    fn a_poisoned_clipboard_fails_a_copy_as_itself_not_as_the_osc52_tripwire() {
-        drop(copy_secret(&mut poisoned_clipboard(), "text"));
-    }
-
-    #[test]
-    #[should_panic(expected = "clipboard: PoisonError")]
-    fn a_poisoned_clipboard_fails_a_paste_instead_of_reading_as_unavailable() {
-        drop(poisoned_clipboard().get_native());
-    }
-
-    fn session_with_a_panicked_worker() -> Session {
-        let worker = thread::spawn(|| panic!("the TUI worker fails"));
-        while !worker.is_finished() {
-            thread::yield_now();
-        }
-        let (input, _) = mpsc::channel();
-        let (_, output) = mpsc::channel();
-        Session {
-            input,
-            output,
-            current: Output::Exited(Ok(())),
-            worker: Some(worker),
-            trace: Vec::new(),
-            clipboard: Arc::default(),
-        }
-    }
-
-    #[test]
-    #[should_panic(expected = "TUI worker panicked")]
-    fn stopping_a_session_whose_worker_panicked_fails_the_scenario() {
-        session_with_a_panicked_worker().stop();
-    }
-
-    #[test]
-    fn a_session_dropped_while_its_step_unwinds_does_not_abort_the_run() {
-        let session = session_with_a_panicked_worker();
-        let step = panic::catch_unwind(AssertUnwindSafe(move || {
-            let _session = session;
-            panic!("the step fails");
-        }));
-        assert!(step.is_err(), "the step's own panic reaches the runner");
-    }
-}
+#[path = "session/tests.rs"]
+mod tests;

@@ -1,5 +1,7 @@
 //! Purpose: Click sequences — when a second press on the same entry activates it.
 
+use std::time::{Duration, Instant};
+
 use super::*;
 
 #[test]

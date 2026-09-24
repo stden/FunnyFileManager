@@ -11,30 +11,27 @@
 //! starts while an abandoned one is still running.
 //!
 //! `App` and `Overlay` stay free of threads and channels; the model decides
-//! what is due and how a result changes the table, this file only moves
+//! what is due and how a result changes the table, this module only moves
 //! requests and results between the two.
 //!
 //! TODO(DRY): third worker — generalise with `WslJobs`. This is the second
 //! request/response worker, so under the Rule of Three it stays separate.
 
+mod lateness;
+mod lifecycle;
 mod logged;
 mod worker;
 
-use std::io;
 use std::mem;
 use std::sync::mpsc::{TryRecvError, TrySendError};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use super::Redraw;
-use crate::diagnostics::log_error;
-use crate::models::{
-    App, Overlay, SampleError, Schedule, Table, TaskHostSlot, TaskList, TaskSession, OVERDUE_AFTER,
-    STALL_LIMIT,
-};
+use crate::models::{App, Overlay, SampleError, TaskList};
 use crate::performance::Performance;
 use logged::Logged;
-use worker::{spawn, Flight, Worker};
+use worker::{Flight, Worker};
 
 /// The performance statistics row of a sample's round trip.
 const SAMPLE_ACTION: &str = "Background/Tasks/Sample";
@@ -109,32 +106,6 @@ impl TaskJobs {
         arrived.or(late).or(started).or(sent)
     }
 
-    /// The session the running worker serves.
-    fn session(&self) -> Option<TaskSession> {
-        match &self.sampler {
-            Sampler::Running(worker) => Some(worker.session),
-            Sampler::Idle | Sampler::Abandoned { .. } => None,
-        }
-    }
-
-    /// The list is closed or reopened: an idle worker is dropped, and its
-    /// thread ends at its next receive; one with a request in flight is
-    /// abandoned.
-    fn retire(&mut self) {
-        self.sampler = match mem::take(&mut self.sampler) {
-            Sampler::Running(Worker {
-                handle,
-                flight: Flight::Since(since),
-                ..
-            }) => Sampler::Abandoned { handle, since },
-            Sampler::Running(Worker {
-                flight: Flight::Idle,
-                ..
-            }) => Sampler::Idle,
-            kept @ (Sampler::Idle | Sampler::Abandoned { .. }) => kept,
-        };
-    }
-
     /// Applies the answer that arrived, if one did. A worker that is gone
     /// is not started again this session.
     fn drain(
@@ -165,99 +136,6 @@ impl TaskJobs {
         Redraw::Needed
     }
 
-    /// Watches what the list is waiting for: the running worker's request,
-    /// or, behind an abandoned thread, its first sample.
-    fn watch(&mut self, list: &mut TaskList, now: Instant) -> Redraw {
-        match &self.sampler {
-            Sampler::Running(_) => self.watch_request(list, now),
-            Sampler::Abandoned { handle, since } if !handle.is_finished() => {
-                let since = *since;
-                self.stuck_behind(list, since, now)
-            }
-            Sampler::Idle | Sampler::Abandoned { .. } => Redraw::Unchanged,
-        }
-    }
-
-    /// Marks a late request stale, and abandons the thread of one that
-    /// stalled; the list asks again once a thread may start.
-    fn watch_request(&mut self, list: &mut TaskList, now: Instant) -> Redraw {
-        let Some(since) = list.refresh().in_flight_since() else {
-            return Redraw::Unchanged;
-        };
-        let late = now.saturating_duration_since(since);
-        if late >= STALL_LIMIT {
-            self.sampler = mem::take(&mut self.sampler).abandon(since);
-            return self.stall(list);
-        }
-        if late < OVERDUE_AFTER {
-            return Redraw::Unchanged;
-        }
-        let before = list.health();
-        list.mark_overdue();
-        if list.health() == before {
-            Redraw::Unchanged
-        } else {
-            Redraw::Needed
-        }
-    }
-
-    /// Starts a worker for `list` when it has none and may have one: not
-    /// while an abandoned thread still runs, and never again once this
-    /// session's worker is gone.
-    fn start(&mut self, list: &mut TaskList, host: &TaskHostSlot) -> Redraw {
-        match &self.sampler {
-            Sampler::Running(_) => return Redraw::Unchanged,
-            Sampler::Abandoned { handle, .. } if !handle.is_finished() => {
-                return Redraw::Unchanged;
-            }
-            Sampler::Idle | Sampler::Abandoned { .. } => {}
-        }
-        if list.refresh().schedule() == Schedule::Stopped {
-            return Redraw::Unchanged;
-        }
-        self.sampler = Sampler::Idle;
-        let reader = host
-            .host()
-            .map_or(Err(SampleError::Unsupported), |host| host.reader());
-        match reader.map(|reader| spawn(reader, list.session())) {
-            Ok(Ok(worker)) => {
-                self.sampler = Sampler::Running(worker);
-                Redraw::Unchanged
-            }
-            Ok(Err(error)) => self.unavailable(list, &error),
-            Err(error) => self.lose(list, error),
-        }
-    }
-
-    /// A list still waiting for its first sample, while the thread
-    /// abandoned at `since` has not answered for the stall limit: no thread
-    /// can start for it until that one ends, so it says the reader is not
-    /// responding rather than look as if it were starting.
-    fn stuck_behind(&mut self, list: &mut TaskList, since: Instant, now: Instant) -> Redraw {
-        let waiting = matches!(list.table(), Table::Waiting);
-        if !waiting || now.saturating_duration_since(since) < STALL_LIMIT {
-            return Redraw::Unchanged;
-        }
-        self.stall(list)
-    }
-
-    /// The reader has not answered for the stall limit: the list says so,
-    /// and the log once.
-    fn stall(&mut self, list: &mut TaskList) -> Redraw {
-        self.log_once(list.session(), SampleError::WorkerStalled);
-        list.mark_stalled();
-        Redraw::Needed
-    }
-
-    /// The thread could not be started: said once, and not tried again this
-    /// session.
-    fn unavailable(&mut self, list: &mut TaskList, error: &io::Error) -> Redraw {
-        log_error(&format!(
-            "Task list: cannot start the process reader: {error}"
-        ));
-        self.lose(list, SampleError::WorkerUnavailable)
-    }
-
     /// Sends the request the list says is due, if the worker can take one.
     fn request(&mut self, list: &mut TaskList, now: Instant) -> Redraw {
         let Sampler::Running(worker) = &mut self.sampler else {
@@ -277,22 +155,6 @@ impl TaskJobs {
                 self.sampler = Sampler::Idle;
                 self.lose(list, SampleError::WorkerStopped)
             }
-        }
-    }
-
-    /// The session's worker is gone for good: the list shows `error` and
-    /// asks for nothing more.
-    fn lose(&mut self, list: &mut TaskList, error: SampleError) -> Redraw {
-        self.log_once(list.session(), error);
-        list.worker_lost(error);
-        Redraw::Needed
-    }
-
-    /// Logs `error` the first time `session` meets it: a table that fails
-    /// on every refresh writes one line, not one per second and a half.
-    fn log_once(&mut self, session: TaskSession, error: SampleError) {
-        if self.logged.first(session, error) {
-            log_error(&format!("Task list: {error}"));
         }
     }
 }

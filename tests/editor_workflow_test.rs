@@ -15,6 +15,14 @@ use tempfile::TempDir;
 mod editor_backend;
 use editor_backend::SharedBackend;
 
+#[path = "editor_workflow_test/clipboard.rs"]
+mod clipboard;
+#[path = "editor_workflow_test/dotenv_session.rs"]
+mod dotenv_session;
+#[path = "editor_workflow_test/selection_clipboard.rs"]
+mod selection_clipboard;
+use clipboard::Clipboard;
+
 const ORIGINAL: &str = "GREETING=\"a界\"\r\nNEXT=\"β🙂\"\r\nPORT=3000\r\n";
 const COPIED: &str = "GREETING=\"a界\"\r\nNEXT=\"β🙂\"\r\n";
 const REPLACEMENT: &str = "GREETING=\"new界\"\r\nNEXT=\"fresh🙂\"\r\n";
@@ -23,40 +31,6 @@ const BLUE: Color = Color::Rgb(0, 0, 128);
 const SELECTED: Color = Color::Rgb(85, 150, 216);
 const ENV_KEY: Color = Color::Rgb(140, 220, 200);
 const ENV_VALUE: Color = Color::Rgb(235, 185, 70);
-
-#[derive(Default)]
-struct ClipboardState {
-    text: String,
-    copied: Vec<String>,
-    reads: usize,
-    fail_read: bool,
-}
-
-#[derive(Clone, Default)]
-struct Clipboard(Rc<RefCell<ClipboardState>>);
-
-impl ClipboardBackend for Clipboard {
-    fn get_native(&mut self) -> Result<String, String> {
-        let mut state = self.0.borrow_mut();
-        state.reads += 1;
-        if state.fail_read {
-            Err("test clipboard unavailable".to_owned())
-        } else {
-            Ok(state.text.clone())
-        }
-    }
-
-    fn set_native(&mut self, text: &str) -> Result<(), String> {
-        let mut state = self.0.borrow_mut();
-        text.clone_into(&mut state.text);
-        state.copied.push(text.to_owned());
-        Ok(())
-    }
-
-    fn emit_osc52(&mut self, _payload: &str) -> Result<(), String> {
-        Err("test has no host terminal".to_owned())
-    }
-}
 
 enum Step {
     Key(KeyCode, KeyModifiers),
@@ -143,128 +117,6 @@ fn run(directory: &TempDir, clipboard: &Clipboard, steps: Vec<Step>) -> io::Resu
     Ok(())
 }
 
-#[test]
-fn ctrl_c_copies_the_visible_unicode_selection_without_editing_or_quitting() -> io::Result<()> {
-    let directory = TempDir::new()?;
-    let file = directory.path().join(".env");
-    fs::write(&file, ORIGINAL)?;
-    let clipboard = Clipboard::default();
-    let mut steps = open_and_select();
-    steps.extend([
-        Step::Key(KeyCode::Char('c'), KeyModifiers::CONTROL),
-        Step::Inspect(|buffer| {
-            assert_selection(buffer);
-            assert!(row(buffer, 0).contains("Selection copied"));
-        }),
-    ]);
-    steps.extend(finish());
-
-    run(&directory, &clipboard, steps)?;
-
-    assert_eq!(clipboard.0.borrow().copied, [COPIED]);
-    assert_eq!(fs::read_to_string(file)?, ORIGINAL);
-    Ok(())
-}
-
-#[test]
-fn ctrl_v_replaces_the_selection_with_one_clipboard_read() -> io::Result<()> {
-    let directory = TempDir::new()?;
-    let file = directory.path().join(".env");
-    fs::write(&file, ORIGINAL)?;
-    let clipboard = Clipboard::default();
-    let mut steps = open_and_select();
-    steps.extend([
-        Step::Clipboard(REPLACEMENT),
-        Step::Key(KeyCode::Char('v'), KeyModifiers::CONTROL),
-        Step::Inspect(assert_pasted_buffer),
-    ]);
-    steps.extend(finish());
-    run(&directory, &clipboard, steps)?;
-    assert_eq!(fs::read_to_string(file)?, SAVED);
-    assert_eq!(clipboard.0.borrow().reads, 1);
-    Ok(())
-}
-
-#[test]
-fn terminal_paste_replaces_the_selection_as_a_complete_text_block() -> io::Result<()> {
-    let directory = TempDir::new()?;
-    let file = directory.path().join(".env");
-    fs::write(&file, ORIGINAL)?;
-    let clipboard = Clipboard::default();
-    let mut steps = open_and_select();
-    steps.extend([
-        Step::Paste(REPLACEMENT.to_owned()),
-        Step::Inspect(assert_pasted_buffer),
-    ]);
-    steps.extend(finish());
-    run(&directory, &clipboard, steps)?;
-    assert_eq!(fs::read_to_string(file)?, SAVED);
-    assert_eq!(clipboard.0.borrow().reads, 0);
-    Ok(())
-}
-
-#[test]
-fn text_ui_edits_a_real_dotenv_file_with_selection_clipboard_resize_and_save() -> io::Result<()> {
-    let directory = TempDir::new()?;
-    let file = directory.path().join(".env");
-    fs::write(&file, ORIGINAL)?;
-    let clipboard = Clipboard::default();
-    let mut steps = open_and_select();
-    steps.extend([
-        Step::Key(KeyCode::Insert, KeyModifiers::CONTROL),
-        Step::Clipboard(REPLACEMENT),
-        Step::Resize(Size::new(18, 6)),
-        Step::Inspect(|buffer| {
-            assert_eq!(buffer.area.width, 18);
-            assert_eq!(buffer.area.height, 6);
-            assert_selection(buffer);
-        }),
-        shifted(KeyCode::Insert),
-        Step::Inspect(assert_pasted_buffer),
-        Step::Resize(Size::new(90, 20)),
-    ]);
-    steps.extend(finish());
-    run(&directory, &clipboard, steps)?;
-    assert_eq!(
-        fs::read_to_string(file)?,
-        SAVED,
-        "F2 must preserve CRLF and unchanged trailing lines"
-    );
-    assert_eq!(clipboard.0.borrow().copied, [COPIED]);
-    assert_eq!(clipboard.0.borrow().reads, 1);
-    Ok(())
-}
-
-#[test]
-fn text_ui_failed_paste_keeps_the_visible_selection_and_saved_file() -> io::Result<()> {
-    let directory = TempDir::new()?;
-    let file = directory.path().join(".env");
-    fs::write(&file, ORIGINAL)?;
-    let clipboard = Clipboard::default();
-    clipboard.0.borrow_mut().fail_read = true;
-    let mut steps = open_and_select();
-    steps.extend([
-        Step::Resize(Size::new(18, 6)),
-        shifted(KeyCode::Insert),
-        Step::Inspect(|buffer| {
-            assert_eq!(buffer.area.width, 18);
-            assert_selection(buffer);
-            assert!(
-                row(buffer, 0).contains("Paste failed"),
-                "failure must be visible inside editor"
-            );
-        }),
-        Step::Resize(Size::new(90, 20)),
-        Step::Inspect(assert_failed_paste_header),
-    ]);
-    steps.extend(finish());
-    run(&directory, &clipboard, steps)?;
-    assert_eq!(fs::read_to_string(file)?, ORIGINAL);
-    assert_eq!(clipboard.0.borrow().reads, 1);
-    assert!(clipboard.0.borrow().copied.is_empty());
-    Ok(())
-}
-
 fn read_step(
     steps: &mut impl Iterator<Item = Step>,
     backend: &SharedBackend,
@@ -306,11 +158,4 @@ fn assert_highlighted_buffer(buffer: &Buffer) {
     assert!(row(buffer, 1).contains("GREETING="));
     assert_eq!(buffer[(0, 1)].fg, ENV_KEY);
     assert_eq!(buffer[(10, 1)].fg, ENV_VALUE);
-}
-
-fn assert_failed_paste_header(buffer: &Buffer) {
-    assert_selection(buffer);
-    let header = row(buffer, 0);
-    assert!(header.contains("Paste failed"));
-    assert!(header.contains(" Ln ") && header.contains(" Col "));
 }

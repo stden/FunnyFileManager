@@ -51,8 +51,8 @@ themes. Panel theme adjustments run before menus and modal rendering.
 
 ## 🎨 Panel Rendering
 
-`render_panel` and its helpers live in `src/ui/panel.rs`, split out of `ui.rs`
-when the columns pushed that file past the 1000-line cap
+`render_panel` and its helpers live in `src/ui/panel.rs` and its `panel/`
+children (columns, layout, rows, frame, info), each within the 200-line cap
 `tests/file_line_limit_test.rs` enforces.
 
 Inside the frame, top to bottom:

@@ -1,6 +1,8 @@
 //! Purpose: A failed recording must stop safely and report its failure exactly once.
 
 use super::*;
+use std::fs::File;
+use std::time::Instant;
 use tempfile::TempDir;
 
 #[test]

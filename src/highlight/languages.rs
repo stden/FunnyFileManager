@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use super::formats::{CONFIG, DOTENV, JSON, MARKDOWN, MARKUP};
 use super::shells::{BATCH, POWERSHELL, SHELL};
 use super::{LineMode, Syntax};
 
@@ -120,48 +121,6 @@ const C_LIKE: Syntax = Syntax {
     switch_prefix: None,
 };
 
-const CONFIG: Syntax = Syntax {
-    mode: LineMode::Tokens,
-    line_comments: &["#", ";"],
-    block_comment: None,
-    quotes: &['"', '\''],
-    keywords: &["false", "no", "null", "off", "on", "true", "yes"],
-    types: &[],
-    meta_prefix: None,
-    section_headers: true,
-    variable_prefix: None,
-    word_hyphens: false,
-    switch_prefix: None,
-};
-
-const JSON: Syntax = Syntax {
-    mode: LineMode::Tokens,
-    line_comments: &[],
-    block_comment: None,
-    quotes: &['"'],
-    keywords: &["false", "null", "true"],
-    types: &[],
-    meta_prefix: None,
-    section_headers: false,
-    variable_prefix: None,
-    word_hyphens: false,
-    switch_prefix: None,
-};
-
-const MARKUP: Syntax = Syntax {
-    mode: LineMode::Tokens,
-    line_comments: &[],
-    block_comment: Some(("<!--", "-->")),
-    quotes: &['"', '\''],
-    keywords: &[],
-    types: &[],
-    meta_prefix: None,
-    section_headers: false,
-    variable_prefix: None,
-    word_hyphens: false,
-    switch_prefix: None,
-};
-
 /// The language to highlight `path` as, or `None` for plain text.
 ///
 /// Recognized filenames and extensions. Content sniffing (shebangs, XML prologues) would guess
@@ -204,14 +163,3 @@ pub fn syntax_for(path: &Path) -> Option<Syntax> {
         _ => return None,
     })
 }
-
-/// Structured formats select their own scanner instead of a token table.
-const MARKDOWN: Syntax = Syntax {
-    mode: LineMode::Markdown,
-    ..CONFIG
-};
-
-const DOTENV: Syntax = Syntax {
-    mode: LineMode::Dotenv,
-    ..CONFIG
-};

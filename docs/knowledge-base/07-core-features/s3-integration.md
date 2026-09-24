@@ -18,10 +18,10 @@ shared credentials file when the binary is built with `s3`. Selecting that
 row does not change the panel. `select_drive` returns
 `Status::S3ProfileSelected`, whose text says the browser is not available yet.
 
-The MCP server in `mcp/src/main.rs` performs the same S3 calls. Its local
-paths stay inside the configured root. Its tools are `s3_list_profiles`,
-`s3_list_buckets`, `s3_list_objects`, `s3_download`, `s3_upload`,
-`s3_delete`, and `s3_copy`.
+The MCP server in `mcp/src/tools/s3.rs` and `mcp/src/tools/s3_transfer.rs`
+performs the same S3 calls. Its local paths stay inside the configured root.
+Its tools are `s3_list_profiles`, `s3_list_buckets`, `s3_list_objects`,
+`s3_download`, `s3_upload`, `s3_delete`, and `s3_copy`.
 
 ## What is not implemented
 

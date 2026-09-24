@@ -1,4 +1,4 @@
-//! Bounded filesystem search and directory comparisons for menu commands.
+//! Bounded filesystem search for menu commands.
 
 use crate::{
     mask::Mask,
@@ -9,6 +9,14 @@ use std::{
     fs, io,
     path::{Path, PathBuf},
 };
+
+#[cfg(test)]
+mod deny_reads;
+
+#[cfg(test)]
+use deny_reads::denied;
+#[cfg(test)]
+pub(super) use deny_reads::DenyReads;
 
 pub(super) fn find(app: &mut App, pattern: &str, folders: bool, containing: &str) {
     let root = app.get_active_panel_ref().path.clone();
@@ -135,41 +143,6 @@ fn read_directory(path: &Path) -> io::Result<fs::ReadDir> {
     fs::read_dir(path)
 }
 
-#[cfg(test)]
-thread_local! {
-    static DENIED: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
-}
-
-/// Fail `read_dir` for a directory whose last component is `name`.
-#[cfg(test)]
-pub(super) struct DenyReads {
-    previous: Option<String>,
-}
-
-#[cfg(test)]
-impl DenyReads {
-    pub(super) fn named(name: &str) -> Self {
-        let previous = DENIED.with(|slot| slot.borrow_mut().replace(name.to_owned()));
-        Self { previous }
-    }
-}
-
-#[cfg(test)]
-impl Drop for DenyReads {
-    fn drop(&mut self) {
-        DENIED.with(|slot| *slot.borrow_mut() = self.previous.take());
-    }
-}
-
-#[cfg(test)]
-fn denied(path: &Path) -> bool {
-    DENIED.with(|slot| {
-        slot.borrow()
-            .as_ref()
-            .is_some_and(|name| path.ends_with(name.as_str()))
-    })
-}
-
 fn file_contains(path: &Path, needle: &str) -> bool {
     let Ok(metadata) = fs::metadata(path) else {
         return false;
@@ -198,32 +171,6 @@ fn add_result(root: &Path, path: PathBuf, folders: bool, rows: &mut Vec<MenuChoi
         ChoiceTarget::File(path)
     };
     rows.push(MenuChoice { label, target });
-}
-
-pub(super) fn compare(app: &mut App) {
-    let (left, right) = (&mut app.left_panel, &mut app.right_panel);
-    left.marked.clear();
-    right.marked.clear();
-    mark_different(left, right);
-    mark_different(right, left);
-    app.set_status(crate::status::Status::CommandOutput(
-        "Marked missing or different-sized files in both panels".to_owned(),
-    ));
-}
-
-fn mark_different(panel: &mut crate::models::Panel, other: &crate::models::Panel) {
-    for entry in &panel.entries {
-        if !entry.kind.is_dir()
-            && !other
-                .entries
-                .iter()
-                .any(|candidate| candidate.name == entry.name && candidate.size == entry.size)
-        {
-            panel
-                .marked
-                .insert(crate::models::FileName::from(entry.name.as_str()));
-        }
-    }
 }
 
 pub(super) fn prompt(app: &mut App, command: MenuCommand) {

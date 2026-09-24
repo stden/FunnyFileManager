@@ -2,8 +2,8 @@
 //! fixture — a file cut short by the reader's cap or a process exiting
 //! mid-read — and ten thousand byte flips from a fixed-seed generator — a
 //! file hostile or corrupt. No parser may panic: release builds abort on a
-//! panic and do not check overflow. And a file read for one value, cut
-//! anywhere, reads as nothing or as the whole, never as a smaller number.
+//! panic and do not check overflow. That a file cut short never reads as a
+//! smaller number is tested in `tests_robustness_truncation.rs`.
 
 use super::parse::{
     command_line, cpu_times, effective_uid, load_average, memory_info, stat, statm, uptime,
@@ -50,7 +50,7 @@ fn hertz() -> ClockTicks {
     ClockTicks::new(100).expect("not zero")
 }
 
-fn page() -> PageSize {
+pub(super) fn page() -> PageSize {
     PageSize::new(4096).expect("not zero")
 }
 
@@ -127,53 +127,6 @@ fn every_prefix_of_every_file_parses_without_a_panic() {
     for fixture in &FIXTURES {
         for end in 0..=fixture.bytes.len() {
             feed(fixture, &fixture.bytes[..end]);
-        }
-    }
-}
-
-/// A file read for one value: its fixture and its parser, the value spelled
-/// for comparison.
-struct OneValue {
-    name: &'static str,
-    bytes: &'static [u8],
-    value: fn(&str) -> Option<String>,
-}
-
-const ONE_VALUE: [OneValue; 4] = [
-    OneValue {
-        name: "statm",
-        bytes: b"812345 156672 23456 12 0 345678 0\n",
-        value: |text| statm(text, page()).map(|usage| format!("{usage:?}")),
-    },
-    OneValue {
-        name: "status",
-        bytes: b"Name:\tbash\nUid:\t1000\t1001\t1002\t1003\nGid:\t100\t100\t100\t100\n",
-        value: |text| effective_uid(text).map(|uid| uid.to_string()),
-    },
-    OneValue {
-        name: "/proc/loadavg",
-        bytes: b"10.52 20.58 30.59 3/1204 4242\n",
-        value: |text| load_average(text).map(|load| format!("{load:?}")),
-    },
-    OneValue {
-        name: "/proc/uptime",
-        bytes: b"21126.06 667890.12\n",
-        value: |text| uptime(text).map(|up| format!("{up:?}")),
-    },
-];
-
-#[test]
-fn a_file_cut_short_never_reads_as_a_smaller_number() {
-    for file in &ONE_VALUE {
-        let whole = (file.value)(&String::from_utf8_lossy(file.bytes));
-        assert!(whole.is_some(), "{}", file.name);
-        for end in 0..file.bytes.len() {
-            let cut = (file.value)(&String::from_utf8_lossy(&file.bytes[..end]));
-            assert!(
-                cut.is_none() || cut == whole,
-                "{} cut after {end} bytes read {cut:?}, not {whole:?}",
-                file.name
-            );
         }
     }
 }

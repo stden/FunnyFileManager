@@ -1,7 +1,13 @@
-//! Purpose: Unit tests for the `:` command-line parser.
+//! Purpose: Unit tests for the `:` command-line parser: the plain verbs, the
+//! shell fallback and the verb table. `cd` is pinned in `tests/tests_cd.rs`,
+//! `bookmark` in `tests/tests_bookmark.rs`, `sessions` in
+//! `tests/tests_sessions.rs` and `~` in `tests/tests_tilde.rs`.
 //!
 use super::*;
 
+mod tests_bookmark;
+mod tests_cd;
+mod tests_sessions;
 mod tests_tilde;
 
 #[test]
@@ -105,110 +111,6 @@ fn test_command_parse_sort() {
     );
 }
 
-#[test]
-fn test_command_parse_bookmark() {
-    assert_eq!(
-        Command::parse("bookmark set 3"),
-        Command::BookmarkSet(BookmarkSlot::new(3).unwrap())
-    );
-    assert_eq!(
-        Command::parse("bookmark go 0"),
-        Command::BookmarkGo(BookmarkSlot::new(0).unwrap())
-    );
-    assert_eq!(
-        Command::parse("bookmark set 99"),
-        Command::Invalid {
-            input: "bookmark set 99".into(),
-            usage: BOOKMARK_USAGE
-        }
-    );
-    assert_eq!(
-        Command::parse("bookmark go abc"),
-        Command::Invalid {
-            input: "bookmark go abc".into(),
-            usage: BOOKMARK_USAGE
-        }
-    );
-    assert_eq!(
-        Command::parse("bookmark foo"),
-        Command::Invalid {
-            input: "bookmark foo".into(),
-            usage: BOOKMARK_USAGE
-        }
-    );
-}
-
-#[test]
-fn test_command_parse_cd_and_shell() {
-    assert_eq!(
-        Command::parse("cd /tmp"),
-        Command::Cd(PathBuf::from("/tmp"))
-    );
-    assert_eq!(
-        Command::parse("cd"),
-        Command::Invalid {
-            input: "cd".into(),
-            usage: CD_USAGE
-        }
-    );
-    assert_eq!(
-        Command::parse("ls -l"),
-        Command::Shell(ShellCommand::new("ls -l").expect("non-empty"))
-    );
-    // An empty line is its own variant: `Command::Shell` cannot represent it.
-    assert_eq!(Command::parse(""), Command::Empty);
-    assert_eq!(Command::parse("   "), Command::Empty);
-}
-
-// ─── cd argument: the whole rest of the line ──────────────────────────
-
-#[test]
-fn cd_takes_the_whole_rest_of_the_line() {
-    assert_eq!(
-        Command::parse("cd My Documents"),
-        Command::Cd(PathBuf::from("My Documents"))
-    );
-    assert_eq!(
-        Command::parse("cd  /tmp/a b c "),
-        Command::Cd(PathBuf::from("/tmp/a b c"))
-    );
-}
-
-#[test]
-fn cd_strips_one_pair_of_surrounding_quotes() {
-    assert_eq!(
-        Command::parse(r#"cd "My Documents""#),
-        Command::Cd(PathBuf::from("My Documents"))
-    );
-    assert_eq!(
-        Command::parse("cd 'My Documents'"),
-        Command::Cd(PathBuf::from("My Documents"))
-    );
-    // Unbalanced quotes are part of the name, not syntax.
-    assert_eq!(
-        Command::parse(r#"cd "half"#),
-        Command::Cd(PathBuf::from("\"half"))
-    );
-}
-
-#[test]
-fn cd_without_an_argument_is_invalid() {
-    assert_eq!(
-        Command::parse("cd   "),
-        Command::Invalid {
-            input: "cd   ".into(),
-            usage: CD_USAGE
-        }
-    );
-    assert_eq!(
-        Command::parse("cd \"\""),
-        Command::Invalid {
-            input: "cd \"\"".into(),
-            usage: CD_USAGE
-        }
-    );
-}
-
 // ─── verb table ───────────────────────────────────────────────────────
 
 #[test]
@@ -249,46 +151,4 @@ fn shell_command_rejects_blank_text() {
 fn shell_command_displays_as_its_text() {
     let command = ShellCommand::new("grep -r needle .").expect("non-empty");
     assert_eq!(command.to_string(), "grep -r needle .");
-}
-
-/// `:sessions` opens the panel; `:sessions import netbox [path]` imports,
-/// the path being the rest of the line.
-#[test]
-fn sessions_parses_its_verb_the_import_and_a_path_with_spaces() {
-    use super::SessionsCommand;
-    assert_eq!(
-        Command::parse("sessions"),
-        Command::Sessions(SessionsCommand::Open)
-    );
-    assert_eq!(
-        Command::parse("sessions import netbox"),
-        Command::Sessions(SessionsCommand::ImportNetBox(None))
-    );
-    assert_eq!(
-        Command::parse("  sessions   import  netbox  \"/srv/x/my host.netbox\"  "),
-        Command::Sessions(SessionsCommand::ImportNetBox(Some(PathBuf::from(
-            "/srv/x/my host.netbox"
-        ))))
-    );
-    assert!(VERBS.contains(&"sessions"));
-}
-
-/// Anything else after `sessions` is the usage.
-#[test]
-fn sessions_with_other_words_is_its_usage() {
-    for bad in [
-        "sessions import",
-        "sessions import far",
-        "sessions import NETBOX x",
-        "sessions open",
-    ] {
-        assert!(
-            matches!(
-                Command::parse(bad),
-                Command::Invalid { usage, .. }
-                    if usage == "sessions expects nothing, or import netbox [path]"
-            ),
-            "{bad}"
-        );
-    }
 }

@@ -71,6 +71,9 @@ mod tests_cd_paths;
 mod tests_engines;
 #[cfg(test)]
 mod tests_fish_engine;
+// Every stub `fish` is a Unix shell script.
+#[cfg(all(test, unix))]
+mod tests_fish_stubs;
 #[cfg(test)]
 mod tests_helpers;
 #[cfg(test)]

@@ -1,7 +1,13 @@
+//! Purpose: Unit tests for the copy dialog: its opening state, the tab ring,
+//! the checkboxes and the destination check. The radio groups and what the
+//! choices hand to the copy are in `tests/tests_choices.rs`.
+
 use std::path::Path;
 
 use super::{AccessRights, CopyField, CopyPrompt, ExistingFiles};
 
+#[cfg(test)]
+mod tests_choices;
 #[cfg(test)]
 mod tests_purpose;
 
@@ -94,70 +100,6 @@ fn the_text_field_and_the_buttons_are_not_checkboxes() {
 }
 
 #[test]
-fn the_arrows_cycle_the_radio_group_both_ways() {
-    let mut prompt = prompt();
-    prompt.field = CopyField::Rights;
-    assert_eq!(prompt.rights, AccessRights::Default);
-    prompt.cycle(true);
-    assert_eq!(prompt.rights, AccessRights::Copy);
-    prompt.cycle(true);
-    assert_eq!(prompt.rights, AccessRights::Inherit);
-    prompt.cycle(true);
-    assert_eq!(prompt.rights, AccessRights::Default, "and wraps");
-    prompt.cycle(false);
-    assert_eq!(prompt.rights, AccessRights::Inherit, "backwards too");
-}
-
-#[test]
-fn the_arrows_cycle_the_existing_files_choice_both_ways() {
-    let mut prompt = prompt();
-    prompt.field = CopyField::Existing;
-    let forward: Vec<_> = (0..4)
-        .map(|_| {
-            prompt.cycle(true);
-            prompt.existing
-        })
-        .collect();
-    assert_eq!(
-        forward,
-        vec![
-            ExistingFiles::Overwrite,
-            ExistingFiles::Skip,
-            ExistingFiles::OnlyNewer,
-            ExistingFiles::Ask,
-        ]
-    );
-    prompt.cycle(false);
-    assert_eq!(prompt.existing, ExistingFiles::OnlyNewer);
-}
-
-/// `next` and `previous` must be inverses, or the arrow keys disagree about
-/// where they are in the list.
-#[test]
-fn the_choices_are_reversible() {
-    for start in [
-        ExistingFiles::Ask,
-        ExistingFiles::Overwrite,
-        ExistingFiles::Skip,
-        ExistingFiles::OnlyNewer,
-    ] {
-        assert_eq!(start.next().previous(), start, "{start:?}");
-    }
-    for start in AccessRights::ALL {
-        assert_eq!(start.next().previous(), start, "{start:?}");
-    }
-}
-
-#[test]
-fn the_arrows_leave_the_text_field_alone() {
-    let mut prompt = prompt();
-    let before = prompt.clone();
-    prompt.cycle(true);
-    prompt.cycle(false);
-    assert_eq!(prompt, before);
-}
-
-#[test]
 fn a_blank_destination_is_not_ready() {
     let mut prompt = prompt();
     assert!(prompt.is_ready());
@@ -168,50 +110,4 @@ fn a_blank_destination_is_not_ready() {
     );
     prompt.destination = String::new();
     assert!(!prompt.is_ready());
-}
-
-#[test]
-fn every_access_right_has_a_label_and_an_index() {
-    for (index, right) in AccessRights::ALL.into_iter().enumerate() {
-        assert_eq!(right.index(), index);
-        assert!(!AccessRights::LABELS[index].is_empty());
-    }
-}
-
-#[test]
-fn every_existing_files_choice_has_a_label() {
-    let labels: Vec<_> = [
-        ExistingFiles::Ask,
-        ExistingFiles::Overwrite,
-        ExistingFiles::Skip,
-        ExistingFiles::OnlyNewer,
-    ]
-    .into_iter()
-    .map(ExistingFiles::label)
-    .collect();
-    assert_eq!(labels, vec!["Ask", "Overwrite", "Skip", "Only newer files"]);
-}
-
-/// "Access rights" decide each copied file's mode as it is written: only
-/// Inherit leaves the file as the kernel created it, umask and all.
-#[test]
-fn only_inherit_leaves_a_copied_file_as_it_was_created() {
-    use crate::utils::FileMode;
-
-    assert_eq!(AccessRights::Default.file_mode(), FileMode::Source);
-    assert_eq!(AccessRights::Copy.file_mode(), FileMode::Source);
-    assert_eq!(AccessRights::Inherit.file_mode(), FileMode::Fresh);
-}
-
-/// The rules handed to the copy carry both of the dialog's choices that
-/// reach the files: the link box and the access rights.
-#[test]
-fn the_copy_rules_carry_the_link_choice_and_the_rights() {
-    use crate::utils::{FileMode, LinkPolicy};
-
-    let mut dialog = prompt();
-    dialog.rights = AccessRights::Inherit;
-    let rules = dialog.rules();
-    assert_eq!(rules.links, LinkPolicy::Recreate);
-    assert_eq!(rules.modes, FileMode::Fresh);
 }

@@ -9,8 +9,9 @@
 
 mod accessors;
 mod filter;
+mod secrets;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Instant;
 
 use super::edit::EntryForm;
@@ -129,41 +130,6 @@ impl Vault {
         };
     }
 
-    /// Stop showing the revealed password and overwrite it.
-    ///
-    /// Zeroizing explicitly rather than just assigning `None` keeps the
-    /// guarantee visible at the call site, so a later "simplification" to a
-    /// plain `self.revealed = None` reads as the behaviour change it is.
-    pub(super) fn hide(&mut self) {
-        if let Some(revealed) = &mut self.revealed {
-            revealed.zeroize();
-        }
-        self.revealed = None;
-    }
-
-    pub(super) fn set_revealed(&mut self, revealed: Revealed) {
-        self.hide();
-        self.revealed = Some(revealed);
-    }
-
-    /// Open an edit form, replacing (and zeroizing) any draft left behind.
-    pub(super) fn set_edit(&mut self, form: EntryForm) {
-        self.clear_edit();
-        self.edit = Some(Box::new(form));
-    }
-
-    /// Drop the draft, overwriting its password first.
-    ///
-    /// Explicit for the reason [`Self::hide`] is: zeroizing before the
-    /// assignment keeps the guarantee visible at the call site, so a later
-    /// "simplification" to `self.edit = None` reads as the change it is.
-    pub(super) fn clear_edit(&mut self) {
-        if let Some(form) = &mut self.edit {
-            form.zeroize();
-        }
-        self.edit = None;
-    }
-
     /// Swap in a fresh summary list after a save changed the file.
     ///
     /// Goes through [`Self::refilter`] so `matches` and the cursor clamp are
@@ -193,28 +159,5 @@ impl Vault {
         if let Some(position) = found {
             self.selected = position;
         }
-    }
-
-    /// Overwrite every secret this vault holds, before it is dropped.
-    pub(super) fn zeroize(&mut self) {
-        self.master.zeroize();
-        // The draft is wiped in place, not dropped: the caller may still hold
-        // the form (the zeroization test does), and the lock that follows
-        // drops the whole vault anyway.
-        if let Some(form) = &mut self.edit {
-            form.zeroize();
-        }
-        self.hide();
-        self.close_dialog();
-    }
-
-    // ── Credentials, for `super`'s re-reads only ────────────────────────
-
-    pub(super) fn master(&self) -> &MasterKey {
-        &self.master
-    }
-
-    pub(super) fn keyfile(&self) -> Option<&Path> {
-        self.keyfile.as_deref()
     }
 }

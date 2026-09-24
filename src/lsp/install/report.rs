@@ -1,12 +1,14 @@
 //! Purpose: Say what FFM would start for a configured server, without starting
 //! a process or installing a package.
 
-use super::{environment::Environment, launch::Launch, probe::Probe, storage, InstallError};
-use crate::config::{InstallRecipe, LspSettings, ServerSettings};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use super::InstallError;
+use std::path::PathBuf;
+
+mod lookup;
+
+pub use lookup::availability;
+#[cfg(test)]
+use lookup::{resolve, workspace};
 
 /// A program FFM would run, and the arguments it would pass.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -109,110 +111,6 @@ impl Availability {
             }
         }
     }
-}
-
-/// What FFM would start for `language`'s `server` in a file under
-/// `directory`, on the machine `probe` describes.
-#[must_use]
-pub fn availability(
-    language: &str,
-    server: &ServerSettings,
-    directory: &Path,
-    probe: &Probe,
-) -> Availability {
-    let found = resolve(server, probe.cache(), &workspace(server, directory), probe);
-    if recipe_supplies_command(language, server) {
-        return found;
-    }
-    match found {
-        Availability::Cached(resolved) => Availability::Replaced(Replacement::Cached(resolved)),
-        Availability::NotInstalled(NotInstalled::AfterTrust) => {
-            Availability::Replaced(Replacement::AfterTrust)
-        }
-        other => other,
-    }
-}
-
-/// The project root the server would open for a file in `directory`.
-fn workspace(server: &ServerSettings, directory: &Path) -> PathBuf {
-    let directory = directory
-        .canonicalize()
-        .unwrap_or_else(|_| directory.to_path_buf());
-    super::super::worker::workspace_root(&directory.join("source"), &server.root_markers)
-}
-
-/// Whether the auto-install recipe installs the command itself: the catalog's
-/// command and recipe, both unchanged. Otherwise an installed recipe runs
-/// *instead of* the configured command, and the status must say so.
-fn recipe_supplies_command(language: &str, server: &ServerSettings) -> bool {
-    LspSettings::catalog()
-        .0
-        .get(language)
-        .is_some_and(|catalog| {
-            catalog.command == server.command && catalog.install == server.install
-        })
-}
-
-/// The configured command when it is found, else what the recipe offers.
-fn resolve(
-    server: &ServerSettings,
-    cache: Option<&Path>,
-    workspace: &Path,
-    environment: &dyn Environment,
-) -> Availability {
-    if let Some(executable) = configured(&server.command, workspace, environment) {
-        return Availability::Configured(Resolved {
-            executable,
-            args: server.args.clone(),
-        });
-    }
-    let Some(recipe) = &server.install else {
-        return Availability::NotInstalled(NotInstalled::AutoInstallOff);
-    };
-    let Some(cache) = cache else {
-        return Availability::NotInstalled(NotInstalled::NoCache);
-    };
-    match cached(server, recipe, cache, workspace, environment) {
-        Ok(Some(resolved)) => Availability::Cached(resolved),
-        Ok(None) => Availability::NotInstalled(NotInstalled::AfterTrust),
-        Err(error) => Availability::Failed(error),
-    }
-}
-
-/// The recipe's installed program, `None` when it is not installed.
-fn cached(
-    server: &ServerSettings,
-    recipe: &InstallRecipe,
-    cache: &Path,
-    workspace: &Path,
-    environment: &dyn Environment,
-) -> Result<Option<Resolved>, InstallError> {
-    let key = storage::digest(
-        &serde_json::to_vec(recipe).map_err(crate::lsp::logged(InstallError::Recipe))?,
-    );
-    let root = cache.join(key);
-    if !root.exists() {
-        return Ok(None);
-    }
-    let receipt: Launch = serde_json::from_slice(&fs::read(root.join("ready.json"))?)
-        .map_err(crate::lsp::logged(InstallError::Recipe))?;
-    let prepared = receipt.preview(server, &root, workspace, environment)?;
-    Ok(Some(Resolved {
-        executable: PathBuf::from(prepared.command),
-        args: prepared.args,
-    }))
-}
-
-fn configured(command: &str, workspace: &Path, environment: &dyn Environment) -> Option<PathBuf> {
-    let path = Path::new(command);
-    if path.is_absolute() {
-        return super::launch::runnable(path).then(|| path.to_path_buf());
-    }
-    if path.components().count() != 1 {
-        let path = workspace.join(path);
-        return super::launch::runnable(&path).then_some(path);
-    }
-    environment.program(&[command], "not installed").ok()
 }
 
 #[cfg(test)]

@@ -9,6 +9,7 @@
 //!
 //! No `Debug`: the rows hold command lines, which may hold secrets.
 
+mod accessors;
 mod errors;
 mod header;
 mod host;
@@ -126,110 +127,6 @@ impl TaskList {
             modal: Modal::Browse,
             notice: None,
         }
-    }
-
-    #[must_use]
-    pub const fn session(&self) -> TaskSession {
-        self.session
-    }
-
-    /// Whether FFM runs as root: `[` asks first unless it does.
-    #[must_use]
-    pub const fn privilege(&self) -> Privilege {
-        self.privilege
-    }
-
-    #[must_use]
-    pub const fn table(&self) -> &Table {
-        &self.table
-    }
-
-    #[must_use]
-    pub fn snapshot(&self) -> Option<&Snapshot> {
-        match &self.table {
-            Table::Ready { snapshot, .. } => Some(snapshot),
-            Table::Waiting | Table::Failed(_) => None,
-        }
-    }
-
-    /// How fresh the snapshot is; `None` without one.
-    #[must_use]
-    pub const fn health(&self) -> Option<Health> {
-        match &self.table {
-            Table::Ready { health, .. } => Some(*health),
-            Table::Waiting | Table::Failed(_) => None,
-        }
-    }
-
-    /// Every row of the snapshot, shown or not; empty without one.
-    #[must_use]
-    pub fn rows(&self) -> &[ProcessRow] {
-        self.table.rows()
-    }
-
-    /// The row of the process `key`, if the snapshot still has it.
-    #[must_use]
-    pub fn row(&self, key: ProcessKey) -> Option<&ProcessRow> {
-        self.rows().iter().find(|row| row.sample().key == key)
-    }
-
-    /// The shown rows, in order.
-    #[must_use]
-    pub fn view(&self) -> &[ViewRow] {
-        &self.view
-    }
-
-    #[must_use]
-    pub const fn options(&self) -> &ViewOptions {
-        &self.options
-    }
-
-    #[must_use]
-    pub const fn command_view(&self) -> CommandView {
-        self.command_view
-    }
-
-    /// How far the last column is scrolled sideways.
-    #[must_use]
-    pub const fn command_scroll(&self) -> ScrollLeft {
-        self.command_scroll
-    }
-
-    #[must_use]
-    pub const fn refresh(&self) -> Refresh {
-        self.refresh
-    }
-
-    #[must_use]
-    pub const fn modal(&self) -> &Modal {
-        &self.modal
-    }
-
-    pub const fn modal_mut(&mut self) -> &mut Modal {
-        &mut self.modal
-    }
-
-    pub fn set_modal(&mut self, modal: Modal) {
-        self.modal = modal;
-    }
-
-    /// Back to the table, closing whatever was open on it.
-    pub fn close_modal(&mut self) {
-        self.modal = Modal::Browse;
-    }
-
-    /// The notice shown in place of the info row, until the next key.
-    #[must_use]
-    pub const fn notice(&self) -> Option<Notice> {
-        self.notice
-    }
-
-    pub const fn set_notice(&mut self, notice: Notice) {
-        self.notice = Some(notice);
-    }
-
-    pub const fn clear_notice(&mut self) {
-        self.notice = None;
     }
 
     /// Rebuilds the shown rows from the table and the options, and finds the

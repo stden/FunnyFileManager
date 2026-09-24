@@ -2,23 +2,27 @@
 //! changing the stored sessions from it: the dialog, a copy, a delete, the
 //! details view. Importing is the child module [`import`].
 //!
-//! Every change goes through [`change`]: it edits a copy of the store,
-//! writes the copy, and only then puts it in place, so a session the file
-//! did not take never shows in the panel as if it had been saved.
+//! Every change goes through `change` in [`changes`]: it edits a copy of the
+//! store, writes the copy, and only then puts it in place, so a session the
+//! file did not take never shows in the panel as if it had been saved.
 
 use std::{fmt, io};
 
 use crate::command::SessionsCommand;
 
-use crate::models::{
-    App, Auth, EditPurpose, InvalidField, Origin, Overlay, PanelKind, PanelSide, Session,
-    SessionEdit, SessionName, SessionsPanel, Viewer,
-};
+use crate::models::{App, InvalidField, PanelKind, PanelSide, Session, SessionName, SessionsPanel};
 use crate::sessions::import::ImportError;
 use crate::sessions::{SessionStore, StoreError};
 use crate::status::Status;
 
+mod changes;
+mod details;
 pub mod import;
+
+pub use changes::{create, delete, duplicate, edit, save_edit};
+// `import` saves through the same `change`.
+use changes::change;
+pub use details::view;
 
 /// Why a sessions operation did not happen.
 #[derive(Debug)]
@@ -134,144 +138,6 @@ pub fn refresh(app: &mut App) {
             sessions.reload(store);
         }
     }
-}
-
-/// Apply `edit` to a copy of the store, save the copy, and only then make it
-/// the store. On any failure the store — in memory and on disk — is as it
-/// was.
-fn change(
-    app: &mut App,
-    edit: impl FnOnce(&mut SessionStore) -> Result<(), SessionError>,
-) -> Result<(), SessionError> {
-    let mut store = app.sessions.clone();
-    edit(&mut store)?;
-    store.save().map_err(SessionError::Store)?;
-    app.sessions = store;
-    refresh(app);
-    Ok(())
-}
-
-/// Put the cursor of the active sessions panel on `name`.
-fn focus(app: &mut App, name: &SessionName) {
-    if let PanelKind::Sessions(panel) = &mut app.get_active_panel().kind {
-        panel.focus(name);
-    }
-}
-
-/// `Shift+F4`: the empty session dialog.
-pub fn create(app: &mut App) {
-    app.set_overlay(Overlay::SessionEdit(Box::new(SessionEdit::create())));
-}
-
-/// `F4`: the dialog filled from the session `name`.
-pub fn edit(app: &mut App, name: &SessionName) -> Result<(), SessionError> {
-    let session = find(app, name)?;
-    app.set_overlay(Overlay::SessionEdit(Box::new(SessionEdit::from_session(
-        session,
-    ))));
-    Ok(())
-}
-
-/// Ok in the session dialog: store what it describes. The dialog stays open
-/// on an error, so a mistyped port is corrected rather than retyped.
-pub fn save_edit(app: &mut App, dialog: &SessionEdit) -> Result<(), SessionError> {
-    let session = dialog.to_session()?;
-    let name = session.name.clone();
-    let replaced = match dialog.purpose() {
-        EditPurpose::Create => None,
-        EditPurpose::Edit(old) => Some(old.clone()),
-    };
-    change(app, |store| {
-        if replaced.as_ref() != Some(&name) && store.find(&name).is_some() {
-            return Err(SessionError::NameTaken(name.clone()));
-        }
-        if let Some(old) = &replaced {
-            store.remove(old);
-        }
-        store.upsert(session);
-        Ok(())
-    })?;
-    app.close_overlay();
-    focus(app, &name);
-    app.set_status(Status::CommandOutput(format!("NetBox: saved {name}")));
-    Ok(())
-}
-
-/// F5 once named: the session `name` again as `copy`, the user's own
-/// whatever the original was imported from.
-pub fn duplicate(app: &mut App, name: &SessionName, copy: &str) -> Result<(), SessionError> {
-    let copy = SessionName::new(copy)?;
-    let original = find(app, name)?.clone();
-    change(app, |store| {
-        if store.find(&copy).is_some() {
-            return Err(SessionError::NameTaken(copy.clone()));
-        }
-        store.upsert(Session {
-            name: copy.clone(),
-            origin: Origin::Manual,
-            ..original
-        });
-        Ok(())
-    })?;
-    focus(app, &copy);
-    app.set_status(Status::CommandOutput(format!(
-        "NetBox: copied {name} to {copy}"
-    )));
-    Ok(())
-}
-
-/// F8 once confirmed.
-pub fn delete(app: &mut App, name: &SessionName) -> Result<(), SessionError> {
-    change(app, |store| {
-        store
-            .remove(name)
-            .map(drop)
-            .ok_or_else(|| SessionError::NotFound(name.clone()))
-    })?;
-    app.set_status(Status::CommandOutput(format!("NetBox: deleted {name}")));
-    Ok(())
-}
-
-/// F3: the session's settings in the viewer. There is no password to show.
-pub fn view(app: &mut App, name: &SessionName) -> Result<(), SessionError> {
-    let lines = details(find(app, name)?);
-    app.set_overlay(Overlay::Viewer(Viewer::report(
-        format!("NetBox: {name}"),
-        lines,
-    )));
-    Ok(())
-}
-
-/// The lines F3 shows.
-fn details(session: &Session) -> Vec<String> {
-    let user = session
-        .user
-        .as_ref()
-        .map_or_else(|| "(none)".to_owned(), ToString::to_string);
-    let login = match &session.auth {
-        Auth::Password => "password, asked for when connecting".to_owned(),
-        Auth::KeyFile(file) => format!("key file {file}"),
-        Auth::Agent => "SSH agent".to_owned(),
-    };
-    let directory = session
-        .remote_dir
-        .as_ref()
-        .map_or_else(|| "(login directory)".to_owned(), ToString::to_string);
-    let origin = match &session.origin {
-        Origin::Manual => "made or changed here".to_owned(),
-        Origin::NetBoxFile(file) => format!("imported from {}", file.display()),
-    };
-    vec![
-        format!("Name:      {}", session.name),
-        format!("Protocol:  {}", session.protocol.label()),
-        format!("Host:      {}", session.host),
-        format!("Port:      {}", session.port),
-        format!("User:      {user}"),
-        format!("Login:     {login}"),
-        format!("Directory: {directory}"),
-        format!("Origin:    {origin}"),
-        format!("Address:   {}", session.url()),
-    ]
 }
 
 fn find<'a>(app: &'a App, name: &SessionName) -> Result<&'a Session, SessionError> {

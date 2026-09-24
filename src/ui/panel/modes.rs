@@ -102,3 +102,5 @@ fn row_style(panel: &Panel, entry: &DirEntry, selected: bool) -> Style {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_details;

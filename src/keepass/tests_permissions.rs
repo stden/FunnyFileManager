@@ -10,6 +10,7 @@
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt as _;
+use std::path::PathBuf;
 
 use tempfile::TempDir;
 

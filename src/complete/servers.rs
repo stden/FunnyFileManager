@@ -7,12 +7,17 @@
 //! from the catalog and the draft alone: FFM talks to servers over stdio, so a
 //! transport switch such as `--socket=` is never offered.
 
-use std::collections::{BTreeMap, BTreeSet};
-
-use super::{execs, matcher};
-use crate::config::{quote, Arguments, Extensions, InstallRecipe, LspSettings};
+use crate::config::{quote, Arguments, Extensions, LspSettings};
 use crate::lineedit::LineEditor;
 use crate::models::{Candidate, CandidateKind};
+
+mod arguments;
+mod commands;
+mod extensions;
+
+use arguments::arguments;
+use commands::commands;
+use extensions::{extensions, extensions_in};
 
 /// `PATH` programs join the Command list from this many typed characters:
 /// one letter matches hundreds of them, which is a wall, not a choice.
@@ -145,178 +150,6 @@ fn candidate(text: String, hint: String) -> Candidate {
         kind: CandidateKind::Word,
         hint: Some(hint),
     }
-}
-
-/// The catalog's commands and npm binaries, then the commands in use, then
-/// `PATH` programs starting with the token.
-fn commands(word: &str, vocabulary: &Vocabulary<'_>) -> Vec<Candidate> {
-    let catalog = catalog_commands(vocabulary.catalog);
-    let known: BTreeSet<String> = catalog
-        .iter()
-        .cloned()
-        .chain(
-            vocabulary
-                .draft
-                .0
-                .values()
-                .map(|server| server.command.clone()),
-        )
-        .filter(|command| offerable(command))
-        .collect();
-    let mut rows: Vec<Candidate> = matcher::rank(word, known.iter().cloned().collect())
-        .into_iter()
-        .map(|name| {
-            let hint = command_hint(&name, &catalog, vocabulary.programs);
-            candidate(name, hint)
-        })
-        .collect();
-    rows.extend(path_programs(word, &known, vocabulary.programs));
-    rows
-}
-
-/// Where a known command comes from, and whether it is on `PATH` too.
-fn command_hint(name: &str, catalog: &BTreeSet<String>, programs: &[String]) -> String {
-    let origin = if catalog.contains(name) {
-        "catalog"
-    } else {
-        "in use"
-    };
-    if on_path(name, programs) {
-        format!("{origin} · PATH")
-    } else {
-        origin.to_owned()
-    }
-}
-
-fn catalog_commands(catalog: &LspSettings) -> BTreeSet<String> {
-    catalog
-        .0
-        .values()
-        .flat_map(|server| {
-            let binary = match &server.install {
-                Some(InstallRecipe::Npm { binary, .. }) => Some(binary.clone()),
-                _ => None,
-            };
-            std::iter::once(server.command.clone()).chain(binary)
-        })
-        .collect()
-}
-
-/// Whether `name` is on `PATH` under the file name LSP lookup would use.
-fn on_path(name: &str, programs: &[String]) -> bool {
-    programs
-        .binary_search(&crate::lsp::program_file(name))
-        .is_ok()
-}
-
-/// The `PATH` programs starting with `word` that LSP lookup would start and
-/// the known list does not already hold; none for a short `word`.
-fn path_programs(word: &str, known: &BTreeSet<String>, programs: &[String]) -> Vec<Candidate> {
-    if word.chars().count() < MIN_PATH_PREFIX {
-        return Vec::new();
-    }
-    // A launchable name already carries the file name lookup would use, so
-    // it matches a known command spelled either way.
-    let listed = |name: &String| {
-        known
-            .iter()
-            .any(|command| *name == crate::lsp::program_file(command))
-    };
-    let found = execs::matching_in(programs, word)
-        .into_iter()
-        .filter(|name| crate::lsp::launchable_name(name) && !listed(name))
-        .collect();
-    matcher::rank(word, found)
-        .into_iter()
-        .map(|name| candidate(name, "PATH".to_owned()))
-        .collect()
-}
-
-/// Every argument the catalog or the draft uses.
-fn arguments(word: &str, vocabulary: &Vocabulary<'_>) -> Vec<Candidate> {
-    let catalog: BTreeSet<&String> = vocabulary
-        .catalog
-        .0
-        .values()
-        .flat_map(|server| &server.args)
-        .collect();
-    let pool: BTreeSet<String> = catalog
-        .iter()
-        .map(|argument| (*argument).clone())
-        .chain(
-            vocabulary
-                .draft
-                .0
-                .values()
-                .flat_map(|server| server.args.clone()),
-        )
-        .filter(|argument| offerable(argument))
-        .collect();
-    matcher::rank(word, pool.into_iter().collect())
-        .into_iter()
-        .map(|argument| {
-            let hint = if catalog.contains(&argument) {
-                "catalog"
-            } else {
-                "in use"
-            };
-            candidate(argument, hint.to_owned())
-        })
-        .collect()
-}
-
-/// The extensions the rest of the field already lists, in lower case and
-/// without their dots. The part of the current word after the caret is not
-/// one of them.
-fn extensions_in(head: &str, after: &str) -> BTreeSet<String> {
-    let rest = after.trim_start_matches(|ch: char| !Extensions::is_separator(ch));
-    head.split(Extensions::is_separator)
-        .chain(rest.split(Extensions::is_separator))
-        .map(|word| word.strip_prefix('.').unwrap_or(word).to_ascii_lowercase())
-        .filter(|word| !word.is_empty())
-        .collect()
-}
-
-/// Every extension the catalog or the draft knows, except those the field
-/// already lists, each with the languages that claim it.
-fn extensions(
-    word: &str,
-    present: &BTreeSet<String>,
-    vocabulary: &Vocabulary<'_>,
-) -> Vec<Candidate> {
-    let owners = owners(vocabulary.draft);
-    let pool: BTreeSet<String> = [vocabulary.catalog, vocabulary.draft]
-        .into_iter()
-        .flat_map(|settings| settings.0.values())
-        .flat_map(|server| server.extensions.iter())
-        .map(|extension| extension.strip_prefix('.').unwrap_or(extension).to_owned())
-        .filter(|extension| offerable(extension))
-        .filter(|extension| !present.contains(&extension.to_ascii_lowercase()))
-        .collect();
-    matcher::rank(word, pool.into_iter().collect())
-        .into_iter()
-        .map(|extension| {
-            let hint = owners
-                .get(&extension.to_ascii_lowercase())
-                .map_or_else(|| "catalog".to_owned(), |languages| languages.join(", "));
-            candidate(format!(".{extension}"), hint)
-        })
-        .collect()
-}
-
-/// The languages claiming each extension, by the extension in lower case.
-fn owners(draft: &LspSettings) -> BTreeMap<String, Vec<String>> {
-    let mut owners: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for (language, server) in &draft.0 {
-        for extension in &server.extensions {
-            let extension = extension.strip_prefix('.').unwrap_or(extension);
-            let claimed = owners.entry(extension.to_ascii_lowercase()).or_default();
-            if !claimed.contains(language) {
-                claimed.push(language.clone());
-            }
-        }
-    }
-    owners
 }
 
 #[cfg(test)]

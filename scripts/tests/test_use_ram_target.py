@@ -1,55 +1,18 @@
-"""Test the RAM target helper without touching the real /dev/shm."""
+"""Test the RAM target helper without touching the real /dev/shm.
 
-import contextlib
-import importlib.util
-import io
+Here it runs as a program, under a shell; test_use_ram_target_in_process.py
+holds the checks that only an in-process call can make.
+"""
+
 import os
-from pathlib import Path
 import re
-import shlex
 import sys
-from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
 
-from sandbox import REPO, Sandbox
-
-
-SCRIPT = "scripts/use_ram_target.py"
-# Evaluate the helper's stdout as the documented usage does, then show the result.
-EVAL = 'eval "$("$0" "$1")" && printf %s "${CARGO_TARGET_DIR-unset}"'
-# The same with the helper's stderr in $ERR, and a check instead of the value.
-EVAL_QUIETLY = (
-    'out=$("$0" "$1" 2>"$ERR"); echo "status $?"; eval "$out"; '
-    '[ "${CARGO_TARGET_DIR-}" = "$FFM_RAM_TARGET" ] && echo exported'
-)
-# Free space as `df -h` prints it in the C locale: 844G, 7.8G, 512M or 0.
-FREE = r"\d+(?:\.\d)?[KMGTPEZYRQ]?"
+from use_ram_target_case import EVAL_QUIETLY, FREE, SCRIPT, RamTargetTestCase
 
 
-class RamTargetTests(unittest.TestCase):
-    def setUp(self):
-        self.sandbox = Sandbox(self)
-        self.sandbox.copy(SCRIPT)
-        # A space and a quote catch an export line the shell would split.
-        self.parent = self.sandbox.tmp / "ram disk's"
-
-    def run_helper(self, ram_dir, *args):
-        return self.sandbox.run(SCRIPT, *args, env={"FFM_RAM_TARGET": str(ram_dir)}, input="")
-
-    def eval_helper(self, ram_dir):
-        """Run the helper under `sh`, eval its output, and return the shell's result."""
-        return self.sandbox.execute(
-            ["sh", "-c", EVAL, sys.executable, self.sandbox.repo / SCRIPT],
-            env={"FFM_RAM_TARGET": str(ram_dir)},
-        )
-
-    def assert_exported(self, result, ram_dir):
-        """One export line that the shell evaluates to exactly `ram_dir`."""
-        self.assertEqual((result.returncode, result.stdout),
-                         (0, f"export CARGO_TARGET_DIR={shlex.quote(str(ram_dir))}\n"))
-        self.assertEqual(self.eval_helper(ram_dir).stdout, str(ram_dir))
-
+class RamTargetTests(RamTargetTestCase):
     def test_a_writable_parent_gets_the_directory_and_one_export_line(self):
         self.parent.mkdir()
         ram_dir = self.parent / "ffm target"
@@ -189,62 +152,6 @@ class RamTargetTests(unittest.TestCase):
         )
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, "unset", ""))
         self.assertEqual(list(self.sandbox.home.iterdir()), [])
-
-
-def load_helper():
-    """Import the script by path; it does no work at import time."""
-    spec = importlib.util.spec_from_file_location("use_ram_target", REPO / SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-class DirnameTests(unittest.TestCase):
-    """In process: dirname() is a pure function."""
-
-    def test_matches_dirname_1(self):
-        # What GNU dirname prints for each path.
-        expected = {
-            "/dev/shm/ffm-target": "/dev/shm", "/a/b/": "/a", "/a//b": "/a", "//a//b//": "//a",
-            "/a/./b": "/a/.", "missing/.": "missing", "ffm-target": ".", "a/": ".", "../a": "..",
-            "/ffm": "/", "//x": "/", "/": "/", "///": "/",
-        }
-        dirname = load_helper().dirname
-        self.assertEqual({path: dirname(path) for path in expected}, expected)
-
-
-@unittest.skipUnless(hasattr(os, "ST_NOEXEC"), "mount flags from statvfs are Linux-only")
-class NoexecTests(unittest.TestCase):
-    """In process, because a test cannot mount a noexec filesystem.
-
-    os.statvfs is patched to report noexec, and subprocess.run is patched too, so
-    even a broken helper cannot run mkdir on the real /dev/shm/ffm-target.
-    """
-
-    def test_a_noexec_parent_keeps_the_disk_target(self):
-        helper = load_helper()
-        flags = SimpleNamespace(f_flag=os.ST_NOEXEC | os.ST_NOSUID)
-        # Unset and empty both mean the default /dev/shm/ffm-target.
-        for environment in ({}, {"FFM_RAM_TARGET": ""}):
-            with self.subTest(environment=environment):
-                stdout, stderr = io.StringIO(), io.StringIO()
-                with (
-                    patch.dict(os.environ),
-                    patch("os.statvfs", return_value=flags) as statvfs,
-                    patch("subprocess.run") as run,
-                    contextlib.redirect_stdout(stdout),
-                    contextlib.redirect_stderr(stderr),
-                ):
-                    os.environ.pop("FFM_RAM_TARGET", None)
-                    os.environ.update(environment)
-                    status = helper.main([])
-                self.assertEqual((status, stdout.getvalue()), (0, ""))
-                self.assertEqual(stderr.getvalue(), (
-                    "ffm: /dev/shm is mounted noexec; cargo can't exec from it.\n"
-                    "ffm: keeping on-disk ./target.\n"
-                ))
-                self.assertEqual(Path(statvfs.call_args.args[0]), Path("/dev/shm"))
-                run.assert_not_called()
 
 
 if __name__ == "__main__":

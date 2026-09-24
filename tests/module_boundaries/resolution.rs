@@ -16,6 +16,15 @@
 
 use super::architecture::{forbidden_dependencies, SourceFile};
 
+#[path = "resolution/expressions.rs"]
+mod expressions;
+#[path = "resolution/imports.rs"]
+mod imports;
+#[path = "resolution/not_code.rs"]
+mod not_code;
+#[path = "resolution/relative_paths.rs"]
+mod relative_paths;
+
 /// The crate root the fixtures compile under; it re-exports one operation.
 const LIB: &str = "mod application;\npub use application::run_app;\n";
 
@@ -28,253 +37,37 @@ struct Case {
 }
 
 const CASES: &[Case] = &[
-    Case {
-        name: "grouped_std_import",
-        file: "src/ui/status.rs",
-        source: "use std::{io, fs};",
-        expected: &["std::fs"],
-    },
-    Case {
-        name: "nested_group_import",
-        file: "src/ui/status.rs",
-        source: "use std::{io::{self, Write}, fs::File};",
-        expected: &["std::fs::File"],
-    },
-    Case {
-        name: "grouped_crate_import",
-        file: "src/ui/status.rs",
-        source: "use crate::{models, ops::file};",
-        expected: &["crate::ops::file"],
-    },
-    Case {
-        name: "renamed_std_module",
-        file: "src/ui/status.rs",
-        source: r#"use std::fs as f;
-
-fn load() -> Vec<u8> {
-    f::read("x").unwrap_or_default()
-}"#,
-        expected: &["std::fs", "std::fs::read"],
-    },
-    Case {
-        name: "renamed_crate_module",
-        file: "src/ui/status.rs",
-        source: "use crate::ops as o;
-
-fn copy(app: &mut App) {
-    let _ = o::handle_copy(app);
-}",
-        expected: &["crate::ops", "crate::ops::handle_copy"],
-    },
-    Case {
-        name: "renamed_crate_root",
-        file: "src/ui/status.rs",
-        source: "use crate as c;
-
-fn refresh(app: &mut App) {
-    c::ops::refresh(app);
-}",
-        expected: &["crate::ops::refresh"],
-    },
-    Case {
-        name: "grandparent_module",
-        file: "src/ui/panel.rs",
-        source: "use super::super::ops;",
-        expected: &["crate::ops"],
-    },
-    Case {
-        name: "great_grandparent_group",
-        file: "src/popup/nested/commands.rs",
-        source: "use super::super::super::{ops, handlers};",
-        expected: &["crate::ops", "crate::handlers"],
-    },
-    Case {
-        name: "inline_module_parent",
-        file: "src/ui.rs",
-        source: "mod widgets {
-    pub fn refresh(app: &mut App) {
-        super::super::ops::refresh(app);
-    }
-}",
-        expected: &["crate::ops::refresh"],
-    },
-    Case {
-        name: "self_child_lookalike",
-        file: "src/ui.rs",
-        source: r#"mod fs {
-    pub fn label() -> &'static str {
-        "fs"
-    }
-}
-
-fn title() -> &'static str {
-    self::fs::label()
-}
-
-fn heading() -> &'static str {
-    fs::label()
-}"#,
-        expected: &[],
-    },
-    Case {
-        name: "absolute_expression_path",
-        file: "src/ui/status.rs",
-        source: "fn read(path: &Path) -> String {
-    ::std::fs::read_to_string(path).unwrap_or_default()
-}",
-        expected: &["std::fs::read_to_string"],
-    },
-    Case {
-        name: "qualified_constructor",
-        file: "src/action/keys.rs",
-        source: r#"fn spawn() {
-    let _ = std::process::Command::new("ls");
-}"#,
-        expected: &["std::process::Command::new"],
-    },
-    Case {
-        name: "qualified_parameter_type",
-        file: "src/ui/status.rs",
-        source: "fn show(_: crate::ops::Outcome) {}",
-        expected: &["crate::ops::Outcome"],
-    },
-    Case {
-        name: "qualified_impl_types",
-        file: "src/ui/status.rs",
-        source: "impl From<crate::ops::Outcome> for Status {
-    fn from(_: crate::ops::Outcome) -> Self {
-        Self
-    }
-}",
-        expected: &["crate::ops::Outcome", "crate::ops::Outcome"],
-    },
-    Case {
-        name: "generic_argument",
-        file: "src/ui/status.rs",
-        source: "fn pending() -> Vec<crate::ops::Outcome> {
-    Vec::new()
-}",
-        expected: &["crate::ops::Outcome"],
-    },
-    Case {
-        name: "macro_argument",
-        file: "src/ui/status.rs",
-        source: r#"fn render(path: &Path) -> std::io::Result<String> {
-    Ok(format!("{}", std::fs::read_to_string(path)?))
-}"#,
-        expected: &["std::fs::read_to_string"],
-    },
-    Case {
-        name: "macro_rules_body",
-        file: "src/action/keys.rs",
-        source: "macro_rules! refresh {
-    ($app:expr) => {
-        $crate::ops::refresh($app)
-    };
-}",
-        expected: &["crate::ops::refresh"],
-    },
-    Case {
-        name: "block_scoped_import",
-        file: "src/ui/status.rs",
-        source: r#"fn load() -> Vec<u8> {
-    use std::fs;
-    fs::read("x").unwrap_or_default()
-}"#,
-        expected: &["std::fs", "std::fs::read"],
-    },
-    Case {
-        name: "glob_import",
-        file: "src/ui/status.rs",
-        source: "use crate::ops::*;",
-        expected: &["crate::ops::*"],
-    },
-    Case {
-        name: "string_hides_code",
-        file: "src/ui/status.rs",
-        source: r#"fn wipe() {
-    let _ = ("//", std::fs::remove_file("x"));
-}"#,
-        expected: &["std::fs::remove_file"],
-    },
-    Case {
-        name: "line_comment",
-        file: "src/ui/status.rs",
-        source: "// crate::ops::refresh(app) belongs to the caller.
-fn draw() {}",
-        expected: &[],
-    },
-    Case {
-        name: "block_comment",
-        file: "src/ui/status.rs",
-        source: "/* crate::ops::refresh(app) belongs to the caller. */
-fn draw() {}",
-        expected: &[],
-    },
-    Case {
-        name: "doc_comments",
-        file: "src/ui/status.rs",
-        source: "//! Reads state; [`crate::ops`] mutates it.
-
-/// Unlike [`crate::ops::refresh`], this only reads.
-fn draw() {}",
-        expected: &[],
-    },
-    Case {
-        name: "block_doc_comment",
-        file: "src/ui/status.rs",
-        source: "/** Never calls crate::ops::refresh. */
-fn draw() {}",
-        expected: &[],
-    },
-    Case {
-        name: "doc_attribute",
-        file: "src/ui/status.rs",
-        source: r#"#[doc = "Never calls std::process::Command."]
-fn draw() {}"#,
-        expected: &[],
-    },
-    Case {
-        name: "string_literal",
-        file: "src/ui/status.rs",
-        source: r#"const HINT: &str = "std::fs is off limits here";"#,
-        expected: &[],
-    },
-    Case {
-        name: "raw_string_literal",
-        file: "src/ui/status.rs",
-        source: r##"const HINT: &str = r#"use std::fs;"#;"##,
-        expected: &[],
-    },
-    Case {
-        name: "lookalike_options",
-        file: "src/ui/status.rs",
-        source: "use crate::options::Theme;",
-        expected: &[],
-    },
-    Case {
-        name: "lookalike_prefix",
-        file: "src/ui/status.rs",
-        source: "use crate::editorconfig::Style;",
-        expected: &[],
-    },
-    Case {
-        name: "crate_root_reexport",
-        file: "src/ui/status.rs",
-        source: "fn restart() {
-    crate::run_app();
-}",
-        expected: &["crate::application::run_app"],
-    },
-    Case {
-        name: "test_only_inline_module",
-        file: "src/ui/status.rs",
-        source: "#[cfg(test)]
-mod tests {
-    use crate::ops::refresh;
-}",
-        expected: &[],
-    },
+    imports::GROUPED_STD_IMPORT,
+    imports::NESTED_GROUP_IMPORT,
+    imports::GROUPED_CRATE_IMPORT,
+    imports::RENAMED_STD_MODULE,
+    imports::RENAMED_CRATE_MODULE,
+    imports::RENAMED_CRATE_ROOT,
+    relative_paths::GRANDPARENT_MODULE,
+    relative_paths::GREAT_GRANDPARENT_GROUP,
+    relative_paths::INLINE_MODULE_PARENT,
+    relative_paths::SELF_CHILD_LOOKALIKE,
+    expressions::ABSOLUTE_EXPRESSION_PATH,
+    expressions::QUALIFIED_CONSTRUCTOR,
+    expressions::QUALIFIED_PARAMETER_TYPE,
+    expressions::QUALIFIED_IMPL_TYPES,
+    expressions::GENERIC_ARGUMENT,
+    expressions::MACRO_ARGUMENT,
+    expressions::MACRO_RULES_BODY,
+    expressions::BLOCK_SCOPED_IMPORT,
+    expressions::GLOB_IMPORT,
+    expressions::STRING_HIDES_CODE,
+    not_code::LINE_COMMENT,
+    not_code::BLOCK_COMMENT,
+    not_code::DOC_COMMENTS,
+    not_code::BLOCK_DOC_COMMENT,
+    not_code::DOC_ATTRIBUTE,
+    not_code::STRING_LITERAL,
+    not_code::RAW_STRING_LITERAL,
+    not_code::LOOKALIKE_OPTIONS,
+    not_code::LOOKALIKE_PREFIX,
+    relative_paths::CRATE_ROOT_REEXPORT,
+    not_code::TEST_ONLY_INLINE_MODULE,
 ];
 
 fn reported(case: &Case) -> Vec<String> {

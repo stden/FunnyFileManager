@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::lsp::install::environment::System;
+use std::process::Command;
 use tempfile::TempDir;
 
 #[test]

@@ -6,7 +6,13 @@
 //! on a panic and do not check overflow, so a wrapped value would be drawn as
 //! a plausible wrong number instead of failing loudly.
 
+mod load;
+mod memory;
+
 use std::num::NonZeroU128;
+
+pub use load::{Load, LoadAverage};
+pub use memory::MemoryBytes;
 
 /// A share in hundredths of a percent: `FULL` is 100 %.
 ///
@@ -101,102 +107,4 @@ pub enum CpuUsage {
     /// or no time elapsed. Shown as `-`, never as a made-up `0.0`.
     Pending,
     Measured(Percent),
-}
-
-/// An amount of memory in bytes.
-///
-/// Kept apart from `FileSize`, whose display and meaning are a file's.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct MemoryBytes(u64);
-
-impl MemoryBytes {
-    const KIB: u64 = 1024;
-
-    #[must_use]
-    pub const fn from_bytes(bytes: u64) -> Self {
-        Self(bytes)
-    }
-
-    /// `kib` kibibytes — what `/proc/meminfo` calls `kB` — or `None` when the
-    /// byte count would not fit.
-    #[must_use]
-    pub const fn from_kib(kib: u64) -> Option<Self> {
-        match kib.checked_mul(Self::KIB) {
-            Some(bytes) => Some(Self(bytes)),
-            None => None,
-        }
-    }
-
-    /// `count` pages of `page` bytes each, or `None` when the byte count would
-    /// not fit.
-    #[must_use]
-    pub const fn from_pages(count: u64, page: u64) -> Option<Self> {
-        match count.checked_mul(page) {
-            Some(bytes) => Some(Self(bytes)),
-            None => None,
-        }
-    }
-
-    #[must_use]
-    pub const fn bytes(self) -> u64 {
-        self.0
-    }
-
-    /// This amount plus `other`, or `u64::MAX` bytes when the sum overflows.
-    #[must_use]
-    pub const fn saturating_add(self, other: Self) -> Self {
-        Self(self.0.saturating_add(other.0))
-    }
-
-    /// This amount less `other`, or zero when `other` is larger.
-    #[must_use]
-    pub const fn saturating_sub(self, other: Self) -> Self {
-        Self(self.0.saturating_sub(other.0))
-    }
-}
-
-/// A load average in hundredths: `52` is `0.52`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Load(u32);
-
-impl Load {
-    #[must_use]
-    pub const fn from_hundredths(hundredths: u32) -> Self {
-        Self(hundredths)
-    }
-
-    #[must_use]
-    pub const fn hundredths(self) -> u32 {
-        self.0
-    }
-}
-
-/// The run-queue load averaged over the last one, five and fifteen minutes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LoadAverage {
-    one: Load,
-    five: Load,
-    fifteen: Load,
-}
-
-impl LoadAverage {
-    #[must_use]
-    pub const fn new(one: Load, five: Load, fifteen: Load) -> Self {
-        Self { one, five, fifteen }
-    }
-
-    #[must_use]
-    pub const fn one(self) -> Load {
-        self.one
-    }
-
-    #[must_use]
-    pub const fn five(self) -> Load {
-        self.five
-    }
-
-    #[must_use]
-    pub const fn fifteen(self) -> Load {
-        self.fifteen
-    }
 }

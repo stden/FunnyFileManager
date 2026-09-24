@@ -1,8 +1,11 @@
 //! Unit tests: defaults and the config path rule; the load/save behaviour is
 //! in `tests/persistence.rs`.
 
+use std::ffi::OsString;
+
 use tempfile::TempDir;
 
+use super::home::Platform;
 use super::*;
 use crate::test_support::{EnvVarGuard, CONFIG_HOME};
 

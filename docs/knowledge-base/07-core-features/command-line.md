@@ -19,7 +19,8 @@ Responsibilities are split as follows:
 - `src/command.rs` — `Command` domain enum and pure `Command::parse`
 - `src/lineedit.rs` — pure `LineEditor`: text, caret, and one kill slot
 - `src/popup/command_line.rs` — the readline keymap: editing, completion-menu
-  navigation, history recall, reverse search, close, and submit behavior
+  navigation, history recall, reverse search, close, and submit behavior; its
+  children `command_line/{keys,history,search,completion}.rs` hold each part
 - `src/complete.rs` — fuzzy verb and path candidates, position rules
 - `src/complete/shellwords.rs` — quote-aware word splitting and escaping
 - `src/complete/execs.rs` — `$PATH` executable names

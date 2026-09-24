@@ -1,4 +1,8 @@
-use super::*;
+use super::fixtures::create_fixtures;
+use super::server::server_candidates;
+use super::suite::{benchmark_tools, json_path};
+use std::path::Path;
+use std::process::Command;
 
 #[test]
 fn a_cargo_example_uses_its_shared_or_custom_artifact_directory() {

@@ -10,7 +10,13 @@
 //! one profile and violet in another, and a file manager that reads as Far in
 //! one terminal and as something else in the next has no scheme at all.
 
+mod aliases;
+mod code;
+
 use ratatui::style::Color;
+
+pub(super) use aliases::*;
+pub(super) use code::*;
 
 /// The panel ground: the navy of the console palette Far was drawn for, not
 /// the terminal's idea of "blue" and not a brighter one of our own.
@@ -48,47 +54,6 @@ pub(super) const CURSOR_FG: Color = Color::Rgb(255, 255, 255);
 /// The active panel's title, and the key bar: black on cyan.
 pub(super) const HIGHLIGHT_BG: Color = Color::Rgb(85, 221, 238);
 pub(super) const HIGHLIGHT_FG: Color = Color::Rgb(0, 0, 0);
-
-// ── Editor (Colorer's default scheme) ──────────────────────────────
-
-/// Identifiers and plain text.
-pub(super) const CODE_NORMAL: Color = Color::Rgb(120, 200, 230);
-
-/// Reserved words: white and bold, the way Colorer sets them apart from the
-/// identifiers they surround.
-pub(super) const CODE_KEYWORD: Color = Color::Rgb(255, 255, 255);
-
-/// String and character literals.
-pub(super) const CODE_STRING: Color = Color::Rgb(235, 185, 70);
-
-/// Numeric literals.
-pub(super) const CODE_NUMBER: Color = Color::Rgb(120, 220, 120);
-
-/// Comments, and the preprocessor/decorator lines that read like them.
-pub(super) const CODE_COMMENT: Color = Color::Rgb(215, 135, 65);
-
-/// Type names and primitives, which Colorer keeps distinct from both
-/// identifiers and keywords.
-pub(super) const CODE_TYPE: Color = Color::Rgb(140, 220, 200);
-
-/// Preprocessor directives, attributes and decorators. Its own colour, not the
-/// comment's: `#include` is code.
-pub(super) const CODE_DIRECTIVE: Color = Color::Rgb(150, 220, 120);
-
-/// Operators and punctuation — white, so structure stays visible without
-/// competing with the words.
-pub(super) const CODE_PUNCTUATION: Color = Color::Rgb(255, 255, 255);
-
-/// The editor's top bar: the file name on the left, position on the right.
-pub(super) const EDITOR_BAR_BG: Color = Color::Rgb(85, 150, 216);
-pub(super) const EDITOR_BAR_FG: Color = Color::Rgb(255, 255, 255);
-
-/// The viewer's status line: black on the same teal as the menu bar. Far
-/// paints its viewer and editor status lines both this way; only the viewer
-/// follows it here, because its bar is the one row of chrome the viewer has
-/// and the screenshot it is drawn from shows exactly this pair.
-pub(super) const VIEWER_BAR_BG: Color = Color::Rgb(0, 128, 128);
-pub(super) const VIEWER_BAR_FG: Color = Color::Rgb(0, 0, 0);
 
 // ── The command prompt ─────────────────────────────────────────────
 //
@@ -182,41 +147,3 @@ pub(super) const DRIVE_SELECTED_BG: Color = Color::Rgb(0, 0, 0);
 /// The letter that activates a control from the keyboard — the one part of a
 /// dialog that is a promise about which key to press.
 pub(super) const HOTKEY: Color = Color::Rgb(255, 255, 0);
-
-// ── Language servers dialog ────────────────────────────────────────
-//
-// Names for what a colour means there, each an existing colour, so the dialog
-// adds no new ones.
-
-/// A server that will start: the green an executable file has.
-pub(super) const STATUS_OK: Color = EXECUTABLE;
-/// A server waiting for an install, or running the recipe's program instead:
-/// the yellow of a mark.
-pub(super) const STATUS_PENDING: Color = MARKED;
-/// A server that cannot start, and a problem that blocks a save: the red of a
-/// failed command.
-pub(super) const STATUS_FAILED: Color = PROMPT_FAILED;
-/// The completion dropdown's frame and highlight, shared by the command line
-/// and the dialog's form.
-pub(super) const COMPLETION_BG: Color = Color::Cyan;
-
-// ── The task list's meters ─────────────────────────────────────────
-//
-// htop's meter colours, each an alias of the scheme colour that already
-// means the same hue, so the meters never add a colour of their own.
-
-/// CPU time in user code, and memory in use: green.
-pub(super) const METER_USER: Color = EXECUTABLE;
-/// CPU time at a changed nice value, and buffer memory: blue.
-pub(super) const METER_NICE: Color = PROMPT_OK;
-/// CPU time in the kernel, and swap in use: red.
-pub(super) const METER_KERNEL: Color = PROMPT_FAILED;
-/// CPU time stolen by or given to virtual machines: cyan.
-pub(super) const METER_VIRT: Color = FRAME;
-/// Shared memory: magenta.
-pub(super) const METER_SHARED: Color = PROMPT_BRANCH;
-/// The page cache and the swap cache: yellow.
-pub(super) const METER_CACHE: Color = MARKED;
-/// The `D` and `Z` state letters: a process stuck in the kernel, or dead
-/// and not yet reaped.
-pub(super) const STATE_ALERT: Color = PROMPT_FAILED;

@@ -6,18 +6,18 @@
 //! right, then `]`. Each segment ends at its running total's share of the
 //! bar, rounded once, so the segments never add up to more than the bar.
 
-use std::num::{NonZeroU128, NonZeroUsize};
+mod bar;
 
-use ratatui::style::{Color, Style};
+use std::num::NonZeroUsize;
+
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 
-use crate::models::{
-    CoreGroup, CpuMeter, MemoryBytes, MemoryMeter, Meters, Percent, SwapMeter, BARS_PER_ROW,
-};
+use crate::models::{Meters, BARS_PER_ROW};
 
-use super::super::panel::right_cells;
-use super::super::{head_cells, palette, Cells};
+use super::super::{palette, Cells};
 use super::format;
+use bar::{core_bar, cpu_bar, memory_bar, swap_bar, unknown_bar, Bar};
 
 /// Blank cells between two bars on one row.
 const GAP: &str = " ";
@@ -26,17 +26,6 @@ const GAP: &str = " ";
 const MIN_CORE_LABEL: Cells = Cells::new(2);
 /// Blank cells between two fields of the Tasks/Load/Uptime line.
 const FIELD_GAP: &str = "  ";
-
-/// One share of a bar: how much of the whole, and its colour.
-type Segment = (u128, Color);
-
-/// A bar's contents before it is laid out.
-struct Bar {
-    label: String,
-    segments: Vec<Segment>,
-    whole: u128,
-    caption: String,
-}
 
 /// The first summary row: CPU, Mem and Swp in thirds.
 pub(super) fn summary(meters: &Meters, width: Cells) -> Line<'static> {
@@ -131,129 +120,4 @@ fn joined(bars: Vec<Vec<Span<'static>>>) -> Vec<Span<'static>> {
         spans.extend(bar);
     }
     spans
-}
-
-fn cpu_bar(label: &str, meter: CpuMeter) -> Bar {
-    let segments = match meter {
-        CpuMeter::Pending => Vec::new(),
-        CpuMeter::Measured(bar) => vec![
-            share(bar.user(), palette::METER_USER),
-            share(bar.nice(), palette::METER_NICE),
-            share(bar.kernel(), palette::METER_KERNEL),
-            share(bar.virtualised(), palette::METER_VIRT),
-        ],
-    };
-    Bar {
-        label: label.to_owned(),
-        segments,
-        whole: u128::from(Percent::FULL.hundredths()),
-        caption: format::cpu_meter(meter),
-    }
-}
-
-fn share(part: Percent, colour: Color) -> Segment {
-    (u128::from(part.hundredths()), colour)
-}
-
-fn core_bar(group: CoreGroup) -> Bar {
-    let label = if group.first_core() == group.last_core() {
-        group.first_core().to_string()
-    } else {
-        format!("{}-{}", group.first_core(), group.last_core())
-    };
-    cpu_bar(&label, group.meter())
-}
-
-fn memory_bar(memory: MemoryMeter) -> Bar {
-    Bar {
-        label: "Mem".to_owned(),
-        segments: vec![
-            (bytes(memory.used()), palette::METER_USER),
-            (bytes(memory.buffers()), palette::METER_NICE),
-            (bytes(memory.shared()), palette::METER_SHARED),
-            (bytes(memory.cache()), palette::METER_CACHE),
-        ],
-        whole: bytes(memory.total()),
-        caption: format::used_of(memory.used(), memory.total()),
-    }
-}
-
-fn swap_bar(swap: SwapMeter) -> Bar {
-    Bar {
-        label: "Swp".to_owned(),
-        segments: vec![
-            (bytes(swap.used()), palette::METER_KERNEL),
-            (bytes(swap.cache()), palette::METER_CACHE),
-        ],
-        whole: bytes(swap.total()),
-        caption: format::used_of(swap.used(), swap.total()),
-    }
-}
-
-fn bytes(size: MemoryBytes) -> u128 {
-    u128::from(size.bytes())
-}
-
-/// A meter the platform gave no figures for: an empty bar captioned `-`.
-fn unknown_bar(label: &str) -> Bar {
-    Bar {
-        label: label.to_owned(),
-        segments: Vec::new(),
-        whole: 0,
-        caption: format::UNKNOWN.to_owned(),
-    }
-}
-
-impl Bar {
-    /// The bar in exactly `width` cells, its label right-aligned in `label`.
-    fn spans(&self, label: Cells, width: Cells) -> Vec<Span<'static>> {
-        let frame = Style::default().fg(palette::FRAME);
-        let inner = width.saturating_sub(label + Cells::new(2));
-        let mut spans = vec![
-            Span::styled(right_cells(&self.label, label), frame),
-            Span::styled("[", frame),
-        ];
-        spans.extend(self.inner(inner));
-        spans.push(Span::styled("]", frame));
-        spans
-    }
-
-    /// The inside of the bar: each segment's `|` in its colour, the caption
-    /// flush right over whatever it covers.
-    fn inner(&self, width: Cells) -> Vec<Span<'static>> {
-        let caption = head_cells(&self.caption, width);
-        let caption_at = width.saturating_sub(Cells::of(&caption)).get();
-        let mut spans = Vec::new();
-        let mut drawn = 0_usize;
-        for (end, colour) in self.ends(width.get()) {
-            let end = end.min(caption_at);
-            let cells = end.saturating_sub(drawn);
-            if cells > 0 {
-                spans.push(Span::styled("|".repeat(cells), Style::default().fg(colour)));
-            }
-            drawn = drawn.max(end);
-        }
-        spans.push(Span::raw(" ".repeat(caption_at.saturating_sub(drawn))));
-        spans.push(Span::styled(caption, Style::default().fg(palette::DATA)));
-        spans
-    }
-
-    /// Where each segment ends, in cells of a bar `cells` wide: its running
-    /// total's share, rounded half up and never past the bar.
-    fn ends(&self, cells: usize) -> Vec<(usize, Color)> {
-        let Some(whole) = NonZeroU128::new(self.whole) else {
-            return Vec::new();
-        };
-        let wide = u128::try_from(cells).unwrap_or(u128::MAX);
-        let mut reached = 0_u128;
-        self.segments
-            .iter()
-            .map(|&(part, colour)| {
-                reached = reached.saturating_add(part).min(whole.get());
-                let scaled = reached.saturating_mul(wide).saturating_add(whole.get() / 2);
-                let end = usize::try_from(scaled / whole).unwrap_or(cells).min(cells);
-                (end, colour)
-            })
-            .collect()
-    }
 }

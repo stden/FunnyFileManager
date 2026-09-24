@@ -10,7 +10,6 @@
 //! pages, migrated from JSON and protected from a save is in [`document`].
 
 use std::{
-    ffi::OsString,
     io,
     path::{Path, PathBuf},
 };
@@ -20,8 +19,10 @@ use serde::{Deserialize, Serialize};
 use crate::models::PanelView;
 
 pub(crate) mod document;
+mod home;
 mod lsp;
 mod pages;
+pub use home::dir;
 pub use lsp::values::{
     quote, Arguments, Enablement, Extension, Extensions, LanguageId, ServerCommand, ValueError,
 };
@@ -170,48 +171,6 @@ impl Settings {
         // `modes` has a slot for every position `index` returns; the fallback
         // mirrors `index`'s own, the first mode.
         modes.get(view.index()).unwrap_or(first)
-    }
-}
-
-/// The `ffm` directory every configuration file lives in — the settings, the
-/// user menu and the file associations — so that they can be backed up as
-/// one. `None` when the environment names no home at all.
-#[must_use]
-pub fn dir() -> Option<PathBuf> {
-    Platform::CURRENT.dir(std::env::var_os::<&str>)
-}
-
-/// Whose rule names the configuration home. A value rather than two
-/// `#[cfg]` functions, so that both rules run in every build's tests.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Platform {
-    /// `%APPDATA%`.
-    Windows,
-    /// `$XDG_CONFIG_HOME` when it is absolute, else `$HOME/.config`.
-    Unix,
-}
-
-impl Platform {
-    /// The platform this build runs on.
-    const CURRENT: Self = if cfg!(windows) {
-        Self::Windows
-    } else {
-        Self::Unix
-    };
-
-    /// The `ffm` directory under this platform's configuration home, reading
-    /// the environment through `variable`. A relative `$XDG_CONFIG_HOME` is
-    /// ignored, as the XDG spec says, so settings never land in the launch
-    /// directory.
-    fn dir(self, variable: impl Fn(&'static str) -> Option<OsString>) -> Option<PathBuf> {
-        let home = match self {
-            Self::Windows => variable("APPDATA").map(PathBuf::from),
-            Self::Unix => variable("XDG_CONFIG_HOME")
-                .map(PathBuf::from)
-                .filter(|path| path.is_absolute())
-                .or_else(|| variable("HOME").map(|home| PathBuf::from(home).join(".config"))),
-        };
-        home.map(|home| home.join("ffm"))
     }
 }
 

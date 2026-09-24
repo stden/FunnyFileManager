@@ -1,7 +1,7 @@
 //! Purpose: Exercise pipe failure reporting and stderr draining with deterministic I/O adapters.
 
 use super::*;
-use std::io::Write;
+use std::io::{Read, Write};
 
 struct Broken;
 impl Write for Broken {

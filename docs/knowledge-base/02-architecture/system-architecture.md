@@ -455,8 +455,8 @@ fixtures, seams, and the verification matrix.
 Source-level architecture tests check canonical operation ownership,
 compatibility paths, the thin crate facade, separate test bodies, and rendering
 dependencies. They scan `action/` recursively to guard the input languages
-against operation and adapter dependencies. The file-size guard enforces the
-1000-line ceiling under `src/`.
+against operation and adapter dependencies. The file-size guard enforces a
+200-line ceiling on every Rust and Python file in the repository.
 These complement behavioral tests; neither a diagram nor a source scan
 substitutes for exercising the actual event loop.
 

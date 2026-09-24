@@ -23,8 +23,10 @@ mod lsp_editor;
 mod menu_bar;
 mod menu_dialog;
 mod pointer;
+mod pointer_clicks;
 mod rows;
 mod tasks;
+mod tool_buttons;
 mod wsl;
 
 fn app_at(dir: &TempDir) -> App {

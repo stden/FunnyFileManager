@@ -30,6 +30,7 @@ mod findfile;
 mod histlist;
 mod histories;
 mod hotplug;
+mod lifecycle;
 pub mod lsp_editor;
 mod mcp_install;
 pub use mcp_install::{ClientRow, Mark, McpInstallDialog, McpInstallField, McpInstallProgress};
@@ -55,6 +56,7 @@ mod tree;
 mod usermenu;
 #[cfg(feature = "keepass")]
 mod vault_browser;
+mod view_mode;
 mod viewer;
 mod viewport;
 mod wsl;
@@ -91,6 +93,7 @@ pub use findfile::{FindFile, FindFileField};
 pub use histlist::HistoryList;
 pub use histories::{FolderHistory, HistoryFile, PathHistory, ViewHistory, Viewed, Visited};
 pub use hotplug::DeviceList;
+pub use lifecycle::Lifecycle;
 pub use lsp_editor::LspEditor;
 pub use overlay::{
     Confirm, LinkType, MaskPrompt, MaskPurpose, NameField, NamePrompt, NamePurpose, Overlay,
@@ -144,61 +147,13 @@ pub use menu_dialog::{ChoiceTarget, MenuChoice, MenuDialog};
 pub mod settings;
 #[cfg(feature = "keepass")]
 pub use vault_browser::KdbxOverlay;
+pub use view_mode::ViewMode;
 pub use viewer::{ViewSource, ViewedFile, Viewer};
 pub use viewport::{Viewport, FALLBACK_TERMINAL_HEIGHT};
 pub use wsl::{
     DistributionName, WslActivity, WslDialog, WslOperation, WslOutput, WslRequest, WslRequestId,
     WslRequests,
 };
-
-/// What fills the frame behind any modal overlay.
-///
-/// Split out of [`Overlay`] because hiding the panels is not a dialog: this
-/// says *what is on screen*, while `Overlay` says *which dialog is open*. As
-/// one enum the two were mutually exclusive, so the command line could not be
-/// used while the console showed — and letting you keep working with the
-/// output in front of you is the entire point of Far Manager's `Ctrl+O`.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum ViewMode {
-    /// The dual-panel view.
-    #[default]
-    Panels,
-    /// `Ctrl+O`: the panels are lifted off and the console transcript shows.
-    Console,
-}
-
-impl ViewMode {
-    /// The other mode — what `Ctrl+O` switches to.
-    #[must_use]
-    pub const fn toggled(self) -> Self {
-        match self {
-            Self::Panels => Self::Console,
-            Self::Console => Self::Panels,
-        }
-    }
-}
-
-/// Whether the event loop should keep running.
-///
-/// One representation, replacing `should_quit: bool` *beside* a `Flow`
-/// enum returned by the key dispatcher. The loop condition read the flag while
-/// the dispatch site matched the enum, so "are we leaving" had two answers
-/// that had to be kept in step by hand — and the overlay layer could only
-/// reach one of them, which is why the flag existed at all.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum Lifecycle {
-    #[default]
-    Running,
-    /// Something asked to leave: F10, Ctrl+C, or the `quit` / `exit` command.
-    Quitting,
-}
-
-impl Lifecycle {
-    #[must_use]
-    pub const fn is_running(self) -> bool {
-        matches!(self, Self::Running)
-    }
-}
 
 /// Which panel is currently active: left or right
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

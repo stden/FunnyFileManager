@@ -102,3 +102,5 @@ fn buttons(dialog: &McpInstallDialog) -> [Button<'static>; 2] {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_paths;

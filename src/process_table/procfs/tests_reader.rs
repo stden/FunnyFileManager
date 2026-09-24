@@ -1,20 +1,16 @@
-//! Purpose: Tests for the reader over a fake `/proc` in a temporary
-//! directory — every field of a process, entries that name no process,
-//! processes that vanish or cannot be read, optional files that only cost
-//! their field — and the fake `/proc` the other reader tests share.
+//! Purpose: The fake `/proc` the reader tests share: the system files and a
+//! directory per fixture process in a temporary directory, and the helpers
+//! that sample it and pick the result apart. The tests of the rows are in
+//! `tests_reader_fields.rs` and `tests_reader_listing.rs`.
 
 use std::fs;
 use std::path::Path;
-use std::time::Duration;
 
 use tempfile::TempDir;
 
 use super::parse::{ClockTicks, PageSize};
 use super::ProcFs;
-use crate::models::{
-    KernelPriority, MemoryBytes, MemoryUsage, Niceness, Owner, Pid, Priority, ProcessKey,
-    ProcessKind, ProcessReader, ProcessSample, ProcessState, Sample, Start, StartTime,
-};
+use crate::models::{Pid, ProcessKey, ProcessReader, ProcessSample, Sample, Start, StartTime};
 
 /// A uid no passwd database has an entry for.
 pub(super) const NOBODY_KNOWS: u32 = 4_000_000_000;
@@ -148,128 +144,4 @@ pub(super) fn commands(sample: &Sample) -> Vec<&str> {
         .iter()
         .map(|process| process.command.as_str())
         .collect()
-}
-
-#[test]
-fn a_process_is_read_from_its_stat_statm_status_and_cmdline() {
-    let fake = FakeProc::new();
-    fake.add(&Process::new(42, "bob"));
-    let sample = sample(&mut fake.reader());
-    let process = only(&sample);
-    let kib = |amount| MemoryBytes::from_kib(amount).expect("a size");
-    assert_eq!(process.key, key(42));
-    assert_eq!(process.parent, Some(pid(1)));
-    assert_eq!(process.name, "bob");
-    assert_eq!(process.command, "/usr/bin/bob --flag");
-    assert_eq!(process.owner, Owner::Uid(NOBODY_KNOWS));
-    assert_eq!(process.state, ProcessState::Sleeping);
-    let nice = Niceness::try_from(0).expect("a nice value");
-    let kernel = KernelPriority::new(20);
-    assert_eq!(process.priority, Priority::Unix { kernel, nice });
-    assert_eq!(process.threads, 2);
-    assert_eq!(process.cpu_time, Duration::from_secs(3));
-    let memory = MemoryUsage {
-        virtual_size: kib(8000),
-        resident: kib(400),
-        shared: Some(kib(200)),
-    };
-    assert_eq!(process.memory, Some(memory));
-    assert_eq!(process.running_for, Some(Duration::from_millis(996_300)));
-    assert_eq!(process.kind, ProcessKind::User);
-}
-
-#[test]
-fn entries_that_name_no_process_are_ignored() {
-    let fake = FakeProc::new();
-    fake.add(&Process::new(42, "bob"));
-    for entry in [
-        "self/stat",
-        "thread-self/stat",
-        "sys/stat",
-        "net/stat",
-        "1a/stat",
-        "+7/stat",
-    ] {
-        fake.write(entry, "7 (x) S 1\n");
-    }
-    fake.write("0/stat", "0 (x) S 1\n");
-    let sample = sample(&mut fake.reader());
-    assert_eq!(pids(&sample), [42]);
-    assert_eq!(sample.unreadable, 0);
-}
-
-#[test]
-fn a_process_directory_without_stat_has_exited_and_is_not_counted() {
-    let fake = FakeProc::new();
-    fake.add(&Process::new(42, "bob"));
-    fake.add(&Process::new(43, "alice"));
-    fake.remove("43/stat");
-    let sample = sample(&mut fake.reader());
-    assert_eq!((pids(&sample), sample.unreadable), (vec![42], 0));
-}
-
-/// Any per-process file gone means the process exited between two reads.
-#[test]
-fn a_process_whose_other_files_are_gone_has_exited_and_is_not_counted() {
-    for file in ["statm", "status", "cmdline"] {
-        let fake = FakeProc::new();
-        fake.add(&Process::new(42, "bob"));
-        fake.add(&Process::new(43, "alice"));
-        fake.remove(&format!("43/{file}"));
-        let sample = sample(&mut fake.reader());
-        assert_eq!((pids(&sample), sample.unreadable), (vec![42], 0), "{file}");
-    }
-}
-
-#[test]
-fn a_stat_that_cannot_be_read_or_parsed_is_counted_as_unreadable() {
-    let fake = FakeProc::new();
-    fake.add(&Process::new(42, "bob"));
-    fake.add(&Process::new(43, "alice"));
-    fake.add(&Process::new(44, "carol"));
-    fake.add(&Process::new(45, "dave"));
-    fake.unreadable("43/stat");
-    fake.write("44/stat", "44 (carol) S 1 44\n");
-    fake.write(
-        "45/stat",
-        "46 (dave) S 1 45 45 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 450 0 0\n",
-    );
-    let sample = sample(&mut fake.reader());
-    assert_eq!((pids(&sample), sample.unreadable), (vec![42], 3));
-}
-
-#[test]
-fn optional_files_that_cannot_be_read_cost_only_their_field() {
-    let fake = FakeProc::new();
-    fake.add(&Process::new(42, "bob"));
-    for file in ["42/statm", "42/status", "42/cmdline"] {
-        fake.unreadable(file);
-    }
-    let sample = sample(&mut fake.reader());
-    let process = only(&sample);
-    assert_eq!(process.memory, None);
-    assert_eq!(process.owner, Owner::Unknown);
-    assert_eq!(process.command, "[bob]");
-    assert_eq!(sample.unreadable, 0);
-}
-
-#[test]
-fn a_status_without_an_effective_uid_leaves_the_owner_unknown() {
-    let fake = FakeProc::new();
-    fake.add(&Process::new(42, "bob"));
-    fake.write("42/status", "Name:\tbob\nUid:\t1000\n");
-    assert_eq!(only(&sample(&mut fake.reader())).owner, Owner::Unknown);
-}
-
-#[test]
-fn a_process_listed_twice_is_one_row() {
-    let fake = FakeProc::new();
-    fake.add(&Process::new(42, "bob"));
-    let stat = fs::read_to_string(fake.root().join("42/stat")).expect("stat");
-    for file in ["stat", "statm", "status", "cmdline"] {
-        let text = fs::read_to_string(fake.root().join(format!("42/{file}"))).expect(file);
-        fake.write(&format!("042/{file}"), &text);
-    }
-    fake.write("042/stat", &stat);
-    assert_eq!(pids(&sample(&mut fake.reader())), [42]);
 }

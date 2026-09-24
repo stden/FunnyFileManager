@@ -312,8 +312,9 @@ the **sibling file**, `src/action/editor.rs`. A directory holding nothing but
   them is therefore a two-file change: the file and that test.
 - Converting a `mod.rs` is a pure file move: `git mv foo/mod.rs foo.rs`
   changes no module path, no `use`, no public API.
-- Target ≤ 300 lines per file; the guard test in
-  `tests/file_line_limit_test.rs` enforces the hard cap. Split by
+- No Rust or Python file may exceed 200 lines, tests and scripts included;
+  `tests/file_line_limit_test.rs` enforces it (its `EXEMPT` list names the one
+  file allowed past it, with the reason, and may only shrink). Split by
   responsibility into `<module>/<part>.rs` child modules, never by line count.
 - Unit tests live beside the code in `<module>/tests*.rs` child modules,
   never inline `mod tests {}` blocks in a production file.

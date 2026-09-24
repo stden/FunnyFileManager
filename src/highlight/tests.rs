@@ -1,7 +1,7 @@
 //! Unit tests: token classification, and the one thing that crosses lines.
 
 use super::*;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[cfg(feature = "colorer")]
 mod colorer_paint;

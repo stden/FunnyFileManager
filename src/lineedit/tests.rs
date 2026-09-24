@@ -1,6 +1,10 @@
 //! Purpose: Exercises every cursor, edit, and kill operation of `LineEditor`.
+//! Kill and yank are in `tests/kill.rs`, multibyte text in `tests/utf8.rs`.
 
 use super::*;
+
+mod kill;
+mod utf8;
 
 /// Build a line with the caret parked at `cursor` bytes from the start.
 fn at(text: &str, cursor: usize) -> LineEditor {
@@ -163,114 +167,6 @@ fn word_motion_treats_a_path_as_one_word() {
     let mut line = LineEditor::new("cat /a/b/c.txt");
     line.word_left();
     assert_eq!(line.cursor().byte(), 4);
-}
-
-// ─── kill and yank ────────────────────────────────────────────────────────
-
-#[test]
-fn kill_word_left_cuts_the_word_before_the_caret() {
-    let mut line = LineEditor::new("cat /a/b/c.txt");
-    line.kill_word_left();
-    assert_eq!(line.text(), "cat ");
-    assert_eq!(line.cursor().byte(), 4);
-    line.yank();
-    assert_eq!(line.text(), "cat /a/b/c.txt");
-}
-
-#[test]
-fn kill_to_start_cuts_everything_before_the_caret() {
-    let mut line = at("cd /tmp", 3);
-    line.kill_to_start();
-    assert_eq!(line.text(), "/tmp");
-    assert_eq!(line.cursor().byte(), 0);
-    line.end();
-    line.yank();
-    assert_eq!(line.text(), "/tmpcd ");
-}
-
-#[test]
-fn kill_to_end_cuts_everything_from_the_caret() {
-    let mut line = at("cd /tmp", 3);
-    line.kill_to_end();
-    assert_eq!(line.text(), "cd ");
-    assert_eq!(line.cursor().byte(), 3);
-}
-
-#[test]
-fn an_empty_kill_leaves_the_previous_one_intact() {
-    let mut line = LineEditor::new("cd /tmp");
-    line.kill_to_start();
-    assert!(line.is_empty());
-    // Ctrl+K at the end of an empty line must not erase what Ctrl+U captured.
-    line.kill_to_end();
-    line.yank();
-    assert_eq!(line.text(), "cd /tmp");
-}
-
-#[test]
-fn yank_without_a_kill_is_a_no_op() {
-    let mut line = LineEditor::new("cd");
-    line.yank();
-    assert_eq!(line.text(), "cd");
-    assert_eq!(line.cursor().byte(), 2);
-}
-
-#[test]
-fn yank_repeats_rather_than_consuming_the_slot() {
-    let mut line = LineEditor::new("ab");
-    line.kill_to_start();
-    line.yank();
-    line.yank();
-    assert_eq!(line.text(), "abab");
-}
-
-// ─── UTF-8 ────────────────────────────────────────────────────────────────
-
-#[test]
-fn cursor_moves_whole_characters_through_multibyte_text() {
-    // Cyrillic (2 bytes), CJK (3 bytes), emoji (4 bytes) — a byte-stepping
-    // cursor would land mid-character and panic on the next slice.
-    // я(2) д(2) 漢(3) 🙂(4) = 11 bytes.
-    let mut line = LineEditor::new("яд漢🙂");
-    assert_eq!(line.cursor().byte(), 11);
-    line.left();
-    assert_eq!(line.cursor().byte(), 7);
-    line.left();
-    assert_eq!(line.cursor().byte(), 4);
-    line.left();
-    assert_eq!(line.cursor().byte(), 2);
-    line.left();
-    assert_eq!(line.cursor().byte(), 0);
-    line.right();
-    assert_eq!(line.cursor().byte(), 2);
-}
-
-#[test]
-fn backspace_removes_a_whole_multibyte_character() {
-    let mut line = LineEditor::new("cd 漢字");
-    line.backspace();
-    assert_eq!(line.text(), "cd 漢");
-    assert_eq!(line.cursor().byte(), 6);
-}
-
-#[test]
-fn insert_into_multibyte_text_keeps_the_caret_on_a_boundary() {
-    let mut line = at("漢字", 3);
-    line.insert_char('x');
-    assert_eq!(line.text(), "漢x字");
-    assert_eq!(line.cursor().byte(), 4);
-    line.right();
-    assert!(line.at_end());
-}
-
-#[test]
-fn word_motion_survives_non_ascii_whitespace() {
-    // U+3000 IDEOGRAPHIC SPACE is 3 bytes and is `char::is_whitespace`;
-    // advancing past it by one byte would split it.
-    let mut line = LineEditor::new("ab\u{3000}cd");
-    line.word_left();
-    assert_eq!(line.cursor().byte(), 5);
-    assert_eq!(line.after_cursor(), "cd");
 }
 
 #[test]

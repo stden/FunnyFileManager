@@ -42,4 +42,13 @@ pub const fn is_root() -> bool {
 mod tests;
 #[cfg(test)]
 #[cfg(unix)]
+mod tests_kernel_constants;
+#[cfg(test)]
+#[cfg(unix)]
 mod tests_processes;
+#[cfg(test)]
+#[cfg(windows)]
+mod tests_registry;
+#[cfg(test)]
+#[cfg(windows)]
+mod tests_windows;

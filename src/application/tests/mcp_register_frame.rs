@@ -2,6 +2,7 @@
 //! runs, so a slow `claude` never freezes the screen without a word.
 
 use super::*;
+use crate::application::loop_state::run_after_frame;
 use crate::models::Panel;
 use crate::test_support::FakeMachine;
 

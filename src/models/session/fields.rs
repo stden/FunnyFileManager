@@ -7,9 +7,14 @@
 //! Text is trimmed first; a surrounding blank is never part of a name.
 
 use std::fmt;
-use std::num::NonZeroU16;
 
 use serde::{Deserialize, Serialize};
+
+mod invalid;
+mod port;
+
+pub use invalid::{Field, InvalidField, Problem};
+pub use port::Port;
 
 /// The longest session name, in characters: room for the longest default
 /// name, `user@host:port`, and then some.
@@ -20,88 +25,6 @@ pub const MAX_HOST_CHARS: usize = 253;
 pub const MAX_USER_CHARS: usize = 128;
 /// The longest key file path, in characters.
 pub const MAX_KEY_FILE_CHARS: usize = 4096;
-
-/// Which value of a session a check is about, named as the dialog names it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Field {
-    Name,
-    Host,
-    Port,
-    User,
-    RemoteDir,
-    KeyFile,
-}
-
-impl Field {
-    #[must_use]
-    pub const fn label(self) -> &'static str {
-        match self {
-            Self::Name => "Name",
-            Self::Host => "Host",
-            Self::Port => "Port",
-            Self::User => "User",
-            Self::RemoteDir => "Directory",
-            Self::KeyFile => "Key file",
-        }
-    }
-}
-
-/// What is wrong with a value.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Problem {
-    Empty,
-    TooLong {
-        limit: usize,
-    },
-    ControlCharacter,
-    /// A character this value cannot hold; printed escaped.
-    Character(char),
-    /// Starts with `-`, which a command line would take for an option.
-    LeadingDash,
-    NotAbsolute,
-    /// A `.` or `..` part in a path.
-    DotSegment,
-    /// Not a whole number from 1 to 65535.
-    NotAPort,
-}
-
-impl fmt::Display for Problem {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Empty => f.write_str("must not be empty"),
-            Self::TooLong { limit } => write!(f, "must be at most {limit} characters"),
-            Self::ControlCharacter => f.write_str("must not hold control characters"),
-            Self::Character(ch) => write!(f, "must not hold '{}'", ch.escape_debug()),
-            Self::LeadingDash => f.write_str("must not start with '-'"),
-            Self::NotAbsolute => f.write_str("must start with '/'"),
-            Self::DotSegment => f.write_str("must not hold '.' or '..' parts"),
-            Self::NotAPort => f.write_str("must be a number from 1 to 65535"),
-        }
-    }
-}
-
-/// A value that failed its check: which one, and why. Carries no part of
-/// the value, so reporting it can never echo what was refused.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InvalidField {
-    pub field: Field,
-    pub problem: Problem,
-}
-
-impl InvalidField {
-    #[must_use]
-    pub const fn new(field: Field, problem: Problem) -> Self {
-        Self { field, problem }
-    }
-}
-
-impl fmt::Display for InvalidField {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}", self.field.label(), self.problem)
-    }
-}
-
-impl std::error::Error for InvalidField {}
 
 /// `text` trimmed, when it is not empty, not longer than `limit` characters
 /// and free of control characters — the check every text value shares.
@@ -207,44 +130,6 @@ impl UserName {
     }
 }
 
-/// A TCP port: 1 to 65535.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(try_from = "u16", into = "u16")]
-pub struct Port(NonZeroU16);
-
-impl Port {
-    /// The SSH port, which SFTP and SCP use: 22.
-    pub const SSH: Self = Self(NonZeroU16::MIN.saturating_add(22 - 1));
-    /// The FTP control port: 21.
-    pub const FTP: Self = Self(NonZeroU16::MIN.saturating_add(21 - 1));
-
-    pub fn new(number: u16) -> Result<Self, InvalidField> {
-        NonZeroU16::new(number)
-            .map(Self)
-            .ok_or(InvalidField::new(Field::Port, Problem::NotAPort))
-    }
-
-    /// A port as typed: digits only, surrounding blanks dropped.
-    #[expect(
-        clippy::map_err_ignore,
-        reason = "the refusal names the field and says it is not a port; the integer error adds nothing to act on"
-    )]
-    pub fn parse(text: &str) -> Result<Self, InvalidField> {
-        let text = text.trim();
-        if !text.bytes().all(|byte| byte.is_ascii_digit()) {
-            return Err(InvalidField::new(Field::Port, Problem::NotAPort));
-        }
-        text.parse::<u16>()
-            .map_err(|_| InvalidField::new(Field::Port, Problem::NotAPort))
-            .and_then(Self::new)
-    }
-
-    #[must_use]
-    pub const fn get(self) -> u16 {
-        self.0.get()
-    }
-}
-
 /// A private key file the session logs in with.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -282,26 +167,6 @@ macro_rules! text_value {
 }
 
 text_value!(SessionName, HostName, UserName, KeyFile);
-
-impl fmt::Display for Port {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl TryFrom<u16> for Port {
-    type Error = InvalidField;
-
-    fn try_from(number: u16) -> Result<Self, Self::Error> {
-        Self::new(number)
-    }
-}
-
-impl From<Port> for u16 {
-    fn from(port: Port) -> Self {
-        port.get()
-    }
-}
 
 #[cfg(test)]
 mod tests;

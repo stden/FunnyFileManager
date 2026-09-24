@@ -16,7 +16,7 @@ For runtime diagrams and boundary rules, see
 | `src/application/dispatch.rs` | Main-view `Action` effects and modal-first keyboard/mouse routing |
 | `src/application/dispatch/dialog_mouse.rs` | Mouse input translation for dialogs |
 | `src/application/wsl_jobs.rs` | Serial WSL worker, injected backend, and completion delivery |
-| `src/application/task_jobs.rs`, `task_jobs/{worker,logged}.rs` | The task list's sampling worker (the thread and its two one-slot channels in `worker.rs`): `TaskJobs::pump` (the loop's) wraps `pump_at(app, now)` (the tests'), which retires the worker when the list closes or reopens, applies an arrived sample, marks a late request stale (5 s) and abandons a stalled one (10 s), starts one `ffm-tasks` thread when none runs and no abandoned one is still alive, and sends the request the model says is due. Nothing is ever joined; each sample error is logged once per session |
+| `src/application/task_jobs.rs`, `task_jobs/{worker,logged,lateness,lifecycle}.rs` | The task list's sampling worker (the thread and its two one-slot channels in `worker.rs`): `TaskJobs::pump` (the loop's) wraps `pump_at(app, now)` (the tests'), which retires the worker when the list closes or reopens, applies an arrived sample, marks a late request stale (5 s) and abandons a stalled one (10 s), starts one `ffm-tasks` thread when none runs and no abandoned one is still alive, and sends the request the model says is due. Nothing is ever joined; each sample error is logged once per session |
 | `src/diagnostics.rs` | Opt-in logging, payload redaction, lifecycle log wrapper |
 | `src/terminal.rs` | `TerminalOps`, `TerminalSession`, and `TerminalSuspension`; transition rollback and restoration |
 | `src/terminal/keyboard.rs` | The kitty keyboard protocol: asked for once, pushed on entry and resume where the terminal supports it, popped on exit, suspension and abort |
@@ -181,14 +181,16 @@ with `keepass`; they are not detached source files.
 
 | Source | Responsibility |
 |---|---|
-| `mcp/src/main.rs` | MCP protocol/server composition, request DTOs, tool declarations, and dispatch |
+| `mcp/src/main.rs` | MCP server composition: root confinement (`safe_path*`), the protocol handler, and startup |
+| `mcp/src/tools.rs`, `mcp/src/tools/*.rs` | Tool declarations and request DTOs, one `#[tool_router]` per area, merged into the server's router |
 | `mcp/src/paths.rs` | Root confinement and path validation |
 | `mcp/src/fsops.rs` | Server filesystem operations |
-| `mcp/src/content_search.rs`, `mcp/src/pattern_search.rs` | Content, glob, and metadata searches with their existing result/depth/read limits |
+| `mcp/src/content_search.rs`, `mcp/src/pattern_search.rs` (+ `pattern_search/filters.rs`) | Content, glob, and metadata searches with their existing result/depth/read limits |
 | `mcp/src/replace.rs`, `mcp/src/cleanup.rs` | Filtered text replacement and pattern deletion, including dry-run and error reporting |
 | `mcp/src/directory_tools.rs`, `mcp/src/reports.rs` | Directory ordering, available drives, composition, and duplicate-content reports |
 | `mcp/src/s3_profiles.rs` | Local AWS profile parsing and region metadata shared by profile and drive tools |
-| `mcp/src/kdbx.rs` | Read-only KeePass tools |
+| `mcp/src/kdbx.rs` (+ `kdbx/env.rs`) | Read-only KeePass export behind the `kbdx` tool |
+| `mcp/src/walk.rs`, `mcp/src/checksum.rs`, `mcp/src/conversions.rs`, `mcp/src/naming.rs` | Shared helpers: bounded link-free walks, streaming SHA-256, checked numeric conversions, confined destination names |
 | `mcp/src/lib.rs`, `mcp/src/tree_walk.rs` | Reusable directory-size and tree rendering implementation |
 | `mcp/src/tool_names.rs` | Import-free tool names shared with the TUI status viewer |
 
@@ -278,8 +280,9 @@ For a new editor binding, declare its typed intent in `action/editor.rs`, then
 interpret it in `popup/editor.rs`; keep buffer invariants in the editor model
 and external effects in `ops/editor`.
 
-Put executable tests in dedicated test files. Target at most 300 lines per file,
-splitting by responsibility rather than line count. The current guard in
-`tests/file_line_limit_test.rs` enforces a separate hard limit of 1000 lines for
-each Rust file under `src/`; passing that guard does not replace the 300-line
-design target.
+Put executable tests in dedicated test files. No Rust or Python file may exceed
+200 lines — application code, tests, benches, examples, `mcp/`, `colorer-sys/`
+and scripts alike — and `tests/file_line_limit_test.rs` enforces it. Split by
+responsibility rather than line count. The guard's `EXEMPT` list names the only
+file allowed past the limit (`src/status.rs`: one enum of 76 documented
+variants) and fails once an exempt file fits, so the list can only shrink.

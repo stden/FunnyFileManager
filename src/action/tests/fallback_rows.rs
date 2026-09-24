@@ -2,6 +2,7 @@
 //! function keys still name the F9 menu commands, and unused keys clear the
 //! quick search.
 use super::*;
+use crate::action::main_view::resolve_character;
 
 #[test]
 fn fallback_control_letters_still_name_panel_commands() {

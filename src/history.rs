@@ -11,63 +11,19 @@ use std::collections::VecDeque;
 use std::fs;
 
 mod durable;
+mod load;
+mod ring_index;
 mod storage;
 
 pub use durable::DurableLine;
+use load::read_durable;
+pub use ring_index::RingIndex;
 use storage::history_file_path;
 pub use storage::Persistence;
 pub(crate) use storage::{data_file, write_owner_only};
 
 /// Most lines the on-disk history keeps; oldest fall off first.
 pub const HISTORY_CAP: usize = 500;
-
-/// Defensive upper bound on the history file we will read into memory. We only
-/// ever write `HISTORY_CAP` (500) lines of paths — far under a mebibyte — so a
-/// file larger than this is hand-made or corrupt; rather than slurp it whole
-/// with `read_to_string`, we treat it as empty (completion must never wedge the
-/// file manager over a bad history file).
-const MAX_HISTORY_FILE_BYTES: u64 = 1 << 20;
-
-/// A position in the history ring, counted back from the newest entry.
-///
-/// A newtype because `History::recall` and `History::search_back` both take
-/// "how far back", and so does `ConsoleLog`'s scroll — three `usize`s measuring
-/// different rings that a plain integer lets you hand to the wrong one. The
-/// step methods keep the walk in one place too, so `Up` and `Down` cannot drift
-/// apart in how they move.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
-pub struct RingIndex(usize);
-
-impl RingIndex {
-    /// The most recent entry.
-    pub const NEWEST: Self = Self(0);
-
-    #[must_use]
-    pub const fn new(offset: usize) -> Self {
-        Self(offset)
-    }
-
-    /// One step further back in time.
-    #[must_use]
-    pub const fn older(self) -> Self {
-        Self(self.0 + 1)
-    }
-
-    /// One step towards the present, or `None` at the newest entry — which is
-    /// what tells `Down` to restore the line the user was typing.
-    #[must_use]
-    pub const fn newer(self) -> Option<Self> {
-        match self.0.checked_sub(1) {
-            Some(offset) => Some(Self(offset)),
-            None => None,
-        }
-    }
-
-    #[must_use]
-    pub const fn offset(self) -> usize {
-        self.0
-    }
-}
 
 /// Session-plus-disk command history.
 ///
@@ -217,28 +173,6 @@ impl History {
             .find(|(_, entry)| entry.contains(query))
             .map(|(index, _)| RingIndex::new(index))
     }
-}
-
-/// The durable lines of the history file at `path`. Missing, unreadable,
-/// oversize or corrupt files are an empty history — completion must never
-/// break the file manager.
-fn read_durable(path: &std::path::Path) -> VecDeque<DurableLine> {
-    // Skip the read entirely for an oversize (hand-made / corrupt) file.
-    if !path
-        .metadata()
-        .is_ok_and(|meta| meta.len() <= MAX_HISTORY_FILE_BYTES)
-    {
-        return VecDeque::new();
-    }
-    fs::read_to_string(path)
-        .map(|text| {
-            text.lines()
-                // classify() re-checks on load: a hand-edited file cannot
-                // smuggle a shell line back into the durable set.
-                .filter_map(DurableLine::classify)
-                .collect()
-        })
-        .unwrap_or_default()
 }
 
 /// Push `value`, dropping any older equal entry (dedup keep-newest) and the

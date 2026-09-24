@@ -12,6 +12,9 @@ use crate::test_support::lsp_machine::{
     editor, editor_mut, press, press_with, select, type_text, LspMachine,
 };
 
+mod exit_question;
+mod servers;
+
 fn mode(app: &App) -> &Mode {
     editor(app).mode()
 }
@@ -55,99 +58,6 @@ fn the_arrows_and_paging_keys_move_the_selection() {
 }
 
 #[test]
-fn esc_closes_a_clean_dialog_at_once() {
-    let machine = LspMachine::new();
-    let mut app = machine.opened();
-    press(&mut app, KeyCode::Esc);
-    assert!(matches!(app.overlay, Overlay::None));
-    let mut app = machine.opened();
-    press(&mut app, KeyCode::F(10));
-    assert!(matches!(app.overlay, Overlay::None));
-}
-
-/// Space toggles; Esc on a changed dialog asks, and the exit question has the
-/// editor's keys.
-#[test]
-fn a_changed_dialog_asks_before_closing() {
-    let machine = LspMachine::new();
-    let mut app = machine.opened();
-    press(&mut app, KeyCode::Char(' '));
-    assert_eq!(editor(&app).draft().0["bat"].enabled, Enablement::Disabled);
-    press(&mut app, KeyCode::Esc);
-    assert_eq!(mode(&app), &Mode::ConfirmExit(ExitChoice::Save));
-    press(&mut app, KeyCode::Right);
-    assert_eq!(mode(&app), &Mode::ConfirmExit(ExitChoice::Discard));
-    press(&mut app, KeyCode::Tab);
-    assert_eq!(mode(&app), &Mode::ConfirmExit(ExitChoice::Cancel));
-    press(&mut app, KeyCode::Left);
-    assert_eq!(mode(&app), &Mode::ConfirmExit(ExitChoice::Discard));
-    press(&mut app, KeyCode::Char('c'));
-    assert_eq!(mode(&app), &Mode::Browse, "Cancel returns to the list");
-    press(&mut app, KeyCode::F(10));
-    press(&mut app, KeyCode::Esc);
-    assert_eq!(mode(&app), &Mode::Browse, "Esc is Cancel too");
-}
-
-#[test]
-fn no_discards_the_changes_and_writes_nothing() {
-    let machine = LspMachine::new();
-    let mut app = machine.opened();
-    press(&mut app, KeyCode::Char(' '));
-    press(&mut app, KeyCode::Esc);
-    press(&mut app, KeyCode::Char('n'));
-    assert!(matches!(app.overlay, Overlay::None));
-    assert!(matches!(
-        app.status,
-        crate::status::Status::ChangesDiscarded
-    ));
-    assert!(!machine.settings().exists());
-}
-
-#[test]
-fn yes_saves_and_closes_and_f2_saves_in_place() {
-    let machine = LspMachine::new();
-    let mut app = machine.opened();
-    press(&mut app, KeyCode::Char(' '));
-    press(&mut app, KeyCode::F(2));
-    assert!(machine.settings().exists());
-    assert!(!editor(&app).dirty());
-    press(&mut app, KeyCode::Char(' '));
-    press(&mut app, KeyCode::Esc);
-    press(&mut app, KeyCode::Enter);
-    assert!(matches!(app.overlay, Overlay::None), "Enter on Yes saves");
-    assert_eq!(app.config.lsp.0["bat"].enabled, Enablement::Enabled);
-}
-
-/// A save the draft cannot make returns to the list with the reason.
-#[test]
-fn a_refused_save_from_the_exit_question_returns_to_the_list() {
-    let machine = LspMachine::new();
-    let mut app = machine.opened();
-    select(&mut app, "python");
-    press(&mut app, KeyCode::F(4));
-    press(&mut app, KeyCode::Tab);
-    press(&mut app, KeyCode::Tab);
-    assert_eq!(focus(&mut app), FormField::Extensions);
-    press(&mut app, KeyCode::End);
-    type_text(&mut app, " ts");
-    press(&mut app, KeyCode::Enter);
-    assert_eq!(
-        mode(&app),
-        &Mode::Browse,
-        "Enter on a passive list presses OK"
-    );
-    press(&mut app, KeyCode::Esc);
-    assert_eq!(mode(&app), &Mode::ConfirmExit(ExitChoice::Save));
-    press(&mut app, KeyCode::Char('y'));
-    assert_eq!(mode(&app), &Mode::Browse);
-    assert!(matches!(
-        editor(&app).notice(),
-        Some(Notice::Error(message)) if message.starts_with("Not saved: .ts is claimed by")
-    ));
-    assert!(!machine.settings().exists());
-}
-
-#[test]
 fn f3_shows_every_server_and_scrolls_it() {
     let machine = LspMachine::new();
     let mut app = machine.opened();
@@ -174,67 +84,6 @@ fn f3_shows_every_server_and_scrolls_it() {
     press(&mut app, KeyCode::F(3));
     assert_eq!(mode(&app), &Mode::Browse);
     assert_eq!(selected(&app), "bat", "the selection is unchanged");
-}
-
-#[test]
-fn del_resets_a_catalog_server_and_removes_an_added_one() {
-    let machine = LspMachine::new();
-    machine.write_settings("lsp:\n  css: {command: c}\n  mine: {command: m}\n");
-    let mut app = machine.opened();
-    select(&mut app, "css");
-    press(&mut app, KeyCode::Delete);
-    assert_eq!(
-        editor(&app).draft().0["css"].command,
-        "vscode-css-language-server"
-    );
-    select(&mut app, "mine");
-    press(&mut app, KeyCode::F(8));
-    assert!(!editor(&app).draft().0.contains_key("mine"));
-    press(&mut app, KeyCode::F(5));
-    assert!(matches!(editor(&app).notice(), Some(Notice::Info(_))));
-}
-
-/// Del on the added `zig`, then Ins with `command` and extension `zig`.
-fn remove_and_add_zig_again(app: &mut App, command: &str) {
-    select(app, "zig");
-    press(app, KeyCode::Delete);
-    press(app, KeyCode::Insert);
-    type_text(app, "zig");
-    press(app, KeyCode::Tab);
-    type_text(app, command);
-    press(app, KeyCode::Tab);
-    press(app, KeyCode::Tab);
-    type_text(app, "zig");
-    press(app, KeyCode::Enter);
-    assert_eq!(mode(app), &Mode::Browse, "{command}: the form closed");
-}
-
-/// Del then Ins on an added server's language makes a new server: F2 writes
-/// it whole, and re-entering the old command and extension still saves.
-#[test]
-fn a_removed_server_added_again_is_saved_as_the_new_one() {
-    for command in ["zls2", "zls"] {
-        let machine = LspMachine::new();
-        machine.write_settings(
-            "lsp:\n  zig: {command: zls, extensions: [zig], root_markers: [build.zig], custom: 1}\n",
-        );
-        let mut app = machine.opened();
-        remove_and_add_zig_again(&mut app, command);
-        press(&mut app, KeyCode::F(2));
-        assert!(
-            !editor(&app).dirty(),
-            "{command}: {:?}",
-            editor(&app).notice()
-        );
-        let file = machine.parsed();
-        let zig = &file["lsp"]["zig"];
-        assert_eq!(zig["command"], serde_norway::Value::from(command));
-        assert_eq!(
-            zig["root_markers"],
-            serde_norway::Value::Sequence(vec![".git".into()])
-        );
-        assert!(zig.get("custom").is_none(), "{file:?}");
-    }
 }
 
 /// The form and the exit question open centred, however far the last

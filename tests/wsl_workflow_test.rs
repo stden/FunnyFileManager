@@ -22,72 +22,17 @@ use tempfile::TempDir;
 mod editor_backend;
 use editor_backend::SharedBackend;
 
+#[path = "wsl_workflow_test/busy_manager.rs"]
+mod busy_manager;
+#[path = "wsl_workflow_test/fake_wsl.rs"]
+mod fake_wsl;
+#[path = "wsl_workflow_test/update_and_open.rs"]
+mod update_and_open;
+use fake_wsl::{distribution, FakeWsl};
+
 const WAIT_LIMIT: Duration = Duration::from_secs(5);
 const PLATFORM_DONE: &str = "Platform update done";
 const PACKAGES_DONE: &str = "Debian packages updated";
-const MENU_SELECTED: Color = Color::Rgb(0, 0, 0);
-const PANEL_SELECTED: Color = Color::Rgb(85, 150, 216);
-
-struct FakeWsl {
-    operations: Mutex<Vec<WslOperation>>,
-    root: PathBuf,
-    release_update: Option<Mutex<mpsc::Receiver<()>>>,
-}
-
-impl FakeWsl {
-    fn new(root: PathBuf) -> Self {
-        Self {
-            operations: Mutex::new(Vec::new()),
-            root,
-            release_update: None,
-        }
-    }
-
-    #[expect(
-        clippy::expect_used,
-        reason = "test fixture: the lock is poisoned only by a panic, which has already failed the test"
-    )]
-    fn operations(&self) -> Vec<WslOperation> {
-        self.operations.lock().expect("recorded operations").clone()
-    }
-}
-
-impl WslBackend for FakeWsl {
-    fn execute(&self, operation: &WslOperation) -> Result<WslOutput, String> {
-        self.operations
-            .lock()
-            .map_err(|error| format!("record operations: {error}"))?
-            .push(operation.clone());
-        match operation {
-            WslOperation::Refresh => Ok(WslOutput::Distributions(vec![
-                distribution("Ubuntu"),
-                distribution("Debian"),
-            ])),
-            WslOperation::Update => {
-                if let Some(release) = &self.release_update {
-                    release
-                        .lock()
-                        .map_err(|error| format!("update release: {error}"))?
-                        .recv_timeout(WAIT_LIMIT)
-                        .map_err(|error| format!("test did not release the update: {error}"))?;
-                }
-                Ok(WslOutput::Updated(PLATFORM_DONE.to_owned()))
-            }
-            WslOperation::UpdatePackages(_) => {
-                Ok(WslOutput::PackagesUpdated(PACKAGES_DONE.to_owned()))
-            }
-            WslOperation::Open(_) => Ok(WslOutput::Root(self.root.clone())),
-        }
-    }
-}
-
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: every name passed here is a valid literal distribution name"
-)]
-fn distribution(name: &str) -> DistributionName {
-    DistributionName::new(name).expect("valid fixture distribution")
-}
 
 enum Step {
     Key(KeyCode, KeyModifiers),
@@ -190,62 +135,6 @@ fn run(backend: Arc<dyn WslBackend>, script: Vec<Step>) -> io::Result<()> {
     Ok(())
 }
 
-#[test]
-fn text_ui_updates_platform_and_selected_packages_then_opens_a_normal_panel() -> io::Result<()> {
-    let root = TempDir::new()?;
-    fs::write(root.path().join("root-visible.txt"), "distribution file")?;
-    let backend = Arc::new(FakeWsl::new(root.path().to_path_buf()));
-    run(Arc::<FakeWsl>::clone(&backend), update_and_open_steps())?;
-    assert_eq!(
-        backend.operations(),
-        [
-            WslOperation::Refresh,
-            WslOperation::Update,
-            WslOperation::UpdatePackages(distribution("Debian")),
-            WslOperation::Open(distribution("Debian")),
-        ]
-    );
-    assert_eq!(
-        fs::read_to_string(root.path().join("root-visible.txt"))?,
-        "distribution file"
-    );
-    Ok(())
-}
-
-#[test]
-fn text_ui_closes_a_busy_manager_keeps_keyboard_working_and_reports_completion() -> io::Result<()> {
-    let root = TempDir::new()?;
-    let (release, gate) = mpsc::channel();
-    let mut backend = FakeWsl::new(root.path().to_path_buf());
-    backend.release_update = Some(Mutex::new(gate));
-    let backend = Arc::new(backend);
-    run(
-        Arc::<FakeWsl>::clone(&backend),
-        vec![
-            open_manager(),
-            Step::WaitFor("Debian"),
-            key(KeyCode::F(5)),
-            Step::WaitFor("Updating WSL..."),
-            key(KeyCode::F(6)), // Busy state must suppress a second operation.
-            key(KeyCode::Esc),
-            Step::Inspect(assert_panels),
-            key(KeyCode::Tab),
-            key(KeyCode::Down),
-            Step::Inspect(|buffer| assert_selected(buffer, "right-only", PANEL_SELECTED)),
-            Step::ReleaseUpdate(release),
-            Step::WaitFor(PLATFORM_DONE),
-            Step::Inspect(assert_background_panels),
-            key(KeyCode::F(10)),
-            key(KeyCode::Enter),
-        ],
-    )?;
-    assert_eq!(
-        backend.operations(),
-        [WslOperation::Refresh, WslOperation::Update]
-    );
-    Ok(())
-}
-
 fn read_step(
     steps: &mut VecDeque<Step>,
     screen: &SharedBackend,
@@ -279,56 +168,4 @@ fn read_step(
             }
         }
     }
-}
-
-fn assert_manager_controls(buffer: &Buffer) {
-    let frame = frame_text(buffer);
-    for label in [
-        "Enter Open root",
-        "F2 Refresh list",
-        "F5 Update WSL",
-        "F6 Update packages",
-    ] {
-        assert!(frame.contains(label), "missing {label}:\n{frame}");
-    }
-    assert_selected(buffer, "Ubuntu", MENU_SELECTED);
-}
-
-fn assert_compact_manager(buffer: &Buffer) {
-    assert_selected(buffer, "Debian", MENU_SELECTED);
-    let frame = frame_text(buffer);
-    for label in ["Open", "F5", "F6", "Esc"] {
-        assert!(
-            frame.contains(label),
-            "missing compact control {label}:\n{frame}"
-        );
-    }
-}
-
-fn assert_background_panels(buffer: &Buffer) {
-    assert_panels(buffer);
-    assert_selected(buffer, "right-only", PANEL_SELECTED);
-    assert!(frame_text(buffer).contains("left-only"));
-}
-
-fn update_and_open_steps() -> Vec<Step> {
-    vec![
-        open_manager(),
-        Step::WaitFor("Debian"),
-        Step::Inspect(assert_manager_controls),
-        key(KeyCode::Down),
-        Step::Resize(Size::new(18, 6)),
-        Step::Inspect(assert_compact_manager),
-        Step::Resize(Size::new(90, 20)),
-        key(KeyCode::F(5)),
-        Step::WaitFor(PLATFORM_DONE),
-        key(KeyCode::F(6)),
-        Step::WaitFor(PACKAGES_DONE),
-        key(KeyCode::Enter),
-        // Panel names and extensions occupy separate columns.
-        Step::WaitFor("root-visible"),
-        Step::Inspect(assert_panels),
-        key(KeyCode::F(10)),
-        key(KeyCode::Enter),
-    ]
 }

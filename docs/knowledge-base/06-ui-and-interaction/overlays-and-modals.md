@@ -91,7 +91,7 @@ The older dedicated variants (`CommandHistory`, `FindFolder`, `ViewHistory`, `Fo
   `src/models/lsp_editor.rs` (with `form.rs` and `problems.rs`), effects in
   `src/ops/lsp_editor.rs`, keys in `src/popup/lsp_editor.rs`, mouse buttons in
   `src/application/dispatch/dialog_mouse/button_keys.rs` and form rows in
-  `src/application/dispatch/dialog_mouse.rs`, and drawing in
+  `src/application/dispatch/dialog_mouse/rows.rs`, and drawing in
   `src/ui/lsp_editor.rs` (with `list.rs`, `detail.rs` and `form.rs`). The
   form's suggestion list is recorded as `DialogMouse::covered`, so a click on
   it reaches nothing beneath.

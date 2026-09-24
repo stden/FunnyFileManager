@@ -2,15 +2,7 @@
 
 use crossterm::event::{self, Event};
 use serde::{Deserialize, Serialize};
-use std::{
-    cell::RefCell,
-    collections::VecDeque,
-    fs::{File, OpenOptions},
-    io::{self, Write},
-    path::{Path, PathBuf},
-    rc::Rc,
-    time::{Duration, Instant},
-};
+use std::{cell::RefCell, collections::VecDeque, io, path::PathBuf, rc::Rc, time::Duration};
 
 const POLL: Duration = Duration::from_millis(100);
 
@@ -28,12 +20,16 @@ struct RecordedEvent {
     event: Event,
 }
 
+mod args;
 mod clipboard;
 mod processes;
+mod recorder;
 mod replay;
 mod storage;
 mod tty;
 
+use recorder::record_live;
+pub use recorder::{stopped_reason, Recorder};
 pub use replay::Replay;
 use storage::default_path;
 #[cfg(test)]
@@ -57,50 +53,6 @@ pub enum Input {
     Replay(Replay),
 }
 
-pub struct Recorder {
-    file: File,
-    previous: Instant,
-}
-
-impl Recorder {
-    fn create(path: &Path, header: &Header) -> io::Result<Self> {
-        let mut options = OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.mode(0o600);
-        }
-        let mut file = options.open(path)?;
-        file.write_all(include_bytes!("recording/replay.py"))?;
-        writeln!(file, "\n# FFM {}", serde_json::to_string(header)?)?;
-        file.flush()?;
-        Ok(Self {
-            file,
-            previous: Instant::now(),
-        })
-    }
-
-    fn record(&mut self, event: &Event) -> io::Result<()> {
-        let now = Instant::now();
-        let record = RecordedEvent {
-            delay_ms: u64::try_from(now.duration_since(self.previous).as_millis())
-                .unwrap_or(u64::MAX),
-            event: event.clone(),
-        };
-        self.append(&record)?;
-        self.previous = now;
-        Ok(())
-    }
-}
-
-impl Recorder {
-    fn append(&mut self, entry: &impl Serialize) -> io::Result<()> {
-        writeln!(self.file, "# FFM {}", serde_json::to_string(entry)?)?;
-        self.file.flush()
-    }
-}
-
 impl Input {
     /// Read only already queued live events. Replay keeps its recorded cadence.
     pub(crate) fn read_pending(&mut self) -> io::Result<Option<Event>> {
@@ -112,57 +64,6 @@ impl Input {
             return Ok(None);
         }
         read_live(recorder).map(Some)
-    }
-
-    pub(crate) fn from_args(args: &[std::ffi::OsString], size: (u16, u16)) -> io::Result<Self> {
-        match args {
-            // Recording is opt-in. A session file holds every character that
-            // was typed or pasted, so a plain launch writes none — the same
-            // rule the diagnostics log already follows.
-            [] => Ok(Self::Live(None)),
-            [flag] if flag == "--no-record" => Ok(Self::Live(None)),
-            [flag] if flag == "--record" => Ok(Self::recording(default_path(), size)),
-            [flag, path] if flag == "--record" => {
-                Ok(Self::recording(Ok(PathBuf::from(path)), size))
-            }
-            [flag, path] if flag == "--replay" => {
-                Replay::load(Path::new(path), size).map(Self::Replay)
-            }
-            _ => Err(io::Error::other(
-                "Usage: ffm [--record [session.py] | --no-record | --replay events.jsonl]",
-            )),
-        }
-    }
-
-    /// Start recording, or say why not and carry on live. A recording is a
-    /// diagnostic, never the job: a directory owned by another user, or a full
-    /// disk, must not be what stops the file manager from starting.
-    #[expect(
-        clippy::print_stderr,
-        reason = "runs before the TUI takes the screen, so stderr is where the user reads it"
-    )]
-    fn recording(path: io::Result<PathBuf>, size: (u16, u16)) -> Self {
-        path.and_then(|path| Self::open_recorder(&path, size))
-            .unwrap_or_else(|error| {
-                eprintln!("ffm: recording disabled: {error}");
-                Self::Live(None)
-            })
-    }
-
-    #[expect(
-        clippy::print_stderr,
-        reason = "runs before the TUI takes the screen, so stderr is where the user reads it"
-    )]
-    fn open_recorder(path: &Path, size: (u16, u16)) -> io::Result<Self> {
-        let header = Header {
-            version: 1,
-            executable: std::env::current_exe()?,
-            directory: std::env::current_dir()?,
-            size,
-        };
-        let recorder = Recorder::create(path, &header)?;
-        eprintln!("Recording actions: {}", path.display());
-        Ok(Self::Live(Some(Rc::new(RefCell::new(recorder)))))
     }
 
     pub(crate) fn read(&mut self) -> io::Result<Option<Event>> {
@@ -201,33 +102,6 @@ fn read_live(recorder: &mut Option<Rc<RefCell<Recorder>>>) -> io::Result<Event> 
     let event = crate::terminal::decode_input(event::read()?);
     record_live(recorder, &event);
     Ok(event)
-}
-
-/// Append one event, or stop recording. A full disk or a revoked file ends the
-/// recording; it must never end the session the user is in the middle of.
-fn record_live(recorder: &mut Option<Rc<RefCell<Recorder>>>, event: &Event) {
-    let failure = recorder
-        .as_ref()
-        .and_then(|active| active.borrow_mut().record(event).err());
-    if let Some(error) = failure {
-        crate::diagnostics::log_error(&format!("recording stopped: {error}"));
-        // The TUI owns the screen, so this cannot be said now without drawing
-        // over it. It is said at exit instead: a recording that stops halfway
-        // and never mentions it is worse than one that was never started.
-        STOPPED.with(|slot| *slot.borrow_mut() = Some(error.to_string()));
-        *recorder = None;
-    }
-}
-
-thread_local! {
-    /// Why the recording stopped, for the exit to report once the terminal is
-    /// the user's again. See [`stopped_reason`].
-    static STOPPED: RefCell<Option<String>> = const { RefCell::new(None) };
-}
-
-/// Why a recording stopped mid-session, taken so it is reported once.
-pub fn stopped_reason() -> Option<String> {
-    STOPPED.with(|slot| slot.borrow_mut().take())
 }
 
 #[cfg(test)]

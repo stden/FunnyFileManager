@@ -20,6 +20,7 @@ use crate::mouse::DialogTarget;
 
 mod button_keys;
 mod menus;
+mod rows;
 mod tasks;
 #[cfg(test)]
 mod tests;
@@ -31,6 +32,7 @@ use button_keys::dialog_button_key_in_editor;
 #[cfg(all(test, feature = "keepass"))]
 use button_keys::kdbx_button_key;
 use menus::{click_choice_menu, click_in_menu, click_sort_menu};
+use rows::click_dialog_row;
 
 /// The pointer, while a dialog owns the screen.
 ///
@@ -137,68 +139,4 @@ fn click_special_dialog<B: Backend + Write>(
     }
 
     false
-}
-
-/// A click on a dialog's `index`-th body row.
-///
-/// Only the dialogs with controls in their body answer; elsewhere a row is a
-/// sentence or a caption, and clicking a sentence should do nothing rather
-/// than something the user cannot predict.
-///
-/// In both, a checkbox answers to the click that reached it and every other
-/// control takes the cursor and waits — which is what clicking a text field
-/// means everywhere else.
-fn click_dialog_row(app: &mut App, index: usize) {
-    use crate::models::{NameField, Overlay};
-
-    match &mut app.overlay {
-        Overlay::Editor(editor) if editor.encoding_choice.is_some() => {
-            if let Some(encoding) = crate::encoding::TextEncoding::ALL.get(index) {
-                editor.encoding_choice = Some(*encoding);
-            }
-        }
-        Overlay::CopyPrompt(prompt) => click_copy_row(prompt, index),
-        Overlay::LspEditor(editor) => click_lsp_form_row(editor, index),
-        Overlay::NamePrompt(prompt) => {
-            let Some(field) = prompt.field_at_row(index) else {
-                return;
-            };
-            prompt.focus(field);
-            if prompt.field() == NameField::Multiple {
-                prompt.toggle();
-            }
-        }
-        _ => {}
-    }
-}
-
-/// The Language servers form, like the copy dialog: a field takes the cursor
-/// and Enabled toggles as well. The list, the view and the exit question have
-/// no clickable rows, and neither has an existing server's dimmed language.
-fn click_lsp_form_row(editor: &mut crate::models::LspEditor, index: usize) {
-    use crate::models::lsp_editor::FormField;
-
-    let (Some(form), Some(field)) = (editor.form_mut(), FormField::at_row(index)) else {
-        return;
-    };
-    if !field.allows(form.target()) {
-        return;
-    }
-    form.focus_on(field);
-    if field == FormField::Enabled {
-        form.toggle_enabled();
-    }
-}
-
-fn click_copy_row(prompt: &mut crate::copy::CopyPrompt, index: usize) {
-    let Some(field) = crate::copy::field_at_row(index) else {
-        return;
-    };
-    if !prompt.allows(field) {
-        return;
-    }
-    prompt.field = field;
-    if field.is_checkbox() {
-        prompt.toggle();
-    }
 }

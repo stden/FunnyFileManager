@@ -1,5 +1,7 @@
 //! Replay geometry determines both drawing and mouse hit testing.
 use super::*;
+use crate::application::event::handle_event;
+use crate::application::loop_state::draw_frame;
 use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{layout::Rect, TerminalOptions, Viewport as TerminalViewport};
 

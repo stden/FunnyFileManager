@@ -34,6 +34,8 @@
 mod browse;
 pub(crate) mod cache;
 pub mod edit;
+mod error;
+mod lock;
 mod persist;
 pub mod secret;
 mod structure;
@@ -41,11 +43,11 @@ mod unlock;
 pub mod vault;
 
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
-
-use crate::keepass::KeepassError;
+use std::time::Duration;
 
 pub use edit::{EditField, EntryForm, FormMode};
+use error::unlock_error_message;
+pub use error::KdbxError;
 pub use secret::{MasterKey, Revealed};
 pub use unlock::UnlockPrompt;
 pub use vault::{Motion, Vault};
@@ -55,38 +57,6 @@ pub use vault::{Motion, Vault};
 /// Enforced by [`KdbxSession::tick`] from the event loop — never a background
 /// thread, which would race the renderer.
 pub const IDLE_LOCK: Duration = Duration::from_mins(5);
-
-/// Failures a caller of the unlocked API can hit.
-///
-/// Distinct from [`KeepassError`] so "the vault is locked" is not misreported as
-/// "entry not found". No variant carries the master password.
-#[derive(Debug)]
-pub enum KdbxError {
-    /// The vault is locked, so there is nothing to read.
-    Locked,
-    /// Nothing is under the cursor — usually a filter that matches no entry.
-    NoSelection,
-    NoEdit,
-    NothingToUndo,
-    ReadOnly,
-    /// The underlying `.kdbx` read failed.
-    Keepass(KeepassError),
-}
-
-impl std::fmt::Display for KdbxError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Locked => write!(f, "Vault is locked"),
-            Self::NoSelection => write!(f, "No entry selected"),
-            Self::NoEdit => write!(f, "No entry is being edited"),
-            Self::NothingToUndo => write!(f, "No KDBX change to undo"),
-            Self::ReadOnly => write!(f, "View mode: open the database with F4 to edit entries"),
-            Self::Keepass(error) => write!(f, "Cannot read entry: {error}"),
-        }
-    }
-}
-
-impl std::error::Error for KdbxError {}
 
 /// A `.kdbx` file being browsed, and how far the user has got with it.
 ///
@@ -159,75 +129,6 @@ impl KdbxSession {
             KdbxState::Unlocked(vault) => Some(vault),
             KdbxState::Locked(_) => None,
         }
-    }
-
-    /// Re-lock: overwrite every secret and return to an empty prompt.
-    ///
-    /// The key file is dropped along with the password. It is not itself a
-    /// secret, but re-picking it is the cheap half of re-authenticating and
-    /// keeping it would make the locked state a partial credential cache.
-    pub fn lock(&mut self) {
-        if let KdbxState::Unlocked(vault) = &mut self.state {
-            // Explicit, so the guarantee does not rest on `Drop` ordering
-            // between the vault's fields.
-            //
-            // Deliberately kept even though no test can observe it: once the
-            // state is replaced the vault is dropped and its buffers freed, so
-            // reading them back would be use-after-free. `Vault::zeroize` is
-            // covered directly instead (`tests_secrets.rs`). Do not delete this
-            // call on the grounds that "nothing fails without it".
-            vault.zeroize();
-        }
-        self.state = KdbxState::Locked(UnlockPrompt::default());
-    }
-
-    /// Lock the vault if it has been idle for [`IDLE_LOCK`]; returns whether
-    /// this call is what locked it (so the caller can show a status message
-    /// once, not on every tick).
-    ///
-    /// Call it from the event loop's tick. A background thread would be worse
-    /// than useless here: it would mutate the session while the UI is drawing.
-    pub fn tick(&mut self, now: Instant) -> bool {
-        let Some(vault) = self.vault() else {
-            return false;
-        };
-        // `duration_since` saturates at zero, so a clock that appears to go
-        // backwards postpones the lock rather than triggering it.
-        if now.duration_since(vault.last_activity()) < IDLE_LOCK {
-            return false;
-        }
-        self.lock();
-        true
-    }
-
-    /// Record user activity without changing anything else.
-    ///
-    /// Needed for the actions that cannot take `now` themselves — see
-    /// [`Self::copy_username`].
-    pub fn touch(&mut self, now: Instant) {
-        if let Some(vault) = self.vault_mut() {
-            vault.touch(now);
-        }
-    }
-}
-
-/// Turn an unlock failure into a message that is safe to display.
-///
-/// Mapped per variant rather than forwarded verbatim: `KeepassError::Open`
-/// wraps a third-party crate's text, and this string is shown in the UI and may
-/// be near logging code, so nothing derived from the credentials is allowed
-/// through. The wrong-password case is also merged with the corrupt-file case
-/// on purpose — the two are indistinguishable to a caller anyway.
-fn unlock_error_message(error: &KeepassError) -> String {
-    match error {
-        KeepassError::Io(io) if io.kind() == std::io::ErrorKind::NotFound => {
-            "File not found".to_owned()
-        }
-        KeepassError::Io(io) => format!("Cannot read file: {io}"),
-        KeepassError::Open(_) => "Wrong password or key file".to_owned(),
-        // Save / EntryNotFound / AlreadyExists / Serialize cannot arise from a
-        // read, but their Display text is fixed and secret-free.
-        other => other.to_string(),
     }
 }
 

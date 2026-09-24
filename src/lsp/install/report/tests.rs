@@ -1,8 +1,11 @@
 //! Purpose: Verify availability states and launch parameters without package installation or server execution.
 
 use super::*;
+use crate::config::{InstallRecipe, LspSettings, ServerSettings};
+use crate::lsp::install::storage;
 use crate::lsp::install::{fixtures::Packages, tests::simple_recipe};
 use std::sync::atomic::AtomicBool;
+use std::{fs, path::Path};
 use tempfile::TempDir;
 
 /// An absolute command is taken as it is: found when it is runnable, and
@@ -144,3 +147,5 @@ fn java_inventory_uses_the_current_runtime_and_canonical_workspace_without_execu
 
 #[path = "tests_availability.rs"]
 mod probed;
+#[path = "tests_wording.rs"]
+mod wording;

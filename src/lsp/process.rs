@@ -1,15 +1,20 @@
 //! Purpose: Own a language-server process tree and isolated reader/writer/stderr threads.
 
-use super::transport;
 use crate::config::ServerSettings;
 use serde_json::Value;
 use std::{
-    io::{self, BufReader, Read},
+    io,
     path::Path,
     process::{Child, Command, Stdio},
     sync::mpsc::{self, Receiver, SyncSender},
     thread::{self, JoinHandle},
 };
+
+mod group;
+mod threads;
+
+pub(super) use group::{configure, exited, terminate};
+use threads::{drain_stderr, reader, writer};
 
 pub(super) enum Signal {
     Message(Value),
@@ -138,100 +143,6 @@ impl Drop for Process {
             }
         }
         crate::diagnostics::log_action("LSP process and I/O tasks stopped");
-    }
-}
-
-fn reader(input: impl Read, events: &SyncSender<Signal>) {
-    let mut input = BufReader::new(input);
-    loop {
-        let event = match transport::read_frame(&mut input) {
-            Ok(Some(message)) => Signal::Message(message),
-            Ok(None) => Signal::Closed,
-            Err(_) => Signal::Failed,
-        };
-        let finished = !matches!(event, Signal::Message(_));
-        if events.send(event).is_err() || finished {
-            return;
-        }
-    }
-}
-
-fn writer(mut output: impl io::Write, messages: &Receiver<Value>, events: &SyncSender<Signal>) {
-    for message in messages {
-        if transport::write_frame(&mut output, &message).is_err() {
-            // The receiver may already be gone during normal shutdown.
-            drop(events.send(Signal::Failed));
-            return;
-        }
-    }
-}
-
-fn drain_stderr(mut stderr: impl Read) {
-    let mut buffer = [0; 1024];
-    loop {
-        match stderr.read(&mut buffer) {
-            Ok(0) => return,
-            Ok(bytes) => crate::diagnostics::log_error(&format!(
-                "LSP stderr received ({bytes} bytes; content redacted)"
-            )),
-            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
-            Err(_) => {
-                crate::diagnostics::log_error("LSP stderr read failed");
-                return;
-            }
-        }
-    }
-}
-
-#[cfg(windows)]
-pub(super) fn configure(command: &mut Command) {
-    use std::os::windows::process::CommandExt;
-    command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW: only the editor owns a terminal.
-}
-
-#[cfg(unix)]
-pub(super) fn configure(command: &mut Command) {
-    use std::os::unix::process::CommandExt;
-    command.process_group(0);
-}
-
-#[cfg(unix)]
-pub(super) fn exited(child: &mut Child) -> bool {
-    use rustix::process::{waitid, Pid, WaitId, WaitIdOptions};
-    // NOWAIT retains the leader's PID until terminate has killed its entire group.
-    waitid(
-        WaitId::Pid(Pid::from_child(child)),
-        WaitIdOptions::EXITED | WaitIdOptions::NOHANG | WaitIdOptions::NOWAIT,
-    )
-    .is_ok_and(|status| status.is_some())
-}
-
-#[cfg(windows)]
-pub(super) fn exited(child: &mut Child) -> bool {
-    child.try_wait().is_ok_and(|status| status.is_some())
-}
-
-#[cfg(unix)]
-pub(super) fn terminate(child: &mut Child) {
-    // The leader has not been reaped: its PID cannot belong to an unrelated group.
-    // A group that is already gone needs no signal, and `reap` kills the
-    // leader either way.
-    drop(crate::platform::kill_process_group(child));
-    reap(child);
-}
-
-#[cfg(windows)]
-pub(super) fn terminate(child: &mut Child) {
-    reap(child);
-}
-
-fn reap(child: &mut Child) {
-    if !child.try_wait().is_ok_and(|status| status.is_some()) {
-        // The job/group may have terminated the process between try_wait and kill.
-        drop(child.kill());
-    }
-    if child.wait().is_err() {
-        crate::diagnostics::log_error("LSP process reap failed");
     }
 }
 

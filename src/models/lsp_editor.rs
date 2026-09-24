@@ -5,43 +5,23 @@
 //! `popup`. Nothing here reads a file or the machine: availability arrives
 //! from `ops`, and the draft reaches the file only through a save there.
 
-use std::{collections::BTreeMap, path::PathBuf};
+use std::collections::BTreeMap;
 
-use crate::config::{patch::with_owned_fields, LanguageId, LspSettings, ServerSettings};
+use crate::config::{LanguageId, LspSettings};
 use crate::lsp::Availability;
 use crate::models::ExitChoice;
 use crate::scroll::ScrollTop;
 
+mod access;
 mod form;
+mod form_mode;
+mod paging;
 mod problems;
+mod selection;
+pub use access::{Access, ReadOnlyReason};
 pub use form::{Accepted, Direction, FormField, FormTarget, ListFocus, ServerForm, Suggestions};
+pub use paging::{Drawn, Step};
 pub use problems::{problems, Impact, Problem};
-
-/// Whether the dialog may write the settings file, and which one.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Access {
-    Writable { path: PathBuf },
-    ReadOnly(ReadOnlyReason),
-}
-
-/// Why the dialog only shows the servers.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ReadOnlyReason {
-    /// A session without a home keeps its settings in memory.
-    NoSettingsFile,
-    /// The file at `path` cannot be read, or does not parse; `reason` says
-    /// why, naming the file.
-    Document { path: PathBuf, reason: String },
-}
-
-impl std::fmt::Display for ReadOnlyReason {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::NoSettingsFile => f.write_str("no settings file for this session"),
-            Self::Document { reason, .. } => f.write_str(reason),
-        }
-    }
-}
 
 /// What the dialog shows and what its keys do.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -67,59 +47,6 @@ pub enum Notice {
 pub enum Origin {
     Catalog,
     Added,
-}
-
-/// A move of the list selection or the view.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Step {
-    Up,
-    Down,
-    PageUp,
-    PageDown,
-    First,
-    Last,
-}
-
-/// What the last frame drew, which paging needs. Recorded by the renderer,
-/// like the dialog mouse; a frame draws the list screen or the F3 view.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Drawn {
-    /// The list screen, its server list `page` rows tall.
-    List { page: usize },
-    /// The F3 view: `lines` in all, `page` of them on screen.
-    View { lines: usize, page: usize },
-}
-
-impl Default for Drawn {
-    fn default() -> Self {
-        Self::List { page: 1 }
-    }
-}
-
-impl Drawn {
-    /// How far a list page moves the selection: at least one row.
-    fn list_page(self) -> usize {
-        match self {
-            Self::List { page } => page.max(1),
-            Self::View { .. } => 1,
-        }
-    }
-
-    /// How far a view page scrolls: at least one line.
-    fn view_page(self) -> usize {
-        match self {
-            Self::View { page, .. } => page.max(1),
-            Self::List { .. } => 1,
-        }
-    }
-
-    /// The last line the view can start at, with its last line at the bottom.
-    fn last_view_top(self) -> usize {
-        match self {
-            Self::View { lines, page } => lines.saturating_sub(page),
-            Self::List { .. } => 0,
-        }
-    }
 }
 
 /// The Language servers dialog.
@@ -248,186 +175,6 @@ impl LspEditor {
     #[must_use]
     pub fn problems(&self) -> Vec<(Problem, Impact)> {
         problems(&self.draft, &self.baseline)
-    }
-
-    #[must_use]
-    pub const fn selected(&self) -> Option<&LanguageId> {
-        self.selected.as_ref()
-    }
-
-    /// The selected row's position in the list.
-    #[must_use]
-    pub fn selected_index(&self) -> Option<usize> {
-        let selected = self.selected.as_ref()?;
-        self.draft.0.keys().position(|key| key == selected.as_str())
-    }
-
-    /// The selected server and its language.
-    #[must_use]
-    pub fn selected_server(&self) -> Option<(&LanguageId, &ServerSettings)> {
-        let selected = self.selected.as_ref()?;
-        self.draft
-            .0
-            .get(selected.as_str())
-            .map(|server| (selected, server))
-    }
-
-    pub fn select(&mut self, language: &LanguageId) {
-        if self.draft.0.contains_key(language.as_str()) {
-            self.selected = Some(language.clone());
-        }
-    }
-
-    /// Move the selection, clamped to the list.
-    pub fn move_selection(&mut self, step: Step) {
-        let last = self.draft.0.len().saturating_sub(1);
-        let Some(current) = self.selected_index() else {
-            return;
-        };
-        let page = self.drawn.list_page();
-        let next = match step {
-            Step::Up => current.saturating_sub(1),
-            Step::Down => current.saturating_add(1).min(last),
-            Step::PageUp => current.saturating_sub(page),
-            Step::PageDown => current.saturating_add(page).min(last),
-            Step::First => 0,
-            Step::Last => last,
-        };
-        self.select_index(next);
-    }
-
-    /// Select the row at `index`, clamped to the table; nothing when empty.
-    fn select_index(&mut self, index: usize) {
-        let last = self.draft.0.len().saturating_sub(1);
-        self.selected = self
-            .draft
-            .0
-            .keys()
-            .nth(index.min(last))
-            .map(|key| LanguageId::from_key(key));
-    }
-
-    /// Keep the selected language when it is still in the table, otherwise
-    /// select the row now at its old position.
-    fn reselect(&mut self, old_index: Option<usize>) {
-        let still_there = self
-            .selected
-            .as_ref()
-            .is_some_and(|language| self.draft.0.contains_key(language.as_str()));
-        if !still_there {
-            self.select_index(old_index.unwrap_or(0));
-        }
-    }
-
-    /// Space: flip the selected server on or off, in the draft.
-    pub fn toggle_selected(&mut self) -> Option<LanguageId> {
-        let language = self.selected.clone()?;
-        let server = self.draft.0.get_mut(language.as_str())?;
-        server.enabled = server.enabled.toggled();
-        Some(language)
-    }
-
-    /// Del: put a catalog server's four owned fields back to the catalog, or
-    /// remove an added server, as its [`Origin`] says. Only the draft changes.
-    pub fn delete_selected(&mut self) -> Option<(LanguageId, Origin)> {
-        let language = self.selected.clone()?;
-        let old_index = self.selected_index();
-        let origin = Self::origin(&language);
-        if let Some(catalog) = LspSettings::catalog().0.get(language.as_str()) {
-            let server = self.draft.0.get_mut(language.as_str())?;
-            *server = with_owned_fields(server.clone(), catalog);
-        } else {
-            self.draft.0.remove(language.as_str());
-            self.availability.remove(&language);
-            self.reselect(old_index);
-        }
-        Some((language, origin))
-    }
-
-    /// After a save: what the file now holds is both the baseline and the
-    /// draft, and the selection stays on its language when it is still there.
-    pub(crate) fn saved(&mut self, settings: LspSettings) {
-        let old_index = self.selected_index();
-        self.baseline = settings.clone();
-        self.draft = settings;
-        self.reselect(old_index);
-    }
-
-    /// Open the form on `target`, or say why it cannot open.
-    pub fn open_form(&mut self, target: &FormTarget) -> Result<(), Notice> {
-        let form = match target {
-            FormTarget::New => ServerForm::new_server(),
-            FormTarget::Existing(language) => {
-                let server = self
-                    .draft
-                    .0
-                    .get(language.as_str())
-                    .ok_or_else(|| Notice::Error(format!("{language} is not in the list")))?;
-                ServerForm::for_server(language, server).map_err(|field| {
-                    Notice::Error(
-                        Problem::ControlCharacter {
-                            language: language.clone(),
-                            field,
-                        }
-                        .to_string(),
-                    )
-                })?
-            }
-        };
-        self.mode = Mode::Form(Box::new(form));
-        Ok(())
-    }
-
-    /// OK: the form's values into the draft, and back to the list on that
-    /// server. A value that does not parse keeps the form open on its field
-    /// and changes nothing.
-    pub fn accept_form(&mut self) -> Option<LanguageId> {
-        let draft = &self.draft;
-        let Mode::Form(form) = &mut self.mode else {
-            return None;
-        };
-        let accepted = match form.parse(|language| draft.0.contains_key(language.as_str())) {
-            Ok(accepted) => accepted,
-            Err((field, error)) => {
-                form.refuse(field, error);
-                return None;
-            }
-        };
-        let language = accepted.language().clone();
-        let server = match (accepted.target(), self.draft.0.get(language.as_str())) {
-            (FormTarget::Existing(_), Some(server)) => accepted.applied_to(server.clone()),
-            _ => accepted.new_server(),
-        };
-        self.draft.0.insert(language.as_str().to_owned(), server);
-        self.selected = Some(language.clone());
-        self.mode = Mode::Browse;
-        Some(language)
-    }
-
-    /// Record what the frame just drew, and keep the view in range.
-    pub fn record_drawn(&mut self, drawn: Drawn) {
-        self.drawn = drawn;
-        let last = drawn.last_view_top();
-        if let Mode::View(top) = &mut self.mode {
-            *top = ScrollTop::TOP.down(top.lines(), last);
-        }
-    }
-
-    /// Scroll the F3 view within what the last frame drew.
-    pub fn scroll_view(&mut self, step: Step) {
-        let last = self.drawn.last_view_top();
-        let page = self.drawn.view_page();
-        let Mode::View(top) = &mut self.mode else {
-            return;
-        };
-        *top = match step {
-            Step::Up => top.up(1),
-            Step::Down => top.down(1, last),
-            Step::PageUp => top.up(page),
-            Step::PageDown => top.down(page, last),
-            Step::First => ScrollTop::TOP,
-            Step::Last => ScrollTop::TOP.down(last, last),
-        };
     }
 }
 

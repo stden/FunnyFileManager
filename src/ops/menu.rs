@@ -2,19 +2,20 @@
 
 use std::io;
 
-use crate::{
-    lineedit::LineEditor,
-    menu::MenuCommand,
-    models::{App, ChoiceTarget, MenuChoice, MenuDialog, Overlay},
-    status::Status,
-};
+use crate::{menu::MenuCommand, models::App, status::Status};
 
+mod compare;
+mod dialogs;
 mod files;
 pub mod process;
 mod search;
 pub mod settings;
 pub mod user;
 mod workflows;
+
+pub use dialogs::choose;
+// The children open their lists and prompts as `super::choices` / `super::prompt`.
+use dialogs::{choices, history, prompt, shortcuts};
 
 /// Run the row under the cursor of `menu`, as Enter, its letter or a click
 /// does.
@@ -82,7 +83,7 @@ fn execute_result(app: &mut App, command: MenuCommand) -> io::Result<()> {
         MenuCommand::Sort => super::sortmenu::open(app),
         MenuCommand::FindFile | MenuCommand::FindFolder => open_search(app, command),
         MenuCommand::Tree => super::tree::toggle(app),
-        MenuCommand::Compare => search::compare(app),
+        MenuCommand::Compare => compare::compare(app),
         MenuCommand::Link => crate::ops::link::open(app),
         MenuCommand::Wipe => crate::ops::wipe::open(app),
         MenuCommand::Describe => crate::ops::describe::open(app),
@@ -134,28 +135,6 @@ fn execute_tools(app: &mut App, command: MenuCommand) -> io::Result<()> {
     }
 }
 
-pub fn choose(app: &mut App, target: ChoiceTarget) -> io::Result<()> {
-    app.close_overlay();
-    match target {
-        ChoiceTarget::Directory(path) => app.get_active_panel().navigate_to(path)?,
-        ChoiceTarget::File(path) => {
-            crate::ops::view_path(app, path)?;
-        }
-        ChoiceTarget::Command(text) => {
-            let line = crate::models::CommandLine {
-                line: LineEditor::new(&text),
-                ..Default::default()
-            };
-            app.set_overlay(Overlay::CommandLine(line));
-        }
-        ChoiceTarget::Menu(command) => execute(app, command),
-        ChoiceTarget::Screen(view) => app.view = view,
-        ChoiceTarget::Close => {}
-        ChoiceTarget::UpdatePackages(plan) => app.package_update = Some(plan),
-    }
-    Ok(())
-}
-
 /// Alt+F7: the dialog has a mask and a containing-text field. The menu prompt
 /// has only the mask and calls [`submit`].
 pub fn find_files(app: &mut App, mask: &str, containing: &str) {
@@ -179,51 +158,8 @@ pub fn submit(app: &mut App, command: MenuCommand, text: &str) -> io::Result<()>
     }
 }
 
-fn prompt(app: &mut App, command: MenuCommand, title: &str, caption: &str, value: &str) {
-    app.set_overlay(Overlay::MenuDialog(Box::new(MenuDialog::Prompt {
-        command,
-        title: title.to_owned(),
-        caption: caption.to_owned(),
-        input: LineEditor::new(value),
-    })));
-}
-
-fn history(app: &mut App) {
-    let rows = (0..app.settings.number(crate::menu::SettingsPage::CommandLine))
-        .map_while(|offset| app.history.recall(crate::history::RingIndex::new(offset)))
-        .map(|text| MenuChoice {
-            label: text.to_owned(),
-            target: ChoiceTarget::Command(text.to_owned()),
-        })
-        .collect();
-    choices(app, "Command history", rows);
-}
-
-fn shortcuts(app: &mut App) {
-    let rows = app
-        .bookmarks
-        .slots()
-        .iter()
-        .enumerate()
-        .filter_map(|(slot, path)| {
-            path.as_ref().map(|path| MenuChoice {
-                label: format!("{slot}: {}", path.display()),
-                target: ChoiceTarget::Directory(path.clone()),
-            })
-        })
-        .collect();
-    choices(app, "Folder shortcuts — use :bookmark set N to add", rows);
-}
-
-fn choices(app: &mut App, title: &str, rows: Vec<MenuChoice>) {
-    app.set_overlay(Overlay::MenuDialog(Box::new(MenuDialog::Choices {
-        title: title.to_owned(),
-        rows,
-        selected: 0,
-    })));
-}
-
 #[cfg(test)]
 mod tests;
+
 #[cfg(test)]
 mod tests_netbox;

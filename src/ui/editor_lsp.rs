@@ -1,14 +1,15 @@
 //! Purpose: Render language-server popups, diagnostic ranges, and compact editor feedback.
 
-use super::{screen_u16, Cells, EditorLine};
-use crate::lsp::{features::Diagnostic, positions};
-use crate::models::{lsp::Dialog, CharColumn, Editor, ServerState};
+mod underline;
+
+use crate::models::{lsp::Dialog, Editor, ServerState};
 use ratatui::{
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Color, Style},
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
     Frame,
 };
+pub(super) use underline::diagnostics;
 
 pub(super) fn status(editor: &Editor) -> String {
     if editor.lsp.state == ServerState::Stopped {
@@ -168,96 +169,9 @@ const fn marker(index: usize, selected: usize) -> &'static str {
     }
 }
 
-pub(super) fn diagnostics(
-    frame: &mut Frame<'_>,
-    editor: &Editor,
-    area: Rect,
-    top: usize,
-    skip: Cells,
-) {
-    for diagnostic in &editor.lsp.diagnostics {
-        for (row, line) in editor
-            .lines
-            .iter()
-            .enumerate()
-            .skip(top)
-            .take(usize::from(area.height))
-        {
-            let line = EditorLine {
-                text: line,
-                tab: editor.tab_size,
-            };
-            if let Some(columns) = diagnostic_columns(diagnostic, row, line, skip, area.width) {
-                paint(
-                    frame,
-                    area.x,
-                    area.y.saturating_add(screen_u16(row - top)),
-                    columns,
-                    diagnostic.severity,
-                );
-            }
-        }
-    }
-}
-
-fn diagnostic_columns(
-    diagnostic: &Diagnostic,
-    row: usize,
-    line: EditorLine<'_>,
-    skip: Cells,
-    width: u16,
-) -> Option<std::ops::Range<usize>> {
-    let range = diagnostic.range;
-    let start_line = usize::try_from(range.start.line).ok()?;
-    let end_line = usize::try_from(range.end.line).ok()?;
-    if range.start > range.end || row < start_line || row > end_line {
-        return None;
-    }
-    let first = if row == start_line {
-        positions::to_chars(line.text, range.start.character)?
-    } else {
-        0
-    };
-    let last = if row == end_line {
-        positions::to_chars(line.text, range.end.character)?
-    } else {
-        line.text.chars().count()
-    };
-    let dropped = line.dropped(skip);
-    let start = line.cells_before(CharColumn::new(first));
-    let end = line
-        .cells_before(CharColumn::new(last))
-        .max(start + Cells::new(1));
-    if end <= dropped {
-        return None;
-    }
-    Some(
-        start.saturating_sub(dropped).get()
-            ..end.saturating_sub(dropped).get().min(usize::from(width)),
-    )
-}
-
-fn paint(
-    frame: &mut Frame<'_>,
-    x: u16,
-    y: u16,
-    columns: std::ops::Range<usize>,
-    severity: Option<u32>,
-) {
-    let color = match severity {
-        Some(1) => Color::LightRed,
-        Some(2) => Color::Yellow,
-        _ => Color::Cyan,
-    };
-    let style = Style::default()
-        .fg(color)
-        .add_modifier(Modifier::UNDERLINED);
-    for column in columns {
-        frame.buffer_mut()[(x.saturating_add(screen_u16(column)), y)].set_style(style);
-    }
-}
-
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_capture;
+#[cfg(test)]
+mod tests_diagnostics;

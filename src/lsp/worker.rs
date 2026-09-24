@@ -23,6 +23,7 @@ const INITIALIZE_TIMEOUT: Duration = Duration::from_secs(30);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_millis(750);
 
 mod lifecycle;
+mod shutdown;
 
 struct Connection {
     owner: DocumentId,
@@ -125,48 +126,6 @@ impl Connection {
             self.process.send(message)
         })
     }
-
-    fn shutdown(&mut self) {
-        if !self.client.is_ready() {
-            return;
-        }
-        self.client.shutdown();
-        if self.flush().is_err() {
-            return;
-        }
-        let deadline = Instant::now() + SHUTDOWN_TIMEOUT;
-        while Instant::now() < deadline && !self.client.shutdown_complete {
-            if self
-                .flush()
-                .and_then(|()| self.shutdown_response())
-                .is_err()
-            {
-                return;
-            }
-        }
-        self.client.rpc.notify("exit", serde_json::Value::Null);
-        if self.flush().is_err() {
-            return;
-        }
-        let deadline = Instant::now() + SHUTDOWN_TIMEOUT;
-        while Instant::now() < deadline && !self.process.exited() {
-            if self.flush().is_err() {
-                return;
-            }
-            thread::sleep(TICK);
-        }
-    }
-
-    fn shutdown_response(&mut self) -> Result<(), &'static str> {
-        match self.process.poll() {
-            Some(Signal::Message(message)) => self.client.receive(message)?,
-            Some(Signal::Closed | Signal::Failed) => {
-                return Err("LSP disconnected during shutdown")
-            }
-            None => thread::sleep(TICK),
-        }
-        Ok(())
-    }
 }
 
 fn flush_messages(
@@ -193,12 +152,6 @@ fn flush_messages(
 
 #[cfg(test)]
 mod tests;
-
-impl Drop for Connection {
-    fn drop(&mut self) {
-        self.shutdown();
-    }
-}
 
 fn report(events: &SyncSender<Envelope>, owner: DocumentId, event: Event) {
     // The UI receiver is intentionally dropped before the worker is joined.

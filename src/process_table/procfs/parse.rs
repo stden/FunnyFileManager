@@ -13,17 +13,16 @@
 //! and `split_ascii_whitespace`, reach fields with `get`, and do checked or
 //! saturating arithmetic only.
 
+mod stat;
 mod system;
 
 use std::num::NonZeroU64;
 use std::str::FromStr;
 use std::time::Duration;
 
-use crate::models::{
-    KernelPriority, MemoryBytes, MemoryUsage, Niceness, Pid, Priority, ProcessKind, ProcessState,
-    StartTime,
-};
+use crate::models::{MemoryBytes, MemoryUsage, Pid};
 
+pub(super) use stat::{stat, Stat};
 pub(super) use system::{cpu_times, load_average, memory_info, uptime};
 
 /// Clock ticks per second (`USER_HZ`), the unit of every CPU time in `/proc`.
@@ -63,109 +62,6 @@ impl PageSize {
     /// `pages` in bytes, or `None` when that does not fit.
     fn bytes(self, pages: u64) -> Option<MemoryBytes> {
         MemoryBytes::from_pages(pages, self.0.get())
-    }
-}
-
-/// `PF_KTHREAD`, the `stat` flag of a kernel thread (`include/linux/sched.h`).
-const PF_KTHREAD: u64 = 0x0020_0000;
-
-/// What one `stat` line says about a process.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct Stat {
-    /// The kernel's short name (`comm`), untrusted text.
-    pub(super) name: String,
-    pub(super) state: ProcessState,
-    pub(super) parent: Option<Pid>,
-    pub(super) kind: ProcessKind,
-    /// User plus system time.
-    pub(super) cpu_time: Duration,
-    pub(super) priority: Priority,
-    pub(super) threads: u32,
-    /// Field 22, as the identity stamp.
-    pub(super) start: StartTime,
-    /// Field 22, as the time after boot the process started.
-    pub(super) started: Duration,
-}
-
-/// The fields of a `stat` line after the name, numbered as proc(5) numbers
-/// them: field `k` is the `k - 3`-th token after the closing parenthesis.
-struct StatFields<'a>(Vec<&'a str>);
-
-impl StatFields<'_> {
-    /// Tokens a line must have: through field 23, `vsize`.
-    const REQUIRED: usize = 21;
-    /// The number of the first field after the name, the state.
-    const FIRST: usize = 3;
-
-    fn text(&self, field: usize) -> Option<&str> {
-        self.0.get(field.checked_sub(Self::FIRST)?).copied()
-    }
-
-    fn unsigned<T: FromStr>(&self, field: usize) -> Option<T> {
-        unsigned(self.text(field)?)
-    }
-
-    fn signed<T: FromStr>(&self, field: usize) -> Option<T> {
-        self.text(field)?.parse().ok()
-    }
-}
-
-/// The `stat` line of the process in directory `expected`, or `None` when it
-/// is cut short, malformed, or about another process.
-///
-/// The name may hold spaces and parentheses (`((sd-pam))`, `next-server (v1`),
-/// so the line is split at the *last* closing parenthesis.
-pub(super) fn stat(text: &str, expected: Pid, ticks: ClockTicks) -> Option<Stat> {
-    let (head, tail) = text.rsplit_once(')')?;
-    let (pid, name) = head.split_once(" (")?;
-    if Pid::new(unsigned(pid)?)? != expected {
-        return None;
-    }
-    let fields = StatFields(tail.split_ascii_whitespace().collect());
-    if fields.0.len() < StatFields::REQUIRED {
-        return None;
-    }
-    let (utime, stime): (u64, u64) = (fields.unsigned(14)?, fields.unsigned(15)?);
-    let start_ticks: u64 = fields.unsigned(22)?;
-    let parent = match fields.unsigned(4)? {
-        0 => None,
-        raw => Some(Pid::new(raw)?),
-    };
-    Some(Stat {
-        name: name.to_owned(),
-        state: state(fields.text(3)?)?,
-        parent,
-        kind: kind(fields.unsigned(9)?),
-        cpu_time: ticks.duration(utime.saturating_add(stime)),
-        priority: priority(&fields)?,
-        threads: fields.unsigned(20)?,
-        start: StartTime::new(start_ticks),
-        started: ticks.duration(start_ticks),
-    })
-}
-
-/// The kernel's priority and the nice value; a nice value outside
-/// -20..=19 makes the line malformed.
-fn priority(fields: &StatFields<'_>) -> Option<Priority> {
-    Some(Priority::Unix {
-        kernel: KernelPriority::new(fields.signed(18)?),
-        nice: Niceness::try_from(fields.signed::<i32>(19)?).ok()?,
-    })
-}
-
-/// The state field: exactly one byte.
-fn state(field: &str) -> Option<ProcessState> {
-    match field.as_bytes() {
-        [letter] => Some(ProcessState::from_letter(*letter)),
-        _ => None,
-    }
-}
-
-const fn kind(flags: u64) -> ProcessKind {
-    if flags & PF_KTHREAD == 0 {
-        ProcessKind::User
-    } else {
-        ProcessKind::KernelThread
     }
 }
 

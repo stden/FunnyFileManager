@@ -25,8 +25,9 @@ import subprocess
 import sys
 import tempfile
 import textwrap
-from typing import NamedTuple
 import unittest
+
+from fake_command import FAKE, Call
 
 
 REPO = Path(__file__).resolve().parents[2]
@@ -46,28 +47,6 @@ GUARDED = (
     # Version control and the network.
     "git", "gh", "curl", "wget", "ssh", "scp",
 )
-
-FAKE = """\
-#!{python}
-import json, os, sys
-args = sys.argv[1:]
-call = {{"name": {name!r}, "args": args, "cwd": os.getcwd(), "env": dict(os.environ)}}
-with open({log!r}, "a", encoding="utf-8") as log:
-    log.write(json.dumps(call) + "\\n")
-{effect}
-sys.stdout.write({stdout!r})
-sys.stderr.write({stderr!r})
-sys.exit({status!r})
-"""
-
-
-class Call(NamedTuple):
-    """One recorded run of a fake command."""
-
-    name: str
-    args: list[str]
-    cwd: str
-    env: dict[str, str]
 
 
 class Sandbox:

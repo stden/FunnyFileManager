@@ -13,6 +13,9 @@ use crate::models::{App, LinkType, NamePrompt, Overlay, Panel};
 use crate::popup::process_popup_input;
 use crate::test_support::key_event;
 
+mod links;
+mod name_lists;
+
 /// An app with both panels on a temporary directory holding `entries`.
 fn app_over(names: &[&str]) -> (App, TempDir) {
     let dir = TempDir::new().expect("test setup");
@@ -77,90 +80,6 @@ fn the_cursor_finds_the_new_folder_wherever_the_sort_puts_it() {
     }
 }
 
-#[cfg(unix)]
-#[test]
-fn a_symbolic_link_is_made_when_the_drop_down_says_so() {
-    let (mut app, dir) = app_over(&["target"]);
-    app.set_overlay(Overlay::NamePrompt(NamePrompt::make_folder()));
-    type_name(&mut app, "shortcut");
-    // Down to the drop-down, Right to choose the link, Down to the target.
-    press(&mut app, &[KeyCode::Down, KeyCode::Right, KeyCode::Down]);
-    type_name(&mut app, "target");
-    press(&mut app, &[KeyCode::Enter]);
-
-    let link = dir.path().join("shortcut");
-    assert_eq!(
-        fs::read_link(&link).expect("a link"),
-        std::path::Path::new("target"),
-        "the link points where the Target field said"
-    );
-    assert_eq!(cursor_on(&mut app), "shortcut");
-}
-
-/// The Target field is greyed until a link is chosen, so Down from the
-/// drop-down must skip it rather than parking the cursor on dead text.
-#[test]
-fn the_cursor_skips_the_target_field_while_it_is_greyed() {
-    use crate::models::NameField;
-
-    let (mut app, _dir) = app_over(&[]);
-    app.set_overlay(Overlay::NamePrompt(NamePrompt::make_folder()));
-    press(&mut app, &[KeyCode::Down, KeyCode::Down]);
-    let Overlay::NamePrompt(prompt) = &app.overlay else {
-        panic!("the dialog is open");
-    };
-    assert_eq!(prompt.link(), LinkType::None);
-    assert_eq!(prompt.field(), NameField::Multiple, "Target was skipped");
-}
-
-/// Far's "Process multiple names": the field becomes a list, and one dialog
-/// makes every folder in it.
-#[test]
-fn the_checkbox_turns_the_name_field_into_a_list() {
-    let (mut app, dir) = app_over(&[]);
-    app.set_overlay(Overlay::NamePrompt(NamePrompt::make_folder()));
-    type_name(&mut app, "one;two;three");
-    // Down twice to the checkbox — the Target field is greyed — then space.
-    press(
-        &mut app,
-        &[
-            KeyCode::Down,
-            KeyCode::Down,
-            KeyCode::Char(' '),
-            KeyCode::Enter,
-        ],
-    );
-
-    for name in ["one", "two", "three"] {
-        assert!(dir.path().join(name).is_dir(), "{name} should exist");
-    }
-    assert_eq!(cursor_on(&mut app), "one", "the first of the list");
-}
-
-/// Without the checkbox a semicolon is an ordinary character in a name, which
-/// is what makes the checkbox worth having.
-#[test]
-fn a_semicolon_is_part_of_the_name_until_the_checkbox_is_ticked() {
-    let (mut app, dir) = app_over(&[]);
-    app.set_overlay(Overlay::NamePrompt(NamePrompt::make_folder()));
-    type_name(&mut app, "one;two");
-    press(&mut app, &[KeyCode::Enter]);
-
-    assert!(dir.path().join("one;two").is_dir());
-    assert!(!dir.path().join("one").exists());
-}
-
-/// The space bar types a space in the name field. It would be a poor trade to
-/// gain a checkbox and lose the ability to name a folder "my notes".
-#[test]
-fn the_space_bar_is_still_a_space_in_the_name_field() {
-    let (mut app, dir) = app_over(&[]);
-    app.set_overlay(Overlay::NamePrompt(NamePrompt::make_folder()));
-    type_name(&mut app, "my notes");
-    press(&mut app, &[KeyCode::Enter]);
-    assert!(dir.path().join("my notes").is_dir());
-}
-
 #[test]
 fn a_name_already_taken_is_refused_rather_than_overwritten() {
     let (mut app, dir) = app_over(&["taken"]);
@@ -174,28 +93,6 @@ fn a_name_already_taken_is_refused_rather_than_overwritten() {
         "the status should say why nothing happened, got {}",
         app.status
     );
-}
-
-/// The first failure stops the run: carrying on would leave the user reading
-/// about the last name while an earlier one silently did not appear.
-#[test]
-fn a_list_stops_at_the_first_name_it_cannot_make() {
-    let (mut app, dir) = app_over(&["blocked"]);
-    app.set_overlay(Overlay::NamePrompt(NamePrompt::make_folder()));
-    type_name(&mut app, "made;blocked;never");
-    press(
-        &mut app,
-        &[
-            KeyCode::Down,
-            KeyCode::Down,
-            KeyCode::Char(' '),
-            KeyCode::Enter,
-        ],
-    );
-
-    assert!(dir.path().join("made").is_dir());
-    assert!(!dir.path().join("never").exists(), "the run stopped");
-    assert!(app.status.to_string().contains("already exists"));
 }
 
 /// Enter on Cancel cancels, wherever else it would mean go.

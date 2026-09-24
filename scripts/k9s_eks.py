@@ -52,24 +52,21 @@ in its `aws | tr` pipeline, so it succeeded even then.
 import argparse
 import os
 from pathlib import Path
-import re
 import signal
 import subprocess
 import sys
-from typing import NoReturn
 
-# shell_path.py, beside this file, finds programs as bash does. Explicitly
-# first on sys.path: `python3 -P` or PYTHONSAFEPATH=1 leave this file's
-# directory out, and no other `shell_path` module may stand in.
+# shell_path.py, beside this file, finds programs as bash does, k9s_eks_shell.py
+# runs them and k9s_eks_aws.py asks aws. Explicitly first on sys.path:
+# `python3 -P` or PYTHONSAFEPATH=1 leave this file's directory out, and no
+# other module of those names may stand in.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import shell_path  # noqa: E402
+from k9s_eks_aws import add_context, list_clusters  # noqa: E402
+from k9s_eks_shell import (  # noqa: E402
+    KILLED_BY_SIGPIPE, USAGE_ERROR, fail, require, run, run_tool, shell_status, write_stdout,
+)
 
 
-MESSAGE_PREFIX = "k9s-eks: "
-MISSING_COMMAND = 127
-USAGE_ERROR = 2
-NO_CONTEXT = 1
-REGION_REQUIRED = "region required (pass as arg or set AWS_REGION/AWS_DEFAULT_REGION/EKS_REGION)"
 REGION_VARIABLES = ("EKS_REGION", "AWS_REGION", "AWS_DEFAULT_REGION")
 PROFILE_VARIABLES = ("EKS_PROFILE", "AWS_PROFILE")
 # Each subcommand's positional arguments, in order. Only the cluster is required.
@@ -79,50 +76,6 @@ SUBCOMMANDS = {
     "open": ("cluster", "region", "profile", "alias"),
     "select": ("region", "profile"),
 }
-# How an AWS CLI without `update-kubeconfig --alias` rejects the option.
-ALIAS_REJECTED = re.compile(
-    rb"(Unknown options|unknown option|unrecognized arguments).*--alias", re.DOTALL
-)
-# The context update-kubeconfig reports, as in "Updated context arn:... in ...".
-CONTEXT_REPORT = re.compile(rb".*context ([^ ]+)")
-# The shell names the signal that killed a foreground command, except these.
-UNREPORTED_SIGNALS = (signal.SIGINT, signal.SIGPIPE)
-# `ls` ends like the old `aws | tr` did when its reader stopped early.
-KILLED_BY_SIGPIPE = 128 + signal.SIGPIPE
-
-
-def complain(message):
-    """Print `message` on stderr, after the script's prefix."""
-    print(MESSAGE_PREFIX + message, file=sys.stderr)
-
-
-def fail(message: str, status: int) -> NoReturn:
-    """Print `message` on stderr and end the script with `status`."""
-    complain(message)
-    raise SystemExit(status)
-
-
-def has_command(command):
-    """True if `command` is on PATH; otherwise say that it is missing."""
-    if shell_path.find(command):
-        return True
-    complain(f"missing required command: {command}")
-    return False
-
-
-def run(command, **options):
-    """subprocess.run for aws, kubectl, k9s or fzf, found on PATH as bash finds them."""
-    return subprocess.run(command, executable=shell_path.find(command[0]), check=False, **options)
-
-
-def require(command):
-    if not has_command(command):
-        raise SystemExit(MISSING_COMMAND)
-
-
-def require_region(region):
-    if not region:
-        fail(REGION_REQUIRED, USAGE_ERROR)
 
 
 def require_cluster(cluster, subcommand):
@@ -136,111 +89,10 @@ def first_set(names):
     return next((os.environ[name] for name in names if os.environ.get(name)), "")
 
 
-def shell_status(returncode):
-    """A child's exit status as the shell reports it: 128+N if signal N killed it."""
-    return 128 - returncode if returncode < 0 else returncode
-
-
-def run_tool(command):
-    """Run kubectl or k9s in the foreground; return its status as the shell would.
-
-    Like the shell, name the signal that killed it ("Killed", "Terminated").
-    """
-    returncode = run(command).returncode
-    if returncode < 0 and -returncode not in UNREPORTED_SIGNALS:
-        print(signal.strsignal(-returncode), file=sys.stderr)
-    return shell_status(returncode)
-
-
-def write_stdout(data):
-    """Write bytes to stdout; False if the reader has gone."""
-    try:
-        sys.stdout.buffer.write(data)
-        sys.stdout.buffer.flush()
-    except BrokenPipeError:
-        # Point stdout at /dev/null, so that Python's flush at exit stays quiet.
-        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
-        return False
-    return True
-
-
-def echo(output):
-    """Show aws's output on stderr, byte for byte, plus a newline."""
-    sys.stderr.buffer.write(output + b"\n")
-    sys.stderr.buffer.flush()
-
-
-def list_clusters(region, profile):
-    """Run `aws eks list-clusters`; return its status and the names, one per line.
-
-    Like the old `aws ... | tr`, what aws printed is kept even when it fails.
-    """
-    if not has_command("aws"):
-        return MISSING_COMMAND, b""
-    if not region:
-        complain(REGION_REQUIRED)
-        return USAGE_ERROR, b""
-    command = ["aws", "eks", "list-clusters", "--region", region,
-               "--output", "text", "--query", "clusters[]"]
-    if profile:
-        command += ["--profile", profile]
-    result = run(command, stdout=subprocess.PIPE)
-    return shell_status(result.returncode), result.stdout.replace(b"\t", b"\n")
-
-
-def run_aws(command):
-    """Run aws with stderr merged into stdout; return its status and output.
-
-    The output is bytes without trailing newlines, as the shell's $(...) kept it.
-    """
-    result = run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    return shell_status(result.returncode), result.stdout.rstrip(b"\n")
-
-
 def print_clusters(region, profile):
     """Print the region's clusters, one per line; return aws's status."""
     status, clusters = list_clusters(region, profile)
     return status if write_stdout(clusters) else KILLED_BY_SIGPIPE
-
-
-def add_context(cluster, region, profile, alias):
-    """Add the cluster to the kubeconfig and return the name of its context.
-
-    aws's output is echoed to stderr. Any failure ends the script.
-    """
-    require("aws")
-    require_region(region)
-    command = ["aws", "eks", "update-kubeconfig", "--name", cluster, "--region", region]
-    if profile:
-        command += ["--profile", profile]
-    if os.environ.get("KUBECONFIG"):
-        command += ["--kubeconfig", os.environ["KUBECONFIG"]]
-    alias = alias or f"{cluster}@{region}"
-    status, output = run_aws([*command, "--alias", alias])
-    if status and ALIAS_REJECTED.search(output):
-        return add_context_without_alias(command)
-    echo(output)
-    if status:
-        raise SystemExit(status)
-    # The shell passed the context on through $(...), which drops trailing newlines.
-    return alias.rstrip("\n")
-
-
-def add_context_without_alias(command):
-    """For an AWS CLI without --alias: return the context its output names."""
-    status, output = run_aws(command)
-    echo(output)
-    if status:
-        raise SystemExit(status)
-    # Lines end at "\n" only, as for sed: a "\r" or form feed is part of the name.
-    for line in output.split(b"\n"):
-        if report := CONTEXT_REPORT.match(line):
-            return os.fsdecode(report[1])
-    fail(
-        "unable to determine kube context from aws output; "
-        "pass an alias or use kubectl to select context",
-        NO_CONTEXT,
-    )
 
 
 def use_cluster(cluster, region, profile, alias):

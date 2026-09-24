@@ -5,6 +5,7 @@
 //! machine without Colorer installed is an ordinary machine, not a failure.
 
 use super::*;
+use crate::highlight::Token;
 
 /// `def:` regions are the common vocabulary every scheme inherits.
 #[test]

@@ -3,7 +3,14 @@
 use crate::models::{WslOperation, WslOutput};
 
 #[cfg(any(windows, test))]
+mod encoding;
+#[cfg(any(windows, test))]
+mod output;
+#[cfg(any(windows, test))]
 mod process;
+
+#[cfg(any(windows, test))]
+use output::{check_exit, decode_output};
 
 /// Executes WSL effects without coupling application operations to a host process.
 pub trait WslBackend: Send + Sync {
@@ -32,14 +39,6 @@ impl WslBackend for SystemWslBackend {
 // These are ordinary installed-package upgrades, not distribution-release upgrades.
 #[cfg(any(windows, test))]
 const PACKAGE_UPDATE_SCRIPT: &str = include_str!("wsl/package_update.sh");
-
-/// Two bytes of UTF-16 in one byte order, as one code unit.
-#[cfg(any(windows, test))]
-type Utf16Decoder = fn([u8; 2]) -> u16;
-
-/// The one message for output that is neither UTF-8 nor UTF-16.
-#[cfg(any(windows, test))]
-const INVALID_TEXT: &str = "WSL returned invalid text encoding";
 
 /// An operation that runs `wsl.exe`: every one but opening a root, which
 /// needs no command, so nothing downstream has an `Open` to rule out.
@@ -87,146 +86,6 @@ fn execute_with(
     };
     check_exit(command, &captured)?;
     decode_output(command, &captured)
-}
-
-#[cfg(any(windows, test))]
-fn decode_output(
-    command: WslCommand<'_>,
-    captured: &process::Captured,
-) -> Result<WslOutput, String> {
-    match command {
-        WslCommand::Refresh => decode_distributions(captured).map(WslOutput::Distributions),
-        WslCommand::Update => Ok(WslOutput::Updated(completed_message(
-            captured,
-            "WSL update completed.",
-        )?)),
-        WslCommand::UpdatePackages(name) => Ok(WslOutput::PackagesUpdated(completed_message(
-            captured,
-            &format!("Package update completed: {}.", name.as_str()),
-        )?)),
-    }
-}
-
-#[cfg(any(windows, test))]
-fn check_exit(command: WslCommand<'_>, captured: &process::Captured) -> Result<(), String> {
-    if let process::Exit::Failed(code) = captured.exit {
-        let details = output_message(captured)?;
-        let operation = match command {
-            WslCommand::Refresh => "WSL distribution refresh".to_owned(),
-            WslCommand::Update => "WSL update".to_owned(),
-            WslCommand::UpdatePackages(name) => format!("Package update for {}", name.as_str()),
-        };
-        let code = code.map_or_else(
-            || "unknown exit status".to_owned(),
-            |code| format!("exit code {code}"),
-        );
-        let summary = format!("{operation} failed ({code}).");
-        return Err(if details.is_empty() {
-            summary
-        } else {
-            format!("{summary}\n{details}")
-        });
-    }
-    Ok(())
-}
-
-#[cfg(any(windows, test))]
-fn decode_distributions(
-    captured: &process::Captured,
-) -> Result<Vec<crate::models::DistributionName>, String> {
-    use crate::models::DistributionName;
-    if captured.stdout.truncated {
-        return Err("WSL distribution list exceeded the output limit".to_owned());
-    }
-    let text = decode_text(&captured.stdout.bytes, false)?;
-    let mut distributions = Vec::new();
-    for name in text.lines().map(str::trim).filter(|line| !line.is_empty()) {
-        let distribution = DistributionName::new(name)
-            .ok_or_else(|| "WSL returned an invalid distribution name".to_owned())?;
-        if !distributions.contains(&distribution) {
-            distributions.push(distribution);
-        }
-    }
-    Ok(distributions)
-}
-
-#[cfg(any(windows, test))]
-fn completed_message(captured: &process::Captured, summary: &str) -> Result<String, String> {
-    let message = output_message(captured)?;
-    Ok(if message.is_empty() {
-        summary.to_owned()
-    } else {
-        format!("{summary}\n{message}")
-    })
-}
-
-#[cfg(any(windows, test))]
-fn output_message(captured: &process::Captured) -> Result<String, String> {
-    let mut messages = Vec::new();
-    for stream in [&captured.stderr, &captured.stdout] {
-        let text = decode_text(&stream.bytes, stream.truncated)?;
-        let text = text.trim();
-        if !text.is_empty() {
-            messages.push(text.to_owned());
-        }
-    }
-    if captured.stdout.truncated || captured.stderr.truncated {
-        messages.push("[output truncated; command continued to completion]".to_owned());
-    }
-    Ok(messages.join("\n"))
-}
-
-/// WSL versions emit UTF-16LE (with or without a BOM) or UTF-8 on redirected pipes.
-#[cfg(any(windows, test))]
-#[expect(
-    clippy::map_err_ignore,
-    reason = "the offset of the bad UTF-8 sequence means nothing to the user; the fixed message does"
-)]
-fn decode_text(bytes: &[u8], truncated: bool) -> Result<String, String> {
-    let (bytes, encoding): (&[u8], Option<Utf16Decoder>) =
-        if let Some(bytes) = bytes.strip_prefix(&[0xff, 0xfe]) {
-            (bytes, Some(u16::from_le_bytes))
-        } else if let Some(bytes) = bytes.strip_prefix(&[0xfe, 0xff]) {
-            (bytes, Some(u16::from_be_bytes))
-        } else if bytes.as_chunks::<2>().0.iter().any(|pair| pair[1] == 0) {
-            (bytes, Some(u16::from_le_bytes))
-        } else {
-            (
-                bytes.strip_prefix(&[0xef, 0xbb, 0xbf]).unwrap_or(bytes),
-                None,
-            )
-        };
-    let text = if let Some(decode) = encoding {
-        decode_utf16(bytes, truncated, decode)?
-    } else if truncated {
-        String::from_utf8_lossy(bytes).into_owned()
-    } else {
-        String::from_utf8(bytes.to_vec()).map_err(|_| INVALID_TEXT.to_owned())?
-    };
-    Ok(text.trim_matches('\0').to_owned())
-}
-
-#[cfg(any(windows, test))]
-#[expect(
-    clippy::map_err_ignore,
-    reason = "the offset of the lone surrogate means nothing to the user; the fixed message does"
-)]
-fn decode_utf16(bytes: &[u8], truncated: bool, decode: Utf16Decoder) -> Result<String, String> {
-    if !bytes.len().is_multiple_of(2) && !truncated {
-        return Err(INVALID_TEXT.to_owned());
-    }
-    let words: Vec<_> = bytes
-        .as_chunks::<2>()
-        .0
-        .iter()
-        .copied()
-        .map(decode)
-        .collect();
-    if truncated {
-        Ok(String::from_utf16_lossy(&words))
-    } else {
-        String::from_utf16(&words).map_err(|_| INVALID_TEXT.to_owned())
-    }
 }
 
 #[cfg(test)]

@@ -1,4 +1,6 @@
-//! Purpose: `update_entry`: in-place and nested edits, renames, edit tracking, custom fields, backups and errors.
+//! Purpose: `update_entry`: in-place and nested edits, edit tracking, custom
+//! fields and backups. Renames are in `tests_update_rename.rs`, refusals in
+//! `tests_update_errors.rs`.
 
 use super::*;
 use tempfile::TempDir;
@@ -78,103 +80,6 @@ fn update_entry_advances_mtime_and_records_history() {
     assert_previous_password_in_history(&path);
 }
 
-#[test]
-fn update_entry_renames_without_duplicating() {
-    let dir = TempDir::new().unwrap();
-    let path = dir.path().join("v.kdbx");
-    save_cheap(
-        &path,
-        "pw",
-        None,
-        &[
-            entry("Old", "u", "", "", "p"),
-            entry("Other", "", "", "", "q"),
-        ],
-    );
-
-    update_entry(
-        &path,
-        "pw",
-        None,
-        &[],
-        "Old",
-        &entry("New", "u", "", "", "p"),
-    )
-    .expect("rename");
-
-    let list = list_entries(&path, "pw", None).expect("list");
-    assert_eq!(list.len(), 2, "a rename must not change the entry count");
-    assert!(list.iter().any(|e| e.title == "New"));
-    assert!(!list.iter().any(|e| e.title == "Old"));
-    assert_eq!(
-        read_entry(&path, "pw", None, &[], "New")
-            .expect("read")
-            .password,
-        "p"
-    );
-}
-
-/// Renaming onto a title that already exists in the group is refused: the
-/// by-name read path takes the first match, so a silent duplicate would
-/// permanently shadow one of the two entries.
-#[test]
-fn rename_onto_existing_sibling_is_already_exists() {
-    let dir = TempDir::new().unwrap();
-    let path = dir.path().join("v.kdbx");
-    save_cheap(
-        &path,
-        "pw",
-        None,
-        &[entry("A", "", "", "", "pa"), entry("B", "", "", "", "pb")],
-    );
-
-    // "b" also pins the collision check as case-insensitive, matching the
-    // case-insensitive lookup that would collapse the two entries on read.
-    assert!(matches!(
-        update_entry(&path, "pw", None, &[], "A", &entry("b", "", "", "", "pa")),
-        Err(KeepassError::AlreadyExists)
-    ));
-
-    // The refused rename must leave the vault untouched.
-    assert_eq!(
-        read_entry(&path, "pw", None, &[], "A")
-            .expect("read")
-            .password,
-        "pa"
-    );
-    assert_eq!(list_entries(&path, "pw", None).expect("list").len(), 2);
-}
-
-#[test]
-fn update_entry_missing_is_entry_not_found() {
-    let dir = TempDir::new().unwrap();
-    let path = dir.path().join("v.kdbx");
-    save_cheap(&path, "pw", None, &[entry("X", "", "", "", "p")]);
-
-    assert!(matches!(
-        update_entry(
-            &path,
-            "pw",
-            None,
-            &[],
-            "nope",
-            &entry("nope", "", "", "", "p")
-        ),
-        Err(KeepassError::EntryNotFound)
-    ));
-    assert!(matches!(
-        update_entry(
-            &path,
-            "pw",
-            None,
-            &["Missing"],
-            "X",
-            &entry("X", "", "", "", "p")
-        ),
-        Err(KeepassError::EntryNotFound)
-    ));
-}
-
 /// `write_entry_fields` sets only the five standard keys, so a custom field on
 /// the entry must survive an edit untouched.
 #[test]
@@ -232,18 +137,6 @@ fn update_entry_writes_a_backup() {
             .password,
         "old"
     );
-}
-
-#[test]
-fn update_entry_wrong_password_is_open_error() {
-    let dir = TempDir::new().unwrap();
-    let path = dir.path().join("v.kdbx");
-    save_cheap(&path, "right", None, &[entry("X", "", "", "", "p")]);
-
-    assert!(matches!(
-        update_entry(&path, "wrong", None, &[], "X", &entry("X", "", "", "", "p")),
-        Err(KeepassError::Open(_))
-    ));
 }
 
 fn save_nested_deploy_entry(path: &Path) {

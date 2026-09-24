@@ -4,6 +4,7 @@ import re
 import unittest
 
 from sandbox import SandboxTestCase
+from script_files import LINT
 
 
 # A fake Cargo: `llvm-cov nextest` exits with NEXTEST_STATUS; `llvm-cov
@@ -33,7 +34,7 @@ MEASURED = (
 class CoverageGateTests(SandboxTestCase):
     def setUp(self):
         super().setUp()
-        for script in ("scripts/coverage.py", "scripts/lint.py", "scripts/shell_path.py"):
+        for script in ("scripts/coverage.py", *LINT):
             self.sandbox.copy(script)
 
     def gate(self, *, covered=98, count=100, nextest_status=0, summary=None, env=None):

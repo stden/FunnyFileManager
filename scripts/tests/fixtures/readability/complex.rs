@@ -1,5 +1,12 @@
 //! Intentionally exceeds each readability limit; never part of a Cargo target.
 
+// test_readability.py compiles this file as a crate root and equivalence.rs
+// as `mod complex`; the `path` names the same child file for both.
+#[path = "complex/mix.rs"]
+mod mix;
+
+pub use mix::mix_repeatedly;
+
 pub fn count_flags(bits: u32) -> u32 {
     let mut count = 0;
     if bits & 0x0000_0001 != 0 {
@@ -81,111 +88,6 @@ pub fn count_flags(bits: u32) -> u32 {
         count += 1;
     }
     count
-}
-
-pub fn mix_repeatedly(mut value: u64) -> u64 {
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value = value.wrapping_mul(3).wrapping_add(1);
-    value
 }
 
 pub fn sum_small_values(groups: &[Vec<Vec<i32>>]) -> i32 {

@@ -7,26 +7,31 @@
 //! in one place (DRY) and lets tests match a typed outcome instead of a brittle
 //! substring.
 //!
-//! Set it through [`App::set_status`], the seam between the operation layer and
-//! the presentation layer. Genuinely free-form output (a shell command's stdout,
-//! `pwd`'s bare path) is not an *outcome* and cannot be named by one — but it
-//! still travels as a [`Status`], through variants that carry the text
-//! verbatim. That is what makes `App::status` a single channel: before, two
-//! call sites assigned the field directly and bypassed this module entirely.
+//! Set it through [`App::set_status`](crate::models::App::set_status), the
+//! seam between the operation layer and the presentation layer. Genuinely
+//! free-form output (a shell command's stdout, `pwd`'s bare path) is not an
+//! *outcome* and cannot be named by one — but it still travels as a
+//! [`Status`], through variants that carry the text verbatim. That is what
+//! makes `App::status` a single channel: before, two call sites assigned the
+//! field directly and bypassed this module entirely.
 
 use crate::copy::Purpose;
-use crate::models::{App, BookmarkSlot};
+use crate::models::BookmarkSlot;
 use std::path::PathBuf;
 
+mod cursor;
 mod display;
 mod failed_entry;
 mod landed;
+mod path_message;
 mod seam;
 mod secret;
 
-pub use display::PathMessage;
+pub use cursor::StatusCursor;
+pub(crate) use cursor::StatusDisplay;
 pub use failed_entry::FailedEntry;
 pub use landed::Landed;
+pub use path_message::PathMessage;
 pub use secret::Secret;
 
 /// A user-facing application outcome shown in the status bar.
@@ -328,39 +333,6 @@ pub enum Status {
     WindowsOnly {
         tool: &'static str,
     },
-}
-
-/// Where the cursor stood when the message now on screen was drawn.
-///
-/// Far's info row carries a message only until the user moves on: the next
-/// Up or Down puts the entry's name back. So a message has to remember which
-/// cursor it belongs to — panel, directory and row, because any of the three
-/// changing means the user is looking at something else.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StatusCursor {
-    side: crate::models::PanelSide,
-    directory: PathBuf,
-    row: Option<usize>,
-}
-
-/// The info row's lifetime for one outcome, independent of its message text.
-#[derive(Debug, Clone, Default)]
-pub(crate) enum StatusDisplay {
-    #[default]
-    Pending,
-    Drawn(StatusCursor),
-    Expired,
-}
-
-impl StatusCursor {
-    /// Is this still where the cursor is? Compared in place rather than
-    /// rebuilt, so an unchanged frame costs no allocation.
-    fn is_current(&self, app: &App) -> bool {
-        let panel = app.get_active_panel_ref();
-        self.side == app.active_panel
-            && self.directory == panel.path
-            && self.row == panel.selected()
-    }
 }
 
 #[cfg(test)]

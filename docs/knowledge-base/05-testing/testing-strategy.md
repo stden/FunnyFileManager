@@ -37,9 +37,9 @@ flowchart TB
   the Cucumber harnesses. They describe user-observable behavior.
 - **Architecture tests** check canonical operation ownership, compatibility
   signatures, the thin crate facade, separate test bodies, rendering
-  dependencies, recursive `action/` and `popup/` dependencies, and the 1000-line hard limit
-  for Rust files under `src/`. The design target is at most 300 lines per file;
-  the current guard does not enforce that target. These checks are intentionally
+  dependencies, recursive `action/` and `popup/` dependencies, and the 200-line hard limit
+  for every Rust and Python file in the repository (application, tests, benches, examples,
+  `mcp/`, `colorer-sys/` and scripts), with a shrink-only `EXEMPT` list. These checks are intentionally
   structural and supplement behavior checks.
 - **Readability policy fixtures** under `scripts/tests/fixtures/readability/`
   are compiled by a direct-Clippy script included in the full lint gate. They prove the configured

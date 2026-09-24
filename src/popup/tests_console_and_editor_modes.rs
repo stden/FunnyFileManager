@@ -2,7 +2,7 @@
 //!
 //! Console mode moved out with `ViewMode`: it is no longer an overlay, so its
 //! keys are handled by the main-view dispatcher and its tests live in
-//! `ui::tests_console`.
+//! `ui::tests::console_keys`.
 
 use super::tests::{app_with_editor, key};
 use super::{process_editor_input, process_popup_input};

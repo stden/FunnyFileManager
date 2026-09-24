@@ -1,5 +1,7 @@
 //! Unit tests for `keepass`.
 
+use std::path::PathBuf;
+
 use super::*;
 
 use keepass::config::KdfConfig;
@@ -74,5 +76,9 @@ mod tests_export;
 mod tests_open;
 #[cfg(test)]
 mod tests_update_entry;
+#[cfg(test)]
+mod tests_update_errors;
+#[cfg(test)]
+mod tests_update_rename;
 #[cfg(test)]
 mod tests_upsert;

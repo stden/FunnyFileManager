@@ -1,4 +1,5 @@
-use super::*;
+use super::env::{env_name, quote_env_value, unique_env_name};
+use std::collections::HashSet;
 
 #[test]
 fn env_names_are_portable_and_never_empty() {

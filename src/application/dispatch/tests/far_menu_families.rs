@@ -17,6 +17,8 @@ fn terminal() -> Terminal<WritableTestBackend> {
 mod tests_command_dialogs;
 #[cfg(test)]
 mod tests_menu_rows_and_enter;
+#[cfg(test)]
+mod tests_terminal_and_screens;
 
 #[test]
 fn a_view_mode_lands_on_the_active_panel() {

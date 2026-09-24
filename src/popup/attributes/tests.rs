@@ -12,6 +12,9 @@ use crate::models::{App, AttributesDialog, AttributesField, Overlay, Panel};
 use crate::popup::process_popup_input;
 use crate::popup::tests::key;
 
+mod buttons;
+mod fields;
+
 fn app_on(temp: &TempDir, name: &str) -> App {
     let mut app = App::new().expect("test setup");
     app.left_panel = Panel::new(temp.path().to_path_buf()).expect("panel");
@@ -108,97 +111,6 @@ fn space_flips_a_box_and_enter_on_set_writes_it() {
     );
 }
 
-/// Enter anywhere but on Cancel means Set — the default button — and Enter
-/// on Cancel changes nothing.
-#[cfg(unix)]
-#[test]
-fn enter_is_set_unless_the_cursor_is_on_cancel() {
-    let temp = TempDir::new().expect("temp");
-    let file = temp.path().join("a.txt");
-    fs::write(&file, "x").expect("write");
-    set_mode(&file, 0o644);
-
-    let mut app = app_on(&temp, "a.txt");
-    process_popup_input(&mut app, key(KeyCode::Char(' ')));
-    process_popup_input(&mut app, key(KeyCode::BackTab));
-    assert_eq!(dialog(&app).field, AttributesField::Cancel);
-    process_popup_input(&mut app, key(KeyCode::Enter));
-    assert!(!app.overlay.is_active());
-    assert_eq!(mode(&file), 0o644, "Cancel wrote nothing");
-
-    let mut app = app_on(&temp, "a.txt");
-    process_popup_input(&mut app, key(KeyCode::Char(' ')));
-    process_popup_input(&mut app, key(KeyCode::Enter));
-    assert!(!app.overlay.is_active());
-    assert_eq!(mode(&file), 0o244, "Enter from a box is Set");
-}
-
-/// Space on a button presses it, as Far's does: on Cancel the dialog closes
-/// and nothing is written.
-#[test]
-fn space_on_cancel_presses_it() {
-    let temp = TempDir::new().expect("temp");
-    fs::write(temp.path().join("a.txt"), "x").expect("write");
-    let mut app = app_on(&temp, "a.txt");
-    process_popup_input(&mut app, key(KeyCode::BackTab));
-    assert_eq!(dialog(&app).field, AttributesField::Cancel);
-    process_popup_input(&mut app, key(KeyCode::Char(' ')));
-    assert!(!app.overlay.is_active());
-    assert!(
-        !app.status_text().contains("Attributes set"),
-        "{}",
-        app.status_text()
-    );
-}
-
-/// Typing edits the time field under the cursor; Backspace takes it back.
-#[test]
-fn typing_edits_the_focused_time_field() {
-    let temp = TempDir::new().expect("temp");
-    fs::write(temp.path().join("a.txt"), "x").expect("write");
-    let mut app = app_on(&temp, "a.txt");
-    while dialog(&app).field != AttributesField::Accessed {
-        process_popup_input(&mut app, key(KeyCode::Tab));
-    }
-    let before = dialog(&app).accessed.current.clone();
-    process_popup_input(&mut app, key(KeyCode::Char('7')));
-    assert_eq!(dialog(&app).accessed.current, format!("{before}7"));
-    process_popup_input(&mut app, key(KeyCode::Backspace));
-    assert_eq!(dialog(&app).accessed.current, before);
-
-    // Ctrl+letter is a chord, not text.
-    process_popup_input(
-        &mut app,
-        KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL),
-    );
-    assert_eq!(dialog(&app).accessed.current, before);
-    assert!(app.overlay.is_active());
-}
-
-/// Space on the subfolders box turns recursion on; a typed time that does not
-/// parse leaves the dialog open with the reason in the status bar.
-#[test]
-fn subfolders_toggles_and_a_bad_time_keeps_the_dialog_open() {
-    let temp = TempDir::new().expect("temp");
-    fs::create_dir(temp.path().join("d")).expect("mkdir");
-    let mut app = app_on(&temp, "d");
-    while dialog(&app).field != AttributesField::Subfolders {
-        process_popup_input(&mut app, key(KeyCode::Tab));
-    }
-    process_popup_input(&mut app, key(KeyCode::Char(' ')));
-    assert!(dialog(&app).process_subfolders);
-
-    process_popup_input(&mut app, key(KeyCode::BackTab));
-    process_popup_input(&mut app, key(KeyCode::BackTab));
-    assert_eq!(dialog(&app).field, AttributesField::Modified);
-    for ch in "nope".chars() {
-        process_popup_input(&mut app, key(KeyCode::Char(ch)));
-    }
-    process_popup_input(&mut app, key(KeyCode::Enter));
-    assert!(app.overlay.is_active(), "the refusal is fixable in place");
-    assert!(app.status_text().contains("nope"), "{}", app.status_text());
-}
-
 #[test]
 fn f10_closes_and_side_arrows_step_along_the_flag_row() {
     let temp = TempDir::new().expect("temp");
@@ -209,18 +121,6 @@ fn f10_closes_and_side_arrows_step_along_the_flag_row() {
     process_popup_input(&mut app, key(KeyCode::Left));
     assert_eq!(dialog(&app).field, AttributesField::Flag(0));
     process_popup_input(&mut app, key(KeyCode::F(10)));
-    assert!(!app.overlay.is_active());
-}
-
-#[test]
-fn space_on_set_presses_the_default_button() {
-    let temp = TempDir::new().expect("temp");
-    fs::write(temp.path().join("a.txt"), "x").expect("write");
-    let mut app = app_on(&temp, "a.txt");
-    while dialog(&app).field != AttributesField::Set {
-        process_popup_input(&mut app, key(KeyCode::Tab));
-    }
-    process_popup_input(&mut app, key(KeyCode::Char(' ')));
     assert!(!app.overlay.is_active());
 }
 

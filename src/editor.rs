@@ -8,9 +8,13 @@ use crate::models::App;
 use crate::status::Status;
 
 mod builtin;
+#[cfg(any(test, coverage, feature = "test-helpers"))]
+mod scripted;
 
 pub(crate) use builtin::editor_for;
 pub use builtin::handle_edit_builtin;
+#[cfg(any(test, coverage, feature = "test-helpers"))]
+pub use scripted::{handle_edit_test_mode, TestEditorBehavior};
 
 /// Fallback when `$EDITOR` is unset.
 const DEFAULT_EDITOR: &str = "nano";
@@ -152,58 +156,14 @@ where
     handle_edit_with(terminal, app, &mut terminal_ops, run_editor)
 }
 
-#[cfg(any(test, coverage, feature = "test-helpers"))]
-#[derive(Clone, Copy, Debug)]
-pub enum TestEditorBehavior {
-    Success,
-    FailLaunch,
-    ExitError,
-}
-
-#[cfg(any(test, coverage, feature = "test-helpers"))]
-pub fn handle_edit_test_mode(app: &mut App, behavior: TestEditorBehavior) -> io::Result<()> {
-    let Some(selected_entry) = app.get_active_panel().get_selected_entry() else {
-        return Ok(());
-    };
-
-    if selected_entry.kind.is_dir() {
-        app.set_status(Status::EditDirUnsupported);
-        return Ok(());
-    }
-
-    let Some(selected) = app.get_active_panel().selected_path() else {
-        return Ok(());
-    };
-
-    match behavior {
-        TestEditorBehavior::FailLaunch => {
-            app.set_status(Status::LaunchEditorFailed {
-                error: "No such file or directory (os error 2)".to_owned(),
-            });
-        }
-        TestEditorBehavior::ExitError => {
-            app.set_status(Status::EditorExited {
-                status: "exit status: 1".to_owned(),
-            });
-        }
-        TestEditorBehavior::Success => {
-            app.set_status(Status::Edited(selected.display().to_string()));
-        }
-    }
-
-    app.left_panel.load_entries()?;
-    app.left_panel.ensure_selection();
-    app.right_panel.load_entries()?;
-    app.right_panel.ensure_selection();
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_external_launch;
 #[cfg(test)]
 mod tests_guards;
+#[cfg(test)]
+mod tests_launch_guards;
 #[cfg(test)]
 mod tests_open;
 // FIFOs and device nodes are the inputs these tests need; neither exists on

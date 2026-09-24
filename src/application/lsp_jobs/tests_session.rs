@@ -1,6 +1,7 @@
 //! Purpose: Exercise the editor controller, popup keys, save, restart, and close against a fake process.
 
 use super::*;
+use crate::lsp::manager::{Envelope, Event};
 use crate::{
     config::ServerSettings,
     models::{lsp::Dialog, Editor, LspFeature, Overlay, Panel},

@@ -40,8 +40,8 @@ FEATURES = "test-helpers"
 # - main.rs, bootstrap.rs, editor.rs: real-TTY and external-process entry points
 # - clipboard/system.rs: the OS clipboard, which a headless runner does not have
 # - ops/shell/tty.rs: drains crossterm's live event queue for cancel keys
-# - highlight/colorer.rs: the Colorer FFI wrapper; the gate does not build
-#   Colorer-library, so CI's Colorer job tests it with the engine present
+# - highlight/colorer.rs and colorer/: the Colorer FFI wrapper; the gate does not
+#   build Colorer-library, so CI's Colorer job tests it with the engine present
 # - test files (tests*.rs, *_tests.rs, tests/, test_support.rs, test_support/):
 #   tests are not code under test; their unreached lines are assertion-failure
 #   arms that never fire in a passing suite
@@ -49,7 +49,7 @@ IGNORED = (
     r"src/(main|editor|bootstrap)\.rs$"
     r"|src/clipboard/system\.rs$"
     r"|src/ops/shell/tty\.rs$"
-    r"|src/highlight/colorer\.rs$"
+    r"|src/highlight/colorer(\.rs$|/)"
     r"|/tests[_./]"
     r"|_tests\.rs$"
     r"|/test_support(/|\.rs$)"

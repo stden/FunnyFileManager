@@ -1,12 +1,15 @@
 //! Purpose: Measures, clips and pads text in terminal cells, and replaces the characters a terminal would not draw.
 
+mod clip;
+mod editor_line;
+
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use std::borrow::Cow;
 
-use crate::models::{CharColumn, TabSize};
-
-use super::panel::pad_cells;
+pub use clip::fit_name;
+pub(super) use clip::{fit_path, fit_quoting_path, head_cells, tail_cells};
+pub(super) use editor_line::{expand_tabs, EditorLine};
 
 /// What a name shows where the terminal would draw nothing.
 ///
@@ -162,164 +165,6 @@ pub(super) fn skip_cells(text: &str, width: Cells) -> (&str, Cells) {
         used = used + Cells::of_char(ch);
     }
     (rest.as_str(), used)
-}
-
-/// Cells occupied by the first `column` characters of the editor line `text`,
-/// each TAB reaching the next stop of `tab`.
-///
-/// Bridges the editor's char-indexed caret (right for editing) to the screen
-/// column it actually lands on (right for drawing) — the one place the two
-/// units legitimately meet, which is why both the conversion and its input
-/// have names.
-fn cells_before(text: &str, column: CharColumn, tab: TabSize) -> Cells {
-    text.chars()
-        .take(column.chars())
-        .fold(Cells::ZERO, |at, ch| advance(at, ch, tab))
-}
-
-/// `text` as the editor draws it when it starts at cell `start`: every TAB
-/// widened to the spaces that reach the next stop of `tab`.
-///
-/// Borrowed when there is no TAB, which is almost every line. A TAB used to
-/// reach the screen as itself; ratatui drops control characters, so it drew
-/// as nothing and everything after it slid left.
-pub(super) fn expand_tabs(text: &str, start: Cells, tab: TabSize) -> Cow<'_, str> {
-    if !text.contains('\t') {
-        return Cow::Borrowed(text);
-    }
-    let mut drawn = String::with_capacity(text.len() + tab.columns());
-    let mut at = start;
-    for ch in text.chars() {
-        let next = advance(at, ch, tab);
-        if ch == '\t' {
-            drawn.extend(std::iter::repeat_n(' ', next.0 - at.0));
-        } else {
-            drawn.push(ch);
-        }
-        at = next;
-    }
-    Cow::Owned(drawn)
-}
-
-/// One line of the editor as it is drawn: its characters, and the tab stops
-/// that decide how wide each TAB among them is.
-///
-/// The caret, the selection and the diagnostics underline all turn the
-/// editor's character columns into screen cells against the drawn text; one
-/// value keeps the three from disagreeing about a TAB.
-#[derive(Clone, Copy)]
-pub(super) struct EditorLine<'a> {
-    pub(super) text: &'a str,
-    pub(super) tab: TabSize,
-}
-
-impl EditorLine<'_> {
-    /// Cells occupied by the first `column` characters.
-    pub(super) fn cells_before(self, column: CharColumn) -> Cells {
-        cells_before(self.text, column, self.tab)
-    }
-
-    /// The cells a window that starts `skip` cells in actually drops — see
-    /// [`skip_cells`] for why that can differ from `skip`.
-    pub(super) fn dropped(self, skip: Cells) -> Cells {
-        skip_cells(&expand_tabs(self.text, Cells::ZERO, self.tab), skip).1
-    }
-
-    /// The width of the whole line.
-    pub(super) fn width(self) -> Cells {
-        Cells::of(&expand_tabs(self.text, Cells::ZERO, self.tab))
-    }
-}
-
-/// The cell after `ch` when it is drawn at `at`: a TAB runs to the next stop.
-fn advance(at: Cells, ch: char, tab: TabSize) -> Cells {
-    if ch == '\t' {
-        let columns = tab.columns();
-        Cells((at.0 / columns + 1) * columns)
-    } else {
-        at + Cells::of_char(ch)
-    }
-}
-
-/// First `width` cells of `text`, marked with a trailing ellipsis when cut.
-pub(super) fn head_cells(text: &str, width: Cells) -> String {
-    if Cells::of(text) <= width {
-        return text.to_owned();
-    }
-    if width.is_zero() {
-        return String::new();
-    }
-    let (mut cut, _) = take_cells(text, width.saturating_sub(Cells(1)));
-    cut.push('…');
-    cut
-}
-
-/// `text` cut to `width` cells with a trailing ellipsis, then padded with
-/// blanks to exactly `width` — [`head_cells`] and [`pad_cells`] composed.
-///
-/// One function rather than the pair at each call site: a column that cuts
-/// without padding drifts out of alignment whenever a double-width glyph is
-/// dropped whole and the cut comes up one cell short.
-pub fn fit_name(text: &str, width: Cells) -> String {
-    pad_cells(&head_cells(text, width), width)
-}
-
-/// Last `width` cells of `text`, marked with a leading ellipsis when cut.
-/// Paths are cut at the head: the tail names the current directory.
-pub(super) fn tail_cells(text: &str, width: Cells) -> String {
-    if Cells::of(text) <= width {
-        return text.to_owned();
-    }
-    if width.is_zero() {
-        return String::new();
-    }
-    // Walk backwards so the tail — the part that identifies the directory —
-    // is what survives, keeping only as much as fits beside the ellipsis.
-    let mut kept: Vec<char> = Vec::new();
-    let mut used = Cells(1); // the leading '…'
-    for ch in text.chars().rev() {
-        let ch_cells = Cells::of_char(ch);
-        if used + ch_cells > width {
-            break;
-        }
-        kept.push(ch);
-        used = used + ch_cells;
-    }
-    let mut cut = String::from("…");
-    cut.extend(kept.into_iter().rev());
-    cut
-}
-
-/// A message quoting `path` between `before` and `after`, in `width` cells.
-///
-/// The path gives way first, cut from its head as [`tail_cells`] cuts, since
-/// what identifies the file is at its tail and the reason for the message is
-/// in `after`. It keeps at least its last component — the file the message is
-/// about — and only then is the line cut at its end.
-pub(super) fn fit_quoting_path(before: &str, path: &str, after: &str, width: Cells) -> String {
-    let words = Cells::of(before) + Cells::of(after);
-    head_cells(
-        &format!("{before}{}{after}", fit_path(path, words, width)),
-        width,
-    )
-}
-
-/// `path` as a line of `width` cells quotes it beside `words` cells of other
-/// text: whole when it fits, else cut from its head as [`tail_cells`] cuts,
-/// keeping at least its last component. [`fit_quoting_path`]'s rule, for a
-/// line whose parts are drawn in different styles.
-pub(super) fn fit_path(path: &str, words: Cells, width: Cells) -> String {
-    let room = width.saturating_sub(words).max(last_component_cells(path));
-    tail_cells(path, room)
-}
-
-/// The cells `path` keeps cut to its last component: the ellipsis, the
-/// separator and the name — or the whole path, when that is shorter.
-fn last_component_cells(path: &str) -> Cells {
-    let name = std::path::Path::new(path)
-        .file_name()
-        .map_or(Cells::ZERO, |name| Cells::of(&name.to_string_lossy()));
-    Cells::of(path).min(name + Cells(2))
 }
 
 /// A cell count or offset as a screen coordinate, saturating at `u16::MAX`.

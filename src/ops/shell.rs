@@ -1,8 +1,6 @@
 //! Shell command execution.
 
-use std::io::{Read, Write};
-use std::process::{Child, Command, Output, Stdio};
-use std::sync::mpsc::{self, Receiver};
+use std::process::Output;
 use std::time::{Duration, Instant};
 use std::{io, path::Path};
 
@@ -13,8 +11,13 @@ use crate::command::ShellCommand;
 #[cfg(windows)]
 mod console;
 mod error;
+mod pipes;
+mod spawn;
 
 pub(super) use error::ShellError;
+use pipes::drain;
+pub(super) use pipes::{collect_until, drain_echoing};
+use spawn::{kill_shell_tree, spawn_shell};
 
 /// Start an interactive shell without waiting for it or sharing the TUI's I/O.
 pub(super) fn spawn_console(command: &ShellCommand, current_dir: &Path) -> io::Result<()> {
@@ -32,9 +35,6 @@ pub(super) fn spawn_console(command: &ShellCommand, current_dir: &Path) -> io::R
     }
 }
 
-#[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-
 /// Wall-clock cap on a `:` shell command. The event loop is blocked while the
 /// child runs and raw mode has cleared ISIG, so Ctrl+C is just a byte in the
 /// input buffer — without a cap, `ping` or `tail -f` freezes FFM for good and
@@ -47,10 +47,6 @@ const POLL_INTERVAL: Duration = Duration::from_millis(50);
 /// Minimum time the pipe readers get once the shell has exited, so a command
 /// that finishes right on the deadline still reports what it printed.
 pub(super) const DRAIN_GRACE: Duration = Duration::from_millis(200);
-
-/// Pipe read granularity. Output is forwarded in chunks rather than read to
-/// EOF, so an abandoned reader still leaves everything it already sent usable.
-const CHUNK_SIZE: usize = 8 * 1024;
 
 #[cfg(any(test, windows))]
 pub const fn windows_shell_args(command: &str) -> [&str; 3] {
@@ -130,120 +126,6 @@ fn stop_reason(
         return Some(ShellError::TimedOut(timeout));
     }
     cancel_requested().then_some(ShellError::Cancelled)
-}
-
-/// Gather forwarded chunks until the reader finishes or `deadline` passes.
-pub(super) fn collect_until(chunks: &Receiver<Vec<u8>>, deadline: Instant) -> Vec<u8> {
-    let mut collected = Vec::new();
-    loop {
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        // `recv_timeout(ZERO)` would keep succeeding against a fast writer, so
-        // an expired budget ends the collection outright.
-        if remaining.is_zero() {
-            return collected;
-        }
-        // Err is either Disconnected (the reader finished — the common case) or
-        // Timeout; both mean there is nothing more to wait for.
-        let Ok(chunk) = chunks.recv_timeout(remaining) else {
-            return collected;
-        };
-        collected.extend_from_slice(&chunk);
-    }
-}
-
-fn spawn_shell(command: &str, current_dir: &Path) -> io::Result<Child> {
-    #[cfg(windows)]
-    let mut shell = {
-        use std::os::windows::process::CommandExt;
-
-        let mut shell = Command::new("cmd");
-        shell.creation_flags(CREATE_NO_WINDOW);
-        let [disable_autorun, execute, command] = windows_shell_args(command);
-        // cmd.exe parses shell syntax, not C-runtime argument escaping.
-        // Keep the user's inner quotes intact; cmd removes this outer pair.
-        shell
-            .args([disable_autorun, execute])
-            .raw_arg(format!("\"{command}\""));
-        shell
-    };
-
-    #[cfg(not(windows))]
-    let mut shell = {
-        use std::os::unix::process::CommandExt;
-
-        let mut shell = Command::new("sh");
-        shell.args(["-c", command]);
-        // Own process group (setpgid in the child, before exec) so the timeout
-        // can kill `sh -c "sleep …"` *and* its sleep grandchild. Killing only
-        // the shell leaves the grandchild alive, holding the pipe write end and
-        // reparented to init.
-        shell.process_group(0);
-        shell
-    };
-
-    shell
-        .current_dir(current_dir)
-        // Piped, not inherited: the child must not draw over the TUI, and we
-        // still want its output after a kill.
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-}
-
-/// Tear down a timed-out / cancelled shell, including Unix grandchildren.
-fn kill_shell_tree(child: &mut Child) {
-    // The shell leads its own group (set in `spawn_shell`), and killing a
-    // whole group has no std equivalent. It is not reaped yet, so its id
-    // cannot name a stranger's group.
-    // Best effort throughout: the timeout or the cancel is what gets reported,
-    // and a child that already exited has nothing left to kill or reap.
-    #[cfg(unix)]
-    drop(crate::platform::kill_process_group(child));
-    drop(child.kill());
-    drop(child.wait());
-}
-
-/// Read a child pipe on a background thread, forwarding it chunk by chunk.
-///
-/// Chunks rather than `read_to_end` so [`collect_until`] can stop waiting at any
-/// point and still keep what already arrived. A read error ends the stream,
-/// exactly like `Command::output` would. The thread also stops as soon as the
-/// receiver is gone, so an abandoned reader costs one blocked read, not a
-/// permanently spinning thread.
-fn drain<R: Read + Send + 'static>(source: Option<R>) -> Receiver<Vec<u8>> {
-    drain_echoing(source, io::sink())
-}
-
-/// [`drain`], also copying each chunk to `echo` as it arrives, so a program
-/// that owns the terminal still shows its messages live while the caller gets
-/// to keep them.
-pub(super) fn drain_echoing<R, W>(source: Option<R>, mut echo: W) -> Receiver<Vec<u8>>
-where
-    R: Read + Send + 'static,
-    W: Write + Send + 'static,
-{
-    let (sender, receiver) = mpsc::channel();
-    std::thread::spawn(move || {
-        let Some(mut source) = source else { return };
-        let mut chunk = vec![0_u8; CHUNK_SIZE];
-        while let Ok(read) = source.read(&mut chunk) {
-            if read == 0 {
-                return;
-            }
-            // `read` never exceeds the buffer (the `Read` contract); a reader
-            // that broke it ends the stream like a read error would.
-            let Some(bytes) = chunk.get(..read) else {
-                return;
-            };
-            // Best effort: a lost echo leaves the kept copy intact.
-            drop(echo.write_all(bytes).and_then(|()| echo.flush()));
-            if sender.send(bytes.to_vec()).is_err() {
-                return;
-            }
-        }
-    });
-    receiver
 }
 
 mod tty;

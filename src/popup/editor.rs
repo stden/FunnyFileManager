@@ -2,10 +2,12 @@
 
 use super::{process_search_prompt, repeat_search, EDITOR_PAGE};
 use crate::action::editor::{self as editor_keymap, EditorCommand, EditorNavigation};
-use crate::encoding::TextEncoding;
-use crate::models::{AfterSave, App, EditState, EditorMotion, ExitChoice};
+use crate::models::{App, EditorMotion};
 use crate::search::SearchPrompt;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use encoding::process_encoding;
+use exit::{close_editor, confirm_exit};
+pub(super) use exit::{exit_key, ExitKey};
 
 /// A terminal paste is document text, never a sequence of editor shortcuts.
 pub fn paste_text(app: &mut App, text: &str) {
@@ -59,52 +61,6 @@ fn process_editor_dialog(app: &mut App, code: KeyCode, modifiers: KeyModifiers) 
         return Some(true);
     }
     lsp::process(app, code).then_some(true)
-}
-
-/// What a key does in a Save / Discard / Cancel question: move the focus
-/// between the buttons, or answer. The editor's exit dialog and the Language
-/// servers dialog ask the same question with the same keys.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum ExitKey {
-    Focus(ExitChoice),
-    Answer(ExitChoice),
-}
-
-/// Arrows and Tab move the cursor between the buttons; the hotkeys act
-/// directly, so a user who knows the dialog never has to look at it.
-pub(super) const fn exit_key(code: KeyCode, choice: ExitChoice) -> Option<ExitKey> {
-    Some(match code {
-        KeyCode::Left => ExitKey::Focus(choice.previous()),
-        KeyCode::Right | KeyCode::Tab => ExitKey::Focus(choice.next()),
-        KeyCode::Enter => ExitKey::Answer(choice),
-        KeyCode::Char('y' | 'Y') => ExitKey::Answer(ExitChoice::Save),
-        KeyCode::Char('n' | 'N') => ExitKey::Answer(ExitChoice::Discard),
-        KeyCode::Char('c' | 'C') | KeyCode::Esc => ExitKey::Answer(ExitChoice::Cancel),
-        _ => return None,
-    })
-}
-
-fn confirm_exit(app: &mut App, code: KeyCode, choice: ExitChoice) {
-    let Some(editor) = app.get_editor_mut() else {
-        return;
-    };
-    let acted = match exit_key(code, choice) {
-        Some(ExitKey::Focus(focus)) => {
-            editor.state = EditState::ConfirmingExit(focus);
-            return;
-        }
-        Some(ExitKey::Answer(answer)) => answer,
-        None => return,
-    };
-
-    match acted {
-        ExitChoice::Save => save::request_save(app, AfterSave::Close),
-        ExitChoice::Discard => {
-            app.close_overlay();
-            app.set_status(crate::status::Status::ChangesDiscarded);
-        }
-        ExitChoice::Cancel => editor.state = EditState::Modified,
-    }
 }
 
 /// Interpret the editor command language after modal input has been handled.
@@ -166,6 +122,8 @@ const fn editor_motion(motion: EditorNavigation) -> EditorMotion {
     }
 }
 
+mod encoding;
+mod exit;
 mod lsp;
 mod save;
 #[cfg(test)]
@@ -174,50 +132,3 @@ mod tests;
 mod tests_save;
 #[cfg(test)]
 mod tests_tab;
-
-fn close_editor(app: &mut App) {
-    let Some(editor) = app.get_editor_mut() else {
-        return;
-    };
-    if editor.state.is_modified() {
-        editor.state = EditState::ConfirmingExit(ExitChoice::default());
-    } else {
-        app.close_overlay();
-    }
-}
-fn process_encoding(app: &mut App, code: KeyCode) {
-    let Some(editor) = app.get_editor_mut() else {
-        return;
-    };
-    let Some(choice) = editor.encoding_choice else {
-        return;
-    };
-    match code {
-        KeyCode::Esc => editor.encoding_choice = None,
-        KeyCode::Up | KeyCode::Left => {
-            editor.encoding_choice = cycle_encoding(choice, TextEncoding::ALL.len() - 1);
-        }
-        KeyCode::Down | KeyCode::Right | KeyCode::Tab => {
-            editor.encoding_choice = cycle_encoding(choice, 1);
-        }
-        KeyCode::Char('r' | 'R') => {
-            editor.encoding_choice = None;
-            crate::ops::reload_editor_encoding(app, choice);
-        }
-        KeyCode::Enter => {
-            editor.encoding_choice = None;
-            crate::ops::change_editor_encoding(app, choice);
-        }
-        _ => {}
-    }
-}
-
-/// The encoding `offset` places after `choice` in the list, wrapping around.
-fn cycle_encoding(choice: TextEncoding, offset: usize) -> Option<TextEncoding> {
-    let choices = TextEncoding::ALL;
-    let index = choices
-        .iter()
-        .position(|encoding| *encoding == choice)
-        .unwrap_or(0);
-    choices.get((index + offset) % choices.len()).copied()
-}
