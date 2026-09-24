@@ -429,12 +429,14 @@ missing_const_for_fn = "allow"
 option_if_let_else = "allow"
 
 # System calls std does not wrap. rustix covers the ones with a safe API
-# (uids, access checks, statvfs, process groups) and is what src/platform
+# (uids, access checks, statvfs, process groups, signals, renice, pidfds, and
+# through `param` the page size and clock rate) and is what src/platform
 # uses; libc remains for poll(2), the passwd/group lookups and errno values.
-# Both are already in the tree through crossterm, so neither costs a crate.
+# Both are already in the tree through crossterm, so neither costs a crate;
+# `param` is a feature without dependencies, so Cargo.lock does not change.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.189"
-rustix = { version = "1.1.5", features = ["fs", "process"] }
+rustix = { version = "1.1.5", features = ["fs", "param", "process"] }
 # Catches Ctrl+C / Ctrl+\ while a program owns the terminal, so the signal
 # stops that program and not FFM. crossterm still pulls signal-hook 0.3; both
 # versions install their handlers through the one signal-hook-registry 1.x.

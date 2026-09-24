@@ -182,9 +182,6 @@ fn information_entry(name: &str, size: u64, count: Option<usize>) -> String {
     }
 }
 
-/// File names the delete dialog lists before it starts counting instead.
-const DELETE_PREVIEW: usize = 5;
-
 /// Rows the editor spends on chrome: its top bar, and nothing else.
 const EDITOR_BAR_HEIGHT: u16 = 1;
 
@@ -258,6 +255,7 @@ pub fn render_overlays(f: &mut Frame<'_>, app: &mut App) {
         Overlay::Help => render_help(f),
         Overlay::Viewer(viewer) => super::viewer::render_viewer(f, viewer),
         Overlay::Editor(editor) => render_editor(f, editor, &mut app.dialog_mouse),
+        Overlay::Tasks(list) => super::tasks::render(f, &mut app.dialog_mouse, list),
         Overlay::DriveSelection {
             side: target_panel,
             selected_index,
@@ -315,7 +313,6 @@ fn render_commands_dialog(
         Overlay::FolderShortcuts(dialog) => super::shortcuts::render(f, tracker, dialog),
         Overlay::Filter(dialog) => super::filter::render(f, tracker, dialog),
         Overlay::Screens(dialog) => super::screens::render(f, tracker, dialog),
-        Overlay::Tasks(dialog) => super::tasks::render(f, tracker, dialog),
         Overlay::Hotplug(dialog) => super::hotplug::render(f, tracker, dialog),
         Overlay::McpInstall(dialog) => super::mcp_install::render(f, tracker, dialog),
         Overlay::SortModes(dialog) => super::sortmenu::render(f, tracker, dialog),
@@ -345,13 +342,13 @@ const HELP_LINES: &[&str] = &[
     "F10: Quit (or type `quit`)",
     "F11: Plugin commands (MCP status, NetBox sessions and imports)",
     "F12: Switch panels / console screen",
+    "Ctrl+W: Task list (processes; F1 inside lists its keys)",
     "Ctrl+O: Show the console screen (press again for the panels)",
     "Tab: switch active panel",
     "PgUp/PgDn: move the selection one screen up/down",
     ":  - command line (Tab completes verbs, args & cd paths)",
     ":mcp - MCP server status & installation",
-    ":winmsg - recent Windows system warnings/errors",
-    ":winperf - Windows performance summary",
+    ":winmsg, :winperf - Windows warnings and errors, performance summary",
 ];
 
 fn render_help(f: &mut Frame<'_>) {
@@ -430,7 +427,7 @@ fn render_editor(
     }
 }
 
-fn render_mask_prompt(
+pub(super) fn render_mask_prompt(
     f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     prompt: &crate::models::MaskPrompt,
@@ -503,15 +500,7 @@ fn render_delete_confirm(
         1 => "Do you wish to delete the file?".to_owned(),
         count => format!("Do you wish to delete {count} items?"),
     }];
-    message.extend(
-        files
-            .iter()
-            .take(DELETE_PREVIEW)
-            .map(|path| super::entry_label(path)),
-    );
-    if files.len() > DELETE_PREVIEW {
-        message.push(format!("… and {} more", files.len() - DELETE_PREVIEW));
-    }
+    dialog::preview_lines(files, |path| super::entry_label(path), &mut message);
 
     dialog::render_warning(
         f,

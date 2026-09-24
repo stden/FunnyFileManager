@@ -36,12 +36,22 @@ The variant list changes as dialogs are added. Read `src/models/overlay.rs` rath
   rule: the S3 profiles, `NetBox` (the stored-sessions panel on that side) and
   `Process list` (the Task list); the dialog closes before a row acts, so a
   row that opens a window of its own keeps it.
-- **DeleteConfirm** (F8)
+- **DeleteConfirm** (F8). It and **WipeConfirm** name the first five targets,
+  then `… and N more`, through the shared `ui::dialog::preview_lines`.
+- **MaskPrompt** (Gray `+` / Gray `-`). Its keys are
+  `popup::mask_prompt::mask_key`, which edits the prompt and answers
+  `Editing`, `Accepted(purpose, mask)` or `Cancelled`; the caller applies the
+  mask, so any list that selects by a Far mask reuses the same dialog.
 - **NewFileInput** (Shift+F4)
 - **NamePrompt** (Shift+F6 rename, F7 mkdir, Alt+F6 link)
 - **QuitConfirm** (F10)
 - **Information** (Ctrl+L)
-- **Menu** and **MenuDialog** (F9, and the commands that prompt or list choices)
+- **Menu** and **MenuDialog** (F9, and the commands that prompt or list choices).
+  A choice list is drawn and hit-tested by `ui::menu_dialog::choices`, which is
+  generic over any row that is `AsRef<str>` (`MenuChoice` reads as its label),
+  and moved by `popup::menu_dialog::navigate` (PageUp and PageDown move
+  `MENU_PAGE` rows); the task list's menus are to reuse both rather than copy
+  the geometry. The LSP popup and the vault list move their own cursors.
 - **CopyPrompt**, **WipeConfirm**, archive dialogs, **Attributes**, **ApplyCommand**, **Describe**
 - **FindFile** (Alt+F7)
 - **LspEditor** (F9 → Commands → Language servers, and `lsp`) — full screen like

@@ -16,9 +16,10 @@ use ratatui::{
 };
 
 use super::cells::printable_name;
-use super::panel::{pad_cells, visible_window};
+use super::panel::pad_cells;
 use super::{far_block, palette, Cells, FAR_BLUE, PANEL_INFO_ROW};
 use crate::models::{sessions_panel, Panel, PanelKind, SessionRow, SessionsPanel};
+use crate::scroll::visible_window;
 
 /// The column heading row under the top border — the row the file panel
 /// spends on its column titles, so a click lands on the same row in both.

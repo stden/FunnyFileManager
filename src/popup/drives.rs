@@ -61,7 +61,7 @@ fn finish_selection(app: &mut App, side: PanelSide, entry: DriveEntry) {
 /// describe the outcome. An S3 profile is only acknowledged — the S3 browser is
 /// not implemented yet, so the panel keeps showing its local directory.
 /// `NetBox` turns the panel into the stored-sessions list; the process list
-/// is the Task list dialog, which reports nothing of its own.
+/// opens the task list, as Ctrl+W does, and says only why when it cannot.
 fn select_drive(app: &mut App, side: PanelSide, drive: DriveEntry) -> Status {
     match drive {
         DriveEntry::Local(root) => {
@@ -73,10 +73,10 @@ fn select_drive(app: &mut App, side: PanelSide, drive: DriveEntry) -> Status {
         }
         DriveEntry::S3Profile(profile) => Status::S3ProfileSelected(profile),
         DriveEntry::NetBox => crate::ops::sessions::open_on(app, side),
-        DriveEntry::ProcessList => {
-            crate::ops::tasks::open(app);
-            Status::Cleared
-        }
+        DriveEntry::ProcessList => match crate::ops::tasks::open(app) {
+            Ok(()) => Status::Cleared,
+            Err(error) => Status::Error(error.to_string()),
+        },
     }
 }
 

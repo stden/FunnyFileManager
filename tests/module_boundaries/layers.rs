@@ -6,8 +6,10 @@ use super::architecture::{
 use super::{messages, tui_sources};
 
 /// Effects rendering never performs: storage, processes, network, process
-/// environment, and every module that coordinates or executes operations.
-pub const RENDERING_FORBIDDEN: [&str; 15] = [
+/// environment, every module that coordinates or executes operations, and the
+/// OS adapters (`platform`, and the process table built on it) — rendering
+/// draws the process list the models hold, it never reads one.
+pub const RENDERING_FORBIDDEN: [&str; 17] = [
     "std::fs",
     "std::process",
     "std::net",
@@ -23,13 +25,16 @@ pub const RENDERING_FORBIDDEN: [&str; 15] = [
     "crate::popup",
     "crate::editor",
     "crate::terminal",
+    "crate::process_table",
+    "crate::platform",
 ];
 
 /// Key resolution is a pure mapping: it does not read the environment or do I/O either.
 const INPUT_ONLY_FORBIDDEN: [&str; 2] = ["std::io", "std::env"];
 
-/// Layers above state, and the effects state never performs.
-const MODELS_FORBIDDEN: [&str; 13] = [
+/// Layers above state, and the effects state never performs. The process
+/// table is an adapter above the models: they define its ports, it fills them.
+const MODELS_FORBIDDEN: [&str; 14] = [
     "crate::ui",
     "crate::action",
     "crate::popup",
@@ -43,6 +48,7 @@ const MODELS_FORBIDDEN: [&str; 13] = [
     "std::net",
     "std::env::set_var",
     "std::env::remove_var",
+    "crate::process_table",
 ];
 
 /// Existing inversion, reported with the hardening work rather than fixed here:
@@ -201,6 +207,48 @@ fn models_rule_reports_upward_dependencies() {
     assert_eq!(
         models_violations(&sources),
         ["src/models/panel.rs:1: `crate::ui::panel_page_size` (forbidden: `crate::ui`)"]
+    );
+}
+
+/// Rendering and key resolution never reach the OS adapters: a renderer that
+/// read `/proc` or signalled a process would bypass the models it draws.
+#[test]
+fn ui_and_action_rules_reject_the_os_adapters() {
+    let reads_processes = "use crate::process_table::SystemHost;\n\nfn ticks() -> u64 {\n    crate::platform::clock_ticks_per_second()\n}\n";
+    let sources = sources(&[
+        ("src/ui/tasks.rs", reads_processes),
+        ("src/action/tasks.rs", reads_processes),
+    ]);
+    assert_eq!(
+        ui_violations(&sources),
+        [
+            "src/ui/tasks.rs:1: `crate::process_table::SystemHost` (forbidden: `crate::process_table`)",
+            "src/ui/tasks.rs:4: `crate::platform::clock_ticks_per_second` (forbidden: `crate::platform`)",
+        ]
+    );
+    assert_eq!(
+        action_violations(&sources),
+        [
+            "src/action/tasks.rs:1: `crate::process_table::SystemHost` (forbidden: `crate::process_table`)",
+            "src/action/tasks.rs:4: `crate::platform::clock_ticks_per_second` (forbidden: `crate::platform`)",
+        ]
+    );
+}
+
+/// The models define the process ports and the process table fills them, so
+/// the models never name it; their one existing `platform` use stays legal.
+#[test]
+fn models_rule_rejects_the_process_table_but_not_platform() {
+    let sources = sources(&[
+        ("src/models/tasks.rs", "use crate::process_table::ProcFs;\n"),
+        (
+            "src/models/drive_entry.rs",
+            "use crate::platform::DriveKind;\n",
+        ),
+    ]);
+    assert_eq!(
+        models_violations(&sources),
+        ["src/models/tasks.rs:1: `crate::process_table::ProcFs` (forbidden: `crate::process_table`)"]
     );
 }
 

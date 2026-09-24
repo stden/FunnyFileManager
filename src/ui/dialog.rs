@@ -510,6 +510,30 @@ fn row_caret(row: &Row<'_>) -> Option<u16> {
     }
 }
 
+/// Names a dialog lists before it starts counting instead: enough to check
+/// what an action is about, few enough to leave room for the buttons.
+const PREVIEWED_NAMES: usize = 5;
+
+/// Appends the `name` of the first few `items` to `into`, one per line, then
+/// `… and N more` for the items left unnamed.
+///
+/// Far names what a dialog is about and counts the rest: the name is what the
+/// user checks before pressing Enter, and a bare count is the one thing that
+/// cannot be checked. Only the listed items are named, so a dialog over a
+/// hundred thousand files formats five names, not all of them. The count
+/// comes from the same slice as the names, so the two cannot disagree.
+pub(super) fn preview_lines<T>(
+    items: &[T],
+    name: impl FnMut(&T) -> String,
+    into: &mut Vec<String>,
+) {
+    into.extend(items.iter().take(PREVIEWED_NAMES).map(name));
+    let unnamed = items.len().saturating_sub(PREVIEWED_NAMES);
+    if unnamed > 0 {
+        into.push(format!("… and {unnamed} more"));
+    }
+}
+
 /// A red warning dialog: a few sentences and some buttons.
 pub(super) fn render_warning(
     f: &mut Frame<'_>,
@@ -849,3 +873,5 @@ fn shadowed_component(value: u8) -> u8 {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_preview;

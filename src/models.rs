@@ -115,7 +115,27 @@ pub use settings_dialog::SettingsDialog;
 pub use shortcuts::ShortcutList;
 pub use shortname::{ShortName, ShortNames};
 pub use sortmenu::{SortMenu, SortOrder, SortRow};
-pub use tasks::TaskList;
+pub use tasks::{
+    build_view, Arrangement, CommandView, FilterTerms, KernelThreads, Sibling, Sort, SortDirection,
+    SortKey, TreeLine, UserScope, ViewOptions, ViewRow,
+};
+pub use tasks::{
+    Arrival, Attempt, Cadence, ConfirmButton, ControlRefusal, Cursor, Failure, FormFocus, Found,
+    FrozenTargets, HeaderShape, Health, KillConfirm, ListMotion, MenuCursor, Modal, NiceConfirm,
+    NicePlan, Notice, Operation, PidQuery, PlannedChange, PriorityForm, Refresh, Relation, Renice,
+    ReniceButton, Request, Schedule, SearchBar, SearchFrom, Severity, Skipped, Table, Target,
+    TaskHostSlot, TaskMenu, TextBar, BARS_PER_ROW, OVERDUE_AFTER, REFRESH_INTERVAL, STALL_LIMIT,
+    WARM_UP,
+};
+pub use tasks::{
+    Baselines, ControlError, CoreGroup, CoreSample, CpuBar, CpuCounters, CpuMeter, CpuMeters,
+    CpuUsage, KernelPriority, KillOffer, Load, LoadAverage, MemoryBytes, MemoryMeter, MemorySample,
+    MemoryUsage, Meters, NiceOutOfRange, NiceStep, Niceness, Owner, Percent, Pid, Priority,
+    PriorityChange, PriorityClass, ProcessHost, ProcessKey, ProcessKind, ProcessReader, ProcessRow,
+    ProcessSample, ProcessState, Sample, SampleError, SettableClass, Signal, Snapshot, Start,
+    StartTime, StateLetter, SwapMeter, SwapSample, SystemPart, SystemSample, TaskCounts, TaskList,
+    TaskSession,
+};
 pub use tree::{Branch, Expansion, FolderTree, Guide, TreeRow};
 pub use usermenu::UserMenu;
 

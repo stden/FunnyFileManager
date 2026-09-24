@@ -20,6 +20,7 @@ use super::{far_block, fit_quoting_path, head_cells, tail_cells, take_cells, Cel
 use super::{FAR_BLUE, PANEL_BORDERS};
 use super::{PANEL_COLUMN_HEADER, PANEL_COLUMN_RULE, PANEL_INFO_ROW, PANEL_NON_ENTRY_ROWS};
 use crate::models::{divide_rounded, App, DirEntry, Panel, PanelView, ShortNames, SortMode};
+use crate::scroll::visible_window;
 use crate::status::PathMessage;
 
 mod modes;
@@ -39,7 +40,7 @@ const DATE_COLUMN_WIDTH: Cells = Cells(8);
 const TIME_COLUMN_WIDTH: Cells = Cells(5);
 
 /// The rule Far draws between panel columns, and the one cell it costs.
-const COLUMN_SEPARATOR: &str = "\u{2502}";
+pub(super) const COLUMN_SEPARATOR: &str = "\u{2502}";
 const COLUMN_SEPARATOR_WIDTH: Cells = Cells(1);
 
 /// The row that leads out of a directory, which the Size column labels "Up".
@@ -271,7 +272,7 @@ pub(super) fn right_cells(text: &str, width: Cells) -> String {
 }
 
 /// `text` centred in exactly `width` cells — the column headers' alignment.
-fn center_cells(text: &str, width: Cells) -> String {
+pub(super) fn center_cells(text: &str, width: Cells) -> String {
     let fitted = head_cells(text, width);
     let slack = width.saturating_sub(Cells::of(&fitted)).get();
     let left = slack / 2;
@@ -342,14 +343,31 @@ pub(super) fn abbreviate_bytes(bytes: u64) -> String {
     }
 }
 
+/// Whether the user marked a row: a panel entry, or a process in the task
+/// list. A marked row is yellow throughout, under the cursor bar too.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Mark {
+    Marked,
+    Unmarked,
+}
+
+/// Whether `entry` is marked in `panel`.
+fn mark_of(panel: &Panel, entry: &DirEntry) -> Mark {
+    if panel.marked.contains(entry.name.as_str()) {
+        Mark::Marked
+    } else {
+        Mark::Unmarked
+    }
+}
+
 /// The colour Far gives a row, in the order its rules override each other.
 ///
 /// Marked first — a mark is the user's own statement about the row and must
 /// survive whatever the row is. Hidden next, because a dimmed row is dimmed
 /// whether it is a folder, a program or a file. Only then does the entry's own
 /// nature get a say.
-fn entry_colour(entry: &DirEntry, is_marked: bool, hidden: bool) -> Color {
-    if is_marked {
+fn entry_colour(entry: &DirEntry, mark: Mark, hidden: bool) -> Color {
+    if mark == Mark::Marked {
         return palette::MARKED;
     }
     if hidden {
@@ -365,12 +383,12 @@ fn entry_colour(entry: &DirEntry, is_marked: bool, hidden: bool) -> Color {
 }
 
 /// The style for a row's name: its colour, bold where Far bolds it.
-fn entry_style(entry: &DirEntry, is_marked: bool, hidden: bool) -> Style {
-    let style = Style::default().fg(entry_colour(entry, is_marked, hidden));
+fn entry_style(entry: &DirEntry, mark: Mark, hidden: bool) -> Style {
+    let style = Style::default().fg(entry_colour(entry, mark, hidden));
     if hidden {
         return style;
     }
-    if is_marked || entry.kind.is_dir() {
+    if mark == Mark::Marked || entry.kind.is_dir() {
         return style.add_modifier(Modifier::BOLD);
     }
     style
@@ -410,26 +428,25 @@ fn header_line(sort_mode: SortMode, layout: PanelLayout) -> Line<'static> {
 }
 
 /// The colour of the column rules, which is the frame's.
-fn separator_style() -> Style {
+pub(super) fn separator_style() -> Style {
     Style::default().fg(palette::FRAME)
 }
 
-/// The style of the entry under the active panel's cursor.
-fn cursor_style(is_marked: bool) -> Style {
+/// The style of the row under the active cursor.
+pub(super) fn cursor_style(mark: Mark) -> Style {
     Style::default()
         .bg(palette::CURSOR_BG)
-        .fg(cursor_colour(is_marked))
+        .fg(cursor_colour(mark))
         .add_modifier(Modifier::BOLD)
 }
 
-/// The text colour on the cursor bar: Far's marked yellow when the entry under
+/// The text colour on the cursor bar: Far's marked yellow when the row under
 /// it is marked, so the bar never hides the mark — the one thing Insert on
 /// the last row changes.
-const fn cursor_colour(is_marked: bool) -> Color {
-    if is_marked {
-        palette::MARKED
-    } else {
-        palette::CURSOR_FG
+pub(super) const fn cursor_colour(mark: Mark) -> Color {
+    match mark {
+        Mark::Marked => palette::MARKED,
+        Mark::Unmarked => palette::CURSOR_FG,
     }
 }
 
@@ -454,16 +471,16 @@ fn entry_cell(
     name: Cells,
     columns: &[PanelColumn],
 ) -> Vec<Span<'static>> {
-    let is_marked = panel.marked.contains(entry.name.as_str());
+    let mark = mark_of(panel, entry);
     let hidden = panel.is_hidden(&entry.name);
     let displayed = displayed_entry(modes::short_names(panel).as_ref(), entry);
-    let name_style = entry_style(entry, is_marked, hidden);
+    let name_style = entry_style(entry, mark, hidden);
     // The data columns are plain white — reading down them for meaning would
     // find none — except where the row as a whole is making a statement: a
     // marked row is yellow throughout and a hidden one is dimmed throughout,
     // and a bright date beside a recessed name would break both.
-    let data_style = Style::default().fg(if is_marked || hidden {
-        entry_colour(entry, is_marked, hidden)
+    let data_style = Style::default().fg(if mark == Mark::Marked || hidden {
+        entry_colour(entry, mark, hidden)
     } else {
         palette::DATA
     });
@@ -749,7 +766,7 @@ fn body_line(
         let cell = entry_cell(panel, entry, name, layout.columns);
         // The cursor covers its own stripe only, never the rule beside it.
         if cursor == Some(index) {
-            let style = cursor_style(panel.marked.contains(entry.name.as_str()));
+            let style = cursor_style(mark_of(panel, entry));
             spans.extend(cell.into_iter().map(|span| span.patch_style(style)));
         } else {
             spans.extend(cell);
@@ -855,40 +872,6 @@ pub(super) fn panel_footer(app: &App) -> Option<PathMessage<'static>> {
     ))
 }
 
-/// Which entries a panel body `rows` tall will actually show.
-///
-/// The same rule `List` applies to its own state, worked out before the items
-/// are built rather than after: the offset holds unless the cursor has moved
-/// outside it, and then it moves by just enough to bring the cursor back.
-///
-/// Returned as a range so the caller can slice with it, and pure so that the
-/// scrolling behaviour can be checked without a terminal.
-pub(super) fn visible_window(
-    len: usize,
-    rows: usize,
-    offset: usize,
-    selected: Option<usize>,
-) -> std::ops::Range<usize> {
-    if len == 0 || rows == 0 {
-        return 0..0;
-    }
-    let mut start = offset.min(len.saturating_sub(1));
-    if let Some(selected) = selected.filter(|at| *at < len) {
-        if selected < start {
-            // Scrolled up past the cursor: the cursor becomes the first row.
-            start = selected;
-        } else if selected >= start + rows {
-            // …and down past it: the cursor becomes the last.
-            start = selected + 1 - rows;
-        }
-    }
-    // A short listing is shown from the top rather than with blank rows above
-    // it, which is what a stale offset into a directory that just shrank would
-    // otherwise leave behind.
-    start = start.min(len.saturating_sub(rows));
-    start..(start + rows).min(len)
-}
-
 #[cfg(test)]
 mod tests_cursor;
 #[cfg(test)]
@@ -903,5 +886,3 @@ mod tests_snapshot;
 mod tests_title;
 #[cfg(test)]
 mod tests_views;
-#[cfg(test)]
-mod tests_window;

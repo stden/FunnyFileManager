@@ -1,4 +1,4 @@
-//! Unit tests for the visible panel window.
+//! Purpose: Pins the visible window of a scrolled list — the panel, the tree and the task list.
 
 use super::visible_window;
 
@@ -93,4 +93,14 @@ fn assert_cursor_window(len: usize, rows: usize, offset: usize) {
 fn a_stale_selection_does_not_scroll_past_the_end() {
     let window = visible_window(10, 40, 0, Some(900));
     assert_eq!(window, 0..10);
+}
+
+/// A body taller than any list scrolls nothing, whatever the offset. The sums
+/// saturate: `offset + rows` past `usize::MAX` would panic in a test build and
+/// wrap to a small window in a release build, which does not check overflow.
+#[test]
+fn a_body_of_usize_max_rows_shows_the_whole_list() {
+    assert_eq!(visible_window(10, usize::MAX, 3, Some(5)), 0..10);
+    assert_eq!(visible_window(10, usize::MAX, 3, None), 0..10);
+    assert_eq!(visible_window(10, usize::MAX, usize::MAX, Some(9)), 0..10);
 }

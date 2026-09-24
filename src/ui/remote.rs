@@ -15,10 +15,11 @@ use ratatui::{
 };
 
 use super::cells::printable_name;
-use super::panel::{pad_cells, visible_window};
+use super::panel::pad_cells;
 use super::sessions::{cursor_style, frame, render_info};
 use super::{palette, Cells};
 use crate::models::{DirEntry, Panel, PanelKind, RemotePanel};
+use crate::scroll::visible_window;
 
 /// The one column's heading.
 const COLUMN_TITLE: &str = "Name";

@@ -15,6 +15,10 @@ extend-ignore-re = [
 # The TUI library this program is built on.
 ratatui = "ratatui"
 
+# htop's abbreviation for threads, which the task list's summary line keeps:
+# "Tasks: 132, 1204 thr, 180 kthr".
+thr = "thr"
+
 # Test data written that way on purpose: typed prefixes ("hel", "fo"), a
 # deliberate typo the test corrects ("Frst", "Firt"), a truncated "café" in
 # a legacy code page ("caf"), tar flags ("-caf"), the host column of a zip

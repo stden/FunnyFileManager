@@ -35,7 +35,6 @@ fn every_menu_dialog() -> Vec<Overlay> {
         Overlay::FolderShortcuts(ShortcutList::default()),
         Overlay::Filter(FilterPrompt::default()),
         Overlay::Screens(ScreenList::default()),
-        Overlay::Tasks(Box::default()),
         Overlay::Hotplug(Box::default()),
         Overlay::Settings(Box::new(crate::models::SettingsDialog::for_page(
             OptionsPage::Colors,

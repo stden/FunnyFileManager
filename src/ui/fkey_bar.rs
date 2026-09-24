@@ -1,4 +1,8 @@
-//! Purpose: The F-key bar on the bottom row, with Far's twelve labels spread edge to edge.
+//! Purpose: The F-key bar on the bottom row, with twelve labels spread edge to edge.
+//!
+//! The panels pass Far's own labels; a full-screen view with keys of its own
+//! (the task list) passes its set. Either way the cells are laid out by the
+//! same arithmetic the mouse hit test uses.
 
 use ratatui::{
     layout::Rect,
@@ -10,13 +14,13 @@ use ratatui::{
 
 use super::{fit_name, palette, take_cells, Cells};
 
-/// The twelve F-key cells, in Far's order and with Far's abbreviations.
+/// How many cells the key bar has, which the hit test needs too.
 ///
 /// Twelve, not ten: F11 and F12 are part of the bar Far draws, and a bar that
 /// stops at ten tells the user those keys do nothing.
-/// How many cells the key bar has, which the hit test needs too.
 pub const FKEY_COUNT: usize = 12;
 
+/// The twelve F-key cells, in Far's order and with Far's abbreviations.
 pub(super) const FKEY_LABELS: [(&str, &str); FKEY_COUNT] = [
     ("1", "Help"),
     ("2", "UserMn"),
@@ -40,14 +44,15 @@ pub(super) const FKEY_LABELS: [(&str, &str); FKEY_COUNT] = [
 /// key does nothing on the current screen.
 pub(super) type KeyLabels<'a> = [(&'a str, &'a str); FKEY_COUNT];
 
-/// The panels' key bar.
-pub(super) fn render_command_bar(f: &mut Frame<'_>, area: Rect) {
-    render_key_bar(f, area, &FKEY_LABELS);
-}
-
-/// Far's key bar fills the row: every cell is one tenth of the terminal, so
-/// the coloured blocks meet edge to edge instead of trailing off into
-/// background after the tenth label.
+/// Draws `labels`, each a key number and its label, as Far's key bar.
+///
+/// Exactly [`FKEY_COUNT`] of them: the mouse hit test resolves a click against
+/// that many cells, so a bar drawn with any other number would put a label
+/// where a click runs a different key.
+///
+/// Far's key bar fills the row: every cell is an equal share of the terminal,
+/// so the coloured blocks meet edge to edge instead of trailing off into
+/// background after the last label.
 ///
 /// The remainder is spread over the leftmost cells rather than dumped on the
 /// last one, which is what keeps an 85-column terminal from ending in a cell

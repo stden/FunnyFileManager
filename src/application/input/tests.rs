@@ -170,16 +170,16 @@ fn terminal_paste_cannot_edit_the_document_behind_a_subdialog() -> io::Result<()
     let temp = TempDir::new()?;
     let mut app = app_at(temp.path());
     app.get_editor_mut().unwrap().search.prompt = Some(crate::search::SearchPrompt::default());
-    crate::popup::paste_editor_text(&mut app, "search text");
+    crate::popup::paste_text(&mut app, "search text");
     app.get_editor_mut().unwrap().search.prompt = None;
     app.get_editor_mut().unwrap().encoding_choice = Some(crate::encoding::TextEncoding::Utf8);
-    crate::popup::paste_editor_text(&mut app, "encoding text");
+    crate::popup::paste_text(&mut app, "encoding text");
     app.get_editor_mut().unwrap().encoding_choice = None;
     app.get_editor_mut().unwrap().state = EditState::ConfirmingExit(ExitChoice::Save);
-    crate::popup::paste_editor_text(&mut app, "confirmation text");
+    crate::popup::paste_text(&mut app, "confirmation text");
     assert_eq!(app.get_editor().unwrap().content(), "old");
     app.close_overlay();
-    crate::popup::paste_editor_text(&mut app, "panels");
+    crate::popup::paste_text(&mut app, "panels");
     assert!(matches!(app.overlay, Overlay::None));
     Ok(())
 }

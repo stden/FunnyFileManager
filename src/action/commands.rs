@@ -128,7 +128,7 @@ pub enum ToolCommand {
     Filter,
     /// `F12` — the screens this program has: panels and console.
     Screens,
-    /// `Ctrl+W` — the processes this program started.
+    /// `Ctrl+W` — the task list: the live process viewer.
     Tasks,
 }
 

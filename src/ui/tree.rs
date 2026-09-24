@@ -14,9 +14,9 @@ use ratatui::{
     Frame,
 };
 
-use super::panel::visible_window;
 use super::{far_block, palette, Cells, FAR_BLUE, PANEL_INFO_ROW};
 use crate::models::{Branch, FolderTree, Guide, Panel, PanelKind, TreeRow};
+use crate::scroll::visible_window;
 
 pub(super) fn render(f: &mut Frame<'_>, panel: &mut Panel, area: Rect, is_active: bool) {
     let PanelKind::Tree(tree) = &mut panel.kind else {

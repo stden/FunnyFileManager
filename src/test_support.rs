@@ -19,6 +19,8 @@ pub use settings::restore_settings;
 #[cfg(any(test, feature = "test-helpers"))]
 mod mcp_install;
 #[cfg(any(test, feature = "test-helpers"))]
+pub mod processes;
+#[cfg(any(test, feature = "test-helpers"))]
 pub use mcp_install::{file_identity, ClaudeBehaviour, ClaudeEmulator, FakeMachine};
 
 #[cfg(test)]
@@ -29,6 +31,11 @@ mod events;
 pub(crate) mod lsp_machine;
 #[cfg(test)]
 pub(crate) mod netbox;
+#[cfg(test)]
+#[cfg(unix)]
+pub(crate) mod sleeper;
+#[cfg(test)]
+pub(crate) mod task_list;
 #[cfg(test)]
 pub(crate) use events::*;
 

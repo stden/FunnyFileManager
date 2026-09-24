@@ -10,6 +10,15 @@ The UI is entirely built with `ratatui` (version 0.26 at time of writing).
 2. Command line (1 line)
 3. F-key command bar (1 line)
 
+The key bar is `ui::fkey_bar::render_key_bar(f, area, labels)`. The panels pass
+Far's `FKEY_LABELS`; a full-screen view with keys of its own passes its own
+twelve `(key, label)` pairs. `labels` is an array of exactly `FKEY_COUNT`, the
+count the hit test resolves clicks against, so a bar with another number of
+cells does not compile. Either way the cells are sized by
+`mouse::fkey_widths`, the arithmetic the click hit test `mouse::fkey_at` also
+uses, so a click lands on the key whose label it hit. A bar of no keys has no
+cells and answers no click.
+
 Far spends no row above the panels and only two below them, and so does this.
 There is no banner and no status bar: the banner repeated the F-key bar, and the
 status bar's one real job — carrying messages — moved inside the panel, onto the

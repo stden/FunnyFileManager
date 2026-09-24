@@ -199,3 +199,24 @@ pub(super) const STATUS_FAILED: Color = PROMPT_FAILED;
 /// The completion dropdown's frame and highlight, shared by the command line
 /// and the dialog's form.
 pub(super) const COMPLETION_BG: Color = Color::Cyan;
+
+// ── The task list's meters ─────────────────────────────────────────
+//
+// htop's meter colours, each an alias of the scheme colour that already
+// means the same hue, so the meters never add a colour of their own.
+
+/// CPU time in user code, and memory in use: green.
+pub(super) const METER_USER: Color = EXECUTABLE;
+/// CPU time at a changed nice value, and buffer memory: blue.
+pub(super) const METER_NICE: Color = PROMPT_OK;
+/// CPU time in the kernel, and swap in use: red.
+pub(super) const METER_KERNEL: Color = PROMPT_FAILED;
+/// CPU time stolen by or given to virtual machines: cyan.
+pub(super) const METER_VIRT: Color = FRAME;
+/// Shared memory: magenta.
+pub(super) const METER_SHARED: Color = PROMPT_BRANCH;
+/// The page cache and the swap cache: yellow.
+pub(super) const METER_CACHE: Color = MARKED;
+/// The `D` and `Z` state letters: a process stuck in the kernel, or dead
+/// and not yet reaped.
+pub(super) const STATE_ALERT: Color = PROMPT_FAILED;

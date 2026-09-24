@@ -54,7 +54,7 @@ See `docs/knowledge-base/03-rust-best-practices/type-system.md` for details and 
 - `src/handlers.rs`: Backward-compatible re-exports; no operation implementation.
 - `src/terminal.rs`: RAII lifecycle for the TUI session and external-editor suspension.
 - `src/utils.rs`: Utility functions (`format_size`, `unique_destination`, `copy_dir_all`).
-- `src/platform.rs`: Safe wrappers for OS calls std lacks (uids, write access, process-group kill, Windows drives and attributes).
+- `src/platform.rs`: Safe wrappers for OS calls std lacks (uids, write access, process-group kill, process signals and renice, pidfds, page size and clock rate, Windows drives and attributes).
 - `src/editor.rs`: Built-in F4 editor opening and external Alt+F4 integration.
 - `src/s3.rs`: AWS S3 integration.
 - `src/sessions.rs`: NetBox stored sessions (`sessions.json`) and the `.netbox` importer under `src/sessions/import/`.

@@ -21,6 +21,7 @@ mod keymap;
 mod menu;
 
 pub mod editor;
+pub mod tasks;
 pub mod wsl;
 
 mod commands;

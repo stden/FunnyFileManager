@@ -93,13 +93,13 @@ fn execute_result(app: &mut App, command: MenuCommand) -> io::Result<()> {
         MenuCommand::Shortcuts => shortcuts(app),
         MenuCommand::Settings(page) => settings::open(app, page),
         MenuCommand::SaveSetup => settings::save(app)?,
+        MenuCommand::Tasks => super::tasks::open(app)?,
         MenuCommand::Filter
         | MenuCommand::LongNames
         | MenuCommand::TogglePanel(_)
         | MenuCommand::FolderHistory
         | MenuCommand::ViewHistory
         | MenuCommand::Screens
-        | MenuCommand::Tasks
         | MenuCommand::Devices
         | MenuCommand::VideoMode => workflows::execute(app, command)?,
         MenuCommand::Archive => crate::ops::archive::open_add(app),

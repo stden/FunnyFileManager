@@ -55,6 +55,8 @@ pub(super) fn dialog_button_key(app: &mut App, index: usize) -> Option<KeyEvent>
         Overlay::Editor(editor) => dialog_button_key_in_editor(editor, index),
         Overlay::MenuDialog(dialog) => menu_dialog_button_key(dialog, index),
         Overlay::LspEditor(dialog) => lsp_editor_button_key(dialog, index),
+        // The task list's dialogs: each button its letter or its focus.
+        Overlay::Tasks(list) => super::tasks::tasks_button_key(list, index),
         #[cfg(feature = "keepass")]
         Overlay::Kdbx(session) => kdbx_button_key(&session.0, index),
         _ => None,

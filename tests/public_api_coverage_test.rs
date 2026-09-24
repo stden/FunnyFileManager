@@ -41,7 +41,6 @@ use std::path::{Path, PathBuf};
 /// exemption. This list may only shrink — [`the_baseline_has_no_stale_entries`]
 /// fails when an entry becomes testable and is left here.
 const UNEXERCISED: &[&str] = &[
-    "after_caret",
     "apply_navigation",
     "association_command",
     "canonical_existing_ancestor",

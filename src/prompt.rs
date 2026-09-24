@@ -67,7 +67,11 @@ impl LastCommand {
     }
 }
 
-/// Whether this shell can overwrite anything, which is what `#` means.
+/// Whether FFM runs as root.
+///
+/// It decides whether this shell can overwrite anything, which is what `#`
+/// means, and whether `[` in the task list lowers a priority at once or asks
+/// first, since only root can raise it again.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Privilege {
     #[default]

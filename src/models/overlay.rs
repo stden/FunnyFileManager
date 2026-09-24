@@ -152,7 +152,8 @@ pub enum Overlay {
     Filter(FilterPrompt),
     /// F12: Screens list.
     Screens(ScreenList),
-    /// Ctrl+W: Task list.
+    /// Ctrl+W: the task list, a full-screen live view of every process with
+    /// its own bars, menus and dialogs nested inside it.
     Tasks(Box<TaskList>),
     /// Commands menu: Hotplug devices list.
     Hotplug(Box<DeviceList>),

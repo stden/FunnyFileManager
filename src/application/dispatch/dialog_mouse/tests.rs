@@ -24,6 +24,7 @@ mod menu_bar;
 mod menu_dialog;
 mod pointer;
 mod rows;
+mod tasks;
 mod wsl;
 
 fn app_at(dir: &TempDir) -> App {

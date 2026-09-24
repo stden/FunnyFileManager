@@ -66,13 +66,19 @@ pub(super) fn edit(
     }
 }
 
-fn navigate(selected: &mut usize, length: usize, code: KeyCode) {
+/// Rows Page Up and Page Down move a choice list's cursor.
+const MENU_PAGE: usize = 10;
+
+/// Moves a list cursor `selected` over `length` rows by one navigation key,
+/// never past either end. Shared by the F9 choice lists and the task list's
+/// menus; the LSP popup and the vault list move their own cursors.
+pub(super) fn navigate(selected: &mut usize, length: usize, code: KeyCode) {
     let last = length.saturating_sub(1);
     *selected = match code {
         KeyCode::Up => selected.saturating_sub(1),
         KeyCode::Down => selected.saturating_add(1).min(last),
-        KeyCode::PageUp => selected.saturating_sub(10),
-        KeyCode::PageDown => selected.saturating_add(10).min(last),
+        KeyCode::PageUp => selected.saturating_sub(MENU_PAGE),
+        KeyCode::PageDown => selected.saturating_add(MENU_PAGE).min(last),
         KeyCode::Home => 0,
         KeyCode::End => last,
         _ => *selected,

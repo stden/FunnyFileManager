@@ -10,9 +10,7 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::models::{App, PanelKind, QuickView};
-
-/// Far's `Ctrl+Left` / `Ctrl+Right` step, the viewer's too.
-const WIDE_STEP: usize = 20;
+use crate::scroll::WIDE_STEP;
 
 /// Whether the quick-view panel consumed `key`.
 pub fn process(app: &mut App, key: KeyEvent) -> bool {

@@ -54,10 +54,12 @@ fn each_tool_opens_its_own_dialog() {
         (ToolCommand::Screens, |o| {
             matches!(o, Overlay::MenuDialog(_))
         }),
-        (ToolCommand::Tasks, |o| matches!(o, Overlay::Viewer(_))),
+        (ToolCommand::Tasks, |o| matches!(o, Overlay::Tasks(_))),
     ];
     for (command, is_open) in cases {
         let mut app = App::new().expect("test app");
+        let host = crate::test_support::processes::FixtureHost::new(Vec::new());
+        app.task_host.install(std::sync::Arc::new(host));
         apply_action(&mut terminal(), &mut app, Action::Tool(command));
         assert!(is_open(&app.overlay), "{command:?}");
     }

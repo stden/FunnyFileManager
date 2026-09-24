@@ -1,48 +1,126 @@
-//! Purpose: uid → user name and gid → group name, looked up once each per listing.
+//! Purpose: uid → user name and gid → group name, looked up once each per cache.
 //!
 //! `getpwuid_r` and `getgrgid_r` are NSS calls — they can hit LDAP — so a
 //! directory of ten thousand files owned by three users asks three times, not
-//! ten thousand. The cache dies with the listing: a renamed user is a reload
-//! away.
+//! ten thousand. A listing's cache dies with the listing, so a renamed user is
+//! a reload away. A process reader keeps its cache for the whole session and
+//! calls [`Owners::forget_failed_lookups`] once per sample: a name, or the
+//! absence of one, is kept, but a lookup that failed is asked again.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
 /// Names already resolved while reading one directory or one selection.
 #[derive(Default)]
 pub struct Owners {
-    by_uid: HashMap<u32, Option<String>>,
-    by_gid: HashMap<u32, Option<String>>,
+    by_uid: HashMap<Uid, Lookup>,
+    by_gid: HashMap<Gid, Lookup>,
+}
+
+/// A user id. Apart from [`Gid`] so that neither cache, nor either lookup, can
+/// be handed the other kind of id: both are a bare `u32` to libc.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct Uid(u32);
+
+/// A group id; see [`Uid`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct Gid(u32);
+
+/// What one NSS lookup answered for an id.
+#[derive(Debug, PartialEq, Eq)]
+enum Lookup {
+    /// The id's name.
+    #[cfg_attr(
+        not(unix),
+        allow(dead_code, reason = "off Unix there are no ids, so nothing is named")
+    )]
+    Named(String),
+    /// The id has no entry; asking again will not give it one.
+    NoEntry,
+    /// The lookup itself failed — I/O, file descriptors, memory, an entry
+    /// past the buffer cap — so a later ask may succeed.
+    Failed,
+}
+
+impl Lookup {
+    fn name(&self) -> Option<String> {
+        match self {
+            Self::Named(name) => Some(name.clone()),
+            Self::NoEntry | Self::Failed => None,
+        }
+    }
 }
 
 impl Owners {
     /// The owner's name for `metadata`, or `None` off Unix and for uids
     /// without a passwd entry.
     pub fn of(&mut self, metadata: &std::fs::Metadata) -> Option<String> {
-        let (uid, _) = identifiers(metadata)?;
-        self.by_uid
-            .entry(uid)
-            .or_insert_with(|| user_name(uid))
-            .clone()
+        let (Uid(uid), _) = identifiers(metadata)?;
+        self.name_of_uid(uid)
+    }
+
+    /// The user name of `uid`, or `None` off Unix and for uids without a
+    /// passwd entry. For callers that know a uid but have no file to ask,
+    /// such as a process's effective uid.
+    pub fn name_of_uid(&mut self, uid: u32) -> Option<String> {
+        cached(&mut self.by_uid, Uid(uid), user_name)
     }
 
     /// The group's name for `metadata`, or `None` off Unix and for gids
     /// without a group entry.
     pub fn group_of(&mut self, metadata: &std::fs::Metadata) -> Option<String> {
         let (_, gid) = identifiers(metadata)?;
-        self.by_gid
-            .entry(gid)
-            .or_insert_with(|| group_name(gid))
-            .clone()
+        cached(&mut self.by_gid, gid, group_name)
     }
 
     /// `user:group` by name, for the File owners column; an id without a
     /// passwd or group entry shows as its number. `None` off Unix.
     pub fn user_and_group(&mut self, metadata: &std::fs::Metadata) -> Option<String> {
-        let (uid, gid) = identifiers(metadata)?;
+        let (Uid(uid), Gid(gid)) = identifiers(metadata)?;
         let user = self.of(metadata).unwrap_or_else(|| uid.to_string());
         let group = self.group_of(metadata).unwrap_or_else(|| gid.to_string());
         Some(format!("{user}:{group}"))
     }
+
+    /// Forgets the ids whose lookup failed, so the next ask tries again.
+    ///
+    /// Until then a failed id is not asked again, like a named one: a listing
+    /// never calls this, so an LDAP outage costs one lookup per id, not one per
+    /// row. A reader that lives for the session calls it once per sample, so
+    /// one transient NSS error does not leave a bare uid on screen until the
+    /// session ends.
+    #[cfg_attr(
+        not(any(target_os = "linux", test)),
+        expect(
+            dead_code,
+            reason = "only the Linux process reader calls it; other platforms have no reader yet"
+        )
+    )]
+    pub fn forget_failed_lookups(&mut self) {
+        self.by_uid.retain(|_, answer| *answer != Lookup::Failed);
+        self.by_gid.retain(|_, answer| *answer != Lookup::Failed);
+    }
+}
+
+#[cfg(all(test, unix))]
+impl Owners {
+    /// Owners whose lookup of `uid` has failed, as an NSS or LDAP outage
+    /// leaves them: until the failure is forgotten, `uid` has no name.
+    pub(crate) fn with_failed_user(uid: u32) -> Self {
+        let mut owners = Self::default();
+        owners.by_uid.insert(Uid(uid), Lookup::Failed);
+        owners
+    }
+}
+
+/// The name `cache` holds for `id`, asking `lookup` only the first time. Every
+/// answer is kept, a missing entry and a failure included, until
+/// [`Owners::forget_failed_lookups`] drops the failures.
+fn cached<Id: Copy + Eq + Hash>(
+    cache: &mut HashMap<Id, Lookup>,
+    id: Id,
+    lookup: impl FnOnce(Id) -> Lookup,
+) -> Option<String> {
+    cache.entry(id).or_insert_with(|| lookup(id)).name()
 }
 
 #[cfg(unix)]
@@ -50,24 +128,24 @@ impl Owners {
     clippy::unnecessary_wraps,
     reason = "shares the signature of the non-Unix variant, which has no ids to return"
 )]
-fn identifiers(metadata: &std::fs::Metadata) -> Option<(u32, u32)> {
+fn identifiers(metadata: &std::fs::Metadata) -> Option<(Uid, Gid)> {
     use std::os::unix::fs::MetadataExt;
-    Some((metadata.uid(), metadata.gid()))
+    Some((Uid(metadata.uid()), Gid(metadata.gid())))
 }
 
 #[cfg(not(unix))]
-fn identifiers(_metadata: &std::fs::Metadata) -> Option<(u32, u32)> {
+fn identifiers(_metadata: &std::fs::Metadata) -> Option<(Uid, Gid)> {
     None
 }
 
 #[cfg(not(unix))]
-fn user_name(_uid: u32) -> Option<String> {
-    None
+const fn user_name(_uid: Uid) -> Lookup {
+    Lookup::NoEntry
 }
 
 #[cfg(not(unix))]
-fn group_name(_gid: u32) -> Option<String> {
-    None
+const fn group_name(_gid: Gid) -> Lookup {
+    Lookup::NoEntry
 }
 
 #[cfg(unix)]
@@ -75,7 +153,7 @@ fn group_name(_gid: u32) -> Option<String> {
     unsafe_code,
     reason = "getpwuid_r has no safe wrapper in std or rustix"
 )]
-fn user_name(uid: u32) -> Option<String> {
+fn user_name(Uid(uid): Uid) -> Lookup {
     lookup(
         // SAFETY: see `lookup`; the id is bound here, the storage there.
         |record, buffer, len, found| unsafe { libc::getpwuid_r(uid, record, buffer, len, found) },
@@ -88,7 +166,7 @@ fn user_name(uid: u32) -> Option<String> {
     unsafe_code,
     reason = "getgrgid_r has no safe wrapper in std or rustix"
 )]
-fn group_name(gid: u32) -> Option<String> {
+fn group_name(Gid(gid): Gid) -> Lookup {
     lookup(
         // SAFETY: see `lookup`; the id is bound here, the storage there.
         |record, buffer, len, found| unsafe { libc::getgrgid_r(gid, record, buffer, len, found) },
@@ -108,7 +186,7 @@ fn group_name(gid: u32) -> Option<String> {
 fn lookup<T>(
     call: impl Fn(*mut T, *mut std::ffi::c_char, usize, *mut *mut T) -> i32,
     name_of: impl Fn(&T) -> *const std::ffi::c_char,
-) -> Option<String> {
+) -> Lookup {
     let mut buffer = vec![0_u8; 1024];
     loop {
         // SAFETY: passwd and group are plain C structs for which all-zero is a
@@ -129,11 +207,25 @@ fn lookup<T>(
             continue;
         }
         if status != 0 || found.is_null() {
-            return None;
+            return unnamed(status);
         }
         // SAFETY: `found` is non-null, so the name points into `buffer`.
         let name = unsafe { std::ffi::CStr::from_ptr(name_of(&record)) };
-        return Some(name.to_string_lossy().into_owned());
+        return Lookup::Named(name.to_string_lossy().into_owned());
+    }
+}
+
+/// What a lookup that returned no record means, by the status it returned.
+///
+/// `getpwuid_r(3)` reports an id with no entry as 0 with a null result, and
+/// lists ENOENT, ESRCH, EBADF and EPERM as the same answer on some systems.
+/// Anything else is the lookup failing: EIO, EINTR, EMFILE, ENFILE, ENOMEM,
+/// or ERANGE once the buffer has reached its cap.
+#[cfg(unix)]
+const fn unnamed(status: i32) -> Lookup {
+    match status {
+        0 | libc::ENOENT | libc::ESRCH | libc::EBADF | libc::EPERM => Lookup::NoEntry,
+        _ => Lookup::Failed,
     }
 }
 

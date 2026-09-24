@@ -16,25 +16,25 @@ struct State {
 }
 
 #[derive(Clone)]
-pub(super) struct CountingBackend(Rc<RefCell<State>>);
+pub(in crate::application::tests) struct CountingBackend(Rc<RefCell<State>>);
 
 impl CountingBackend {
-    pub(super) fn new() -> Self {
+    pub(in crate::application::tests) fn new() -> Self {
         Self(Rc::new(RefCell::new(State {
             backend: WritableTestBackend::new(80, 20),
             draws: 0,
         })))
     }
 
-    pub(super) fn draws(&self) -> usize {
+    pub(in crate::application::tests) fn draws(&self) -> usize {
         self.0.borrow().draws
     }
 
-    pub(super) fn resize(&self, size: Size) {
+    pub(in crate::application::tests) fn resize(&self, size: Size) {
         self.0.borrow_mut().backend = WritableTestBackend::new(size.width, size.height);
     }
 
-    pub(super) fn text(&self) -> String {
+    pub(in crate::application::tests) fn text(&self) -> String {
         self.0
             .borrow()
             .backend

@@ -116,6 +116,7 @@ pub mod path_env;
 pub mod performance;
 mod platform;
 pub mod popup;
+mod process_table;
 pub mod prompt;
 pub mod quicksearch;
 pub mod remote;

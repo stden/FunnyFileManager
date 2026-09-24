@@ -7,7 +7,7 @@ use crate::quicksearch::QuickSearch;
 
 use super::{
     settings, Bookmarks, ClipboardSlot, FolderHistory, Lifecycle, Overlay, Panel, PanelSide,
-    PanelsShown, ViewHistory, ViewMode, Viewport, WslRequests,
+    PanelsShown, TaskHostSlot, ViewHistory, ViewMode, Viewport, WslRequests,
 };
 
 /// What happens on the terminal after a program started from a panel ends.
@@ -119,6 +119,10 @@ pub struct App {
     pub(crate) vault_cache: crate::kdbx::cache::SessionCache,
     /// Requests awaiting interpretation by the background WSL worker.
     pub wsl_requests: WslRequests,
+    /// The process host the task list reads and controls processes through.
+    /// Constructors leave it empty — the list then falls back to the text
+    /// report — and the production entry point installs the platform's.
+    pub task_host: TaskHostSlot,
 }
 
 impl App {
@@ -181,6 +185,7 @@ impl App {
             #[cfg(feature = "keepass")]
             vault_cache: crate::kdbx::cache::SessionCache::default(),
             wsl_requests: WslRequests::default(),
+            task_host: TaskHostSlot::default(),
         }
     }
 

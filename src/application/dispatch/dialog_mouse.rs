@@ -20,6 +20,7 @@ use crate::mouse::DialogTarget;
 
 mod button_keys;
 mod menus;
+mod tasks;
 #[cfg(test)]
 mod tests;
 
@@ -108,7 +109,9 @@ fn click_special_dialog<B: Backend + Write>(
     column: u16,
     row: u16,
 ) -> bool {
-    if click_sort_menu(terminal, app, column, row) || click_choice_menu(terminal, app, column, row)
+    if click_sort_menu(terminal, app, column, row)
+        || click_choice_menu(terminal, app, column, row)
+        || tasks::click_task_list(terminal, app, column, row)
     {
         return true;
     }

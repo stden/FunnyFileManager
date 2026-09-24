@@ -29,6 +29,7 @@ struct RecordedEvent {
 }
 
 mod clipboard;
+mod processes;
 mod replay;
 mod storage;
 mod tty;

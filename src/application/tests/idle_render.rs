@@ -18,7 +18,7 @@ use crate::{
 
 use super::super::{run_app_with_event_reader, run_app_with_wsl_backend};
 
-mod backend;
+pub(super) mod backend;
 use backend::CountingBackend;
 
 const WAIT_LIMIT: Duration = Duration::from_secs(5);

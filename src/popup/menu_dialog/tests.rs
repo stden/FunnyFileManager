@@ -111,3 +111,32 @@ fn screen_choices_navigate_and_open_the_requested_screen() {
     assert_eq!(app.view, crate::models::ViewMode::Console);
     assert!(!app.overlay.is_active());
 }
+
+/// Where `navigate` leaves a cursor at `from` in a list `length` long.
+fn navigated(from: usize, length: usize, code: KeyCode) -> usize {
+    let mut selected = from;
+    navigate(&mut selected, length, code);
+    selected
+}
+
+/// A page is `MENU_PAGE` rows, and neither a page nor a step leaves the list.
+#[test]
+fn navigate_pages_by_menu_page_and_stops_at_both_ends() {
+    assert_eq!(navigated(0, 30, KeyCode::PageDown), MENU_PAGE);
+    assert_eq!(navigated(MENU_PAGE + 1, 30, KeyCode::PageUp), 1);
+    assert_eq!(navigated(25, 30, KeyCode::PageDown), 29);
+    assert_eq!(navigated(3, 30, KeyCode::PageUp), 0);
+    assert_eq!(navigated(29, 30, KeyCode::Down), 29);
+    assert_eq!(navigated(0, 30, KeyCode::Up), 0);
+    assert_eq!(navigated(7, 30, KeyCode::Home), 0);
+    assert_eq!(navigated(7, 30, KeyCode::End), 29);
+    assert_eq!(navigated(7, 30, KeyCode::Tab), 7, "other keys leave it");
+}
+
+/// An empty list has one place for the cursor: the top.
+#[test]
+fn navigate_in_an_empty_list_stays_at_the_top() {
+    for code in [KeyCode::Down, KeyCode::PageDown, KeyCode::End] {
+        assert_eq!(navigated(0, 0, code), 0, "{code:?}");
+    }
+}

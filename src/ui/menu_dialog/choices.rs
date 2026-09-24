@@ -1,6 +1,8 @@
-//! Content-sized vertical menus with shared rendering and click geometry.
+//! Purpose: Content-sized vertical menus with shared rendering and click geometry.
+//!
+//! Generic over the row type, so the F9 result lists (`MenuChoice`) and the
+//! task list's menus (plain labels) are drawn and hit-tested by one geometry.
 
-use crate::models::MenuChoice;
 use ratatui::{
     layout::Rect,
     style::Style,
@@ -11,10 +13,11 @@ use ratatui::{
 
 use super::super::{dialog, far_block, palette, Cells};
 
+/// The index of the row drawn under (`column`, `row`), if a row is there.
 pub fn row_at(
     screen: Rect,
     title: &str,
-    rows: &[MenuChoice],
+    rows: &[impl AsRef<str>],
     selected: usize,
     column: u16,
     row: u16,
@@ -27,10 +30,10 @@ pub fn row_at(
     (index < rows.len()).then_some(index)
 }
 
-fn area(screen: Rect, title: &str, rows: &[MenuChoice]) -> Rect {
+fn area(screen: Rect, title: &str, rows: &[impl AsRef<str>]) -> Rect {
     let content = rows
         .iter()
-        .map(|row| Cells::of(&row.label).get())
+        .map(|row| Cells::of(row.as_ref()).get())
         .chain([Cells::of(title).get(), 22])
         .max()
         .unwrap_or(22);
@@ -56,7 +59,13 @@ fn first_row(selected: usize, length: usize, height: u16) -> usize {
         .saturating_sub(usize::from(height))
 }
 
-pub(super) fn render(f: &mut Frame<'_>, title: &str, rows: &[MenuChoice], selected: usize) {
+/// Draws the menu centred on the screen, with row `selected` highlighted.
+pub(in crate::ui) fn render(
+    f: &mut Frame<'_>,
+    title: &str,
+    rows: &[impl AsRef<str>],
+    selected: usize,
+) {
     let area = area(f.area(), title, rows);
     dialog::render_shadow(f, area, f.area());
     let style = Style::default().fg(palette::DRIVE_FG).bg(palette::MENU_BG);
@@ -73,7 +82,13 @@ pub(super) fn render(f: &mut Frame<'_>, title: &str, rows: &[MenuChoice], select
     render_rows(f, body, rows, selected, style);
 }
 
-fn render_rows(f: &mut Frame<'_>, body: Rect, rows: &[MenuChoice], selected: usize, style: Style) {
+fn render_rows(
+    f: &mut Frame<'_>,
+    body: Rect,
+    rows: &[impl AsRef<str>],
+    selected: usize,
+    style: Style,
+) {
     let first = first_row(selected, rows.len(), body.height);
     for (index, row) in rows
         .iter()
@@ -92,6 +107,12 @@ fn render_rows(f: &mut Frame<'_>, body: Rect, rows: &[MenuChoice], selected: usi
         } else {
             style
         };
-        f.render_widget(Paragraph::new(format!(" {}", row.label)).style(style), area);
+        f.render_widget(
+            Paragraph::new(format!(" {}", row.as_ref())).style(style),
+            area,
+        );
     }
 }
+
+#[cfg(test)]
+mod tests;

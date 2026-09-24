@@ -17,12 +17,34 @@ use crate::ui::ui;
 mod dispatch;
 mod input;
 mod lsp_jobs;
+mod task_jobs;
 mod timing;
 mod wsl_jobs;
 pub use dispatch::dispatch_key;
 use dispatch::dispatch_mouse;
 use input::{BufferedInput, EventSource};
-use wsl_jobs::Redraw;
+
+/// Whether pumping background work produced an outcome for presentation.
+///
+/// A loop concept rather than one worker's: the worker controllers answer
+/// with it (`WslJobs` and the task list's `TaskJobs`), and the loop draws a
+/// frame only on `Needed`. The LSP controller and vault maintenance still
+/// answer with a `bool`, which the loop turns into `Needed`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Redraw {
+    Unchanged,
+    Needed,
+}
+
+impl Redraw {
+    /// `Needed` when either step asked for a frame.
+    const fn or(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Unchanged, Self::Unchanged) => Self::Unchanged,
+            (Self::Needed, _) | (_, Self::Needed) => Self::Needed,
+        }
+    }
+}
 
 /// Intended clipboard retention interval for the optional vault integration.
 /// Kept at the public crate path for compatibility with existing callers.
@@ -122,6 +144,7 @@ where
 struct LoopState {
     clicks: crate::mouse::PanelClicks,
     jobs: wsl_jobs::WslJobs,
+    tasks: task_jobs::TaskJobs,
     lsp: lsp_jobs::EditorLspController,
     redraw: Redraw,
     pending: Option<timing::Pending>,
@@ -134,6 +157,7 @@ impl LoopState {
         Self {
             clicks: crate::mouse::PanelClicks::default(),
             jobs: wsl_jobs::WslJobs::new(backend),
+            tasks: task_jobs::TaskJobs::default(),
             lsp: lsp_jobs::EditorLspController::default(),
             redraw: Redraw::Needed,
             pending: None,
@@ -198,6 +222,9 @@ impl LoopState {
         if self.jobs.pump(app) == Redraw::Needed {
             self.redraw = Redraw::Needed;
         }
+        if self.tasks.pump(app) == Redraw::Needed {
+            self.redraw = Redraw::Needed;
+        }
         if self.lsp.pump(app) {
             self.redraw = Redraw::Needed;
         }
@@ -223,7 +250,7 @@ fn handle_event<B: Backend + Write>(
 ) -> io::Result<()> {
     if let Event::Paste(text) = event {
         panel_clicks.reset();
-        crate::popup::paste_editor_text(app, &text);
+        crate::popup::paste_text(app, &text);
         return Ok(());
     }
     if let Event::Resize(width, height) = event {

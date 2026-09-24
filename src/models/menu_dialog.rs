@@ -25,6 +25,13 @@ pub struct MenuChoice {
     pub target: ChoiceTarget,
 }
 
+/// A choice reads as its label, which is all a menu draws of it.
+impl AsRef<str> for MenuChoice {
+    fn as_ref(&self) -> &str {
+        &self.label
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum ChoiceTarget {
     UpdatePackages(crate::packages::UpdatePlan),

@@ -5,7 +5,7 @@ use ratatui::{layout::Rect, style::Style, widgets::Paragraph, Frame};
 
 use super::{dialog, palette, Cells};
 
-mod choices;
+pub(super) mod choices;
 pub use choices::row_at;
 
 pub(super) fn render(f: &mut Frame<'_>, modal: &MenuDialog, tracker: &mut DialogMouse) {

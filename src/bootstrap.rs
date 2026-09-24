@@ -43,9 +43,7 @@ fn run_session(input: &mut crate::recording::Input) -> Result<(), Box<dyn Error>
     let mut terminal_ops = crate::terminal::CrosstermOps;
     let mut session = crate::terminal::TerminalSession::enter(&mut terminal, &mut terminal_ops)?;
 
-    app.clipboard
-        .install(input.clipboard(Box::new(crate::clipboard::SystemClipboard::with_stdout())));
-    app.live = live_input(input);
+    install_hosts(&mut app, input);
 
     let run_result = crate::application::run_loop(
         session.terminal_mut(),
@@ -55,6 +53,21 @@ fn run_session(input: &mut crate::recording::Input) -> Result<(), Box<dyn Error>
     );
     let cleanup_result = session.finish();
     end_session(&app, run_result, cleanup_result)
+}
+
+/// The machine the session works on, as `input` allows: a replay gets the
+/// recorded clipboard, the process table read-only, and none of what only
+/// live input gets.
+fn install_hosts(app: &mut App, input: &crate::recording::Input) {
+    app.clipboard
+        .install(input.clipboard(Box::new(crate::clipboard::SystemClipboard::with_stdout())));
+    // The task list reads and controls processes through this host. A replay
+    // gets it read-only: a recorded F8 Enter must not end whatever process
+    // sits under the cursor on the replaying machine.
+    if let Some(host) = crate::process_table::system_host() {
+        app.task_host.install(input.process_host(host));
+    }
+    app.live = live_input(input);
 }
 
 /// What only live input gets. The pause reads a live key; a replay has none to

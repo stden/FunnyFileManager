@@ -368,14 +368,14 @@ fn test_centered_rect_edge_cases() {
 }
 
 #[test]
-fn test_render_command_bar_variations() {
+fn test_render_key_bar_variations() {
     let backend = TestBackend::new(120, 3);
     let mut terminal = Terminal::new(backend).unwrap();
 
     terminal
         .draw(|f| {
             let area = f.area();
-            render_command_bar(f, area);
+            render_key_bar(f, area, &FKEY_LABELS);
         })
         .unwrap();
 
@@ -385,7 +385,7 @@ fn test_render_command_bar_variations() {
     small_terminal
         .draw(|f| {
             let area = f.area();
-            render_command_bar(f, area);
+            render_key_bar(f, area, &FKEY_LABELS);
         })
         .unwrap();
 }
@@ -774,4 +774,25 @@ fn test_a_dot_directory_is_painted_as_a_directory_not_dimmed() {
         .find_map(|y| column_of(buf, y, ".dotdir").map(|x| (x, y)))
         .expect("the entry is on screen");
     assert_eq!(buf[(x, y)].fg, palette::DIRECTORY);
+}
+
+/// The panels' bar is Far's twelve labels, cell for cell and colour for
+/// colour, at the classic width. Pinned so the generic key bar provably draws
+/// the panels exactly as the panel-only one did.
+#[test]
+fn the_panel_key_bar_is_fars_twelve_labels_at_eighty_columns() {
+    let mut terminal = Terminal::new(TestBackend::new(80, 1)).unwrap();
+    terminal
+        .draw(|f| render_key_bar(f, f.area(), &FKEY_LABELS))
+        .unwrap();
+    let buf = terminal.backend().buffer();
+    let row: String = (0..80).map(|x| buf[(x, 0)].symbol()).collect();
+    assert_eq!(
+        row,
+        "1Help  2UserMn3View  4Edit  5Copy  6RenMov7MkFold8Delete9Conf…10Quit11Plu…12Scr…"
+    );
+    assert_eq!(buf[(0, 0)].bg, Color::Black);
+    assert_eq!(buf[(0, 0)].fg, palette::DIRECTORY);
+    assert_eq!(buf[(1, 0)].bg, palette::CURSOR_BG);
+    assert_eq!(buf[(1, 0)].fg, palette::HIGHLIGHT_FG);
 }

@@ -23,3 +23,4 @@ mod replay_resize;
 mod restore_selection;
 mod run_lifecycle;
 mod selection_groups;
+mod task_refresh;

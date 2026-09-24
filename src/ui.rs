@@ -58,6 +58,7 @@ mod shortcuts;
 mod sortmenu;
 mod stub;
 mod tasks;
+pub(crate) use tasks::{task_click_at, TaskClick};
 mod tree;
 mod usermenu;
 mod view_history;
@@ -94,10 +95,8 @@ use command_line::render_command_line;
 #[cfg(test)]
 use command_prompt::prompt_spans;
 use completion::render_completion_menu;
-use fkey_bar::render_command_bar;
 pub use fkey_bar::FKEY_COUNT;
-#[cfg(test)]
-use fkey_bar::FKEY_LABELS;
+use fkey_bar::{render_key_bar, FKEY_LABELS};
 pub use layout::{centered_rect, panel_page_size, FALLBACK_TERMINAL_HEIGHT};
 use layout::{
     COMMAND_LINE_HEIGHT, FKEY_BAR_HEIGHT, MENU_BAR_HEIGHT, PANEL_BORDERS, PANEL_COLUMN_HEADER,
@@ -222,7 +221,7 @@ fn render_panel_view(f: &mut Frame<'_>, app: &mut App, area: Rect) {
     render_both_panels(f, app, panels);
     render_command_line(f, app, command_line);
     render_completion_menu(f, app, command_line);
-    render_command_bar(f, fkey_bar);
+    render_key_bar(f, fkey_bar, &FKEY_LABELS);
 }
 
 fn render_both_panels(f: &mut Frame<'_>, app: &mut App, area: Rect) {

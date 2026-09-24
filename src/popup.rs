@@ -8,7 +8,16 @@ mod disk_cleanup;
 mod lsp_editor;
 mod menu_dialog;
 mod path_env;
-pub(crate) use editor::paste_text as paste_editor_text;
+
+/// A terminal paste: text for the editor's document, or for the task list's
+/// open bar. Nothing else takes a paste as text.
+pub(crate) fn paste_text(app: &mut App, text: &str) {
+    match app.overlay {
+        Overlay::Editor(_) => editor::paste_text(app, text),
+        Overlay::Tasks(_) => tasks::paste(app, text),
+        _ => {}
+    }
+}
 
 /// Handle keyboard input for popup overlays (help, viewer, editor, dialogs).
 ///

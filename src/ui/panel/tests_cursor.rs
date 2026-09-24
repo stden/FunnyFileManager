@@ -79,3 +79,15 @@ fn an_unmarked_entry_under_the_cursor_keeps_the_cursor_colours() {
         assert_eq!(cell.fg, palette::CURSOR_FG, "{view:?}");
     }
 }
+
+/// The cursor bar as another list asks for it by mark: the bar's ground either
+/// way, with the text yellow only over a marked row.
+#[test]
+fn the_cursor_bar_text_is_yellow_only_over_a_marked_row() {
+    let marked = cursor_style(Mark::Marked);
+    let unmarked = cursor_style(Mark::Unmarked);
+    assert_eq!(marked.bg, Some(palette::CURSOR_BG));
+    assert_eq!(unmarked.bg, Some(palette::CURSOR_BG));
+    assert_eq!(marked.fg, Some(palette::MARKED));
+    assert_eq!(unmarked.fg, Some(palette::CURSOR_FG));
+}

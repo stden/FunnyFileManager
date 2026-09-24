@@ -461,10 +461,14 @@ fn the_netbox_row_opens_the_sessions_panel_on_its_side() {
     assert_eq!(status.to_string(), "NetBox: 0 stored sessions");
 }
 
+/// The row opens the one task list Ctrl+W opens, on the installed host: no
+/// `ps` runs, and closing the drive menu does not take the viewer down.
 #[test]
 fn the_process_list_row_opens_the_task_list_and_the_menu_stays_closed() {
     let temp = TempDir::new().expect("temp dir");
     let mut app = crate::test_support::netbox::app_in(temp.path());
+    let host = crate::test_support::processes::FixtureHost::new(Vec::new());
+    app.task_host.install(std::sync::Arc::new(host));
     open_drive_menu(&mut app, 0);
     let Overlay::DriveSelection { rows, .. } = &app.overlay else {
         panic!("the drive menu is open");
@@ -479,6 +483,20 @@ fn the_process_list_row_opens_the_task_list_and_the_menu_stays_closed() {
         matches!(app.overlay, Overlay::Tasks(_)),
         "the task list is open"
     );
+}
+
+/// Without a host the row falls back to the report, as Ctrl+W does there.
+#[cfg(unix)]
+#[test]
+fn without_a_host_the_process_list_row_opens_the_report() {
+    let temp = TempDir::new().expect("temp dir");
+    let mut app = crate::test_support::netbox::app_in(temp.path());
+    let status = select_drive(&mut app, PanelSide::Left, DriveEntry::ProcessList);
+    assert!(matches!(status, Status::Cleared));
+    let Overlay::Viewer(viewer) = &app.overlay else {
+        panic!("the report is open");
+    };
+    assert_eq!(viewer.title(), "Task list");
 }
 
 /// A local drive picked for a panel that shows the sessions list or a host

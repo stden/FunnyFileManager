@@ -2,9 +2,9 @@
 
 use crate::{
     menu::MenuCommand,
-    models::{App, ChoiceTarget, MenuChoice, Overlay, ViewMode, Viewer},
+    models::{App, ChoiceTarget, MenuChoice, ViewMode},
 };
-use std::{io, process::Command};
+use std::io;
 
 pub(super) fn execute(app: &mut App, command: MenuCommand) -> io::Result<()> {
     match command {
@@ -16,7 +16,6 @@ pub(super) fn execute(app: &mut App, command: MenuCommand) -> io::Result<()> {
         MenuCommand::FolderHistory => folder_history(app),
         MenuCommand::ViewHistory => view_history(app),
         MenuCommand::Screens => screens(app),
-        MenuCommand::Tasks => tasks(app)?,
         MenuCommand::Devices => devices(app),
         MenuCommand::VideoMode => crate::ops::videomode::toggle(app)?,
         _ => return Err(io::Error::other("Not a navigation command")),
@@ -101,27 +100,4 @@ fn devices(app: &mut App) {
         })
         .collect();
     super::choices(app, "Mounted devices", rows);
-}
-
-fn tasks(app: &mut App) -> io::Result<()> {
-    let mut command = if cfg!(windows) {
-        Command::new("tasklist")
-    } else {
-        Command::new("ps")
-    };
-    if !cfg!(windows) {
-        command.args(["-eo", "pid,comm,%cpu,%mem"]);
-    }
-    let output = super::process::capture(&mut command)?;
-    if !output.status.success() {
-        return Err(io::Error::other(
-            String::from_utf8_lossy(&output.stderr).into_owned(),
-        ));
-    }
-    let lines = String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .map(str::to_owned)
-        .collect();
-    app.set_overlay(Overlay::Viewer(Viewer::report("Task list", lines)));
-    Ok(())
 }

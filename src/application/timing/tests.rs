@@ -199,3 +199,15 @@ fn wipe_confirmation_labels_never_carry_the_paths_being_wiped() {
         "Wipe/Paste"
     );
 }
+
+#[test]
+fn keys_in_the_task_list_are_labelled_by_it() {
+    let temp = tempfile::TempDir::new().expect("tempdir");
+    let mut app = app(&temp);
+    app.set_overlay(Overlay::Tasks(Box::default()));
+    let key = Event::Key(KeyEvent::new(
+        KeyCode::F(5),
+        crossterm::event::KeyModifiers::NONE,
+    ));
+    assert_eq!(label(&app, &key), "Tasks/KeyModifiers(0x0)/F(5)");
+}

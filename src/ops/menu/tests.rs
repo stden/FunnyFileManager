@@ -316,11 +316,20 @@ fn the_apply_command_row_opens_its_own_dialog() {
     assert!(submit(&mut app, MenuCommand::ApplyCommand, "echo").is_err());
 }
 
+/// The Task list row opens the live viewer on the installed host, never a
+/// second copy of the old report.
 #[test]
-fn task_and_device_menus_show_host_information() {
+fn the_task_list_row_opens_the_live_viewer() {
     let (_temp, mut app) = fixture();
+    let host = crate::test_support::processes::FixtureHost::new(Vec::new());
+    app.task_host.install(std::sync::Arc::new(host));
     execute_result(&mut app, MenuCommand::Tasks).unwrap();
-    assert!(matches!(app.overlay, Overlay::Viewer(_)));
+    assert!(matches!(app.overlay, Overlay::Tasks(_)));
+}
+
+#[test]
+fn the_devices_row_lists_the_mounted_devices() {
+    let (_temp, mut app) = fixture();
     execute_result(&mut app, MenuCommand::Devices).unwrap();
     assert!(!rows(&app).is_empty());
 }

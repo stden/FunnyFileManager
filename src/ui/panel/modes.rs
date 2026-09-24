@@ -4,8 +4,9 @@
 
 use ratatui::{layout::Rect, text::Line, widgets::Paragraph, Frame};
 
-use super::{palette, visible_window, Cells, Style};
+use super::{palette, Cells, Style};
 use crate::models::{DirEntry, Panel, ShortName, ShortNames};
+use crate::scroll::visible_window;
 
 mod columns;
 
@@ -83,13 +84,13 @@ pub(super) fn displayed_name<'a>(
 }
 
 fn row_style(panel: &Panel, entry: &DirEntry, selected: bool) -> Style {
-    let is_marked = panel.marked.contains(entry.name.as_str());
+    let mark = super::mark_of(panel, entry);
     if selected {
         return Style::default()
             .bg(palette::CURSOR_BG)
-            .fg(super::cursor_colour(is_marked));
+            .fg(super::cursor_colour(mark));
     }
-    let foreground = if is_marked {
+    let foreground = if mark == super::Mark::Marked {
         palette::MARKED
     } else if entry.kind.is_dir() {
         palette::DIRECTORY
