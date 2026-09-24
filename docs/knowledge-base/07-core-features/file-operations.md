@@ -52,8 +52,14 @@ path, relative to the active panel. What was typed means, following Far
 - Refuses to copy or move a file or folder onto itself, whatever the
   "Already existing files" choice (Far's "copy/move onto itself" error): both
   panels start in the same directory, so this is the dialog's default.
-  "Overwrite" would empty the source before reading it, and "Ask" would
-  rename a moved file to `name_1`.
+  Unix hard-link aliases are refused too: a rename between them reports
+  success without moving either name. "Ask" must not rename a moved file to
+  `name_1` when the destination is the source itself.
+- A single-entry overwrite prepares the copy and its metadata in a temporary
+  sibling before atomically replacing the destination (`ops/file/replace.rs`).
+  A failed copy or metadata update leaves the existing entry intact. Moves
+  try an atomic rename first; their copy fallback removes the source only
+  after the replacement succeeds.
 - "Overwrite" and "Only newer" never remove what the transfer does not
   bring (`ops/file/merge.rs`). A folder onto a folder of the same name is
   merged into it, as Far, mc and Explorer do: each entry inside follows the

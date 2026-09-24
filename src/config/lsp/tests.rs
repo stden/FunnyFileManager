@@ -5,6 +5,29 @@ use super::*;
 use tempfile::TempDir;
 
 #[test]
+fn batch_files_resolve_to_a_server_using_standard_io() {
+    let root = TempDir::new().unwrap();
+    let executable = root
+        .path()
+        .join(crate::lsp::program_file("batch-language-server"));
+    crate::test_support::write_executable(&executable, b"batch server").unwrap();
+    let probe = crate::lsp::Probe::new(None, Some(root.path().as_os_str().to_owned()));
+    let settings = LspSettings::default();
+    for filename in ["build.bat", "build.CMD"] {
+        let (language, server) = settings.for_path(&root.path().join(filename)).unwrap();
+        let availability = crate::lsp::availability(language, server, root.path(), &probe);
+        assert_eq!(language, "bat");
+        assert_eq!(
+            availability.resolved(),
+            Some(&crate::lsp::Resolved {
+                executable: executable.clone(),
+                args: vec!["--stdio".to_owned()],
+            })
+        );
+    }
+}
+
+#[test]
 fn default_command_uses_path_and_explicit_configuration_is_preserved() {
     let root = TempDir::new().unwrap();
     let mut settings = LspSettings::default();

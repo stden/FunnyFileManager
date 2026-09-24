@@ -9,7 +9,9 @@
 
 use std::time::{Duration, Instant};
 
-use super::{Sample, SampleError, Snapshot, Table, TaskList};
+use super::SampleError;
+
+mod list;
 
 /// Time between one sample completing and the next being taken: htop's
 /// default of fifteen tenths.
@@ -51,6 +53,9 @@ pub enum Schedule {
     At(Instant),
     /// A sample is in flight.
     Waiting { since: Instant, request: Request },
+    /// A control made the sample in flight obsolete: discard it, then ask
+    /// for one that can observe the control's result, even while held.
+    Obsolete { since: Instant },
     /// Held: nothing until `F11`, `Z` or `Ctrl+R`.
     Held,
     /// The sampling worker is gone for this session; reopening the list
@@ -62,7 +67,7 @@ pub enum Schedule {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Arrival {
     Apply,
-    /// Held, and nobody asked for it: the screen really holds.
+    /// Held without an explicit request, or superseded by a control.
     Discard,
 }
 
@@ -100,7 +105,7 @@ impl Refresh {
     #[must_use]
     pub const fn in_flight_since(self) -> Option<Instant> {
         match self.schedule {
-            Schedule::Waiting { since, .. } => Some(since),
+            Schedule::Waiting { since, .. } | Schedule::Obsolete { since } => Some(since),
             Schedule::Due | Schedule::At(_) | Schedule::Held | Schedule::Stopped => None,
         }
     }
@@ -111,7 +116,11 @@ impl Refresh {
         let request = match self.schedule {
             Schedule::Due => Request::Explicit,
             Schedule::At(at) if now >= at => Request::Automatic,
-            Schedule::At(_) | Schedule::Waiting { .. } | Schedule::Held | Schedule::Stopped => {
+            Schedule::At(_)
+            | Schedule::Waiting { .. }
+            | Schedule::Obsolete { .. }
+            | Schedule::Held
+            | Schedule::Stopped => {
                 return None;
             }
         };
@@ -128,6 +137,10 @@ impl Refresh {
     pub fn completed(&mut self, now: Instant, pause: Duration) -> Arrival {
         let request = match self.schedule {
             Schedule::Waiting { request, .. } => request,
+            Schedule::Obsolete { .. } => {
+                self.schedule = Schedule::Due;
+                return Arrival::Discard;
+            }
             Schedule::Stopped => return Arrival::Discard,
             Schedule::Due | Schedule::At(_) | Schedule::Held => Request::Automatic,
         };
@@ -151,21 +164,40 @@ impl Refresh {
             Cadence::Held => Cadence::Live,
         };
         self.schedule = match (self.cadence, self.schedule) {
-            (_, kept @ (Schedule::Due | Schedule::Waiting { .. } | Schedule::Stopped)) => kept,
+            (
+                _,
+                kept @ (Schedule::Due
+                | Schedule::Waiting { .. }
+                | Schedule::Obsolete { .. }
+                | Schedule::Stopped),
+            ) => kept,
             (Cadence::Held, Schedule::At(_) | Schedule::Held) => Schedule::Held,
             (Cadence::Live, Schedule::At(_) | Schedule::Held) => Schedule::Due,
         };
     }
 
-    /// `Ctrl+R`, or a signal or renice that just finished: one sample now,
-    /// shown even while held. A sample already in flight is not doubled: it
-    /// becomes the one asked for.
+    /// `Ctrl+R`: one sample now, shown even while held. A usable sample in
+    /// flight becomes the one asked for; an obsolete one still needs its
+    /// replacement.
     pub fn refresh_now(&mut self) {
         self.schedule = match self.schedule {
             Schedule::Waiting { since, .. } => Schedule::Waiting {
                 since,
                 request: Request::Explicit,
             },
+            kept @ (Schedule::Obsolete { .. } | Schedule::Stopped) => kept,
+            Schedule::Due | Schedule::At(_) | Schedule::Held => Schedule::Due,
+        };
+    }
+
+    /// A signal or renice finished: only a sample begun afterwards can
+    /// reflect it. Keep an older read in flight until it finishes, without
+    /// accepting its answer or starting another worker beside it.
+    pub(crate) fn refresh_after_control(&mut self) {
+        self.schedule = match self.schedule {
+            Schedule::Waiting { since, .. } | Schedule::Obsolete { since } => {
+                Schedule::Obsolete { since }
+            }
             Schedule::Stopped => Schedule::Stopped,
             Schedule::Due | Schedule::At(_) | Schedule::Held => Schedule::Due,
         };
@@ -175,111 +207,18 @@ impl Refresh {
     /// unless the screen is held and nobody asked for it, whose answer would
     /// have been discarded anyway.
     pub fn stalled(&mut self) {
-        if let Schedule::Waiting { request, .. } = self.schedule {
-            self.schedule = match (self.cadence, request) {
+        self.schedule = match self.schedule {
+            Schedule::Waiting { request, .. } => match (self.cadence, request) {
                 (Cadence::Held, Request::Automatic) => Schedule::Held,
                 (Cadence::Live, _) | (Cadence::Held, Request::Explicit) => Schedule::Due,
-            };
-        }
+            },
+            Schedule::Obsolete { .. } => Schedule::Due,
+            kept @ (Schedule::Due | Schedule::At(_) | Schedule::Held | Schedule::Stopped) => kept,
+        };
     }
 
     /// The worker is gone: ask for nothing more this session.
     pub fn stop(&mut self) {
         self.schedule = Schedule::Stopped;
-    }
-}
-
-impl TaskList {
-    /// Asks for a sample when one is due at `now`; `None` when nothing is.
-    pub fn take_request(&mut self, now: Instant) -> Option<Request> {
-        self.refresh.take_request(now)
-    }
-
-    /// A sample arrived at `now`, or failed. Shown unless the table is held
-    /// and nobody asked for it; the next is due after the warm-up following
-    /// the session's first snapshot, then after the refresh interval.
-    pub fn apply_sample(&mut self, result: Result<Sample, SampleError>, now: Instant) {
-        let first = matches!(self.table, Table::Waiting | Table::Failed(_));
-        let pause = match &result {
-            Ok(_) if first => WARM_UP,
-            Ok(_) | Err(_) => REFRESH_INTERVAL,
-        };
-        if self.refresh.completed(now, pause) == Arrival::Discard {
-            self.clear_overdue();
-            return;
-        }
-        match result {
-            Ok(sample) => self.adopt(sample),
-            Err(error) => self.record_failure(error),
-        }
-    }
-
-    /// The sampling worker is gone for this session: the error is shown and
-    /// nothing is asked for again.
-    pub fn worker_lost(&mut self, error: SampleError) {
-        self.record_failure(error);
-        self.refresh.stop();
-    }
-
-    /// The sample in flight is late: a fresh table is marked stale. A worse
-    /// mark already shown stays.
-    pub fn mark_overdue(&mut self) {
-        if let Table::Ready { health, .. } = &mut self.table {
-            if *health == Health::Fresh {
-                *health = Health::Overdue;
-            }
-        }
-    }
-
-    /// The late sample did arrive, though a hold kept it off the screen:
-    /// nothing is in flight to be late any more.
-    fn clear_overdue(&mut self) {
-        if let Table::Ready { health, .. } = &mut self.table {
-            if *health == Health::Overdue {
-                *health = Health::Fresh;
-            }
-        }
-    }
-
-    /// The sample in flight was abandoned: the table is marked not
-    /// responding and a sample is due again. Without a table yet, the reader
-    /// that never answered is the error shown in its place, so a first
-    /// sample stuck in the kernel does not look like one still starting.
-    pub fn mark_stalled(&mut self) {
-        match &mut self.table {
-            Table::Ready { health, .. } => *health = Health::Stalled,
-            Table::Waiting | Table::Failed(_) => {
-                self.table = Table::Failed(SampleError::WorkerStalled);
-            }
-        }
-        self.refresh.stalled();
-    }
-
-    /// `F11` and `Z`.
-    pub fn toggle_hold(&mut self) {
-        self.refresh.toggle_hold();
-    }
-
-    /// `Ctrl+R`, and after a signal or a renice: one sample now.
-    pub fn refresh_now(&mut self) {
-        self.refresh.refresh_now();
-    }
-
-    fn adopt(&mut self, sample: Sample) {
-        let (snapshot, baselines) = Snapshot::derive(&self.baselines, sample);
-        self.baselines = baselines;
-        self.selection.prune(snapshot.rows());
-        self.table = Table::Ready {
-            snapshot: Box::new(snapshot),
-            health: Health::Fresh,
-        };
-        self.rebuild();
-    }
-
-    fn record_failure(&mut self, error: SampleError) {
-        match &mut self.table {
-            Table::Ready { health, .. } => *health = Health::Failed(error),
-            Table::Waiting | Table::Failed(_) => self.table = Table::Failed(error),
-        }
     }
 }

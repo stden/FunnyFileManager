@@ -11,7 +11,7 @@ use super::{prompt, run, submit, EXTENSION};
 use crate::models::{App, InputPurpose, Overlay, PanelKind, SessionsPanel};
 use crate::ops::sessions::SessionError;
 use crate::sessions::import::ImportError;
-use crate::sessions::{SessionStore, FILE_NAME};
+use crate::sessions::{SessionStore, StoreError, FILE_NAME, MAX_FILE_BYTES};
 use crate::test_support::netbox::{app_in, file_store, name, session};
 
 const EXPORT: &str = "<NetBox><Sessions>\
@@ -135,6 +135,51 @@ fn an_import_that_cannot_be_saved_is_not_taken_in() {
         transcript(&app).is_empty(),
         "nothing is reported as imported"
     );
+}
+
+fn large_export() -> String {
+    use std::fmt::Write;
+
+    let mut text = String::from("<NetBox><Sessions>");
+    let padding = "x".repeat(450);
+    for index in 0..1000 {
+        write!(
+            text,
+            "<Session name=\"{index:04}{padding}\"><HostName>h.test</HostName>\
+             <PublicKeyFile>{padding}</PublicKeyFile></Session>"
+        )
+        .expect("write XML");
+    }
+    text.push_str("</Sessions></NetBox>");
+    text
+}
+
+#[test]
+fn an_import_exceeding_the_store_limit_preserves_committed_sessions() {
+    let (dir, mut app) = setup();
+    app.sessions = file_store(dir.path(), vec![session("kept.test", None)]);
+    let previous = app.sessions.clone();
+    let saved_path = dir.path().join(FILE_NAME);
+    let saved_bytes = fs::read(&saved_path).expect("previous file");
+    let export = large_export();
+    assert!(u64::try_from(export.len()).expect("fits") < MAX_FILE_BYTES);
+    let path = dir.path().join("large.netbox");
+    fs::write(&path, export).expect("write export");
+
+    assert!(matches!(
+        run(&mut app, Some(path)),
+        Err(SessionError::Store(StoreError::TooLarge {
+            limit: MAX_FILE_BYTES
+        }))
+    ));
+
+    assert_eq!(app.sessions, previous);
+    assert_eq!(fs::read(saved_path).expect("kept file"), saved_bytes);
+    assert_eq!(
+        SessionStore::load_from(dir.path().join(FILE_NAME)),
+        previous
+    );
+    assert!(transcript(&app).is_empty(), "no successful import report");
 }
 
 #[test]

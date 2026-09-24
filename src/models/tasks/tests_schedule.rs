@@ -4,9 +4,10 @@
 
 use std::time::{Duration, Instant};
 
+use super::tests_support::{listing, process, shown};
 use super::{
-    Arrival, Cadence, Refresh, Request, Schedule, OVERDUE_AFTER, REFRESH_INTERVAL, STALL_LIMIT,
-    WARM_UP,
+    Arrival, Cadence, Health, Refresh, Request, SampleError, Schedule, OVERDUE_AFTER,
+    REFRESH_INTERVAL, STALL_LIMIT, WARM_UP,
 };
 
 const MS: Duration = Duration::from_millis(1);
@@ -184,6 +185,7 @@ fn a_stopped_refresh_asks_for_nothing_ever_again() {
     let mut refresh = after_first_result(start);
     refresh.stop();
     refresh.refresh_now();
+    refresh.refresh_after_control();
     refresh.toggle_hold();
     refresh.toggle_hold();
     assert_eq!(refresh.schedule(), Schedule::Stopped);
@@ -200,4 +202,42 @@ fn a_result_nobody_waited_for_counts_as_automatic() {
 
     live.toggle_hold();
     assert_eq!(live.completed(start, WARM_UP), Arrival::Discard);
+}
+
+#[test]
+fn a_control_without_a_read_in_flight_requests_one_explicit_sample() {
+    let start = Instant::now();
+    let timed = after_first_result(start);
+    let mut held = timed;
+    held.toggle_hold();
+    for mut refresh in [Refresh::default(), timed, held] {
+        let cadence = refresh.cadence();
+        refresh.refresh_after_control();
+        assert_eq!(refresh.schedule(), Schedule::Due);
+        assert_eq!(refresh.take_request(start), Some(Request::Explicit));
+        assert_eq!(refresh.completed(start, REFRESH_INTERVAL), Arrival::Apply);
+        let expected = match cadence {
+            Cadence::Live => Schedule::At(start + REFRESH_INTERVAL),
+            Cadence::Held => Schedule::Held,
+        };
+        assert_eq!(refresh.schedule(), expected);
+    }
+}
+
+#[test]
+fn an_obsolete_error_is_discarded_but_the_followup_error_is_shown() {
+    let now = Instant::now();
+    let mut list = listing(vec![process(42, "firefox")]);
+    list.refresh_now();
+    assert_eq!(list.take_request(now), Some(Request::Explicit));
+    list.refresh_after_control();
+    list.apply_sample(Err(SampleError::Unsupported), now);
+    assert_eq!(list.health(), Some(Health::Fresh));
+    assert_eq!(shown(&list), [42]);
+    assert_eq!(list.take_request(now), Some(Request::Explicit));
+    list.apply_sample(Err(SampleError::Unsupported), now);
+    assert_eq!(
+        list.health(),
+        Some(Health::Failed(SampleError::Unsupported))
+    );
 }

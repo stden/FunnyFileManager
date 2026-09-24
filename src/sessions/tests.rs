@@ -13,6 +13,8 @@ use super::{read_text, LoadError, ReadError, SessionStore, StoreError, FILE_NAME
 use crate::models::{HostName, Origin, Port, Protocol, Session, SessionName, UserName};
 use crate::test_support::EnvVarGuard;
 
+mod size;
+
 /// The variable that names the config root on this platform.
 const CONFIG_HOME: &str = if cfg!(windows) {
     "APPDATA"

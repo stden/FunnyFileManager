@@ -282,7 +282,7 @@ const VIEW_80X24: &[&str] = &[
     "╟──────────────────────────────────────────────────────────────────────────────╢",
     "║ bat  [disabled]  .bat .cmd                                                   ║",
     "║   Command:          batch-language-server                                    ║",
-    "║   Arguments:        (none)                                                   ║",
+    "║   Arguments:        --stdio                                                  ║",
     "║   Status:           not installed; auto-install disabled                     ║",
     "║   Auto-install:     {\"kind\":\"npm\",\"packages\":[\"@jcs-pr/batch-language-server ║",
     "║                     \"],\"package\":\"@jcs-pr/batch-language-server\",\"binary\":\"b ║",

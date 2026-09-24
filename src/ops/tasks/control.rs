@@ -204,7 +204,7 @@ fn finish(list: &mut TaskList, failures: Vec<Failure>, done: Notice) {
         failures.iter().for_each(log);
         list.set_modal(Modal::Error(failures));
     }
-    list.refresh_now();
+    list.refresh_after_control();
 }
 
 /// Records an unexpected system error in the log, by PID only: a process
@@ -221,5 +221,7 @@ fn log(failure: &Failure) {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_refresh;
 #[cfg(test)]
 mod tests_renice;

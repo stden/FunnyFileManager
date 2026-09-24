@@ -113,14 +113,13 @@ pub enum Impact {
 }
 
 /// Every problem in `draft`, each marked blocking when the draft introduced
-/// it: a claimed extension the `baseline` did not have claimed twice.
+/// it: an extension both conflicting servers did not already claim in `baseline`.
 #[must_use]
 pub fn problems(draft: &LspSettings, baseline: &LspSettings) -> Vec<(Problem, Impact)> {
-    let loaded = duplicates(baseline);
     let mut found: Vec<(Problem, Impact)> = duplicates(draft)
         .into_iter()
         .map(|problem| {
-            let impact = if loaded.contains(&problem) {
+            let impact = if duplicate_was_loaded(&problem, baseline) {
                 Impact::Warning
             } else {
                 Impact::Blocking
@@ -137,6 +136,27 @@ pub fn problems(draft: &LspSettings, baseline: &LspSettings) -> Vec<(Problem, Im
         );
     }
     found
+}
+
+/// A loaded conflict stays a warning when an earlier claimant is removed.
+fn duplicate_was_loaded(problem: &Problem, baseline: &LspSettings) -> bool {
+    let Problem::DuplicateExtension {
+        extension,
+        first,
+        second,
+    } = problem
+    else {
+        return false;
+    };
+    [first, second].into_iter().all(|language| {
+        baseline.0.get(language.as_str()).is_some_and(|server| {
+            server.enabled == Enablement::Enabled
+                && server
+                    .extensions
+                    .iter()
+                    .any(|claim| claim.eq_ignore_ascii_case(extension))
+        })
+    })
 }
 
 /// Each extension claimed by a later enabled server as well as an earlier
@@ -219,3 +239,6 @@ fn invalid_extensions<'a>(
             extension: extension.clone(),
         })
 }
+
+#[cfg(test)]
+mod tests;

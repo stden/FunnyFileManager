@@ -1,4 +1,4 @@
-//! File operations: create, copy, move, mkdir, and delete.
+//! Purpose: Canonical file operations: create, copy, move, mkdir, and delete.
 
 use std::{
     fs, io,
@@ -415,6 +415,7 @@ pub fn handle_delete(app: &mut App) -> io::Result<()> {
 }
 
 mod merge;
+mod replace;
 
 #[cfg(test)]
 mod tests_destinations;
@@ -428,6 +429,8 @@ mod tests_modes;
 #[cfg(test)]
 #[cfg(unix)]
 mod tests_non_utf8_names;
+#[cfg(test)]
+mod tests_overwrite_failures;
 #[cfg(test)]
 mod tests_overwrite_safety;
 #[cfg(test)]
@@ -591,8 +594,7 @@ fn place_over_existing(
         merge::reject_merge_into_holder(source, dest)?;
         merge::merge_into(source, dest, settings)?;
     } else {
-        remove_existing(dest)?;
-        place(source, dest, settings)?;
+        replace::entry(source, dest, settings)?;
     }
     Ok(Placed::AsSent(dest.to_path_buf()))
 }
@@ -606,6 +608,7 @@ fn place_over_existing(
 /// would rename a moved file to `name_1` and call that a move.
 fn reject_transfer_onto_itself(source: &Path, dest: &Path) -> io::Result<()> {
     let same = source == dest
+        || replace::are_hard_links(source, dest)
         || matches!(
             (source.canonicalize(), dest.canonicalize()),
             (Ok(real_source), Ok(real_dest)) if real_source == real_dest

@@ -61,6 +61,7 @@
   },
   "bat": {
     "command": "batch-language-server",
+    "args": ["--stdio"],
     "extensions": ["bat", "cmd"],
     "root_markers": [".git"],
     "install": {

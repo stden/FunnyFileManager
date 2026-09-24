@@ -109,7 +109,8 @@ Rust's exhaustive `match` is a superpower. Adding a new variant to an enum force
 - `ActionScope` — whether an action reaches for the active panel's entries or
   the program at large, which is what a NetBox panel refuses or lets through
 - `Schedule` — when the task list samples next: `Due`, `At(Instant)`,
-  `Waiting` with the `Request` that asked, `Held`, or `Stopped` once the
+  `Waiting` with the `Request` that asked, `Obsolete` when a process control
+  requires a fresh sample after the pending one, `Held`, or `Stopped` once the
   worker is gone; it replaced what would otherwise be a deadline, an
   in-flight flag, a held flag and a "worker lost" flag that had to agree
 - `Modal` — the one thing open inside the task list, so a bar, a menu and a

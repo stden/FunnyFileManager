@@ -56,7 +56,9 @@ many. A password is to be asked for when connecting.
   `0600`, at most 1 MiB. A file that exists but cannot be read, parsed or
   checked (a hand edit gone wrong, two sessions with one name) is left exactly
   as it is: the list starts empty, says the file did not load, and refuses
-  every change until the file is fixed or moved.
+  every change until the file is fixed or moved. A save or import whose
+  serialized JSON would exceed 1 MiB is refused before writing, preserving
+  both the previous file and the session's committed entries.
 - The import: NetBox's XML, `<NetBox><Sessions><Session name="…">` with
   `HostName`, `PortNumber`, `UserName`, `FSProtocol` (a number or a name),
   `Ftps`, `RemoteDirectory`, `PublicKeyFile` and `Password`, every value

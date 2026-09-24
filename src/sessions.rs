@@ -27,7 +27,7 @@ use import::{ImportReport, Imported, SkipReason, Skipped};
 
 /// The file's name under the `ffm` config directory.
 pub const FILE_NAME: &str = "sessions.json";
-/// The largest sessions file read, in bytes: room for thousands of sessions.
+/// The largest sessions file read or written, in bytes: room for thousands of sessions.
 pub const MAX_FILE_BYTES: u64 = 1024 * 1024;
 
 /// Why a file this module reads was not read.
@@ -73,6 +73,10 @@ pub fn read_text(path: &Path, limit: u64) -> Result<String, ReadError> {
 pub enum StoreError {
     /// The file did not load at start-up, so it is kept as it is.
     Damaged,
+    /// The serialized store would be too large to load again.
+    TooLarge {
+        limit: u64,
+    },
     Write(io::Error),
 }
 
@@ -82,6 +86,9 @@ impl fmt::Display for StoreError {
             Self::Damaged => f.write_str(
                 "the sessions file did not load, so it is not overwritten; fix or move it first",
             ),
+            Self::TooLarge { limit } => {
+                write!(f, "the sessions file would exceed {limit} bytes")
+            }
             Self::Write(error) => write!(f, "cannot write the sessions file: {error}"),
         }
     }
@@ -168,6 +175,11 @@ impl SessionStore {
             sessions: self.sessions.clone(),
         })
         .map_err(|error| StoreError::Write(io::Error::other(error)))?;
+        if u64::try_from(text.len()).unwrap_or(u64::MAX) > MAX_FILE_BYTES {
+            return Err(StoreError::TooLarge {
+                limit: MAX_FILE_BYTES,
+            });
+        }
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(StoreError::Write)?;
         }
