@@ -20,21 +20,64 @@
 #let pale = rgb("#edf6f9")
 #let border = rgb("#c9d7e0")
 #let muted = rgb("#52606d")
+#let amber = rgb("#d97706")
+#let rose = rgb("#e11d48")
+#let violet = rgb("#7c3aed")
+#let zebra = rgb("#f6f9fc")
 
-// Diagram vocabulary: a step, a question, the state a step leaves behind, and
-// a small grey note under a module name.
-#let step(pos, body, ..args) = node(pos, body, shape: fletcher.shapes.rect, fill: white, stroke: 0.8pt + border, corner-radius: 3pt, inset: 6pt, ..args)
-#let question(pos, body, ..args) = node(pos, body, shape: fletcher.shapes.diamond, fill: pale, stroke: 0.8pt + blue, inset: 3pt, ..args)
-#let outcome(pos, body, ..args) = node(pos, body, shape: fletcher.shapes.rect, fill: pale, stroke: 1pt + cyan, corner-radius: 3pt, inset: 6pt, ..args)
+// One colour and one emoji per architectural layer, used by the diagrams, the
+// module table and the legend alike, so a layer reads the same everywhere.
+#let layer(name, icon, ink, wash) = (name: name, icon: icon, ink: rgb(ink), wash: rgb(wash))
+#let layers = (
+  entry: layer("Entry and lifecycle", "🚀", "#7c3aed", "#f3e8ff"),
+  coordinator: layer("Coordinator", "🔁", "#1d4ed8", "#dbeafe"),
+  state: layer("State", "🧠", "#0f766e", "#ccfbf1"),
+  input: layer("Input", "⌨️", "#c2410c", "#ffedd5"),
+  effects: layer("Effects", "⚡", "#b91c1c", "#fee2e2"),
+  presentation: layer("Presentation", "🎨", "#be185d", "#fce7f3"),
+  adapters: layer("Adapters", "🔌", "#b45309", "#fef3c7"),
+  compatibility: layer("Compatibility", "🧱", "#475569", "#f1f5f9"),
+  mcp: layer("MCP process", "🤖", "#4338ca", "#e0e7ff"),
+)
+
+// Diagram vocabulary: a step (coloured by its layer when it has one), a
+// question, the state a step leaves behind, and a small grey note under a
+// module name.
+#let step(pos, body, kind: none, ..args) = {
+  let (ink, wash) = if kind == none { (border, white) } else { (layers.at(kind).ink, layers.at(kind).wash) }
+  node(pos, body, shape: fletcher.shapes.rect, fill: wash, stroke: 0.9pt + ink, corner-radius: 3pt, inset: 6pt, ..args)
+}
+#let question(pos, body, ..args) = node(pos, body, shape: fletcher.shapes.diamond, fill: rgb("#fff7ed"), stroke: 0.9pt + amber, inset: 3pt, ..args)
+#let outcome(pos, body, ..args) = node(pos, body, shape: fletcher.shapes.rect, fill: layers.state.wash, stroke: 1.2pt + layers.state.ink, corner-radius: 3pt, inset: 6pt, ..args)
 #let note(body) = text(size: 7.5pt, fill: muted, body)
 #let chart(..args) = align(center, block(
   width: 100%,
-  fill: pale.lighten(40%),
+  fill: gradient.linear(pale.lighten(55%), rgb("#f5f3ff").lighten(30%), angle: 30deg),
   stroke: border,
   radius: 4pt,
   inset: 10pt,
   text(size: 8.5pt, diagram(spacing: (12mm, 7mm), edge-stroke: 0.8pt + navy, mark-scale: 80%, ..args)),
 ))
+
+// A row of coloured chips naming the layers the diagrams paint.
+#let legend(..kinds) = align(center, box(inset: (top: 2pt), kinds.pos().map(kind => {
+  let it = layers.at(kind)
+  box(fill: it.wash, stroke: 0.6pt + it.ink, radius: 6pt, inset: (x: 5pt, y: 2.5pt),
+    text(size: 7.5pt, fill: it.ink, weight: "medium")[#it.icon #it.name])
+}).join(h(4pt))))
+
+// A tinted callout with an emoji, for the scope note and the invariant.
+#let callout(icon, ink, wash, body) = block(
+  width: 100%,
+  fill: wash,
+  stroke: (left: 3pt + ink, rest: 0.6pt + ink.lighten(55%)),
+  radius: 4pt,
+  inset: 10pt,
+)[#text(size: 13pt)[#icon] #h(3pt) #body]
+
+// Tables share a navy header with white text and zebra rows.
+#let table-fill = (_, row) => if row == 0 { navy } else if calc.even(row) { zebra } else { none }
+#show table.cell.where(y: 0): set text(fill: white, weight: "bold")
 
 #show heading.where(level: 1): it => block(
   above: 1.4em,
@@ -42,26 +85,22 @@
 )[
   #set text(fill: navy)
   #it
-  #line(length: 100%, stroke: blue)
+  #line(length: 100%, stroke: 1.6pt + gradient.linear(blue, cyan, violet, rose))
 ]
 
 #align(center)[
-  #text(size: 23pt, weight: "bold", fill: navy)[FunnyFileManager]
+  #text(size: 26pt)[📂] #h(4pt) #text(size: 23pt, weight: "bold", fill: gradient.linear(navy, blue, violet))[FunnyFileManager]
   #v(3pt)
-  #text(size: 14pt, weight: "medium", fill: blue)[Architecture]
+  #text(size: 14pt, weight: "medium", fill: blue)[🏗️ Architecture]
   #v(7pt)
   #emph[A state-driven, dual-panel terminal file manager inspired by Far Manager]
+  #v(5pt)
+  #legend(..layers.keys())
 ]
 
 #v(10pt)
 
-#block(
-  width: 100%,
-  fill: pale,
-  stroke: border,
-  radius: 4pt,
-  inset: 10pt,
-)[
+#callout("💡", blue, pale)[
   *Scope.* This document describes the runtime architecture, state model,
   module ownership, extension boundaries, and test seams of the root TUI crate
   and the separate `ffm-mcp` server crate. The source of truth for module-level
@@ -70,7 +109,7 @@
 
 #outline(title: [Contents], depth: 2)
 
-= Architectural Style
+= 🏛️ Architectural Style
 
 FunnyFileManager uses a thin executable, a library-owned event loop, and a
 central `App` state aggregate. Input becomes typed state transitions or effects;
@@ -79,47 +118,49 @@ canonical owners, while terminal restoration is protected by RAII guards.
 
 The repository contains two runtime programs:
 
-- *TUI application:* the root crate and `ffm` binary. It owns panels, modal
+- 🖥️ *TUI application:* the root crate and `ffm` binary. It owns panels, modal
   overlays, command-line interaction, rendering, and terminal lifecycle.
-- *MCP server:* the independent `mcp/` crate and `ffm-mcp` binary. It exposes
+- 🤖 *MCP server:* the independent `mcp/` crate and `ffm-mcp` binary. It exposes
   root-confined file and S3 tools over stdio and never enters the TUI event loop.
 
 The architecture favors typed state. Enums represent mutually exclusive modes,
 and newtypes distinguish domain units such as file sizes, screen cells, caret
 positions, scroll offsets, file names, and bookmark slots.
 
-= Runtime Event Flow
+= 🔄 Runtime Event Flow
 
 #figure(
   chart(
-    step((1, 0), `src/main.rs`),
+    step((1, 0), [🚀 `src/main.rs`], kind: "entry"),
     edge("-|>"),
-    step((1, 1), [`bootstrap::run` \ #note[owns the host terminal, loads history]]),
+    step((1, 1), kind: "entry", [🧰 `bootstrap::run` \ #note[owns the host terminal, loads history]]),
     edge("-|>"),
-    step((1, 2), `application::run_app_with_event_reader`),
+    step((1, 2), [🔁 `application::run_app_with_event_reader`], kind: "coordinator"),
     edge("-|>"),
-    step((1, 3), [`ui::ui` renders `App`], name: <render>),
+    step((1, 3), [🎨 `ui::ui` renders `App`], kind: "presentation", name: <render>),
     edge("-|>"),
-    step((1, 4), [read the next event \ #note[injected `read_event`]]),
+    step((1, 4), [⌨️ read the next event \ #note[injected `read_event`]], kind: "input"),
     edge("-|>"),
     question((1, 5), [`Overlay` \ active?], name: <overlay>),
-    edge(<overlay>, <popup>, "-|>", [yes], label-side: right),
-    edge(<overlay>, <panel>, "-|>", [no], label-side: left),
-    step((0, 6), [`popup::process_popup_input` \ #note[every key stays in the dialog]], name: <popup>),
+    edge(<overlay>, <popup>, "-|>", text(fill: layers.state.ink)[✅ yes], label-side: right),
+    edge(<overlay>, <panel>, "-|>", text(fill: rose)[❌ no], label-side: left),
+    step((0, 6), [🪟 `popup::process_popup_input` \ #note[every key stays in the dialog]], kind: "input", name: <popup>),
     edge(<popup>, <overlay>, "-|>", bend: 55deg, [#note[menu row: \ re-dispatch its key]], label-side: left),
     question((2, 6), [tree or \ quick-view \ panel?], name: <panel>),
     edge(<panel>, <resolve>, "-|>", [not taken], label-side: left),
-    step((2, 7), [`action::resolve` \ #note[pure key #sym.arrow typed `Action`]], name: <resolve>),
+    step((2, 7), [🧭 `action::resolve` \ #note[pure key #sym.arrow typed `Action`]], kind: "input", name: <resolve>),
     edge("-|>"),
-    step((2, 8), [`apply_action` \ #note[`application::dispatch`, effects in `ops`]], name: <apply>),
-    outcome((1, 9), [`App` · `Status` · `ConsoleLog` · `History`], name: <state>),
+    step((2, 8), [⚡ `apply_action` \ #note[`application::dispatch`, effects in `ops`]], kind: "effects", name: <apply>),
+    outcome((1, 9), [🧠 `App` · `Status` · `ConsoleLog` · `History`], name: <state>),
     edge(<popup>, <state>, "-|>"),
     edge(<panel>, <state>, "-|>", bend: -30deg, [taken], label-side: left),
     edge(<apply>, <state>, "-|>"),
-    edge(<state>, (-0.6, 9), (-0.6, 3), <render>, "-|>", [next frame], label-pos: 0.12, label-side: left),
+    edge(<state>, (-0.6, 9), (-0.6, 3), <render>, "-|>", [🎞️ next frame], stroke: 0.9pt + violet, label-pos: 0.12, label-side: left),
   ),
   caption: [Modal-first input, typed dispatch, state update, and rendering.],
 )
+
+#legend("entry", "coordinator", "input", "effects", "state", "presentation")
 
 The ordering is an invariant:
 
@@ -135,7 +176,7 @@ The ordering is an invariant:
 Fallible effects report through `Status`; an ordinary file-operation failure
 does not tear down the event loop.
 
-= State Model
+= 🧠 State Model
 
 `App` is the central aggregate and owns the state needed to render and operate
 the application:
@@ -145,15 +186,15 @@ the application:
   align: (left, left, left),
   inset: 5pt,
   stroke: border,
-  fill: (_, row) => if row == 0 { pale } else { none },
+  fill: table-fill,
   [*Concern*], [*Type/owner*], [*Invariant*],
-  [Panels], [`Panel`, `PanelSide`], [Two independent panels; each panel owns and clamps its selection.],
-  [Modal state], [`Overlay`], [Exactly one dialog/editor/viewer/command line may be active.],
-  [Background view], [`ViewMode`], [`Panels` and `Console` are orthogonal to modal state.],
-  [Application exit], [`Lifecycle`], [`Running` or `Quitting` is the sole lifecycle answer.],
-  [User outcome], [`Status`], [Paths, slots, errors, and other outcomes remain typed until rendering.],
-  [Search], [`QuickSearch`], [An active search cannot contain an empty query.],
-  [Commands], [`CommandLine`, `History`, `ConsoleLog`], [Editable input, durable recall, and session transcript are separate concerns.],
+  [🗂️ Panels], [`Panel`, `PanelSide`], [Two independent panels; each panel owns and clamps its selection.],
+  [🪟 Modal state], [`Overlay`], [Exactly one dialog/editor/viewer/command line may be active.],
+  [🖥️ Background view], [`ViewMode`], [`Panels` and `Console` are orthogonal to modal state.],
+  [🚪 Application exit], [`Lifecycle`], [`Running` or `Quitting` is the sole lifecycle answer.],
+  [💬 User outcome], [`Status`], [Paths, slots, errors, and other outcomes remain typed until rendering.],
+  [🔍 Search], [`QuickSearch`], [An active search cannot contain an empty query.],
+  [⌨️ Commands], [`CommandLine`, `History`, `ConsoleLog`], [Editable input, durable recall, and session transcript are separate concerns.],
 )
 
 Representative domain types include `EntryKind`, `FileSize`, `FileName`,
@@ -162,49 +203,51 @@ Representative domain types include `EntryKind`, `FileSize`, `FileName`,
 `FileFormat`. Their purpose is to make invalid combinations or mixed units
 impossible to express.
 
-= Module Ownership
+= 🧩 Module Ownership
 
 #table(
   columns: (19%, 29%, 52%),
   align: (left, left, left),
   inset: 5pt,
   stroke: border,
-  fill: (_, row) => if row == 0 { pale } else { none },
+  fill: table-fill,
   [*Layer*], [*Primary modules*], [*Responsibility*],
-  [Entry/lifecycle], [`main`, `bootstrap`, `terminal`], [Thin binary, production startup, terminal entry/suspension/restoration, and persisted-history loading.],
-  [Coordinator], [`application`], [Event loop, modal-first routing, `Action` effect dispatch, and render cadence.],
-  [State], [`models`, `status`, `console`, `history`, `quicksearch`, `scroll`], [Application aggregate, domain invariants, typed outcomes, transcript, recall, and offsets.],
-  [Input], [`action`, `popup`, `lineedit`, `complete`, `command`], [Pure main-view keymap, modal keys, editing/completion, and typed command parsing.],
-  [Effects], [`ops`, `editor`, `utils`, `fileload`], [Canonical filesystem, shell, viewer, command, editor, and bounded-loading behavior.],
-  [Presentation], [`ui`], [Ratatui layout and rendering from state; no operation ownership.],
-  [Adapters], [`s3`, `keepass`, `windows`], [Feature-gated or platform-specific integration boundaries.],
-  [Compatibility], [`handlers`], [Stable re-exports of `ops` and `popup`; never an implementation owner.],
-  [MCP process], [`mcp/src`], [Independent stdio server with its own path guard and filesystem helpers.],
+  table.cell(fill: layers.entry.wash)[#text(fill: layers.entry.ink, weight: "bold")[#layers.entry.icon Entry/lifecycle]], [`main`, `bootstrap`, `terminal`], [Thin binary, production startup, terminal entry/suspension/restoration, and persisted-history loading.],
+  table.cell(fill: layers.coordinator.wash)[#text(fill: layers.coordinator.ink, weight: "bold")[#layers.coordinator.icon Coordinator]], [`application`], [Event loop, modal-first routing, `Action` effect dispatch, and render cadence.],
+  table.cell(fill: layers.state.wash)[#text(fill: layers.state.ink, weight: "bold")[#layers.state.icon State]], [`models`, `status`, `console`, `history`, `quicksearch`, `scroll`], [Application aggregate, domain invariants, typed outcomes, transcript, recall, and offsets.],
+  table.cell(fill: layers.input.wash)[#text(fill: layers.input.ink, weight: "bold")[#layers.input.icon Input]], [`action`, `popup`, `lineedit`, `complete`, `command`], [Pure main-view keymap, modal keys, editing/completion, and typed command parsing.],
+  table.cell(fill: layers.effects.wash)[#text(fill: layers.effects.ink, weight: "bold")[#layers.effects.icon Effects]], [`ops`, `editor`, `utils`, `fileload`], [Canonical filesystem, shell, viewer, command, editor, and bounded-loading behavior.],
+  table.cell(fill: layers.presentation.wash)[#text(fill: layers.presentation.ink, weight: "bold")[#layers.presentation.icon Presentation]], [`ui`], [Ratatui layout and rendering from state; no operation ownership.],
+  table.cell(fill: layers.adapters.wash)[#text(fill: layers.adapters.ink, weight: "bold")[#layers.adapters.icon Adapters]], [`s3`, `keepass`, `windows`], [Feature-gated or platform-specific integration boundaries.],
+  table.cell(fill: layers.compatibility.wash)[#text(fill: layers.compatibility.ink, weight: "bold")[#layers.compatibility.icon Compatibility]], [`handlers`], [Stable re-exports of `ops` and `popup`; never an implementation owner.],
+  table.cell(fill: layers.mcp.wash)[#text(fill: layers.mcp.ink, weight: "bold")[#layers.mcp.icon MCP process]], [`mcp/src`], [Independent stdio server with its own path guard and filesystem helpers.],
 )
 
-== Dependency Rules
+== 🔗 Dependency Rules
 
 #figure(
   chart(
     spacing: (6mm, 11mm),
-    step((2.5, 0), `bootstrap`),
+    step((2.5, 0), [🚀 `bootstrap`], kind: "entry"),
     edge("-|>"),
-    step((2.5, 1), [`application` \ #note[event loop and dispatch]], name: <app>),
-    step((0, 2), [`action` \ #note[pure key mapping]], name: <action>),
-    step((1, 2), [`popup` \ #note[modal transitions]], name: <popup>),
-    step((2, 2), [`ops` \ #note[effects]], name: <ops>),
-    step((3, 2), [`ui` \ #note[state-only rendering]], name: <ui>),
-    step((4, 2), [`editor` \ #note[editor boundary]], name: <editor>),
-    step((5, 2), [`models` \ #note[shared state]], name: <models>),
+    step((2.5, 1), [🔁 `application` \ #note[event loop and dispatch]], kind: "coordinator", name: <app>),
+    step((0, 2), [⌨️ `action` \ #note[pure key mapping]], kind: "input", name: <action>),
+    step((1, 2), [🪟 `popup` \ #note[modal transitions]], kind: "input", name: <popup>),
+    step((2, 2), [⚡ `ops` \ #note[effects]], kind: "effects", name: <ops>),
+    step((3, 2), [🎨 `ui` \ #note[state-only rendering]], kind: "presentation", name: <ui>),
+    step((4, 2), [📝 `editor` \ #note[editor boundary]], kind: "effects", name: <editor>),
+    step((5, 2), [🧠 `models` \ #note[shared state]], kind: "state", name: <models>),
     ..(<action>, <popup>, <ops>, <ui>, <editor>, <models>).map(target => edge(<app>, target, "-|>")),
     edge(<popup>, <ops>, "-|>"),
-    step((1.5, 3), [`handlers` \ #note[compatibility facade only]], stroke: (paint: muted, dash: "dashed"), name: <handlers>),
+    step((1.5, 3), [🧱 `handlers` \ #note[compatibility facade only]], kind: "compatibility", stroke: (paint: muted, dash: "dashed"), name: <handlers>),
     edge(<handlers>, <popup>, "--|>", stroke: muted),
     edge(<handlers>, <ops>, "--|>", stroke: muted),
-    step((4.5, 3), [`mcp/` \ #note[separate process, no TUI dependency]], stroke: (paint: muted, dash: "dashed")),
+    step((4.5, 3), [🤖 `mcp/` \ #note[separate process, no TUI dependency]], kind: "mcp", stroke: (paint: layers.mcp.ink, dash: "dashed")),
   ),
   caption: [The principal dependency and ownership boundaries.],
 )
+
+#legend("entry", "coordinator", "input", "effects", "presentation", "state", "compatibility", "mcp")
 
 - New operation implementations belong under `src/ops/`; `handlers` remains a
   facade, and `popup` calls `ops` directly.
@@ -216,7 +259,7 @@ impossible to express.
 - The `test-helpers` feature exposes seams and visibility only. It does not
   select a different production event loop, startup path, or editor behavior.
 
-= Command and Effect Pipeline
+= ⌨️ Command and Effect Pipeline
 
 Printable main-view input opens `Overlay::CommandLine`; subsequent keys are
 modal and stay inside the command-line subsystem.
@@ -224,16 +267,16 @@ modal and stay inside the command-line subsystem.
 #figure(
   chart(
     spacing: (7mm, 5mm),
-    step((0, 1), [`Overlay::` \ `CommandLine`]),
+    step((0, 1), [⌨️ `Overlay::` \ `CommandLine`], kind: "input"),
     edge("-|>"),
-    step((1, 1), [`LineEditor` \ #note[with completion menu]]),
+    step((1, 1), [✏️ `LineEditor` \ #note[with completion menu]], kind: "input"),
     edge("-|>"),
-    step((2, 1), [`ops::execute_command` \ #note[parses with `Command::parse`]], name: <execute>),
-    step((3, 0), [built-in file or \ navigation operation], name: <builtin>),
-    step((3, 2), [bounded shell \ #note[`ops::shell`]], name: <shell>),
+    step((2, 1), [⚡ `ops::execute_command` \ #note[parses with `Command::parse`]], kind: "effects", name: <execute>),
+    step((3, 0), [📁 built-in file or \ navigation operation], kind: "effects", name: <builtin>),
+    step((3, 2), [🐚 bounded shell \ #note[`ops::shell`]], kind: "effects", name: <shell>),
     edge(<execute>, <builtin>, "-|>"),
     edge(<execute>, <shell>, "-|>"),
-    outcome((4, 1), [`Status` \ `ConsoleLog` \ `History`], name: <outcome>),
+    outcome((4, 1), [🧠 `Status` \ `ConsoleLog` \ `History`], name: <outcome>),
     edge(<builtin>, <outcome>, "-|>"),
     edge(<shell>, <outcome>, "-|>"),
   ),
@@ -245,58 +288,60 @@ command metadata rather than maintaining a second grammar. The console
 transcript is session-only; history has an explicit persistence policy and
 stores only lines accepted by its durability gate.
 
-= Filesystem and Integration Boundaries
+= 🗂️ Filesystem and Integration Boundaries
 
-- *Local file operations* live in `ops::file`. Moves try atomic rename first
-  and fall back to copy plus delete across filesystems. Destination creation
-  uses `unique_destination` and never overwrites an existing entry.
-- *Shell execution* lives in `ops::shell` and is bounded/cancellable. Platform
+- 📁 *Local file operations* live in `ops::file`. Moves try atomic rename first
+  and fall back to copy plus delete across filesystems. A taken name is
+  handled by the F5/F6 dialog's choice; "Overwrite" merges a folder into a
+  folder and never lets a file and a folder replace one another
+  (`ops::file::merge`).
+- 🐚 *Shell execution* lives in `ops::shell` and is bounded/cancellable. Platform
   shell arguments are selected behind the module boundary.
-- *S3* is behind the `s3` feature. `VirtualPath` keeps local and S3 address
+- ☁️ *S3* is behind the `s3` feature. `VirtualPath` keeps local and S3 address
   spaces distinct at the type level.
-- *KeePass* is behind the `keepass` feature and remains an optional backend.
-- *MCP* is a separate stdio process. `mcp/src/paths.rs` confines paths to the
+- 🔐 *KeePass* is behind the `keepass` feature and remains an optional backend.
+- 🤖 *MCP* is a separate stdio process. `mcp/src/paths.rs` confines paths to the
   configured root; `fsops` owns atomic replacement and removal behavior; the
   TUI shares only the canonical tool-name list for its MCP status view.
 
-= Test Architecture
+= 🧪 Test Architecture
 
 The production architecture contains explicit seams instead of alternate test
 implementations:
 
-- `run_app_with_event_reader` accepts an injected event source.
-- Ratatui's test backend, wrapped where a writable backend is required, makes
+- 🎛️ `run_app_with_event_reader` accepts an injected event source.
+- 🖼️ Ratatui's test backend, wrapped where a writable backend is required, makes
   rendered frames deterministic.
-- `TerminalOps` abstracts individual terminal transitions for lifecycle tests.
-- Temporary directories isolate every filesystem test.
-- In-memory fault-injection controls exercise rename fallback, recursive-copy
+- 🖥️ `TerminalOps` abstracts individual terminal transitions for lifecycle tests.
+- 📦 Temporary directories isolate every filesystem test.
+- 💥 In-memory fault-injection controls exercise rename fallback, recursive-copy
   failures, and panel-refresh failures without process-wide environment flags.
-- Logging tests pass explicit temporary paths and never change the process-wide
+- 📝 Logging tests pass explicit temporary paths and never change the process-wide
   working directory.
 
-= Extension Map
+= 🗺️ Extension Map
 
 #table(
   columns: (39%, 61%),
   align: (left, left),
   inset: 5pt,
   stroke: border,
-  fill: (_, row) => if row == 0 { pale } else { none },
+  fill: table-fill,
   [*Change*], [*Primary owner*],
-  [Main-view hotkey], [`src/action.rs`, then dispatch in `src/lib.rs`],
-  [Modal or dialog key behavior], [`src/popup.rs` or a focused `popup/` child],
-  [Command syntax or validation], [`src/command.rs`],
-  [Editing, completion, or recall], [`lineedit`, `complete`, or `history`],
-  [File, shell, viewer, or command effect], [The matching module under `src/ops/`],
-  [Application or domain state], [`src/models.rs` or a focused `models/` child],
-  [Rendering or layout], [`src/ui.rs` or a focused `ui/` child],
-  [Terminal lifecycle], [`src/bootstrap.rs` and `src/terminal.rs`],
-  [MCP tool or root-confined behavior], [`mcp/src/`],
+  [⌨️ Main-view hotkey], [`src/action.rs`, then dispatch in `src/lib.rs`],
+  [🪟 Modal or dialog key behavior], [`src/popup.rs` or a focused `popup/` child],
+  [📜 Command syntax or validation], [`src/command.rs`],
+  [✏️ Editing, completion, or recall], [`lineedit`, `complete`, or `history`],
+  [⚡ File, shell, viewer, or command effect], [The matching module under `src/ops/`],
+  [🧠 Application or domain state], [`src/models.rs` or a focused `models/` child],
+  [🎨 Rendering or layout], [`src/ui.rs` or a focused `ui/` child],
+  [🚀 Terminal lifecycle], [`src/bootstrap.rs` and `src/terminal.rs`],
+  [🤖 MCP tool or root-confined behavior], [`mcp/src/`],
 )
 
 #v(10pt)
 
-#block(width: 100%, fill: pale, stroke: cyan, radius: 4pt, inset: 10pt)[
+#callout("🧭", amber, rgb("#fffbeb"))[
   *Architectural invariant:* input routing, state ownership, rendering, and
   effects remain separate. When adding behavior, choose the module that owns
   the responsibility instead of creating a second route around the boundary.
