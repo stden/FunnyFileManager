@@ -433,9 +433,8 @@ cargo test --test bdd --features test-helpers,s3
 # BDD tests in Russian 🇷🇺
 cargo test --test bdd_ru --features test-helpers,s3
 
-# Optional local HTML report. CI's 98% / 75% gates, with their
-# filename exclusions, are the llvm-cov steps in
-# .github/workflows/tests.yml.
+# CI's coverage gate: every root test under llvm-cov, failing under
+# 98% of the measured lines. scripts/coverage.py defines it.
 ./ffm.py coverage
 ```
 
@@ -482,36 +481,49 @@ stateDiagram-v2
 
 ## 🔄 CI/CD Pipeline
 
-FFM uses **GitHub Actions** (`.github/workflows/tests.yml`) on every push to `main` and on pull requests. The jobs run in parallel. There is no mutation-testing job in that workflow.
+FFM uses **GitHub Actions** (`.github/workflows/tests.yml`) on every push to `main`, on pull requests, once a week and on demand. One job resolves `Cargo.lock` for the run; the others use that file and run in parallel. The Rust release, the tools, the actions and Colorer are all pinned, so a red run means the code or a crate changed. Details: [the build guide](docs/knowledge-base/04-development-workflow/build-run-test.md#-continuous-integration).
 
 ```mermaid
 graph TB
-    PUSH["🔀 Push / PR"] --> LINT["✅ Lint<br/>fmt + clippy"]
-    PUSH --> COVERAGE["📊 Tests and coverage<br/>98% of measured lines"]
-    PUSH --> BDD["🥒 BDD<br/>Linux and Windows"]
-    PUSH --> TUIBDD["⌨️ TUI BDD"]
+    PUSH["🔀 Push / PR / weekly"] --> LOCK["🔒 Resolve Cargo.lock"]
     PUSH --> MCP["🔌 MCP<br/>75% line gate"]
-    PUSH --> COLORER["🎨 Colorer feature"]
+    LOCK --> LINT["✅ Lint<br/>fmt + typos + clippy"]
+    LOCK --> COVERAGE["📊 Tests and coverage<br/>98% of measured lines"]
+    LOCK --> BDD["🥒 BDD<br/>Linux and Windows"]
+    LOCK --> WINDOWS["🪟 Windows<br/>suite + TUI BDD + clippy"]
+    LOCK --> COLORER["🎨 Colorer feature"]
+    LOCK --> DENY["📜 cargo-deny"]
+    LOCK --> MUTANTS["🧬 Mutation testing<br/>pull requests"]
 
     style PUSH fill:#333,color:#fff
+    style LOCK fill:#795548,color:#fff
     style LINT fill:#4caf50,color:#fff
     style COVERAGE fill:#9c27b0,color:#fff
     style BDD fill:#2196f3,color:#fff
-    style TUIBDD fill:#ff9800,color:#fff
+    style WINDOWS fill:#ff9800,color:#fff
     style MCP fill:#00bcd4,color:#fff
     style COLORER fill:#607d8b,color:#fff
+    style DENY fill:#e91e63,color:#fff
+    style MUTANTS fill:#3f51b5,color:#fff
 ```
+
+Text version: a push, pull request or weekly run starts the lockfile job and
+the MCP job; the lockfile job then starts Lint, Tests and coverage, BDD,
+Windows, Colorer, cargo-deny and (on pull requests) mutation testing.
 
 ### 🚦 Pipeline Jobs
 
 | Job | What it does |
 |-----|----------------|
-| **Lint** | `./ffm.py lint`, the readability self-test, and the architecture contract test |
-| **Tests & Coverage** | `cargo llvm-cov nextest`, failing under 98% of the measured root lines |
+| **Resolve Cargo.lock** | `cargo generate-lockfile` once, for every other job but MCP |
+| **Lint** | `./ffm.py lint` (fmt, spelling, Clippy for all crates, architecture contracts) and `./ffm.py lint self-test` |
+| **Tests & Coverage** | `./ffm.py coverage`: every root test, TUI BDD included, failing under 98% of the measured root lines |
 | **BDD** | S3 unit tests plus `bdd` and `bdd_ru`, on Linux and Windows |
-| **TUI BDD** | Keyboard scenarios through the real event loop. Windows also runs the full suite and Clippy |
-| **MCP** | Format, Clippy, tests, and a 75% line gate |
+| **Windows** | The whole root suite, keyboard scenarios through the real event loop included, then Clippy |
+| **MCP** | MCP tests and a 75% line gate |
 | **Colorer** | Builds the optional C++ highlighter and runs that feature |
+| **cargo-deny** | Licences, advisories, bans and sources for all three manifests |
+| **Mutation testing** | Pull requests only: mutants of the changed lines, in four shards; a surviving mutant fails |
 
 ---
 
@@ -566,7 +578,7 @@ A: Memory safety, zero-cost abstractions, and bragging rights at meetups. Also, 
 A: Fork it, branch it, code it, test it, PR it! Just make sure `cargo clippy` and `cargo test` are happy before submitting. A grumpy clippy is nobody's friend. 📎😠
 
 **Q: What's with the coverage threshold?**
-A: CI fails the root crate under 98% of the lines it measures, and the MCP crate under 75%. Host glue such as the real TTY startup is excluded from that measurement on purpose. The list is in `.github/workflows/tests.yml`. 👿
+A: CI fails the root crate under 98% of the lines it measures, and the MCP crate under 75%. Host glue such as the real TTY startup is excluded from that measurement on purpose. The list, with the reason for each file, is in `scripts/coverage.py`. 👿
 
 ---
 

@@ -64,7 +64,7 @@ See `docs/knowledge-base/03-rust-best-practices/type-system.md` for details and 
 - `src/<owner>/tests.rs` or `src/<owner>/tests/`: Private unit tests, included only under `cfg(test)`.
 - `src/test_support/`: Explicit test adapters, fixtures and coverage probes.
 - `tests/`: Public integration, mutation, coverage, and hotkey tests.
-- `coverage/` and `tarpaulin-report.html`: Stored coverage artifacts (update only when intentionally refreshing coverage).
+- `coverage/`: Stored coverage artifacts (update only when intentionally refreshing coverage).
 - `target/`: Cargo build output (ignored by git).
 
 If you add major features, prefer extracting modules under `src/` and keeping `main.rs` focused on wiring and startup.
@@ -195,8 +195,15 @@ Full module-level detail remains in
   the developer scripts' unit tests (`scripts/tests`), then verify readability
   rejection, acceptance, and equivalent behavior with compiler fixtures;
   requires Python.
+- `./ffm.py coverage`: CI's line-coverage gate, the root suite under
+  `cargo llvm-cov nextest`, failing under 98% of the measured lines. The
+  features, exclusions and floor live only in `scripts/coverage.py`. Needs
+  `cargo-llvm-cov`, `cargo-nextest` and `rustup component add llvm-tools`.
 
-Optional coverage (tooling may be platform-dependent): `cargo tarpaulin --out Html --output-dir coverage`.
+`rust-toolchain.toml` pins the exact Rust release CI uses; bump it on purpose,
+in its own commit. CI's jobs, their pinned tools and actions, and the per-run
+`cargo-lock` artifact are described in
+`docs/knowledge-base/04-development-workflow/build-run-test.md`.
 
 ## Rust Best Practices (Strongly Enforced)
 
@@ -453,7 +460,7 @@ what each buys, is in `docs/knowledge-base/03-rust-best-practices/type-system.md
 - Filesystem isolation via `tempfile::TempDir`.
 - **Fault-injection points**: cfg-gated in-memory controls `FORCE_RENAME_FAILURE` (move fallback), `FORCE_COPY_DIR_ALL_STEP` (recursive-copy steps), and `FORCE_REFRESH_ERROR` (panel refresh). They are not environment variables.
 - Logging tests pass explicit paths inside their own temporary directories; do not change process-wide `cwd` to redirect logs.
-- Coverage: `cargo tarpaulin --out Html --output-dir coverage`. Mutation testing: `cargo mutants` (`.cargo/mutants.toml`, read automatically; runs tests with `cargo-nextest`).
+- Coverage: `./ffm.py coverage` (`scripts/coverage.py`, the gate CI runs). Mutation testing: `cargo mutants` (`.cargo/mutants.toml`, read automatically; runs tests with `cargo-nextest`).
 
 ## Dependencies
 

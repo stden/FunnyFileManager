@@ -19,15 +19,16 @@
 | `./ffm.py lint self-test` | Prove the spell check rejects a misspelling; run the developer scripts' unit tests (`scripts/tests`); compile positive/negative readability fixtures and compare behavior; prove the manifest lint policy on positive/negative fixtures; requires Python |
 | `cargo build --manifest-path mcp/Cargo.toml` | Build the standalone MCP server with its development profile |
 | `cargo test --manifest-path mcp/Cargo.toml` | Run the MCP package's separate test suite |
-| `cargo tarpaulin --out Html --output-dir coverage` | Generate HTML coverage report |
+| `./ffm.py coverage` | CI's line-coverage gate: the root suite under `cargo llvm-cov nextest`, failing under 98% of the measured lines (`scripts/coverage.py`; needs `cargo-llvm-cov`, `cargo-nextest` and `rustup component add llvm-tools`) |
 
 The shared lint gate checks formatting in the root and MCP packages, then
 runs Clippy with `--all-targets -- -D warnings` for the root's default features,
 all features, and `--no-default-features --features test-helpers`. It also
 checks every target in MCP and Colorer. This covers helper-gated tests, feature
 interactions, and the built-in highlighter without the optional Colorer adapter.
-CI calls the same script, then runs `self-test` and architecture contracts as
-separate checks. The self-test can also run directly as
+Its last step runs the architecture contracts (module boundaries, the unsafe
+allowlist, file limits). CI's lint job calls the same script, then `self-test`.
+The self-test can also run directly as
 `python scripts/test_readability.py` (the compilers, without Cargo) and
 `python scripts/test_lint_policy.py` (see the lint policy below).
 
@@ -79,8 +80,13 @@ with exactly its codes, and must accept test code that uses the allowances.
 
 ## ⚙️ Important Environment Details
 
-- `rust-toolchain.toml` selects stable Rust with rustfmt and Clippy for all
-  packages, matching CI. The manifests retain Rust 1.95 as the minimum version.
+- `rust-toolchain.toml` pins the exact Rust release (1.98.1) with rustfmt and
+  Clippy for all packages; rustup installs it on first use, and every CI job
+  installs the same file's release with `rustup toolchain install`. Bump it on
+  purpose, in its own commit: a new stable brings new Clippy lints, and the
+  gate denies every warning. The manifests retain Rust 1.95 as the minimum
+  version. A toolchain outside rustup (such as a plain copy on `PATH`) ignores
+  the file.
 - The developer scripts (`ffm.py`, `install_mcp.py`,
   `create_desktop_shortcut.py`, `scripts/*.py`) use only the Python standard
   library and need Python 3.9 or newer, the `python3` that macOS's Command Line
@@ -98,8 +104,9 @@ with exactly its codes, and must accept test code that uses the allowances.
   per shell with `RUSTC_WRAPPER=sccache`, which outranks the file. Do not set
   `SCCACHE_NO_DAEMON`: a foreground server inherits Cargo's output pipes and the
   build never finishes. `cargo llvm-cov` cannot run an empty wrapper, so
-  coverage runs set `CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env`, as CI does;
-  `ffm.cmd coverage` uses Git for Windows' `env.exe` the same way.
+  `./ffm.py coverage` sets `CARGO_BUILD_RUSTC_WRAPPER` to `env` when no
+  wrapper is set, as CI does for its llvm-cov jobs; `ffm.cmd coverage` uses
+  Git for Windows' `env.exe` the same way.
   `scripts/cargo_preflight.py` (run by `./ffm.py` and `scripts/lint.py`) asks
   the selected wrapper for `rustc -vV` and fails within
   `FFM_WRAPPER_PROBE_SECS` (default 20) seconds instead of hanging; it times
@@ -125,8 +132,13 @@ with exactly its codes, and must accept test code that uses the allowances.
   lockfiles stay independent. The application's `Cargo.lock` is not tracked:
   the first `cargo` command generates it with the newest versions the
   manifest allows, so two fresh checkouts can resolve different versions and
-  commands for the root crate cannot pass `--locked`. `mcp/Cargo.lock` is
-  tracked. Root-crate commands do not build or test MCP automatically.
+  commands for the root crate cannot pass `--locked`. CI resolves it once per
+  run instead: its lockfile job runs `cargo generate-lockfile` for the
+  application and `colorer-sys`, and every job that builds them downloads
+  that `cargo-lock` artifact, so all jobs of a run test one dependency set.
+  To reproduce a red run, put its `cargo-lock` artifact into a checkout of the
+  same commit. `mcp/Cargo.lock` is tracked. Root-crate commands do not build
+  or test MCP automatically.
 - Windows uses `lld-link`; Linux uses `mold`. These linker settings live in
   `.cargo/config.toml` and apply without changing the commands below.
 - Many integration and UI tests are gated behind the `test-helpers` feature.
@@ -136,9 +148,15 @@ with exactly its codes, and must accept test code that uses the allowances.
 
 - High coverage is expected on new logic.
 - Some files are intentionally excluded from coverage targets (`src/main.rs`, parts of `src/editor.rs`) because they are difficult or impossible to test meaningfully in an automated way.
-- CI enforces 98% measured line coverage for the TUI coverage job and 75% for
-  the MCP package. Exclusions and feature sets are explicit in
-  `.github/workflows/tests.yml`; these are not whole-repository coverage claims.
+- CI enforces 98% measured line coverage for the root crate and 75% for the
+  MCP package; these are not whole-repository coverage claims. The root gate
+  is defined once, in `scripts/coverage.py` (features, the files left out of
+  the measurement and why, the floor), and both CI and `./ffm.py coverage` run
+  it. Its last line gives the share cut to two decimals: llvm-cov's own table
+  rounds, and printed 97.998% as "98.00%" in a run that failed the gate. The
+  MCP gate is its job's `cargo llvm-cov` step in `.github/workflows/tests.yml`.
+- `.config/nextest.toml` fails a test that runs for three minutes, so a hung
+  test ends the coverage run (and a mutant's test run) instead of stalling it.
 
 ## 🧪 Mutation Testing
 
@@ -149,8 +167,51 @@ only path the tool reads; it selects `cargo-nextest` as the test runner).
 - Running mutation testing is encouraged on changed code.
 - The goal is very few surviving mutants on core logic.
 - CI runs `cargo mutants --in-diff` on every pull request for the application
-  and `mcp/`; a missed mutant in changed code fails that job. Evidence is the
-  `mutants.out` artifact, not a test named after a mutant.
+  and `mcp/`, one mutant at a time over four shards (about 150 mutants fit the
+  60-minute step). `scripts/mutants_verdict.py` judges each step: a missed
+  mutant in changed code fails, and so does a run in which every mutant timed
+  out, since it tested nothing; a timeout among caught mutants passes with a
+  warning. Evidence is the `mutants-out-*` artifacts, not a test named after a
+  mutant.
+
+## 🚦 Continuous Integration
+
+`.github/workflows/tests.yml` runs on every push to `main`, on pull requests,
+weekly (Monday 04:23 UTC) and on demand (`workflow_dispatch`). A pull request
+keeps only its newest run; a run on `main` is never cancelled, so a red job
+stays red on the commit that broke it.
+
+| Job | Runner | What it runs |
+|---|---|---|
+| Resolve Cargo.lock | ubuntu-24.04 | `cargo generate-lockfile` for the application and `colorer-sys`; uploads the `cargo-lock` artifact every job below except MCP downloads |
+| Lint | ubuntu-24.04 | `./ffm.py lint` (fmt, typos, the Clippy matrix for all three crates, the architecture contracts), then `./ffm.py lint self-test` |
+| Tests & Coverage | ubuntu-24.04 | `./ffm.py coverage`: every root test, the TUI BDD scenarios included, under llvm-cov with the 98% gate; uploads `tui-screens-Linux` |
+| BDD (s3 feature) | ubuntu-24.04, windows-2025 | the `s3` unit tests, then the `bdd` and `bdd_ru` suites |
+| Windows | windows-2025 | the whole root suite once (`cargo test --features test-helpers --no-fail-fast`, TUI BDD included), then Clippy on all targets; uploads `tui-screens-Windows` |
+| MCP Server | ubuntu-24.04 | the MCP tests under llvm-cov with the 75% gate; its fmt and Clippy run in Lint |
+| Colorer feature | ubuntu-24.04 | builds Colorer-library, then Clippy and the `highlight` tests with the `colorer` feature and real schemes |
+| Dependencies (cargo-deny) | ubuntu-24.04 | `cargo deny --locked` for the application, MCP and `colorer-sys` |
+| Mutation testing | ubuntu-24.04, four shards, pull requests only | `cargo mutants --in-diff` for the application and MCP, judged by `scripts/mutants_verdict.py` |
+
+Nothing an unchanged commit depends on floats. Each input is pinned in one
+place and bumped on purpose, in its own commit:
+
+- Rust: `rust-toolchain.toml`. Jobs install it with `rustup toolchain install`.
+- Tools: the `TOOL_*` entries in the workflow's `env` (typos, cargo-deny,
+  cargo-llvm-cov, cargo-nextest, cargo-mutants).
+- Colorer: `COLORER_LIBRARY_SHA` and `COLORER_SCHEMES_SHA` in the Colorer job.
+- Actions: each `uses:` names a commit SHA, with its release in a comment;
+  `.github/dependabot.yml` proposes updates weekly.
+- Runner images: `ubuntu-24.04` and `windows-2025`, never `-latest`.
+- Crates: the application's lockfile is resolved once per run, not tracked;
+  the weekly run shows a crate release that breaks the build.
+
+Every job has a `timeout-minutes`, and `.config/nextest.toml` fails a test
+after three minutes. Caches (rust-cache) are saved from `main` only; mutation
+testing runs on pull requests only, so its cache is saved there, scoped to
+that pull request. The keys include the run's `Cargo.lock`, so they follow
+dependency updates. The workflow's token is read-only
+(`permissions: contents: read`).
 
 ## ✅ Recommended Daily Workflow
 

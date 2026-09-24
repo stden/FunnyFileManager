@@ -228,7 +228,8 @@ the clipboard is an in-memory adapter. No test updates host packages or saves
 host PATH. The standard Rust test harness wraps Cucumber so nextest and coverage
 run it too.
 
-GitHub Actions runs the suite on Ubuntu and Windows for pushes to main/master
-and pull requests. Frame transcripts are uploaded as `tui-screens-*` artifacts,
-including failed scenarios. Locally they are in `target/tui-bdd/` or the
-directory set by `FFM_TUI_ARTIFACT_DIR`.
+GitHub Actions runs the suite on Ubuntu (inside the coverage job) and on
+Windows (inside the full Windows suite) for pushes to main/master and pull
+requests. Frame transcripts are uploaded as `tui-screens-Linux` and
+`tui-screens-Windows` artifacts, including failed scenarios. Locally they are
+in `target/tui-bdd/` or the directory set by `FFM_TUI_ARTIFACT_DIR`.

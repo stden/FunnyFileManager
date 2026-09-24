@@ -15,7 +15,7 @@ Steps:
    - Test failures → fix the failing tests or the code they test
    - Linting/clippy warnings → fix the warnings
    - Formatting issues → run `cargo fmt`
-   - Dependency issues → update Cargo.toml or Cargo.lock
+   - Dependency issues → update Cargo.toml (or the tracked mcp/Cargo.lock). The application's Cargo.lock is not tracked; a run's exact dependency set is its `cargo-lock` artifact: `gh run download <run-id> -n cargo-lock` into a checkout of the same commit reproduces it.
 
 5. After fixing, run `cargo test` locally to verify the fix works.
 

@@ -30,6 +30,6 @@ cargo test --features test-helpers
 cargo test --features test-helpers,s3 --test bdd --test bdd_ru
 ```
 
-CI measures line coverage with `cargo llvm-cov`: 98% of the measured root set, 75% for the MCP crate. Copy the invocation from `.github/workflows/tests.yml`, including its filename exclusions. A shorter command measures a different set and is not that gate. `cargo tarpaulin` remains the optional local command in `./ffm.py coverage`.
+CI measures line coverage with `cargo llvm-cov`: 98% of the measured root set, 75% for the MCP crate. Run the root gate locally with `./ffm.py coverage`; `scripts/coverage.py` holds its features, filename exclusions and floor, and CI runs the same script. A shorter command measures a different set and is not that gate.
 
 Mutation testing is `cargo mutants`, scoped by `.cargo/mutants.toml`. A mutation-named test file is not evidence that mutants were run. Record caught, missed, unviable, timed-out, and excluded counts separately.

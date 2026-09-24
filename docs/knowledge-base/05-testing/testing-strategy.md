@@ -216,6 +216,6 @@ For focused work, select the relevant unit/integration target first, then run
 the required gate before committing. Ignored tests are for explicitly manual
 or environment-dependent cases; do not make normal validation interactive.
 
-Use `cargo mutants` when evaluating assertion strength and repository coverage
-scripts or `cargo tarpaulin` when refreshing coverage. Neither tool replaces
+Use `cargo mutants` when evaluating assertion strength and `./ffm.py coverage`
+(CI's line-coverage gate) when refreshing coverage. Neither tool replaces
 targeted tests of observable outcomes and failure handling.

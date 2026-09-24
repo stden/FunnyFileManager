@@ -199,9 +199,8 @@ MCP package follows the same profile split; see the
 cargo test                         # Run unit and integration tests
 ./ffm.py lint                      # Shared local and CI format/Clippy gate
 ./ffm.py lint self-test            # Script unit tests, then readability limits (real compiler fixtures)
-./ffm.py coverage                  # Optional local tarpaulin report
-                                   # CI uses cargo llvm-cov: 98% of measured root lines, 75% for MCP
-                                   # (exclusions are in .github/workflows/tests.yml)
+./ffm.py coverage                  # CI's coverage gate: 98% of measured root lines (scripts/coverage.py)
+                                   # MCP's 75% gate is its job in .github/workflows/tests.yml
 cargo mutants                      # Targeted mutation testing
 cargo bench --bench utils_bench    # Run Criterion benchmarks for basic helpers/models
 ```

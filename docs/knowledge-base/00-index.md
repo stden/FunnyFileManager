@@ -25,7 +25,7 @@ This is the structured knowledge base for FunnyFileManager, designed for use by 
 - `03-rust-best-practices/type-system.md` — Enums, newtypes, making illegal states unrepresentable (**critical**)
 
 ### ✅ 04. Development Workflow
-- `04-development-workflow/build-run-test.md` — Commands and environment setup
+- `04-development-workflow/build-run-test.md` — Commands, environment setup, the coverage gate and CI (jobs, pinned inputs)
 - `04-development-workflow/git-and-commits.md` — Commit conventions and workflow
 
 ### 🧪 05. Testing

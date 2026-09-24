@@ -111,7 +111,8 @@ git commit --no-verify
 - Both use your local Rust toolchain (`cargo fmt` / `clippy` / `rustfmt.toml`).
 - The `mcp/` helper crate is included in the lint script and the Python hook.
 - Clippy is slower than fmt alone; that is intentional so local commits match CI.
-- CI enforces the same gate in the `lint` job (`.github/workflows/tests.yml`).
+- CI enforces the same gate in the `lint` job (`.github/workflows/tests.yml`),
+  with the Rust release `rust-toolchain.toml` pins.
 
 Using a pre-commit hook keeps formatting and clippy regressions out of PRs.
 
