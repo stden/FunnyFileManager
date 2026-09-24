@@ -48,10 +48,9 @@ env:
   # Tiny registry index + no debuginfo in CI binaries.
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
   RUSTFLAGS: "-C debuginfo=0"
-  # cargo-llvm-cov concatenates build.rustc-wrapper with rustc. An empty
-  # wrapper (project or user config) becomes ` rustc` and ENOENT. env is a
-  # no-op. Set here — not only on coverage jobs — because the MCP job runs
-  # with working-directory: mcp and must still see a real wrapper.
+  # cargo-llvm-cov (coverage and MCP jobs) concatenates build.rustc-wrapper
+  # with rustc: the empty wrapper in .cargo/config.toml becomes ` rustc` and
+  # ENOENT. env(1) is a no-op wrapper. The Windows jobs set it back to "".
   CARGO_BUILD_RUSTC_WRAPPER: /usr/bin/env
   # The tools CI installs, at exact versions: a new typos dictionary or
   # cargo-deny release can fail a run with no code change.
@@ -114,9 +113,17 @@ jobs:
       - name: Install Rust (rust-toolchain.toml)
         run: rustup toolchain install --no-self-update
 
+      # mcp builds into the shared target/ (.cargo/config.toml). Listing it
+      # with a target dir it never writes keys the cache on mcp/Cargo.lock and
+      # keeps its crates in the registry. `mcp -> ../target` would not do:
+      # rust-cache cleans each listed target with that workspace's crate list,
+      # and a second pass over target/ would delete the root's dependencies.
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: lint
+          workspaces: |
+            . -> target
+            mcp -> target
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       # The spell check in ./ffm.py lint; typos.toml holds the project words.
@@ -125,17 +132,16 @@ jobs:
         with:
           tool: ${{ env.TOOL_TYPOS }}
 
-      # Keep local and CI gates identical, including MCP/Colorer and test targets.
-      - name: Format, spelling and Clippy (all crates, -D warnings)
+      # Keep local and CI gates identical: fmt, typos and Clippy (all targets)
+      # for the root, MCP and colorer-sys, then the architecture contracts
+      # (module boundaries, unsafe allowlist, file limits) — scripts/lint.py.
+      - name: Format, spelling, Clippy and architecture (all crates, -D warnings)
         run: ./ffm.py lint
 
       # Spelling probes, script unit tests (scripts/tests), readability
       # fixtures, then the manifest lint policy (scripts/test_lint_policy.py).
       - name: Lint gate self-tests (spelling, script tests, readability, lint policy)
         run: ./ffm.py lint self-test
-
-      - name: Architecture contracts
-        run: cargo test --test module_boundaries_test
 
   # ── Tests + coverage (llvm-cov + nextest, no s3) ────────────
   # cargo-llvm-cov uses LLVM source-based instrumentation natively — no
@@ -148,9 +154,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      # .cargo/config.toml sets an empty rustc-wrapper (no wrapper), which
-      # cargo-llvm-cov would exec as ` rustc` (ENOENT); env is a no-op wrapper.
-      CARGO_BUILD_RUSTC_WRAPPER: /usr/bin/env
+      # Every TUI BDD scenario writes its frames here; uploaded below.
+      FFM_TUI_ARTIFACT_DIR: target/tui-bdd
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -207,8 +212,17 @@ jobs:
             --show-missing-lines \
             --summary-only
 
-      # KeePass and the libtest-wrapped TUI Cucumber suite participate in the
-      # default coverage run. Fixture vaults use a cheap KDF and fake clipboard.
+      # KeePass and the libtest-wrapped TUI Cucumber suite (tests/tui_bdd.rs)
+      # participate in the default coverage run: this is where the TUI
+      # scenarios run on Linux. Fixture vaults use a cheap KDF and a fake
+      # clipboard.
+      - name: Upload terminal screen transcripts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tui-screens-Linux
+          path: target/tui-bdd/
+          if-no-files-found: warn
 
   # ── BDD tests (need the s3 feature to compile) ──────────────
   # Kept separate because enabling `s3` drags in aws-sdk-s3, which adds
@@ -243,7 +257,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: bdd-${{ matrix.os }}
+          shared-key: bdd
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       # The src/s3/ unit suite only compiles under the `s3` feature, so the
@@ -257,16 +271,18 @@ jobs:
       - name: Run BDD tests
         run: cargo test --features test-helpers,s3 --test bdd --test bdd_ru
 
-  # Keyboard -> production event loop -> rendered cells, on both host platforms.
-  tui-bdd:
-    name: TUI BDD (${{ matrix.os }})
+  # ── Windows: the whole root suite and Clippy ────────────────
+  # The coverage job runs the suite on Linux. This runs it on the other host
+  # platform, the TUI BDD scenarios (keyboard -> production event loop ->
+  # rendered cells) included, plus Clippy for the cfg(windows) code.
+  windows:
+    name: Windows (tests, TUI BDD, clippy)
     needs: lockfile
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, windows-2025]
+    runs-on: windows-2025
+    # Longer than the others: the suite and then Clippy's own build of every
+    # target took 12-13 minutes with a warm cache, and a cache miss rebuilds
+    # every dependency twice.
+    timeout-minutes: 45
     env:
       # No LLVM coverage wrapper in this job; /usr/bin/env is not a Windows path.
       CARGO_BUILD_RUSTC_WRAPPER: ""
@@ -278,40 +294,38 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: cargo-lock
-      - uses: rui314/setup-mold@10ca16bf91dc22e05ebdc935cad9c75ea248f621 # v1
-        if: runner.os == 'Linux'
       - name: Install Rust (rust-toolchain.toml)
         run: rustup toolchain install --no-self-update
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: tui-bdd-${{ runner.os }}
+          shared-key: windows
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - name: Run TUI BDD scenarios (undefined steps fail)
-        run: cargo test --features test-helpers --test tui_bdd
-      # Run even when the TUI scenarios failed: otherwise one red scenario
-      # hides every other Windows regression behind it until it is fixed.
+      # --no-fail-fast: one red test target must not hide the others. The
+      # TUI BDD scenarios (tests/tui_bdd.rs; undefined steps fail) run here,
+      # once.
       - name: Run the complete Windows test suite
-        if: ${{ !cancelled() && runner.os == 'Windows' }}
         run: cargo test --features test-helpers --no-fail-fast
+      # Runs even when the suite failed, so a Clippy regression in Windows
+      # code is not hidden behind a red test.
       - name: Lint Windows code and tests
-        if: ${{ !cancelled() && runner.os == 'Windows' }}
+        if: ${{ !cancelled() }}
         run: cargo clippy --all-targets --features test-helpers -- -D warnings
       - name: Upload terminal screen transcripts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: tui-screens-${{ runner.os }}
+          name: tui-screens-Windows
           path: target/tui-bdd/
           if-no-files-found: warn
 
-  # ── MCP workspace: fmt + clippy + tests ─────────────────────
+  # ── MCP workspace: tests + coverage ─────────────────────────
+  # Its fmt check and Clippy (all targets, -D warnings) run in the lint job,
+  # through scripts/lint.py. It uses its tracked mcp/Cargo.lock, so it does
+  # not wait for the lockfile job.
   mcp:
     name: MCP Server
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    env:
-      # Same rustc-wrapper / cargo-llvm-cov guard as the coverage job.
-      CARGO_BUILD_RUSTC_WRAPPER: /usr/bin/env
     defaults:
       run:
         working-directory: mcp
@@ -337,12 +351,6 @@ jobs:
         with:
           tool: ${{ env.TOOL_LLVM_COV }}
 
-      - name: Format check
-        run: cargo fmt --all -- --check
-
-      - name: Clippy (deny warnings)
-        run: cargo clippy --all -- -D warnings
-
       # MCP has a cucumber BDD test with harness = false; nextest doesn't
       # handle custom harnesses, so llvm-cov drives `cargo test` here.
       #
@@ -359,7 +367,7 @@ jobs:
       # headroom for platform-dependent branches, tight enough that losing a
       # whole tool's scenarios turns the job red.
       - name: Tests + coverage (fail under 75% lines)
-        run: cargo llvm-cov --all --fail-under-lines 75 --summary-only
+        run: cargo llvm-cov --workspace --fail-under-lines 75 --summary-only
 
   # ── Colorer (optional C++ engine) ───────────────────────────
   # The `colorer` feature links Colorer-library, so nothing else in this
@@ -384,6 +392,9 @@ jobs:
       - name: Install Rust (rust-toolchain.toml)
         run: rustup toolchain install --no-self-update
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: colorer
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: System libraries Colorer needs
         run: sudo apt-get update && sudo apt-get install -y libicu-dev libxml2-dev zlib1g-dev libminizip-dev
