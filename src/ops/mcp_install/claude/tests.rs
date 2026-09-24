@@ -89,11 +89,13 @@ fn an_absent_entry_is_added_with_one_call_in_the_home_folder() {
     let registration = fixture.register();
     assert_eq!(registration.outcome, Outcome::Added);
     assert_eq!(fixture.machine.claude().calls(), [fixture.add()]);
+    // Quoted as the platform's shell needs it: a Windows path has
+    // backslashes, and the runner's temp folder a `~`.
     assert_eq!(
         registration.ran,
         [format!(
             "claude mcp add --scope user --transport stdio ffm-mcp -- {}",
-            fixture.desired.command.as_str()
+            crate::console::shell_word(fixture.desired.command.as_str())
         )]
     );
     assert_eq!(

@@ -30,6 +30,28 @@ impl Fixture {
     }
 }
 
+/// The command the `ffm-mcp` entry of a JSON config starts, read as JSON:
+/// the file escapes a Windows path's backslashes, so the path itself is not
+/// in its text.
+fn json_command(text: &str) -> Option<String> {
+    let config: serde_json::Value = serde_json::from_str(text).ok()?;
+    let command = config.pointer("/mcpServers/ffm-mcp/command")?.as_str()?;
+    Some(command.to_owned())
+}
+
+/// The folder the `ffm-mcp` entry of Codex's TOML config confines the
+/// server to, read as TOML rather than found in the text.
+fn toml_root(text: &str) -> Option<String> {
+    let config: toml_edit::DocumentMut = text.parse().ok()?;
+    let root = config
+        .get("mcp_servers")?
+        .get("ffm-mcp")?
+        .get("env")?
+        .get("FFM_MCP_ROOT")?
+        .as_str()?;
+    Some(root.to_owned())
+}
+
 #[test]
 fn a_missing_file_is_created_with_its_folders() {
     let fixture = fixture();
@@ -39,7 +61,11 @@ fn a_missing_file_is_created_with_its_folders() {
     assert_eq!(registration.config, Some(path.clone()));
     assert!(registration.ran.is_empty());
     let text = fs::read_to_string(&path).unwrap();
-    assert!(text.contains(fixture.server.as_str()), "{text}");
+    assert_eq!(
+        json_command(&text).as_deref(),
+        Some(fixture.server.as_str()),
+        "{text}"
+    );
 }
 
 #[cfg(unix)]
@@ -75,7 +101,11 @@ fn a_different_entry_is_updated_with_the_folder_as_its_root() {
     let registration = fixture.register(ClientId::Codex, Target::CurrentFolder(&fixture.folder));
     assert_eq!(registration.outcome, Outcome::Updated);
     let codex = fs::read_to_string(path).unwrap();
-    assert!(codex.contains(fixture.folder.as_str()), "{codex}");
+    assert_eq!(
+        toml_root(&codex).as_deref(),
+        Some(fixture.folder.as_str()),
+        "{codex}"
+    );
 }
 
 /// The file itself is compared, not its time: an atomic rewrite within one
@@ -236,7 +266,11 @@ fn a_symlinked_config_keeps_its_link_and_its_target_changes() {
         .is_symlink());
     let text = fs::read_to_string(&real).unwrap();
     assert!(text.contains("\"theme\""), "{text}");
-    assert!(text.contains(fixture.server.as_str()), "{text}");
+    assert_eq!(
+        json_command(&text).as_deref(),
+        Some(fixture.server.as_str()),
+        "{text}"
+    );
 }
 
 #[cfg(unix)]

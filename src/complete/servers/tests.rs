@@ -18,6 +18,16 @@ fn scanned(names: &[&str]) -> (TempDir, Vec<String>) {
     (bin, programs)
 }
 
+/// The names as the probe scans them, each from a `PATH` directory of its
+/// own: names differing only in case, which one directory holds as one file
+/// on Windows and macOS.
+fn scanned_apart(names: &[&str]) -> (Vec<TempDir>, Vec<String>) {
+    let bins: Vec<TempDir> = names.iter().map(|name| scanned(&[name]).0).collect();
+    let path = execs::join_paths(bins.iter().map(TempDir::path));
+    let programs = execs::scan(path.as_deref());
+    (bins, programs)
+}
+
 fn texts(candidates: &[Candidate]) -> Vec<&str> {
     candidates
         .iter()
@@ -160,9 +170,13 @@ fn a_catalog_npm_binary_is_offered_beside_the_command() {
 }
 
 /// An uppercase letter makes the match case-sensitive, as on the command line.
+///
+/// The two spellings sit in two `PATH` directories: Windows and macOS keep
+/// file names case-insensitively, so in one directory the second write
+/// would only replace the first file's contents.
 #[test]
 fn matching_is_smartcase() {
-    let (_bin, programs) = scanned(&["PyTool", "pytool"]);
+    let (_bins, programs) = scanned_apart(&["PyTool", "pytool"]);
     let upper = offered(
         CompletedField::Command,
         "Py",
