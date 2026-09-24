@@ -14,6 +14,14 @@ exclude_globs = [
     "src/**/*_tests.rs",     # Legacy unit test filenames
     "src/test_support/**",  # Shared test fixtures
     "tests/**/*.rs",         # Integration tests
+    # Modules compiled only on Windows (`#[cfg(windows)] mod windows;`).
+    # Mutation testing runs on Linux, where they are not built at all, so
+    # every mutant in them "survives" and fails the run for nothing; the
+    # Windows CI job runs their tests. Find them with
+    # `rg -B1 '^mod windows;' src`; src/windows.rs is built everywhere.
+    "src/platform/windows.rs",
+    "src/ops/path_env/store/windows.rs",
+    "src/ops/panel_details/windows.rs",
 ]
 
 # Copy .git so tests that depend on git repo presence pass
