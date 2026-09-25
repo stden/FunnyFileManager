@@ -45,11 +45,15 @@ fn a_pre_existing_loose_history_file_is_tightened() {
 fn relative_xdg_data_home_is_ignored() {
     // A relative $XDG_DATA_HOME is invalid per the XDG spec; honoring it would
     // send history to a cwd-relative path. It must be ignored, falling back to
-    // $HOME/.local/share. Reuse the same env lock via the guard.
+    // the home folder's .local/share — the home as the platform names it
+    // (`%USERPROFILE%` on Windows), not a raw `$HOME`. Reuse the env lock.
     let _guard = XdgGuard::set(std::path::Path::new("relative/data"));
-    let expected = std::env::var_os("HOME")
-        .map(std::path::PathBuf::from)
-        .map(|home| home.join(".local/share/ffm/history"));
+    let expected = crate::config::user_home().map(|home| {
+        home.join(".local")
+            .join("share")
+            .join("ffm")
+            .join("history")
+    });
     assert_eq!(history_file_path(), expected);
 }
 

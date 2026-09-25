@@ -141,7 +141,7 @@ Settings are stored in `ffm/settings.yaml` in the configuration directory:
 path, otherwise `~/.config`. User-menu and association files live beside it.
 The histories and bookmarks live in `ffm` under `$XDG_DATA_HOME`, otherwise
 `~/.local/share`. Every one of these variables, and the home itself
-(`$HOME`; `%USERPROFILE%` first on Windows), counts only as an absolute path:
+(`$HOME`, else `%USERPROFILE%` on Windows), counts only as an absolute path:
 under an empty or relative `HOME` there is no configuration or data directory
 and the session keeps its settings in memory, rather than writing them into
 the launch directory. The PATH editor then has no profile to edit. A

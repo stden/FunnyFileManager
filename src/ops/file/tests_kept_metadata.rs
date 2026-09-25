@@ -61,6 +61,11 @@ fn preserving_timestamps_reaches_every_file_and_folder_inside() {
     let (mut app, from, to) = tree();
     let mut dialog = settings(to.path());
     dialog.timestamps = true;
+    let accessed = |path: &Path| fs::metadata(path).and_then(|meta| meta.accessed()).unwrap();
+    let secret = "top/a/b/secret.txt";
+    // Read before the copy: reading the source is what updates its access
+    // time on a `relatime` mount (CI's), while the copy carries the old one.
+    let accessed_before = accessed(&from.path().join(secret));
 
     copy_with(&mut app, &dialog);
 
@@ -68,12 +73,7 @@ fn preserving_timestamps_reaches_every_file_and_folder_inside() {
         let (source, copy) = (from.path().join(name), to.path().join(name));
         assert_eq!(modified(&copy), modified(&source), "{name}: {}", app.status);
     }
-    let accessed = |path: &Path| fs::metadata(path).and_then(|meta| meta.accessed()).unwrap();
-    let secret = "top/a/b/secret.txt";
-    assert_eq!(
-        accessed(&to.path().join(secret)),
-        accessed(&from.path().join(secret))
-    );
+    assert_eq!(accessed(&to.path().join(secret)), accessed_before);
 }
 
 #[test]

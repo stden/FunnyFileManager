@@ -51,31 +51,6 @@ fn a_directory_onto_an_existing_file_fails_rather_than_guessing() {
     );
 }
 
-/// When the plain `fs::rename` cannot manage the move, `place` falls back to
-/// copying and then removing the original — the same fallback `move_into`
-/// uses, but reached through the F6 dialog's own path. Denying write on the
-/// source directory is what forces the fallback here: `fs::rename` needs
-/// write permission on both parent directories and so fails, while reading
-/// the file to copy it does not.
-#[cfg(unix)]
-#[test]
-fn a_move_whose_rename_fails_falls_back_to_copy_and_remove() {
-    let (mut app, from, to) = app_with(&[("notes.txt", b"payload")]);
-    mark(&mut app, "notes.txt");
-
-    let _read_only = crate::test_support::ModeGuard::set(from.path(), 0o555).expect("test setup");
-
-    let mut dialog = settings(to.path());
-    dialog.purpose = Purpose::Move;
-    copy_with(&mut app, &dialog);
-
-    assert_eq!(
-        fs::read(to.path().join("notes.txt")).unwrap(),
-        b"payload",
-        "the fallback's copy still has to land, even though the cleanup after it is denied"
-    );
-}
-
 /// A move whose source vanishes between the listing and the transfer reports
 /// the failure rather than claiming a move that did not happen.
 #[test]

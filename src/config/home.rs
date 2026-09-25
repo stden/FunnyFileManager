@@ -36,7 +36,8 @@ pub fn data_dir() -> Option<PathBuf> {
 /// functions, so that both rules run in every build's tests.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Platform {
-    /// `%USERPROFILE%` (else `$HOME`), and `%APPDATA%` for configuration.
+    /// `$HOME` when set (Git Bash, MSYS2 and dotfile setups set it on
+    /// purpose), else `%USERPROFILE%`; `%APPDATA%` for configuration.
     Windows,
     /// `$HOME`, and `$XDG_CONFIG_HOME` (else `~/.config`) for configuration.
     Unix,
@@ -56,7 +57,7 @@ impl Platform {
         variable: impl Fn(&'static str) -> Option<OsString>,
     ) -> Option<PathBuf> {
         let names: &[&'static str] = match self {
-            Self::Windows => &["USERPROFILE", "HOME"],
+            Self::Windows => &["HOME", "USERPROFILE"],
             Self::Unix => &["HOME"],
         };
         names.iter().find_map(|name| absolute(variable(name)))

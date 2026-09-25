@@ -58,15 +58,20 @@ fn the_data_directory_prefers_an_absolute_xdg_data_home() {
     }
 }
 
-/// Windows has no `HOME` of its own: `%USERPROFILE%` comes first, as Node's
-/// `os.homedir()` and Rust's `dirs::home_dir()` have it.
+/// Windows sets no `HOME` of its own, so `%USERPROFILE%` is the default; a
+/// `HOME` the user did set (Git Bash, MSYS2, a dotfiles setup) is the
+/// deliberate choice and wins, as it did before the home rule was shared.
 #[test]
-fn windows_finds_the_home_in_userprofile_before_home() {
+fn windows_prefers_an_explicit_home_over_userprofile() {
     let profile = TempDir::new().expect("tempdir");
     let home = TempDir::new().expect("tempdir");
     let both = [("USERPROFILE", profile.path()), ("HOME", home.path())];
     assert_eq!(
         Platform::Windows.home(environment(&both)),
+        Some(home.path().to_owned())
+    );
+    assert_eq!(
+        Platform::Windows.home(environment(&[("USERPROFILE", profile.path())])),
         Some(profile.path().to_owned())
     );
     assert_eq!(
