@@ -53,3 +53,28 @@ fn files_at_the_top_level_count_toward_the_total() {
     assert_eq!(stats.files, 2);
     assert_eq!(stats.directories, 1);
 }
+
+/// `special/` read "5.0 G in 1 files, 0 folders": the socket and the device
+/// beside the image went uncounted, though the panel counts them as files.
+/// They are counted now, at the top and below it, without adding bytes.
+#[cfg(unix)]
+#[test]
+fn sockets_and_fifos_count_as_files_without_bytes() {
+    let dir = tree(&[("image.img", 900), ("sub/inner.bin", 100)]);
+    let _top = std::os::unix::net::UnixListener::bind(dir.path().join("socket")).expect("socket");
+    rustix::fs::mknodat(
+        rustix::fs::CWD,
+        dir.path().join("sub/pipe"),
+        rustix::fs::FileType::Fifo,
+        rustix::fs::Mode::from_raw_mode(0o600),
+        0,
+    )
+    .expect("fifo");
+
+    let stats = analyse(dir.path());
+
+    assert_eq!(stats.files, 4);
+    assert_eq!(stats.total.bytes(), 1000);
+    assert_eq!(child(&stats, "sub").map(|sub| sub.files), Some(2));
+    assert_eq!(stats.largest.len(), 2, "only files with data are listed");
+}

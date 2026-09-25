@@ -28,13 +28,9 @@ use ratatui::{
 };
 
 use super::palette;
-#[cfg(all(test, windows))]
-use super::tail_cells;
 use super::{head_cells, Cells, FAR_BLUE, PANEL_BORDERS};
 use super::{PANEL_COLUMN_HEADER, PANEL_COLUMN_RULE, PANEL_INFO_ROW, PANEL_NON_ENTRY_ROWS};
 use crate::models::Panel;
-#[cfg(test)]
-use crate::models::{DirEntry, PanelView, SortMode};
 use crate::status::PathMessage;
 pub(super) use columns::COLUMN_SEPARATOR;
 use columns::{info_columns, table_columns};
@@ -49,8 +45,6 @@ pub(super) use info::panel_footer;
 use info::render_panel_info;
 pub(super) use layout::panel_layout;
 pub use layout::stripe_at;
-#[cfg(test)]
-use layout::PanelLayout;
 use rows::render_entries;
 use styles::mark_of;
 pub(super) use styles::{cursor_colour, cursor_style, separator_style, Mark};
@@ -142,6 +136,8 @@ fn divider_row(inner: Rect) -> Rect {
 mod tests_cursor;
 #[cfg(test)]
 mod tests_header;
+#[cfg(test)]
+mod tests_link_sizes;
 #[cfg(test)]
 mod tests_selection;
 #[cfg(test)]

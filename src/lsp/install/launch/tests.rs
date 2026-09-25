@@ -1,5 +1,6 @@
 //! Purpose: Verify relocatable launch receipts and runtime version parsing.
 
+use super::java::{java_launcher, java_major};
 use super::*;
 use crate::lsp::install::environment::System;
 use std::process::Command;

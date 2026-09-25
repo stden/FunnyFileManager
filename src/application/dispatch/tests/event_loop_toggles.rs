@@ -1,4 +1,4 @@
-//! Unit tests: event loop toggles (split out to keep files under 500 lines).
+//! Unit tests: event loop toggles.
 
 use super::*;
 

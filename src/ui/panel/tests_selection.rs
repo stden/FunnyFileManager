@@ -9,6 +9,7 @@ use ratatui::{backend::TestBackend, buffer::Buffer, Terminal};
 use crate::models::{EntryKind, FileName, FileSize};
 
 use super::*;
+use crate::models::DirEntry;
 
 /// A 42x8 panel: the top border, the header, three body rows, then the rule.
 const RULE_ROW: u16 = 5;

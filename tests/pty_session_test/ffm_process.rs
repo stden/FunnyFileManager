@@ -23,26 +23,31 @@ impl Ffm {
     )]
     pub fn start() -> Self {
         let path = std::env::var_os("PATH").unwrap_or_default();
-        Self::start_in(TempDir::new().expect("sandbox"), &path)
+        Self::start_in(TempDir::new().expect("sandbox"), &path, &[])
     }
 
-    /// `ffm` with `sandbox/home` as its home, `sandbox/work` as its working
-    /// directory and `path` as its `PATH`; whatever the sandbox holds already
-    /// is there when it starts.
+    /// `ffm args` with `sandbox/home` as its home, `sandbox/tmp` as its
+    /// temporary directory, `sandbox/work` as its working directory and `path`
+    /// as its `PATH`; whatever the sandbox holds already is there when it
+    /// starts.
     #[expect(
         clippy::expect_used,
         reason = "test fixture: an error from the pty or the ffm process fails the test driving it"
     )]
-    pub fn start_in(sandbox: TempDir, path: &OsStr) -> Self {
+    pub fn start_in(sandbox: TempDir, path: &OsStr, args: &[&str]) -> Self {
         let home = sandbox.path().join("home");
-        fs::create_dir_all(&home).expect("home");
-        fs::create_dir_all(sandbox.path().join("work")).expect("work");
+        let tmp = sandbox.path().join("tmp");
+        for directory in [&home, &tmp, &sandbox.path().join("work")] {
+            fs::create_dir_all(directory).expect("sandbox directory");
+        }
         let (terminal, device) = open_pty();
         let process = Command::new(env!("CARGO_BIN_EXE_ffm"))
+            .args(args)
             .current_dir(sandbox.path().join("work"))
             .env_clear()
             .env("PATH", path)
             .env("HOME", &home)
+            .env("TMPDIR", &tmp)
             .env("TERM", "xterm-256color")
             .env("LANG", "C.UTF-8")
             .stdin(Stdio::from(device.try_clone().expect("terminal for stdin")))
@@ -96,6 +101,15 @@ impl Ffm {
 
     pub fn hang_up(&mut self) {
         self.terminal = None;
+    }
+
+    /// Send ffm `signal`, the way `tmux kill-session` sends the pane SIGHUP.
+    #[expect(
+        clippy::expect_used,
+        reason = "test fixture: an error from the pty or the ffm process fails the test driving it"
+    )]
+    pub fn signal(&self, signal: Signal) {
+        kill_process(Pid::from_child(&self.process), signal).expect("signal ffm");
     }
 
     /// How ffm ended, or `None` if it is still running after [`HANG_UP`].

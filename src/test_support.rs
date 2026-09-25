@@ -18,6 +18,10 @@ mod settings;
 pub use settings::restore_settings;
 #[cfg(any(test, feature = "test-helpers"))]
 mod mcp_install;
+#[cfg(all(unix, any(test, feature = "test-helpers")))]
+mod permissions;
+#[cfg(all(unix, any(test, feature = "test-helpers")))]
+pub use permissions::ModeGuard;
 #[cfg(any(test, feature = "test-helpers"))]
 pub mod processes;
 #[cfg(any(test, feature = "test-helpers"))]

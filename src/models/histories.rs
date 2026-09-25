@@ -9,7 +9,7 @@
 
 use std::{
     collections::VecDeque,
-    fs, io,
+    io,
     marker::PhantomData,
     path::{Path, PathBuf},
 };
@@ -78,7 +78,7 @@ impl<K: HistoryFile> PathHistory<K> {
             crate::history::data_file(K::FILE).map_or(Persistence::SessionOnly, Persistence::File);
         let entries = persistence
             .file()
-            .and_then(|path| fs::read_to_string(path).ok())
+            .and_then(|path| crate::fileload::read_small_file(path, K::FILE).ok())
             .map(|text| {
                 text.lines()
                     .filter(|line| !line.is_empty())
@@ -145,14 +145,14 @@ impl<K: HistoryFile> PathHistory<K> {
             return Ok(());
         };
         if let Some(dir) = path.parent() {
-            fs::create_dir_all(dir)?;
+            crate::file_write::create_dirs_owner_only(dir)?;
         }
         let mut text = String::new();
         for entry in &self.entries {
             text.push_str(&entry.to_string_lossy());
             text.push('\n');
         }
-        crate::history::write_owner_only(path, &text)
+        crate::file_write::replace_owner_only(path, K::FILE, &text)
     }
 }
 

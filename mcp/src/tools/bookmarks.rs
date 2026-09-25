@@ -14,10 +14,10 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct BookmarkParams {
     /// Bookmark name/key
-    pub name: String,
+    name: String,
     /// Path to bookmark (required for `set_bookmark`)
     #[serde(default)]
-    pub path: Option<String>,
+    path: Option<String>,
 }
 
 #[tool_router(router = bookmark_tools, vis = "pub(super)")]

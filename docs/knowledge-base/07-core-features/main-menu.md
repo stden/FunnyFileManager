@@ -76,7 +76,7 @@ with their shortcuts. Additional operations are:
 |------|----------|
 | Link | One selected file becomes a hard link; directories use symbolic links. Existing destinations are refused. Directory links may require host privileges. |
 | Wipe | F8-style confirmation (Y/Enter wipes, N/Esc/F10 cancels); each file is overwritten with zeros, truncated, renamed to a temporary name and removed. Directories recurse; symlinks are unlinked, never followed; pipes, sockets and devices are never opened, only unlinked. A file with other hard links is only unlinked too (its data belongs to the other names), and the status bar says so. This does not guarantee erasure from SSDs, snapshots, or backups. |
-| Add to archive | Far's dialog: name, format (tar.gz / tar / zip where `zip` is installed), "Delete files after archiving". Runs the host `tar` or `zip`; an existing archive is never overwritten. |
+| Add to archive | Far's dialog: name, format (tar.gz / tar / zip where `zip` is installed), "Delete files after archiving". Runs the host `tar` or `zip`; an existing archive is never overwritten (a dangling link holds the name too). A run that fails removes the partial archive it created — never one that was there before, which a failed append may have changed. |
 | Extract | Far's dialog for every marked archive, into the other panel by default (created if missing). Traversal paths, links and special archive members are refused. Each archive unpacks into a private folder first and moves in only if nothing in the destination would be replaced or written through a link; otherwise it is refused and nothing is extracted (existing folders are merged into). |
 | Archive commands | Test archive, List contents, Extract here, Extract to other panel, Add selected files to this archive. |
 | Attributes | Changes read-only/writable status; Unix also accepts octal permissions. |
@@ -95,12 +95,16 @@ with their shortcuts. Additional operations are:
 | Plugin commands | Far's F11 list: MCP status, NetBox's stored sessions, and the NetBox `.netbox` import (which asks for the file). |
 | Install MCP server | Registers ffm-mcp with Claude Code, Codex, Junie and Kiro, for all projects or the active panel's folder; see [session tools](../../session-tools.md#mcp-server-setup). |
 
-The F9 row and its shortcut call the same `ops/menu` operation. Alt+F7 opens the Find file dialog, whose containing-text field narrows the name search. See [overlays](../../06-ui-and-interaction/overlays-and-modals.md).
+The F9 row and its shortcut call the same `ops/menu` operation. Alt+F7 opens the Find file dialog, whose containing-text field narrows the name search. The text is matched case-insensitively and read in 64 KiB chunks, so a file of any size is searched (a file with a NUL byte counts as binary and is skipped). One search stops at the entry budget (Options → System) or after 10 seconds, and the status line says which limit cut the list short. See [overlays](../../06-ui-and-interaction/overlays-and-modals.md).
 
 User-menu files contain `Label<TAB>command` lines. Association files contain
 `extension<TAB>command`; extension matching ignores case and `{}` expands to
 the selected filename. Lines starting with `#` are comments. Commands selected
-from the user menu are placed in the command line before execution.
+from the user menu are placed in the command line before execution. Either
+file is read only when it is a regular file of at most 1 MiB of UTF-8: a FIFO
+or a device in its place is refused unopened, with its name
+(`user-menu.txt is not a regular file`). The histories, the bookmarks, the
+panel session and the PATH editor's profile are read under the same rule.
 
 ## Options and persistence
 
@@ -135,8 +139,20 @@ where it is.
 Settings are stored in `ffm/settings.yaml` in the configuration directory:
 `%APPDATA%` on Windows; elsewhere `$XDG_CONFIG_HOME` when it is an absolute
 path, otherwise `~/.config`. User-menu and association files live beside it.
-Sessions constructed without a configuration location use `.ffm` under the
-active directory for command files.
+The histories and bookmarks live in `ffm` under `$XDG_DATA_HOME`, otherwise
+`~/.local/share`. Every one of these variables, and the home itself
+(`$HOME`; `%USERPROFILE%` first on Windows), counts only as an absolute path:
+under an empty or relative `HOME` there is no configuration or data directory
+and the session keeps its settings in memory, rather than writing them into
+the launch directory. The PATH editor then has no profile to edit. A
+directory FFM has to make for these files (`~/.config`, `ffm`, `performance`,
+`lsp`, `~/.local/share/ffm`) is made readable by its owner only (0700, as the
+XDG spec asks); one that already exists keeps its mode.
+Without a configuration directory (no absolute `$XDG_CONFIG_HOME` and no
+`HOME`) there is no user menu and no association, and editing either says
+`No configuration directory: set HOME to keep a user menu`. A command file is
+never read from the folder on screen: Enter in a cloned repository or an
+unpacked archive would run a command its author wrote.
 
 The file is one YAML mapping with two owners. Save setup writes the Options
 entries under `options`, one key per entry named after it:
@@ -204,8 +220,10 @@ file.
   them, so a crash leaves the previous file whole; the file is readable by its
   owner only. A save holds a lock on `settings.yaml.lock` beside the file from
   reading it to the rename, so two FFMs saving at once keep each other's
-  changes; while one saves, the other stops with `Not saved: another FFM is
-  saving settings.yaml`. The empty lock file stays. Other programs take no
+  changes; while one saves, the other waits up to a quarter of a second, then
+  stops with `Not saved: another FFM is saving settings.yaml`. The empty lock file stays; one that is not a regular
+  file stops the save unopened (`Not saved: settings.yaml.lock: not a regular
+  file`), since opening a FIFO waits for a reader. Other programs take no
   lock, so a save reads the file again just before it writes, and stops with
   `Not saved: settings.yaml changed while it was being saved; save again`
   when an editor or a sync changed it in between. FFM reads the file only
@@ -214,7 +232,10 @@ file.
   link, and refuses what a rename would damage: a link to a missing file, a
   file with other hard links, another user's file and one the user cannot
   write (`Not saved: settings.yaml has other hard links; FFM will not replace
-  it`).
+  it`, `Not saved: settings.yaml: permission denied`). Refusals name the file,
+  or the folder that could not be created (`Not saved: cannot create folder
+  ffm: …`), by its last part: a whole path in front of the reason pushed the
+  reason off the status line.
 
 ## Verification
 

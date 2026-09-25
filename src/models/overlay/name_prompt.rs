@@ -114,11 +114,13 @@ impl NamePrompt {
 
     /// A name this dialog may act on, or `None` when there is nothing to do:
     /// blank, or — for a rename — the name the entry already has. A path
-    /// separator is refused too, because that would move the entry somewhere
-    /// else rather than name it, and moving is what F6 is for.
+    /// separator is refused in a rename or a link name, because that would
+    /// put the entry somewhere else rather than name it, and moving is what
+    /// F6 is for. F7 takes a path, as Far's does: `p1/p2/p3` makes all three.
     fn usable<'a>(&self, candidate: &'a str) -> Option<&'a str> {
         let trimmed = candidate.trim();
-        if trimmed.is_empty() || trimmed.contains('/') || trimmed.contains('\\') {
+        let is_path = trimmed.contains('/') || trimmed.contains('\\');
+        if trimmed.is_empty() || (is_path && self.purpose != NamePurpose::MakeFolder) {
             return None;
         }
         if self.purpose == NamePurpose::Rename && trimmed == self.original.as_str() {

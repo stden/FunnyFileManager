@@ -67,17 +67,34 @@ fn expand_tilde_without_any_home_variable_returns_the_path_unchanged() {
     assert_eq!(expand_tilde(Path::new("~")), PathBuf::from("~"));
 }
 
-/// Windows sets `%USERPROFILE%`, not `$HOME`; the fallback is what makes `cd ~`
-/// work there, and it is only reachable while `$HOME` is absent.
+/// Windows names the home in `%USERPROFILE%`, and `cd ~` goes there; on
+/// Unix only `$HOME` names it, so `~` is kept as it is.
 #[test]
-fn expand_tilde_falls_back_to_userprofile_when_home_is_unset() {
+fn expand_tilde_reads_userprofile_on_windows_only() {
     let _guard = HomeVars::cleared();
-    env::set_var("USERPROFILE", Path::new("/profiles/dana"));
+    let profile = env::temp_dir().join("dana");
+    env::set_var("USERPROFILE", &profile);
+    let expected = if cfg!(windows) {
+        profile.join("marker")
+    } else {
+        PathBuf::from("~/marker")
+    };
+    assert_eq!(expand_tilde(Path::new("~/marker")), expected);
+}
 
-    assert_eq!(
-        expand_tilde(Path::new("~/marker")),
-        PathBuf::from("/profiles/dana/marker")
-    );
+/// An empty or relative `$HOME` names no home: `~/marker` expanded against
+/// it would be `marker` in the panel's own folder.
+#[test]
+fn expand_tilde_keeps_the_tilde_under_an_empty_or_relative_home() {
+    let _guard = HomeVars::cleared();
+    for home in ["", "relative"] {
+        env::set_var("HOME", home);
+        assert_eq!(
+            expand_tilde(Path::new("~/marker")),
+            PathBuf::from("~/marker"),
+            "HOME={home:?}"
+        );
+    }
 }
 
 #[test]

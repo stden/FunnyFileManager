@@ -145,9 +145,12 @@ an entry confined to the home would reach every project. Those rows read
 
 Configs are never clobbered:
 
-- A config that does not parse, or has an unexpected shape, is dimmed in the
-  dialog, left untouched, and named in the report with the parser's line and
-  column. Fix or remove it, then register again.
+- A config that does not parse, has an unexpected shape or cannot be read (a
+  FIFO or a folder in its place, no permission) is dimmed in the dialog, left
+  untouched, and named with the reason — the parser's line and column where it
+  gives them — under "Configs FFM cannot use, left untouched" in the
+  registration report and on the `:mcp` screen. Fix or remove it, then
+  register again.
 - Every other server, key, comment and (in JSON) key order is kept. In JSON
   every value but the `ffm-mcp` entry keeps its exact text — `1e3` stays
   `1e3` — the file's indentation and CRLF line ends are kept too. Codex's

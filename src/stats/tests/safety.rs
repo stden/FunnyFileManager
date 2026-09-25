@@ -26,21 +26,17 @@ fn a_symlink_loop_does_not_hang_the_walk() {
 #[cfg(unix)]
 #[test]
 fn a_subdirectory_that_cannot_be_read_contributes_nothing_but_does_not_fail_the_walk() {
-    use std::os::unix::fs::PermissionsExt;
-
     let dir = tree(&[("visible/a.bin", 10)]);
     let locked = dir.path().join("locked");
     fs::create_dir(&locked).expect("test setup");
     fs::write(locked.join("secret.bin"), vec![b'x'; 500]).expect("test setup");
-    fs::set_permissions(&locked, fs::Permissions::from_mode(0o000)).expect("test setup");
+    let _locked = crate::test_support::ModeGuard::set(&locked, 0o000).expect("test setup");
     // Mode 000 stops nobody who is root, and a CI gate often is: then there
     // is no unreadable directory to test, so there is nothing to assert.
     let privileged = fs::read_dir(&locked).is_ok();
 
     let stats = analyse(dir.path());
 
-    // Restore so the `TempDir` can clean itself up.
-    fs::set_permissions(&locked, fs::Permissions::from_mode(0o755)).expect("cleanup");
     if privileged {
         eprintln!("skipped: this process reads mode-000 directories (root)");
         return;

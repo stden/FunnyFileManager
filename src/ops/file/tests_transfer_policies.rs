@@ -6,13 +6,12 @@
 //! dialog's *state* is tested next door in `copy::tests`; this is about the
 //! transfer it ends in.
 
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
-
 use super::*;
 
-use crate::copy::{CopyPrompt, ExistingFiles};
+use crate::copy::{CopyPrompt, ExistingFiles, Purpose};
 use crate::models::{FileName, Panel, PanelSide};
+use crate::status::{Landed, Status};
+use crate::utils::CopyRules;
 
 use tempfile::TempDir;
 
@@ -55,6 +54,8 @@ pub(super) fn make_fifo(path: &Path) -> Option<PathBuf> {
     Some(path.to_path_buf())
 }
 
+#[cfg(unix)]
+mod tests_dangling_links;
 mod tests_existing_files;
 mod tests_folders_and_moves;
 #[cfg(unix)]

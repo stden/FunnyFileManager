@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use ratatui::{backend::Backend, Terminal};
 
-use super::event::{handle_event, next_event};
+use super::event::{discard_typeahead, handle_event, next_event, UNANSWERED};
 use super::input::{BufferedInput, EventSource};
 use super::{lsp_jobs, task_jobs, timing, wsl_jobs, Redraw};
 use crate::diagnostics::log_action;
@@ -53,11 +53,15 @@ impl LoopState {
             let Some(event) = next_event(read, app)? else {
                 continue;
             };
-            self.pending = Some(timing::Pending::start(app, &event, Instant::now()));
+            let started = Instant::now();
+            self.pending = Some(timing::Pending::start(app, &event, started));
             self.redraw = Redraw::Needed;
             handle_event(terminal, app, event, &mut self.clicks)?;
             crate::ops::packages::run_pending(terminal, app)?;
             run_after_frame(terminal, app)?;
+            if started.elapsed() >= UNANSWERED {
+                discard_typeahead(read, app)?;
+            }
         }
         Ok(())
     }

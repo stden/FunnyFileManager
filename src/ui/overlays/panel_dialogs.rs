@@ -74,12 +74,13 @@ pub(super) fn render_delete_confirm(
     f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     files: &[std::path::PathBuf],
+    noun: &str,
 ) {
-    // Far names the single file it is about and counts the rest: the
-    // name is what the user checks before pressing Enter, and a bare
-    // count is the one thing that cannot be checked.
+    // Far names the single entry it is about — a file, a folder or a link —
+    // and counts the rest: the name is what the user checks before pressing
+    // Enter, and a bare count is the one thing that cannot be checked.
     let mut message = vec![match files.len() {
-        1 => "Do you wish to delete the file?".to_owned(),
+        1 => format!("Do you wish to delete the {noun}?"),
         count => format!("Do you wish to delete {count} items?"),
     }];
     dialog::preview_lines(files, |path| super::super::entry_label(path), &mut message);

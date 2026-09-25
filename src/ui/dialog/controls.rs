@@ -8,7 +8,9 @@ use ratatui::{
 };
 
 use super::super::{palette, Cells};
-use super::row::{caption_gap, CHOICE_WIDTH, DROP_MARKER, INPUT_WIDTH, RADIO_OFF, RADIO_ON};
+use super::row::{
+    caption_gap, CHOICE_WIDTH, DROP_MARKER, INPUT_WIDTH, RADIO_GAP, RADIO_OFF, RADIO_ON,
+};
 use super::HOTKEY_MARK;
 
 pub(super) fn input_line(
@@ -51,6 +53,9 @@ pub(super) fn radio_line(
     let mut spans = hotkey_spans(caption, style, accent);
     spans.push(Span::styled(" ", style));
     for (index, option) in options.iter().enumerate() {
+        if index > 0 {
+            spans.push(Span::styled(RADIO_GAP, style));
+        }
         let chosen = index == selected;
         // Only the chosen option carries the focus highlight: a row of
         // three reversed options would say the cursor is on all three.

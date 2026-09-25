@@ -13,6 +13,7 @@ use crate::models::{HostName, Origin, Port, Protocol, Session, UserName};
 
 mod file;
 mod read_text;
+mod safety;
 mod size;
 mod store;
 

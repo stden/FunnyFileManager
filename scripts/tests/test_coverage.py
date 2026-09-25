@@ -20,8 +20,9 @@ FAKE_CARGO = """
 SUMMARY = '{{"data": [{{"totals": {{"lines": {{"count": {count}, "covered": {covered}, "percent": 0}}}}}}]}}'
 # Paths as llvm-cov reports them: absolute.
 LEFT_OUT = (
-    "/w/src/main.rs", "/w/src/editor.rs", "/w/src/bootstrap.rs", "/w/src/clipboard/system.rs",
-    "/w/src/ops/shell/tty.rs", "/w/src/highlight/colorer.rs", "/w/src/ops/tests/copy.rs",
+    "/w/src/main.rs", "/w/src/editor.rs", "/w/src/bootstrap.rs", "/w/src/bootstrap/at_exit.rs",
+    "/w/src/clipboard/system.rs",
+    "/w/src/terminal/typeahead.rs", "/w/src/highlight/colorer.rs", "/w/src/ops/tests/copy.rs",
     "/w/src/ui/tests_info_row_messages.rs", "/w/src/status/tests.rs", "/w/src/app_tests.rs",
     "/w/src/test_support.rs", "/w/src/test_support/processes.rs", "/w/tests/tui_bdd/session.rs",
 )

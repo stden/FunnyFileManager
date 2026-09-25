@@ -20,10 +20,8 @@ mod java;
 mod programs;
 mod receipt;
 
-pub(super) use java::java;
 use java::jdtls;
-#[cfg(test)]
-use java::{java_launcher, java_major};
+pub(super) use java::{java, java_present};
 pub use programs::{executable, launchable_name};
 pub(super) use programs::{find_all, runnable, venv_python};
 

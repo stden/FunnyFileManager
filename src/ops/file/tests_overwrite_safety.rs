@@ -9,7 +9,7 @@
 use super::tests_transfer_policies::{app_between, mark, settings};
 use super::*;
 
-use crate::copy::ExistingFiles;
+use crate::copy::{ExistingFiles, Purpose};
 
 use tempfile::TempDir;
 
@@ -81,6 +81,8 @@ fn only_newer_decides_file_by_file_inside_a_merged_folder() {
     assert_eq!(fs::read(docs.join("a.txt")).unwrap(), b"old a");
     assert_eq!(fs::read(docs.join("new.txt")).unwrap(), b"brand new");
     assert_eq!(fs::read(docs.join("only_here.txt")).unwrap(), b"precious");
+    let status = app.status.to_string();
+    assert!(status.ends_with("docs, 1 skipped"), "{status}");
 }
 
 #[test]

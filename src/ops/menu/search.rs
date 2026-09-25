@@ -3,15 +3,25 @@
 use crate::{
     mask::Mask,
     menu::MenuCommand,
-    models::{App, ChoiceTarget, MenuChoice},
+    models::{App, MenuChoice},
 };
 use std::{
     fs, io,
     path::{Path, PathBuf},
+    time::{Duration, Instant},
 };
 
 #[cfg(test)]
 mod deny_reads;
+mod results;
+mod text;
+use results::{add_result, report, Limit};
+use text::{file_contains, fold, Scan};
+
+/// How long one search may take. The walk blocks the event loop, and a
+/// file's text is now read to its end however large it is, so this is what
+/// keeps a search over a disk of big logs from freezing the screen.
+const TIME_LIMIT: Duration = Duration::from_secs(10);
 
 #[cfg(test)]
 use deny_reads::denied;
@@ -19,12 +29,24 @@ use deny_reads::denied;
 pub(super) use deny_reads::DenyReads;
 
 pub(super) fn find(app: &mut App, pattern: &str, folders: bool, containing: &str) {
+    find_within(app, pattern, folders, containing, TIME_LIMIT);
+}
+
+/// [`find`], given `time` rather than [`TIME_LIMIT`].
+pub(super) fn find_within(
+    app: &mut App,
+    pattern: &str,
+    folders: bool,
+    containing: &str,
+    time: Duration,
+) {
     let root = app.get_active_panel_ref().path.clone();
-    let mut search = Search::prepare(app, pattern, folders, containing);
+    let deadline = Instant::now() + time;
+    let mut search = Search::prepare(app, pattern, folders, containing, deadline);
     search.walk(&root);
     let title = if folders { "Find folder" } else { "Find file" };
     super::choices(app, title, search.rows);
-    report(app, search.truncated, search.skipped);
+    report(app, search.stopped, search.skipped);
 }
 
 struct Search {
@@ -33,21 +55,29 @@ struct Search {
     needle: String,
     depth_limit: usize,
     budget: usize,
-    truncated: bool,
+    deadline: Instant,
+    stopped: Option<Limit>,
     /// Folders whose listing could not be read, and so were not searched.
     skipped: usize,
     rows: Vec<MenuChoice>,
 }
 
 impl Search {
-    fn prepare(app: &App, pattern: &str, folders: bool, containing: &str) -> Self {
+    fn prepare(
+        app: &App,
+        pattern: &str,
+        folders: bool,
+        containing: &str,
+        deadline: Instant,
+    ) -> Self {
         Self {
             mask: Mask::parse(pattern),
             folders,
-            needle: containing.trim().to_lowercase(),
+            needle: fold(containing.trim()),
             depth_limit: app.settings.number(crate::menu::SettingsPage::Tree),
             budget: app.settings.number(crate::menu::SettingsPage::System),
-            truncated: false,
+            deadline,
+            stopped: None,
             skipped: 0,
             rows: Vec::new(),
         }
@@ -56,12 +86,11 @@ impl Search {
     fn walk(&mut self, root: &Path) {
         let mut pending = vec![(root.to_path_buf(), 0_usize)];
         while let Some((directory, depth)) = pending.pop() {
-            if self.budget == 0 {
-                self.truncated = true;
+            if self.limit_reached() {
                 break;
             }
             self.visit(root, &directory, depth, &mut pending);
-            if self.truncated {
+            if self.stopped.is_some() {
                 break;
             }
         }
@@ -86,13 +115,23 @@ impl Search {
         }
     }
 
+    /// Spend one entry of the budget, unless a limit has ended the search.
     fn take(&mut self) -> bool {
-        if self.budget == 0 {
-            self.truncated = true;
+        if self.limit_reached() {
             return false;
         }
         self.budget -= 1;
         true
+    }
+
+    /// Whether the entry budget or the time is used up; notes which.
+    fn limit_reached(&mut self) -> bool {
+        if self.budget == 0 {
+            self.stopped = Some(Limit::Entries);
+        } else if Instant::now() >= self.deadline {
+            self.stopped = Some(Limit::Time);
+        }
+        self.stopped.is_some()
     }
 
     fn consider(
@@ -116,23 +155,19 @@ impl Search {
         }
     }
 
-    fn text_matches(&self, path: &Path) -> bool {
-        self.folders || self.needle.is_empty() || file_contains(path, &self.needle)
+    fn text_matches(&mut self, path: &Path) -> bool {
+        if self.folders || self.needle.is_empty() {
+            return true;
+        }
+        match file_contains(path, &self.needle, self.deadline) {
+            Scan::Found => true,
+            Scan::Absent => false,
+            Scan::OutOfTime => {
+                self.stopped = Some(Limit::Time);
+                false
+            }
+        }
     }
-}
-
-fn report(app: &mut App, truncated: bool, skipped: usize) {
-    let unreadable = match skipped {
-        1 => "skipped 1 folder that could not be read".to_owned(),
-        count => format!("skipped {count} folders that could not be read"),
-    };
-    let message = match (truncated, skipped) {
-        (false, 0) => return,
-        (true, 0) => "Search stopped at the entry limit. The list is incomplete.".to_owned(),
-        (false, _) => format!("Search {unreadable}."),
-        (true, _) => format!("Search stopped at the entry limit and {unreadable}."),
-    };
-    app.set_status(crate::status::Status::CommandOutput(message));
 }
 
 fn read_directory(path: &Path) -> io::Result<fs::ReadDir> {
@@ -141,36 +176,6 @@ fn read_directory(path: &Path) -> io::Result<fs::ReadDir> {
         return Err(io::Error::new(io::ErrorKind::PermissionDenied, "denied"));
     }
     fs::read_dir(path)
-}
-
-fn file_contains(path: &Path, needle: &str) -> bool {
-    let Ok(metadata) = fs::metadata(path) else {
-        return false;
-    };
-    if !metadata.is_file() || metadata.len() > crate::utils::MAX_FILE_SIZE.bytes() {
-        return false;
-    }
-    let Ok(bytes) = fs::read(path) else {
-        return false;
-    };
-    !bytes.contains(&0)
-        && String::from_utf8_lossy(&bytes)
-            .to_lowercase()
-            .contains(needle)
-}
-
-fn add_result(root: &Path, path: PathBuf, folders: bool, rows: &mut Vec<MenuChoice>) {
-    let label = path
-        .strip_prefix(root)
-        .unwrap_or(&path)
-        .display()
-        .to_string();
-    let target = if folders {
-        ChoiceTarget::Directory(path)
-    } else {
-        ChoiceTarget::File(path)
-    };
-    rows.push(MenuChoice { label, target });
 }
 
 pub(super) fn prompt(app: &mut App, command: MenuCommand) {

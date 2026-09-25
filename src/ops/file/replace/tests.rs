@@ -104,3 +104,6 @@ fn overwriting_keeps_the_readonly_attribute_copied_from_the_source() {
     fs::set_permissions(source, writable.clone()).unwrap();
     fs::set_permissions(dest, writable).unwrap();
 }
+
+#[cfg(unix)]
+mod tests_in_place;

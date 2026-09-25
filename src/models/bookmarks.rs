@@ -2,7 +2,7 @@
 //! keeps them from one run to the next.
 
 use std::{
-    fs, io,
+    io,
     path::{Path, PathBuf},
 };
 
@@ -97,7 +97,7 @@ impl Bookmarks {
             return Ok(());
         };
         if let Some(dir) = file.parent() {
-            fs::create_dir_all(dir)?;
+            crate::file_write::create_dirs_owner_only(dir)?;
         }
         let mut text = String::new();
         for (slot, path) in self.slots.iter().enumerate() {
@@ -112,7 +112,7 @@ impl Bookmarks {
             text.push_str(&path);
             text.push('\n');
         }
-        crate::history::write_owner_only(file, &text)
+        crate::file_write::replace_owner_only(file, FILE, &text)
     }
 }
 
@@ -120,7 +120,7 @@ impl Bookmarks {
 /// absolute path is skipped, so a damaged file costs only its damaged lines.
 fn read_slots(file: &Path) -> Slots {
     let mut slots: Slots = std::array::from_fn(|_| None);
-    let text = fs::read_to_string(file).unwrap_or_default();
+    let text = crate::fileload::read_small_file(file, "bookmarks").unwrap_or_default();
     for (slot, path) in text.lines().filter_map(parse_line) {
         put(&mut slots, slot, Some(path));
     }

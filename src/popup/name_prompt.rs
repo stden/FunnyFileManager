@@ -78,7 +78,8 @@ fn apply_rename(app: &mut App, prompt: &NamePrompt) {
     let destination = directory.join(target);
 
     // Refuse rather than overwrite. Far asks; this at least does not act.
-    if destination.exists() {
+    // A link that points nowhere holds its name too.
+    if crate::utils::name_is_taken(&destination) {
         app.set_status(Status::AlreadyExists(target.into()));
         return;
     }
@@ -118,8 +119,10 @@ fn apply_make_folder(app: &mut App, prompt: &NamePrompt) {
     if made > 0 {
         // The cursor goes to what was just created, as Far's does: the new
         // directory is what the user is about to enter, and hunting for it in
-        // a long listing is the work the dialog was meant to save.
-        settle_on(app, first);
+        // a long listing is the work the dialog was meant to save. For a path
+        // that is its first folder, the one this panel shows.
+        let shown = first.split(std::path::is_separator).next().unwrap_or(first);
+        settle_on(app, shown);
     }
     app.set_status(match (failure, made) {
         (Some(failed), _) => failed,
@@ -134,12 +137,17 @@ fn create_folder(
     prompt: &NamePrompt,
 ) -> Result<(), Status> {
     let destination = directory.join(name);
-    if destination.exists() {
+    if crate::utils::name_is_taken(&destination) {
         return Err(Status::AlreadyExists(name.into()));
     }
+    // The folders a path names on the way are made as Far makes them; the
+    // name itself is claimed exclusively, as it was just found free.
+    let parents = destination.parent().map_or(Ok(()), std::fs::create_dir_all);
     match prompt.link() {
-        LinkType::None => std::fs::create_dir(&destination),
-        LinkType::Symbolic => crate::utils::symlink_dir(prompt.link_target(), &destination),
+        LinkType::None => parents.and_then(|()| std::fs::create_dir(&destination)),
+        LinkType::Symbolic => {
+            parents.and_then(|()| crate::utils::symlink_dir(prompt.link_target(), &destination))
+        }
         // F7 never offers a hard link — see `NamePurpose::link_choices`.
         LinkType::Hard => Err(std::io::Error::other("a folder cannot be hard-linked")),
     }

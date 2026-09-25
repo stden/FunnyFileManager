@@ -1,8 +1,30 @@
 //! Purpose: Translate trusted recipes into isolated package-manager operations.
 
-use super::{archive, check_cancel, environment::Environment, launch, InstallError};
+use super::{archive, check_cancel, environment::Environment, launch, InstallError, Step};
 use crate::config::{InstallCommand, InstallRecipe};
 use std::{path::Path, process::Command, sync::atomic::AtomicBool};
+
+/// The programs a Python recipe installs with, and why it cannot without one.
+const PYTHON: [&str; 2] = ["python3", "python"];
+const PYTHON_MISSING: &str = "LSP installation requires Python 3 with venv/pip";
+const NODE_MISSING: &str = "LSP installation requires Node.js and npm";
+
+/// Whether this machine has what `recipe` installs with — Python, Node.js
+/// and npm, Java — found the way the install finds it, without running
+/// anything. A custom recipe's commands are its own business.
+pub(super) fn runtime(
+    recipe: &InstallRecipe,
+    environment: &dyn Environment,
+) -> Result<(), InstallError> {
+    match recipe {
+        InstallRecipe::Python { .. } => environment.program(&PYTHON, PYTHON_MISSING).map(drop),
+        InstallRecipe::Npm { .. } => {
+            npm_cli(&environment.program(&["node"], NODE_MISSING)?).map(drop)
+        }
+        InstallRecipe::Jdtls { .. } => launch::java_present(environment),
+        InstallRecipe::Command { .. } => Ok(()),
+    }
+}
 
 pub(super) fn install(
     recipe: &InstallRecipe,
@@ -28,30 +50,31 @@ fn python(
     environment: &dyn Environment,
 ) -> Result<(), InstallError> {
     package_argument(package)?;
-    let python = environment.program(
-        &["python3", "python"],
-        "LSP installation requires Python 3 with venv/pip",
-    )?;
-    environment.run(
-        Command::new(python)
-            .args(["-m", "venv"])
-            .arg(root.join("venv"))
-            .current_dir(root),
-        stop,
-    )?;
-    environment.run(
-        Command::new(launch::venv_python(root))
-            .args([
-                "-m",
-                "pip",
-                "install",
-                "--disable-pip-version-check",
-                "--no-input",
-                package,
-            ])
-            .current_dir(root),
-        stop,
-    )?;
+    let python = environment.program(&PYTHON, PYTHON_MISSING)?;
+    environment
+        .run(
+            Command::new(python)
+                .args(["-m", "venv"])
+                .arg(root.join("venv"))
+                .current_dir(root),
+            stop,
+        )
+        .map_err(|error| error.during(Step::Venv))?;
+    environment
+        .run(
+            Command::new(launch::venv_python(root))
+                .args([
+                    "-m",
+                    "pip",
+                    "install",
+                    "--disable-pip-version-check",
+                    "--no-input",
+                    package,
+                ])
+                .current_dir(root),
+            stop,
+        )
+        .map_err(|error| error.during(Step::Pip))?;
     Ok(())
 }
 
@@ -67,23 +90,25 @@ fn npm(
     for package in packages {
         package_argument(package)?;
     }
-    let node = environment.program(&["node"], "LSP installation requires Node.js and npm")?;
+    let node = environment.program(&["node"], NODE_MISSING)?;
     let npm = npm_cli(&node)?;
-    environment.run(
-        Command::new(node)
-            .arg(npm)
-            .args([
-                "install",
-                "--no-audit",
-                "--no-fund",
-                "--no-package-lock",
-                "--prefix",
-            ])
-            .arg(root)
-            .args(packages)
-            .current_dir(root),
-        stop,
-    )?;
+    environment
+        .run(
+            Command::new(node)
+                .arg(npm)
+                .args([
+                    "install",
+                    "--no-audit",
+                    "--no-fund",
+                    "--no-package-lock",
+                    "--prefix",
+                ])
+                .arg(root)
+                .args(packages)
+                .current_dir(root),
+            stop,
+        )
+        .map_err(|error| error.during(Step::Npm))?;
     Ok(())
 }
 
@@ -121,7 +146,9 @@ fn custom(
         for (key, value) in &step.env {
             command.env(key, expand(value));
         }
-        environment.run(&mut command, stop)?;
+        environment
+            .run(&mut command, stop)
+            .map_err(|error| error.during(Step::Custom))?;
     }
     Ok(())
 }

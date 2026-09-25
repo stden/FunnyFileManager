@@ -146,9 +146,7 @@ pub fn expand_tilde(path: &Path) -> PathBuf {
     let Ok(rest) = path.strip_prefix("~") else {
         return path.to_path_buf();
     };
-    std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map_or_else(|| path.to_path_buf(), |home| PathBuf::from(home).join(rest))
+    crate::config::user_home().map_or_else(|| path.to_path_buf(), |home| home.join(rest))
 }
 
 #[cfg(test)]

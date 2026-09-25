@@ -157,6 +157,10 @@ with exactly its codes, and must accept test code that uses the allowances.
   MCP gate is its job's `cargo llvm-cov` step in `.github/workflows/tests.yml`.
 - `.config/nextest.toml` fails a test that runs for three minutes, so a hung
   test ends the coverage run (and a mutant's test run) instead of stalling it.
+  Its default filter leaves out the `harness = false` cucumber suites `bdd`
+  and `bdd_ru`, which nextest cannot list, so `cargo nextest run --features
+  test-helpers,s3` runs everything else; `cargo test --test bdd --test bdd_ru`
+  runs them.
 
 ## 🧪 Mutation Testing
 
@@ -187,7 +191,7 @@ stays red on the commit that broke it.
 | Lint | ubuntu-24.04 | `./ffm.py lint` (fmt, typos, the Clippy matrix for all three crates, the architecture contracts), then `./ffm.py lint self-test` |
 | Tests & Coverage | ubuntu-24.04 | `./ffm.py coverage`: every root test, the TUI BDD scenarios included, under llvm-cov with the 98% gate; uploads `tui-screens-Linux` |
 | BDD (s3 feature) | ubuntu-24.04, windows-2025 | the `s3` unit tests, then the `bdd` and `bdd_ru` suites |
-| Windows | windows-2025 | the whole root suite once (`cargo test --features test-helpers --no-fail-fast`, TUI BDD included), then Clippy on all targets; uploads `tui-screens-Windows` |
+| Windows | windows-2025 | the whole root suite once (`cargo test --features test-helpers --no-fail-fast`, TUI BDD included), then Clippy on all targets, for the application and for `mcp/`; uploads `tui-screens-Windows` |
 | MCP Server | ubuntu-24.04 | the MCP tests under llvm-cov with the 75% gate; its fmt and Clippy run in Lint |
 | Colorer feature | ubuntu-24.04 | builds Colorer-library, then Clippy and the `highlight` tests with the `colorer` feature and real schemes |
 | Dependencies (cargo-deny) | ubuntu-24.04 | `cargo deny --locked` for the application, MCP and `colorer-sys` |

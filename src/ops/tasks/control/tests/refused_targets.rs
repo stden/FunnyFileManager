@@ -65,7 +65,7 @@ fn a_failed_signal_opens_the_error_dialog_with_one_line_per_target() {
     tasks.list().invert_marks();
     confirm_terminate(tasks.list());
     press(&mut tasks.app, ConfirmButton::Terminate);
-    let Modal::Error(failures) = tasks.list().modal() else {
+    let Modal::Error { failures, .. } = tasks.list().modal() else {
         panic!("the error dialog is open");
     };
     let lines: Vec<String> = failures.iter().map(ToString::to_string).collect();
@@ -87,7 +87,7 @@ fn a_list_without_a_host_controls_nothing() {
     tasks.app.task_host = crate::models::TaskHostSlot::default();
     confirm_terminate(tasks.list());
     press(&mut tasks.app, ConfirmButton::Terminate);
-    let Modal::Error(failures) = tasks.list().modal() else {
+    let Modal::Error { failures, .. } = tasks.list().modal() else {
         panic!("the error dialog is open");
     };
     assert_eq!(failures[0].error(), ControlError::Unsupported);

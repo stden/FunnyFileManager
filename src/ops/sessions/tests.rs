@@ -23,6 +23,11 @@ use crate::test_support::netbox::{
     app_in, app_on_sessions, file_store, name, open_empty_sessions, session,
 };
 
+/// The status line for a sessions file holding `{`, which does not parse:
+/// the reason is on it, not only in the log.
+const DAMAGED: &str = "NetBox: sessions.json did not load (EOF while parsing an object at line 1 \
+                       column 1), so it is not overwritten; fix or move it first";
+
 fn sessions_panel(app: &crate::models::App) -> &crate::models::SessionsPanel {
     let PanelKind::Sessions(panel) = &app.left_panel.kind else {
         panic!("the left panel lists the sessions");

@@ -1,6 +1,6 @@
 //! Purpose: Download pinned HTTPS archives and reject links, traversal, and oversized extraction.
 
-use super::{check_cancel, environment::Environment, storage, InstallError};
+use super::{check_cancel, environment::Environment, storage, InstallError, Step};
 use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File},
@@ -26,14 +26,16 @@ pub(super) fn download(
     }
     let curl = bounded_curl(environment, stop)?;
     let archive = root.join("server.tar.gz");
-    environment.run(
-        Command::new(curl)
-            .args(CURL_ARGS)
-            .arg(&archive)
-            .arg(url)
-            .current_dir(root),
-        stop,
-    )?;
+    environment
+        .run(
+            Command::new(curl)
+                .args(CURL_ARGS)
+                .arg(&archive)
+                .arg(url)
+                .current_dir(root),
+            stop,
+        )
+        .map_err(|error| error.during(Step::Download))?;
     verify(&archive, checksum, stop)?;
     unpack(File::open(&archive)?, root, stop)?;
     fs::remove_file(archive)?;

@@ -179,6 +179,8 @@ pub fn ui(f: &mut Frame<'_>, app: &mut App) {
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_delete_confirm_kinds;
+#[cfg(test)]
 mod tests_delete_confirm_paths;
 #[cfg(test)]
 mod tests_editor_tabs;

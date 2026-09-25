@@ -66,9 +66,11 @@ fn preserving_timestamps_works_for_a_directory_too() {
     fs::create_dir_all(&tree).expect("test setup");
     fs::write(tree.join("a.txt"), b"x").expect("test setup");
     let long_ago = SystemTime::now() - Duration::from_hours(24);
-    crate::ops::timestamps::open(&tree)
-        .and_then(|dir| dir.set_modified(long_ago))
-        .expect("test setup");
+    let times = crate::models::RequestedTimes {
+        modified: Some(long_ago),
+        accessed: None,
+    };
+    crate::ops::timestamps::set_times(&tree, times).expect("test setup");
     app.get_active_panel().load_entries().expect("reload");
     mark(&mut app, "project");
 

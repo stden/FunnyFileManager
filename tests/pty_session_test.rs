@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
-use rustix::process::{kill_process_group, test_kill_process_group, Pid, Signal};
+use rustix::process::{kill_process, kill_process_group, test_kill_process_group, Pid, Signal};
 use rustix::pty::{grantpt, openpt, ptsname, unlockpt, OpenptFlags};
 use rustix::termios::{tcsetwinsize, Winsize};
 use tempfile::TempDir;
@@ -28,6 +28,12 @@ mod ffm_process;
 mod hang_up;
 #[path = "pty_session_test/input.rs"]
 mod input;
+#[path = "pty_session_test/killed_copy.rs"]
+mod killed_copy;
+#[path = "pty_session_test/recording.rs"]
+mod recording;
+#[path = "pty_session_test/typeahead.rs"]
+mod typeahead;
 use ffm_process::Ffm;
 
 /// Far more than a burst needs, so a failure reports how long it really took.

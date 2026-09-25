@@ -13,6 +13,11 @@ queued at once and waits up to 100 ms only when none are queued; the existing
 Keyboard and mouse dispatch live in `src/application/dispatch.rs`:
 
 - Only `KeyEventKind::Press` events are processed (ignores Release/Repeat for Windows compatibility).
+- Keys typed while one event kept the screen from answering for 300 ms or more
+  (a long copy, a delete, an archive, a `:` command) are thrown away, not run:
+  they were typed at a frozen screen. `terminal::discard_queued` drains them
+  unrecorded, so a replay does not run them either; `terminal::is_cancel_event`
+  is the one rule for the Esc / Ctrl+C that a running `:` command still obeys.
 - Live key events pass `terminal::decode_input` first, in `recording::Input`,
   so a recording holds the decoded key. Where the terminal speaks the kitty
   keyboard protocol FFM pushes it at startup and keys arrive unambiguous;

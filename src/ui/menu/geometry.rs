@@ -12,7 +12,7 @@ use crate::menu::{Entry, Heading, Menu};
 ///
 /// A pure function of the menu and the screen, so the mouse can ask the same
 /// question the renderer answered.
-pub(in crate::ui) fn drop_down_area(menu: &Menu, bar: Rect, screen: Rect) -> Option<Rect> {
+pub(super) fn drop_down_area(menu: &Menu, bar: Rect, screen: Rect) -> Option<Rect> {
     let widest = menu_width(menu);
     let width = u16::try_from(widest.get())
         .unwrap_or(u16::MAX)
@@ -66,6 +66,16 @@ fn heading_column(wanted: Heading) -> u16 {
         column += Cells::of(&heading.label().replace('&', "")).get();
     }
     u16::try_from(column).unwrap_or(0)
+}
+
+/// Columns the headings take, from the bar's left edge to the end of the
+/// last one, counted the way [`render_bar`] draws them.
+pub(super) fn headings_width() -> u16 {
+    let columns: usize = Heading::ALL
+        .iter()
+        .map(|heading| Cells::of(GAP).get() + Cells::of(&heading.label().replace('&', "")).get())
+        .sum();
+    u16::try_from(columns).unwrap_or(u16::MAX)
 }
 
 /// The heading at `column` on the bar, if any.

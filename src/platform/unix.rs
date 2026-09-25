@@ -10,12 +10,14 @@ use std::io;
 #[cfg(target_os = "linux")]
 use std::os::fd::OwnedFd;
 use std::path::Path;
-use std::process::Child;
 
 use rustix::fs::{Access, AtFlags, CWD};
 use rustix::process::Signal as SystemSignal;
 
 use crate::models::{Niceness, Pid, Signal};
+
+mod group;
+pub use group::{hang_up_process_group, has_exited, kill_process_group};
 
 /// The effective user id: the one the kernel checks file access against, and
 /// the owner of every file this process creates.
@@ -50,23 +52,6 @@ pub fn is_root() -> bool {
 /// raw errno intact; a path with an interior NUL is `EINVAL`.
 pub fn check_write_access(path: &Path) -> io::Result<()> {
     rustix::fs::accessat(CWD, path, Access::WRITE_OK, AtFlags::EACCESS).map_err(io::Error::from)
-}
-
-/// SIGKILL every process in the group `leader` leads.
-///
-/// `leader` must have been spawned as a group leader
-/// (`CommandExt::process_group(0)`) and not yet reaped. Any other child leads
-/// no group, so the kernel answers `ESRCH` and nothing is signalled.
-///
-/// # Errors
-///
-/// The kernel's refusal, `ESRCH` when there is no such group.
-pub fn kill_process_group(leader: &Child) -> io::Result<()> {
-    rustix::process::kill_process_group(
-        rustix::process::Pid::from_child(leader),
-        SystemSignal::KILL,
-    )
-    .map_err(io::Error::from)
 }
 
 /// The size of a memory page in bytes: 4 KiB on x86-64, 16 or 64 KiB on some

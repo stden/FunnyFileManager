@@ -1,6 +1,6 @@
-//! Unit tests: where exactly the `NetBox` panels and dialogs put things —
-//! the heading row, each list row, the info line, the frame — and which
-//! control carries the focus colour.
+//! Unit tests: where exactly the `NetBox` sessions and remote panels put
+//! things — the heading row, each list row, the info line, the frame — and
+//! their colours. The dialogs are in `netbox_layout_dialogs`.
 
 use ratatui::layout::Rect;
 use ratatui::style::Modifier;
@@ -27,7 +27,7 @@ pub(super) fn lines(terminal: &Terminal<WritableTestBackend>) -> Vec<String> {
 fn draw_sessions(app: &mut App, is_active: bool) -> Screen {
     let mut terminal = Terminal::new(WritableTestBackend::new(40, 10)).expect("terminal");
     terminal
-        .draw(|f| super::sessions::render(f, &mut app.left_panel, PANEL, is_active))
+        .draw(|f| super::sessions::render(f, &mut app.left_panel, PANEL, is_active, None))
         .expect("draw");
     (lines(&terminal), terminal)
 }
@@ -35,7 +35,7 @@ fn draw_sessions(app: &mut App, is_active: bool) -> Screen {
 fn draw_remote(app: &mut App, is_active: bool) -> Screen {
     let mut terminal = Terminal::new(WritableTestBackend::new(40, 10)).expect("terminal");
     terminal
-        .draw(|f| super::remote::render(f, &mut app.left_panel, PANEL, is_active))
+        .draw(|f| super::remote::render(f, &mut app.left_panel, PANEL, is_active, None))
         .expect("draw");
     (lines(&terminal), terminal)
 }

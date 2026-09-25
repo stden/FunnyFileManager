@@ -40,8 +40,9 @@ fn every_error_reads_as_one_line() {
     for (error, text) in texts {
         assert_eq!(error.to_string(), text);
     }
-    let store = SessionError::Store(StoreError::Damaged);
-    assert_eq!(store.to_string(), StoreError::Damaged.to_string());
+    let damaged = || StoreError::Damaged("a reason".to_owned());
+    let store = SessionError::Store(damaged());
+    assert_eq!(store.to_string(), damaged().to_string());
     let from: SessionError = InvalidField::new(Field::Name, Problem::Empty).into();
     assert!(matches!(from, SessionError::Invalid(_)));
 }
@@ -64,8 +65,5 @@ fn installing_a_store_that_did_not_load_says_so() {
         SessionStore::load_from(dir.path().join(FILE_NAME)),
     );
     assert!(app.sessions.is_damaged());
-    assert_eq!(
-        app.status,
-        Status::Error(format!("NetBox: {}", StoreError::Damaged))
-    );
+    assert_eq!(app.status, Status::Error(DAMAGED.to_owned()));
 }

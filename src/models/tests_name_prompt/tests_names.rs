@@ -77,18 +77,24 @@ fn blank_parts_of_a_list_are_dropped_rather_than_failing_it() {
     assert_eq!(prompt.names(), vec!["one", "two"]);
 }
 
-/// A separator would put the folder somewhere else, which is what F7 is not
-/// for — and the rule has to survive the list, or one bad part smuggles it in.
+/// F7 takes a path, as Far's does, in a list as well; a rename does not,
+/// because a separator would move the entry rather than name it.
 #[test]
-fn a_name_carrying_a_path_separator_is_refused_in_a_list_too() {
+fn a_folder_list_takes_paths_and_a_rename_refuses_them() {
     let mut prompt = NamePrompt::make_folder();
     prompt.focus(NameField::Multiple);
     prompt.toggle();
     prompt.focus(NameField::Name);
-    for ch in "good;../escape;also/bad".chars() {
+    for ch in "good;p1/p2;../sibling".chars() {
         prompt.push(ch);
     }
-    assert_eq!(prompt.names(), vec!["good"]);
+    assert_eq!(prompt.names(), vec!["good", "p1/p2", "../sibling"]);
+
+    let mut rename = NamePrompt::rename(FileName::new("notes.txt"));
+    for ch in "/elsewhere".chars() {
+        rename.push(ch);
+    }
+    assert_eq!(rename.target(), None);
 }
 
 #[test]

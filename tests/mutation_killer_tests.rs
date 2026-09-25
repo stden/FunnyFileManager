@@ -77,20 +77,21 @@ fn test_unique_destination_mutations() -> io::Result<()> {
     assert!(!result.as_os_str().is_empty());
     assert_ne!(result, PathBuf::default());
 
-    // Kill mutations in match guard for extension handling
-    // Test file with empty extension
+    // Kill mutations in match guard for extension handling. Only the file
+    // name is checked: the temporary directory's own path may hold a '-', a
+    // '.' or anything else, and says nothing about the name chosen.
+    // Test file with empty extension: no dot is added back.
     File::create(temp_dir.path().join("empty."))?;
     let unique = unique_destination(temp_dir.path(), OsStr::new("empty."))?;
-    assert!(unique.to_string_lossy().contains("empty_1"));
-    assert!(!unique.to_string_lossy().contains("empty_1.")); // No dot for empty extension
+    assert_eq!(unique.file_name(), Some(OsStr::new("empty_1")));
 
-    // Test file with non-empty extension
+    // Test file with non-empty extension: the extension is preserved.
     File::create(temp_dir.path().join("test.rs"))?;
     let unique = unique_destination(temp_dir.path(), OsStr::new("test.rs"))?;
-    assert!(unique.to_string_lossy().contains("test_1.rs"));
-    assert!(unique.to_string_lossy().contains(".rs")); // Extension preserved
+    assert_eq!(unique.file_name(), Some(OsStr::new("test_1.rs")));
 
-    // Kill "replace += with -= in counter increment"
+    // Kill "replace += with -= in counter increment": the next free number
+    // is 5, never a negative one.
     // Create multiple conflicting files
     for i in 0..5 {
         if i == 0 {
@@ -100,9 +101,7 @@ fn test_unique_destination_mutations() -> io::Result<()> {
         }
     }
     let unique = unique_destination(temp_dir.path(), OsStr::new("conflict.txt"))?;
-    assert!(unique.to_string_lossy().contains("conflict_5.txt"));
-    // Verify it's not using negative numbers
-    assert!(!unique.to_string_lossy().contains('-'));
+    assert_eq!(unique.file_name(), Some(OsStr::new("conflict_5.txt")));
 
     // Kill "replace += with *= in counter increment"
     // Verify sequential numbering, not exponential
@@ -110,8 +109,7 @@ fn test_unique_destination_mutations() -> io::Result<()> {
     File::create(temp_dir.path().join("seq_1.txt"))?;
     File::create(temp_dir.path().join("seq_2.txt"))?;
     let unique = unique_destination(temp_dir.path(), OsStr::new("seq.txt"))?;
-    assert!(unique.to_string_lossy().contains("seq_3.txt"));
-    assert!(!unique.to_string_lossy().contains("seq_4.txt")); // Not multiplied
+    assert_eq!(unique.file_name(), Some(OsStr::new("seq_3.txt")));
 
     Ok(())
 }

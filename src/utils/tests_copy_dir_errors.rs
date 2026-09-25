@@ -1,4 +1,4 @@
-//! Unit tests: copy dir errors (split out to keep files under 500 lines).
+//! Unit tests: copy dir errors.
 
 use super::tests::*;
 

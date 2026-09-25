@@ -5,12 +5,7 @@
 //! Only the production entry point calls [`system_host`], and only for live
 //! input: tests and replayed recordings keep the inert default host.
 
-use std::{
-    env,
-    path::{Path, PathBuf},
-    process::Command,
-    sync::Arc,
-};
+use std::{env, path::Path, process::Command, sync::Arc};
 
 use crate::mcp_clients::{env_vars, Captured, CliCall, Exit, Host, Runner};
 
@@ -21,7 +16,9 @@ const DEFAULT_PATHEXT: &str = ".COM;.EXE;.BAT;.CMD";
 #[must_use]
 pub fn system_host() -> Host {
     Host {
-        home: home_dir(),
+        // Where Node's `os.homedir()` (Claude) and Rust's `dirs::home_dir()`
+        // (Codex) look, in their order.
+        home: crate::config::user_home(),
         env: env_vars()
             .into_iter()
             .filter_map(|var| non_empty(var).map(|value| (var, value)))
@@ -39,17 +36,6 @@ pub fn system_host() -> Host {
 
 fn non_empty(var: &str) -> Option<std::ffi::OsString> {
     env::var_os(var).filter(|value| !value.is_empty())
-}
-
-/// Where Node's `os.homedir()` (Claude) and Rust's `dirs::home_dir()`
-/// (Codex) look, in their order.
-#[cfg(windows)]
-const HOME_VARS: [&str; 2] = ["USERPROFILE", "HOME"];
-#[cfg(not(windows))]
-const HOME_VARS: [&str; 1] = ["HOME"];
-
-fn home_dir() -> Option<PathBuf> {
-    HOME_VARS.into_iter().find_map(non_empty).map(PathBuf::from)
 }
 
 #[cfg(windows)]

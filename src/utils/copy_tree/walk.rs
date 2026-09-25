@@ -5,8 +5,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use super::super::keep_times::{keep_times, Times};
 use super::steps::{copy_file_checked, create_dir_all_checked, entry_file_type, read_dir_entry};
-use super::{copy_symlink, follows_link, CopyRules, LinkPolicy};
+use super::{copy_link, follows_link, CopyRules, LinkPolicy};
+use crate::utils::FileMode;
 
 #[cfg(any(test, tarpaulin))]
 use crate::utils::{forced_copy_step, COPY_DIR_ALL_FAIL_RECURSE};
@@ -81,6 +83,8 @@ pub(super) fn copy_tree(
         }
     }
 
+    // Read before the walk: reading the folder moves its access time.
+    let source = fs::metadata(src)?;
     create_dir_all_checked(dst)?;
     for entry in fs::read_dir(src)? {
         let entry = read_dir_entry(entry)?;
@@ -89,15 +93,44 @@ pub(super) fn copy_tree(
         let dst_path = dst.join(entry.file_name());
 
         if file_type.is_symlink() && !follows_link(rules.links, &src_path) {
-            copy_symlink(&src_path, &dst_path)?;
+            copy_link(&src_path, &dst_path, rules)?;
         } else if src_path.is_dir() {
             // `is_dir` follows the link, which is the right question to ask
             // once the policy says to follow it.
             descend(&src_path, &dst_path, rules, walk)?;
         } else {
-            copy_file_checked(&src_path, &dst_path, rules.modes)?;
+            copy_file_checked(&src_path, &dst_path, rules)?;
         }
     }
+    finish_folder(dst, &source, rules)
+}
+
+/// Give a copied folder, now that its contents are in, what the rules keep
+/// of its source: the times first, then the mode, which may take away the
+/// write permission the times would otherwise need.
+fn finish_folder(dst: &Path, source: &fs::Metadata, rules: CopyRules) -> io::Result<()> {
+    if rules.times == Times::Source {
+        keep_times(dst, source)?;
+    }
+    if rules.folder_modes == FileMode::Source {
+        restate_mode(dst, source)?;
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn restate_mode(dst: &Path, source: &fs::Metadata) -> io::Result<()> {
+    fs::set_permissions(dst, source.permissions())
+}
+
+/// Windows has no mode bits to carry, and a folder's read-only attribute is
+/// not a permission there; the ACL comes from where the copy was made.
+#[cfg(not(unix))]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "shares the Unix signature, where the operation can fail"
+)]
+const fn restate_mode(_dst: &Path, _source: &fs::Metadata) -> io::Result<()> {
     Ok(())
 }
 

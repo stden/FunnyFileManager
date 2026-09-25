@@ -18,7 +18,7 @@ A bug fix starts from a regression test that fails on the broken behavior.
 
 - Unit tests sit in a `tests.rs`, `tests_*.rs`, or `tests/` child of the module that owns the behavior. They are not inline `mod tests` blocks in a production file.
 - Integration tests live in `tests/`.
-- Cucumber scenarios live under `tests/features/` and `tests/features_ru/`. Their harness is `harness = false`, so `cargo test --test bdd` runs them. `cargo nextest` does not.
+- Cucumber scenarios live under `tests/features/` and `tests/features_ru/`. Their harness is `harness = false`, so `cargo test --test bdd` runs them. `cargo nextest` cannot list them, and its default filter (`.config/nextest.toml`) leaves them out.
 - Filesystem tests use `tempfile::TempDir`. Build panels with `App::with_panels` or `Panel::from_entries`. `App::new()` lists the real working directory.
 - Fixture paths use `/home/bob`, `/srv/x`, and `example.com`.
 

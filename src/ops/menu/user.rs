@@ -1,21 +1,27 @@
 //! Editable user commands and extension associations.
+//!
+//! Both files live in the configuration directory, beside the settings.
+//! With no configuration directory (HOME unset) there is no user menu and no
+//! association: a file in the folder on screen is never configuration, or
+//! Enter in a cloned repository would run a command its author wrote.
 
 use crate::{
+    fileload::read_small_file,
     menu::{MenuCommand, SettingsPage},
     models::{App, ChoiceTarget, MenuChoice, Overlay},
 };
-use std::{fs, io, path::PathBuf};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+};
 
-fn config_path(app: &App, filename: &str) -> PathBuf {
-    app.settings
-        .persistence
-        .file()
-        .and_then(std::path::Path::parent)
-        .map_or_else(
-            || app.get_active_panel_ref().path.join(".ffm"),
-            std::path::Path::to_path_buf,
-        )
-        .join(filename)
+/// Why the user menu or the associations cannot be edited.
+const NO_CONFIG_DIR: &str = "No configuration directory: set HOME to keep a user menu";
+
+/// `filename` in the configuration directory; `None` when there is none.
+fn config_path(app: &App, filename: &str) -> Option<PathBuf> {
+    let settings = app.settings.persistence.file()?;
+    settings.parent().map(|dir| dir.join(filename))
 }
 
 pub fn edit(app: &mut App, command: MenuCommand) -> io::Result<()> {
@@ -24,17 +30,17 @@ pub fn edit(app: &mut App, command: MenuCommand) -> io::Result<()> {
         MenuCommand::Associations => ("associations.txt", "# One association per line: extension<TAB>command\n# Use {} for the quoted selected filename.\n# Example: txt\tmy-editor {}\n"),
         _ => return Err(io::Error::other("Not an editable command file")),
     };
-    let path = config_path(app, filename);
-    let parent = path
-        .parent()
-        .ok_or_else(|| io::Error::other("No configuration directory"))?;
-    fs::create_dir_all(parent)?;
+    let path = config_path(app, filename)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, NO_CONFIG_DIR))?;
+    if let Some(parent) = path.parent() {
+        crate::file_write::create_dirs_owner_only(parent)?;
+    }
     if !path.exists() {
         fs::write(&path, template)?;
     }
-    // The same loader as F4, so the editor knows what the disk held and a
-    // save notices another program's (or another instance's) write.
-    let bytes = fs::read(&path)?;
+    // What the disk held, so a save notices another program's (or another
+    // instance's) write; read with the guards of every configuration file.
+    let bytes = read_small_file(&path, filename)?.into_bytes();
     let mut editor = crate::editor::editor_for(app, path, &bytes)?;
     // `Label<TAB>command` is the format: Tab types the separator even when
     // no line holding one is left in the file.
@@ -44,7 +50,8 @@ pub fn edit(app: &mut App, command: MenuCommand) -> io::Result<()> {
 }
 
 pub fn open(app: &mut App) -> io::Result<()> {
-    let mut rows = read_pairs(&config_path(app, "user-menu.txt"))?
+    let mut rows = config_path(app, "user-menu.txt")
+        .map_or_else(|| Ok(Vec::new()), |path| read_pairs(&path))?
         .into_iter()
         .map(|(label, command)| MenuChoice {
             label,
@@ -77,15 +84,22 @@ pub fn associated_command(app: &App) -> io::Result<Option<String>> {
         .extension()
         .and_then(|extension| extension.to_str())
         .unwrap_or("");
-    let pairs = read_pairs(&config_path(app, "associations.txt"))?;
+    let Some(associations) = config_path(app, "associations.txt") else {
+        return Ok(None);
+    };
+    let pairs = read_pairs(&associations)?;
     Ok(pairs
         .into_iter()
         .find(|(key, _)| key.eq_ignore_ascii_case(extension))
         .map(|(_, command)| command.replace("{}", &super::files::quote(&path))))
 }
 
-fn read_pairs(path: &std::path::Path) -> io::Result<Vec<(String, String)>> {
-    let text = match fs::read_to_string(path) {
+/// The `key<TAB>value` lines of the file at `path`; none when it is missing.
+/// Only a small regular file is read: a FIFO in its place froze the event
+/// loop inside `open`.
+fn read_pairs(path: &Path) -> io::Result<Vec<(String, String)>> {
+    let name = path.file_name().unwrap_or_default().to_string_lossy();
+    let text = match read_small_file(path, &name) {
         Ok(text) => text,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(error) => return Err(error),

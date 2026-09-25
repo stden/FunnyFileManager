@@ -6,11 +6,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::entry::{copy_entry, reject_transfer_into_itself, remove_path};
-use super::{get_source_paths, refresh_after_operation, rename_or_fail};
+use super::entry::{copy_entry, reject_transfer_into_itself};
+use super::remove_moved::LeftBehind;
+use super::{get_source_paths, refresh_after_operation, remove_moved, rename_within, Renamed};
 use crate::copy::Purpose;
 use crate::models::App;
 use crate::status::{FailedEntry, Landed, Status};
+use crate::utils::FailedAt;
 use crate::utils::{unique_destination, CopyRules};
 
 /// How many times to re-pick a destination when exclusive create races another
@@ -43,16 +45,16 @@ pub(super) fn move_into(source: &Path, target_dir: &Path) -> io::Result<PathBuf>
     let file_name = source.file_name().unwrap_or_default();
     for _ in 0..MAX_TRANSFER_ATTEMPTS {
         let dest = unique_destination(target_dir, file_name)?;
-        if rename_or_fail(source, &dest).is_ok() {
+        if rename_within(source, &dest)? == Renamed::Moved {
             return Ok(dest);
         }
 
-        // Cross-device rename (or forced test failure): exclusive copy + delete.
-        // `?` after a successful exclusive copy so the source is only removed
-        // once the whole copy has landed.
-        match copy_entry(source, &dest, CopyRules::PLAIN) {
+        // Across filesystems: exclusive copy + delete. `?` after a successful
+        // exclusive copy so the source is only removed once the whole copy
+        // has landed.
+        match copy_entry(source, &dest, CopyRules::MOVE) {
             Ok(()) => {
-                remove_path(source)?;
+                remove_moved(source, &dest)?;
                 return Ok(dest);
             }
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
@@ -79,15 +81,26 @@ pub(super) struct BatchOutcome {
 
 impl BatchOutcome {
     pub(super) fn record(&mut self, source: &Path, result: io::Result<PathBuf>) {
-        match result {
-            Ok(dest) => {
-                self.first_dest.get_or_insert(dest);
-                self.count += 1;
-            }
-            // Which file, and why — kept apart until something decides how to
-            // show them. Formatting here threw the two away in one string.
-            Err(error) => self.errors.push(FailedEntry::new(source, &error)),
+        let error = match result {
+            Ok(dest) => return self.landed(dest),
+            Err(error) => error,
+        };
+        // Which file, and why — kept apart until something decides how to
+        // show them. Formatting here threw the two away in one string.
+        if let Some(left) = LeftBehind::of(&error) {
+            // Moved whole, and part of the source stayed: both are true, and
+            // the user acts on each — keep the copy, deal with what stayed.
+            self.landed(left.moved_to.clone());
+            self.errors.push(FailedEntry::new(&left.path, left));
+            return;
         }
+        let failed = FailedAt::of(&error).map_or(source, |at| at.path());
+        self.errors.push(FailedEntry::new(failed, &error));
+    }
+
+    fn landed(&mut self, dest: PathBuf) {
+        self.first_dest.get_or_insert(dest);
+        self.count += 1;
     }
 }
 

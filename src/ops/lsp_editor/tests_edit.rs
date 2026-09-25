@@ -59,6 +59,7 @@ fn del_removes_an_added_server() {
 #[test]
 fn del_checks_the_reset_server_again() {
     let machine = Machine::new();
+    machine.install_runtimes();
     let tool = machine.bin().join(crate::lsp::program_file("my-pylsp"));
     crate::test_support::write_executable(&tool, b"tool").expect("tool");
     machine.write_settings("lsp:\n  python: {command: my-pylsp}\n");
@@ -99,6 +100,7 @@ fn ok_checks_the_changed_server_again() {
 #[test]
 fn f5_checks_every_server_again() {
     let machine = Machine::new();
+    machine.install_runtimes();
     let mut app = machine.opened();
     assert_eq!(
         editor(&app)

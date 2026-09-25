@@ -5,7 +5,7 @@ use std::{fs, io, path::Path};
 
 #[cfg(any(test, tarpaulin))]
 use super::FORCE_TRANSFER_COLLISION;
-use crate::utils::{copy_dir_all_with, copy_file, copy_symlink, CopyRules};
+use crate::utils::{copy_dir_all_with, copy_file, copy_link, CopyRules};
 
 /// Refuse to copy or move a directory into itself or into one of its children.
 ///
@@ -57,7 +57,7 @@ pub(super) fn copy_entry(source: &Path, dest: &Path, rules: CopyRules) -> io::Re
     if fs::symlink_metadata(source).is_ok_and(|metadata| metadata.is_symlink())
         && !crate::utils::follows_link(rules.links, source)
     {
-        return copy_symlink(source, dest);
+        return copy_link(source, dest, rules);
     }
 
     if source.is_dir() {
@@ -65,13 +65,13 @@ pub(super) fn copy_entry(source: &Path, dest: &Path, rules: CopyRules) -> io::Re
     }
 
     // Refuses a FIFO, socket or device before opening it or claiming `dest`.
-    copy_file(source, dest, rules.modes)
+    copy_file(source, dest, rules)
 }
 
 fn copy_directory_entry(source: &Path, dest: &Path, rules: CopyRules) -> io::Result<()> {
     // Exclusive claim of the directory name, then fill it. `copy_dir_all_with`
     // is happy if `dest` already exists (it `create_dir_all`s).
-    fs::create_dir(dest)?;
+    fs::create_dir(dest).map_err(|error| crate::utils::FailedAt::wrap(dest, error))?;
     let result = copy_dir_all_with(source, dest, rules);
     if result.is_err() {
         // Best effort: the copy's own error is the one worth reporting.

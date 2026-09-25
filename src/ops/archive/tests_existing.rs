@@ -96,21 +96,6 @@ fn a_link_already_in_the_destination_is_never_written_through() {
     }
 }
 
-/// What unpacked must be plain files and folders before any of it moves
-/// into the destination; a link that got past the listing stops it there.
-#[cfg(unix)]
-#[test]
-fn a_link_unpacked_into_the_staging_folder_is_refused() {
-    let temp = TempDir::new().expect("temp");
-    fs::create_dir_all(temp.path().join("docs")).expect("docs");
-    fs::write(temp.path().join("docs/a.txt"), "a").expect("file");
-    std::os::unix::fs::symlink("/etc", temp.path().join("docs/etc")).expect("link");
-
-    let error = super::extract::plain_tree(temp.path()).expect_err("a link");
-
-    assert!(error.to_string().contains("docs/etc"), "{error}");
-}
-
 /// Nothing but `names` (and no staging folder) is left in `destination`.
 fn assert_only(destination: &Path, names: &[&str], format: &str) {
     let mut listed: Vec<String> = fs::read_dir(destination)

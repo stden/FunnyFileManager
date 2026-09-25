@@ -1,4 +1,5 @@
-//! Unit tests: panel navigation (split out to keep files under 500 lines).
+//! Unit tests: panel navigation — the app's active and inactive panels, the
+//! cursor through a listing, Enter on a row, and the selection.
 
 use std::fs;
 

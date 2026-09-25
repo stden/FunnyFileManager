@@ -64,10 +64,23 @@ impl ListMotion {
     }
 }
 
+/// Who put the cursor on its row.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+enum Placement {
+    /// The list, on the first row as it opened. The first snapshot has no
+    /// CPU% yet and is ordered by PID, so following that row's process took
+    /// the cursor to PID 1 in the middle of the list once CPU% sorted it.
+    #[default]
+    Opened,
+    /// The user, by a key, a click or a search: it follows its process.
+    Chosen,
+}
+
 /// The cursor, the first shown row and the marks.
 #[derive(Debug, Clone, Default)]
 pub(super) struct Selection {
     cursor: Option<Cursor>,
+    placement: Placement,
     offset: usize,
     marks: BTreeSet<ProcessKey>,
 }
@@ -75,11 +88,12 @@ pub(super) struct Selection {
 impl Selection {
     /// Finds the cursor's process in a rebuilt `view`. A process that left
     /// keeps the cursor's row, clamped to the list, and the cursor takes that
-    /// row's process; an empty list has no cursor.
+    /// row's process; so does a cursor nobody has moved yet. An empty list
+    /// has no cursor.
     pub(super) fn follow(&mut self, view: &[ViewRow]) {
-        let found = self
-            .cursor
-            .and_then(|cursor| view.iter().position(|shown| shown.key() == cursor.key));
+        let chosen = self.cursor.filter(|_| self.placement == Placement::Chosen);
+        let found =
+            chosen.and_then(|cursor| view.iter().position(|shown| shown.key() == cursor.key));
         let index = found
             .or_else(|| self.cursor.map(|cursor| cursor.index))
             .unwrap_or(0)
@@ -90,6 +104,7 @@ impl Selection {
     /// Puts the cursor on row `index` of `view` (clamped), and scrolls a body
     /// `page` rows tall just enough to show it.
     fn place(&mut self, view: &[ViewRow], index: usize, page: usize) {
+        self.placement = Placement::Chosen;
         self.cursor = cursor_at(view, index.min(view.len().saturating_sub(1)));
         self.clamp(view.len(), page);
     }

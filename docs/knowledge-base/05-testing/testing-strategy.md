@@ -141,7 +141,8 @@ This check requires Python and also runs directly as
 `python scripts/test_readability.py`. The full `./ffm.py lint` gate includes it
 through its architecture checks; `./ffm.py lint self-test` runs it on its own.
 CI also runs it explicitly after the shared lint gate. It resolves `clippy-driver`
-and `rustc` through the selected rustup toolchain. It verifies all three diagnostics from the TUI, MCP, and
+and `rustc` through the selected rustup toolchain, or from `PATH` when there is
+no rustup (a standalone toolchain). It verifies all three diagnostics from the TUI, MCP, and
 Colorer crate directories, so each must discover the shared root configuration.
 The refactored fixture must pass, and three compiled tests compare its behavior
 with the rejected version. Generated artifacts stay under

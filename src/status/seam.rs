@@ -59,7 +59,7 @@ impl App {
         StatusCursor {
             side: self.active_panel,
             directory: panel.path.clone(),
-            row: panel.selected(),
+            row: panel.shown_cursor(),
         }
     }
 

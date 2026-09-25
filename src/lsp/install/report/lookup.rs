@@ -1,15 +1,12 @@
 //! Purpose: Find what FFM would start for a server — the configured command
 //! when it is found, else the auto-install recipe's installed program.
 
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use super::{Availability, NotInstalled, Replacement, Resolved};
 use crate::config::{InstallRecipe, LspSettings, ServerSettings};
 use crate::lsp::install::{
-    environment::Environment, launch::Launch, probe::Probe, storage, InstallError,
+    environment::Environment, launch::Launch, probe::Probe, recipes, storage, InstallError,
 };
 
 /// What FFM would start for `language`'s `server` in a file under
@@ -75,7 +72,10 @@ pub(super) fn resolve(
     };
     match cached(server, recipe, cache, workspace, environment) {
         Ok(Some(resolved)) => Availability::Cached(resolved),
-        Ok(None) => Availability::NotInstalled(NotInstalled::AfterTrust),
+        // Installs after trust only if what it installs with is here.
+        Ok(None) => recipes::runtime(recipe, environment).map_or_else(Availability::Failed, |()| {
+            Availability::NotInstalled(NotInstalled::AfterTrust)
+        }),
         Err(error) => Availability::Failed(error),
     }
 }
@@ -95,7 +95,7 @@ fn cached(
     if !root.exists() {
         return Ok(None);
     }
-    let receipt: Launch = serde_json::from_slice(&fs::read(root.join("ready.json"))?)
+    let receipt: Launch = serde_json::from_slice(&storage::read_receipt(&root)?)
         .map_err(crate::lsp::logged(InstallError::Recipe))?;
     let prepared = receipt.preview(server, &root, workspace, environment)?;
     Ok(Some(Resolved {

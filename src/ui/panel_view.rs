@@ -73,8 +73,9 @@ pub fn panel_areas(app: &App, area: Rect) -> (Option<Rect>, Option<Rect>) {
     }
 }
 
-/// One panel, drawn as whatever kind it is: a file list, a folder tree, or a
-/// preview of the other panel's cursor.
+/// One panel, drawn as whatever kind it is: a file list, a folder tree, a
+/// preview of the other panel's cursor, or a `NetBox` list. The file and
+/// `NetBox` panels give their info row to the status when they are active.
 fn render_one_panel(
     f: &mut Frame<'_>,
     app: &mut App,
@@ -83,12 +84,13 @@ fn render_one_panel(
     footer: Option<&crate::status::PathMessage<'_>>,
 ) {
     let is_active = app.active_panel == side;
+    let footer = footer.filter(|_| is_active);
     let panel = app.panel_mut(side);
     match panel.kind {
-        PanelKind::Files => render_panel(f, panel, area, is_active, footer.filter(|_| is_active)),
+        PanelKind::Files => render_panel(f, panel, area, is_active, footer),
         PanelKind::Tree(_) => tree::render(f, panel, area, is_active),
         PanelKind::QuickView(_) => quickview::render(f, panel, area, is_active),
-        PanelKind::Sessions(_) => sessions::render(f, panel, area, is_active),
-        PanelKind::Remote(_) => remote::render(f, panel, area, is_active),
+        PanelKind::Sessions(_) => sessions::render(f, panel, area, is_active, footer),
+        PanelKind::Remote(_) => remote::render(f, panel, area, is_active, footer),
     }
 }

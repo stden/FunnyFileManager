@@ -54,14 +54,12 @@ fn bookmark_go_to_a_removed_directory_leaves_the_panel_where_it_was() {
 #[cfg(unix)]
 #[test]
 fn cd_into_a_traversable_but_unreadable_directory_leaves_the_panel_where_it_was() {
-    use std::os::unix::fs::PermissionsExt;
-
     let temp = TempDir::new().expect("temp dir");
     fs::write(temp.path().join("keep.txt"), b"x").expect("write");
     let locked = temp.path().join("locked");
     fs::create_dir(&locked).expect("mkdir");
     // --x--x--x: `cd` and `stat` still work, `read_dir` does not.
-    fs::set_permissions(&locked, fs::Permissions::from_mode(0o111)).expect("chmod");
+    let _locked = crate::test_support::ModeGuard::set(&locked, 0o111).expect("chmod");
 
     if fs::read_dir(&locked).is_ok() {
         return; // running with privileges that ignore the mode bits
@@ -79,9 +77,6 @@ fn cd_into_a_traversable_but_unreadable_directory_leaves_the_panel_where_it_was(
     assert_eq!(panel.path, temp.path(), "the panel must not have moved");
     assert!(panel.entries.iter().any(|entry| entry.name == "keep.txt"));
     assert!(panel.marked.contains("keep.txt"));
-
-    // Restore so the TempDir can be removed.
-    fs::set_permissions(&locked, fs::Permissions::from_mode(0o755)).expect("chmod");
 }
 
 fn assert_retained_panel(panel: &Panel, directory: &std::path::Path) {

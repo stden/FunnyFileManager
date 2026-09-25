@@ -62,8 +62,8 @@ pub enum AccessRights {
     /// like any new folder there.
     #[default]
     Default,
-    /// The source's mode bits, carried over — onto the folder being copied
-    /// as well as onto every file.
+    /// The source's mode bits, carried over — onto every folder the copy
+    /// makes as well as onto every file.
     Copy,
     /// What a file or folder newly created in the destination gets: the
     /// umask (or the folder's default ACL), applied by the kernel as each one
@@ -73,13 +73,22 @@ pub enum AccessRights {
 
 impl AccessRights {
     /// The permission bits each copied file is given as it is written.
-    /// Copy's restating of a folder's own mode waits until the folder's
-    /// contents are in, and so is left to the caller.
     #[must_use]
     pub const fn file_mode(self) -> crate::utils::FileMode {
         match self {
             Self::Default | Self::Copy => crate::utils::FileMode::Source,
             Self::Inherit => crate::utils::FileMode::Fresh,
+        }
+    }
+
+    /// The permission bits each copied folder ends up with, restated once
+    /// its contents are in. Only Copy carries the source's over; the others
+    /// leave a folder as the kernel made it, the way `cp -r` does.
+    #[must_use]
+    pub const fn folder_mode(self) -> crate::utils::FileMode {
+        match self {
+            Self::Copy => crate::utils::FileMode::Source,
+            Self::Default | Self::Inherit => crate::utils::FileMode::Fresh,
         }
     }
 

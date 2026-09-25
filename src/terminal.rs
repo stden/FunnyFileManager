@@ -37,20 +37,46 @@ where
 
 mod crossterm_ops;
 mod guards;
+#[cfg(unix)]
+mod hang_up;
 mod interrupts;
 mod keyboard;
 #[cfg(any(test, coverage))]
 mod noop_ops;
+mod typeahead;
 mod video_mode;
 
 pub use crossterm_ops::CrosstermOps;
 pub use guards::{TerminalSession, TerminalSuspension};
+#[cfg(unix)]
+pub use hang_up::{hung_up, watch_for_hang_up};
 pub use keyboard::{decode_input, KeyboardProtocol};
 #[cfg(any(test, coverage))]
 pub use noop_ops::NoopTerminalOps;
+pub use typeahead::{cancel_requested, discard_queued};
 #[cfg(test)]
 pub use video_mode::{skip_video_mode_resize, video_mode_calls};
 pub use video_mode::{toggle_video_mode, VideoMode};
+
+/// Whether `event` is the cancel gesture: Esc or Ctrl+C, on key press only.
+///
+/// The one rule for what may still act on an operation that is running;
+/// every other key typed meanwhile is dropped (see [`discard_queued`]). The
+/// decision is pure so it can be pinned by unit tests; the terminal polling
+/// around it is nothing but glue.
+#[must_use]
+pub fn is_cancel_event(event: &crossterm::event::Event) -> bool {
+    use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
+
+    let Event::Key(key) = event else {
+        return false;
+    };
+    if key.kind != KeyEventKind::Press {
+        return false;
+    }
+    let ctrl_c = key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL);
+    ctrl_c || key.code == KeyCode::Esc
+}
 
 pub fn merge_run_and_cleanup<T>(run: io::Result<T>, cleanup: io::Result<()>) -> io::Result<T> {
     match (run, cleanup) {

@@ -8,8 +8,8 @@
 //! - only the server composition (`main.rs`) calls the confinement API in
 //!   `paths.rs`, and every extracted tool handed the server validates its path
 //!   with `server.safe_path*` before anything else;
-//! - modules that name `std::fs` are listed below with how their paths stay
-//!   inside the root.
+//! - modules that name `std::fs` are listed in `mcp/filesystem.rs` with how
+//!   their paths stay inside the root.
 //!
 //! Not seen: `Path` methods that reach the filesystem without naming `std::fs`
 //! (`exists`, `is_dir`, `canonicalize`, `read_dir`, `metadata`).

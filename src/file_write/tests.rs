@@ -6,7 +6,7 @@ use std::io;
 
 use tempfile::TempDir;
 
-use super::{ensure_writable, owned_by_us, real_target, temp_beside};
+use super::{ensure_writable, owned_by_us, real_target, refuse_unwritable, temp_beside};
 
 /// A file that is not there yet is the directory's business: the guard lets
 /// the write that follows report whatever really happens.
@@ -18,6 +18,7 @@ fn ensure_writable_lets_a_new_or_writable_file_through() -> io::Result<()> {
     ensure_writable(&missing)?;
     let existing = dir.path().join("existing.txt");
     fs::write(&existing, "text")?;
+    refuse_unwritable(&missing)?;
     ensure_writable(&existing)
 }
 
@@ -44,7 +45,13 @@ fn ensure_writable_refuses_a_read_only_file() -> io::Result<()> {
     );
     let error = result.expect_err("a read-only file is refused");
     assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
-    assert!(error.to_string().contains("permission denied"), "{error}");
+    assert_eq!(
+        error.to_string(),
+        format!("{}: permission denied", locked.display())
+    );
+    // The same refusal without the path, for a caller that names the file.
+    let bare = refuse_unwritable(&locked).expect_err("refused");
+    assert_eq!(bare.to_string(), "permission denied");
     Ok(())
 }
 
@@ -143,8 +150,10 @@ fn has_other_names_sees_a_hard_link() -> io::Result<()> {
     let file = dir.path().join("one.json");
     fs::write(&file, "{}")?;
     assert!(!has_other_names(&file));
+    assert!(!super::replacing_changes_identity(&file));
     fs::hard_link(&file, dir.path().join("two.json"))?;
     assert!(has_other_names(&file));
+    assert!(super::replacing_changes_identity(&file));
     assert!(!has_other_names(&dir.path().join("missing.json")));
     Ok(())
 }

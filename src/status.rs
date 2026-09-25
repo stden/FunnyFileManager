@@ -329,6 +329,9 @@ pub enum Status {
     // ── generic / platform ─────────────────────────────────────
     /// A generic command error.
     Error(String),
+    /// A generic error that names the path it happened at — see
+    /// [`Status::of_error`] — so the bar says which file or folder refused.
+    ErrorAt(FailedEntry),
     /// A Windows-only tool was invoked on a non-Windows platform.
     WindowsOnly {
         tool: &'static str,

@@ -24,9 +24,6 @@ pub use flag_box::{Check, FlagBox};
 pub use time_field::{format_time, InvalidTime, RequestedTimes, TimeField};
 
 use flag_box::boxes;
-// The tests reach it as `super::parse_time`.
-#[cfg(test)]
-use time_field::parse_time;
 
 /// What the dialog learned about one entry when it opened.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

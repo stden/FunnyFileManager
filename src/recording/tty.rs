@@ -53,8 +53,14 @@ impl TerminalLost {
 /// make this probe fire at once while crossterm reports nothing, and a caller
 /// that asked again immediately would spin on a core. Sleeping the remainder
 /// keeps that case at the one poll per `timeout` it has always been.
+///
+/// A caught SIGHUP or SIGTERM reads as a lost terminal too: it is the same
+/// news, and it may come before `poll` can see the hang-up, or without one.
 #[cfg(unix)]
 pub fn wait(timeout: Duration) -> io::Result<Duration> {
+    if crate::terminal::hung_up() {
+        return Err(TerminalLost::error());
+    }
     if crossterm_reads_stdin() {
         wait_for_fd(libc::STDIN_FILENO, timeout)
     } else {

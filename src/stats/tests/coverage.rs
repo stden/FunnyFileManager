@@ -53,15 +53,12 @@ fn an_unlisted_folder_inside_makes_the_totals_lower_bounds() {
 #[cfg(unix)]
 #[test]
 fn a_denied_folder_inside_is_reported_and_the_rest_still_counted() {
-    use std::os::unix::fs::PermissionsExt;
-
     let dir = tree(&[("open/a.txt", 5), ("locked/hidden.txt", 7)]);
     let locked = dir.path().join("locked");
-    fs::set_permissions(&locked, fs::Permissions::from_mode(0o000)).expect("chmod");
+    let _locked = crate::test_support::ModeGuard::set(&locked, 0o000).expect("chmod");
     let readable = fs::read_dir(&locked).is_ok();
     let stats = analyse(dir.path());
     let locked_alone = analyse(&locked);
-    fs::set_permissions(&locked, fs::Permissions::from_mode(0o755)).expect("chmod back");
     if readable {
         return;
     }

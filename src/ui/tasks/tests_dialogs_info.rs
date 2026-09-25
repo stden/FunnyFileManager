@@ -119,6 +119,30 @@ fn a_failed_delivery_is_listed_in_the_error_dialog() {
     );
 }
 
+/// Two marked, one refused: the dialog says what was sent before why the
+/// rest was not.
+#[test]
+fn a_partly_failed_delivery_says_what_was_sent_first() {
+    let mut app = TaskApp::open(
+        vec![named(1002, "sleep"), named(4242, "firefox")],
+        Privilege::User,
+    );
+    app.host.fail(key_of(4242), ControlError::PermissionDenied);
+    app.press(KeyCode::Char('*'));
+    app.press(KeyCode::F(8));
+    app.press(KeyCode::Enter);
+    let drawn = screen(&mut app);
+    assert_shows(
+        &drawn,
+        &[
+            "Sent SIGTERM to 1 process.",
+            "4242 firefox belongs to another user",
+        ],
+    );
+    let row = |text: &str| drawn.iter().position(|line| line.contains(text));
+    assert!(row("Sent SIGTERM") < row("4242 firefox belongs"));
+}
+
 #[test]
 fn the_mask_dialog_is_the_panels_own() {
     let mut app = cursor_only();

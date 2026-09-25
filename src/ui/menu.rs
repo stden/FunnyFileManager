@@ -77,10 +77,18 @@ pub(super) fn render_bar(f: &mut Frame<'_>, app: &App, area: Rect) {
 ///
 /// Read at draw time rather than kept in `App`: a clock is a fact about now,
 /// and storing it would mean a second thing to keep in step with the truth.
+///
+/// Only where it fits right of the headings, a blank apart: on a narrow
+/// screen it was drawn over them (`Commands   Op 3:04 PMR`), hiding a
+/// heading to show a time no one had asked for.
 fn render_clock(f: &mut Frame<'_>, ground: Style, area: Rect) {
     let text = crate::clock::now();
-    let width = u16::try_from(Cells::of(&text).get()).unwrap_or(0);
-    if width + 1 >= area.width {
+    let width = u16::try_from(Cells::of(&text).get()).unwrap_or(u16::MAX);
+    let needed = geometry::headings_width()
+        .saturating_add(1)
+        .saturating_add(width)
+        .saturating_add(1);
+    if needed > area.width {
         return;
     }
     f.render_widget(

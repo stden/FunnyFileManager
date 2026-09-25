@@ -111,7 +111,7 @@ fn the_error_dialog_lists_the_failure_and_closes_on_enter_or_f3() {
         tasks.host.fail(key_of(4242), ControlError::Gone);
         press(&mut tasks, KeyCode::F(8));
         press(&mut tasks, KeyCode::Enter);
-        let Modal::Error(failures) = tasks.list().modal() else {
+        let Modal::Error { failures, .. } = tasks.list().modal() else {
             panic!("the error dialog is open");
         };
         assert_eq!(
@@ -119,7 +119,7 @@ fn the_error_dialog_lists_the_failure_and_closes_on_enter_or_f3() {
             "4242 firefox has already exited; nothing was sent."
         );
         press(&mut tasks, KeyCode::Char('x'));
-        assert!(matches!(tasks.list().modal(), Modal::Error(_)));
+        assert!(matches!(tasks.list().modal(), Modal::Error { .. }));
         press(&mut tasks, close);
         assert_eq!(tasks.list().modal(), &Modal::Browse);
     }

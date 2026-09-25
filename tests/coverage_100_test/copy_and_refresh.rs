@@ -68,7 +68,7 @@ fn test_refresh_panels() -> io::Result<()> {
 #[test]
 #[cfg(unix)]
 fn test_copy_dir_all_permission_errors() -> io::Result<()> {
-    use std::os::unix::fs::PermissionsExt;
+    use funny_file_manager::test_support::ModeGuard;
 
     let temp_dir = TempDir::new()?;
     let src_dir = temp_dir.path().join("src");
@@ -79,20 +79,11 @@ fn test_copy_dir_all_permission_errors() -> io::Result<()> {
     fs::create_dir(&protected_dir)?;
     fs::write(protected_dir.join("file.txt"), b"data")?;
 
-    // Make directory unreadable
-    let mut perms = fs::metadata(&protected_dir)?.permissions();
-    perms.set_mode(0o000);
-    fs::set_permissions(&protected_dir, perms)?;
+    // Make directory unreadable until the guard drops.
+    let _protected = ModeGuard::set(&protected_dir, 0o000)?;
 
     // This should handle the error gracefully
     let result = copy_dir_all(&src_dir, &dst_dir);
-
-    // Restore permissions for cleanup
-    let mut perms = fs::metadata(&protected_dir)
-        .unwrap_or_else(|_| fs::metadata(&src_dir).unwrap())
-        .permissions();
-    perms.set_mode(0o755);
-    drop(fs::set_permissions(&protected_dir, perms));
 
     assert!(result.is_err() || dst_dir.exists());
 

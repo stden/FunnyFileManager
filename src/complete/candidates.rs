@@ -10,10 +10,7 @@ use super::{execs, matcher, shellwords, CompletionContext};
 
 mod shell_paths;
 
-// `complete`'s unit tests reach these seams through `use super::*`.
 use shell_paths::shell_path_candidates;
-#[cfg(test)]
-pub(super) use shell_paths::{is_home_syntax, keep_typed_tilde};
 
 pub(super) fn candidates_for(
     head: &str,

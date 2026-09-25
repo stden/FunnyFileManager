@@ -1,4 +1,5 @@
-//! Unit tests: popup input keys (split out to keep files under 500 lines).
+//! Unit tests: keys the prompts ignore, typed bookmark commands, and exit,
+//! sort and `cd`.
 
 use super::support::*;
 use crate::ops::*;

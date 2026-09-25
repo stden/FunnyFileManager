@@ -1,9 +1,7 @@
-//! Unit tests: the menu bar's geometry and its label markers.
-//!
-//! [`drop_down_area`] is the one place that decides where a drop-down
-//! goes, and both the renderer and the mouse ask it — so its refusals matter
-//! as much as its answers. A screen too small for the box has to produce
-//! nothing rather than a rectangle off the edge.
+//! Unit tests: the drop-down's Far colours and its shadow, labels that drop
+//! their hotkey markers, and the gap every shortcut keeps after its label.
+//! Where a drop-down goes, and what a click on it hits, is in
+//! `tests_geometry`.
 
 use super::geometry::drop_down_area;
 use super::*;
@@ -164,5 +162,33 @@ fn every_shortcut_keeps_a_gap_after_its_label() {
                 "{heading:?}: {text:?}"
             );
         }
+    }
+}
+
+/// At 40 columns the headings fill the bar, and the clock was drawn over
+/// them: `   Left   Files   Commands   Op 3:04 PMR`. It gives way now; at 80
+/// columns there is room for both.
+#[test]
+fn the_clock_never_covers_a_heading() {
+    let headings = "   Left   Files   Commands   Options   Right";
+    let temp = tempfile::TempDir::new().unwrap();
+    let panel = crate::models::Panel::new(temp.path().to_owned()).unwrap();
+    for width in [40_u16, 80] {
+        let mut app = App::from_panels(panel.clone(), panel.clone());
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, 12)).unwrap();
+        terminal
+            .draw(|frame| crate::ui::ui(frame, &mut app))
+            .unwrap();
+        let row: String = (0..width)
+            .map(|x| terminal.backend().buffer()[(x, 0)].symbol().to_owned())
+            .collect();
+        let shown: String = headings.chars().take(usize::from(width)).collect();
+        assert!(row.starts_with(&shown), "{width}: {row:?}");
+        assert_eq!(
+            row.contains(':'),
+            width == 80,
+            "the clock at {width}: {row:?}"
+        );
     }
 }

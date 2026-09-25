@@ -1,5 +1,6 @@
 //! Purpose: Verify availability states and launch parameters without package installation or server execution.
 
+use super::lookup::resolve;
 use super::*;
 use crate::config::{InstallRecipe, LspSettings, ServerSettings};
 use crate::lsp::install::storage;
@@ -131,7 +132,7 @@ fn java_inventory_uses_the_current_runtime_and_canonical_workspace_without_execu
     fs::create_dir_all(workspace.join("child")).unwrap();
     let (server, prepared) = installed_java(root.path(), &workspace, &first);
     fs::remove_file(&prepared.command).unwrap();
-    let project = super::workspace(&server, &workspace.join("child/.."));
+    let project = lookup::workspace(&server, &workspace.join("child/.."));
     let found = resolve(&server, Some(root.path()), &project, &moved);
     let resolved = found.resolved().expect("the cached server");
     assert_eq!(resolved.args.last(), prepared.args.last());
@@ -147,5 +148,7 @@ fn java_inventory_uses_the_current_runtime_and_canonical_workspace_without_execu
 
 #[path = "tests_availability.rs"]
 mod probed;
+#[path = "tests_runtime.rs"]
+mod runtime;
 #[path = "tests_wording.rs"]
 mod wording;

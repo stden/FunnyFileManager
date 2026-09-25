@@ -1,6 +1,8 @@
 //! Purpose: A move within one filesystem stays a rename, and a transfer onto a link to itself is refused.
 
 use super::*;
+use crate::ops::file::placement::reject_transfer_onto_itself;
+use crate::ops::file::transfer::move_into;
 
 // ─── the move must stay a rename ────────────────────────────────────────────
 

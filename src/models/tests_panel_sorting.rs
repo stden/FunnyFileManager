@@ -1,4 +1,5 @@
-//! Unit tests: panel sorting (split out to keep files under 500 lines).
+//! Unit tests: the sort modes, marks, the cursor at the edges, and extreme
+//! names.
 
 use std::fs;
 

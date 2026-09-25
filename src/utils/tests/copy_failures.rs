@@ -39,8 +39,6 @@ fn test_copy_dir_all_permission_errors() -> io::Result<()> {
     let _lock = copy_step_mutex().lock().expect("copy step mutex");
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-
         let temp_dir = TempDir::new().expect("test setup");
         let src = temp_dir.path().join("src");
         let dst = temp_dir.path().join("dst");
@@ -52,18 +50,12 @@ fn test_copy_dir_all_permission_errors() -> io::Result<()> {
             .expect("test setup");
 
         fs::create_dir(&dst).expect("test setup");
-        let mut perms = fs::metadata(&dst).expect("test setup").permissions();
-        perms.set_mode(0o000);
-        fs::set_permissions(&dst, perms).expect("test setup");
+        let _locked = crate::test_support::ModeGuard::set(&dst, 0o000).expect("test setup");
 
         // Root bypasses Unix DAC permissions, so a 0o000 dst may still be
         // writable; only assert failure when perms are actually enforced.
         let perms_enforced = fs::read_dir(&dst).is_err();
         let result = copy_dir_all(&src, &dst);
-
-        let mut perms = fs::metadata(&dst).expect("test setup").permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&dst, perms).expect("test setup");
 
         if perms_enforced {
             assert!(result.is_err());
@@ -161,4 +153,30 @@ fn copy_symlink_reports_a_read_link_failure_and_creates_nothing() {
         !dest.exists(),
         "nothing may be created when the target cannot be read"
     );
+}
+
+/// A link whose times the copy could not keep is removed again: the copy
+/// claimed the name, and a failed copy must leave nothing behind.
+#[cfg(unix)]
+#[test]
+fn copy_link_removes_a_link_whose_times_it_could_not_keep() {
+    use crate::utils::{copy_link, CopyRules, Times, FORCE_TIMES_FAILURE};
+
+    let temp_dir = TempDir::new().expect("test setup");
+    let link = temp_dir.path().join("link");
+    std::os::unix::fs::symlink("target", &link).expect("test setup");
+    let dest = temp_dir.path().join("copy");
+    let rules = CopyRules {
+        times: Times::Source,
+        ..CopyRules::PLAIN
+    };
+
+    FORCE_TIMES_FAILURE.set(true);
+    let result = copy_link(&link, &dest, rules);
+    FORCE_TIMES_FAILURE.set(false);
+
+    result.expect_err("the times could not be kept");
+    assert!(fs::symlink_metadata(&dest).is_err(), "no link is left");
+    copy_link(&link, &dest, rules).expect("kept this time");
+    assert_eq!(fs::read_link(&dest).unwrap(), Path::new("target"));
 }

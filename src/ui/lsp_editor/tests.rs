@@ -54,6 +54,7 @@ pub(super) fn fg(buffer: &Buffer, needle: &str) -> ratatui::style::Color {
 /// disabled rust, and an added `aaa` that also claims `.ts`.
 fn machine_with_changes() -> (LspMachine, App) {
     let machine = LspMachine::new();
+    machine.install_runtimes();
     machine.write_settings(
         "lsp:\n  python: {command: custom}\n  rust: {enabled: false}\n  \
          aaa: {command: aaa-server, extensions: [ts], install: null}\n",

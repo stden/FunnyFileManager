@@ -163,6 +163,8 @@ fn unique_destination_treats_a_dangling_symlink_as_a_taken_name() -> io::Result<
     let taken = temp_dir.path().join("report.txt");
     symlink("nowhere-at-all", &taken).expect("test setup");
     assert!(!taken.exists(), "test setup: the link must be dangling");
+    assert!(name_is_taken(&taken));
+    assert!(!name_is_taken(&temp_dir.path().join("free.txt")));
 
     let dest = unique_destination(temp_dir.path(), OsStr::new("report.txt"))?;
 

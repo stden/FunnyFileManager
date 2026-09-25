@@ -8,7 +8,7 @@
 //! cannot be read, is too large, does not parse, or holds a value a session
 //! may not have is an empty store that will not save — one bad byte, a hand
 //! edit or a file from a newer build must not be overwritten with nothing by
-//! the next change. `App::new()` never loads it; `bootstrap` does, so no test
+//! the next change — and says why on the status line. `App::new()` never loads it; `bootstrap` does, so no test
 //! reads the user's own sessions.
 
 use std::path::PathBuf;
@@ -37,8 +37,9 @@ enum Backing {
     #[default]
     SessionOnly,
     File(PathBuf),
-    /// This file exists and did not load; nothing is written over it.
-    Damaged(PathBuf),
+    /// The file exists and did not load, for this reason; nothing is
+    /// written over it.
+    Damaged(String),
 }
 
 /// The file's shape: an object, so a later field has somewhere to go.

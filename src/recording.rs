@@ -28,12 +28,11 @@ mod replay;
 mod storage;
 mod tty;
 
+pub use args::RecordingDisabled;
 use recorder::record_live;
 pub use recorder::{stopped_reason, Recorder};
 pub use replay::Replay;
-use storage::default_path;
-#[cfg(test)]
-use storage::default_root;
+use storage::{default_path, default_root};
 // Only the Unix permission test calls this; on Windows it would be unused.
 #[cfg(all(test, unix))]
 use storage::create_private_dir;
@@ -64,6 +63,18 @@ impl Input {
             return Ok(None);
         }
         read_live(recorder).map(Some)
+    }
+
+    /// Throw away every live event already queued, recording none of them —
+    /// see [`crate::terminal::discard_queued`] — and say whether one was the
+    /// cancel gesture. A replay keeps its events: they are what the session
+    /// did, and it threw the others away before they were recorded.
+    pub(crate) fn discard_queued(&self) -> io::Result<bool> {
+        let Self::Live(_) = self else {
+            return Ok(false);
+        };
+        tty::wait(Duration::ZERO)?;
+        Ok(crate::terminal::discard_queued())
     }
 
     pub(crate) fn read(&mut self) -> io::Result<Option<Event>> {

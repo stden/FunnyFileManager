@@ -68,11 +68,11 @@ pub struct PathParam {
     pub path: String,
 }
 
-pub fn default_true() -> bool {
+fn default_true() -> bool {
     true
 }
 
-pub fn default_max_results() -> usize {
+fn default_max_results() -> usize {
     100
 }
 

@@ -21,8 +21,6 @@ use candidates::candidates_for;
 
 // The unit tests in `tests.rs` reach these seams through `use super::*`.
 #[cfg(test)]
-use candidates::{is_home_syntax, keep_typed_tilde};
-#[cfg(test)]
 use fish::{fish_path_complete, parse_fish_completions};
 // The fish stub is driven only by the Unix-gated engine tests.
 #[cfg(all(test, unix))]

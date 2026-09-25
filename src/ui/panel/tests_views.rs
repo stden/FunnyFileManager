@@ -12,6 +12,7 @@ use ratatui::{backend::TestBackend, buffer::Buffer, Terminal};
 use crate::models::{FileSize, Modified};
 
 use super::*;
+use crate::models::{DirEntry, PanelView};
 
 const HEADER_ROW: u16 = 1;
 const FIRST_BODY_ROW: u16 = 2;

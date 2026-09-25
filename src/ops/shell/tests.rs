@@ -5,3 +5,5 @@ use tempfile::TempDir;
 
 mod bounds;
 mod running;
+#[cfg(unix)]
+mod stopping;

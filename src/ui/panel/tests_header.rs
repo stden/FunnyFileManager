@@ -1,6 +1,8 @@
 //! Sort-mode header coverage preserved from upstream.
 
+use super::layout::PanelLayout;
 use super::*;
+use crate::models::{PanelView, SortMode};
 
 fn layout() -> PanelLayout {
     panel_layout(PanelView::Brief, Cells(62))

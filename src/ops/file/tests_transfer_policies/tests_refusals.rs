@@ -63,14 +63,11 @@ fn a_move_whose_rename_fails_falls_back_to_copy_and_remove() {
     let (mut app, from, to) = app_with(&[("notes.txt", b"payload")]);
     mark(&mut app, "notes.txt");
 
-    fs::set_permissions(from.path(), fs::Permissions::from_mode(0o555)).expect("test setup");
+    let _read_only = crate::test_support::ModeGuard::set(from.path(), 0o555).expect("test setup");
 
     let mut dialog = settings(to.path());
     dialog.purpose = Purpose::Move;
     copy_with(&mut app, &dialog);
-
-    // Restore so the `TempDir` can clean itself up.
-    fs::set_permissions(from.path(), fs::Permissions::from_mode(0o755)).expect("cleanup");
 
     assert_eq!(
         fs::read(to.path().join("notes.txt")).unwrap(),

@@ -1,4 +1,4 @@
-//! Unit tests: panel paging with PgUp/PgDn (split out to keep files under 500 lines).
+//! Unit tests: panel paging with PgUp/PgDn.
 //!
 //! Paging clamps at both ends, unlike [`Panel::next`] / [`Panel::previous`],
 //! which wrap around — this mirrors Far Manager, where `PgDn` on the last screen

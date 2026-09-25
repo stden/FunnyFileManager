@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use super::tests_transfer_policies::{app_between, make_fifo, mark, settings};
 use super::*;
+use crate::copy::Purpose;
 
 use tempfile::TempDir;
 

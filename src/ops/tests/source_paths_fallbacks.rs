@@ -1,4 +1,5 @@
-//! Unit tests: source paths fallbacks (split out to keep files under 500 lines).
+//! Unit tests: deletes that partly fail, the drive dialog's keys, source
+//! paths without marks, and transfers with the rename fallback.
 
 use crate::models::FileName;
 

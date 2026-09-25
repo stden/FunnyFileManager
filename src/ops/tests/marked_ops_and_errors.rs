@@ -1,4 +1,5 @@
-//! Unit tests: marked ops and errors (split out to keep files under 500 lines).
+//! Unit tests: F8 edge cases, the drive dialog's cursor, transfers of marked
+//! files, and F3's error paths.
 
 use crate::models::EntryKind;
 use crate::models::FileName;

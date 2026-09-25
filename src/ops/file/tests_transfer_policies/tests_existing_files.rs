@@ -1,6 +1,7 @@
 //! Purpose: What the dialog's "already existing files" choice does to a file already there.
 
 use super::*;
+use crate::ops::file::placement::is_newer;
 
 // ─── what to do about a file already there ──────────────────────────────────
 
@@ -115,4 +116,65 @@ fn is_newer_treats_an_unreadable_source_time_as_newer() {
         is_newer(&missing_source, &dest),
         "a source whose time cannot be read must not be silently skipped"
     );
+}
+
+/// `pkg` on both sides — `a.txt` and `sub/s.txt` new in `from` and old in
+/// `to`, plus `only-src.txt` and `only-dst.txt` — sent over with "Skip".
+fn skip_onto_a_folder(purpose: Purpose) -> (App, TempDir, TempDir) {
+    let (mut app, from, to) = app_with(&[]);
+    for (root, body) in [(from.path(), &b"new"[..]), (to.path(), &b"old"[..])] {
+        fs::create_dir_all(root.join("pkg/sub")).expect("test setup");
+        fs::write(root.join("pkg/a.txt"), body).expect("test setup");
+        fs::write(root.join("pkg/sub/s.txt"), body).expect("test setup");
+    }
+    fs::write(from.path().join("pkg/only-src.txt"), b"src").expect("test setup");
+    fs::write(to.path().join("pkg/only-dst.txt"), b"dst").expect("test setup");
+    app.get_active_panel().load_entries().expect("reload");
+    mark(&mut app, "pkg");
+    let mut dialog = settings(to.path());
+    dialog.purpose = purpose;
+    dialog.existing = ExistingFiles::Skip;
+    copy_with(&mut app, &dialog);
+    (app, from, to)
+}
+
+/// "Skip" is about files already there, not about folders: a folder onto a
+/// folder of the same name merges, and only the files the destination has
+/// are left alone — Far's and mc's reading, and the one "Overwrite" and
+/// "Only newer" already follow.
+#[test]
+fn skip_merges_a_folder_and_leaves_only_the_files_already_there() {
+    for purpose in [Purpose::Copy, Purpose::Move] {
+        let (app, from, to) = skip_onto_a_folder(purpose);
+
+        let pkg = to.path().join("pkg");
+        let read = |path: PathBuf| fs::read(path).unwrap();
+        assert_eq!(read(pkg.join("only-src.txt")), b"src", "{}", app.status);
+        assert_eq!(read(pkg.join("a.txt")), b"old");
+        assert_eq!(read(pkg.join("sub/s.txt")), b"old");
+        assert_eq!(read(pkg.join("only-dst.txt")), b"dst");
+        let source = from.path().join("pkg");
+        let moved = !source.join("only-src.txt").exists();
+        assert_eq!(moved, purpose == Purpose::Move);
+        assert_eq!(read(source.join("sub/s.txt")), b"new", "kept, skipped");
+    }
+}
+
+/// What "Skip" left alone inside the merged folder is counted, however deep:
+/// otherwise "Moved to …/pkg" reads as if all of it went.
+#[test]
+fn a_skip_merge_counts_every_file_it_left_alone() {
+    for purpose in [Purpose::Copy, Purpose::Move] {
+        let (app, _from, to) = skip_onto_a_folder(purpose);
+
+        assert_eq!(
+            app.status,
+            Status::Transferred {
+                purpose,
+                landed: Landed::At(to.path().join("pkg")),
+                skipped: 2,
+                renamed: 0,
+            }
+        );
+    }
 }

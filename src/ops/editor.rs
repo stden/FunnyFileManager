@@ -72,16 +72,11 @@ fn write_file(target: &Path, content: &[u8]) -> io::Result<()> {
     }
 }
 
-/// Whether the save writes through the file rather than replacing it.
-///
-/// Replacing means `rename(2)`, which makes a new inode: the file's other
-/// names stop following it, and it belongs to whoever saved it. A file this
-/// user does not own is therefore written through — editing a colleague's
-/// 0664 file in a shared directory must not quietly transfer it to the editor.
-/// Losing atomicity is the lesser evil in both cases, and it is the trade-off
-/// vim makes by default (`backupcopy=auto`).
+/// Whether the save writes through the file rather than replacing it; see
+/// [`crate::file_write::replacing_changes_identity`], the rule an overwriting
+/// F5 follows too.
 fn rewrite_in_place(path: &Path) -> bool {
-    crate::file_write::has_other_names(path) || !crate::file_write::owned_by_us(path)
+    crate::file_write::replacing_changes_identity(path)
 }
 
 #[cfg(test)]

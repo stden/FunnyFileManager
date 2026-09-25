@@ -12,7 +12,7 @@ mod menu;
 use crate::models::MaskPrompt;
 use crate::scroll::ScrollTop;
 
-use super::notice::Failure;
+use super::notice::{Failure, Notice};
 use super::{ProcessKey, TaskList};
 
 pub use bars::{Found, PidQuery, SearchBar, TextBar};
@@ -35,8 +35,12 @@ pub enum Modal {
     Priority(PriorityForm),
     /// `[` asks before lowering a priority a user cannot raise again.
     Renice(NiceConfirm),
-    /// One line per target a delivery failed for.
-    Error(Vec<Failure>),
+    /// One line per target a delivery failed for, after the sentence for
+    /// the targets it reached, when it reached any.
+    Error {
+        done: Option<Notice>,
+        failures: Vec<Failure>,
+    },
 }
 
 impl TaskList {

@@ -38,8 +38,9 @@ pub fn copy_with(app: &mut App, settings: &crate::copy::CopyPrompt) {
 #[derive(Default)]
 struct DialogOutcome {
     batch: BatchOutcome,
-    /// Left alone by the policy. Not an error and not a transfer either, so
-    /// it is counted apart, or the status line would claim work not done.
+    /// Left alone by the policy, at any depth of a merged folder. Not an
+    /// error and not a transfer either, so it is counted apart, or the status
+    /// line would claim work not done.
     skipped: usize,
     /// Put beside an existing file under a new name — which the status line
     /// has to say, because the name the user looks for is not there.
@@ -48,16 +49,16 @@ struct DialogOutcome {
 
 impl DialogOutcome {
     fn record(&mut self, source: &Path, result: io::Result<Placed>) {
+        if let Ok(placed) = &result {
+            self.skipped = self.skipped.saturating_add(placed.skipped());
+        }
         let result = match result {
-            Ok(Placed::Skipped) => {
-                self.skipped += 1;
-                return;
-            }
+            Ok(Placed::Skipped) => return,
             Ok(Placed::Beside(dest)) => {
                 self.renamed += 1;
                 Ok(dest)
             }
-            Ok(Placed::AsSent(dest)) => Ok(dest),
+            Ok(Placed::AsSent(dest) | Placed::Merged { into: dest, .. }) => Ok(dest),
             Err(error) => Err(error),
         };
         self.batch.record(source, result);
@@ -99,10 +100,12 @@ fn copy_one(
 ) -> io::Result<Placed> {
     let (folder, name) = destination.for_source(source);
     reject_transfer_into_itself(source, folder)?;
-    fs::create_dir_all(folder)?;
+    fs::create_dir_all(folder).map_err(|error| crate::utils::FailedAt::wrap(folder, error))?;
 
     let dest = folder.join(name);
-    if dest.exists() {
+    // Not `exists`, which follows a link: a link that points nowhere still
+    // holds the name, and a rename would replace it without a word.
+    if crate::utils::name_is_taken(&dest) {
         return place_over_existing(source, &dest, settings);
     }
     place(source, &dest, settings)?;

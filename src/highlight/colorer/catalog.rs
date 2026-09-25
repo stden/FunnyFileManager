@@ -53,11 +53,9 @@ impl Colorer {
                     .find(|path| path.is_file())
             })
             .or_else(|| {
-                // Windows has no HOME; USERPROFILE is the same directory, and
-                // the installer scripts put the schemes under the same tail.
-                let home = std::env::var_os("HOME")
-                    .or_else(|| std::env::var_os("USERPROFILE"))
-                    .map(PathBuf::from)?;
+                // The installer scripts put the schemes under the same tail
+                // of the home on every platform.
+                let home = crate::config::user_home()?;
                 HOME_CANDIDATES
                     .iter()
                     .map(|tail| home.join(tail))

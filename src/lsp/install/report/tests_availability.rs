@@ -12,12 +12,12 @@ use crate::config::{InstallRecipe, LspSettings, ServerSettings};
 use crate::lsp::install::{launch, probe::Probe, storage, InstallError};
 
 /// A fake machine: an LSP cache and one `PATH` directory, both empty.
-struct Machine {
+pub(super) struct Machine {
     home: TempDir,
 }
 
 impl Machine {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let home = TempDir::new().expect("tempdir");
         fs::create_dir_all(home.path().join("cache")).expect("cache");
         fs::create_dir_all(home.path().join("bin")).expect("bin");
@@ -38,7 +38,7 @@ impl Machine {
     }
 
     /// Put a program on this machine's `PATH`.
-    fn install_on_path(&self, name: &str) -> std::path::PathBuf {
+    pub(super) fn install_on_path(&self, name: &str) -> std::path::PathBuf {
         let program = self.bin().join(launch::executable(name));
         crate::test_support::write_executable(&program, b"program").expect("program");
         program
@@ -60,12 +60,12 @@ impl Machine {
         program
     }
 
-    fn check(&self, language: &str, server: &ServerSettings) -> Availability {
+    pub(super) fn check(&self, language: &str, server: &ServerSettings) -> Availability {
         availability(language, server, self.home.path(), &self.probe())
     }
 }
 
-fn catalog(language: &str) -> ServerSettings {
+pub(super) fn catalog(language: &str) -> ServerSettings {
     LspSettings::catalog().0[language].clone()
 }
 
@@ -96,6 +96,7 @@ fn a_command_on_the_probes_path_is_configured() {
 #[test]
 fn a_catalog_recipe_is_pending_until_installed_and_then_cached() {
     let machine = Machine::new();
+    machine.install_on_path("python3");
     let python = catalog("python");
     assert_eq!(
         machine.check("python", &python),
@@ -111,6 +112,7 @@ fn a_catalog_recipe_is_pending_until_installed_and_then_cached() {
 #[test]
 fn a_changed_command_that_is_not_found_is_replaced_by_the_recipe() {
     let machine = Machine::new();
+    machine.install_on_path("python3");
     let mut python = catalog("python");
     python.command = "custom-pylsp".to_owned();
     assert_eq!(
@@ -137,6 +139,7 @@ fn a_changed_command_that_is_not_found_is_replaced_by_the_recipe() {
 #[test]
 fn an_added_servers_recipe_is_always_a_replacement() {
     let machine = Machine::new();
+    machine.install_on_path("python3");
     let mut mine = catalog("python");
     mine.command = "mine-server".to_owned();
     assert_eq!(

@@ -59,7 +59,7 @@ pub use schedule::{
     STALL_LIMIT, WARM_UP,
 };
 pub use selection::{Cursor, ListMotion, SearchFrom};
-pub use signal::{KillOffer, Signal};
+pub use signal::{KillOffer, Signal, SignalEffect};
 pub use snapshot::{Baselines, ProcessRow, Snapshot};
 pub use table::Table;
 pub use targets::{ControlRefusal, FrozenTargets, Operation, Relation, Skipped, Target};

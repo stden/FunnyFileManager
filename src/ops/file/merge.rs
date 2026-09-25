@@ -1,6 +1,6 @@
-//! Purpose: what "Overwrite" and "Only newer" do when the name is already
-//! taken — merge a folder into a folder, replace a file with a file, and
-//! refuse everything that would remove what the transfer does not bring.
+//! Purpose: what "Overwrite", "Skip" and "Only newer" do when the name is
+//! already taken — merge a folder into a folder, replace a file with a file,
+//! and refuse everything that would remove what the transfer does not bring.
 
 use std::fs;
 use std::io;
@@ -74,31 +74,38 @@ pub(super) fn reject_merge_into_holder(source: &Path, dest: &Path) -> io::Result
 /// times and rights: it is not the folder the transfer brought.
 ///
 /// One entry that fails does not stop the rest; the first error is returned.
-/// A moved folder is removed once it is empty, and kept when something in it
-/// was skipped.
-pub(super) fn merge_into(source: &Path, dest: &Path, settings: &CopyPrompt) -> io::Result<()> {
+/// Otherwise the answer is how many entries, at any depth, the choice left
+/// alone: the status line has to say so, or "Moved to …" reads as if all of
+/// it went. A moved folder is removed once it is empty, and kept when
+/// something in it was skipped.
+pub(super) fn merge_into(source: &Path, dest: &Path, settings: &CopyPrompt) -> io::Result<usize> {
     let mut first_error = None;
+    let mut skipped = 0_usize;
     for entry in fs::read_dir(source)? {
         let result = entry
             .and_then(|entry| merge_entry(&entry.path(), &dest.join(entry.file_name()), settings));
-        if let Err(error) = result {
-            first_error.get_or_insert(error);
+        match result {
+            Ok(left) => skipped = skipped.saturating_add(left),
+            Err(error) => {
+                first_error.get_or_insert(error);
+            }
         }
     }
     if let Some(error) = first_error {
         return Err(error);
     }
     if settings.purpose == Purpose::Move {
-        return remove_if_emptied(source);
+        remove_if_emptied(source)?;
     }
-    Ok(())
+    Ok(skipped)
 }
 
-fn merge_entry(source: &Path, dest: &Path, settings: &CopyPrompt) -> io::Result<()> {
-    if fs::symlink_metadata(dest).is_ok() {
-        super::place_over_existing(source, dest, settings).map(drop)
+/// Place one entry of a merge; how many entries the choice left alone.
+fn merge_entry(source: &Path, dest: &Path, settings: &CopyPrompt) -> io::Result<usize> {
+    if crate::utils::name_is_taken(dest) {
+        super::place_over_existing(source, dest, settings).map(|placed| placed.skipped())
     } else {
-        super::place(source, dest, settings)
+        super::place(source, dest, settings).map(|()| 0)
     }
 }
 

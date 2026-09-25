@@ -16,7 +16,7 @@ pub(super) fn settle(staging: &Path, destination: &Path) -> io::Result<()> {
 /// Refuse a staged tree holding anything but plain files and folders. The
 /// listing already refused links; this is what stands if one got past it,
 /// because every later entry could be written through it.
-pub(in crate::ops::archive) fn plain_tree(staging: &Path) -> io::Result<()> {
+fn plain_tree(staging: &Path) -> io::Result<()> {
     plain_below(staging, Path::new(""))
 }
 
@@ -94,3 +94,6 @@ fn move_in(staged: &Path, destination: &Path) -> io::Result<()> {
     }
     Ok(())
 }
+
+#[cfg(all(test, unix))]
+mod tests;

@@ -20,9 +20,6 @@ use crate::status::Status;
 mod staging;
 
 use staging::settle;
-// The archive tests look a staged tree over as `extract::plain_tree`.
-#[cfg(all(test, unix))]
-pub(super) use staging::plain_tree;
 
 /// The name of the private folder an archive unpacks into first. A dotfile,
 /// so a listing refreshed meanwhile does not show it as the user's.

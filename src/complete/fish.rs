@@ -36,17 +36,32 @@ fn fish_program() -> PathBuf {
 pub(super) fn fish_path_complete(token: &str, cwd: &Path) -> Option<Vec<String>> {
     let line = format!("cd {token}");
     // Pass the line via an env var so fish does the quoting, not us.
-    let mut child = Command::new(fish_program())
+    let mut command = Command::new(fish_program());
+    command
         .current_dir(cwd)
         .env("FFM_COMPLETE_LINE", &line)
         .args(["-c", "complete --do-complete=\"$FFM_COMPLETE_LINE\""])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
+        .stderr(Stdio::null());
+    #[cfg(any(test, tarpaulin))]
+    keep_out_of_the_home(&mut command);
+    let mut child = command.spawn().ok()?;
 
     wait_for_fish(&mut child)
+}
+
+/// fish creates `fish/` in its configuration and data homes on every run
+/// (`~/.config/fish`, `~/.local/share/fish`), and a test must not write into
+/// the home of whoever runs the suite. Under a file nobody, root included, can
+/// create a directory: fish keeps no history there, warns on the discarded
+/// stderr, and completes as usual.
+#[cfg(any(test, tarpaulin))]
+fn keep_out_of_the_home(command: &mut Command) {
+    const NOWHERE: &str = "/dev/null/ffm-tests";
+    command
+        .env("XDG_CONFIG_HOME", NOWHERE)
+        .env("XDG_DATA_HOME", NOWHERE);
 }
 
 fn wait_for_fish(child: &mut std::process::Child) -> Option<Vec<String>> {

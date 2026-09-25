@@ -117,7 +117,7 @@ fn a_change_that_cannot_be_saved_leaves_the_store_as_it_was() {
     app.sessions = SessionStore::load_from(dir.path().join(FILE_NAME));
     let dialog = dialog_for("a.test");
     let error = save_edit(&mut app, &dialog).expect_err("damaged");
-    assert!(matches!(error, SessionError::Store(StoreError::Damaged)));
+    assert!(matches!(error, SessionError::Store(StoreError::Damaged(_))));
     assert!(app.sessions.is_empty());
     assert_eq!(
         fs::read_to_string(dir.path().join(FILE_NAME)).expect("read"),

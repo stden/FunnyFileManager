@@ -1,6 +1,6 @@
 //! Purpose: Tests for the offered signals: their names, purposes and order.
 
-use super::Signal;
+use super::{KillOffer, Signal, SignalEffect};
 
 #[cfg(unix)]
 #[test]
@@ -44,4 +44,17 @@ fn each_signal_has_its_own_purpose() {
     assert_eq!(purposes.len(), every.len());
     assert_eq!(Signal::Terminate.purpose(), "ask to terminate");
     assert_eq!(Signal::Kill.purpose(), "end at once; cannot be caught");
+}
+
+#[test]
+fn only_sigcont_and_sigwinch_leave_a_process_running_as_it_was() {
+    assert_eq!(Signal::Terminate.effect(), SignalEffect::Ends);
+    assert_eq!(Signal::User1.effect(), SignalEffect::Ends);
+    assert_eq!(Signal::Stop.effect(), SignalEffect::Pauses);
+    assert_eq!(Signal::TerminalStop.effect(), SignalEffect::Pauses);
+    assert_eq!(Signal::Continue.effect(), SignalEffect::Harmless);
+    assert_eq!(Signal::WindowChange.effect(), SignalEffect::Harmless);
+    assert_eq!(KillOffer::TerminateOrKill.effect(), SignalEffect::Ends);
+    let offer = KillOffer::Send(Signal::Continue);
+    assert_eq!(offer.effect(), SignalEffect::Harmless);
 }

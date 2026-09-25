@@ -2,7 +2,7 @@
 //! title and alignment, and its cell's text from the cached directory facts,
 //! made printable — and the columns each view asks for.
 
-use crate::models::{DirEntry, Modified, Panel, PanelView};
+use crate::models::{DirEntry, EntryKind, Modified, Panel, PanelView};
 
 use super::super::super::{
     abbreviate_bytes, group_digits, head_cells, pad_cells, right_cells, size_field, Cells,
@@ -120,11 +120,14 @@ pub(super) const fn columns(view: PanelView) -> &'static [Column] {
     }
 }
 
+/// `bytes` where a byte count describes the row: a file, or a link to one.
+/// The rest say what they are, as the Size column does.
 fn sized(entry: &DirEntry, bytes: String) -> String {
-    if entry.name == ".." || entry.kind.is_dir() {
-        size_field(entry)
-    } else {
-        bytes
+    match entry.kind {
+        EntryKind::File | EntryKind::SymlinkToFile => bytes,
+        EntryKind::Directory | EntryKind::SymlinkToDirectory | EntryKind::BrokenSymlink => {
+            size_field(entry)
+        }
     }
 }
 

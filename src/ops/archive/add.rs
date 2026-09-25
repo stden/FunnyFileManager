@@ -51,8 +51,10 @@ pub fn add(app: &mut App, prompt: &ArchivePrompt) {
     let cwd = app.get_active_panel_ref().path.clone();
     let archive = resolve_archive(&prompt.name, &cwd);
     // Never overwrite: the dialog comes back with the name to change, and
-    // the status bar says why it came back.
-    if archive.exists() && !prompt.append {
+    // the status bar says why it came back. A link that points nowhere holds
+    // the name too — the tool would write through it.
+    let existed = crate::utils::name_is_taken(&archive);
+    if existed && !prompt.append {
         app.set_status(Status::FileExists(archive.display().to_string()));
         app.set_overlay(Overlay::ArchivePrompt(Box::new(prompt.clone())));
         return;
@@ -71,9 +73,30 @@ pub fn add(app: &mut App, prompt: &ArchivePrompt) {
             Status::Error(error.to_string())
         }
     };
+    if !existed && !matches!(status, Status::AddedToArchive { .. }) {
+        discard_partial(app, &archive);
+    }
     app.set_status(status);
     // A refresh failure is not the archiver's failure.
     drop(crate::utils::refresh_panels(app));
+}
+
+/// Remove what a failed run left at `archive`, which this run created: tar
+/// writes every member it can read before it reports the one it could not,
+/// and the half that is left looks like a finished archive. Never called for
+/// an archive that was there before — a failed append may have changed it,
+/// but removing it would lose what it held. A removal that fails is said in
+/// the transcript; the run's own failure stays the status.
+fn discard_partial(app: &mut App, archive: &Path) {
+    let Err(error) = std::fs::remove_file(archive) else {
+        return;
+    };
+    // Nothing written at all — the tool never started — is nothing to remove.
+    if error.kind() != io::ErrorKind::NotFound {
+        let shown = archive.display();
+        let text = format!("{shown}: the incomplete archive could not be removed: {error}");
+        app.console.record_error(&text);
+    }
 }
 
 /// A typed name is absolute or lives in the active panel's folder, the way

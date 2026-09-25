@@ -21,6 +21,7 @@ mod dialog;
 mod entry;
 mod merge;
 mod placement;
+mod remove_moved;
 mod replace;
 mod transfer;
 
@@ -31,20 +32,8 @@ pub use transfer::{handle_copy, handle_move};
 
 // `merge` and `replace` reach these as `super::…`.
 use entry::copy_entry;
-use placement::{finish, place, place_over_existing, remove_existing};
-// The unit tests below reach these through `use super::*`.
-#[cfg(test)]
-use {
-    crate::copy::Purpose,
-    crate::models::Overlay,
-    crate::status::{Landed, Status},
-    crate::utils::CopyRules,
-    placement::is_newer,
-    transfer::{copy_into, move_into},
-};
-// Only the Unix symlink tests reach this one.
-#[cfg(all(test, unix))]
-use placement::reject_transfer_onto_itself;
+use placement::{place, place_over_existing};
+use remove_moved::remove_moved;
 
 #[cfg(any(test, tarpaulin))]
 pub static FORCE_RENAME_FAILURE: AtomicBool = AtomicBool::new(false);
@@ -60,13 +49,29 @@ thread_local! {
     pub static FORCE_TRANSFER_COLLISION: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+// Makes every `rename_or_fail` fail the way a user who may not write to the
+// source's folder fails (`EACCES`), which root never does. Thread-local for
+// the reason `FORCE_TRANSFER_COLLISION` is.
+#[cfg(any(test, tarpaulin))]
+thread_local! {
+    pub static FORCE_RENAME_DENIAL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 /// Mutex to serialize tests that depend on the global `FORCE_RENAME_FAILURE` flag.
 #[cfg(test)]
 pub static RENAME_TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// Try to rename (move) a file or directory; returns an error on failure.
-/// In test mode, can be forced to fail to simulate cross-device moves.
+/// In test mode, can be forced to fail as a cross-device rename does, or as
+/// a refused one does.
 pub fn rename_or_fail(source: &Path, dest: &Path) -> io::Result<()> {
+    #[cfg(any(test, tarpaulin))]
+    if FORCE_RENAME_DENIAL.get() {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "forced rename denial",
+        ));
+    }
     #[cfg(any(test, tarpaulin))]
     let forced = FORCE_RENAME_FAILURE.load(Ordering::SeqCst);
 
@@ -74,9 +79,41 @@ pub fn rename_or_fail(source: &Path, dest: &Path) -> io::Result<()> {
     let forced = false;
 
     if forced {
-        Err(io::Error::other("forced rename failure"))
+        // What the kernel answers for a rename between two filesystems.
+        Err(io::Error::new(
+            io::ErrorKind::CrossesDevices,
+            "forced rename failure",
+        ))
     } else {
         fs::rename(source, dest)
+    }
+}
+
+/// What renaming an entry to its destination settled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Renamed {
+    /// The entry is under its new name; the move is done.
+    Moved,
+    /// The two names are on different filesystems. Only a copy followed by a
+    /// removal can move the entry, which is what `mv` does then too.
+    AcrossFilesystems,
+}
+
+/// Move `source` to `dest` by renaming it, telling a rename across
+/// filesystems apart from a rename that was refused.
+///
+/// Only the first may turn into a copy: `EXDEV` is the kernel saying "not
+/// with rename". Any other failure — no permission on the source's folder, a
+/// busy mount point, a read-only filesystem — is the move's own failure, and
+/// copying anyway used to leave a full copy at the destination beside a
+/// source that could not be removed, under a status that said "Moved 0".
+fn rename_within(source: &Path, dest: &Path) -> io::Result<Renamed> {
+    match rename_or_fail(source, dest) {
+        Ok(()) => Ok(Renamed::Moved),
+        Err(error) if error.kind() == io::ErrorKind::CrossesDevices => {
+            Ok(Renamed::AcrossFilesystems)
+        }
+        Err(error) => Err(error),
     }
 }
 
@@ -105,10 +142,18 @@ mod tests_destinations;
 #[cfg(test)]
 mod tests_exhaustion;
 #[cfg(test)]
+#[cfg(unix)]
+mod tests_kept_metadata;
+#[cfg(test)]
 mod tests_mkdir_errors;
 #[cfg(test)]
 #[cfg(unix)]
 mod tests_modes;
+#[cfg(test)]
+#[cfg(unix)]
+mod tests_moved_metadata;
+#[cfg(test)]
+mod tests_moved_sources;
 #[cfg(test)]
 #[cfg(unix)]
 mod tests_non_utf8_names;
@@ -118,6 +163,8 @@ mod tests_overwrite_failures;
 mod tests_overwrite_safety;
 #[cfg(test)]
 mod tests_refresh_failures;
+#[cfg(test)]
+mod tests_rename_refusals;
 #[cfg(test)]
 #[cfg(unix)]
 mod tests_sparse;

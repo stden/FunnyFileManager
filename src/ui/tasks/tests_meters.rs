@@ -1,6 +1,6 @@
-//! Unit tests for the task list's header meters: segment colours, the
-//! caption over the bar, grouped core bars, bars without figures, and the
-//! Tasks/Load/Uptime line losing fields from the right.
+//! Unit tests for the task list's summary meters: the CPU, memory and swap
+//! segment colours, the caption over the bar, and bars without figures. The
+//! per-core bars and the Tasks/Load/Uptime line are in `tests_meters_lines`.
 
 use std::time::Duration;
 

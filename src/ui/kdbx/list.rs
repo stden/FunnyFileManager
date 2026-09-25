@@ -57,7 +57,7 @@ impl Columns {
         }
     }
 
-    pub(super) fn header(&self) -> String {
+    fn header(&self) -> String {
         let gap = " ".repeat(COLUMN_GAP.get());
         format!(
             "{}{}{gap}{}{gap}{}{gap}{}",
@@ -71,12 +71,7 @@ impl Columns {
 
     /// One entry row. `password` is `Some` only for a revealed entry; every
     /// other row shows [`MASK`].
-    pub(super) fn row(
-        &self,
-        entry: &EntrySummary,
-        password: Option<&str>,
-        selected: bool,
-    ) -> String {
+    fn row(&self, entry: &EntrySummary, password: Option<&str>, selected: bool) -> String {
         let gap = " ".repeat(COLUMN_GAP.get());
         // Joined for display only. `KeePass` allows '/' inside a group name, so
         // this string must never be parsed back into a path — `EntrySummary`

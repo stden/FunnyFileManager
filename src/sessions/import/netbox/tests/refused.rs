@@ -1,12 +1,12 @@
 //! Purpose: A whole file is refused — missing, oversized, not a `NetBox`
-//! export, carrying a DTD, or past the node or session limit.
+//! export, carrying a DTD, or past the node, depth or session limit.
 
 use std::fs;
 use std::path::Path;
 
 use tempfile::TempDir;
 
-use super::super::{import, parse, MAX_FILE_BYTES, MAX_NODES, MAX_SESSIONS};
+use super::super::{import, parse, MAX_DEPTH, MAX_FILE_BYTES, MAX_NODES, MAX_SESSIONS};
 use super::{sessions, FILE};
 use crate::sessions::import::ImportError;
 use crate::sessions::ReadError;
@@ -88,5 +88,25 @@ fn more_sessions_than_one_import_takes_are_refused_and_the_limit_is_not() {
         Err(ImportError::TooManySessions {
             limit: MAX_SESSIONS
         })
+    ));
+}
+
+/// The guest sweep's hostile fixture: 20 000 nested elements fit every other
+/// limit, and the parser recursed once per level until the stack overflowed
+/// and aborted FFM with the terminal still raw. The depth is refused before
+/// the parser runs.
+#[test]
+fn a_tree_nested_past_the_depth_limit_is_refused_before_it_is_parsed() {
+    let levels = 20_000;
+    let document = sessions(&format!(
+        "{}{}",
+        "<a>".repeat(levels),
+        "</a>".repeat(levels)
+    ));
+    assert!(document.len() < usize::try_from(MAX_FILE_BYTES).expect("fits"));
+    assert!(levels < usize::try_from(MAX_NODES).expect("fits"));
+    assert!(matches!(
+        parse(&document, Path::new(FILE)),
+        Err(ImportError::TooDeep { limit: MAX_DEPTH })
     ));
 }

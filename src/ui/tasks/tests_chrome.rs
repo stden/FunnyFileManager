@@ -1,5 +1,5 @@
 //! Unit tests for the task list's chrome: the title's freshness markers,
-//! the footer, the info row, the key labels and the text bars.
+//! the footer and the info row. The bottom row is in `tests_chrome_bottom`.
 
 use std::io;
 use std::time::Instant;

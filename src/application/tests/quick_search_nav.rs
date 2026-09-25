@@ -1,4 +1,4 @@
-//! Unit tests: quick search nav (split out to keep files under 500 lines).
+//! Unit tests: quick search nav.
 
 use super::*;
 

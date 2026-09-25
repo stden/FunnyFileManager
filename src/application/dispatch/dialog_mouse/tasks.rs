@@ -89,7 +89,7 @@ pub(super) fn tasks_button_key(list: &mut TaskList, index: usize) -> Option<KeyE
             prompt.focus_cancel(index != 0);
             KeyCode::Enter
         }
-        Modal::Info(_) | Modal::Error(_) => KeyCode::Esc,
+        Modal::Info(_) | Modal::Error { .. } => KeyCode::Esc,
         Modal::Browse
         | Modal::Help(_)
         | Modal::Filter(_)

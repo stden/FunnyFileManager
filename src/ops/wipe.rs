@@ -29,8 +29,6 @@ mod witness;
 
 pub use steps::wipe_path;
 pub use witness::Stage;
-#[cfg(any(test, tarpaulin))]
-pub use witness::{Observer, WITNESS};
 
 /// `Alt+Del`: ask before wiping, the way F8 asks before deleting.
 pub fn open(app: &mut App) {

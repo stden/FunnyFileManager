@@ -104,19 +104,27 @@ fn zz_probe_create_new_already_exists() {
     );
 }
 
+/// Overwrite replaces a link that points nowhere the way it replaces any
+/// other link: the name gets the file, and nothing is written through it.
 #[cfg(unix)]
 #[test]
-fn zz_probe_dangling_symlink_dest_via_public_copy() {
+fn overwrite_replaces_a_dangling_link_with_the_file() {
     let (mut app, _from, to) = app_with(&[("notes.txt", b"payload")]);
     std::os::unix::fs::symlink("nowhere-at-all", to.path().join("notes.txt")).expect("setup");
     mark(&mut app, "notes.txt");
     let mut dialog = settings(to.path());
     dialog.existing = ExistingFiles::Overwrite;
     copy_with(&mut app, &dialog);
-    let status = app.status.to_string();
+    let copied = to.path().join("notes.txt");
     assert!(
-        status.contains("error") || status.contains("Error") || status.contains("exists"),
-        "{status}"
+        !fs::symlink_metadata(&copied).unwrap().is_symlink(),
+        "{}",
+        app.status
+    );
+    assert_eq!(fs::read(copied).unwrap(), b"payload");
+    assert!(
+        !to.path().join("nowhere-at-all").exists(),
+        "not written through"
     );
 }
 
@@ -125,10 +133,9 @@ fn zz_probe_dangling_symlink_dest_via_public_copy() {
 fn zz_probe_readonly_target_dir_permission_denied() {
     let (mut app, _from, to) = app_with(&[("notes.txt", b"payload")]);
     mark(&mut app, "notes.txt");
-    fs::set_permissions(to.path(), fs::Permissions::from_mode(0o555)).expect("setup");
+    let _read_only = crate::test_support::ModeGuard::set(to.path(), 0o555).expect("setup");
     let euid = crate::platform::effective_uid();
     let result = handle_copy(&mut app);
-    fs::set_permissions(to.path(), fs::Permissions::from_mode(0o755)).expect("cleanup");
     let status = app.status.to_string();
     eprintln!("euid={euid} result={result:?} status={status}");
     assert!(

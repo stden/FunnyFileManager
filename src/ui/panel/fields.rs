@@ -4,7 +4,7 @@
 
 use super::super::{head_cells, take_cells, Cells};
 use super::columns::SIZE_COLUMN_WIDTH;
-use crate::models::{divide_rounded, DirEntry};
+use crate::models::{divide_rounded, DirEntry, EntryKind};
 
 /// The row that leads out of a directory, which the Size column labels "Up".
 const PARENT_DIR: &str = "..";
@@ -88,8 +88,13 @@ pub(in crate::ui) fn size_field(entry: &DirEntry) -> String {
     if entry.name == PARENT_DIR {
         return "Up".to_owned();
     }
-    if entry.kind.is_dir() {
-        return "Folder".to_owned();
+    // A link to a folder is entered like one, but it is not one: it says so
+    // where a folder says "Folder". A link to a file shows its target's size.
+    match entry.kind {
+        EntryKind::SymlinkToDirectory => return "Link".to_owned(),
+        EntryKind::BrokenSymlink => return "Broken".to_owned(),
+        EntryKind::Directory => return "Folder".to_owned(),
+        EntryKind::File | EntryKind::SymlinkToFile => {}
     }
     let bytes = entry.size.bytes();
     let exact = bytes.to_string();

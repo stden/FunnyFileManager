@@ -1,4 +1,5 @@
-//! Unit tests: delete and edit (split out to keep files under 500 lines).
+//! Unit tests: F8 of files and folders, keys the viewer and help ignore, and
+//! F4 through the editor seam.
 
 use super::support::*;
 use crate::ops::*;

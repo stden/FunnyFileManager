@@ -116,6 +116,9 @@ pub(super) const DROP_MARKER: char = '↓';
 /// How one radio option is drawn when it is, and is not, the chosen one.
 pub(super) const RADIO_ON: &str = "(•) ";
 pub(super) const RADIO_OFF: &str = "( ) ";
+/// What stands between two radio options, so `Default ( ) Copy` does not
+/// read as `Default( ) Copy`.
+pub(super) const RADIO_GAP: &str = " ";
 
 impl Row<'_> {
     /// The columns this row needs, so the frame can be sized before it is drawn.
@@ -138,7 +141,8 @@ impl Row<'_> {
                     .iter()
                     .map(|option| plain(option) + Cells::of(RADIO_ON))
                     .sum();
-                plain(caption) + Cells::new(1) + choices
+                let gaps = Cells::of(&RADIO_GAP.repeat(options.len().saturating_sub(1)));
+                plain(caption) + Cells::new(1) + choices + gaps
             }
             Self::Choice { caption, .. } | Self::Field { caption, .. } => {
                 plain(caption) + Cells::new(caption_gap(caption) + CHOICE_WIDTH + 1)

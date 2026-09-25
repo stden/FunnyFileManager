@@ -1,13 +1,13 @@
 use crate::path_env::{Scope, Snapshot};
-use std::{
-    fs, io,
-    io::Write,
-    os::unix::fs::PermissionsExt,
-    path::{Path, PathBuf},
-};
+use std::fs;
+use std::io::{self, Write};
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
 
-const START: &str = "# FFM PATH begin";
-const END: &str = "# FFM PATH end";
+mod text;
+use text::{assignment, profile_block, replace};
+/// Why the user's PATH has no profile to live in.
+const NO_HOME: &str = "No home folder: HOME is not set to an absolute path";
 
 #[derive(Clone, Copy)]
 enum Format {
@@ -28,7 +28,25 @@ pub fn read(scope: Scope) -> io::Result<Snapshot> {
 
 pub fn write(scope: Scope, previous: &Snapshot, value: &str) -> io::Result<()> {
     let (path, format) = location(scope)?;
-    write_expanded_at(&path, format, previous, value)
+    write_expanded_at(&path, format, previous, value).map_err(|error| refused(scope, &path, error))
+}
+
+/// A refused save names the PATH file, not the temp file beside it that
+/// the kernel refused (`Permission denied (os error 13) at path
+/// "/etc/.tmp9N39xw"`), and says what the PATH of all users needs.
+fn refused(scope: Scope, path: &Path, error: io::Error) -> io::Error {
+    if error.kind() != io::ErrorKind::PermissionDenied {
+        return error;
+    }
+    let rights = if scope == Scope::System {
+        super::NEEDS_ADMINISTRATOR
+    } else {
+        ""
+    };
+    io::Error::new(
+        error.kind(),
+        format!("{}: permission denied{rights}", path.display()),
+    )
 }
 
 fn write_expanded_at(
@@ -57,9 +75,9 @@ fn location(scope: Scope) -> io::Result<(PathBuf, Format)> {
             ("/etc/environment".into(), Format::Environment)
         });
     }
-    let user_home = std::env::var_os("HOME").ok_or_else(|| io::Error::other("HOME is missing"))?;
+    let user_home = crate::config::user_home().ok_or_else(|| io::Error::other(NO_HOME))?;
     let shell = std::env::var("SHELL").unwrap_or_default();
-    Ok((user_profile(Path::new(&user_home), &shell), Format::Profile))
+    Ok((user_profile(&user_home, &shell), Format::Profile))
 }
 
 fn user_profile(user_home: &Path, shell: &str) -> PathBuf {
@@ -74,8 +92,9 @@ fn user_profile(user_home: &Path, shell: &str) -> PathBuf {
     user_home.join(name)
 }
 
+/// The file's text, empty when there is none; never a FIFO's, which would wait.
 fn contents(path: &Path) -> io::Result<String> {
-    match fs::read_to_string(path) {
+    match crate::fileload::read_small_file(path, &path.display().to_string()) {
         Ok(text) => Ok(text),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(String::new()),
         Err(error) => Err(error),
@@ -100,37 +119,6 @@ fn read_at(path: &Path, format: Format, inherited: &str) -> io::Result<Snapshot>
         revision: text,
         location: path.display().to_string(),
     })
-}
-
-fn assignment(text: &str) -> Option<String> {
-    text.lines().find_map(|line| {
-        line.trim()
-            .strip_prefix("PATH=")
-            .map(|value| unquote(value.trim()).replace("'\\''", "'"))
-    })
-}
-
-fn unquote(value: &str) -> &str {
-    for quote in ['\'', '"'] {
-        if let Some(inner) = value
-            .strip_prefix(quote)
-            .and_then(|rest| rest.strip_suffix(quote))
-        {
-            return inner;
-        }
-    }
-    value
-}
-
-fn profile_block(text: &str) -> io::Result<Option<&str>> {
-    let block = match (text.find(START), text.find(END)) {
-        (None, None) => return Ok(None),
-        (Some(start), Some(end)) if start < end => text.get(start..end + END.len()),
-        _ => None,
-    };
-    block
-        .map(Some)
-        .ok_or_else(|| io::Error::other("Incomplete FFM PATH block; fix the profile before saving"))
 }
 
 fn write_at(path: &Path, format: Format, previous: &Snapshot, value: &str) -> io::Result<()> {
@@ -165,35 +153,7 @@ fn replace_file(path: &Path, text: &str, mode: u32) -> io::Result<()> {
     Ok(())
 }
 
-fn replace(text: &str, format: Format, value: &str) -> io::Result<String> {
-    match format {
-        Format::Paths => Ok(format!("{}\n", value.replace(':', "\n"))),
-        Format::Profile => {
-            let block = format!(
-                "{START}\nPATH='{}'\nexport PATH\n{END}",
-                value.replace('\'', "'\\''")
-            );
-            Ok(profile_block(text)?.map_or_else(
-                || format!("{text}\n{block}\n"),
-                |old| text.replace(old, &block),
-            ))
-        }
-        Format::Environment => {
-            if value.contains(['"', '\\', '$', '`']) {
-                return Err(io::Error::other(
-                    "This path cannot be represented in /etc/environment",
-                ));
-            }
-            let mut lines: Vec<_> = text
-                .lines()
-                .filter(|line| !line.trim().starts_with("PATH="))
-                .map(str::to_owned)
-                .collect();
-            lines.push(format!("PATH=\"{value}\""));
-            Ok(format!("{}\n", lines.join("\n")))
-        }
-    }
-}
-
+#[cfg(test)]
+use text::START;
 #[cfg(test)]
 mod tests;

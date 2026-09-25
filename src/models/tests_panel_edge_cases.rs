@@ -1,4 +1,4 @@
-//! Unit tests: panel edge cases (split out to keep files under 500 lines).
+//! Unit tests: panel edge cases.
 
 use crate::models::FileName;
 use crate::models::Modified;

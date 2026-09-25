@@ -163,6 +163,9 @@ fn kernel_threads_join_the_list_with_capital_k_only() {
     assert_eq!(tasks.shown(), [10]);
     chord(&mut tasks, KeyCode::Char('k'), KeyModifiers::SHIFT);
     assert_eq!(tasks.shown(), [2, 10]);
+    // The cursor nobody moved keeps the first row, now kthreadd's; vim is
+    // the one `k` can signal.
+    press(&mut tasks, KeyCode::Down);
     press(&mut tasks, KeyCode::Char('k'));
     assert!(matches!(
         tasks.list().modal(),

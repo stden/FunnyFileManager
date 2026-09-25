@@ -43,6 +43,7 @@ fn dialog_mut(app: &mut App) -> &mut McpInstallDialog {
     }
 }
 
+mod config_problems;
 mod dialog_scope;
 mod home_folder;
 mod registering_clients;

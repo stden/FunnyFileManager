@@ -1,4 +1,5 @@
-//! Unit tests: copy move (split out to keep files under 500 lines).
+//! Unit tests: F5 and F6 — copying, moving across devices and as a rename —
+//! and F7/F8 corner cases.
 
 use super::support::*;
 use crate::ops::*;

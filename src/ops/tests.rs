@@ -8,6 +8,7 @@ mod drive_selection;
 mod marked_ops_and_errors;
 mod marks_and_bookmarks;
 mod misc_coverage;
+mod named_errors;
 mod new_file_and_drives;
 mod popup_command_line;
 mod popup_input_keys;

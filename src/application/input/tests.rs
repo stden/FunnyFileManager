@@ -143,3 +143,16 @@ fn batch_limit_yields_without_losing_the_rest() -> io::Result<()> {
     assert_eq!(input.read(&app)?, Some(Event::Paste("界".repeat(3))));
     Ok(())
 }
+
+#[test]
+fn discarding_empties_the_queue_and_notices_a_cancel_among_it() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let app = app_at(temp.path());
+    let mut typed = queued([key(KeyCode::F(8)), key(KeyCode::Esc), key(KeyCode::Enter)]);
+    assert!(typed.discard_queued()?);
+    assert_eq!(typed.read(&app)?, None);
+    let mut quiet = queued([key(KeyCode::F(8)), key(KeyCode::Enter)]);
+    assert!(!quiet.discard_queued()?);
+    assert_eq!(quiet.read(&app)?, None);
+    Ok(())
+}

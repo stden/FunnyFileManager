@@ -1,4 +1,5 @@
-//! Unit tests: marks and bookmarks (split out to keep files under 500 lines).
+//! Unit tests: typed bookmark, mark, sort, help and quit commands, F8's
+//! confirmation, and the viewer on a one-line file.
 
 use crate::models::FileName;
 use crate::scroll::ScrollTop;

@@ -63,7 +63,7 @@ fn a_listed_probe_offers_its_scan_and_skips_path_entries_it_cannot_read() {
     let unreadable = unreadable_dir(home.path());
     let probe = Probe::new(
         Some(home.path().join("cache")),
-        path_of(&[&missing, &file, &unreadable, &bin]),
+        path_of(&[&missing, &file, unreadable.as_ref(), &bin]),
     );
     assert_eq!(
         probe.programs(),
@@ -73,16 +73,14 @@ fn a_listed_probe_offers_its_scan_and_skips_path_entries_it_cannot_read() {
     assert!(probe.program(&["alpha"], "missing").is_ok());
 }
 
-/// A directory this user may not list. Root lists anything, so there it is
-/// merely an empty directory, which the scan skips the same way.
+/// A directory this user may not list while the guard lives; dropping it
+/// gives the mode back, so `home` can be removed. Root lists anything, so
+/// there it is merely an empty directory, which the scan skips the same way.
 #[cfg(unix)]
-fn unreadable_dir(home: &Path) -> PathBuf {
-    use std::os::unix::fs::PermissionsExt as _;
-
+fn unreadable_dir(home: &Path) -> crate::test_support::ModeGuard {
     let dir = home.join("locked");
     fs::create_dir(&dir).expect("locked");
-    fs::set_permissions(&dir, fs::Permissions::from_mode(0o000)).expect("chmod");
-    dir
+    crate::test_support::ModeGuard::set(&dir, 0o000).expect("chmod")
 }
 
 #[cfg(not(unix))]

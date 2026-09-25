@@ -1,6 +1,5 @@
-//! Unit tests for what the task list opens over its table: the kill and
-//! renice confirmations, the Priority form, process information, the Error
-//! dialog, the mask dialog, the help page, and the dialog tracker.
+//! Unit tests for the task list's confirmations: kill, send a signal and
+//! renice. The forms and pages it opens are in `tests_dialogs_info`.
 
 use crossterm::event::KeyCode;
 
@@ -104,6 +103,40 @@ fn the_confirmation_warns_when_the_target_runs_ffm() {
     assert_shows(
         &screen(&mut app),
         &["FFM runs inside 812 bash; ending it ends this session."],
+    );
+}
+
+/// The Send confirmation for the signal `down` rows below SIGTERM in the F9
+/// menu, aimed at the shell FFM runs inside.
+#[cfg(unix)]
+fn sending_to_the_shell_ffm_runs_in(down: usize) -> Vec<String> {
+    let ffm = ProcessSample {
+        parent: Some(pid(812)),
+        ..named(OWN, "ffm")
+    };
+    let mut app = TaskApp::open(vec![named(812, "bash"), ffm], Privilege::User);
+    app.list().select_index(0, 1);
+    app.press(KeyCode::F(9));
+    for _ in 0..down {
+        app.press(KeyCode::Down);
+    }
+    app.press(KeyCode::Enter);
+    screen(&mut app)
+}
+
+/// SIGCONT and SIGWINCH end nothing, yet the warning that ending the shell
+/// ends the session came with them too. SIGSTOP says what it does instead.
+#[cfg(unix)]
+#[test]
+fn the_shell_warning_comes_only_with_a_signal_that_ends_or_pauses_it() {
+    for (down, name) in [(7, "SIGCONT"), (12, "SIGWINCH")] {
+        let drawn = sending_to_the_shell_ffm_runs_in(down);
+        assert_shows(&drawn, &[&format!("Send {name} to the process?")]);
+        assert!(!shows(&drawn, "FFM runs inside"), "{name}: {drawn:#?}");
+    }
+    assert_shows(
+        &sending_to_the_shell_ffm_runs_in(6),
+        &["FFM runs inside 812 bash; pausing it freezes this session."],
     );
 }
 

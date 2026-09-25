@@ -207,7 +207,13 @@ can update the application even without a key press; tests inject events into
 the same loop. That wait is a `poll(2)` in `recording::tty`, not crossterm's:
 a terminal that hangs up shows there as `POLLHUP`, where crossterm's reader
 would read the dead terminal forever. The loop then quits the way F10 does,
-and a `:` or Ctrl+G command polling the same probe kills its process group.
+and a `:` or Ctrl+G command polling the same probe stops its process group:
+SIGHUP first, SIGKILL for whatever is left once the shell is gone or a
+one-second grace is over (Esc and the timeout stop a command the same way).
+A live session also catches SIGHUP and SIGTERM (`terminal::hang_up`): the
+terminal's owner sends one as it goes, and dying of it on the spot left the
+command, whose own group nobody tells, running under init. The probe reads a
+caught signal as a lost terminal; a second signal ends FFM at once.
 Whether crossterm reads stdin is decided once, as crossterm decides it,
 because a hung-up terminal fails `isatty`. Drawing on or restoring a hung-up
 terminal fails too; bootstrap treats that as the end of the session, not an

@@ -58,7 +58,7 @@ impl Panel {
                 drop(self.load_entries());
                 self.select(previous_selection);
                 self.ensure_selection();
-                return Err(error);
+                return Err(crate::utils::FailedAt::wrap(&path, error));
             }
         };
         let mut updated = self.clone();

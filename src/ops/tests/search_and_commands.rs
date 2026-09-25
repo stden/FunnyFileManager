@@ -1,4 +1,5 @@
-//! Unit tests: search and commands (split out to keep files under 500 lines).
+//! Unit tests: F3 and command-line error paths, invalid typed commands, and
+//! the viewer's limits.
 
 use crate::scroll::ScrollTop;
 

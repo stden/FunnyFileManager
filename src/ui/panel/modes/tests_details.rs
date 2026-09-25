@@ -120,3 +120,37 @@ fn narrow_detail_views_preserve_names_and_directory_sizes_are_words() {
         assert_eq!(narrow.trim(), "folder");
     }
 }
+
+/// The columns where the left panel of a 100x20 screen draws a `│` on
+/// `row`.
+fn column_lines(app: &mut crate::models::App, row: usize) -> Vec<usize> {
+    let mut terminal =
+        ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 20)).expect("terminal");
+    terminal.draw(|f| crate::ui::ui(f, app)).expect("draw");
+    let buffer = terminal.backend().buffer();
+    (0..50)
+        .filter(|&column| buffer[(column, u16::try_from(row).expect("row"))].symbol() == "│")
+        .map(usize::from)
+        .collect()
+}
+
+/// Below the last entry the column lines of these views stopped short, while
+/// Full and Medium draw theirs down to the divider.
+#[test]
+fn detail_views_draw_their_column_lines_below_the_last_entry() {
+    let (_temp, mut app) = fixture();
+    for view in [
+        PanelView::Detailed,
+        PanelView::Descriptions,
+        PanelView::LongDescriptions,
+        PanelView::Owners,
+        PanelView::Links,
+        PanelView::Alternative,
+    ] {
+        app.left_panel.view = view;
+        let header = column_lines(&mut app, 2);
+        assert!(!header.is_empty(), "{view:?} has columns");
+        // Three entries fill rows 3 to 5; row 12 is well below them.
+        assert_eq!(column_lines(&mut app, 12), header, "{view:?}");
+    }
+}

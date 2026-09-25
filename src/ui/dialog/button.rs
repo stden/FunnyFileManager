@@ -70,7 +70,7 @@ impl Button<'_> {
 ///
 /// The same centring `button_line` draws with, so a click lands on the button
 /// the user is looking at.
-pub(in crate::ui) fn button_spans(
+pub(super) fn button_spans(
     placement: &Placement,
     buttons: &[Button<'_>],
 ) -> Vec<(usize, u16, u16)> {

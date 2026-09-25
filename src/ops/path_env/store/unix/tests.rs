@@ -108,6 +108,69 @@ fn zz_probe136_write_at_propagates_non_notfound_read_error() {
     let temp = TempDir::new().expect("tempdir");
     let snapshot = read_at(&temp.path().join("profile"), Format::Profile, "/bin").expect("read");
     let error = write_at(temp.path(), Format::Profile, &snapshot, "/bin").expect_err("is a dir");
-    assert_eq!(error.raw_os_error(), Some(21));
+    assert_eq!(
+        error.to_string(),
+        format!("{} is not a regular file", temp.path().display())
+    );
 }
 // ZZPROBE136-END
+
+/// Saving the PATH of all users as a guest said `Permission denied (os
+/// error 13) at path "/etc/.tmp9N39xw"`: the temp file, and not a word
+/// about what the file needs.
+#[test]
+fn a_refused_save_names_the_path_file_and_the_rights_it_needs() {
+    let temp_file = || {
+        io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "Permission denied (os error 13) at path \"/etc/.tmp9N39xw\"",
+        )
+    };
+    let system = refused(Scope::System, Path::new("/etc/environment"), temp_file());
+    assert_eq!(
+        system.to_string(),
+        "/etc/environment: permission denied; the PATH of all users needs administrator rights"
+    );
+    assert_eq!(system.kind(), io::ErrorKind::PermissionDenied);
+    let user = refused(Scope::User, Path::new("/home/bob/.profile"), temp_file());
+    assert_eq!(user.to_string(), "/home/bob/.profile: permission denied");
+    let other = refused(
+        Scope::System,
+        Path::new("/etc/environment"),
+        io::Error::other(super::super::CHANGED_OUTSIDE),
+    );
+    assert_eq!(other.to_string(), super::super::CHANGED_OUTSIDE);
+}
+
+/// A FIFO where the profile goes: the PATH editor refuses it, naming it,
+/// instead of waiting for a writer.
+#[test]
+fn a_profile_that_is_not_a_regular_file_is_refused_without_waiting() {
+    let temp = TempDir::new().expect("tempdir");
+    let path = temp.path().join(".profile");
+    crate::test_support::make_fifo(&path).expect("fifo");
+    let shown = path.display().to_string();
+    let outcome =
+        crate::test_support::run_with_timeout(std::time::Duration::from_secs(5), move || {
+            read_at(&path, Format::Profile, "/bin").map(|snapshot| snapshot.value)
+        })
+        .expect("the profile is not waited on");
+    assert_eq!(
+        outcome.map_err(|error| error.to_string()),
+        Err(format!("{shown} is not a regular file"))
+    );
+}
+
+/// Under an empty `HOME=` the profile was `.profile` in the launch directory,
+/// and a save wrote a PATH block there. Without an absolute home the user's
+/// PATH has no profile, and the editor says why.
+#[test]
+fn without_an_absolute_home_the_user_profile_has_no_place() {
+    for home in ["", "relative"] {
+        let _home = crate::test_support::EnvVarGuard::set("HOME", Path::new(home));
+        let Err(error) = location(Scope::User) else {
+            panic!("HOME={home:?} is no home");
+        };
+        assert_eq!(error.to_string(), NO_HOME);
+    }
+}

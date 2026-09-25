@@ -285,6 +285,13 @@ jobs:
       - name: Lint Windows code and tests
         if: ${{ !cancelled() }}
         run: cargo clippy --all-targets --features test-helpers -- -D warnings
+      # The MCP server's cfg(windows) code (list_drives' drive letters) is
+      # compiled only here; the Lint job's Clippy of mcp/ runs on Linux and
+      # never sees it.
+      - name: Lint the MCP server's Windows code
+        if: ${{ !cancelled() }}
+        working-directory: mcp
+        run: cargo clippy --all-targets -- -D warnings
       - name: Upload terminal screen transcripts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

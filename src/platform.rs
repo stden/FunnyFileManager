@@ -23,6 +23,8 @@ pub use unix::{check_write_access, effective_uid, is_root, kill_process_group, r
 #[cfg(unix)]
 pub use unix::{clock_ticks_per_second, page_size};
 #[cfg(unix)]
+pub use unix::{hang_up_process_group, has_exited};
+#[cfg(unix)]
 pub use unix::{set_niceness, signal_process};
 #[cfg(windows)]
 pub use windows::{
@@ -40,6 +42,9 @@ pub const fn is_root() -> bool {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+#[cfg(unix)]
+mod tests_groups;
 #[cfg(test)]
 #[cfg(unix)]
 mod tests_kernel_constants;

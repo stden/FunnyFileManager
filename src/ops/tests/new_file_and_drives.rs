@@ -1,4 +1,5 @@
-//! Unit tests: new file and drives (split out to keep files under 500 lines).
+//! Unit tests: Enter in the drive dialog and typing at the command line, new
+//! files and folders, shell output on the status bar, and F3/F8 corner cases.
 
 use crate::models::FileName;
 

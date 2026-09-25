@@ -25,6 +25,7 @@ mod netbox_layout;
 mod netbox_layout_dialogs;
 mod netbox_remote;
 mod netbox_sessions;
+mod netbox_status;
 mod overlay_confirm;
 mod overlay_controls;
 mod overlay_drives;

@@ -10,6 +10,47 @@ fn the_first_snapshot_puts_the_cursor_on_the_first_row() {
     assert_eq!(list.offset(), 0);
 }
 
+/// Samples 1..=5 a second apart, with `busy` using the whole second.
+fn cpu_sorted(list: &mut TaskList, busy: u32) {
+    use super::super::tests_support::{counters, sample, system};
+    let processes = (1..=5)
+        .map(|raw| ProcessSample {
+            cpu_time: std::time::Duration::from_secs(u64::from(raw == busy)),
+            ..process(raw, "p")
+        })
+        .collect();
+    let now = std::time::Instant::now();
+    list.take_request(now);
+    let total = counters(2, 1, 1);
+    list.apply_sample(Ok(sample(system(total, &[total]), processes)), now);
+}
+
+/// The first snapshot is ordered by PID; the next one by CPU%. The cursor
+/// nobody had moved followed PID 1 down the list: it keeps the first row.
+#[test]
+fn an_unmoved_cursor_keeps_the_first_row_when_cpu_sorts_the_list() {
+    let mut list = listing((1..=5).map(|raw| process(raw, "p")).collect());
+    assert_eq!(cursor_pid(&list), Some(1));
+    cpu_sorted(&mut list, 4);
+    assert_eq!(shown(&list).first(), Some(&4), "sorted by CPU%");
+    assert_eq!(list.cursor().map(Cursor::index), Some(0));
+    assert_eq!(cursor_pid(&list), Some(4));
+}
+
+/// Once the user puts the cursor on a process, it follows that process.
+#[test]
+fn a_moved_cursor_follows_its_process_when_the_list_re_sorts() {
+    let mut list = listing((1..=5).map(|raw| process(raw, "p")).collect());
+    list.move_cursor(ListMotion::Down, PAGE);
+    cpu_sorted(&mut list, 4);
+    assert_eq!(cursor_pid(&list), Some(2));
+    assert_ne!(
+        list.cursor().map(Cursor::index),
+        Some(1),
+        "it moved with PID 2"
+    );
+}
+
 #[test]
 fn an_empty_list_has_no_cursor_and_ignores_moves() {
     let mut list = listing(Vec::new());

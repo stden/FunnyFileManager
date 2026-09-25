@@ -68,8 +68,33 @@ fn a_save_that_cannot_create_the_config_directory_says_which() {
     let error = save(&blocked.join(FILE_NAME), 1).expect_err("refused");
     let message = error.to_string();
     assert!(
-        message.starts_with(&format!("{NOT_SAVED}{}: ", blocked.display())),
+        message.starts_with(&format!("{NOT_SAVED}cannot create folder ffm: ")),
         "{message}"
+    );
+}
+
+/// A settings file this user may not write (0444, as a guest) was refused
+/// as `Not saved: /tmp/…/.config/ffm/settings.yaml: permission denied`,
+/// and at 120 columns the reason fell off the end of the status line. Root
+/// writes past the mode bits, so there it is saved.
+#[cfg(unix)]
+#[test]
+fn a_read_only_settings_file_is_refused_by_its_name() {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let temp = TempDir::new().expect("tempdir");
+    let path = settings_path(&temp);
+    write_file(&path, "counter: 1\n");
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).expect("chmod");
+    let result = update(&path, &Counter { counter: 1 }, &Counter { counter: 2 });
+    if crate::platform::is_root() {
+        result.expect("root writes past the mode bits");
+        return;
+    }
+    let error = result.expect_err("refused");
+    assert_eq!(
+        error.to_string(),
+        "Not saved: settings.yaml: permission denied"
     );
 }
 
@@ -80,4 +105,28 @@ fn only_a_mapping_can_be_saved() {
     let error = update(&path, &Vec::new(), &vec![1_u32]).expect_err("a list has no keys");
     assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
     assert!(!path.exists());
+}
+
+/// A FIFO where the lock goes: opening it for writing waited for a reader
+/// that never came, and the save — on the event loop, and again at exit —
+/// froze FFM with Esc and F10 dead. The lock must be a regular file, and
+/// looking at one never waits.
+#[cfg(unix)]
+#[test]
+fn a_lock_that_is_not_a_regular_file_refuses_the_save_without_waiting() {
+    let temp = TempDir::new().expect("tempdir");
+    let path = settings_path(&temp);
+    write_file(&path, "counter: 1\n");
+    let mut lock = path.clone().into_os_string();
+    lock.push(LOCK_SUFFIX);
+    crate::test_support::make_fifo(Path::new(&lock)).expect("a FIFO where the lock goes");
+    let outcome =
+        crate::test_support::run_with_timeout(std::time::Duration::from_secs(5), move || {
+            save(&path, 2).map_err(|error| error.to_string())
+        })
+        .expect("the save must not wait on the FIFO");
+    assert_eq!(
+        outcome,
+        Err("Not saved: settings.yaml.lock: not a regular file".to_owned())
+    );
 }

@@ -7,9 +7,8 @@ use std::sync::atomic::Ordering;
 
 use tempfile::TempDir;
 
-use super::{
-    copy_into, move_into, FORCE_RENAME_FAILURE, FORCE_TRANSFER_COLLISION, RENAME_TEST_MUTEX,
-};
+use super::transfer::{copy_into, move_into};
+use super::{FORCE_RENAME_FAILURE, FORCE_TRANSFER_COLLISION, RENAME_TEST_MUTEX};
 
 /// RAII reset so a panicking assertion cannot leak the collision flag into the
 /// rest of this thread's tests.

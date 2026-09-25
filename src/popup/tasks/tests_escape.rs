@@ -37,7 +37,10 @@ fn every_modal(tasks: &mut TaskApp) -> Vec<Modal> {
         )),
         Modal::Priority(PriorityForm::new(targets, nice(0))),
         Modal::Renice(NiceConfirm::new(list.plan_step(NiceStep::Lower))),
-        Modal::Error(vec![failure]),
+        Modal::Error {
+            done: None,
+            failures: vec![failure],
+        },
     ]
 }
 

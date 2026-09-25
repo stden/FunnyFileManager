@@ -103,7 +103,7 @@ fn a_refused_raise_is_worded_as_needing_root() {
         .host
         .fail(key_of(4242), ControlError::PermissionDenied);
     step_nice(&mut tasks.app, NiceStep::Raise);
-    let Modal::Error(failures) = tasks.list().modal() else {
+    let Modal::Error { failures, .. } = tasks.list().modal() else {
         panic!("the error dialog is open");
     };
     assert_eq!(

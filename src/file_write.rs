@@ -1,7 +1,7 @@
 //! Purpose: Replace a file's contents without changing who may write it — the
 //! writability check, the symlink and hard-link rules, and the atomic
-//! temp-file-and-rename that the built-in editor, the `KeePass` writer and the
-//! settings writer share.
+//! temp-file-and-rename that the built-in editor, the `KeePass` writer, the
+//! settings and the stored sessions share.
 //!
 //! One module because every writer replaces a file by renaming a fresh temp
 //! file over it, and that rename, left to itself, ignores the file's own
@@ -14,9 +14,13 @@ use std::{
     path::Path,
 };
 
+mod owner_only;
 mod target;
 
-pub use target::{has_other_names, owned_by_us, real_target, DanglingLink};
+pub use owner_only::{create_dirs_owner_only, replace_owner_only, write_owner_only};
+pub use target::{
+    has_other_names, owned_by_us, real_target, replacing_changes_identity, DanglingLink,
+};
 
 /// Refuse a write the filesystem would otherwise let through for the wrong
 /// reason.
@@ -30,13 +34,20 @@ pub use target::{has_other_names, owned_by_us, real_target, DanglingLink};
 /// `fs::write` really opens the file, but the check sits ahead of both so
 /// that one refusal has one message.
 pub fn ensure_writable(target: &Path) -> io::Result<()> {
-    match refusal(target) {
-        None => Ok(()),
-        Some(refusal) => Err(io::Error::new(
+    refuse_unwritable(target)
+        .map_err(|error| io::Error::new(error.kind(), format!("{}: {error}", target.display())))
+}
+
+/// [`ensure_writable`] with the refusal alone (`permission denied`), for a
+/// caller that names the file its own way: by its name alone, or in a
+/// sentence of its own that already quotes the path.
+pub fn refuse_unwritable(target: &Path) -> io::Result<()> {
+    refusal(target).map_or(Ok(()), |refusal| {
+        Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
-            format!("{}: {refusal}", target.display()),
-        )),
-    }
+            refusal.to_string(),
+        ))
+    })
 }
 
 /// Why a write is refused before it starts.

@@ -16,7 +16,11 @@ use crate::search::Direction;
 use crate::status::Status;
 
 use claude::CLI_TIMEOUT;
+pub use report::problem_section;
 use report::{Registration, REPORT_TITLE};
+// The unit tests reach it through `use super::*`.
+#[cfg(test)]
+use report::CONFIG_PROBLEMS;
 pub use survey::survey;
 use survey::{project_dir, Target};
 pub use system::system_host;
@@ -114,6 +118,8 @@ struct Request {
     clients: Vec<ClientId>,
     scope: Scope,
     folder: Option<ProjectDir>,
+    /// The configs the dialog dimmed because they cannot be used.
+    problems: Vec<String>,
 }
 
 /// The request when Register can go ahead. Otherwise a dialog with no
@@ -136,6 +142,7 @@ fn ready(app: &mut App) -> Option<Request> {
         clients,
         scope: dialog.scope,
         folder: dialog.folder.clone(),
+        problems: problem_section(dialog.rows.iter().map(|row| &row.status)),
     })
 }
 
@@ -156,7 +163,14 @@ pub fn register(app: &mut App) {
         .into_iter()
         .map(|client| register_client(&app.live.mcp_host, client, target, server))
         .collect();
-    let lines = report::lines(server, target, &registrations);
+    let lines = report::lines(server, target, &registrations, &request.problems);
+    // The configs were written where a panel may be looking — Current folder
+    // is the active panel's own folder — so the panels list them now. The
+    // registration's outcome is the status; a folder that cannot be read
+    // again is only logged.
+    if let Err(error) = crate::utils::refresh_panels(app) {
+        crate::diagnostics::log_error(&format!("MCP registration: refreshing the panels: {error}"));
+    }
     app.close_overlay();
     app.set_overlay(Overlay::Viewer(Viewer::report(REPORT_TITLE, lines)));
     app.set_status(report::status(&registrations));

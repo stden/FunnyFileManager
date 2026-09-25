@@ -3,6 +3,7 @@ Feature: Language servers dialog
   Background:
     Given a TUI workspace
     And the fake machine has the program "fixture-server"
+    And the fake machine has the program "python3"
     And the workspace settings file "settings.yaml" holds:
       """
       options:

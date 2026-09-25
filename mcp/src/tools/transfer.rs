@@ -24,10 +24,10 @@ pub struct CopyMoveParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct DeleteParams {
     /// Path to delete
-    pub path: String,
+    path: String,
     /// Allow recursive directory deletion (default: true)
     #[serde(default = "default_true")]
-    pub recursive: bool,
+    recursive: bool,
 }
 
 #[tool_router(router = transfer_tools, vis = "pub(super)")]

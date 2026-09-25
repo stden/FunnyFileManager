@@ -9,6 +9,8 @@ use std::path::PathBuf;
 use ratatui::{backend::CrosstermBackend, Terminal};
 
 use crate::models::App;
+use crate::recording::{Input, RecordingDisabled};
+use at_exit::end_session;
 
 pub fn run() -> Result<(), Box<dyn Error>> {
     crate::diagnostics::run_with(main_impl)
@@ -16,16 +18,22 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
 fn main_impl() -> Result<(), Box<dyn Error>> {
     let args = std::env::args_os().skip(1).collect::<Vec<_>>();
-    let mut input = crate::recording::Input::from_args(&args, crossterm::terminal::size()?)?;
-    run_session(&mut input)
+    let (mut input, disabled) = Input::from_args(&args, crossterm::terminal::size()?)?;
+    run_session(&mut input, disabled)
 }
 
-fn run_session(input: &mut crate::recording::Input) -> Result<(), Box<dyn Error>> {
+fn run_session(
+    input: &mut Input,
+    disabled: Option<RecordingDisabled>,
+) -> Result<(), Box<dyn Error>> {
     let mut app = load_app()?;
     crate::diagnostics::log_action("App initialized successfully");
 
     load_persisted(&mut app);
     crate::ops::menu::settings::load_default(&mut app);
+    if let Some(disabled) = disabled {
+        app.set_status(crate::status::Status::Error(disabled.to_string()));
+    }
 
     let stdout = io::stdout();
     let backend = CrosstermBackend::new(stdout);
@@ -40,6 +48,11 @@ fn run_session(input: &mut crate::recording::Input) -> Result<(), Box<dyn Error>
         previous_hook(info);
     }));
 
+    // Only a live session has a terminal to lose; a replay ends on its own.
+    #[cfg(unix)]
+    if matches!(input, Input::Live(_)) {
+        crate::terminal::watch_for_hang_up()?;
+    }
     let mut terminal_ops = crate::terminal::CrosstermOps;
     let mut session = crate::terminal::TerminalSession::enter(&mut terminal, &mut terminal_ops)?;
 
@@ -58,7 +71,7 @@ fn run_session(input: &mut crate::recording::Input) -> Result<(), Box<dyn Error>
 /// The machine the session works on, as `input` allows: a replay gets the
 /// recorded clipboard, the process table read-only, and none of what only
 /// live input gets.
-fn install_hosts(app: &mut App, input: &crate::recording::Input) {
+fn install_hosts(app: &mut App, input: &Input) {
     app.clipboard
         .install(input.clipboard(Box::new(crate::clipboard::SystemClipboard::with_stdout())));
     // The task list reads and controls processes through this host. A replay
@@ -74,8 +87,8 @@ fn install_hosts(app: &mut App, input: &crate::recording::Input) {
 /// give it. Nor does a replay get the real machine: replaying a session never
 /// edits an MCP client's config, and its Language servers dialog probes
 /// nothing.
-fn live_input(input: &crate::recording::Input) -> crate::models::LiveInput {
-    if !matches!(input, crate::recording::Input::Live(_)) {
+fn live_input(input: &Input) -> crate::models::LiveInput {
+    if !matches!(input, Input::Live(_)) {
         return crate::models::LiveInput::default();
     }
     crate::models::LiveInput {
@@ -83,25 +96,6 @@ fn live_input(input: &crate::recording::Input) -> crate::models::LiveInput {
         mcp_host: crate::ops::mcp_install::system_host(),
         lsp_probe: crate::lsp::Probe::from_process(),
     }
-}
-
-/// Report how the session ended, and hand `main` its outcome.
-///
-/// A terminal that hung up can be neither drawn on nor restored, so the errors
-/// that say so are how the session ended, not a failure of it: the loop quits
-/// on a hang-up the way F10 asks. Reporting them would also write to the dead
-/// terminal, and `eprintln!` panics when that write fails.
-fn end_session(
-    app: &App,
-    run_result: io::Result<()>,
-    cleanup_result: io::Result<()>,
-) -> Result<(), Box<dyn Error>> {
-    if crate::recording::wait_for_terminal(std::time::Duration::ZERO).is_err() {
-        report_at_exit(app, &Ok(()));
-        return Ok(());
-    }
-    report_at_exit(app, &run_result);
-    crate::terminal::merge_run_and_cleanup(run_result, cleanup_result).map_err(Into::into)
 }
 
 fn load_app() -> io::Result<App> {
@@ -114,46 +108,9 @@ fn load_app() -> io::Result<App> {
     let start = crate::ops::panel_session::start_directory(
         std::env::current_dir(),
         std::env::var_os("PWD").map(PathBuf::from),
-        std::env::var_os("HOME")
-            .or_else(|| std::env::var_os("USERPROFILE"))
-            .map(PathBuf::from),
+        crate::config::user_home(),
     )?;
     crate::ops::panel_session::load(&start, persistence)
-}
-
-/// Everything that has to wait for the screen to be the user's again: the
-/// state written back to disk, a recording that gave up halfway, and the
-/// failure that ended the session, if one did.
-#[expect(
-    clippy::print_stderr,
-    reason = "runs after the terminal is restored: stderr is the only channel left for a failure"
-)]
-fn report_at_exit(app: &App, run_result: &io::Result<()>) {
-    persist_at_exit(app);
-    if let Err(error) = app.performance.save_session() {
-        eprintln!("ffm: could not save action statistics: {error}");
-    }
-    if let Some(reason) = crate::recording::stopped_reason() {
-        eprintln!("ffm: recording stopped: {reason}");
-    }
-    if let Err(error) = run_result {
-        eprintln!("{}", AtExitErrorLine(error));
-    }
-}
-
-/// The line a failed session leaves on stderr: the `io::Error` in its Debug
-/// form, which also names the `ErrorKind`. `main` prints the Display form
-/// after it.
-struct AtExitErrorLine<'error>(&'error io::Error);
-
-impl std::fmt::Display for AtExitErrorLine<'_> {
-    #[expect(
-        clippy::use_debug,
-        reason = "the exit line deliberately shows the io::Error's Debug form, which names its ErrorKind; main prints the Display form after it"
-    )]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Error: {:?}", self.0)
-    }
 }
 
 /// Load the command history, the settings, the view and folder histories,
@@ -173,23 +130,7 @@ fn load_persisted(app: &mut App) {
     crate::ops::sessions::install(app, crate::sessions::SessionStore::load());
 }
 
-/// Write the histories, and the settings when "Auto save setup" is on, after
-/// the terminal is back in the user's hands. Failures are logged, never
-/// raised: a full disk must not turn a clean exit into an error report.
-fn persist_at_exit(app: &App) {
-    let mut writes = vec![
-        ("view history", app.view_history.save()),
-        ("folder history", app.folder_history.save()),
-    ];
-    if app.config.system.auto_save_setup {
-        writes.push(("settings", app.config.save()));
-    }
-    for (what, result) in writes {
-        if let Err(error) = result {
-            crate::diagnostics::log_error(&format!("saving {what}: {error}"));
-        }
-    }
-}
+mod at_exit;
 
 #[cfg(test)]
 mod tests;

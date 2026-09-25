@@ -46,7 +46,7 @@
 use std::{
     borrow::Cow,
     fmt::Display,
-    fs, io,
+    io,
     path::{Path, PathBuf},
 };
 
@@ -78,9 +78,6 @@ const HEADER: &str =
 /// How every error of a save begins: the status line is half the screen
 /// wide, and the outcome must survive its truncation.
 const NOT_SAVED: &str = "Not saved: ";
-
-/// Largest settings file or language dictionary read, in bytes.
-const MAX_FILE_BYTES: u64 = 1_048_576;
 
 /// The syntax a stored settings file is written in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -128,7 +125,7 @@ pub fn read(path: &Path) -> io::Result<Option<Stored>> {
 
 /// `path` read as `format`, or `None` when there is no such file.
 fn read_as(path: &Path, format: Format) -> io::Result<Option<Stored>> {
-    let text = match read_small_file(path, &file_name(path)) {
+    let text = match crate::fileload::read_small_file(path, &file_name(path)) {
         Ok(text) => text,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(error),
@@ -139,24 +136,6 @@ fn read_as(path: &Path, format: Format) -> io::Result<Option<Stored>> {
         format,
         document,
     }))
-}
-
-/// The text of a small configuration file — the settings, or a language
-/// dictionary — with `what` naming it in every error.
-///
-/// Anything but a regular file is refused before it is opened: opening a FIFO
-/// blocks until something writes to it, and this runs on the event loop, so
-/// the whole UI froze. A FIFO or a device also reports a length of 0, which
-/// the size check alone lets through.
-pub fn read_small_file(path: &Path, what: &str) -> io::Result<String> {
-    let metadata = fs::metadata(path).map_err(|error| named(what, &error))?;
-    if !metadata.is_file() {
-        return Err(io::Error::other(format!("{what} is not a regular file")));
-    }
-    if metadata.len() > MAX_FILE_BYTES {
-        return Err(io::Error::other(format!("{what} exceeds 1 MiB")));
-    }
-    fs::read_to_string(path).map_err(|error| named(what, &error))
 }
 
 /// A file's name for messages; the directory is the user's own.

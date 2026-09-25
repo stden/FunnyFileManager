@@ -1,17 +1,26 @@
 //! Purpose: One bounded, regular-file-only read shared by the F3 viewer, the
-//! F4 editor and the `NetBox` session files.
+//! F4 editor, and every configuration and data file FFM keeps — settings,
+//! user menu, associations, histories, bookmarks, sessions — and the one
+//! open that never waits on a FIFO ([`open_regular`]).
 //!
 //! Every entry point needs the exact same three answers before it may load a
 //! file — "is this even a file?", "is it small enough?", "give me its bytes" —
 //! so the rule lives here once instead of being re-derived at each call site.
-//! Only the limit differs: a text UI takes [`MAX_FILE_SIZE`], a sessions file
-//! far less.
+//! Only the limit differs: a text UI takes [`MAX_FILE_SIZE`], a configuration
+//! or data file [`MAX_SMALL_FILE_BYTES`].
 
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read};
 use std::path::Path;
 
 use crate::utils::MAX_FILE_SIZE;
+
+mod open;
+
+pub use open::open_regular;
+
+/// The largest configuration or data file [`read_small_file`] reads.
+pub const MAX_SMALL_FILE_BYTES: u64 = 1_048_576;
 
 /// What reading a file for a text UI produced.
 ///
@@ -64,12 +73,33 @@ pub fn read_regular(path: &Path, limit: u64) -> io::Result<Loaded> {
         return Ok(Loaded::TooLarge(meta.len()));
     }
 
-    let bytes = read_bounded(File::open(path)?, limit)?;
+    let bytes = read_bounded(open_regular(path, OpenOptions::new().read(true))?, limit)?;
     let read_len = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
     if read_len > limit {
         return Ok(Loaded::TooLarge(read_len));
     }
     Ok(Loaded::Bytes(bytes))
+}
+
+/// The text of a small configuration or data file, with `what` naming it in
+/// every error: at most [`MAX_SMALL_FILE_BYTES`] of UTF-8 in a regular file.
+/// A missing file's error keeps its [`io::ErrorKind::NotFound`].
+///
+/// The guards of [`read_regular`]: a FIFO in the file's place froze the event
+/// loop inside `open`, and a link to `/dev/zero` read until memory ran out.
+pub fn read_small_file(path: &Path, what: &str) -> io::Result<String> {
+    let loaded = read_regular(path, MAX_SMALL_FILE_BYTES)
+        .map_err(|error| io::Error::new(error.kind(), format!("{what}: {error}")))?;
+    match loaded {
+        Loaded::Bytes(bytes) => String::from_utf8(bytes).map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("{what}: not UTF-8 text ({error})"),
+            )
+        }),
+        Loaded::NotRegular => Err(io::Error::other(format!("{what} is not a regular file"))),
+        Loaded::TooLarge(_) => Err(io::Error::other(format!("{what} exceeds 1 MiB"))),
+    }
 }
 
 /// Read at most one byte past the limit from `file`.

@@ -100,15 +100,42 @@ fn only_inherit_leaves_a_copied_file_as_it_was_created() {
     assert_eq!(AccessRights::Inherit.file_mode(), FileMode::Fresh);
 }
 
-/// The rules handed to the copy carry both of the dialog's choices that
-/// reach the files: the link box and the access rights.
+/// The rules handed to the copy carry every dialog choice that reaches the
+/// entries: the link box, the access rights for files and for folders (only
+/// Copy restates a folder's mode), and the timestamps box.
 #[test]
-fn the_copy_rules_carry_the_link_choice_and_the_rights() {
-    use crate::utils::{FileMode, LinkPolicy};
+fn the_copy_rules_carry_the_link_choice_the_rights_and_the_times() {
+    use crate::utils::{FileMode, LinkPolicy, Times};
 
     let mut dialog = prompt();
     dialog.rights = AccessRights::Inherit;
     let rules = dialog.rules();
     assert_eq!(rules.links, LinkPolicy::Recreate);
     assert_eq!(rules.modes, FileMode::Fresh);
+    assert_eq!(rules.folder_modes, FileMode::Fresh);
+    assert_eq!(rules.times, Times::Fresh);
+    dialog.rights = AccessRights::Copy;
+    dialog.timestamps = true;
+    let rules = dialog.rules();
+    assert_eq!(rules.folder_modes, FileMode::Source);
+    assert_eq!(rules.times, Times::Source);
+    assert_eq!(AccessRights::Default.folder_mode(), FileMode::Fresh);
+}
+
+/// A move copies only across filesystems, standing in for a rename that
+/// keeps everything: it keeps every time and folder mode unless Inherit
+/// asks for the destination's rights.
+#[test]
+fn a_move_keeps_times_and_folder_modes_as_mv_does() {
+    use crate::copy::Purpose;
+    use crate::utils::{FileMode, Times};
+
+    let mut dialog = prompt();
+    dialog.purpose = Purpose::Move;
+    let rules = dialog.rules();
+    assert_eq!(rules.times, Times::Source);
+    assert_eq!(rules.folder_modes, FileMode::Source);
+    assert_eq!(rules, crate::utils::CopyRules::MOVE);
+    dialog.rights = AccessRights::Inherit;
+    assert_eq!(dialog.rules().folder_modes, FileMode::Fresh);
 }

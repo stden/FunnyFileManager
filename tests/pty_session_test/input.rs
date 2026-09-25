@@ -45,7 +45,7 @@ fn the_language_servers_dialog_finds_a_server_on_the_path_ffm_runs_with() {
     let inherited = std::env::var_os("PATH").unwrap_or_default();
     let path = std::env::join_paths(std::iter::once(bin).chain(std::env::split_paths(&inherited)))
         .expect("PATH");
-    let mut ffm = Ffm::start_in(sandbox, &path);
+    let mut ffm = Ffm::start_in(sandbox, &path, &[]);
 
     ffm.type_keys(b":lsp\r");
     // The status is checked before the dialog is drawn, so the first frame

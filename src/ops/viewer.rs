@@ -5,7 +5,7 @@ use std::{io, path::PathBuf};
 use crate::fileload::{read_for_text_ui, Loaded};
 use crate::mcp_clients::{server_lines, Host, ProjectDir, Scope, Survey};
 use crate::models::{App, FileSize, Overlay, Viewer};
-use crate::ops::mcp_install::survey;
+use crate::ops::mcp_install::{problem_section, survey};
 use crate::status::Status;
 use crate::utils::MAX_FILE_SIZE;
 
@@ -88,6 +88,8 @@ fn mcp_client_lines(host: &Host, folder: Option<ProjectDir>) -> Vec<String> {
             status.state.label()
         ));
     }
+    let surveyed = here.iter().flat_map(|here| &here.clients);
+    lines.extend(problem_section(everywhere.clients.iter().chain(surveyed)));
     lines
 }
 
@@ -130,7 +132,8 @@ pub fn view_path(app: &mut App, selected: PathBuf) -> io::Result<()> {
     // `File::open`, /dev/zero would be read until the OOM killer fires — both
     // report `len() == 0`, so the size check alone never saw them), and it
     // bounds the read itself.
-    let bytes = match read_for_text_ui(&selected)? {
+    let loaded = read_for_text_ui(&selected);
+    let bytes = match loaded.map_err(|error| crate::utils::FailedAt::wrap(&selected, error))? {
         Loaded::Bytes(bytes) => bytes,
         Loaded::NotRegular => {
             app.set_status(Status::NotRegularFile(selected.display().to_string()));

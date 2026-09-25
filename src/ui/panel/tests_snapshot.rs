@@ -8,6 +8,7 @@ use tempfile::TempDir;
 use crate::models::{DirectoryListing, FileName, FileSize, PanelMetadata};
 
 use super::*;
+use crate::models::DirEntry;
 
 fn draw(panel: &mut Panel) -> Buffer {
     let mut terminal = Terminal::new(TestBackend::new(80, 10)).expect("test terminal");
@@ -109,6 +110,8 @@ fn a_filtered_panel_carries_a_star_before_its_path() -> io::Result<()> {
 #[cfg(windows)]
 #[test]
 fn canonical_paths_use_ordinary_spelling_in_the_panel_title() {
+    use crate::ui::tail_cells;
+
     let temp = TempDir::new().unwrap();
     let canonical = temp.path().canonicalize().unwrap();
     let mut panel = Panel::from_entries(canonical.clone(), Vec::new());

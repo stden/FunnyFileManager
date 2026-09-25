@@ -72,3 +72,31 @@ fn folder_search_respects_depth_and_entry_limits() {
     submit(&mut app, MenuCommand::FindFolder, "*").unwrap();
     assert!(rows(&app).len() <= 1);
 }
+
+/// Alt+F7 with text: a 10.5 MB log with the text on its first line used to be
+/// skipped for its size, and nothing said so.
+#[test]
+fn a_text_search_reads_files_over_ten_megabytes() {
+    let (temp, mut app) = fixture();
+    let mut text = String::from("needle at top\n");
+    text.push_str(&"0000001 INFO nothing to see\n".repeat(400_000));
+    fs::write(temp.path().join("big-needle.txt"), text).unwrap();
+    fs::write(temp.path().join("z-needle.txt"), "a needle").unwrap();
+
+    find_files(&mut app, "*", "NEEDLE");
+
+    let mut labels: Vec<_> = rows(&app).iter().map(|row| row.label.clone()).collect();
+    labels.sort();
+    assert_eq!(labels, ["big-needle.txt", "z-needle.txt"]);
+}
+
+#[test]
+fn search_says_when_the_time_limit_stops_it() {
+    let (_temp, mut app) = fixture();
+    search::find_within(&mut app, "*", false, "alpha", std::time::Duration::ZERO);
+    assert!(rows(&app).is_empty());
+    assert_eq!(
+        app.status.to_string(),
+        "Search stopped at the time limit. The list is incomplete."
+    );
+}

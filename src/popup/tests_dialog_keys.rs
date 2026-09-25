@@ -23,6 +23,7 @@ use crate::models::{
 
 mod tests_copy_dialog;
 mod tests_guards;
+mod tests_make_folder;
 mod tests_mask_dialog;
 mod tests_menu_bar;
 

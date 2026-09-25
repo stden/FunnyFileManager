@@ -61,7 +61,7 @@ fn the_dialog_shows_every_control_at_all_projects() {
     for text in [
         "Install MCP server",
         "Server: ",
-        "Scope: (•) All projects( ) Current folder",
+        "Scope: (•) All projects ( ) Current folder",
         "Current folder: ",
         "[x] Claude Code  detected      — no config",
         "[x] Codex        detected",
@@ -84,7 +84,7 @@ fn the_current_folder_shows_its_own_notes() {
     crate::ops::mcp_install::switch_scope(&mut app, crate::search::Direction::Forward);
     let (screen, _) = draw(&mut app);
     assert!(
-        screen.contains("( ) All projects(•) Current folder"),
+        screen.contains("( ) All projects (•) Current folder"),
         "{screen}"
     );
     assert!(

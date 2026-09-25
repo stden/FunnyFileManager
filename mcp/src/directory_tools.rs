@@ -36,8 +36,8 @@ pub fn list_drives() -> CallToolResult {
 
     #[cfg(target_os = "windows")]
     {
-        for letter in b'A'..=b'Z' {
-            let drive = format!("{}:\\", letter as char);
+        for letter in 'A'..='Z' {
+            let drive = format!("{letter}:\\");
             if Path::new(&drive).exists() {
                 drives.push(json!({ "type": "local", "path": drive }));
             }

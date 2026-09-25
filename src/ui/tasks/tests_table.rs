@@ -1,6 +1,7 @@
 //! Unit tests for the task list's table: which columns fit at every width,
-//! the titles, the rows' text and colours, the tree guides and the sideways
-//! scroll of the last column.
+//! the PID column's width, aligned rows for odd names, and the lit sort
+//! title. The rows' colours, tree guides and sideways scroll are in
+//! `tests_table_rows`.
 
 use ratatui::text::Line;
 

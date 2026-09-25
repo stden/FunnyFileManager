@@ -10,6 +10,9 @@ pub(super) struct Packages {
     pub version: String,
     pub curl_version: String,
     pub archive: Vec<u8>,
+    /// The step — `venv`, `pip`, `install` (npm) or `--output` (the
+    /// download) — whose program exits with an error, if any.
+    pub failing: Option<&'static str>,
 }
 
 impl Packages {
@@ -29,6 +32,7 @@ impl Packages {
             version: "openjdk 21.0.11 2026-04-21".into(),
             curl_version: "curl 8.4.0 (test)".into(),
             archive: java_archive(),
+            failing: None,
         }
     }
 }
@@ -52,8 +56,8 @@ impl Environment for Packages {
             .map(|arg| arg.to_string_lossy().into_owned())
             .collect();
         self.calls.borrow_mut().push(args.clone());
-        if let Some(version) = version_output(self, command, &args) {
-            return Ok(version);
+        if let Some(answer) = canned(self, command, &args) {
+            return answer;
         }
         let root = command.get_current_dir().unwrap();
         match args.get(1).map(String::as_str) {
@@ -74,6 +78,22 @@ impl Environment for Packages {
         }
         Ok(Vec::new())
     }
+}
+
+/// What a `--version` call prints, or the error of the step set to fail;
+/// `None` for a call that does its work.
+fn canned(
+    packages: &Packages,
+    command: &Command,
+    args: &[String],
+) -> Option<Result<Vec<u8>, InstallError>> {
+    if let Some(version) = version_output(packages, command, args) {
+        return Some(Ok(version));
+    }
+    let failing = packages.failing?;
+    args.iter()
+        .any(|arg| arg == failing)
+        .then_some(Err(InstallError::Command))
 }
 
 fn version_output(packages: &Packages, command: &Command, args: &[String]) -> Option<Vec<u8>> {

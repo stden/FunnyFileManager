@@ -4,9 +4,8 @@ use std::process::Output;
 use std::time::{Duration, Instant};
 use std::{io, path::Path};
 
-use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
-
 use crate::command::ShellCommand;
+use crate::terminal::cancel_requested;
 
 #[cfg(windows)]
 mod console;
@@ -126,26 +125,6 @@ fn stop_reason(
         return Some(ShellError::TimedOut(timeout));
     }
     cancel_requested().then_some(ShellError::Cancelled)
-}
-
-mod tty;
-use tty::cancel_requested;
-
-/// Whether `event` is the cancel gesture: Esc or Ctrl+C, on key press only.
-///
-/// Other keys are dropped on purpose, so keystrokes typed at a running command
-/// cannot replay against the panels once it finishes. The decision is pure so
-/// it can be pinned by unit tests; the terminal polling around it lives in
-/// [`tty`], which is nothing but glue.
-pub(super) fn is_cancel_event(event: &Event) -> bool {
-    let Event::Key(key) = event else {
-        return false;
-    };
-    if key.kind != KeyEventKind::Press {
-        return false;
-    }
-    let ctrl_c = key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL);
-    ctrl_c || key.code == KeyCode::Esc
 }
 
 #[cfg(test)]

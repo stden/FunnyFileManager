@@ -8,7 +8,6 @@
 //! rule in `keepass.rs` and the design spec.
 
 use std::collections::VecDeque;
-use std::fs;
 
 mod durable;
 mod load;
@@ -18,9 +17,9 @@ mod storage;
 pub use durable::DurableLine;
 use load::read_durable;
 pub use ring_index::RingIndex;
+pub(crate) use storage::data_file;
 use storage::history_file_path;
 pub use storage::Persistence;
-pub(crate) use storage::{data_file, write_owner_only};
 
 /// Most lines the on-disk history keeps; oldest fall off first.
 pub const HISTORY_CAP: usize = 500;
@@ -103,7 +102,7 @@ impl History {
             return;
         };
         if let Some(dir) = path.parent() {
-            if fs::create_dir_all(dir).is_err() {
+            if crate::file_write::create_dirs_owner_only(dir).is_err() {
                 return;
             }
         }
@@ -112,7 +111,7 @@ impl History {
             text.push_str(line.as_str());
             text.push('\n');
         }
-        if let Err(error) = write_owner_only(path, &text) {
+        if let Err(error) = crate::file_write::replace_owner_only(path, "history", &text) {
             crate::diagnostics::log_error(&format!("saving command history: {error}"));
         }
     }

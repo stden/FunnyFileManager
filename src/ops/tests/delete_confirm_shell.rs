@@ -1,4 +1,5 @@
-//! Unit tests: delete confirm shell (split out to keep files under 500 lines).
+//! Unit tests: the delete confirmation, the drive dialog's wrapping cursor,
+//! Shift+F4 and F3 failures, and shell commands that fail.
 
 use super::support::*;
 use crate::ops::*;

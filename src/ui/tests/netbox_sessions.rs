@@ -139,7 +139,7 @@ fn a_panel_too_short_for_a_row_draws_only_its_frame() {
     let mut terminal = terminal(60, 4);
     let area = ratatui::layout::Rect::new(0, 0, 60, 4);
     terminal
-        .draw(|f| super::sessions::render(f, &mut app.left_panel, area, true))
+        .draw(|f| super::sessions::render(f, &mut app.left_panel, area, true, None))
         .expect("draw");
     let screen = buffer_text(&terminal);
     assert!(screen.contains("NetBox: Stored sessions"), "{screen}");

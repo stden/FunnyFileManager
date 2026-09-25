@@ -1,7 +1,5 @@
 //! Purpose: AWS profile discovery from `~/.aws/credentials`.
 
-use std::path::PathBuf;
-
 /// Represents an AWS profile from ~/.aws/credentials
 #[derive(Clone, Debug)]
 pub struct AwsProfile {
@@ -11,8 +9,11 @@ pub struct AwsProfile {
 
 /// Get list of AWS profiles from ~/.aws/credentials
 pub fn list_aws_profiles() -> Vec<AwsProfile> {
-    let content = dirs_next_candidate()
-        .and_then(|home| std::fs::read_to_string(home.join(".aws").join("credentials")).ok())
+    let content = crate::config::user_home()
+        .and_then(|home| {
+            crate::fileload::read_small_file(&home.join(".aws").join("credentials"), "credentials")
+                .ok()
+        })
         .unwrap_or_default();
     let mut profiles: Vec<_> = content
         .lines()
@@ -37,16 +38,4 @@ pub fn list_aws_profiles() -> Vec<AwsProfile> {
     }
 
     profiles
-}
-
-/// Get home directory candidate
-fn dirs_next_candidate() -> Option<PathBuf> {
-    #[cfg(windows)]
-    {
-        std::env::var("USERPROFILE").ok().map(PathBuf::from)
-    }
-    #[cfg(not(windows))]
-    {
-        std::env::var("HOME").ok().map(PathBuf::from)
-    }
 }

@@ -17,7 +17,7 @@ fn a_directory_or_an_oversized_file_is_refused() {
     File::options()
         .write(true)
         .open(&path)
-        .and_then(|file| file.set_len(MAX_FILE_BYTES + 1))
+        .and_then(|file| file.set_len(crate::fileload::MAX_SMALL_FILE_BYTES + 1))
         .expect("grow the file");
     let error = read(&path).expect_err("too large");
     assert_eq!(error.to_string(), "settings.yaml exceeds 1 MiB");
@@ -81,8 +81,12 @@ fn a_small_file_is_read_as_text() {
     let temp = TempDir::new().expect("tempdir");
     let path = temp.path().join("dictionary.json");
     fs::write(&path, "{}").expect("fixture");
-    assert_eq!(read_small_file(&path, "Dictionary").expect("read"), "{}");
-    let missing = read_small_file(&temp.path().join("missing"), "Dictionary").expect_err("missing");
+    assert_eq!(
+        crate::fileload::read_small_file(&path, "Dictionary").expect("read"),
+        "{}"
+    );
+    let missing = crate::fileload::read_small_file(&temp.path().join("missing"), "Dictionary")
+        .expect_err("missing");
     assert_eq!(missing.kind(), io::ErrorKind::NotFound);
     assert!(missing.to_string().starts_with("Dictionary: "), "{missing}");
 }

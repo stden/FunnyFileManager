@@ -10,8 +10,11 @@ mod copy_failures;
 mod format_size;
 mod refresh_panels;
 mod refresh_panels_deleted_folders;
+#[cfg(unix)]
+mod rewrite_file;
 mod unique_destination_counter;
 mod unique_destination_names;
+mod unnamed_file;
 
 /// Serialise all tests that read/write the `FORCE_COPY_DIR_ALL_STEP` global.
 pub fn copy_step_mutex() -> &'static Mutex<()> {

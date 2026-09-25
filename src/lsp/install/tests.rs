@@ -94,7 +94,7 @@ fn a_failed_installer_reports_failure_and_allows_an_explicit_retry() {
         root.path().to_path_buf(),
     )
     .unwrap();
-    assert_eq!(wait(&job).unwrap_err(), InstallError::Command);
+    assert_eq!(wait(&job).unwrap_err(), InstallError::Failed(Step::Custom));
     let retry = Job::start(
         settings,
         root.path().to_path_buf(),

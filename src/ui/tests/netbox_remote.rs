@@ -78,7 +78,7 @@ fn a_remote_panel_too_short_for_a_row_draws_only_its_frame() {
     let mut terminal = terminal(60, 3);
     let area = ratatui::layout::Rect::new(0, 0, 60, 3);
     terminal
-        .draw(|f| super::remote::render(f, &mut app.left_panel, area, false))
+        .draw(|f| super::remote::render(f, &mut app.left_panel, area, false, None))
         .expect("draw");
     let screen = buffer_text(&terminal);
     assert!(screen.contains("demo@example.test:/var/www"), "{screen}");
@@ -93,8 +93,8 @@ fn a_panel_of_another_kind_is_not_drawn_by_the_netbox_renderers() {
     let area = ratatui::layout::Rect::new(0, 0, 60, 10);
     terminal
         .draw(|f| {
-            super::sessions::render(f, &mut app.left_panel, area, true);
-            super::remote::render(f, &mut app.left_panel, area, true);
+            super::sessions::render(f, &mut app.left_panel, area, true, None);
+            super::remote::render(f, &mut app.left_panel, area, true, None);
         })
         .expect("draw");
     assert!(buffer_text(&terminal).trim().is_empty());

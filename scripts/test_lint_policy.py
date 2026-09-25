@@ -2,7 +2,7 @@
 """Prove the lint policy is declared in, and enforced from, each real Cargo manifest.
 
 1. Policy: the [lints] tables of the root, mcp/ and colorer-sys/ manifests must
-   match the policy below exactly. Mutated copies of compliant fixture tables
+   match the policy in lint_policy.py exactly. Mutated copies of compliant fixture tables
    prove the checker rejects each kind of drift with a precise message.
 2. Live proof: for each crate, throwaway crates under target/ copy the real
    [lints] tables verbatim and sit below the shared clippy.toml. Clippy must

@@ -6,7 +6,7 @@ use ratatui::Frame;
 
 use crate::models::{
     ConfirmButton, ControlRefusal, KillConfirm, KillOffer, NiceConfirm, PlannedChange, Relation,
-    ReniceButton, Skipped, Target,
+    ReniceButton, SignalEffect, Skipped, Target,
 };
 use crate::mouse::DialogMouse;
 
@@ -30,7 +30,7 @@ pub(super) fn kill(f: &mut Frame<'_>, tracker: &mut DialogMouse, confirm: &KillC
     let mut lines = Vec::new();
     preview_lines(targets.targets(), who, &mut lines);
     preview_lines(targets.skipped(), skipped, &mut lines);
-    lines.extend(ancestor_note(targets.targets()));
+    lines.extend(ancestor_note(targets.targets(), confirm.offer().effect()));
     let rows = rows(&question, &lines, None);
     render_tracked(
         f,
@@ -129,14 +129,17 @@ fn skipped(skipped: &Skipped) -> String {
     format!("Skipped: {} ({why})", who(target))
 }
 
-/// The warning that ending a process FFM runs inside ends this session,
-/// naming the first such target.
-fn ancestor_note(targets: &[Target]) -> Option<String> {
+/// The warning that ending (or pausing) a process FFM runs inside ends (or
+/// freezes) this session, naming the first such target. A signal that does
+/// neither, SIGCONT or SIGWINCH, has nothing to warn about.
+fn ancestor_note(targets: &[Target], effect: SignalEffect) -> Option<String> {
+    let consequence = match effect {
+        SignalEffect::Ends => "ending it ends this session",
+        SignalEffect::Pauses => "pausing it freezes this session",
+        SignalEffect::Harmless => return None,
+    };
     let ancestor = targets
         .iter()
         .find(|target| target.relation() == Relation::Ancestor)?;
-    Some(format!(
-        "FFM runs inside {}; ending it ends this session.",
-        who(ancestor)
-    ))
+    Some(format!("FFM runs inside {}; {consequence}.", who(ancestor)))
 }

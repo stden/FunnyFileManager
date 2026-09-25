@@ -88,6 +88,38 @@ impl Signal {
     }
 }
 
+/// What a signal does to a process that does not catch it.
+///
+/// A shell FFM runs inside that ends takes the session with it, one that
+/// pauses freezes it, and the rest leave it be.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SignalEffect {
+    Ends,
+    Pauses,
+    /// SIGCONT resumes a process; SIGWINCH is ignored unless caught.
+    Harmless,
+}
+
+impl Signal {
+    /// What the signal's default action does to the process.
+    #[must_use]
+    pub const fn effect(self) -> SignalEffect {
+        match self {
+            Self::Terminate
+            | Self::Kill
+            | Self::Hangup
+            | Self::Interrupt
+            | Self::Quit
+            | Self::Abort
+            | Self::User1
+            | Self::User2
+            | Self::Alarm => SignalEffect::Ends,
+            Self::Stop | Self::TerminalStop => SignalEffect::Pauses,
+            Self::Continue | Self::WindowChange => SignalEffect::Harmless,
+        }
+    }
+}
+
 /// What a kill confirmation offers to send.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KillOffer {
@@ -95,4 +127,15 @@ pub enum KillOffer {
     TerminateOrKill,
     /// The signal chosen in the F9 menu.
     Send(Signal),
+}
+
+impl KillOffer {
+    /// What the offered signal does: Terminate and Kill both end.
+    #[must_use]
+    pub const fn effect(self) -> SignalEffect {
+        match self {
+            Self::TerminateOrKill => SignalEffect::Ends,
+            Self::Send(signal) => signal.effect(),
+        }
+    }
 }

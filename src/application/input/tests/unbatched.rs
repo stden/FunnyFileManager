@@ -57,7 +57,7 @@ fn replayed_typing_is_delivered_key_by_key_not_batched_into_a_paste() -> io::Res
         .map(|event| serde_json::json!({ "delay_ms": 0, "event": event }).to_string())
         .collect();
     std::fs::write(&recording, format!("{header}\n{}\n", rows.join("\n")))?;
-    let mut replay = crate::recording::Input::from_args(
+    let (mut replay, _) = crate::recording::Input::from_args(
         &["--replay".into(), recording.into_os_string()],
         (80, 24),
     )?;

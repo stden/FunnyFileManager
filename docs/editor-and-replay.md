@@ -76,9 +76,11 @@ ffm --no-record              # accepted, and already the default
 
 The auto-named path is `ffm-recordings-<uid>` under the system temporary
 directory, created 0700: the temporary directory is shared by every local user,
-and a recording is not something to leave where they can reach it. A session
-file that cannot be created disables recording and reports why; it never stops
-FFM from starting.
+and a recording is not something to leave where they can reach it. A directory
+of that name that is not this user's own (another user's, or a link) is refused.
+A session file that cannot be created disables recording and reports why, on
+stderr and on the status line once the panels are up; it never stops FFM from
+starting.
 
 Recording files are created exclusively: an existing file is never overwritten.
 Python 3.9 or newer is sufficient; the launcher uses only the standard library.

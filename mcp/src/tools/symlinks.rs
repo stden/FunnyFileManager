@@ -13,9 +13,9 @@ use std::fs;
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct SymlinkParams {
     /// Path where the symlink will be created
-    pub link: String,
+    link: String,
     /// Target path the symlink points to
-    pub target: String,
+    target: String,
 }
 
 #[tool_router(router = symlink_tools, vis = "pub(super)")]

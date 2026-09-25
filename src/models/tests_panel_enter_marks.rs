@@ -1,4 +1,4 @@
-//! Unit tests: panel enter marks (split out to keep files under 500 lines).
+//! Unit tests: panel enter marks.
 
 use crate::models::FileName;
 use std::fs;

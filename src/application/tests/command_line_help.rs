@@ -1,4 +1,4 @@
-//! Unit tests: command line help (split out to keep files under 500 lines).
+//! Unit tests: command line help.
 
 use super::*;
 

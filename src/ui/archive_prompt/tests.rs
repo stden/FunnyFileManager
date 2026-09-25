@@ -41,7 +41,7 @@ fn the_dialog_shows_every_control() {
         screen.contains(archive.to_string_lossy().as_ref()),
         "{screen}"
     );
-    assert!(screen.contains("(•) tar.gz( ) tar( ) zip"), "{screen}");
+    assert!(screen.contains("(•) tar.gz ( ) tar ( ) zip"), "{screen}");
     assert!(
         screen.contains("[ ] Delete files after archiving"),
         "{screen}"
@@ -67,7 +67,7 @@ fn the_controls_follow_the_state() {
     prompt.delete_after = true;
     let (screen, _) = draw(prompt);
     assert!(screen.contains("Add 2 items to the archive:"), "{screen}");
-    assert!(screen.contains("( ) tar.gz(•) tar"), "{screen}");
+    assert!(screen.contains("( ) tar.gz (•) tar"), "{screen}");
     assert!(!screen.contains("zip"), "{screen}");
     assert!(
         screen.contains("[x] Delete files after archiving"),

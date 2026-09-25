@@ -69,7 +69,9 @@ three parts:
    - Columns: `PID User PRI NI VIRT RES SHR S CPU% MEM% TIME+ Command`.
    - It refreshes every 1.5 s. The first CPU% appears 0.5 s after opening.
    - The cursor follows its process, not its row, across every refresh and
-     every re-sort.
+     every re-sort, once the user has moved it. Until then it keeps the first
+     row: the first snapshot has no CPU% and is ordered by PID, and following
+     its first row took the cursor to PID 1 in the middle of the list.
 3. **Header meters.**
    - One CPU total bar.
    - Per-core bars. Cores are grouped only when their bars cannot fit.
@@ -376,14 +378,14 @@ behind it.
 
 | Dialog | Opened by | Drawn with | Content |
 |---|---|---|---|
-| Terminate | F8, Del | `dialog::render_warning` (red) | `Do you wish to terminate the process?` or `… the 3 processes?`, then the targets through `dialog::preview_lines` (first five, then `… and N more`). It adds `Skipped: FFM itself` when targets were refused, and `FFM runs inside 812 bash; ending it ends this session.` for an ancestor. Buttons `{Terminate} [Kill] [Cancel]`, with Terminate focused. |
+| Terminate | F8, Del | `dialog::render_warning` (red) | `Do you wish to terminate the process?` or `… the 3 processes?`, then the targets through `dialog::preview_lines` (first five, then `… and N more`). It adds `Skipped: FFM itself` when targets were refused, and `FFM runs inside 812 bash; ending it ends this session.` for an ancestor, when the signal ends a process (`…; pausing it freezes this session.` for SIGSTOP and SIGTSTP; nothing for SIGCONT and SIGWINCH, which end nothing). Buttons `{Terminate} [Kill] [Cancel]`, with Terminate focused. |
 | Send signal | F9, `k` | `ui/menu_dialog/choices.rs` (teal menu) | Title `Send signal to 4242 firefox` or `… to 3 processes`. One row per offered signal (`SIGTERM   ask to terminate`), with SIGTERM under the cursor. Enter opens a red confirmation: `Send SIGHUP to …?` `{Send} [Cancel]`. |
 | Sort by | F6, Ctrl+F12, `<`, `>` | choices menu | One row per sort key with its shortcut (`√ CPU%   P`), a tick on the key in force, then `Reverse order   I`. |
 | Show processes of | `u` | choices menu | `All users`, then each owner in the snapshot with a count (`bob (57)`). The scope in force is ticked. |
 | Priority | F7 | `dialog::render_tracked`, `Ground::Prompt` | A Text row with the target(s), Field `Nice:` with the current value, Label `-20 runs first, 19 runs last`. Buttons `{Set} [Cancel]`; Set is disabled while the value is not a `Niceness`. |
 | Select / Deselect | Gray `+`, `-` | the existing `render_mask_prompt` | The Far mask dialog, offering the cursor process's name as the mask. |
 | Process info | F3, Enter | `render_tracked`, labels only | PID, Parent, Name, Command (wrapped, at most 4 rows), User, State, Priority/Nice, Threads, Running for, CPU time, VIRT/RES/SHR. Button `{OK}`. Built from the snapshot, with no extra I/O. |
-| Error | after a failed delivery | `render_warning` | One line per failed target, through `preview_lines`. Button `[OK]`. |
+| Error | after a failed delivery | `render_warning` | When some targets took it, first the sentence saying so (`Sent SIGTERM to 1 process.`); then one line per failed target, through `preview_lines`. Button `[OK]`. |
 | Help | F1, `h`, `?` | the body area, in `HELP_FG`/`HELP_BG` | The rows of `action::tasks::HELP`, scrollable (`ScrollTop`). |
 
 Tracking rules:

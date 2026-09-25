@@ -1,7 +1,7 @@
 //! The last displayed directories, persisted separately from optional setup.
 
 use std::{
-    fs, io,
+    io,
     path::{Path, PathBuf},
 };
 
@@ -61,16 +61,17 @@ impl PanelSession {
             .parent()
             .filter(|parent| !parent.as_os_str().is_empty())
         {
-            fs::create_dir_all(parent)?;
+            crate::file_write::create_dirs_owner_only(parent)?;
         }
-        crate::history::write_owner_only(path, &text)?;
+        crate::file_write::replace_owner_only(path, "panel-session.json", &text)?;
         self.saved = Some(paths);
         Ok(())
     }
 }
 
 fn read(path: &Path) -> io::Result<PanelPaths> {
-    serde_json::from_str(&fs::read_to_string(path)?).map_err(io::Error::other)
+    let text = crate::fileload::read_small_file(path, "panel-session.json")?;
+    serde_json::from_str(&text).map_err(io::Error::other)
 }
 
 #[cfg(test)]

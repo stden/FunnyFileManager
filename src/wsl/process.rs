@@ -10,8 +10,6 @@ mod capture;
 mod launch;
 
 use capture::{capture, ManagedProcess};
-#[cfg(all(windows, test))]
-use launch::command;
 #[cfg(windows)]
 pub(super) use launch::run;
 

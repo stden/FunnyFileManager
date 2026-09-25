@@ -56,6 +56,37 @@ fn renaming_onto_a_name_that_is_taken_refuses() {
     );
 }
 
+/// A link that points nowhere still holds its name: `rename(2)` would
+/// replace it without a word.
+#[cfg(unix)]
+#[test]
+fn renaming_onto_a_dangling_link_refuses() {
+    use crate::models::FileName;
+
+    let (mut app, dir) = app_over(&["a.txt"]);
+    std::os::unix::fs::symlink("/nonexistent/b", dir.path().join("b.txt")).expect("test setup");
+    app.set_overlay(Overlay::NamePrompt(NamePrompt::rename(FileName::new(
+        "a.txt",
+    ))));
+    for _ in 0..5 {
+        press(&mut app, KeyCode::Backspace);
+    }
+    for ch in "b.txt".chars() {
+        press(&mut app, KeyCode::Char(ch));
+    }
+    press(&mut app, KeyCode::Enter);
+
+    assert!(dir.path().join("a.txt").exists(), "the original stays");
+    assert!(
+        fs::read_link(dir.path().join("b.txt")).is_ok(),
+        "so does the link"
+    );
+    assert_eq!(
+        app.status,
+        crate::status::Status::AlreadyExists("b.txt".into())
+    );
+}
+
 /// F7 with several names makes each and counts them in the folder they went
 /// into; the first name already taken stops the run and is the one named.
 #[test]

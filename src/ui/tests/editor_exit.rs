@@ -1,5 +1,6 @@
-//! Unit tests: the built-in editor overlay — the unsaved-changes dialog, the
-//! modified marker in the title and horizontal scrolling.
+//! Unit tests: the built-in editor's unsaved-changes dialog — the file it
+//! names, its answers, the focus the arrow keys move, and Esc — plus the
+//! helpers the other `editor_*` tests share.
 //!
 //! Everything renders through the real `ui` entry point onto a `TestBackend`
 //! and then asserts on the buffer cells of the *region* it means, never on a

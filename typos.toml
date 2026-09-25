@@ -15,6 +15,9 @@ extend-ignore-re = [
 # The TUI library this program is built on.
 ratatui = "ratatui"
 
+# open(2)'s O_WRONLY, as rustix spells the flag: `OFlags::WRONLY`.
+wronly = "wronly"
+
 # htop's abbreviation for threads, which the task list's summary line keeps:
 # "Tasks: 132, 1204 thr, 180 kthr".
 thr = "thr"

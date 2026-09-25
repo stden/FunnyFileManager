@@ -126,3 +126,20 @@ fn save_handles_a_parentless_path_without_creating_anything() {
     };
     history.save();
 }
+
+/// The data directory the first save makes is readable by its owner only,
+/// as the XDG spec asks: it was 0755, listing the histories to everyone.
+#[cfg(unix)]
+#[test]
+fn the_first_save_makes_an_owner_only_data_directory() {
+    use std::os::unix::fs::PermissionsExt;
+    with_xdg(|xdg| {
+        let mut history = History::load();
+        history.record("cd /tmp");
+        let mode = fs::metadata(xdg.join("ffm"))
+            .expect("the data directory")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o700);
+    });
+}

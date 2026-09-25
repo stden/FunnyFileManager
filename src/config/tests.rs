@@ -1,5 +1,5 @@
-//! Unit tests: defaults and the config path rule; the load/save behaviour is
-//! in `tests/persistence.rs`.
+//! Unit tests: defaults and the config path rule; the home and data rules
+//! are in `tests/homes.rs`, the load/save behaviour in `tests/persistence.rs`.
 
 use std::ffi::OsString;
 
@@ -9,6 +9,7 @@ use super::home::Platform;
 use super::*;
 use crate::test_support::{EnvVarGuard, CONFIG_HOME};
 
+mod homes;
 pub(super) mod persistence;
 mod sharing;
 
@@ -64,7 +65,8 @@ fn environment<'a>(
 #[test]
 fn windows_keeps_the_config_directory_under_appdata() {
     let temp = TempDir::new().expect("tempdir");
-    let appdata = Path::new("C:/Users/bob/AppData/Roaming");
+    let roaming = TempDir::new().expect("tempdir");
+    let appdata = roaming.path();
     let unix_homes = [("XDG_CONFIG_HOME", temp.path()), ("HOME", temp.path())];
     assert_eq!(
         Platform::Windows.dir(environment(&[

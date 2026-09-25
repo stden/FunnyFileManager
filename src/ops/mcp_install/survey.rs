@@ -16,15 +16,6 @@ mod programs;
 pub use config_paths::{client_home, config_path, shared_with_all_projects, user_config};
 pub use config_read::{load, read_state};
 pub use programs::{client_program, locate_server};
-// The unit tests below reach these through `use super::*`.
-#[cfg(test)]
-use {
-    crate::mcp_clients::{ClientId, ConfigFormat, ServerState, CLAUDE_CUSTOM_OAUTH_VAR},
-    config_paths::join_relative,
-    config_read::MAX_CONFIG_BYTES,
-    programs::find_program,
-    std::{fs, path::PathBuf},
-};
 
 /// Where a registration goes: a scope, with the folder it needs.
 ///

@@ -165,7 +165,7 @@ fn translations(language: &str) -> io::Result<BTreeMap<String, String>> {
 
 /// Read a language dictionary: a JSON map from label to translation.
 fn read_json<T: serde::de::DeserializeOwned>(path: &Path, what: &str) -> io::Result<T> {
-    let text = document::read_small_file(path, what)?;
+    let text = crate::fileload::read_small_file(path, what)?;
     serde_json::from_str(&text).map_err(io::Error::other)
 }
 

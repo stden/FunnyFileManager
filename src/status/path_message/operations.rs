@@ -74,7 +74,7 @@ impl Status {
     }
 
     /// Copies, moves, deletes and wipes that partly failed, named by the
-    /// first entry that failed.
+    /// first entry that failed, and any error that names where it happened.
     pub(super) fn failure_path_message(&self) -> Option<PathMessage<'_>> {
         Some(match self {
             Self::CopiedWithErrors {
@@ -97,6 +97,11 @@ impl Status {
                 error_count,
                 first_error,
             } => with_errors("Wiped", *count, *error_count, first_error),
+            Self::ErrorAt(failed) => PathMessage::quoting(
+                ERROR_PREFIX,
+                label(failed.path()),
+                format!(": {}", failed.error()),
+            ),
             _ => return None,
         })
     }

@@ -15,7 +15,7 @@ use crate::models::{DirEntry, Panel};
 /// Counts files rather than rows: the directories and the ".." link are not
 /// what "381 K" is the size of, so including them in the denominator would
 /// make the two halves of `(10/30)` measure different things.
-pub(super) fn panel_totals(panel: &Panel) -> String {
+fn panel_totals(panel: &Panel) -> String {
     let files: Vec<&DirEntry> = panel
         .entries
         .iter()

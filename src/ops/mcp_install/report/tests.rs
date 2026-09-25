@@ -32,7 +32,7 @@ fn an_all_success_run_counts_what_changed() {
         status(&registrations),
         Status::CommandOutput("ffm-mcp: 1 added, 1 updated, 1 unchanged".to_owned())
     );
-    let lines = lines(&server(), Target::AllProjects, &registrations);
+    let lines = lines(&server(), Target::AllProjects, &registrations, &[]);
     assert_eq!(lines[0], "ffm-mcp: /home/bob/.cargo/bin/ffm-mcp");
     assert_eq!(lines[1], "Scope: all projects (user level)");
     assert_eq!(
@@ -66,7 +66,7 @@ fn a_mixed_run_names_the_clients_that_failed() {
         status(&registrations),
         Status::Error("ffm-mcp: Junie failed; see the report".to_owned())
     );
-    let lines = lines(&server(), Target::AllProjects, &registrations);
+    let lines = lines(&server(), Target::AllProjects, &registrations, &[]);
     assert_eq!(
         lines[4],
         "Junie        failed     /home/bob/Junie.json does not parse (expected value at line 3 \
@@ -88,7 +88,7 @@ fn an_all_failed_run_names_every_client() {
         status(&registrations),
         Status::Error("ffm-mcp: Claude Code, Kiro failed; see the report".to_owned())
     );
-    let lines = lines(&server(), Target::AllProjects, &registrations);
+    let lines = lines(&server(), Target::AllProjects, &registrations, &[]);
     assert!(
         lines[3].ends_with("there is no home folder to register in"),
         "{}",
@@ -110,7 +110,12 @@ fn the_current_folder_is_named_with_its_notes() {
     };
     let folder = ProjectDir::new(PathBuf::from(path)).unwrap();
     let registrations = [done(ClientId::Codex, Outcome::Added)];
-    let lines = lines(&server(), Target::CurrentFolder(&folder), &registrations);
+    let lines = lines(
+        &server(),
+        Target::CurrentFolder(&folder),
+        &registrations,
+        &[],
+    );
     assert_eq!(
         lines[1],
         format!("Scope: current folder (project level): {path}")

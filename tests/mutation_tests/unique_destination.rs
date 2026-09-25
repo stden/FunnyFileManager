@@ -23,20 +23,17 @@ fn test_unique_destination_extension_guard() -> io::Result<()> {
     // Kill: delete ! in unique_destination
     let temp_dir = TempDir::new()?;
 
-    // Test with empty extension
+    // Only the file name is checked: the temporary directory's own path may
+    // hold a '-' or a '.', and says nothing about the name chosen.
+    // Test with empty extension: no dot is added back.
     File::create(temp_dir.path().join("empty."))?;
     let unique_empty_ext = unique_destination(temp_dir.path(), OsStr::new("empty."))?;
-    assert!(unique_empty_ext.to_string_lossy().ends_with("empty_1"));
-    assert!(!unique_empty_ext.to_string_lossy().ends_with("empty_1."));
+    assert_eq!(unique_empty_ext.file_name(), Some(OsStr::new("empty_1")));
 
-    // Test with non-empty extension
+    // Test with non-empty extension: the extension is kept.
     File::create(temp_dir.path().join("file.txt"))?;
     let unique_with_ext = unique_destination(temp_dir.path(), OsStr::new("file.txt"))?;
-    assert!(unique_with_ext.to_string_lossy().ends_with("file_1.txt"));
-
-    // Test the difference between empty and non-empty extensions
-    assert!(unique_with_ext.to_string_lossy().contains('.'));
-    assert!(!unique_empty_ext.to_string_lossy().ends_with('.'));
+    assert_eq!(unique_with_ext.file_name(), Some(OsStr::new("file_1.txt")));
 
     Ok(())
 }
@@ -55,15 +52,10 @@ fn test_unique_destination_counter_increment() -> io::Result<()> {
 
     let unique = unique_destination(temp_dir.path(), OsStr::new("seq.txt"))?;
 
-    // Should be seq_4.txt (counter incremented by 1)
-    assert!(unique.to_string_lossy().contains("seq_4.txt"));
-
-    // Should NOT be negative (would happen with -=)
-    assert!(!unique.to_string_lossy().contains('-'));
-
-    // Should NOT be exponential (would happen with *=)
-    assert!(!unique.to_string_lossy().contains("seq_6.txt")); // 3 * 2
-    assert!(!unique.to_string_lossy().contains("seq_9.txt")); // 3 * 3
+    // seq_4.txt: counter incremented by 1 — not negative (-=), not
+    // exponential (*=). Only the file name is checked: the temporary
+    // directory's own path may hold a '-'.
+    assert_eq!(unique.file_name(), Some(OsStr::new("seq_4.txt")));
 
     Ok(())
 }

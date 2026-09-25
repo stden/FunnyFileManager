@@ -17,5 +17,6 @@ fn firefox() -> TaskApp {
     TaskApp::open(vec![named(4242, "firefox")], Privilege::User)
 }
 
+mod mixed_outcome;
 mod refused_targets;
 mod terminating;

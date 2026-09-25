@@ -1,6 +1,6 @@
 //! Purpose: Exercise complete Python, npm and Java installation plans with deterministic package managers.
 
-use super::{fixtures::Packages, storage, InstallError};
+use super::{fixtures::Packages, storage, InstallError, Step};
 use crate::config::{InstallRecipe, LspSettings, ServerSettings};
 use std::{fs, path::Path, sync::atomic::AtomicBool};
 use tempfile::TempDir;
@@ -140,4 +140,47 @@ fn cached_packages_follow_runtime_relocation_without_reinstallation() {
         .borrow()
         .iter()
         .all(|args| args == &["--version"]));
+}
+
+/// A package manager that exits with an error is named by its step, so the
+/// status says what to fix: python3-venv missing read as "check
+/// network/package manager".
+#[test]
+fn a_failed_step_is_named_by_what_it_ran() {
+    let root = TempDir::new().unwrap();
+    let python = LspSettings::default().0.remove("python").unwrap();
+    let packages = Packages::new();
+    for (failing, settings, step) in [
+        ("venv", python.clone(), Step::Venv),
+        ("pip", python, Step::Pip),
+        ("install", npm_settings(), Step::Npm),
+        ("--output", java_settings(&packages), Step::Download),
+    ] {
+        let mut packages = Packages::new();
+        packages.failing = Some(failing);
+        assert_eq!(
+            prepare(&settings, root.path(), root.path(), &packages),
+            Err(InstallError::Failed(step)),
+            "{failing}"
+        );
+    }
+}
+
+/// A cache folder that cannot be made says so, not "storage or process error".
+#[test]
+fn a_cache_folder_that_cannot_be_made_is_named() {
+    let root = TempDir::new().unwrap();
+    let blocked = root.path().join("file");
+    fs::write(&blocked, "").unwrap();
+    let packages = Packages::new();
+    let error = prepare(
+        &npm_settings(),
+        &blocked.join("lsp"),
+        root.path(),
+        &packages,
+    )
+    .expect_err("the cache's place is under a file");
+    assert!(matches!(error, InstallError::Cache(_)), "{error:?}");
+    assert!(error.to_string().contains("LSP cache folder"), "{error}");
+    assert!(packages.calls.borrow().is_empty(), "nothing ran");
 }

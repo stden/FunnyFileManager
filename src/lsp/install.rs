@@ -24,7 +24,7 @@ pub use report::{availability, Availability, Tone};
 pub use report::{NotInstalled, Resolved};
 mod runner;
 mod storage;
-pub(super) use error::InstallError;
+pub(super) use error::{InstallError, Step};
 
 pub(super) struct Job {
     stop: Arc<AtomicBool>,

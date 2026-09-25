@@ -7,7 +7,7 @@ use std::{
 };
 
 use super::entry::copy_entry;
-use super::{merge, rename_or_fail, replace};
+use super::{merge, remove_moved, rename_within, replace, Renamed};
 use crate::copy::Purpose;
 use crate::utils::unique_destination;
 
@@ -15,17 +15,34 @@ use crate::utils::unique_destination;
 pub(super) enum Placed {
     /// Under the name it was sent to.
     AsSent(PathBuf),
+    /// Into the folder already at that name, with `skipped` entries inside
+    /// left alone by the "already existing files" choice.
+    Merged { into: PathBuf, skipped: usize },
     /// Beside something already there, under a free name.
     Beside(PathBuf),
     /// Left alone, as the "already existing files" choice said.
     Skipped,
 }
 
+impl Placed {
+    /// How many entries the choice left alone on the way, so the status line
+    /// can say so however deep in a merge they were.
+    pub(super) const fn skipped(&self) -> usize {
+        match self {
+            Self::Skipped => 1,
+            Self::Merged { skipped, .. } => *skipped,
+            Self::AsSent(_) | Self::Beside(_) => 0,
+        }
+    }
+}
+
 /// `dest` is taken: do what the "already existing files" choice says.
 ///
 /// Skipping is a normal outcome, not a failure — reporting it as an error
-/// would put a red count on a deliberate choice. Overwriting never removes
-/// what the transfer does not bring; see [`merge`].
+/// would put a red count on a deliberate choice. Every choice but "Ask"
+/// merges a folder into a folder and decides file by file inside, as Far and
+/// mc do: "Skip" leaves the files already there, not the whole folder.
+/// Overwriting never removes what the transfer does not bring; see [`merge`].
 pub(super) fn place_over_existing(
     source: &Path,
     dest: &Path,
@@ -40,8 +57,8 @@ pub(super) fn place_over_existing(
     );
     let folders = shapes == (Shape::Folder, Shape::Folder);
     match settings.existing {
-        ExistingFiles::Skip => return Ok(Placed::Skipped),
-        // Two folders merge, and "only newer" is decided file by file inside.
+        // Two folders merge, and the choice is made file by file inside.
+        ExistingFiles::Skip if !folders => return Ok(Placed::Skipped),
         ExistingFiles::OnlyNewer if !folders && !is_newer(source, dest) => {
             return Ok(Placed::Skipped);
         }
@@ -49,22 +66,33 @@ pub(super) fn place_over_existing(
     }
     reject_transfer_onto_itself(source, dest)?;
     if settings.existing == ExistingFiles::Ask {
-        // Not yet a per-file prompt. Until it is, the non-destructive reading
-        // of "ask" is taken: nothing already there is touched, and the new one
-        // lands beside it under a free name.
-        let parent = dest.parent().unwrap_or(dest);
-        let beside = unique_destination(parent, dest.file_name().unwrap_or_default())?;
-        place(source, &beside, settings)?;
-        return Ok(Placed::Beside(beside));
+        return place_beside(source, dest, settings);
     }
     merge::reject_mixed_shapes(shapes.0, shapes.1)?;
     if folders {
         merge::reject_merge_into_holder(source, dest)?;
-        merge::merge_into(source, dest, settings)?;
-    } else {
-        replace::entry(source, dest, settings)?;
+        let skipped = merge::merge_into(source, dest, settings)?;
+        return Ok(Placed::Merged {
+            into: dest.to_path_buf(),
+            skipped,
+        });
     }
+    replace::entry(source, dest, settings)?;
     Ok(Placed::AsSent(dest.to_path_buf()))
+}
+
+/// "Ask", which is not yet a per-file prompt. Until it is, the
+/// non-destructive reading of it is taken: nothing already there is touched,
+/// and the new one lands beside it under a free name.
+fn place_beside(
+    source: &Path,
+    dest: &Path,
+    settings: &crate::copy::CopyPrompt,
+) -> io::Result<Placed> {
+    let parent = dest.parent().unwrap_or(dest);
+    let beside = unique_destination(parent, dest.file_name().unwrap_or_default())?;
+    place(source, &beside, settings)?;
+    Ok(Placed::Beside(beside))
 }
 
 /// Refuse a transfer whose destination *is* its source.
@@ -94,19 +122,21 @@ pub(super) fn reject_transfer_onto_itself(source: &Path, dest: &Path) -> io::Res
 ///
 /// A move is tried as a rename first — within one filesystem that is the whole
 /// operation and it is atomic. Across filesystems `rename` fails, and the only
-/// thing left is to copy and then remove, which is what every mover does.
+/// thing left is to copy and then remove, which is what every mover does. A
+/// rename refused for any other reason fails the move; see [`rename_within`].
 pub(super) fn place(
     source: &Path,
     dest: &Path,
     settings: &crate::copy::CopyPrompt,
 ) -> io::Result<()> {
-    if settings.purpose == Purpose::Move && rename_or_fail(source, dest).is_ok() {
+    if settings.purpose == Purpose::Move && rename_within(source, dest)? == Renamed::Moved {
         return Ok(());
     }
+    // The copy itself gives every entry the times and modes the dialog
+    // keeps (`CopyRules`), each folder once its contents are in.
     copy_entry(source, dest, settings.rules())?;
-    finish(source, dest, settings)?;
     if settings.purpose == Purpose::Move {
-        remove_existing(source)?;
+        remove_moved(source, dest)?;
     }
     Ok(())
 }
@@ -121,56 +151,4 @@ pub(super) fn is_newer(source: &Path, dest: &Path) -> bool {
         (Some(from), Some(to)) => from > to,
         _ => true,
     }
-}
-
-/// Remove whatever is at `dest` so a copy can take its place.
-pub(super) fn remove_existing(dest: &Path) -> io::Result<()> {
-    if fs::symlink_metadata(dest)?.is_dir() {
-        fs::remove_dir_all(dest)
-    } else {
-        fs::remove_file(dest)
-    }
-}
-
-/// Apply the dialog's post-copy options to what was just written.
-pub(super) fn finish(
-    source: &Path,
-    dest: &Path,
-    settings: &crate::copy::CopyPrompt,
-) -> io::Result<()> {
-    if settings.timestamps {
-        let modified = fs::metadata(source)?.modified()?;
-        crate::ops::timestamps::open(dest)?.set_modified(modified)?;
-    }
-    apply_rights(source, dest, settings.rights)
-}
-
-/// Restate the source's permission bits on `dest` when the dialog says Copy.
-///
-/// Every file was already given its mode as it was written (see
-/// [`crate::copy::AccessRights::file_mode`]). What is left is a copied
-/// folder, which is created afresh and can only take a read-only source's
-/// mode once its contents are in. Default and Inherit leave it as created:
-/// the kernel applied the umask then, and a `chmod` now would skip it.
-#[cfg(unix)]
-fn apply_rights(source: &Path, dest: &Path, rights: crate::copy::AccessRights) -> io::Result<()> {
-    if rights != crate::copy::AccessRights::Copy {
-        return Ok(());
-    }
-    fs::set_permissions(dest, fs::metadata(source)?.permissions())
-}
-
-#[cfg(not(unix))]
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "shares the Unix signature, where the operation can fail"
-)]
-fn apply_rights(
-    _source: &Path,
-    _dest: &Path,
-    _rights: crate::copy::AccessRights,
-) -> io::Result<()> {
-    // Windows has no mode bits to carry; the ACL comes from the destination
-    // directory whatever the dialog says.
-    Ok(())
 }

@@ -99,3 +99,36 @@ impl TerminalOps<WritableTestBackend> for RecordingOps {
 fn terminal() -> Terminal<WritableTestBackend> {
     Terminal::new(WritableTestBackend::new(80, 24)).expect("terminal")
 }
+
+#[test]
+fn is_cancel_event_accepts_only_pressed_esc_and_ctrl_c() {
+    use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+
+    let press = |code, modifiers| Event::Key(KeyEvent::new(code, modifiers));
+    assert!(is_cancel_event(&press(KeyCode::Esc, KeyModifiers::empty())));
+    assert!(is_cancel_event(&press(
+        KeyCode::Char('c'),
+        KeyModifiers::CONTROL
+    )));
+    // A plain 'c', any other key, and non-key events are not cancel.
+    assert!(!is_cancel_event(&press(
+        KeyCode::Char('c'),
+        KeyModifiers::empty()
+    )));
+    assert!(!is_cancel_event(&press(
+        KeyCode::Enter,
+        KeyModifiers::empty()
+    )));
+    assert!(!is_cancel_event(&Event::FocusGained));
+    // Key releases must not cancel: only presses count.
+    let mut release = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
+    release.kind = KeyEventKind::Release;
+    assert!(!is_cancel_event(&Event::Key(release)));
+}
+
+/// A test runs without a terminal: nothing is typed, and nothing is lost.
+#[test]
+fn nothing_typed_asks_for_no_cancel() {
+    assert!(!cancel_requested());
+    assert!(!discard_queued());
+}

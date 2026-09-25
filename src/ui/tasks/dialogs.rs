@@ -16,7 +16,7 @@ use ratatui::widgets::{Clear, Paragraph};
 use ratatui::Frame;
 
 use crate::action::tasks::HELP;
-use crate::models::{Failure, FormFocus, Modal, PriorityForm, Target, TaskList};
+use crate::models::{Failure, FormFocus, Modal, Notice, PriorityForm, Target, TaskList};
 use crate::mouse::DialogMouse;
 use crate::scroll::ScrollTop;
 
@@ -43,7 +43,7 @@ pub(super) fn render(f: &mut Frame<'_>, tracker: &mut DialogMouse, list: &TaskLi
             tracker.clear();
         }
         Modal::Info(key) => info::info(f, tracker, list, *key),
-        Modal::Error(failures) => error(f, tracker, failures),
+        Modal::Error { done, failures } => error(f, tracker, *done, failures),
         Modal::Mask(prompt) => render_mask_prompt(f, tracker, prompt),
         Modal::Confirm(confirm) => kill(f, tracker, confirm),
         Modal::Priority(form) => priority(f, tracker, form),
@@ -100,9 +100,10 @@ fn priority(f: &mut Frame<'_>, tracker: &mut DialogMouse, form: &PriorityForm) {
     }
 }
 
-/// The Error dialog: one line per target a delivery failed for.
-fn error(f: &mut Frame<'_>, tracker: &mut DialogMouse, failures: &[Failure]) {
-    let mut lines = Vec::new();
+/// The Error dialog: what was done, when anything was, then one line per
+/// target a delivery failed for.
+fn error(f: &mut Frame<'_>, tracker: &mut DialogMouse, done: Option<Notice>, failures: &[Failure]) {
+    let mut lines: Vec<String> = done.iter().map(ToString::to_string).collect();
     preview_lines(
         failures,
         |failure| printable_name(&failure.to_string()).into_owned(),

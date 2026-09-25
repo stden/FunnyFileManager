@@ -1,6 +1,7 @@
 //! Unit tests: the bounded, regular-file-only read shared by F3 and F4. Device
 //! nodes and FIFOs are in `tests/tests_special_files.rs`, a file that grows
-//! while it is read in `tests/tests_growing.rs`.
+//! while it is read in `tests/tests_growing.rs`, configuration and data files
+//! and the open that never waits in `tests/tests_small_files.rs`.
 
 use super::{read_for_text_ui, read_regular, Loaded};
 
@@ -12,6 +13,7 @@ use std::io;
 use tempfile::TempDir;
 
 mod tests_growing;
+mod tests_small_files;
 // FIFOs and device nodes exist only on Unix.
 #[cfg(unix)]
 mod tests_special_files;

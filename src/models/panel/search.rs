@@ -3,6 +3,7 @@
 use crate::casefold::starts_with_ignore_case;
 
 use super::Panel;
+use crate::models::EntryKind;
 
 impl Panel {
     /// Find and select the next entry matching the given prefix (case-insensitive).
@@ -59,5 +60,16 @@ impl Panel {
         }
 
         false
+    }
+
+    /// What the entry at `path` is, as the listing read it — for a question
+    /// asked about it, F8's "delete the folder?". `None` for a path the
+    /// listing does not hold.
+    #[must_use]
+    pub fn kind_of(&self, path: &std::path::Path) -> Option<EntryKind> {
+        self.entries
+            .iter()
+            .find(|entry| self.path.join(entry.disk_name()) == path)
+            .map(|entry| entry.kind)
     }
 }

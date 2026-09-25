@@ -7,8 +7,6 @@ use std::path::PathBuf;
 mod lookup;
 
 pub use lookup::availability;
-#[cfg(test)]
-use lookup::{resolve, workspace};
 
 /// A program FFM would run, and the arguments it would pass.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -35,13 +35,14 @@ pub(super) fn prepare_with(
     let recipe = settings.install.as_ref().ok_or(InstallError::Recipe)?;
     let encoded = serde_json::to_vec(recipe).map_err(crate::lsp::logged(InstallError::Recipe))?;
     let key = digest(&encoded);
-    fs::create_dir_all(cache)?;
+    crate::file_write::create_dirs_owner_only(cache).map_err(InstallError::cache)?;
     let _lock = lock(&cache.join(format!("{key}.lock")), stop)?;
     let destination = cache.join(&key);
     if !destination.exists() {
         let staging = tempfile::Builder::new()
             .prefix("install-")
-            .tempdir_in(cache)?;
+            .tempdir_in(cache)
+            .map_err(InstallError::cache)?;
         recipes::install(recipe, staging.path(), stop, environment)?;
         let launch = super::launch::for_recipe(recipe, staging.path(), stop, environment)?;
         let receipt =
@@ -50,7 +51,7 @@ pub(super) fn prepare_with(
         check_cancel(stop)?;
         fs::rename(staging.path(), &destination)?;
     }
-    let receipt = fs::read(destination.join("ready.json"))?;
+    let receipt = read_receipt(&destination)?;
     let launch: Launch =
         serde_json::from_slice(&receipt).map_err(crate::lsp::logged(InstallError::Recipe))?;
     launch.settings(settings, &destination, workspace, environment, stop)
@@ -73,12 +74,16 @@ fn lock_until(
     deadline: Instant,
     mut wait: impl FnMut(),
 ) -> Result<File, InstallError> {
-    let lock = File::options()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(path)?;
+    // A FIFO in the lock's place is refused, never waited on.
+    let lock = crate::fileload::open_regular(
+        path,
+        File::options()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false),
+    )
+    .map_err(InstallError::cache)?;
     loop {
         check_cancel(stop)?;
         match lock.try_lock() {
@@ -90,6 +95,12 @@ fn lock_until(
             Err(TryLockError::Error(error)) => return Err(error.into()),
         }
     }
+}
+
+/// The `ready.json` receipt of the installation in `root`, read with the
+/// guards of every data file FFM keeps.
+pub(super) fn read_receipt(root: &Path) -> std::io::Result<Vec<u8>> {
+    crate::fileload::read_small_file(&root.join("ready.json"), "ready.json").map(String::into_bytes)
 }
 
 pub(super) fn digest(bytes: &[u8]) -> String {

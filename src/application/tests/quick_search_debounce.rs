@@ -1,4 +1,4 @@
-//! Unit tests: quick search debounce (split out to keep files under 500 lines).
+//! Unit tests: quick search debounce.
 
 use super::*;
 

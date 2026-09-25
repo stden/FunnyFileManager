@@ -49,10 +49,10 @@ its extensions and one word of availability:
 | Tag | Meaning |
 |---|---|
 | `ready` (green) | The configured command is found, or the installed server that provides it |
-| `auto` (amber) | Not installed yet; installs after you trust a workspace |
+| `auto` (amber) | Not installed yet; installs after you trust a workspace, and what it installs with (Python 3, Node.js with npm, Java) is on PATH |
 | `recipe` (amber) | The configured command is not found, so the auto-install recipe's own program runs instead |
 | `missing` (red) | Not found, and no auto-install (or no install cache) |
-| `error` (red) | A broken install receipt or a missing runtime such as Java 21 |
+| `error` (red) | A broken install receipt, or a runtime the install needs is not on PATH (`LSP installation requires Node.js and npm`) |
 
 `*` marks a server changed since the file was read; `!` marks a problem, red
 when it blocks F2 and amber when it only warns. The pane below details the
@@ -259,7 +259,12 @@ Installations wait on a per-recipe lock when another FFM instance is installing.
 Commands have a ten-minute timeout; archive downloads have a five-minute timeout.
 Python needs its venv/pip components; npm must be installed beside Node.js. For
 Java, set JAVA_HOME to a JDK 21+ if PATH still selects an older Java. Package
-manager failures show a concise status without exposing captured package output.
+manager failures show a concise status without exposing captured package output,
+naming the step that failed: `python3 -m venv failed; install python3-venv`,
+`pip install failed` or `npm install failed; check the network`, `the download
+failed`. A cache folder FFM cannot create or write says so (`the LSP cache folder
+is not writable`, `… is on a read-only file system`, `no space left for the LSP
+cache`) instead of a storage error.
 
 Opt-in FFM debug logging records request methods/IDs, lifecycle changes and error
 codes. Source text is not logged. Stderr is drained separately and its byte counts

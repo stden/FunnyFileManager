@@ -15,8 +15,9 @@ pub(super) fn render(
     f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
     files: &[PathBuf],
+    noun: &str,
 ) {
-    let mut message = vec![question(files.len())];
+    let mut message = vec![question(files.len(), noun)];
     dialog::preview_lines(files, |path| shown_name(path), &mut message);
 
     dialog::render_warning(
@@ -31,9 +32,10 @@ pub(super) fn render(
     );
 }
 
-fn question(count: usize) -> String {
+/// The one entry by its kind — a file, a folder or a link — or the count.
+fn question(count: usize, noun: &str) -> String {
     match count {
-        1 => "Do you wish to wipe the file?".to_owned(),
+        1 => format!("Do you wish to wipe the {noun}?"),
         count => format!("Do you wish to wipe {count} items?"),
     }
 }

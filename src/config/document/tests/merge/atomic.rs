@@ -25,6 +25,26 @@ fn a_save_is_refused_while_another_ffm_holds_the_lock() {
     assert_eq!(document(&path).get("counter"), Some(&Value::from(2)));
 }
 
+/// A program FFM starts on another thread shares the lock from its fork
+/// until its exec, so a lock this FFM has just let go of can still read as
+/// held for a moment: the next save refused, "another FFM is saving". A lock
+/// freed a moment later is waited for.
+#[test]
+fn a_lock_freed_a_moment_later_is_waited_for() {
+    let temp = TempDir::new().expect("tempdir");
+    let path = settings_path(&temp);
+    write_file(&path, "counter: 1\n");
+    let lock = File::create(temp.path().join("ffm").join("settings.yaml.lock")).expect("lock file");
+    lock.lock().expect("held for a moment");
+    let freed = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        drop(lock);
+    });
+    update(&path, &Counter { counter: 1 }, &Counter { counter: 2 }).expect("saved");
+    freed.join().expect("the lock is freed");
+    assert_eq!(document(&path).get("counter"), Some(&Value::from(2)));
+}
+
 #[test]
 fn a_lock_that_cannot_be_opened_refuses_the_save() {
     let temp = TempDir::new().expect("tempdir");

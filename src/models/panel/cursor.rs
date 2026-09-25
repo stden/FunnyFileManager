@@ -3,7 +3,7 @@
 use ratatui::widgets::ListState;
 use std::path::PathBuf;
 
-use crate::models::DirEntry;
+use crate::models::{DirEntry, PanelKind};
 
 use super::Panel;
 
@@ -69,6 +69,18 @@ impl Panel {
     #[must_use]
     pub fn selected(&self) -> Option<usize> {
         self.state.selected()
+    }
+
+    /// The row the cursor is on in what the panel shows: a `NetBox` list's
+    /// own cursor, else the file list's highlight. The status line gives the
+    /// info row back once this moves.
+    #[must_use]
+    pub fn shown_cursor(&self) -> Option<usize> {
+        match &self.kind {
+            PanelKind::Sessions(sessions) => Some(sessions.cursor()),
+            PanelKind::Remote(remote) => Some(remote.cursor()),
+            PanelKind::Files | PanelKind::Tree(_) | PanelKind::QuickView(_) => self.selected(),
+        }
     }
 
     /// Highlight `index`, or nothing.

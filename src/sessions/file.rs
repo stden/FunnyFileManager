@@ -12,8 +12,9 @@ use crate::models::{Session, SessionName};
 /// Why the store was not written.
 #[derive(Debug)]
 pub enum StoreError {
-    /// The file did not load at start-up, so it is kept as it is.
-    Damaged,
+    /// The file did not load at start-up, for this reason, so it is kept as
+    /// it is.
+    Damaged(String),
     /// The serialized store would be too large to load again.
     TooLarge {
         limit: u64,
@@ -24,8 +25,9 @@ pub enum StoreError {
 impl fmt::Display for StoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Damaged => f.write_str(
-                "the sessions file did not load, so it is not overwritten; fix or move it first",
+            Self::Damaged(reason) => write!(
+                f,
+                "{FILE_NAME} did not load ({reason}), so it is not overwritten; fix or move it first"
             ),
             Self::TooLarge { limit } => {
                 write!(f, "the sessions file would exceed {limit} bytes")
@@ -51,7 +53,8 @@ impl SessionStore {
 
     /// The sessions in the file at `path`: none when there is no file, and
     /// none — in a store that will not save — when the file is unusable. Why
-    /// it was unusable goes to the log, never to the screen.
+    /// it was unusable goes to the log, and to the status line through
+    /// [`Self::damage`].
     #[must_use]
     pub fn load_from(path: PathBuf) -> Self {
         match read_sessions(&path) {
@@ -66,7 +69,7 @@ impl SessionStore {
                 ));
                 Self {
                     sessions: Vec::new(),
-                    backing: Backing::Damaged(path),
+                    backing: Backing::Damaged(reason.to_string()),
                 }
             }
         }
@@ -78,13 +81,23 @@ impl SessionStore {
         matches!(self.backing, Backing::Damaged(_))
     }
 
+    /// Why the file did not load, as the error every save is refused with;
+    /// `None` when it loaded or there is none.
+    #[must_use]
+    pub fn damage(&self) -> Option<StoreError> {
+        match &self.backing {
+            Backing::Damaged(reason) => Some(StoreError::Damaged(reason.clone())),
+            Backing::SessionOnly | Backing::File(_) => None,
+        }
+    }
+
     /// Write the store where it was loaded from: a sibling temp file with
     /// mode `0600` replaces the old one in a single rename. A session-only
     /// store has nowhere to go and succeeds; a damaged one refuses.
     pub fn save(&self) -> Result<(), StoreError> {
         let path = match &self.backing {
             Backing::SessionOnly => return Ok(()),
-            Backing::Damaged(_) => return Err(StoreError::Damaged),
+            Backing::Damaged(reason) => return Err(StoreError::Damaged(reason.clone())),
             Backing::File(path) => path,
         };
         let text = serde_json::to_string_pretty(&StoredFile {
@@ -97,9 +110,11 @@ impl SessionStore {
             });
         }
         if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir).map_err(StoreError::Write)?;
+            crate::file_write::create_dirs_owner_only(dir).map_err(StoreError::Write)?;
         }
-        crate::history::write_owner_only(path, &text).map_err(StoreError::Write)
+        // The settings' own guards: through a link, and never over another
+        // user's file, a hard-linked one or a read-only one.
+        crate::file_write::replace_owner_only(path, FILE_NAME, &text).map_err(StoreError::Write)
     }
 }
 

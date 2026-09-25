@@ -60,6 +60,19 @@ impl LspMachine {
         app
     }
 
+    /// Put what the catalog's recipes install with on this machine's `PATH` —
+    /// Python 3, Java, and Node.js with npm beside it — so a recipe that is
+    /// not installed yet reads `auto`, not `error`.
+    pub fn install_runtimes(&self) {
+        for name in ["python3", "java", "node"] {
+            let program = self.bin().join(crate::lsp::program_file(name));
+            super::write_executable(&program, b"runtime").expect("runtime");
+        }
+        let npm = self.bin().join("node_modules/npm/bin/npm-cli.js");
+        fs::create_dir_all(npm.parent().expect("parent")).expect("npm dir");
+        fs::write(npm, "npm").expect("npm");
+    }
+
     /// The app with the dialog open.
     pub fn opened(&self) -> App {
         let mut app = self.app();

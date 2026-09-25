@@ -4,7 +4,11 @@
 
 use crate::test_support::FakeMachine;
 
+use super::config_paths::join_relative;
+use super::programs::find_program;
 use super::*;
+use crate::mcp_clients::{ClientId, ConfigFormat, ServerState};
+use std::{fs, path::PathBuf};
 
 fn machine() -> FakeMachine {
     FakeMachine::new().expect("fake machine")

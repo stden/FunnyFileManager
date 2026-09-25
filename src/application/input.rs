@@ -18,6 +18,16 @@ pub trait EventSource {
     fn try_read(&mut self) -> io::Result<Option<Event>> {
         Ok(None)
     }
+
+    /// Throw away every event already queued, and say whether one of them
+    /// was the cancel gesture. What `try_read` can see is what is queued.
+    fn discard_queued(&mut self) -> io::Result<bool> {
+        let mut cancel = false;
+        while let Some(event) = self.try_read()? {
+            cancel |= crate::terminal::is_cancel_event(&event);
+        }
+        Ok(cancel)
+    }
 }
 
 impl<F: FnMut() -> io::Result<Option<Event>>> EventSource for F {
@@ -33,6 +43,10 @@ impl EventSource for &mut crate::recording::Input {
 
     fn try_read(&mut self) -> io::Result<Option<Event>> {
         self.read_pending()
+    }
+
+    fn discard_queued(&mut self) -> io::Result<bool> {
+        crate::recording::Input::discard_queued(self)
     }
 }
 
@@ -62,6 +76,13 @@ impl<S: EventSource> BufferedInput<S> {
         } else {
             Ok(event)
         }
+    }
+
+    /// Throw away what was typed while the loop was busy; see
+    /// [`EventSource::discard_queued`]. An event already read ahead stays: it
+    /// was typed before the busy event began, as part of the same burst.
+    pub(crate) fn discard_queued(&mut self) -> io::Result<bool> {
+        self.source.discard_queued()
     }
 
     fn coalesce(&mut self, event: Event) -> Event {

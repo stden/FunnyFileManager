@@ -13,39 +13,39 @@ use serde_json::json;
 use std::fs;
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct S3TransferParams {
+struct S3TransferParams {
     /// AWS profile name
-    pub profile: String,
+    profile: String,
     /// S3 bucket name
-    pub bucket: String,
+    bucket: String,
     /// S3 object key
-    pub key: String,
+    key: String,
     /// Local file path
-    pub local_path: String,
+    local_path: String,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct S3DeleteParams {
+struct S3DeleteParams {
     /// AWS profile name
-    pub profile: String,
+    profile: String,
     /// S3 bucket name
-    pub bucket: String,
+    bucket: String,
     /// S3 object key to delete
-    pub key: String,
+    key: String,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct S3CopyParams {
+struct S3CopyParams {
     /// AWS profile name
-    pub profile: String,
+    profile: String,
     /// Source bucket
-    pub source_bucket: String,
+    source_bucket: String,
     /// Source object key
-    pub source_key: String,
+    source_key: String,
     /// Destination bucket
-    pub dest_bucket: String,
+    dest_bucket: String,
     /// Destination object key
-    pub dest_key: String,
+    dest_key: String,
 }
 
 #[tool_router(router = s3_transfer_tools, vis = "pub(super)")]

@@ -12,7 +12,7 @@ fn os(s: &str) -> OsString {
 
 #[test]
 fn no_record_is_live_without_a_file() {
-    let input = Input::from_args(&[os("--no-record")], (80, 24)).expect("args");
+    let (input, _) = Input::from_args(&[os("--no-record")], (80, 24)).expect("args");
     assert!(matches!(input, Input::Live(None)));
     let options = input.terminal_options();
     assert!(matches!(options.viewport, ratatui::Viewport::Fullscreen));
@@ -22,7 +22,7 @@ fn no_record_is_live_without_a_file() {
 fn record_creates_a_session_file() {
     let dir = TempDir::new().expect("dir");
     let path = dir.path().join("session.py");
-    let input = Input::from_args(&[os("--record"), path.as_os_str().to_os_string()], (40, 12))
+    let (input, _) = Input::from_args(&[os("--record"), path.as_os_str().to_os_string()], (40, 12))
         .expect("record");
     assert!(matches!(input, Input::Live(Some(_))));
     assert!(path.is_file());
@@ -43,7 +43,7 @@ fn replay_loads_a_jsonl_recording() {
         format!("{}\n", serde_json::to_string(&header).expect("json")),
     )
     .expect("write");
-    let input = Input::from_args(&[os("--replay"), path.as_os_str().to_os_string()], (80, 24))
+    let (input, _) = Input::from_args(&[os("--replay"), path.as_os_str().to_os_string()], (80, 24))
         .expect("replay");
     assert!(matches!(input, Input::Replay(_)));
     assert!(matches!(
@@ -73,13 +73,13 @@ fn bad_flags_and_bad_recordings_are_errors() {
 /// character typed, including anything pasted into a prompt.
 #[test]
 fn empty_args_do_not_start_a_recording() {
-    let input = Input::from_args(&[], (80, 24)).expect("default");
+    let (input, _) = Input::from_args(&[], (80, 24)).expect("default");
     assert!(matches!(input, Input::Live(None)));
 }
 
 #[test]
 fn live_read_without_a_tty_does_not_panic() {
-    let mut input = Input::from_args(&[os("--no-record")], (80, 24)).expect("live");
+    let (mut input, _) = Input::from_args(&[os("--no-record")], (80, 24)).expect("live");
     drop(input.read());
 }
 
@@ -124,7 +124,7 @@ fn replay_with_a_delay_returns_none_until_due() {
 fn replay_input_read_yields_the_recorded_event() {
     let dir = TempDir::new().expect("dir");
     let path = write_replay(&dir, 0);
-    let mut input =
+    let (mut input, _) =
         Input::from_args(&[os("--replay"), path.into_os_string()], (80, 24)).expect("replay");
     assert!(matches!(
         input.read().expect("event"),

@@ -18,8 +18,9 @@ fn each_keyless_row_takes_the_same_road() {
             matches!(o, Overlay::MenuDialog(_))
         }),
     ];
+    let config = tempfile::TempDir::new().expect("config dir");
     for (command, is_open) in cases {
-        let mut app = App::new().expect("test app");
+        let mut app = app_on(config.path(), Some(config.path()));
         apply_action(&mut terminal(), &mut app, Action::Menu(command));
         assert!(is_open(&app.overlay), "{command:?}");
     }
@@ -78,25 +79,62 @@ fn the_console_still_runs_a_menu_command() {
 #[test]
 fn enter_runs_an_associated_command() {
     let dir = tempfile::TempDir::new().expect("dir");
-    std::fs::create_dir_all(dir.path().join(".ffm")).expect("ffm");
+    let ran = dir.path().join("ran");
     std::fs::write(dir.path().join("note.txt"), "x").expect("file");
-    std::fs::write(dir.path().join(".ffm/associations.txt"), "txt\t/bin/true\n").expect("assoc");
-    let mut app = App::new().expect("app");
-    app.left_panel = models::Panel::new(dir.path().to_path_buf()).expect("panel");
-    app.right_panel = models::Panel::new(dir.path().to_path_buf()).expect("panel");
+    let association = format!("txt\ttouch {}\n", ran.display());
+    std::fs::write(dir.path().join("associations.txt"), association).expect("assoc");
+    let mut app = app_on(dir.path(), Some(dir.path()));
     assert!(app.get_active_panel().select_named("note.txt"));
     apply_action(&mut terminal(), &mut app, Action::Open);
+    assert!(ran.exists(), "{:?}", app.status);
 }
 
 #[test]
 fn a_broken_associations_file_is_reported_instead_of_opening() {
     let dir = tempfile::TempDir::new().expect("dir");
-    std::fs::create_dir_all(dir.path().join(".ffm/associations.txt")).expect("not a file");
+    std::fs::create_dir_all(dir.path().join("associations.txt")).expect("not a file");
     std::fs::write(dir.path().join("note.txt"), "x").expect("file");
-    let mut app = App::new().expect("app");
-    app.left_panel = models::Panel::new(dir.path().to_path_buf()).expect("panel");
-    app.right_panel = models::Panel::new(dir.path().to_path_buf()).expect("panel");
+    let mut app = app_on(dir.path(), Some(dir.path()));
     assert!(app.get_active_panel().select_named("note.txt"));
     apply_action(&mut terminal(), &mut app, Action::Open);
     assert!(matches!(app.status, status::Status::Error(_)));
+}
+
+/// With no configuration directory — HOME unset, as under `env -i`, cron or
+/// a service — the associations and the user menu were read from `.ffm/` in
+/// the active panel's folder, so Enter on a file in a cloned repository or an
+/// unpacked archive ran a command its author wrote. A folder's own files are
+/// never configuration: without a configuration directory there is none.
+#[test]
+fn a_folders_own_ffm_files_are_never_read_or_run() {
+    let dir = tempfile::TempDir::new().expect("dir");
+    let pwned = dir.path().join("pwned");
+    std::fs::create_dir_all(dir.path().join(".ffm")).expect("ffm");
+    std::fs::write(dir.path().join("README.txt"), "hello").expect("file");
+    let association = format!("txt\ttouch {}\n", pwned.display());
+    std::fs::write(dir.path().join(".ffm/associations.txt"), association).expect("assoc");
+    std::fs::write(dir.path().join(".ffm/user-menu.txt"), "Build\tmake\n").expect("menu");
+    let mut app = app_on(dir.path(), None);
+    assert!(app.get_active_panel().select_named("README.txt"));
+    apply_action(&mut terminal(), &mut app, Action::Open);
+    assert!(!pwned.exists(), "the folder's association ran");
+    apply_action(&mut terminal(), &mut app, Action::UserMenu);
+    let Overlay::MenuDialog(dialog) = &app.overlay else {
+        panic!("the user menu is open: {:?}", app.status);
+    };
+    let models::MenuDialog::Choices { rows, .. } = dialog.as_ref() else {
+        panic!("choices");
+    };
+    assert!(rows.iter().all(|row| row.label != "Build"), "{rows:?}");
+}
+
+/// An app with both panels on `dir`, keeping its settings — and so the user
+/// menu and the associations — in `config` when there is one.
+fn app_on(dir: &Path, config: Option<&Path>) -> App {
+    let panel = models::Panel::new(dir.to_path_buf()).expect("panel");
+    let mut app = App::from_panels(panel.clone(), panel);
+    if let Some(config) = config {
+        app.settings = models::settings::Settings::with_file(config.join("settings.yaml"));
+    }
+    app
 }

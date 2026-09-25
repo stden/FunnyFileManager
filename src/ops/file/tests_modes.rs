@@ -9,7 +9,7 @@ use std::os::unix::fs::PermissionsExt;
 
 use super::tests_transfer_policies::{app_with, mark, settings};
 use super::*;
-use crate::copy::AccessRights;
+use crate::copy::{AccessRights, Purpose};
 
 /// The permission bits of `path` in octal, as `ls` and `chmod` spell them,
 /// so a failing comparison reads `644` rather than `420`.

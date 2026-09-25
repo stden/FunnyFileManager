@@ -138,3 +138,47 @@ fn a_pending_registration_runs_once_even_when_it_stops_early() {
     assert_eq!(dialog(&app).progress, McpInstallProgress::Choosing);
     assert!(!is_pending(&app));
 }
+
+/// Current folder writes into the folder the panels show: the new
+/// `.mcp.json`, `.codex`, `.junie` and `.kiro` are listed at once, not only
+/// after Ctrl+R.
+#[test]
+fn register_in_the_current_folder_refreshes_the_panels() {
+    // Another test forces refresh_panels to fail while it holds this lock.
+    let _refresh = crate::utils::refresh_panels_mutex()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let (_machine, mut app) = machine_app();
+    open(&mut app);
+    switch_scope(&mut app, Direction::Forward);
+    register(&mut app);
+    for panel in [&app.left_panel, &app.right_panel] {
+        let names: Vec<&str> = panel
+            .entries
+            .iter()
+            .map(|entry| entry.name.as_str())
+            .collect();
+        for name in [".mcp.json", ".codex", ".junie", ".kiro"] {
+            assert!(names.contains(&name), "{name} in {names:?}");
+        }
+    }
+}
+
+/// Panels that cannot be read again do not change what registering did:
+/// the report opens and the status is still the registration's.
+#[test]
+fn a_panel_refresh_that_fails_keeps_the_registrations_status() {
+    let _refresh = crate::utils::refresh_panels_mutex()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let (_machine, mut app) = machine_app();
+    open(&mut app);
+    crate::utils::set_refresh_panels_error(true);
+    register(&mut app);
+    crate::utils::set_refresh_panels_error(false);
+    assert!(matches!(app.overlay, Overlay::Viewer(_)));
+    assert_eq!(
+        app.status,
+        Status::CommandOutput("ffm-mcp: 4 added".to_owned())
+    );
+}

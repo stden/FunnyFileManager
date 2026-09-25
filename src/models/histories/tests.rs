@@ -1,5 +1,7 @@
 //! Unit tests: touch order, the cap, and the round trip through the data dir.
 
+use std::fs;
+
 use tempfile::TempDir;
 
 use super::*;

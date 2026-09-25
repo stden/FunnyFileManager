@@ -2,7 +2,7 @@
 
 use std::{fs, io, path::Path};
 
-use crate::utils::{copy_file, FileMode};
+use crate::utils::{copy_file, CopyRules};
 
 #[cfg(any(test, tarpaulin))]
 use crate::utils::{
@@ -40,7 +40,7 @@ pub(super) fn entry_file_type(entry: &fs::DirEntry) -> io::Result<fs::FileType> 
     entry.file_type()
 }
 
-pub(super) fn copy_file_checked(src: &Path, dst: &Path, mode: FileMode) -> io::Result<()> {
+pub(super) fn copy_file_checked(src: &Path, dst: &Path, rules: CopyRules) -> io::Result<()> {
     #[cfg(any(test, tarpaulin))]
     {
         if forced_copy_step() == COPY_DIR_ALL_FAIL_COPY_FILE {
@@ -48,7 +48,12 @@ pub(super) fn copy_file_checked(src: &Path, dst: &Path, mode: FileMode) -> io::R
         }
     }
     // The path goes into the message: the batch reports the folder, and only
-    // this says which entry inside it was refused or failed.
-    copy_file(src, dst, mode)
-        .map_err(|error| io::Error::new(error.kind(), format!("{}: {error}", src.display())))
+    // this says which entry inside it was refused or failed. A failure that
+    // already names its place — the copy's own destination — keeps it.
+    copy_file(src, dst, rules).map_err(|error| {
+        if crate::utils::FailedAt::of(&error).is_some() {
+            return error;
+        }
+        io::Error::new(error.kind(), format!("{}: {error}", src.display()))
+    })
 }

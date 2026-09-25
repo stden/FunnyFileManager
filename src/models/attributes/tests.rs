@@ -44,7 +44,7 @@ fn flag_box(dialog: &AttributesDialog, flag: Flag) -> &super::FlagBox {
 #[test]
 fn a_single_file_offers_its_original_times() {
     let dialog = AttributesDialog::from_snapshots(&[snapshot("a", 0o644, false)]);
-    let offered = super::parse_time("Modification time", &dialog.modified.current)
+    let offered = super::time_field::parse_time("Modification time", &dialog.modified.current)
         .expect("the offered text parses");
     assert_eq!(
         offered,

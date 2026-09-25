@@ -87,13 +87,30 @@ impl CopyPrompt {
         }
     }
 
-    /// How the transfer copies: what it does with a link it meets, and the
-    /// permission bits each copied file is given.
+    /// How the transfer copies: what it does with a link it meets, the
+    /// permission bits each copied file and folder is given, and whether
+    /// every entry keeps its source's times.
+    ///
+    /// A move copies only across filesystems, where it stands in for a rename
+    /// that would have kept every time and mode: it keeps them too, as `mv`
+    /// does, unless Inherit asks for the destination's own rights.
     #[must_use]
     pub const fn rules(&self) -> crate::utils::CopyRules {
+        use crate::utils::{FileMode, Times};
+
+        let moving = matches!(self.purpose, Purpose::Move);
         crate::utils::CopyRules {
             links: self.link_policy(),
             modes: self.rights.file_mode(),
+            folder_modes: match (moving, self.rights) {
+                (true, AccessRights::Default) => FileMode::Source,
+                _ => self.rights.folder_mode(),
+            },
+            times: if self.timestamps || moving {
+                Times::Source
+            } else {
+                Times::Fresh
+            },
         }
     }
 

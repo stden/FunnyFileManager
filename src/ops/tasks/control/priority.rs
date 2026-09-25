@@ -93,10 +93,10 @@ fn renice(host: Option<&dyn ProcessHost>, list: &mut TaskList, plan: &NicePlan) 
             }
         }
     }
-    let count = plan.changes().len();
+    let count = plan.changes().len().saturating_sub(failures.len());
     let done = match plan.renice() {
         Renice::Step(step) => Notice::Stepped { step, count },
         Renice::Set(nice) => Notice::Reniced { count, nice },
     };
-    finish(list, failures, done);
+    finish(list, failures, done, count);
 }

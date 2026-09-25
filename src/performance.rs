@@ -81,11 +81,11 @@ impl Performance {
     /// Atomically save aggregates. Typed text, passwords, commands and paths are absent.
     pub fn save_to(&self, path: &Path) -> io::Result<()> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
+            crate::file_write::create_dirs_owner_only(parent)?;
         }
         let report = serde_json::json!({"version": 1, "actions": self.rows()});
         let text = serde_json::to_string_pretty(&report).map_err(io::Error::other)?;
-        crate::history::write_owner_only(path, &text)
+        crate::file_write::write_owner_only(path, &text)
     }
 
     pub(crate) fn save_session(&self) -> io::Result<()> {

@@ -136,7 +136,7 @@ fn submit(app: &mut App) {
     }
     app.history.record(&command);
     if let Err(err) = execute_command(app, &command) {
-        app.set_status(Status::Error(err.to_string()));
+        app.set_status(Status::of_error(&err));
     }
 }
 

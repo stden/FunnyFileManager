@@ -1,6 +1,6 @@
 //! Purpose: Pin the shadow's colour scaling at the ends of the `u8` range.
 
-use super::shadowed_component;
+use super::shadow::shadowed_component;
 
 #[test]
 fn a_shadow_keeps_three_eighths_of_each_colour_component() {

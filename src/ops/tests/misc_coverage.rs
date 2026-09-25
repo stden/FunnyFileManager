@@ -1,4 +1,4 @@
-//! Unit tests: misc coverage (split out to keep files under 500 lines).
+//! Unit tests: misc coverage.
 
 use crate::ops::file::{rename_or_fail, RENAME_TEST_MUTEX};
 

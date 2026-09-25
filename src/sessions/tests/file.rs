@@ -69,7 +69,7 @@ fn an_unusable_file_is_never_written_over() {
         assert!(store.is_empty());
         assert!(store.is_damaged());
         store.upsert(session("a.test"));
-        assert!(matches!(store.save(), Err(StoreError::Damaged)));
+        assert!(matches!(store.save(), Err(StoreError::Damaged(_))));
         assert_eq!(fs::read_to_string(&path).expect("read"), contents);
     }
 }
@@ -98,8 +98,9 @@ fn a_write_that_fails_is_reported_with_its_cause() {
         "{error}"
     );
     assert_eq!(
-        StoreError::Damaged.to_string(),
-        "the sessions file did not load, so it is not overwritten; fix or move it first"
+        StoreError::Damaged("two sessions share a name".to_owned()).to_string(),
+        "sessions.json did not load (two sessions share a name), so it is not overwritten; \
+         fix or move it first"
     );
 }
 

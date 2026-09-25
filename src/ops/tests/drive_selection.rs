@@ -1,4 +1,5 @@
-//! Unit tests: drive selection (split out to keep files under 500 lines).
+//! Unit tests: keys in the delete confirmation, the drive dialog and the
+//! new-file prompt.
 
 use super::support::*;
 use crate::popup::process_popup_input;

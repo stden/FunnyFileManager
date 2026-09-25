@@ -64,25 +64,15 @@ fn test_save_still_writes_a_writable_file() -> io::Result<()> {
     Ok(())
 }
 
-/// A directory the user may not add to (0555), holding a file they may write.
-/// Returns the directory; `restore` gives it back its write bit so `TempDir`
-/// can clean up.
+/// A directory the user may not add to (0555), holding a file they may write,
+/// for as long as the guard lives: dropping it gives the directory back its
+/// write bit, so `TempDir` can clean up.
 #[cfg(unix)]
-fn read_only_dir(root: &std::path::Path) -> io::Result<std::path::PathBuf> {
-    use std::os::unix::fs::PermissionsExt;
-
+fn read_only_dir(root: &std::path::Path) -> io::Result<crate::test_support::ModeGuard> {
     let locked = root.join("read-only-dir");
     fs::create_dir(&locked)?;
     fs::write(locked.join("file.txt"), "ORIGINAL\n")?;
-    fs::set_permissions(&locked, fs::Permissions::from_mode(0o555))?;
-    Ok(locked)
-}
-
-#[cfg(unix)]
-fn restore(locked: &std::path::Path) -> io::Result<()> {
-    use std::os::unix::fs::PermissionsExt;
-
-    fs::set_permissions(locked, fs::Permissions::from_mode(0o755))
+    crate::test_support::ModeGuard::set(&locked, 0o555)
 }
 
 /// The atomic save needs a temp file beside the target, which a read-only
@@ -94,14 +84,14 @@ fn restore(locked: &std::path::Path) -> io::Result<()> {
 #[test]
 fn a_writable_file_in_a_read_only_directory_is_saved_in_place() -> io::Result<()> {
     let dir = TempDir::new()?;
-    let locked = read_only_dir(dir.path())?;
+    let guard = read_only_dir(dir.path())?;
+    let locked: &std::path::Path = guard.as_ref();
     let path = locked.join("file.txt");
     let mut editor = Editor::from_content("file.txt".to_owned(), path.clone(), "EDITED\n");
     editor.state = EditState::Modified;
 
     let result = editor.save();
-    let listing = dir_names(&locked);
-    restore(&locked)?;
+    let listing = dir_names(locked);
 
     result?;
     assert_eq!(fs::read_to_string(&path)?, "EDITED\n");
@@ -120,11 +110,11 @@ fn a_refused_save_names_the_directory_not_a_temp_file() -> io::Result<()> {
     }
     let dir = TempDir::new()?;
     let locked = read_only_dir(dir.path())?;
-    let mut editor = Editor::from_content("new.txt".to_owned(), locked.join("new.txt"), "");
+    let path = locked.as_ref().join("new.txt");
+    let mut editor = Editor::from_content("new.txt".to_owned(), path, "");
     editor.state = EditState::Modified;
 
     let result = editor.save();
-    restore(&locked)?;
 
     let message = result
         .expect_err("nothing can be created there")

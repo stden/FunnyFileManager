@@ -87,7 +87,8 @@ fn replace(path: &Path, read: Option<&str>, text: &str) -> io::Result<()> {
         fs::create_dir_all(path.parent().unwrap_or_else(|| Path::new("")))?;
         path.to_path_buf()
     };
-    file_write::ensure_writable(&target)?;
+    // The reason alone: the report's own "cannot write <path>" names the file.
+    file_write::refuse_unwritable(&target)?;
     let mut temp = file_write::temp_beside(&target)?;
     file_write::fill(&mut temp, &target, text.as_bytes())?;
     still_as_read(path, read)?;

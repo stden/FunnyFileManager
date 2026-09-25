@@ -37,8 +37,6 @@ use placement::frame_area;
 pub(super) use placement::place;
 pub(super) use row::Row;
 pub(super) use shadow::render_shadow;
-#[cfg(test)]
-use shadow::shadowed_component;
 
 /// The character that marks the next letter as a control's hotkey.
 ///
@@ -181,3 +179,5 @@ pub(super) fn render_warning(
 mod tests;
 #[cfg(test)]
 mod tests_preview;
+#[cfg(test)]
+mod tests_radio;

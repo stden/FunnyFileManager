@@ -22,12 +22,12 @@ pub(super) const MIN_NAME_WIDTH: Cells = Cells(8);
 /// down the first stripe and on into the next.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::ui) struct PanelLayout {
-    pub(in crate::ui) stripes: usize,
+    pub(super) stripes: usize,
     /// The name width in every stripe but the last.
     pub(in crate::ui) name: Cells,
     /// The last stripe's name width. It also takes the cells an uneven split
     /// leaves over, so every row reaches the frame.
-    pub(in crate::ui) last_name: Cells,
+    pub(super) last_name: Cells,
     pub(in crate::ui) columns: &'static [PanelColumn],
 }
 

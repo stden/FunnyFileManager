@@ -22,7 +22,7 @@ pub(crate) mod document;
 mod home;
 mod lsp;
 mod pages;
-pub use home::dir;
+pub use home::{data_dir, dir, user_home};
 pub use lsp::values::{
     quote, Arguments, Enablement, Extension, Extensions, LanguageId, ServerCommand, ValueError,
 };

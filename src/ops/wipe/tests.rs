@@ -13,7 +13,8 @@ use std::rc::Rc;
 use tempfile::TempDir;
 
 use super::steps::{TEMP_PREFIX, ZERO_CHUNK};
-use super::{cancel, open, run, wipe_path, Stage, WITNESS};
+use super::witness::WITNESS;
+use super::{cancel, open, run, wipe_path, Stage};
 use crate::models::{App, FileName, Overlay, Panel};
 use crate::status::Status;
 

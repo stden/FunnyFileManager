@@ -4,9 +4,10 @@
 //!
 //! The file is untrusted input and handled as such. It is read only when it
 //! is a regular file of at most [`MAX_FILE_BYTES`]; a DTD is refused, so no
-//! entity is expanded and nothing outside the file is fetched; the parser
-//! stops after [`MAX_NODES`] nodes and the import after [`MAX_SESSIONS`]
-//! sessions. Every value is URL-decoded and then checked into the session's
+//! entity is expanded and nothing outside the file is fetched; a file whose
+//! elements nest more than [`MAX_DEPTH`] deep is refused before it is parsed;
+//! the parser stops after [`MAX_NODES`] nodes and the import after
+//! [`MAX_SESSIONS`] sessions. Every value is URL-decoded and then checked into the session's
 //! own types, and an entry with any bad value is skipped with the reason.
 //! A saved password is counted and left alone: it is never decoded, never
 //! stored, and never shown.
@@ -22,6 +23,7 @@ use crate::models::{
 };
 
 mod decode;
+mod depth;
 
 use decode::decode;
 
@@ -31,6 +33,9 @@ pub const MAX_FILE_BYTES: u64 = 1024 * 1024;
 pub const MAX_SESSIONS: usize = 1000;
 /// The most XML nodes parsed — elements, text and attributes alike.
 pub const MAX_NODES: u32 = 100_000;
+/// The deepest element nesting parsed. An export nests four deep
+/// (`NetBox` > `Sessions` > `Session` > `HostName`).
+pub const MAX_DEPTH: usize = 32;
 
 /// The sessions in the `.netbox` file at `file`.
 pub fn import(file: &Path) -> Result<Imported, ImportError> {
@@ -40,6 +45,9 @@ pub fn import(file: &Path) -> Result<Imported, ImportError> {
 
 /// The sessions in `text`, a `.netbox` export read from `file`.
 pub fn parse(text: &str, file: &Path) -> Result<Imported, ImportError> {
+    if depth::nested_deeper_than(text, MAX_DEPTH) {
+        return Err(ImportError::TooDeep { limit: MAX_DEPTH });
+    }
     let options = ParsingOptions {
         allow_dtd: false,
         nodes_limit: MAX_NODES,

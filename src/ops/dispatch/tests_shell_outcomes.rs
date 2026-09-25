@@ -2,6 +2,7 @@
 //! shell command ended: its drawable output, a cancel, a timeout, a missing
 //! folder.
 
+use super::shell_commands::record_cancel;
 use super::tests::make_app;
 use super::*;
 use tempfile::TempDir;

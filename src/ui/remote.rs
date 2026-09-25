@@ -20,11 +20,20 @@ use super::sessions::{cursor_style, frame, render_info};
 use super::{palette, Cells};
 use crate::models::{DirEntry, Panel, PanelKind, RemotePanel};
 use crate::scroll::visible_window;
+use crate::status::PathMessage;
 
 /// The one column's heading.
 const COLUMN_TITLE: &str = "Name";
 
-pub(super) fn render(f: &mut Frame<'_>, panel: &mut Panel, area: Rect, is_active: bool) {
+/// Draw the remote directory; `footer` is the status the active panel's info
+/// row shows in place of the directory.
+pub(super) fn render(
+    f: &mut Frame<'_>,
+    panel: &mut Panel,
+    area: Rect,
+    is_active: bool,
+    footer: Option<&PathMessage<'_>>,
+) {
     let PanelKind::Remote(remote) = &mut panel.kind else {
         return;
     };
@@ -32,7 +41,7 @@ pub(super) fn render(f: &mut Frame<'_>, panel: &mut Panel, area: Rect, is_active
         return;
     };
     render_rows(f, remote, body.rows, is_active);
-    render_info(f, remote.path().as_str(), body.info);
+    render_info(f, footer, remote.path().as_str(), body.info);
 }
 
 /// The rows on screen, scrolled so the cursor row is always drawn.

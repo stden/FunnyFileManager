@@ -6,11 +6,9 @@
 //! - `clip_runs`'s two edge branches: the room-exhausted `break` when a line
 //!   is wider than the screen, and the skip-emptied `continue` when a
 //!   horizontal scroll consumes an entire early run.
-//! - `render_search_prompt` (F7's dialog inside the editor) and the cursor
-//!   placement that follows it — every existing F7 test drives it through
-//!   `popup::process_popup_input` and never renders it.
-//! - `render_information`'s `Coverage::Partial` line, never built by a test
-//!   that also renders the overlay.
+//!
+//! Also the screen helpers `render_gaps_dialogs` shares, which covers the F7
+//! search dialog and the information dialog's coverage lines.
 
 use std::path::PathBuf;
 

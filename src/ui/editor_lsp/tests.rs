@@ -1,4 +1,6 @@
-//! Purpose: Assert visible language-server information and Unicode diagnostic underline cells.
+//! Purpose: Assert the editor's visible language-server information: hover,
+//! completion and definition lists, the header's status, and workspace
+//! trust. Diagnostic underlines are in `tests_diagnostics`.
 
 use super::*;
 use crate::lsp::positions::{Position, Range};

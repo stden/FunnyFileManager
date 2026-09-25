@@ -44,6 +44,15 @@ Feature: Make folder dialog
     And "one" should not exist in the source
     And "two" should not exist in the source
 
+  Scenario: A path makes every folder on the way, as Far does
+    Given the app is set up with source and destination
+    When I open the make folder dialog
+    And I type folder name "p1/p2/p3"
+    And I confirm the make folder dialog
+    Then "p1/p2/p3" should be a directory in the source
+    And the active panel selection should be "p1"
+    And the status message should contain "Created directory"
+
   Scenario: An existing folder is not overwritten
     Given a subdirectory "taken" in the source with file "keep.txt"
     And the app is set up with source and destination

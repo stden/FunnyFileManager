@@ -136,6 +136,8 @@ fn nonblocking_lookahead_does_not_consume_recorded_events() {
     replay_file(&script, &data);
     let mut input = Input::Replay(Replay::load(&data, (80, 24)).expect("replay"));
     assert_eq!(input.read_pending().unwrap(), None);
+    // What the session threw away was never recorded; what was, stays.
+    assert!(!input.discard_queued().unwrap());
     assert_eq!(input.read().unwrap(), Some(event));
     assert_eq!(input.read_pending().unwrap(), None);
     assert_eq!(
@@ -156,4 +158,12 @@ fn record_directory_workflow(recorder: &mut Recorder) {
             .record(&Event::Key(KeyEvent::new(code, KeyModifiers::NONE)))
             .expect("record key");
     }
+}
+
+/// Without a terminal nothing is queued, and nothing is waited for.
+#[test]
+fn discarding_live_input_without_a_terminal_finds_no_cancel() {
+    assert!(!Input::Live(None)
+        .discard_queued()
+        .expect("no terminal to lose"));
 }

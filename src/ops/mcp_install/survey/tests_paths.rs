@@ -4,7 +4,10 @@
 
 use crate::test_support::FakeMachine;
 
+use super::config_read::MAX_CONFIG_BYTES;
 use super::*;
+use crate::mcp_clients::{ClientId, CLAUDE_CUSTOM_OAUTH_VAR};
+use std::{fs, path::PathBuf};
 
 fn machine() -> FakeMachine {
     FakeMachine::new().expect("fake machine")

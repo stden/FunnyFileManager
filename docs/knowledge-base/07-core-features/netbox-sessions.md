@@ -12,7 +12,10 @@ imports NetBox's own export. The design and its later steps are in
 - **Open the list**: Alt+F1 / Alt+F2 → `NetBox`, F11 → *NetBox: stored
   sessions*, or `:sessions`. The panel is titled `NetBox: Stored sessions [/]`;
   its rows are `..` then the sessions by name, with `user@host` beside a
-  session whose name is something else.
+  session whose name is something else. The info row under them counts the
+  sessions; while the panel is active it is the status line, as a file
+  panel's is, until the cursor moves on — so a refusal, a mistake in the
+  dialog or a sessions file that did not load is said there.
 - **Keys on the list**: Up/Down/Home/End/PgUp/PgDn move; Enter on `..` returns
   to the files; F3 shows a session's settings; F4 edits one, Shift+F4 makes a
   new one; F5 copies one under a new name; F8 deletes one after asking. Keys
@@ -53,18 +56,27 @@ many. A password is to be asked for when connecting.
 
 - The store: `<config dir>/ffm/sessions.json` — `$XDG_CONFIG_HOME` (else
   `~/.config`) on Unix, `%APPDATA%` on Windows — written atomically, mode
-  `0600`, at most 1 MiB. A file that exists but cannot be read, parsed or
-  checked (a hand edit gone wrong, two sessions with one name) is left exactly
-  as it is: the list starts empty, says the file did not load, and refuses
-  every change until the file is fixed or moved. A save or import whose
+  `0600`, at most 1 MiB, with the guards of `settings.yaml`: a symbolic link
+  (a dotfiles repository) is written through and stays a link, and a link to
+  nothing, a file with other hard links, another user's file or a read-only
+  one is refused (`cannot write the sessions file: sessions.json belongs to
+  another user; FFM will not replace it`). The histories, the bookmarks and
+  the panel session are written the same way. A file that exists but cannot
+  be read, parsed or checked (a hand edit gone wrong, two sessions with one
+  name, another user's 0600 file) is left exactly as it is: the list starts
+  empty, the status line says why (`sessions.json did not load (Permission
+  denied …), so it is not overwritten; fix or move it first`), and every
+  change is refused until the file is fixed or moved. A save or import whose
   serialized JSON would exceed 1 MiB is refused before writing, preserving
   both the previous file and the session's committed entries.
 - The import: NetBox's XML, `<NetBox><Sessions><Session name="…">` with
   `HostName`, `PortNumber`, `UserName`, `FSProtocol` (a number or a name),
   `Ftps`, `RemoteDirectory`, `PublicKeyFile` and `Password`, every value
   URL-encoded. The file is treated as untrusted: at most 1 MiB, no DTD (so no
-  entity is expanded and nothing outside the file is read), at most 100 000
-  XML nodes and 1 000 sessions; every value is decoded and checked into the
+  entity is expanded and nothing outside the file is read), elements nested
+  at most 32 deep (checked before the XML is parsed, since the parser
+  recurses once a level), at most 100 000 XML nodes and 1 000 sessions;
+  every value is decoded and checked into the
   session's own types, and an entry with any bad value — a host with a space,
   port 0, a relative directory, a setting given twice — is skipped with the
   reason. A session the user made or changed keeps its name against an

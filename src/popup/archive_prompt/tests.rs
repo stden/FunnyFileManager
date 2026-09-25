@@ -13,6 +13,8 @@ use crate::status::Status;
 
 #[cfg(unix)]
 mod creating;
+#[cfg(unix)]
+mod failing;
 
 /// Two folders side by side: the left holds `notes.txt`, the right is empty
 /// and is where the archive is offered.

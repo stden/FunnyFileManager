@@ -131,6 +131,12 @@ pub enum ImportError {
     TooManySessions {
         limit: usize,
     },
+    /// Elements nested deeper than an export ever is. Refused before the
+    /// parser runs: it recurses once a level, and a deep enough file
+    /// overflowed the stack.
+    TooDeep {
+        limit: usize,
+    },
 }
 
 impl fmt::Display for ImportError {
@@ -141,6 +147,9 @@ impl fmt::Display for ImportError {
             Self::NotNetBox => f.write_str("not a NetBox session export"),
             Self::TooManySessions { limit } => {
                 write!(f, "more than {limit} sessions in one file")
+            }
+            Self::TooDeep { limit } => {
+                write!(f, "elements nested more than {limit} deep")
             }
         }
     }

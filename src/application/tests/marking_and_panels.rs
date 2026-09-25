@@ -1,4 +1,4 @@
-//! Unit tests: marking and panels (split out to keep files under 500 lines).
+//! Unit tests: marking and panels.
 
 use super::*;
 

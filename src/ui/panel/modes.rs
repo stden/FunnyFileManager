@@ -41,14 +41,17 @@ fn render_rows(
     );
     *panel.list_state_mut().offset_mut() = window.start;
     let short_names = short_names(panel);
-    for (row, index) in (0..body.height).zip(window) {
+    for row in 0..body.height {
         let area = Rect {
             y: body.y + row,
             height: 1,
             ..body
         };
+        let index = window.start + usize::from(row);
         let Some(entry) = panel.entries.get(index) else {
-            break;
+            let rule = super::separator_style().bg(super::FAR_BLUE);
+            f.render_widget(Paragraph::new(layout.blank()).style(rule), area);
+            continue;
         };
         let style = row_style(panel, entry, active && panel.selected() == Some(index));
         let name = displayed_name(short_names.as_ref(), &entry.name);

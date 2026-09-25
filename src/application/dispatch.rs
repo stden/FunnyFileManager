@@ -41,7 +41,7 @@ fn filesystem_root(path: &std::path::Path) -> PathBuf {
 /// file manager on a bad keypress. Only a failed terminal draw is fatal.
 fn report(app: &mut App, operation: impl FnOnce(&mut App) -> io::Result<()>) {
     if let Err(error) = operation(app) {
-        app.set_status(crate::status::Status::Error(error.to_string()));
+        app.set_status(crate::status::Status::of_error(&error));
     }
 }
 

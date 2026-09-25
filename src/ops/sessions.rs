@@ -70,8 +70,8 @@ pub fn report(app: &mut App, outcome: Result<(), SessionError>) {
 /// its file did not load — every change will be refused until it is fixed.
 pub fn install(app: &mut App, store: SessionStore) {
     app.sessions = store;
-    if app.sessions.is_damaged() {
-        report(app, Err(SessionError::Store(StoreError::Damaged)));
+    if let Some(damage) = app.sessions.damage() {
+        report(app, Err(SessionError::Store(damage)));
     }
 }
 
@@ -104,8 +104,8 @@ pub fn open_on(app: &mut App, side: PanelSide) -> Status {
     let panel = SessionsPanel::from_store(&app.sessions);
     let count = panel.session_count();
     app.panel_mut(side).kind = PanelKind::Sessions(Box::new(panel));
-    if app.sessions.is_damaged() {
-        return Status::Error(format!("NetBox: {}", StoreError::Damaged));
+    if let Some(damage) = app.sessions.damage() {
+        return Status::Error(format!("NetBox: {damage}"));
     }
     let plural = if count == 1 { "" } else { "s" };
     Status::CommandOutput(format!("NetBox: {count} stored session{plural}"))

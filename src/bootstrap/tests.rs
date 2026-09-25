@@ -10,7 +10,8 @@ use std::sync::MutexGuard;
 
 use tempfile::TempDir;
 
-use super::{load_persisted, AtExitErrorLine};
+use super::at_exit::AtExitErrorLine;
+use super::load_persisted;
 use crate::sessions::{SessionStore, FILE_NAME};
 use crate::test_support::netbox::{app_in, file_store, name, session};
 

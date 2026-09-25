@@ -142,6 +142,8 @@ fn interrupted_reads_are_retried() {
 #[cfg(windows)]
 #[test]
 fn command_uses_absolute_windows_executable_and_preserves_argument_boundaries() {
+    use super::launch::command;
+
     let directory = tempfile::tempdir().unwrap();
     let args = ["--distribution", "Ubuntu; echo text", "--list"];
     let command = command(directory.path(), &args);

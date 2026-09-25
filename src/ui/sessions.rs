@@ -2,7 +2,8 @@
 //!
 //! The frame is the file panel's, so the two panels keep reading as a pair:
 //! Far's title in the top border, the one column's heading under it, the
-//! rows, and the info row above the bottom border. Reads the rows the panel
+//! rows, and the info row above the bottom border — which, as in a file
+//! panel, is the status line while the panel is active and has news. Reads the rows the panel
 //! carries and nothing else — the store is `ops`' business. The helpers the
 //! remote panel shares — the title, the border, the cursor, the info row —
 //! are here too, since both panels are drawn the same way.
@@ -17,15 +18,24 @@ use ratatui::{
 
 use super::cells::printable_name;
 use super::panel::pad_cells;
-use super::{far_block, palette, Cells, FAR_BLUE, PANEL_INFO_ROW};
+use super::{far_block, fit_quoting_path, palette, Cells, FAR_BLUE, PANEL_INFO_ROW};
 use crate::models::{sessions_panel, Panel, PanelKind, SessionRow, SessionsPanel};
 use crate::scroll::visible_window;
+use crate::status::PathMessage;
 
 /// The column heading row under the top border — the row the file panel
 /// spends on its column titles, so a click lands on the same row in both.
 const HEADER_ROWS: u16 = 1;
 
-pub(super) fn render(f: &mut Frame<'_>, panel: &mut Panel, area: Rect, is_active: bool) {
+/// Draw the sessions list; `footer` is the status the active panel's info row
+/// shows in place of the count.
+pub(super) fn render(
+    f: &mut Frame<'_>,
+    panel: &mut Panel,
+    area: Rect,
+    is_active: bool,
+    footer: Option<&PathMessage<'_>>,
+) {
     let PanelKind::Sessions(sessions) = &mut panel.kind else {
         return;
     };
@@ -41,7 +51,7 @@ pub(super) fn render(f: &mut Frame<'_>, panel: &mut Panel, area: Rect, is_active
     render_rows(f, sessions, body.rows, is_active);
     let count = sessions.session_count();
     let plural = if count == 1 { "" } else { "s" };
-    render_info(f, &format!("{count} session{plural}"), body.info);
+    render_info(f, footer, &format!("{count} session{plural}"), body.info);
 }
 
 /// Where a `NetBox` panel's rows and its info line go inside its frame.
@@ -167,11 +177,22 @@ fn row_style(row: &SessionRow, chosen: bool) -> Style {
     }
 }
 
-/// The info row above the bottom border.
-pub(super) fn render_info(f: &mut Frame<'_>, text: &str, row: Rect) {
+/// The info row above the bottom border: the status in `footer` when there
+/// is one — cut so the reason and the file name survive — else `text`.
+pub(super) fn render_info(
+    f: &mut Frame<'_>,
+    footer: Option<&PathMessage<'_>>,
+    text: &str,
+    row: Rect,
+) {
+    let width = Cells::columns(row.width);
+    let shown = footer.map_or_else(
+        || printable_name(text).into_owned(),
+        |message| fit_quoting_path(&message.before, &message.path, &message.after, width),
+    );
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
-            pad_cells(&printable_name(text), Cells::columns(row.width)),
+            pad_cells(&shown, width),
             Style::default().fg(palette::DATA).bg(FAR_BLUE),
         ))),
         row,

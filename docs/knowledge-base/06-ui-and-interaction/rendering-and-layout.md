@@ -79,7 +79,7 @@ The bottom border carries the panel totals and the filesystem's free space;
 | Column | Width | Contents |
 |--------|-------|----------|
 | Name   | rest  | Base name left, extension right-aligned |
-| Size   | 7     | `Up` for `..`, `Folder` for directories, else the byte count |
+| Size   | 7     | `Up` for `..`, `Folder` for directories, `Link` for a link to a folder, `Broken` for a dangling link, else the byte count (a link to a file: its target's) |
 | Date   | 8     | `MM/DD/YY`, local time |
 | Time   | 5     | `HH:MM`, local time |
 

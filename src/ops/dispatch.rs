@@ -13,9 +13,6 @@ use super::viewer::open_mcp_status;
 mod shell_commands;
 
 use shell_commands::{cmd_new_console, cmd_shell};
-// The unit tests below reach it through `use super::*`.
-#[cfg(test)]
-use shell_commands::record_cancel;
 
 fn cmd_cd_path(app: &mut App, requested: &Path) -> io::Result<()> {
     // Expand `~` before the absolute-path test: `~/x` is a *relative* path, so
@@ -30,12 +27,14 @@ fn cmd_cd_path(app: &mut App, requested: &Path) -> io::Result<()> {
             "home directory is not set (HOME / USERPROFILE)",
         ));
     }
-    let new_path = if requested.is_absolute() {
+    let typed = if requested.is_absolute() {
         requested
     } else {
         app.get_active_panel().path.join(requested)
-    }
-    .canonicalize()?;
+    };
+    let new_path = typed
+        .canonicalize()
+        .map_err(|error| crate::utils::FailedAt::wrap(&typed, error))?;
 
     if !new_path.is_dir() {
         return Err(io::Error::new(

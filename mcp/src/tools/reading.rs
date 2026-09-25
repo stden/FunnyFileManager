@@ -156,7 +156,7 @@ impl FfmServer {
 /// large file both stop as soon as they have what they came for. Gives up past
 /// [`MAX_READ_BYTES`]: a request with no end — or a file with no newlines —
 /// would otherwise buffer the whole file, which no other reader here does.
-pub fn read_line_range(path: &Path, start: usize, count: usize) -> io::Result<(Vec<String>, bool)> {
+fn read_line_range(path: &Path, start: usize, count: usize) -> io::Result<(Vec<String>, bool)> {
     use io::BufRead;
 
     let mut lines = Vec::new();

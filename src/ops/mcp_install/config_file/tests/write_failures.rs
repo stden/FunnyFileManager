@@ -97,10 +97,16 @@ fn a_read_only_config_fails_the_write_and_is_left_as_it_was() {
         .unwrap();
     fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).unwrap();
     let registration = fixture.register(ClientId::Junie, Target::AllProjects);
-    assert!(matches!(
-        registration.outcome,
-        Outcome::Failed(Failure::Io { .. })
-    ));
+    let Outcome::Failed(failure @ Failure::Io { .. }) = &registration.outcome else {
+        panic!("the write failed: {:?}", registration.outcome);
+    };
+    // The report says "cannot write <path>" itself: the path is not repeated
+    // inside the reason, as it was for Codex's config.toml.
+    let reason = failure.reason("mcp.json");
+    assert_eq!(
+        reason,
+        format!("cannot write {}: permission denied", path.display())
+    );
     assert_eq!(fs::read_to_string(&path).unwrap(), "{}");
 }
 

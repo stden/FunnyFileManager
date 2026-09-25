@@ -69,32 +69,6 @@ fn test_run_shell_command_nonexistent_dir_fails() {
 }
 
 #[test]
-fn is_cancel_event_accepts_only_pressed_esc_and_ctrl_c() {
-    use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-
-    let press = |code, modifiers| Event::Key(KeyEvent::new(code, modifiers));
-    assert!(is_cancel_event(&press(KeyCode::Esc, KeyModifiers::empty())));
-    assert!(is_cancel_event(&press(
-        KeyCode::Char('c'),
-        KeyModifiers::CONTROL
-    )));
-    // A plain 'c', any other key, and non-key events are not cancel.
-    assert!(!is_cancel_event(&press(
-        KeyCode::Char('c'),
-        KeyModifiers::empty()
-    )));
-    assert!(!is_cancel_event(&press(
-        KeyCode::Enter,
-        KeyModifiers::empty()
-    )));
-    assert!(!is_cancel_event(&Event::FocusGained));
-    // Key releases must not cancel: only presses count.
-    let mut release = KeyEvent::new(KeyCode::Esc, KeyModifiers::empty());
-    release.kind = KeyEventKind::Release;
-    assert!(!is_cancel_event(&Event::Key(release)));
-}
-
-#[test]
 fn quoted_paths_and_shell_operators_reach_the_shell_unchanged() {
     let temp = TempDir::new().expect("tempdir");
     std::fs::write(temp.path().join("input file.txt"), "contents").expect("input");

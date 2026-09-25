@@ -1,4 +1,6 @@
-//! Unit tests: shell commands (split out to keep files under 500 lines).
+//! Unit tests: the typed built-ins and `Command::parse`, a shell command's
+//! output on the status bar, the paths an operation takes, and F7/F8 with
+//! nothing to do.
 
 use crate::models::FileName;
 

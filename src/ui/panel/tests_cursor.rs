@@ -9,6 +9,7 @@ use ratatui::{backend::TestBackend, buffer::Buffer, Terminal};
 use crate::models::FileName;
 
 use super::*;
+use crate::models::{DirEntry, PanelView};
 
 const FIRST_BODY_ROW: u16 = 2;
 

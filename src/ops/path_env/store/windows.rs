@@ -49,7 +49,7 @@ impl Place {
     fn failed(&self, error: &io::Error) -> io::Error {
         let rights =
             if self.scope == Scope::System && error.kind() == io::ErrorKind::PermissionDenied {
-                "; the PATH of all users needs administrator rights"
+                super::NEEDS_ADMINISTRATOR
             } else {
                 ""
             };

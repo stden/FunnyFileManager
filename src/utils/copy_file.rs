@@ -4,7 +4,10 @@
 
 use std::{fs, io, path::Path};
 
-/// Which permission bits a copied file ends up with.
+use super::keep_times::{file_times, Times};
+use super::CopyRules;
+
+/// Which permission bits a copied file or folder ends up with.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileMode {
     /// The source's, as `fs::copy` and `cp` leave them.
@@ -23,13 +26,18 @@ pub enum FileMode {
 /// there is never truncated (the caller picks another name on
 /// [`io::ErrorKind::AlreadyExists`]); and a copy that fails half-way is
 /// removed, because under its final name it would pass for a complete one.
-pub fn copy_file(src: &Path, dst: &Path, mode: FileMode) -> io::Result<()> {
+pub fn copy_file(src: &Path, dst: &Path, rules: CopyRules) -> io::Result<()> {
+    // A FIFO would wait for a writer on the event loop, and a device node
+    // copy until the disk filled: only a regular file is opened.
     let input = open_regular_file(src)?;
+    // A refusal here is the destination's — a folder that takes no new file
+    // — and is reported there; one on the source above is the source's.
     let mut output = fs::OpenOptions::new()
         .write(true)
         .create_new(true)
-        .open(dst)?;
-    let result = fill(&input, &mut output, mode);
+        .open(dst)
+        .map_err(|error| super::FailedAt::wrap(dst, error))?;
+    let result = write_contents(&input, &mut output, rules);
     if result.is_err() {
         // Ours to remove: the exclusive create above is what made it. The
         // copy's own error is the one to report; a failed cleanup must not
@@ -39,8 +47,11 @@ pub fn copy_file(src: &Path, dst: &Path, mode: FileMode) -> io::Result<()> {
     result
 }
 
-/// Write `input`'s bytes into the new `output`, then give it its mode.
-fn fill(input: &fs::File, output: &mut fs::File, mode: FileMode) -> io::Result<()> {
+/// Write `input`'s bytes into the new `output`, then give it its times and
+/// its mode — the times first, through the handle, so that a read-only mode
+/// cannot stand in their way.
+pub fn write_contents(input: &fs::File, output: &mut fs::File, rules: CopyRules) -> io::Result<()> {
+    // Read before the copy: reading the file moves its access time.
     let source = input.metadata()?;
     if looks_sparse(&source) {
         copy_keeping_holes(input, output)?;
@@ -49,7 +60,10 @@ fn fill(input: &fs::File, output: &mut fs::File, mode: FileMode) -> io::Result<(
         // share them on a filesystem that can.
         io::copy(&mut &*input, output)?;
     }
-    match mode {
+    if rules.times == Times::Source {
+        output.set_times(file_times(&source)?)?;
+    }
+    match rules.modes {
         FileMode::Source => output.set_permissions(source.permissions()),
         FileMode::Fresh => Ok(()),
     }
@@ -110,47 +124,8 @@ fn copy_keeping_holes(mut input: &fs::File, output: &mut fs::File) -> io::Result
     output.set_len(input.stream_position()?)
 }
 
-/// Open `path` for reading, refusing anything that is not a regular file.
-///
-/// LIVENESS GUARD — `open` on a FIFO waits for a writer that may never come,
-/// and a transfer runs on the event-loop thread: the file manager would stop
-/// with no key able to reach it. A device node would copy until the disk
-/// filled, and a socket cannot be opened at all. None of them has contents a
-/// file manager can carry over, so the type is checked *before* the open. The
-/// handle is checked again because the name can be replaced between the two,
-/// and the open itself cannot wait, so even that race ends in a refusal.
-fn open_regular_file(path: &Path) -> io::Result<fs::File> {
-    ensure_regular(&fs::metadata(path)?)?;
-    let file = open_without_waiting(path)?;
-    ensure_regular(&file.metadata()?)?;
-    Ok(file)
-}
-
-fn ensure_regular(metadata: &fs::Metadata) -> io::Result<()> {
-    if metadata.is_file() {
-        return Ok(());
-    }
-    Err(io::Error::new(
-        io::ErrorKind::InvalidInput,
-        "not a regular file",
-    ))
-}
-
-/// `O_NONBLOCK` makes no difference to reading a regular file; it only stops
-/// `open` from waiting for the other end of a FIFO.
-#[cfg(unix)]
-fn open_without_waiting(path: &Path) -> io::Result<fs::File> {
-    use std::os::unix::fs::OpenOptionsExt;
-
-    fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NONBLOCK)
-        .open(path)
-}
-
-/// Windows keeps its pipes out of the file namespace, so there is nothing
-/// here for an `open` to wait on.
-#[cfg(not(unix))]
-fn open_without_waiting(path: &Path) -> io::Result<fs::File> {
-    fs::File::open(path)
+/// Open `path` for reading, refusing anything that is not a regular file and
+/// never waiting on a FIFO — the check lives in [`crate::fileload::open_regular`].
+pub fn open_regular_file(path: &Path) -> io::Result<fs::File> {
+    crate::fileload::open_regular(path, fs::OpenOptions::new().read(true))
 }

@@ -23,7 +23,7 @@ impl TaskJobs {
 
     /// Marks a late request stale, and abandons the thread of one that
     /// stalled; the list asks again once a thread may start.
-    pub(super) fn watch_request(&mut self, list: &mut TaskList, now: Instant) -> Redraw {
+    fn watch_request(&mut self, list: &mut TaskList, now: Instant) -> Redraw {
         let Some(since) = list.refresh().in_flight_since() else {
             return Redraw::Unchanged;
         };
@@ -48,12 +48,7 @@ impl TaskJobs {
     /// abandoned at `since` has not answered for the stall limit: no thread
     /// can start for it until that one ends, so it says the reader is not
     /// responding rather than look as if it were starting.
-    pub(super) fn stuck_behind(
-        &mut self,
-        list: &mut TaskList,
-        since: Instant,
-        now: Instant,
-    ) -> Redraw {
+    fn stuck_behind(&mut self, list: &mut TaskList, since: Instant, now: Instant) -> Redraw {
         let waiting = matches!(list.table(), Table::Waiting);
         if !waiting || now.saturating_duration_since(since) < STALL_LIMIT {
             return Redraw::Unchanged;
@@ -63,7 +58,7 @@ impl TaskJobs {
 
     /// The reader has not answered for the stall limit: the list says so,
     /// and the log once.
-    pub(super) fn stall(&mut self, list: &mut TaskList) -> Redraw {
+    fn stall(&mut self, list: &mut TaskList) -> Redraw {
         self.log_once(list.session(), SampleError::WorkerStalled);
         list.mark_stalled();
         Redraw::Needed

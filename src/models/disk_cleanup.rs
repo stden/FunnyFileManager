@@ -4,7 +4,7 @@
 //! one go. Sizes are measured when the dialog opens; entries that do not exist
 //! on this machine are shown dimmed and start unchecked.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::FileSize;
 
@@ -102,35 +102,45 @@ impl Default for DiskCleanupDialog {
 // beside its label, so the text cannot promise one folder while the row
 // measures and deletes another.
 
+/// Every row; those under the home only when there is one — never under a
+/// relative stand-in, which would name folders in the panel's directory.
 fn build_candidates() -> Vec<CleanupCandidate> {
-    let home = home_dir();
-    let mut rows = vec![
-        CleanupCandidate {
-            kind: CleanupKind::Contents,
-            ..candidate("Temp files", std::env::temp_dir())
-        },
-        candidate("Gradle caches", home.join(".gradle").join("caches")),
-        candidate("npm cache", home.join(".npm").join("_cacache")),
-    ];
-    rows.extend(platform_caches());
-    rows.extend([
-        // Relative — ops resolves this against the active panel path.
-        candidate("Cargo build artifacts", PathBuf::from("target")),
-        candidate("Gradle wrapper cache", home.join(".gradle").join("wrapper")),
-        // The operations layer handles individual heap dumps, not the directory.
-        CleanupCandidate {
-            kind: CleanupKind::HeapDumps,
-            ..candidate("JVM heap dumps", home)
-        },
-    ]);
+    let home = crate::config::user_home();
+    let mut rows = vec![CleanupCandidate {
+        kind: CleanupKind::Contents,
+        ..candidate("Temp files", std::env::temp_dir())
+    }];
+    if let Some(home) = &home {
+        rows.extend([
+            candidate("Gradle caches", home.join(".gradle").join("caches")),
+            candidate("npm cache", home.join(".npm").join("_cacache")),
+        ]);
+    }
+    rows.extend(platform_caches(home.as_deref()));
+    // Relative — ops resolves this against the active panel path.
+    rows.push(candidate("Cargo build artifacts", PathBuf::from("target")));
+    if let Some(home) = home {
+        rows.extend([
+            candidate("Gradle wrapper cache", home.join(".gradle").join("wrapper")),
+            // The operations layer handles individual heap dumps, not the directory.
+            CleanupCandidate {
+                kind: CleanupKind::HeapDumps,
+                ..candidate("JVM heap dumps", home)
+            },
+        ]);
+    }
     rows
 }
 
 /// Caches that live in `%LOCALAPPDATA%` on Windows.
 #[cfg(windows)]
-fn platform_caches() -> Vec<CleanupCandidate> {
-    let local = std::env::var_os("LOCALAPPDATA")
-        .map_or_else(|| home_dir().join("AppData").join("Local"), PathBuf::from);
+fn platform_caches(home: Option<&Path>) -> Vec<CleanupCandidate> {
+    let Some(local) = std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .or_else(|| Some(home?.join("AppData").join("Local")))
+    else {
+        return Vec::new();
+    };
     vec![
         candidate("JetBrains caches", local.join("JetBrains")),
         candidate("Docker WSL disk", local.join("Docker").join("wsl")),
@@ -141,8 +151,10 @@ fn platform_caches() -> Vec<CleanupCandidate> {
 
 /// The same tools keep their caches in the user cache folder elsewhere.
 #[cfg(not(windows))]
-fn platform_caches() -> Vec<CleanupCandidate> {
-    let caches = cache_dir();
+fn platform_caches(home: Option<&Path>) -> Vec<CleanupCandidate> {
+    let Some(caches) = cache_dir(home) else {
+        return Vec::new();
+    };
     vec![
         candidate("JetBrains caches", caches.join("JetBrains")),
         candidate("Playwright browsers", caches.join("ms-playwright")),
@@ -151,18 +163,18 @@ fn platform_caches() -> Vec<CleanupCandidate> {
 }
 
 #[cfg(target_os = "macos")]
-fn cache_dir() -> PathBuf {
-    home_dir().join("Library").join("Caches")
+fn cache_dir(home: Option<&Path>) -> Option<PathBuf> {
+    Some(home?.join("Library").join("Caches"))
 }
 
 /// The XDG base directory rule: `$XDG_CACHE_HOME` when it is an absolute
 /// path, else `~/.cache`.
 #[cfg(not(any(windows, target_os = "macos")))]
-fn cache_dir() -> PathBuf {
+fn cache_dir(home: Option<&Path>) -> Option<PathBuf> {
     std::env::var_os("XDG_CACHE_HOME")
         .map(PathBuf::from)
         .filter(|path| path.is_absolute())
-        .unwrap_or_else(|| home_dir().join(".cache"))
+        .or_else(|| Some(home?.join(".cache")))
 }
 
 fn candidate(label: &'static str, path: PathBuf) -> CleanupCandidate {
@@ -176,8 +188,5 @@ fn candidate(label: &'static str, path: PathBuf) -> CleanupCandidate {
     }
 }
 
-fn home_dir() -> PathBuf {
-    std::env::var_os("USERPROFILE")
-        .or_else(|| std::env::var_os("HOME"))
-        .map_or_else(|| PathBuf::from("."), PathBuf::from)
-}
+#[cfg(test)]
+mod tests;

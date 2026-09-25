@@ -3,10 +3,10 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-/// Where `--record` puts a session when it is given no path.
-pub(super) fn default_path() -> io::Result<PathBuf> {
-    let root = default_root();
-    create_private_dir(&root)?;
+/// Where `--record` puts a session when it is given no path: a new name in
+/// `root`, the private directory [`default_root`] names.
+pub(super) fn default_path(root: &Path) -> io::Result<PathBuf> {
+    create_private_dir(root)?;
     let time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(io::Error::other)?
@@ -28,14 +28,7 @@ pub(super) fn default_root() -> PathBuf {
 /// umask: a recording names the paths its author browsed and holds the keys
 /// they typed.
 pub(super) fn create_private_dir(path: &Path) -> io::Result<()> {
-    let mut builder = std::fs::DirBuilder::new();
-    builder.recursive(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::DirBuilderExt;
-        builder.mode(0o700);
-    }
-    builder.create(path)?;
+    crate::file_write::create_dirs_owner_only(path)?;
     ensure_private(path)
 }
 
@@ -46,16 +39,23 @@ pub(super) fn create_private_dir(path: &Path) -> io::Result<()> {
 /// rather than writing keystrokes somewhere someone else chose.
 #[cfg(unix)]
 fn ensure_private(path: &Path) -> io::Result<()> {
+    ensure_private_to(path, crate::platform::real_uid())
+}
+
+/// [`ensure_private`] for the user `us`: a test plays another user by naming
+/// a uid that is not the directory's owner.
+#[cfg(unix)]
+fn ensure_private_to(path: &Path, us: u32) -> io::Result<()> {
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
     // `symlink_metadata`, so a symlink pointing at somewhere agreeable cannot
     // answer for the directory it stands in front of.
     let info = std::fs::symlink_metadata(path)?;
-    let us = crate::platform::real_uid();
     if !info.is_dir() || info.uid() != us {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
-            format!("{}: not a directory of your own", path.display()),
+            // The reason first: the status line cuts a long message short.
+            format!("not a directory of your own: {}", path.display()),
         ));
     }
     if info.permissions().mode() & 0o077 != 0 {

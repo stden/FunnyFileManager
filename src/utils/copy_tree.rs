@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use super::keep_times::{keep_times, Times};
 use super::FileMode;
 
 mod steps;
@@ -27,7 +28,7 @@ pub fn copy_symlink(src: &Path, dst: &Path) -> io::Result<()> {
 
     #[cfg(unix)]
     {
-        std::os::unix::fs::symlink(target, dst)
+        std::os::unix::fs::symlink(target, dst).map_err(|error| super::FailedAt::wrap(dst, error))
     }
     #[cfg(windows)]
     {
@@ -78,18 +79,55 @@ pub fn copy_dir_all(src: &Path, dst: &Path) -> io::Result<()> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CopyRules {
     pub links: LinkPolicy,
-    /// The permission bits each copied file ends up with. Folders are always
-    /// created afresh; restating a source folder's own mode is the caller's.
+    /// The permission bits each copied file ends up with.
     pub modes: FileMode,
+    /// The permission bits each copied folder ends up with. A folder is
+    /// created afresh, and its source's mode is restated only once its
+    /// contents are in: a read-only folder could not be filled otherwise.
+    pub folder_modes: FileMode,
+    /// Whether every copied file, folder and link keeps its source's times.
+    /// A folder gets them once its contents are in, since writing each entry
+    /// into it moves its modification time.
+    pub times: Times,
 }
 
 impl CopyRules {
-    /// Links recreated, and every file keeping its source's mode: what
-    /// [`copy_dir_all`] and the quick F5/F6 do.
+    /// Links recreated, every file keeping its source's mode, folders made
+    /// like any new folder and nothing keeping its times: what
+    /// [`copy_dir_all`] and the quick F5 do.
     pub const PLAIN: Self = Self {
         links: LinkPolicy::Recreate,
         modes: FileMode::Source,
+        folder_modes: FileMode::Fresh,
+        times: Times::Fresh,
     };
+
+    /// What a move across filesystems copies with: everything the rename it
+    /// stands in for would have kept — every file's and folder's mode and
+    /// times, and links as links — as `mv` does.
+    pub const MOVE: Self = Self {
+        links: LinkPolicy::Recreate,
+        modes: FileMode::Source,
+        folder_modes: FileMode::Source,
+        times: Times::Source,
+    };
+}
+
+/// [`copy_symlink`], and the link's own times when the rules keep them.
+///
+/// A link whose times could not be set is removed again: the name was
+/// claimed by this copy, and callers count on a failed copy leaving nothing.
+pub fn copy_link(src: &Path, dst: &Path, rules: CopyRules) -> io::Result<()> {
+    copy_symlink(src, dst)?;
+    if rules.times == Times::Fresh {
+        return Ok(());
+    }
+    let kept = fs::symlink_metadata(src).and_then(|source| keep_times(dst, &source));
+    if kept.is_err() {
+        // Best effort: the times' error is the one worth reporting.
+        drop(fs::remove_file(dst));
+    }
+    kept
 }
 
 /// [`copy_dir_all`], with the caller's rules about links and modes.

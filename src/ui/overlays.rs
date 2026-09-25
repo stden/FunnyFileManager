@@ -34,6 +34,7 @@ pub fn render_overlays(f: &mut Frame<'_>, app: &mut App) {
         // Leaving them would send a click on the panels into a closed window.
         app.dialog_mouse.clear();
     }
+    let noun = single_target_noun(app);
     match &mut app.overlay {
         // Nothing to draw on top. The command line is part of the main
         // layout, and the menu hangs from the top row rather than floating in
@@ -57,11 +58,32 @@ pub fn render_overlays(f: &mut Frame<'_>, app: &mut App) {
         Overlay::Information(stats) => render_information(f, &mut app.dialog_mouse, stats),
         Overlay::CopyPrompt(prompt) => render_copy_prompt(f, &mut app.dialog_mouse, prompt),
         Overlay::QuitConfirm(answer) => render_quit_confirm(f, &mut app.dialog_mouse, *answer),
-        Overlay::DeleteConfirm(files) => render_delete_confirm(f, &mut app.dialog_mouse, files),
         Overlay::NewFileInput(input) => render_new_file_input(f, &mut app.dialog_mouse, input),
         #[cfg(feature = "keepass")]
         Overlay::Kdbx(overlay) => super::kdbx::render_kdbx(f, &overlay.0, &mut app.dialog_mouse),
-        other => render_menu_dialog(f, other, &mut app.dialog_mouse),
+        other => render_menu_dialog(f, other, &mut app.dialog_mouse, noun),
+    }
+}
+
+/// What F8's or Alt+Del's question calls the one entry it is about — Far's
+/// "delete the folder?" — by its kind as the active panel listed it. A path
+/// the panel does not list, or any other dialog, says "file".
+fn single_target_noun(app: &App) -> &'static str {
+    use crate::models::EntryKind;
+
+    let (Overlay::DeleteConfirm(files) | Overlay::WipeConfirm(files)) = &app.overlay else {
+        return "file";
+    };
+    let kind = match files.as_slice() {
+        [only] => app.get_active_panel_ref().kind_of(only),
+        _ => None,
+    };
+    match kind {
+        Some(EntryKind::Directory) => "folder",
+        Some(
+            EntryKind::SymlinkToFile | EntryKind::SymlinkToDirectory | EntryKind::BrokenSymlink,
+        ) => "link",
+        Some(EntryKind::File) | None => "file",
     }
 }
 
@@ -73,9 +95,11 @@ fn render_menu_dialog(
     f: &mut Frame<'_>,
     overlay: &mut Overlay,
     tracker: &mut crate::mouse::DialogMouse,
+    noun: &str,
 ) {
     match overlay {
-        Overlay::WipeConfirm(dialog) => super::wipe::render(f, tracker, dialog),
+        Overlay::DeleteConfirm(files) => render_delete_confirm(f, tracker, files, noun),
+        Overlay::WipeConfirm(dialog) => super::wipe::render(f, tracker, dialog, noun),
         Overlay::ArchivePrompt(dialog) => super::archive_prompt::render(f, tracker, dialog),
         Overlay::ExtractPrompt(dialog) => super::extract_prompt::render(f, tracker, dialog),
         Overlay::ArchiveCommands(dialog) => super::archive_commands::render(f, tracker, dialog),

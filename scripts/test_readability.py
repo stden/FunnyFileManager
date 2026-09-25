@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Prove shared readability limits with real Clippy, without invoking Cargo.
 
-The selected rustup toolchain supplies both compilers. Negative fixtures must
+The toolchain rustup selects for rust-toolchain.toml supplies both compilers;
+without rustup (a standalone or distribution toolchain) they come from PATH.
+Negative fixtures must
 produce all three configured diagnostics from each crate directory; equivalent
 refactored fixtures must pass. A direct rustc test also compares their behavior.
 """
@@ -14,6 +16,11 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parent.parent
+# shell_path.py, beside this file, finds programs as bash does. Explicitly first
+# on sys.path: `python3 -P` or PYTHONSAFEPATH=1 leave this file's directory out.
+sys.path.insert(0, str(ROOT / "scripts"))
+import shell_path  # noqa: E402
+
 FIXTURES = ROOT / "scripts" / "tests" / "fixtures" / "readability"
 OUTPUT = ROOT / "target" / "readability-selftest"
 CRATES = {"tui": ROOT, "mcp": ROOT / "mcp", "colorer": ROOT / "colorer-sys"}
@@ -47,7 +54,15 @@ def run(command, cwd, environment):
 
 
 def tool_path(name, environment):
-    result = run(["rustup", "which", name], ROOT, environment)
+    """`name` from the toolchain rust-toolchain.toml pins, through rustup; from
+    PATH when there is no rustup to ask."""
+    rustup = shell_path.find("rustup", cwd=ROOT)
+    if not rustup:
+        found = shell_path.find(name, cwd=ROOT)
+        if not found:
+            raise RuntimeError(f"Cannot find {name}: neither rustup nor {name} is on PATH")
+        return Path(found)
+    result = run([rustup, "which", name], ROOT, environment)
     if result.returncode:
         raise RuntimeError(f"Cannot resolve {name} for rust-toolchain.toml:\n{result.stderr}")
     return Path(result.stdout.strip())

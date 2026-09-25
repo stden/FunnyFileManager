@@ -1,5 +1,6 @@
-//! Unit tests: Far's full-screen viewer — the status line on row 0 and the
-//! highlighted body below it, rendered through the real `ui` path.
+//! Unit tests: Far's full-screen viewer status line on row 0 — the path, the
+//! fields, the percent, narrow widths — rendered through the real `ui` path,
+//! plus the helpers `tests_body` shares.
 
 use std::path::PathBuf;
 

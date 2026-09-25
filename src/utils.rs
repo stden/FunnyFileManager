@@ -10,13 +10,27 @@ use crate::models::App;
 
 mod copy_file;
 mod copy_tree;
+mod failed_at;
+mod keep_times;
+mod rewrite_file;
+mod unnamed_file;
 
-pub(crate) use copy_file::copy_file;
 pub use copy_file::FileMode;
+pub(crate) use copy_file::{copy_file, open_regular_file, write_contents};
+#[cfg(test)]
+use copy_tree::copy_symlink;
 pub(crate) use copy_tree::{
-    canonical_existing_ancestor, copy_dir_all_with, copy_symlink, follows_link,
+    canonical_existing_ancestor, copy_dir_all_with, copy_link, follows_link,
 };
 pub use copy_tree::{copy_dir_all, CopyRules, LinkPolicy};
+pub use failed_at::FailedAt;
+#[cfg(unix)]
+pub(crate) use keep_times::timespec;
+pub use keep_times::Times;
+#[cfg(test)]
+pub(crate) use keep_times::FORCE_TIMES_FAILURE;
+pub(crate) use rewrite_file::rewrite_file;
+pub(crate) use unnamed_file::{name_unnamed, unnamed_file_in};
 
 #[cfg(any(test, tarpaulin))]
 const COPY_DIR_ALL_FAIL_CREATE: u8 = 1;
@@ -57,7 +71,8 @@ pub const MAX_FILE_SIZE: FileSize = FileSize::from_bytes(10 * 1024 * 1024);
 /// fails on it with `AlreadyExists`. The caller would then retry with the very
 /// same name until it ran out of attempts and reported a spurious failure.
 /// `symlink_metadata` asks about the name itself, which is the question.
-fn name_is_taken(path: &Path) -> bool {
+#[must_use]
+pub fn name_is_taken(path: &Path) -> bool {
     fs::symlink_metadata(path).is_ok()
 }
 

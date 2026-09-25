@@ -1,4 +1,5 @@
-//! Unit tests: copy move edge cases (split out to keep files under 500 lines).
+//! Unit tests: copy and move edge cases, the keys each overlay receives, and
+//! the viewer overlay's edges.
 
 use crate::models::FileName;
 use crate::models::Lifecycle;

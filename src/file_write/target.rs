@@ -51,6 +51,19 @@ pub fn real_target(path: &Path) -> Result<PathBuf, DanglingLink> {
     }
 }
 
+/// Whether renaming another file over `path` would change what the file
+/// is, and not only what it holds.
+///
+/// A rename makes a new inode: the file's other names (hard links) stop
+/// following it, and it belongs to whoever renamed. Such a file is written
+/// through instead — editing or overwriting a colleague's 0664 file in a
+/// shared folder must not quietly transfer it. Losing atomicity is the lesser
+/// evil, the trade-off vim makes by default (`backupcopy=auto`).
+#[must_use]
+pub fn replacing_changes_identity(path: &Path) -> bool {
+    has_other_names(path) || !owned_by_us(path)
+}
+
 /// Whether this user owns the file. Unknown counts as owned: the atomic path
 /// is the better one, and a file that is not there yet has no owner to keep.
 #[cfg(unix)]

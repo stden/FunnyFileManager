@@ -59,17 +59,26 @@ impl Context {
     /// One row from the metadata `read_dir` already fetched — nothing here
     /// touches the disk again except the symlink-target probes.
     fn entry(&mut self, path: &Path, name: String, attributes: &fs::Metadata) -> DirEntry {
+        // A link is typed, sized and run as what it points at: its own length
+        // is the length of the target's name, which no column should show.
+        let target = attributes.is_symlink().then(|| fs::metadata(path));
+        // What the row stands for; `None` for a link with nothing behind it.
+        let resolved = match &target {
+            None => Some(attributes),
+            Some(found) => found.as_ref().ok(),
+        };
+        let sized = resolved.unwrap_or(attributes);
         DirEntry {
-            executable: executable_entry(path, &name, attributes),
-            kind: entry_kind(path, attributes),
-            size: FileSize::from_bytes(attributes.len()),
+            executable: resolved.is_some_and(|meta| is_executable(&name, meta)),
+            kind: entry_kind(attributes, resolved),
+            size: FileSize::from_bytes(sized.len()),
             // A symlink's timestamps belong to the link, not to its target.
             modified: Modified::from_metadata(attributes),
             created: Modified::from_result(attributes.created()),
             accessed: Modified::from_result(attributes.accessed()),
             links: link_count(attributes),
             owner: self.owners.of(attributes),
-            allocated: allocated_bytes(attributes),
+            allocated: allocated_bytes(sized),
             attributes: Attributes::from_metadata(attributes),
             // The map is not reused: moving the text out saves a clone per row.
             description: self.descriptions.remove(&name),
@@ -130,13 +139,14 @@ pub fn nearest_existing(path: &Path) -> Option<&Path> {
     path.ancestors().find(|folder| folder.is_dir())
 }
 
-/// A symlink behaves like its target while retaining its identity as a link.
-fn entry_kind(path: &Path, metadata: &fs::Metadata) -> EntryKind {
+/// A symlink behaves like its `target` while retaining its identity as a
+/// link; a `target` of `None` is a link with nothing behind it.
+fn entry_kind(metadata: &fs::Metadata, target: Option<&fs::Metadata>) -> EntryKind {
     if metadata.is_symlink() {
-        match fs::metadata(path) {
-            Ok(target) if target.is_dir() => EntryKind::SymlinkToDirectory,
-            Ok(_) => EntryKind::SymlinkToFile,
-            Err(_) => EntryKind::BrokenSymlink,
+        match target {
+            Some(target) if target.is_dir() => EntryKind::SymlinkToDirectory,
+            Some(_) => EntryKind::SymlinkToFile,
+            None => EntryKind::BrokenSymlink,
         }
     } else if metadata.is_dir() {
         EntryKind::Directory
@@ -179,11 +189,3 @@ fn is_hidden(_metadata: &fs::Metadata) -> bool {
 
 #[cfg(test)]
 mod tests;
-
-fn executable_entry(path: &Path, name: &str, attributes: &fs::Metadata) -> bool {
-    if attributes.is_symlink() {
-        fs::metadata(path).is_ok_and(|target| is_executable(name, &target))
-    } else {
-        is_executable(name, attributes)
-    }
-}

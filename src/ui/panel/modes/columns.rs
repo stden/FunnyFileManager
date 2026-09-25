@@ -58,20 +58,35 @@ impl Layout {
     }
 
     pub(super) fn header(&self) -> String {
-        let mut text = center_cells("Name", self.name);
-        for placed in &self.columns {
-            text.push('│');
-            text.push_str(&center_cells(placed.column.title(), placed.width));
-        }
-        text
+        self.line(center_cells("Name", self.name), |placed| {
+            center_cells(placed.column.title(), placed.width)
+        })
     }
 
     pub(super) fn row(&self, panel: &Panel, entry: &DirEntry, name: &str) -> String {
-        let mut text = pad_cells(&clip_name(name, self.name), self.name);
+        self.line(
+            pad_cells(&clip_name(name, self.name), self.name),
+            |placed| {
+                let cell = placed.column.cell(panel, entry);
+                placed.column.align(&cell, placed.width)
+            },
+        )
+    }
+
+    /// A row below the last entry: nothing but the column lines, which run on
+    /// to the divider as Full's and Medium's do.
+    pub(super) fn blank(&self) -> String {
+        self.line(pad_cells("", self.name), |placed| {
+            pad_cells("", placed.width)
+        })
+    }
+
+    /// `name`, then each column's `cell` behind its line.
+    fn line(&self, name: String, cell: impl Fn(&Placed) -> String) -> String {
+        let mut text = name;
         for placed in &self.columns {
             text.push('│');
-            let cell = placed.column.cell(panel, entry);
-            text.push_str(&placed.column.align(&cell, placed.width));
+            text.push_str(&cell(placed));
         }
         text
     }

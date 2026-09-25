@@ -35,3 +35,17 @@ impl FailedEntry {
         &self.error
     }
 }
+
+impl super::Status {
+    /// How a failed operation reads in the status bar: named by the path it
+    /// failed at when its error carries one ([`crate::utils::FailedAt`]),
+    /// rather than a bare "Error: Permission denied (os error 13)" that
+    /// leaves the user to guess which file or folder refused.
+    #[must_use]
+    pub fn of_error(error: &std::io::Error) -> Self {
+        crate::utils::FailedAt::of(error).map_or_else(
+            || Self::Error(error.to_string()),
+            |at| Self::ErrorAt(FailedEntry::new(at.path(), at)),
+        )
+    }
+}

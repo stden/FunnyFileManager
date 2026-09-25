@@ -135,9 +135,9 @@ pub use tasks::{
     CpuUsage, KernelPriority, KillOffer, Load, LoadAverage, MemoryBytes, MemoryMeter, MemorySample,
     MemoryUsage, Meters, NiceOutOfRange, NiceStep, Niceness, Owner, Percent, Pid, Priority,
     PriorityChange, PriorityClass, ProcessHost, ProcessKey, ProcessKind, ProcessReader, ProcessRow,
-    ProcessSample, ProcessState, Sample, SampleError, SettableClass, Signal, Snapshot, Start,
-    StartTime, StateLetter, SwapMeter, SwapSample, SystemPart, SystemSample, TaskCounts, TaskList,
-    TaskSession,
+    ProcessSample, ProcessState, Sample, SampleError, SettableClass, Signal, SignalEffect,
+    Snapshot, Start, StartTime, StateLetter, SwapMeter, SwapSample, SystemPart, SystemSample,
+    TaskCounts, TaskList, TaskSession,
 };
 pub use tree::{Branch, Expansion, FolderTree, Guide, TreeRow};
 pub use usermenu::UserMenu;

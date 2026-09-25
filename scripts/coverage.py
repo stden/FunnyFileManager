@@ -37,9 +37,10 @@ HELP_WORDS = ("-h", "--help")
 # (colorer, keepass) come with it. s3 is left out: its suite runs in CI's BDD job.
 FEATURES = "test-helpers"
 # Left out of the measurement (they still compile and run in the suite):
-# - main.rs, bootstrap.rs, editor.rs: real-TTY and external-process entry points
+# - main.rs, bootstrap.rs (and bootstrap/at_exit.rs, its exit reporting), editor.rs:
+#   real-TTY and external-process entry points
 # - clipboard/system.rs: the OS clipboard, which a headless runner does not have
-# - ops/shell/tty.rs: drains crossterm's live event queue for cancel keys
+# - terminal/typeahead.rs: drains crossterm's live event queue of type-ahead and cancel keys
 # - highlight/colorer.rs and colorer/: the Colorer FFI wrapper; the gate does not
 #   build Colorer-library, so CI's Colorer job tests it with the engine present
 # - test files (tests*.rs, *_tests.rs, tests/, test_support.rs, test_support/):
@@ -47,8 +48,9 @@ FEATURES = "test-helpers"
 #   arms that never fire in a passing suite
 IGNORED = (
     r"src/(main|editor|bootstrap)\.rs$"
+    r"|src/bootstrap/at_exit\.rs$"
     r"|src/clipboard/system\.rs$"
-    r"|src/ops/shell/tty\.rs$"
+    r"|src/terminal/typeahead\.rs$"
     r"|src/highlight/colorer(\.rs$|/)"
     r"|/tests[_./]"
     r"|_tests\.rs$"

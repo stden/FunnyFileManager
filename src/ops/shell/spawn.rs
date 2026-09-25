@@ -2,6 +2,8 @@
 //! its own, and tear the whole group down when it has to stop.
 
 use std::process::{Child, Command, Stdio};
+#[cfg(unix)]
+use std::time::{Duration, Instant};
 use std::{io, path::Path};
 
 #[cfg(windows)]
@@ -50,15 +52,39 @@ pub(super) fn spawn_shell(command: &str, current_dir: &Path) -> io::Result<Child
         .spawn()
 }
 
+/// How long a command has to act on SIGHUP before its group gets SIGKILL.
+#[cfg(unix)]
+const HANG_UP_GRACE: Duration = Duration::from_secs(1);
+
+/// How often the grace period looks at the shell.
+#[cfg(unix)]
+const GRACE_POLL: Duration = Duration::from_millis(10);
+
 /// Tear down a timed-out / cancelled shell, including Unix grandchildren.
 pub(super) fn kill_shell_tree(child: &mut Child) {
-    // The shell leads its own group (set in `spawn_shell`), and killing a
-    // whole group has no std equivalent. It is not reaped yet, so its id
-    // cannot name a stranger's group.
     // Best effort throughout: the timeout or the cancel is what gets reported,
     // and a child that already exited has nothing left to kill or reap.
     #[cfg(unix)]
-    drop(crate::platform::kill_process_group(child));
+    hang_up_then_kill(child);
     drop(child.kill());
     drop(child.wait());
+}
+
+/// Stop the shell's group the way a shell stops its jobs when the terminal
+/// goes: SIGHUP, so a program can clean up, then SIGKILL for whatever is left
+/// once the shell is gone or the grace period is over.
+///
+/// The shell leads its own group (set in `spawn_shell`), and signalling a
+/// whole group has no std equivalent. Nothing here reaps it, so its id
+/// cannot name a stranger's group when the SIGKILL goes out.
+#[cfg(unix)]
+fn hang_up_then_kill(child: &Child) {
+    if crate::platform::hang_up_process_group(child).is_ok() {
+        let deadline = Instant::now() + HANG_UP_GRACE;
+        // An error means nothing is left to wait for.
+        while Instant::now() < deadline && !crate::platform::has_exited(child).unwrap_or(true) {
+            std::thread::sleep(GRACE_POLL);
+        }
+    }
+    drop(crate::platform::kill_process_group(child));
 }

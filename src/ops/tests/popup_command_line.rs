@@ -1,4 +1,6 @@
-//! Unit tests: popup command line (split out to keep files under 500 lines).
+//! Unit tests: the command-line prompt — its keys, the typed built-ins, Tab
+//! completion's menu, history and its ghost suggestion — and the file
+//! operations reached from it.
 
 use crate::lineedit::LineEditor;
 use crate::models::FileName;

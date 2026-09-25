@@ -39,7 +39,8 @@ fn append_log_line(path: &Path, line: &str) {
         use std::os::unix::fs::OpenOptionsExt;
         options.mode(0o600);
     }
-    let Ok(mut file) = options.open(path) else {
+    // A FIFO planted where the log goes is refused, never waited on.
+    let Ok(mut file) = crate::fileload::open_regular(path, &options) else {
         return;
     };
     let timestamp = std::time::SystemTime::now()

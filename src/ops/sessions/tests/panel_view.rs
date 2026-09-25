@@ -32,10 +32,7 @@ fn a_damaged_store_says_so_when_its_panel_opens() {
     let mut app = app_in(dir.path());
     app.sessions = SessionStore::load_from(dir.path().join(FILE_NAME));
     let status = open_on(&mut app, PanelSide::Left);
-    assert_eq!(
-        status,
-        Status::Error(format!("NetBox: {}", StoreError::Damaged))
-    );
+    assert_eq!(status, Status::Error(DAMAGED.to_owned()));
     assert!(app.left_panel.kind.is_netbox());
 }
 

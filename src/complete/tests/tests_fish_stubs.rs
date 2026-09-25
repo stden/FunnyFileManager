@@ -120,6 +120,35 @@ fn fish_poll_loop_waits_for_a_slow_completer() {
     assert_eq!(candidates, Some(vec!["alpha".to_owned()]));
 }
 
+/// fish creates `fish/` in its configuration and data homes on every run
+/// (`~/.config/fish`, `~/.local/share/fish`), so a fish a test starts is given
+/// homes where nothing can be created: running the suite must not write into
+/// the home of whoever runs it.
+#[test]
+fn a_fish_started_by_a_test_gets_homes_it_cannot_write_to() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = TempDir::new().expect("temp dir");
+    let stub = temp.path().join("env-fish.sh");
+    let script = "#!/bin/sh\nprintf '%s\\n%s\\n' \"$XDG_CONFIG_HOME\" \"$XDG_DATA_HOME\"\n";
+    fs::write(&stub, script).expect("write stub");
+    fs::set_permissions(&stub, fs::Permissions::from_mode(0o755)).expect("chmod");
+    wait_until_executable(&stub);
+
+    FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = Some(stub));
+    let homes = fish_path_complete("al", temp.path()).unwrap_or_default();
+    FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = None);
+
+    assert_eq!(homes.len(), 2, "both homes are set: {homes:?}");
+    for home in homes {
+        let nearest = Path::new(&home).ancestors().find(|path| path.exists());
+        assert!(
+            nearest.is_some_and(|path| !path.is_dir()),
+            "fish could create {home}/fish"
+        );
+    }
+}
+
 #[cfg(unix)]
 fn sleeping_fish(root: &Path) -> PathBuf {
     use std::os::unix::fs::PermissionsExt;

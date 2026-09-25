@@ -1,8 +1,9 @@
-//! Unit tests: column widths and scroll offsets on a default 80x24 terminal.
+//! Unit tests: a panel's name and Size columns on a default 80x24 terminal and
+//! on narrow ones, plus the screen helpers the `widths_*` tests share.
 //!
-//! Everything here renders through the real `ui`/`render_overlays` path — the
-//! bugs these pin were invisible to tests that only asserted "does not panic"
-//! or that used an artificially wide terminal.
+//! Everything here renders through the real `ui` path — the bugs these pin
+//! were invisible to tests that only asserted "does not panic" or that used
+//! an artificially wide terminal.
 
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;

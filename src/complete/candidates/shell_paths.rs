@@ -41,7 +41,7 @@ pub(super) fn shell_path_candidates(token: &str, cwd: &Path) -> Vec<Candidate> {
 /// `~user/x` name a place inside a home directory, while a bare `~backup` is
 /// overwhelmingly a file in the current directory — and a file is the thing
 /// this completer just found on disk.
-pub(in crate::complete) fn is_home_syntax(token: &str) -> bool {
+fn is_home_syntax(token: &str) -> bool {
     let Some(rest) = token.strip_prefix('~') else {
         return false;
     };
@@ -50,7 +50,7 @@ pub(in crate::complete) fn is_home_syntax(token: &str) -> bool {
 
 /// Undo [`shellwords::escape`]'s leading-`~` backslash when the tilde is the
 /// user's own expansion syntax rather than the first letter of a file name.
-pub(in crate::complete) fn keep_typed_tilde(escaped: String, typed_tilde: bool) -> String {
+fn keep_typed_tilde(escaped: String, typed_tilde: bool) -> String {
     if !typed_tilde {
         return escaped;
     }
@@ -59,3 +59,6 @@ pub(in crate::complete) fn keep_typed_tilde(escaped: String, typed_tilde: bool) 
         None => escaped,
     }
 }
+
+#[cfg(test)]
+mod tests;

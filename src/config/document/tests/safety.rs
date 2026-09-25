@@ -170,3 +170,18 @@ fn an_ordinary_file_is_saved_by_both_writers() {
         );
     }
 }
+
+/// The first save makes the configuration directory, readable by its owner
+/// only as the XDG spec asks.
+#[cfg(unix)]
+#[test]
+fn the_first_save_makes_an_owner_only_configuration_directory() {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let temp = TempDir::new().expect("tempdir");
+    let path = settings_path(&temp);
+    Writer::Update.save(&path).expect("saved");
+    let dir = path.parent().expect("the ffm directory");
+    let mode = fs::metadata(dir).expect("stat").permissions().mode() & 0o777;
+    assert_eq!(mode, 0o700);
+}

@@ -12,20 +12,20 @@ use serde::Deserialize;
 use serde_json::json;
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct S3ProfileParam {
+struct S3ProfileParam {
     /// AWS profile name from ~/.aws/credentials
-    pub profile: String,
+    profile: String,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct S3ListObjectsParams {
+struct S3ListObjectsParams {
     /// AWS profile name
-    pub profile: String,
+    profile: String,
     /// S3 bucket name
-    pub bucket: String,
+    bucket: String,
     /// Prefix/folder to list (default: root)
     #[serde(default)]
-    pub prefix: Option<String>,
+    prefix: Option<String>,
 }
 
 pub async fn make_s3_client(profile: &str) -> Result<aws_sdk_s3::Client, McpError> {

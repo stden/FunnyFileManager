@@ -3,7 +3,7 @@
 
 use super::tests_transfer_policies::{app_with, mark, settings};
 use super::*;
-use crate::copy::{CopyPrompt, ExistingFiles};
+use crate::copy::{CopyPrompt, ExistingFiles, Purpose};
 
 mod tests_onto_itself;
 mod tests_typed_destinations;

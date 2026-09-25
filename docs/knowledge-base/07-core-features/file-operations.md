@@ -57,13 +57,34 @@ path, relative to the active panel. What was typed means, following Far
   `name_1` when the destination is the source itself.
 - A single-entry overwrite prepares the copy and its metadata in a temporary
   sibling before atomically replacing the destination (`ops/file/replace.rs`).
-  A failed copy or metadata update leaves the existing entry intact. Moves
-  try an atomic rename first; their copy fallback removes the source only
-  after the replacement succeeds.
-- "Overwrite" and "Only newer" never remove what the transfer does not
-  bring (`ops/file/merge.rs`). A folder onto a folder of the same name is
+  A failed copy or metadata update leaves the existing entry intact. On Linux
+  a file is staged with no name at all (`O_TMPFILE`, `utils/unnamed_file.rs`)
+  and named `.ffm-copy-*` only once it is whole, an instant before the rename:
+  a copy killed half-way leaves nothing, since the kernel frees an unnamed
+  file with its last handle. Where that is not possible (Windows, other
+  Unixes, NFS or FAT without `O_TMPFILE`, no `/proc`) and for a link, the
+  staged entry is named from the start; FFM removes it after any failure it
+  survives, but a kill can leave that hidden `.ffm-copy-*` file behind. When a
+  rename would change what the destination *is* — it has other hard links,
+  another user owns it, or its folder takes no new entry — a copy of a file
+  over a file is written through the file instead (`utils::rewrite_file`,
+  the rule `file_write::replacing_changes_identity` the editor follows too),
+  keeping its inode, owner, mode and other names, as `cp` does. Everything
+  that can be refused is met before the old contents go: the source must
+  open as a regular file, the destination for writing, a kept time or mode
+  must be one the file would take, and the new contents must fit in the free
+  space. Only an I/O failure or a kill during the write itself can leave that
+  file cut short — the price of keeping its identity. An overwrite keeps the
+  replaced file's mode unless "Access rights: Copy" asks for the source's; a
+  move replaces the name, as `mv` does. A failure that belongs to the
+  destination names the destination (`ops/file/failed_at.rs`). Moves
+  try an atomic rename first; only across filesystems do they copy, and that
+  fallback removes the source only after the replacement succeeds.
+- "Overwrite", "Skip" and "Only newer" never remove what the transfer does
+  not bring (`ops/file/merge.rs`). A folder onto a folder of the same name is
   merged into it, as Far, mc and Explorer do: each entry inside follows the
-  same choice, "Only newer" is decided file by file, and what only the
+  same choice, "Skip" and "Only newer" are decided file by file (Skip leaves
+  the files already there, not the whole folder), and what only the
   destination holds stays; the existing folder keeps its own times and
   rights. A moved folder is removed once empty, and kept when something in
   it was skipped. A file or link and a folder never replace one another
@@ -76,18 +97,34 @@ path, relative to the active panel. What was typed means, following Far
   (`DirEntry::disk_name`). F8 on such a row never touches another file shown
   the same way; a mark shows on, and reaches, every row with its name
   (`Panel::action_paths`).
-- The status line says "Copied" or "Moved", and adds "(existing files kept,
+- A name is taken when anything is there, a link that points nowhere
+  included (`utils::name_is_taken`, `symlink_metadata`): "Skip" leaves such a
+  link alone, "Ask" puts the entry beside it, "Overwrite" replaces the link
+  itself, and Shift+F6 refuses to rename onto it. `Path::exists` follows the
+  link and used to call the name free, so a move renamed over it.
+- The status line says "Copied" or "Moved", adds ", N skipped" for every
+  entry the choice left alone — inside a merged folder too, at any depth, so
+  a move that left files behind says so — and adds "(existing files kept,
   new ones renamed)" only when an item was put beside an existing one under
   a new name.
 - "Access rights" (`copy::AccessRights`): Default gives every copied file its
   source's permission bits and creates folders like any new folder there;
-  Copy also restates the copied folder's own mode once its contents are in;
+  Copy also restates the mode of every folder the copy makes, each once its
+  contents are in (`CopyRules::folder_modes`), so a private 0700 subfolder
+  stays private;
   Inherit leaves every file and folder the copy creates with the mode the
   kernel gave it at creation (the umask, or the folder's default ACL). No
   choice ever sets a bare 0666/0777 with `chmod`, which would skip the umask.
-  A same-filesystem move is a rename and keeps the mode it had.
-- "Preserve timestamps" applies to directories as well as files; the copied
-  directory gets the source's modification time once its contents are in.
+  A same-filesystem move is a rename and keeps the mode it had; a move
+  across filesystems, which has to copy, keeps what that rename would have
+  kept — every file's and folder's mode and access and modification times,
+  as `mv` does — unless Inherit asks for the destination's rights
+  (`CopyRules::MOVE`, `CopyPrompt::rules`).
+- "Preserve all timestamps" (`CopyRules::times`) gives every file, folder
+  and link the copy makes its source's access and modification times, at
+  any depth. A file gets them through its handle before its mode is set; a
+  folder once its contents are in; a link its own times (`AT_SYMLINK_NOFOLLOW`),
+  never its target's (`utils/keep_times.rs`).
 - Removes a partially written destination when an individual copy fails.
 - Continues a marked-item batch after an individual failure, reports the
   successful and failed counts, clears marks, and then refreshes both panels.
@@ -96,18 +133,29 @@ path, relative to the active panel. What was typed means, following Far
 
 - Chooses a non-colliding destination with `unique_destination`.
 - Tries `fs::rename` first.
-- On any rename error, falls back to copy followed by source deletion.
+- Only a rename across filesystems (`EXDEV`, `io::ErrorKind::CrossesDevices`)
+  falls back to copy followed by source deletion, as `mv` does. Any other
+  rename failure (no write permission on the source's folder, a busy mount
+  point) is reported and leaves both sides untouched (`ops::file::rename_within`).
 - Applies the same descendant guard, partial-copy cleanup, batch error
   collection, mark clearing, and final refresh as copy.
 
 The fallback is not fully transactional. The source is removed only after its
-copy succeeds, but a successful copy is not rolled back if source deletion
-fails. Earlier successful items in a multi-item operation also remain changed.
+copy succeeds, and then only what the copy holds (`ops/file/remove_moved.rs`):
+an entry that appeared in the source meanwhile stays, and so does anything
+that will not go (a read-only or foreign subfolder). The removal carries on
+past both and the item is reported as moved *and* as an error naming what
+stayed: "Moved 1 item(s), 1 error(s): …/rootsub/r.txt: the copy is
+complete, but this stayed in the source: Permission denied". A successful
+copy is never rolled back. Earlier successful items in a multi-item
+operation also remain changed.
 
 ## 📋 Delete (F8)
 
 - `handle_delete_confirm` opens `Overlay::DeleteConfirm` with the selected or
-  marked paths.
+  marked paths. For one entry the question names its kind as the panel
+  listed it, as Far does — "Do you wish to delete the folder?", "…the link?",
+  "…the file?" — and so does Alt+Del's wipe question; several are counted.
 - Confirmation in `popup` calls `handle_delete`.
 - Files use `fs::remove_file`; directories use `fs::remove_dir_all`.
 - Per-path failures are collected into the resulting status instead of stopping
@@ -117,8 +165,13 @@ fails. Earlier successful items in a multi-item operation also remain changed.
 
 ## 📁 Mkdir (F7)
 
-- Creates `new_folder`, then `new_folder_N` up to the bounded search limit.
-- Uses `fs::create_dir_all`.
+- The Make folder dialog takes a name or a path, as Far's does: `p1/p2/p3`
+  makes every folder on the way (`popup/name_prompt.rs`), the last one
+  claimed exclusively; a name that is taken, a dangling link included, is
+  refused with "already exists". The cursor lands on the first folder of the
+  path. Rename (Shift+F6) and Link names still refuse a separator.
+- `handle_mkdir` (the facade's F7 without a dialog) creates `new_folder`, then
+  `new_folder_N` up to the bounded search limit.
 - Refreshes both panels and propagates refresh errors.
 
 ## 📄 New File (Shift+F4)
@@ -151,14 +204,28 @@ their direct filesystem errors. Popup handling and the main-view `report`
 boundary translate operation errors into status instead of terminating the
 event loop.
 
+An error names the path it happened at wherever the failing step knows it
+(`utils::FailedAt`, carried inside the `io::Error`): F3 on a file that cannot
+be read, Enter or `cd` on a folder that cannot be, and a copy's destination
+that refuses the new file or folder. `Status::of_error` turns such an error
+into `Status::ErrorAt` ("Error: …/secret.txt: Permission denied") and a
+copy's batch reports that path instead of the source's; any other error
+stays `Status::Error`.
+
 ## 🧪 Test Fault Injection
 
 Fault injection is cfg-gated, in-memory state, not environment variables:
 
-- `FORCE_RENAME_FAILURE` (`src/ops/file.rs`) forces the move fallback.
+- `FORCE_RENAME_FAILURE` (`src/ops/file.rs`) makes every rename answer as one
+  across filesystems (`CrossesDevices`), forcing the move fallback.
 - `FORCE_COPY_DIR_ALL_STEP` (`src/utils.rs`) selects a recursive-copy failure
   point.
 - `FORCE_REFRESH_ERROR` (`src/utils.rs`) forces `refresh_panels` to fail.
+- Thread-local, for the steps root never sees fail: `FORCE_RENAME_DENIAL`
+  (a rename refused like `EACCES`), `FORCE_REMOVAL_REFUSAL` (one entry of a
+  moved source that will not go, `ops/file/remove_moved.rs`) and
+  `FORCE_TIMES_FAILURE` (a copy's times that cannot be kept,
+  `utils/keep_times.rs`).
 
 The controls are compiled under `cfg(any(test, tarpaulin))`; test-only setters
 and mutexes serialize cases that mutate shared state.

@@ -69,6 +69,14 @@ const JAVA_ARGS: &[&str] = &[
 
 const JAVA_REQUIRED: &str = "Java LSP requires Java 21+ (set JAVA_HOME)";
 
+/// Whether a `java` is there to try, found as [`java`] finds one but
+/// without running it: whether it is 21+ is known only once it runs.
+pub(in crate::lsp::install) fn java_present(
+    environment: &dyn Environment,
+) -> Result<(), InstallError> {
+    environment.program(&["java"], JAVA_REQUIRED).map(drop)
+}
+
 pub(in crate::lsp::install) fn java(
     stop: &AtomicBool,
     environment: &dyn Environment,

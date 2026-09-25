@@ -84,15 +84,15 @@ pub fn press(app: &mut App, button: ConfirmButton) {
 
 /// Sends `signal` to every target and tells how it went.
 fn send(host: Option<&dyn ProcessHost>, list: &mut TaskList, targets: &[Target], signal: Signal) {
-    let failures = targets
+    let failures: Vec<Failure> = targets
         .iter()
         .filter_map(|target| {
             let error = ask(host, |host| host.signal(target.key(), signal)).err()?;
             Some(Failure::new(target.clone(), Attempt::Signal, error))
         })
         .collect();
-    let count = targets.len();
-    finish(list, failures, Notice::Sent { signal, count });
+    let count = targets.len().saturating_sub(failures.len());
+    finish(list, failures, Notice::Sent { signal, count }, count);
 }
 
 /// Asks the host, if there is one; a list opened without one can control
@@ -105,14 +105,18 @@ fn ask(
 }
 
 /// Tells the outcome — `done` when every target took it, otherwise the Error
-/// dialog, one line per failure — and asks for a sample at once so the
-/// table shows the result.
-fn finish(list: &mut TaskList, failures: Vec<Failure>, done: Notice) {
+/// dialog, one line per failure after `done` when `succeeded` targets took
+/// it — and asks for a sample at once so the table shows the result.
+///
+/// A mixed delivery used to show the failures alone, so a process that was
+/// ended read as one that was not.
+fn finish(list: &mut TaskList, failures: Vec<Failure>, done: Notice, succeeded: usize) {
     if failures.is_empty() {
         list.set_notice(done);
     } else {
         failures.iter().for_each(log);
-        list.set_modal(Modal::Error(failures));
+        let done = (succeeded > 0).then_some(done);
+        list.set_modal(Modal::Error { done, failures });
     }
     list.refresh_after_control();
 }

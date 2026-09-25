@@ -144,14 +144,12 @@ fn test_enter_vanished_dir_leaves_panel_untouched() -> io::Result<()> {
 #[test]
 #[cfg(unix)]
 fn test_enter_unreadable_dir_leaves_panel_untouched() -> io::Result<()> {
-    use std::os::unix::fs::PermissionsExt;
-
     let temp_dir = TempDir::new()?;
     let locked = temp_dir.path().join("locked");
     fs::create_dir(&locked)?;
     // Listing the parent only needs search permission, so the entry shows up as
     // a directory and read_dir on it then fails with EACCES.
-    fs::set_permissions(&locked, fs::Permissions::from_mode(0o000))?;
+    let _locked = crate::test_support::ModeGuard::set(&locked, 0o000)?;
 
     let mut panel = Panel::new(temp_dir.path().to_path_buf())?;
     let index = panel
@@ -162,7 +160,6 @@ fn test_enter_unreadable_dir_leaves_panel_untouched() -> io::Result<()> {
     panel.select(Some(index));
 
     let result = panel.enter();
-    fs::set_permissions(&locked, fs::Permissions::from_mode(0o700))?;
 
     if result.is_ok() {
         return Ok(()); // root bypasses the mode bits — nothing to assert

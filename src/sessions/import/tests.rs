@@ -71,6 +71,10 @@ fn the_report_and_the_errors_read_as_one_line_each() {
         ImportError::TooManySessions { limit: 9 }.to_string(),
         "more than 9 sessions in one file"
     );
+    assert_eq!(
+        ImportError::TooDeep { limit: 32 }.to_string(),
+        "elements nested more than 32 deep"
+    );
     let xml = roxmltree::Document::parse("<a>").expect_err("unclosed");
     assert!(ImportError::Xml(xml)
         .to_string()

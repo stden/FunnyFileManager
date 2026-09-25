@@ -33,6 +33,6 @@ impl StatusCursor {
         let panel = app.get_active_panel_ref();
         self.side == app.active_panel
             && self.directory == panel.path
-            && self.row == panel.selected()
+            && self.row == panel.shown_cursor()
     }
 }

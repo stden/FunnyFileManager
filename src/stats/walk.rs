@@ -87,6 +87,8 @@ pub(super) fn analyse_within(directory: &Path, mut budget: usize) -> DirectorySt
             total.absorb(subtree);
         } else if meta.is_file() {
             record_file(&mut total, &name, name.clone(), meta.len());
+        } else if is_special(&meta) {
+            total.files += 1;
         }
     }
 
@@ -178,6 +180,15 @@ pub(super) fn walk(directory: &Path, prefix: &str, tally: &mut Tally, budget: &m
             walk(&entry.path(), &path, tally, budget);
         } else if meta.is_file() {
             record_file(tally, &name, path, meta.len());
+        } else if is_special(&meta) {
+            tally.files += 1;
         }
     }
+}
+
+/// A socket, a device node or a FIFO: counted as a file, as the panel counts
+/// it, but with no data of its own for a size, a category or the largest
+/// files. A link is not one: its target is counted where it lives.
+fn is_special(meta: &fs::Metadata) -> bool {
+    !meta.is_dir() && !meta.is_file() && !meta.is_symlink()
 }

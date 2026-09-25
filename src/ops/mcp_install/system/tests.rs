@@ -2,7 +2,7 @@
 //! parsed the way Windows reads it, and the real runner captures, reports
 //! and bounds a program. The only program run is `sh`.
 
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 
 use super::*;
 

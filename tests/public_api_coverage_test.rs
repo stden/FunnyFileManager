@@ -90,6 +90,10 @@ const UNEXERCISED: &[&str] = &[
     "toggle_video_mode",
     "undo_last_change",
     "visible_text",
+    // Installs process-wide SIGHUP/SIGTERM handlers, which would let the test
+    // runner outlive a SIGTERM; tests/pty_session_test/hang_up.rs signals the
+    // real binary instead.
+    "watch_for_hang_up",
     "with_stdout",
     "write_owner_only",
 ];

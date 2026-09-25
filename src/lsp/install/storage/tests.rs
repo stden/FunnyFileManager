@@ -84,6 +84,22 @@ fn a_contended_lock_obeys_its_deadline() {
     ));
 }
 
+/// A FIFO where an installation's lock goes is refused, never waited on.
+#[cfg(unix)]
+#[test]
+fn a_lock_that_is_not_a_regular_file_is_refused_without_waiting() {
+    let root = TempDir::new().unwrap();
+    let path = root.path().join("package.lock");
+    crate::test_support::make_fifo(&path).unwrap();
+    let outcome = crate::test_support::run_with_timeout(Duration::from_secs(5), move || {
+        lock(&path, &AtomicBool::new(false)).map(drop)
+    });
+    assert_eq!(
+        outcome,
+        Some(Err(InstallError::Cache(std::io::ErrorKind::InvalidInput)))
+    );
+}
+
 #[test]
 fn recipe_paths_cannot_escape_the_installation_directory() {
     let root = TempDir::new().unwrap();
@@ -118,7 +134,7 @@ fn invalid_storage_and_absent_recipes_fail_before_installation() {
     let stop = AtomicBool::new(false);
     assert!(matches!(
         prepare(&simple_recipe(), &path, root.path(), &stop),
-        Err(InstallError::Io(_))
+        Err(InstallError::Cache(_))
     ));
     assert_eq!(
         prepare(&ServerSettings::default(), root.path(), root.path(), &stop).unwrap_err(),

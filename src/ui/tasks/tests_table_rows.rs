@@ -80,6 +80,9 @@ fn stuck_and_dead_processes_have_their_state_letter_in_the_alert_colour() {
 fn kernel_threads_shown_by_k_are_dimmed() {
     let mut app = list_of(vec![process(pid(10), "sh"), kthreadd()]);
     app.list().toggle_kernel_threads();
+    // Off the first row, which the cursor keeps until it is moved: a row
+    // under the cursor is drawn in the cursor's colours.
+    app.list().move_cursor(crate::models::ListMotion::Down, 10);
     let terminal = draw(&mut app, 80, 24);
     let buffer = terminal.backend().buffer();
     let y = (0..24)
