@@ -16,8 +16,10 @@ pub mod matcher;
 mod paths;
 pub mod servers;
 pub mod shellwords;
+mod syntax;
 
 use candidates::candidates_for;
+pub use syntax::PathSyntax;
 
 // The unit tests in `tests.rs` reach these seams through `use super::*`.
 #[cfg(test)]
@@ -76,7 +78,7 @@ pub fn complete(input: &str, cwd: &Path) -> Option<Completion> {
 #[must_use]
 pub fn complete_with(input: &str, ctx: &CompletionContext<'_>) -> Option<Completion> {
     let (head, token) = split_target(input);
-    let candidates = candidates_for(head, token, ctx);
+    let candidates = candidates_for(PathSyntax::HOST, head, token, ctx);
 
     if candidates.is_empty() {
         return None;
@@ -120,16 +122,22 @@ pub(crate) fn split_target(input: &str) -> (&str, &str) {
         }
         // Quote- and escape-aware, so `cat My\ Doc` completes against
         // `My Doc` rather than against `Doc`.
-        _ => shellwords::last_word(input),
+        _ => shellwords::last_word(PathSyntax::HOST, input),
     }
 }
 
 /// Append a trailing space when accepting a candidate, except for directory
-/// paths (ending in `/`) where the user likely wants to descend. Shared by
-/// `Tab`'s lone-candidate accept and the dropdown's `Enter` accept, so both
-/// finish a word the same way.
+/// paths (ending in a separator) where the user likely wants to descend.
+/// Shared by `Tab`'s lone-candidate accept and the dropdown's `Enter` accept,
+/// so both finish a word the same way.
 pub(crate) fn finish_word(candidate: &str, kind: CandidateKind) -> String {
-    if kind == CandidateKind::Path && candidate.ends_with('/') {
+    finish_word_for(PathSyntax::HOST, candidate, kind)
+}
+
+/// [`finish_word`] under an explicit syntax, so both spellings of "ends in a
+/// separator" are testable on every OS.
+fn finish_word_for(syntax: PathSyntax, candidate: &str, kind: CandidateKind) -> String {
+    if kind == CandidateKind::Path && syntax.ends_with_separator(candidate) {
         candidate.to_owned()
     } else {
         format!("{candidate} ")

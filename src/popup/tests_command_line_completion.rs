@@ -41,8 +41,15 @@ fn tab_with_several_matches_inserts_the_common_prefix_and_opens_the_menu() {
     // installed, the built-in directory scan otherwise), so assert on the
     // pieces rather than on their order.
     let texts: Vec<&str> = menu.candidates().iter().map(|c| c.text.as_str()).collect();
-    assert!(texts.contains(&"alpha_one/"), "candidates: {texts:?}");
-    assert!(texts.contains(&"alpha_two/"), "candidates: {texts:?}");
+    let sep = std::path::MAIN_SEPARATOR;
+    assert!(
+        texts.contains(&format!("alpha_one{sep}").as_str()),
+        "candidates: {texts:?}"
+    );
+    assert!(
+        texts.contains(&format!("alpha_two{sep}").as_str()),
+        "candidates: {texts:?}"
+    );
 }
 
 /// One candidate is not ambiguous: it is inserted whole and there is nothing to
@@ -56,7 +63,8 @@ fn tab_with_a_single_match_completes_it_without_opening_the_menu() {
 
     assert!(process_popup_input(&mut app, key(KeyCode::Tab)));
 
-    assert_eq!(app.get_command_line(), Some("cd solo/"));
+    let completed = format!("cd solo{}", std::path::MAIN_SEPARATOR);
+    assert_eq!(app.get_command_line(), Some(completed.as_str()));
     let Overlay::CommandLine(state) = &app.overlay else {
         panic!("command line should still be open");
     };

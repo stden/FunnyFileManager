@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use crate::complete::paths::path_complete;
-use crate::complete::shellwords;
+use crate::complete::{shellwords, PathSyntax};
 use crate::models::{Candidate, CandidateKind};
 
 /// Path candidates for an argument of a shell command, ready to splice back.
@@ -14,8 +14,8 @@ use crate::models::{Candidate, CandidateKind};
 /// holding a space reaches `sh -c` as one argument instead of two. `cd` skips
 /// all of this: it is parsed by [`crate::command::Command::parse`], which
 /// strips quotes instead of resolving escapes.
-pub(super) fn shell_path_candidates(token: &str, cwd: &Path) -> Vec<Candidate> {
-    let literal = shellwords::unescape(token);
+pub(super) fn shell_path_candidates(syntax: PathSyntax, token: &str, cwd: &Path) -> Vec<Candidate> {
+    let literal = shellwords::unescape(syntax, token);
     // A leading `~` the *user* typed is tilde expansion, and the path source
     // keeps that prefix on every candidate it returns. Escaping it would hand
     // the shell `\~/Documents` — a literal directory named `~`, which does not
@@ -23,10 +23,10 @@ pub(super) fn shell_path_candidates(token: &str, cwd: &Path) -> Vec<Candidate> {
     // work. A candidate that merely happens to *start* with `~` (a file called
     // `~backup`) is still escaped, because there the tilde is part of a name.
     let typed_tilde = is_home_syntax(&literal);
-    path_complete(&literal, cwd)
+    path_complete(syntax, &literal, cwd)
         .into_iter()
         .map(|path| Candidate {
-            text: keep_typed_tilde(shellwords::escape(&path), typed_tilde),
+            text: keep_typed_tilde(shellwords::escape(syntax, &path), typed_tilde),
             kind: CandidateKind::Path,
             hint: None,
         })

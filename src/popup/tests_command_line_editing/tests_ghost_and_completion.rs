@@ -72,10 +72,11 @@ fn tab_completes_the_token_under_the_caret_and_keeps_the_tail() {
     send(&mut app, &[key(KeyCode::Tab)]);
 
     let (text, cursor) = line(&app);
-    assert_eq!(text, "cat Documents/ /etc/hosts");
+    let sep = std::path::MAIN_SEPARATOR;
+    assert_eq!(text, format!("cat Documents{sep} /etc/hosts"));
     assert_eq!(
         &text[..cursor],
-        "cat Documents/",
+        format!("cat Documents{sep}"),
         "the caret stays at the end of what was just completed"
     );
 }

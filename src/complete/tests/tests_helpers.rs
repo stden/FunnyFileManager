@@ -6,9 +6,12 @@ use super::*;
 
 #[test]
 fn split_last_token_handles_trailing_space() {
-    assert_eq!(shellwords::last_word("cd "), ("cd ", ""));
-    assert_eq!(shellwords::last_word("cd foo"), ("cd ", "foo"));
-    assert_eq!(shellwords::last_word("foo"), ("", "foo"));
+    assert_eq!(shellwords::last_word(PathSyntax::HOST, "cd "), ("cd ", ""));
+    assert_eq!(
+        shellwords::last_word(PathSyntax::HOST, "cd foo"),
+        ("cd ", "foo")
+    );
+    assert_eq!(shellwords::last_word(PathSyntax::HOST, "foo"), ("", "foo"));
 }
 
 #[test]
@@ -17,15 +20,21 @@ fn split_last_token_splits_on_multi_byte_whitespace() {
     // splitting one byte past the separator's start would land mid-character
     // and panic. Both are `char::is_whitespace`, so both are reachable.
     assert_eq!(
-        shellwords::last_word("cd\u{3000}foo"),
+        shellwords::last_word(PathSyntax::HOST, "cd\u{3000}foo"),
         ("cd\u{3000}", "foo")
     );
     assert_eq!(
-        shellwords::last_word("cd\u{00a0}foo"),
+        shellwords::last_word(PathSyntax::HOST, "cd\u{00a0}foo"),
         ("cd\u{00a0}", "foo")
     );
-    assert_eq!(shellwords::last_word("cd\u{3000}"), ("cd\u{3000}", ""));
-    assert_eq!(shellwords::last_word("\u{a0}"), ("\u{a0}", ""));
+    assert_eq!(
+        shellwords::last_word(PathSyntax::HOST, "cd\u{3000}"),
+        ("cd\u{3000}", "")
+    );
+    assert_eq!(
+        shellwords::last_word(PathSyntax::HOST, "\u{a0}"),
+        ("\u{a0}", "")
+    );
 }
 
 #[test]
@@ -46,6 +55,26 @@ fn split_target_keeps_the_whole_cd_argument() {
     assert_eq!(split_target("cd"), ("", "cd"));
     // Other verbs still complete token by token.
     assert_eq!(split_target("sort ex"), ("sort ", "ex"));
+}
+
+#[test]
+fn a_directory_candidate_is_finished_without_a_space_under_its_own_syntax() {
+    use crate::models::CandidateKind::{Path as P, Word};
+    assert_eq!(finish_word_for(PathSyntax::Posix, "docs/", P), "docs/");
+    assert_eq!(finish_word_for(PathSyntax::Windows, "docs\\", P), "docs\\");
+    assert_eq!(finish_word_for(PathSyntax::Windows, "docs/", P), "docs/");
+    // A backslash ends a name, not a directory, under Posix.
+    assert_eq!(finish_word_for(PathSyntax::Posix, "docs\\", P), "docs\\ ");
+    assert_eq!(
+        finish_word_for(PathSyntax::Posix, "notes.txt", P),
+        "notes.txt "
+    );
+    // A word is never a directory, whatever it ends in.
+    assert_eq!(
+        finish_word_for(PathSyntax::Windows, "sort\\", Word),
+        "sort\\ "
+    );
+    assert_eq!(finish_word("docs/", P), "docs/");
 }
 
 #[test]

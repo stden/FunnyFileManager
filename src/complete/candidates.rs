@@ -6,13 +6,14 @@ use crate::command::VERBS;
 use crate::models::{Candidate, CandidateKind};
 
 use super::paths::path_complete;
-use super::{execs, matcher, shellwords, CompletionContext};
+use super::{execs, matcher, shellwords, CompletionContext, PathSyntax};
 
 mod shell_paths;
 
 use shell_paths::shell_path_candidates;
 
 pub(super) fn candidates_for(
+    syntax: PathSyntax,
     head: &str,
     token: &str,
     ctx: &CompletionContext<'_>,
@@ -21,10 +22,10 @@ pub(super) fn candidates_for(
 
     match head_words.first() {
         // Completing the command name itself (first word, nothing before it).
-        None => command_candidates(token, ctx.cwd),
+        None => command_candidates(syntax, token, ctx.cwd),
         // `cd` takes the whole rest of the line as one path and is parsed with
         // quote stripping rather than escapes, so it keeps the raw token.
-        Some(&"cd") => plain_candidates(path_complete(token, ctx.cwd), CandidateKind::Path),
+        Some(&"cd") => plain_candidates(path_complete(syntax, token, ctx.cwd), CandidateKind::Path),
         Some(&"sort") if head_words.len() == 1 => plain_candidates(
             match_filter(&["name", "extension", "size"], token),
             CandidateKind::Word,
@@ -43,20 +44,21 @@ pub(super) fn candidates_for(
         Some(&"mark") if head_words.len() == 1 => {
             plain_candidates(match_filter(&["all"], token), CandidateKind::Word)
         }
-        Some(&"sessions") => sessions_candidates(&head_words, token, ctx),
+        Some(&"sessions") => sessions_candidates(syntax, &head_words, token, ctx),
         // A built-in verb in a position it does not model: nothing to offer,
         // and guessing a path there would be worse than silence.
         Some(verb) if VERBS.contains(verb) => Vec::new(),
         // Everything else is a shell command, and every argument of one is a
         // path until proven otherwise — which is what makes `cat src/ma<Tab>`
         // and `ls /usr/l<Tab>` work at all.
-        _ => shell_path_candidates(token, ctx.cwd),
+        _ => shell_path_candidates(syntax, token, ctx.cwd),
     }
 }
 
 /// `sessions import netbox <path>`: the subcommand, the source, then the
 /// file, whole-rest like `cd`'s. A word out of place offers nothing.
 fn sessions_candidates(
+    syntax: PathSyntax,
     head_words: &[&str],
     token: &str,
     ctx: &CompletionContext<'_>,
@@ -65,7 +67,7 @@ fn sessions_candidates(
         [_] => plain_candidates(match_filter(&["import"], token), CandidateKind::Word),
         [_, "import"] => plain_candidates(match_filter(&["netbox"], token), CandidateKind::Word),
         [_, "import", "netbox", ..] => {
-            plain_candidates(path_complete(token, ctx.cwd), CandidateKind::Path)
+            plain_candidates(path_complete(syntax, token, ctx.cwd), CandidateKind::Path)
         }
         _ => Vec::new(),
     }
@@ -78,10 +80,10 @@ fn sessions_candidates(
 /// Otherwise the built-in verbs and the `$PATH` executables are offered
 /// together — the verbs fuzzily as they always have been, the executables by
 /// prefix (see [`execs::matching`] for why the two rules differ).
-fn command_candidates(token: &str, cwd: &Path) -> Vec<Candidate> {
-    let literal = shellwords::unescape(token);
-    if looks_like_a_path(&literal) {
-        return shell_path_candidates(token, cwd);
+fn command_candidates(syntax: PathSyntax, token: &str, cwd: &Path) -> Vec<Candidate> {
+    let literal = shellwords::unescape(syntax, token);
+    if looks_like_a_path(syntax, &literal) {
+        return shell_path_candidates(syntax, token, cwd);
     }
 
     let verbs = match_filter(VERBS, &literal);
@@ -106,8 +108,8 @@ fn command_candidates(token: &str, cwd: &Path) -> Vec<Candidate> {
 }
 
 /// Whether a first word names a program by location rather than by name.
-fn looks_like_a_path(token: &str) -> bool {
-    token.contains('/') || token.starts_with('.') || token.starts_with('~')
+fn looks_like_a_path(syntax: PathSyntax, token: &str) -> bool {
+    token.contains(|ch| syntax.is_separator(ch)) || token.starts_with('.') || token.starts_with('~')
 }
 
 /// Candidates for `bookmark go <slot>`: only the slots that hold a path, each
@@ -158,3 +160,6 @@ fn plain_candidates(texts: Vec<String>, kind: CandidateKind) -> Vec<Candidate> {
 fn match_filter(options: &[&str], token: &str) -> Vec<String> {
     matcher::rank(token, options.iter().map(|&o| o.to_owned()).collect())
 }
+
+#[cfg(test)]
+mod tests;

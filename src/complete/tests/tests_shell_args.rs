@@ -20,15 +20,20 @@ fn every_argument_position_completes_a_path_not_just_the_first() {
     assert_eq!(c.line, "diff alpha.txt beta.txt ");
 }
 
+#[cfg(unix)]
 #[test]
 fn a_completed_name_with_a_space_comes_back_escaped() {
     // Spliced raw, `sh -c` would read this as two arguments.
     let tmp = cwd_with(&["My Documents/"]);
     let c = complete("cat My", tmp.path()).expect("path candidates");
     assert_eq!(c.line, "cat My\\ Documents/");
-    assert_eq!(shellwords::unescape(&texts(&c)[0]), "My Documents/");
+    assert_eq!(
+        shellwords::unescape(PathSyntax::HOST, &texts(&c)[0]),
+        "My Documents/"
+    );
 }
 
+#[cfg(unix)]
 #[test]
 fn an_already_escaped_token_matches_the_name_it_stands_for() {
     let tmp = cwd_with(&["My Documents/"]);
@@ -36,6 +41,45 @@ fn an_already_escaped_token_matches_the_name_it_stands_for() {
     // against the literal text `My\ Doc`.
     let c = complete("cat My\\ Doc", tmp.path()).expect("path candidates");
     assert_eq!(c.line, "cat My\\ Documents/");
+}
+
+#[cfg(windows)]
+#[test]
+fn a_completed_name_with_a_space_comes_back_double_quoted_on_windows() {
+    // cmd has no backslash escape: the name is quoted as a whole, and the
+    // separator stays outside, where the C runtime cannot read `\"` as a
+    // literal quote.
+    let tmp = cwd_with(&["My Documents/"]);
+    let c = complete("cat My", tmp.path()).expect("path candidates");
+    assert_eq!(c.line, "cat \"My Documents\"\\");
+    assert_eq!(
+        shellwords::unescape(PathSyntax::HOST, &texts(&c)[0]),
+        "My Documents\\"
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn a_quoted_token_matches_the_name_it_stands_for_on_windows() {
+    let tmp = cwd_with(&["My Documents/"]);
+    let c = complete("cat \"My Doc", tmp.path()).expect("path candidates");
+    assert_eq!(c.line, "cat \"My Documents\"\\");
+}
+
+#[cfg(windows)]
+#[test]
+fn a_backslash_path_argument_completes_on_windows() {
+    // `dir C:\work\fi` used to unescape to `C:workfi` and match nothing.
+    // The temp path goes through `escape` in both directions: under a profile
+    // directory named with a space (`John Doe`) it holds one, and then the
+    // typed directory and the completed file are both double-quoted, `"…"\REA`
+    // style.
+    let tmp = cwd_with(&["README.md"]);
+    let root = tmp.path().display();
+    let typed = shellwords::escape(PathSyntax::HOST, &format!("{root}\\"));
+    let c = complete(&format!("type {typed}REA"), tmp.path()).expect("path candidates");
+    let expected = shellwords::escape(PathSyntax::HOST, &format!("{root}\\README.md"));
+    assert_eq!(c.line, format!("type {expected} "));
 }
 
 #[test]
@@ -52,7 +96,7 @@ fn cd_keeps_its_unescaped_whole_line_argument() {
     // so its candidates must stay literal or the two would disagree.
     let tmp = cwd_with(&["My Documents/"]);
     let c = complete("cd My", tmp.path()).expect("path candidates");
-    assert_eq!(c.line, "cd My Documents/");
+    assert_eq!(c.line, format!("cd My Documents{MAIN_SEPARATOR}"));
 }
 
 // ── tilde: expansion syntax vs. a file whose name starts with `~` ──
@@ -87,12 +131,22 @@ fn a_home_relative_argument_keeps_its_tilde_unescaped() {
     assert_eq!(line.as_deref(), Some("cat ~/Documents/"));
 }
 
+#[cfg(unix)]
 #[test]
 fn a_file_whose_name_starts_with_a_tilde_is_escaped() {
     // Here the tilde is part of a name, so the shell must not expand it.
     let cwd = cwd_with(&["~backup"]);
     let c = complete("cat ~back", cwd.path()).expect("path candidates");
     assert_eq!(c.line, "cat \\~backup ");
+}
+
+#[cfg(windows)]
+#[test]
+fn a_file_whose_name_starts_with_a_tilde_is_not_escaped_on_windows() {
+    // cmd expands no tilde, so there is nothing to protect the name from.
+    let cwd = cwd_with(&["~backup"]);
+    let c = complete("cat ~back", cwd.path()).expect("path candidates");
+    assert_eq!(c.line, "cat ~backup ");
 }
 
 #[test]

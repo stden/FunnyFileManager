@@ -14,7 +14,7 @@ fn cd_completion_of_an_unlistable_directory_part_offers_nothing() {
     fs::write(tmp.path().join("notes_dir").join("inner.txt"), b"x").expect("inner file");
 
     assert!(
-        builtin_path_complete("notes.txt/", "i", tmp.path()).is_empty(),
+        builtin_path_complete(PathSyntax::HOST, "notes.txt/", "i", tmp.path()).is_empty(),
         "a regular file must not be scanned as a directory"
     );
     assert!(
@@ -38,7 +38,7 @@ fn quoted_cd_token_completes_through_the_merged_fish_engine() {
     fs::create_dir(tmp.path().join("alpha")).expect("dir");
 
     assert!(
-        builtin_path_complete("", "\"al", tmp.path()).is_empty(),
+        builtin_path_complete(PathSyntax::HOST, "", "\"al", tmp.path()).is_empty(),
         "the quote must not match any filename"
     );
 
@@ -66,10 +66,11 @@ fn merged_completion_deduplicates_a_shared_directory() {
     fs::create_dir(tmp.path().join("alpha")).expect("dir");
 
     let completion = complete("cd al", tmp.path()).expect("alpha/ completes");
+    let alpha = format!("alpha{MAIN_SEPARATOR}");
     let hits = completion
         .candidates
         .iter()
-        .filter(|c| c.text == "alpha/")
+        .filter(|c| c.text == alpha)
         .count();
     assert_eq!(
         hits, 1,
@@ -102,7 +103,7 @@ fn path_complete_merges_new_fish_candidates_and_skips_duplicates_of_the_builtin_
     wait_until_executable(&stub);
 
     FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = Some(stub));
-    let result = path_complete("al", tmp.path());
+    let result = path_complete(PathSyntax::Posix, "al", tmp.path());
     FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = None);
 
     assert_eq!(

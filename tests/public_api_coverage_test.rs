@@ -60,7 +60,6 @@ const UNEXERCISED: &[&str] = &[
     "default_mode",
     "edit_vault_if_kdbx",
     "expire",
-    "finish_word",
     "follows_link",
     "from_last",
     "is_backward",

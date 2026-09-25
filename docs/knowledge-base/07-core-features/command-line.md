@@ -23,6 +23,8 @@ Responsibilities are split as follows:
   children `command_line/{keys,history,search,completion}.rs` hold each part
 - `src/complete.rs` — fuzzy verb and path candidates, position rules
 - `src/complete/shellwords.rs` — quote-aware word splitting and escaping
+- `src/complete/syntax.rs` — `PathSyntax`: which characters separate a path and how a
+  shell word is quoted on this host
 - `src/complete/execs.rs` — `$PATH` executable names
 - `src/history.rs` — persistence, ghost lookup, recall, reverse search
 - `src/ops/dispatch.rs` — execution of parsed commands
@@ -111,11 +113,26 @@ outranked by a program that merely has a shorter name. `$PATH` executables match
 by **prefix**, not fuzzily: a subsequence match on two characters returns most of
 `$PATH`.
 
-Candidates outside `cd` are backslash-escaped (`src/complete/shellwords.rs`), so
-a directory called `My Documents` reaches `sh -c` as one argument. `cd` is the
-exception in both directions: it takes the whole rest of the line as one
-argument and `Command::parse` strips quotes rather than resolving escapes, so
-its candidates stay literal.
+A directory candidate ends in a separator, so the next `Tab` descends into it
+instead of adding a space. The separator is the one the user typed last in the
+token — `C:/work/` stays forward-slashed, `C:\work\` backslashed — else the host's
+own: `/`, and `\` on Windows. Which characters count as separators is the
+host's `PathSyntax` (`src/complete/syntax.rs`): `\` and `/` on Windows, `/`
+alone elsewhere, where a backslash is an ordinary filename character. So
+`cd C:\work\` lists `C:\work\` on Windows, `cd C:\work\fo` completes `fo` inside it, and a
+bare drive completes to its root: `cd C:` becomes `cd C:\` when that drive exists.
+
+Candidates outside `cd` are escaped in the shell's own language
+(`src/complete/shellwords.rs`), so a directory called `My Documents` reaches the
+shell as one argument: backslash-escaped for `sh -c` (`My\ Documents/`), and
+double-quoted for `cmd /C` (`"My Documents"\`), which has no backslash escape —
+there the backslash is the path separator, so `dir C:\work\fi` is matched as the
+path it is. The trailing separator stays outside the quotes: to a program cmd
+starts, `\"` is a literal quote, while `"My Documents"\` reads as `My Documents\`
+everywhere and stays a prefix as the user types on. `cd` is the exception in
+both directions: it takes the whole rest of the line as one argument and
+`Command::parse` strips quotes rather than resolving escapes, so its candidates
+stay literal.
 
 ## 💻 Shell Fallback
 
@@ -172,7 +189,8 @@ buffer simply closes without dispatch.
 - `src/command.rs`
 - `src/lineedit.rs`
 - `src/popup.rs`, `src/popup/command_line.rs`
-- `src/complete.rs`, `src/complete/shellwords.rs`, `src/complete/execs.rs`
+- `src/complete.rs`, `src/complete/shellwords.rs`, `src/complete/syntax.rs`,
+  `src/complete/execs.rs`
 - `src/history.rs`
 - `src/console.rs`
 - `src/ops/dispatch.rs`

@@ -3,7 +3,7 @@
 use super::shellwords;
 use super::*;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{PathBuf, MAIN_SEPARATOR};
 use tempfile::TempDir;
 
 /// A cwd that exists but is empty, for cases where the dir doesn't matter.
@@ -67,6 +67,9 @@ fn wait_until_executable(stub: &Path) {
 mod tests_bookmarks;
 #[cfg(test)]
 mod tests_cd_paths;
+// Real drives and backslash tokens need a Windows filesystem.
+#[cfg(all(test, windows))]
+mod tests_cd_windows;
 #[cfg(test)]
 mod tests_engines;
 #[cfg(test)]

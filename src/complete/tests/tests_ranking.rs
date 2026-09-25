@@ -45,7 +45,7 @@ fn rank_by_leaf_ranks_exact_leaf_prefix_above_fuzzy_and_keeps_dir_part() {
         "sub/command_a/".to_owned(),
         "sub/complete_b/".to_owned(),
     ];
-    let ranked = rank_by_leaf("com", candidates);
+    let ranked = rank_by_leaf(PathSyntax::Posix, "com", candidates);
     assert_eq!(
         ranked,
         vec![
@@ -62,13 +62,14 @@ fn rank_by_leaf_keeps_non_matching_leaf_instead_of_dropping_it() {
     // like "FOO"; smartcase then makes matching case-sensitive, so
     // `matcher::score` alone would reject it. fish already validated this
     // candidate, so ranking must never drop it — only order it.
-    let ranked = rank_by_leaf("FOO", vec!["foo/".to_owned()]);
+    let ranked = rank_by_leaf(PathSyntax::Posix, "FOO", vec!["foo/".to_owned()]);
     assert_eq!(ranked, vec!["foo/".to_owned()]);
 }
 
 #[test]
 fn rank_by_leaf_orders_matches_before_non_matching_leftovers() {
     let ranked = rank_by_leaf(
+        PathSyntax::Posix,
         "com",
         vec![
             "xcomz/".to_owned(),
@@ -100,12 +101,13 @@ fn fuzzy_leaf_matches_survive_fish_prefix_shadowing() {
 
     let completion = complete("cd dwn", tmp.path()).expect("candidates");
     let names = texts(&completion);
+    let sep = MAIN_SEPARATOR;
     assert!(
-        names.contains(&"dwn-tools/".to_owned()),
+        names.contains(&format!("dwn-tools{sep}")),
         "prefix match lost: {names:?}"
     );
     assert!(
-        names.contains(&"Downloads/".to_owned()),
+        names.contains(&format!("Downloads{sep}")),
         "fuzzy match must not be shadowed by fish's prefix matches: {names:?}"
     );
 }
@@ -123,12 +125,12 @@ fn merged_completion_ranks_prefix_before_fuzzy() {
     let prefix_at = completion
         .candidates
         .iter()
-        .position(|c| c.text == "dwn-tools/")
+        .position(|c| c.text == format!("dwn-tools{MAIN_SEPARATOR}"))
         .expect("prefix candidate present");
     let fuzzy_at = completion
         .candidates
         .iter()
-        .position(|c| c.text == "Downloads/")
+        .position(|c| c.text == format!("Downloads{MAIN_SEPARATOR}"))
         .expect("fuzzy candidate present");
     assert!(
         prefix_at < fuzzy_at,
