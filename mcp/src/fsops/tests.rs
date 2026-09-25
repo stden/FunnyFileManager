@@ -9,6 +9,8 @@ use std::os::unix::fs::PermissionsExt;
 #[cfg(unix)]
 use std::path::Path;
 
+mod copying;
+mod moving;
 #[cfg(unix)]
 mod readonly;
 mod removal;

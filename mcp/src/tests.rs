@@ -50,10 +50,13 @@ fn write_file_at(path: &Path, content: &str) {
 mod delete_by_pattern;
 mod failed_transfers;
 mod find;
+mod moved_sources;
 #[cfg(unix)]
 mod permissions;
 mod refusals;
+mod refused_renames;
 mod replace;
 mod search;
 mod sizes;
+mod transfer_destinations;
 mod unique_name;

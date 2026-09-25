@@ -1,9 +1,10 @@
 //! Purpose: Copying, moving and deleting many entries in one call, each
 //! failure reported beside its entry.
 
-use super::{default_true, json_response, transfer::copy_entry};
+use super::{default_true, json_response};
+use crate::fsops::{self, copy_entry, Moved, Purpose};
 use crate::naming::{entry_name, join_child};
-use crate::{fsops, FfmServer};
+use crate::FfmServer;
 use rmcp::{
     handler::server::wrapper::Parameters, model::CallToolResult, tool, tool_router,
     ErrorData as McpError,
@@ -27,8 +28,10 @@ pub struct BatchParams {
 
 #[tool_router(router = batch_tools, vis = "pub(super)")]
 impl FfmServer {
-    /// Copy multiple files/directories to a destination directory.
-    #[tool(description = "Copy multiple files/directories to a destination directory.")]
+    /// Copy multiple files/directories into a destination directory.
+    #[tool(
+        description = "Copy multiple files/directories into a destination directory. A name already taken there is reported, never overwritten or merged."
+    )]
     pub(crate) fn batch_copy(
         &self,
         Parameters(params): Parameters<BatchParams>,
@@ -51,7 +54,7 @@ impl FfmServer {
             let source = self.safe_path_nofollow_entry(src_path)?;
             let name = entry_name(&source);
             let target = join_child(&dest, &name)?;
-            copy_entry(&source, &target).map_err(|e| e.to_string())?;
+            copy_entry(&source, &target, Purpose::Copy).map_err(|e| e.to_string())?;
             Ok(name)
         };
 
@@ -72,8 +75,10 @@ impl FfmServer {
         Ok(json_response(&result))
     }
 
-    /// Move multiple files/directories to a destination directory.
-    #[tool(description = "Move multiple files/directories to a destination directory.")]
+    /// Move multiple files/directories into a destination directory.
+    #[tool(
+        description = "Move multiple files/directories into a destination directory. A name already taken there is reported, never replaced; across filesystems each entry is copied, then only what the copy holds is removed and what stayed is reported beside it."
+    )]
     pub(crate) fn batch_move(
         &self,
         Parameters(params): Parameters<BatchParams>,
@@ -94,7 +99,14 @@ impl FfmServer {
 
         for src_path in &params.paths {
             match move_batch_entry(self, &dest, src_path) {
-                Ok(name) => moved.push(name),
+                Ok((name, Moved::Whole)) => moved.push(name),
+                // Moved whole, and part of the source stayed: both are true,
+                // and the caller acts on each — keep the copy, deal with
+                // what stayed.
+                Ok((name, Moved::Leaving(left))) => {
+                    moved.push(name);
+                    errors.push(json!({"path": src_path, "error": left.to_string()}));
+                }
                 Err(error) => errors.push(json!({"path": src_path, "error": error})),
             }
         }
@@ -145,14 +157,16 @@ impl FfmServer {
     }
 }
 
-fn move_batch_entry(server: &FfmServer, dest: &Path, src_path: &str) -> Result<String, String> {
+/// One entry of a batch move: the name it lands under, and what the move
+/// achieved.
+fn move_batch_entry(
+    server: &FfmServer,
+    dest: &Path,
+    src_path: &str,
+) -> Result<(String, Moved), String> {
     let source = server.safe_path_nofollow_entry(src_path)?;
     let name = entry_name(&source);
     let target = join_child(dest, &name)?;
-    if fs::rename(&source, &target).is_err() {
-        copy_entry(&source, &target).map_err(|e| e.to_string())?;
-        // The copy landed, so the source goes away whole.
-        fsops::remove_entry(&source, true).map_err(|e| e.to_string())?;
-    }
-    Ok(name)
+    let moved = fsops::move_entry(&source, &target).map_err(|e| e.to_string())?;
+    Ok((name, moved))
 }

@@ -5,10 +5,13 @@ use super::{forbidden_dependencies, read, Ident, SourceFile, Visit, SERVER};
 const CONFINEMENT: &str = "mcp/src/paths.rs";
 
 /// Every module that names the filesystem API, and why its paths stay inside the root.
-const FILESYSTEM_MODULES: [&str; 32] = [
+const FILESYSTEM_MODULES: [&str; 35] = [
     SERVER,                              // every tool path passes `safe_path*` first
     CONFINEMENT,                         // canonicalizes candidates against the root
     "mcp/src/fsops.rs",                  // acts on paths the server validated
+    "mcp/src/fsops/copy.rs",             // acts on paths the server validated
+    "mcp/src/fsops/moving.rs",           // acts on paths the server validated
+    "mcp/src/fsops/remove_moved.rs",     // acts on paths the server validated
     "mcp/src/kdbx.rs",                   // opens the vault path the server validated
     "mcp/src/tree_walk.rs",              // walks a directory its caller validated
     "mcp/src/s3_profiles.rs",            // reads only `~/.aws` profile files, never a caller path

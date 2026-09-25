@@ -5,8 +5,18 @@ use std::io::{self, Write};
 use std::path::Path;
 use tempfile::NamedTempFile;
 
+mod copy;
+mod moving;
+mod remove_moved;
 #[cfg(test)]
 mod tests;
+
+pub use copy::{copy_entry, Purpose};
+#[cfg(test)]
+pub use moving::FORCE_RENAME_FAILURE;
+pub use moving::{move_entry, Moved};
+#[cfg(test)]
+pub use remove_moved::{remove_moved, FORCE_REMOVAL_REFUSAL};
 
 /// Remove `path` without ever following a final symlink.
 ///

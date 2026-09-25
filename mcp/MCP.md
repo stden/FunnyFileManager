@@ -44,8 +44,8 @@ operations, bookmarks, symlinks, permissions, checksums, system info and S3):
 | `create_file`         | Create new file with content (fails if exists)                                                                                               |
 | `write_file`          | Write/overwrite file content                                                                                                                 |
 | `create_directory`    | Create directory tree (recursive)                                                                                                            |
-| `copy`                | Copy file or directory (recursive)                                                                                                           |
-| `move_rename`         | Move/rename with atomic rename fallback to copy+delete                                                                                       |
+| `copy`                | Copy file or directory (recursive) to a name not taken yet; nothing is overwritten or merged                                                 |
+| `move_rename`         | Move/rename to a free name; across filesystems: copy (times/modes kept), remove only what the copy holds, report what stayed                 |
 | `delete`              | Delete file or directory (recursive option); a symlink is unlinked, never followed                                                           |
 | `search`              | Case-insensitive name search in directory tree                                                                                               |
 | `list_drives`         | List local drives, mount points, and AWS S3 profiles                                                                                         |
