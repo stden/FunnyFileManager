@@ -19,14 +19,17 @@ pub trait EventSource {
         Ok(None)
     }
 
-    /// Throw away every event already queued, and say whether one of them
-    /// was the cancel gesture. What `try_read` can see is what is queued.
+    /// Throw away the keys typed at a screen that did not answer, and say
+    /// whether one of them was the cancel gesture.
+    ///
+    /// Only a source that models a live keyboard has such keys, and only it
+    /// knows how to drop them (see `recording::Input`). A scripted source —
+    /// a replay, a test's queue — keeps everything: its events are the
+    /// session, not what someone typed into a freeze, and how long an event
+    /// took on this machine says nothing about them. The default therefore
+    /// discards nothing; a source with a real queue overrides it.
     fn discard_queued(&mut self) -> io::Result<bool> {
-        let mut cancel = false;
-        while let Some(event) = self.try_read()? {
-            cancel |= crate::terminal::is_cancel_event(&event);
-        }
-        Ok(cancel)
+        Ok(false)
     }
 }
 

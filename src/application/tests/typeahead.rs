@@ -25,6 +25,15 @@ impl EventSource for Typed {
     fn try_read(&mut self) -> io::Result<Option<Event>> {
         Ok(self.0.pop_front())
     }
+
+    /// A keyboard's queue is type-ahead: dropped whole, noticing a cancel.
+    fn discard_queued(&mut self) -> io::Result<bool> {
+        let mut cancel = false;
+        while let Some(event) = self.0.pop_front() {
+            cancel |= crate::terminal::is_cancel_event(&event);
+        }
+        Ok(cancel)
+    }
 }
 
 /// A panel on a folder holding `a-keep.txt`, the cursor on it, and the
