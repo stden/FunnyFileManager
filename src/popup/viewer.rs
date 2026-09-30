@@ -1,6 +1,7 @@
 //! Viewer navigation and dismissal.
 
 use crate::models::{App, Overlay, Viewer};
+use crate::scroll::Scrolled;
 use crate::scroll::WIDE_STEP;
 use crossterm::event::{KeyCode, KeyModifiers};
 

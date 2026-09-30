@@ -229,7 +229,12 @@ with it (`WslJobs` and the task list's `TaskJobs`), while the LSP controller
 and vault maintenance still return a `bool` that the loop turns into
 `Redraw::Needed`.
 WSL system jobs run on a serial background worker. Ordinary directory scans,
-copies, and other synchronous operations still occupy the UI thread.
+copies, and other synchronous operations still occupy the UI thread. A long
+copy, move or delete shows its progress anyway (`progress.rs`): it reports
+from inside the walk, and the painter bootstrap installs draws the progress
+dialog straight onto the terminal, over the last frame, at most once per
+100 ms and never in the first 100 ms. After such an operation the loop clears
+the terminal (`repaint_after_progress`) so the next frame redraws every cell.
 The task list samples the process table on a second worker,
 `application/task_jobs.rs`, because a `/proc/<pid>/cmdline` read can block
 behind its process's mmap lock. `TaskJobs::pump` runs on every loop pass and
@@ -419,7 +424,7 @@ and once when it returns. A default `App` never enables this persistence.
 | Command transcript | `console`, process memory | Shell output is not written as history |
 | Bookmarks | `models/bookmarks`, data directory | `ffm/bookmarks`, one `<slot> <path>` line per saved slot; written on `bookmark set` after re-reading the file |
 | Panel directories | `panel_session`, config directory | Atomic `panel-session.json`; unchanged paths cause no writes; independent of setup autosave |
-| Diagnostic logs | `diagnostics`, opt-in with `FFM_LOG=1` | Character key payloads are redacted; tests supply temporary paths |
+| Diagnostic logs | `diagnostics`: on by default in the file manager (`FFM_LOG=0` turns it off), off in tests unless `FFM_LOG=1` | Character key payloads are redacted; tests supply temporary paths |
 | Editor clipboard | `models/clipboard` owns the session backend | `ops/editor/clipboard` coordinates copy/paste; UI only renders selection and feedback |
 | KeePass browser | `kdbx`, under `keepass` | Session and secret types back `Overlay::Kdbx`; clipboard access has its own adapter |
 

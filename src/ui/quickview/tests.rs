@@ -8,6 +8,7 @@ use ratatui::Terminal;
 use super::render;
 use crate::encoding::TextEncoding;
 use crate::models::{App, FileSize, Panel, PanelKind, Preview, QuickView, Refusal, TextPreview};
+use crate::scroll::Scrolled;
 use crate::stats::{Coverage, DirectoryStats};
 use crate::test_support::{buffer_text, WritableTestBackend};
 

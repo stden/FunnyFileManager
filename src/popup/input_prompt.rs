@@ -19,7 +19,9 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
         // other one".
         KeyCode::Tab | KeyCode::BackTab | KeyCode::Up | KeyCode::Down => prompt.toggle_button(),
         KeyCode::Enter => submit(app),
-        _ => super::menu_dialog::edit(prompt.input_mut(), code, modifiers),
+        _ => {
+            super::text_field::edit(prompt.input_mut(), code, modifiers, &mut app.clipboard);
+        }
     }
     true
 }

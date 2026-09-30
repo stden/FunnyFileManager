@@ -38,7 +38,7 @@ See `docs/knowledge-base/03-rust-best-practices/type-system.md` for details and 
 - `src/bootstrap.rs`: Production startup; loads history and creates the terminal session.
 - `src/lib.rs`: Module declarations and stable public API re-exports.
 - `src/application/`: Event loop, modal-first key/mouse dispatch, and action effects.
-- `src/diagnostics.rs`: Opt-in logging and application outcome reporting.
+- `src/diagnostics.rs`: Logging (on by default; `FFM_LOG=0` turns it off) and application outcome reporting.
 - `src/directory.rs`: Filesystem adapter producing complete panel snapshots.
 - `src/action.rs`: Pure main-view key-to-`Action` mapping.
 - `src/action/keymap.rs`: Shared ordered `keymap!` DSL with explicit modifier policies.

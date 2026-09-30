@@ -117,6 +117,8 @@ fn rows<'a>(form: &ServerForm, help: &'a str, values: &'a [String; 4]) -> Vec<Ro
             value,
             focused: form.focus() == *field,
             enabled: field.allows(form.target()),
+            // The form scrolls a long value itself and places its caret.
+            edit: None,
         })
         .collect();
     rows.push(Row::Checkbox {

@@ -11,6 +11,7 @@ use ratatui::Terminal;
 use super::super::ui;
 use super::*;
 use crate::models::{App, Overlay};
+use crate::scroll::Scrolled;
 
 /// A file viewer over `bytes`, not touching the disk: the highlighter picks its
 /// language from the name alone.
@@ -160,7 +161,7 @@ fn the_status_line_fills_row_zero_in_far_colours() {
     assert!(row.ends_with(" AM") || row.ends_with(" PM"), "{row:?}");
     let buf = terminal.backend().buffer();
     for x in 0..80 {
-        assert_eq!(buf[(x, 0)].bg, palette::VIEWER_BAR_BG, "column {x}");
-        assert_eq!(buf[(x, 0)].fg, palette::VIEWER_BAR_FG, "column {x}");
+        assert_eq!(buf[(x, 0)].bg, palette::STATUS_BAR_BG, "column {x}");
+        assert_eq!(buf[(x, 0)].fg, palette::STATUS_BAR_FG, "column {x}");
     }
 }

@@ -3,7 +3,7 @@ use super::{FindFile, FindFileField};
 #[test]
 fn default_mask_is_star_and_cursor_is_on_it() {
     let dialog = FindFile::default();
-    assert_eq!(dialog.mask, "*");
+    assert_eq!(dialog.mask.text(), "*");
     assert_eq!(dialog.field(), FindFileField::Mask);
     assert!(dialog.containing.is_empty());
 }
@@ -26,10 +26,10 @@ fn typing_goes_to_the_focused_field() {
     let mut dialog = FindFile::default();
     dialog.push('r');
     dialog.push('s');
-    assert_eq!(dialog.mask, "*rs");
+    assert_eq!(dialog.mask.text(), "*rs");
     dialog.tab(true);
     dialog.push('a');
-    assert_eq!(dialog.containing, "a");
+    assert_eq!(dialog.containing.text(), "a");
     dialog.backspace();
     assert!(dialog.containing.is_empty());
 }
@@ -44,7 +44,7 @@ fn tab_backwards_and_buttons_ignore_typing() {
     assert!(dialog.on_button());
     dialog.push('z');
     dialog.backspace();
-    assert_eq!(dialog.mask, "*");
+    assert_eq!(dialog.mask.text(), "*");
     dialog.toggle_button();
     assert!(dialog.on_cancel());
     dialog.tab(false);

@@ -461,4 +461,9 @@ windows-sys = { version = "0.61.2", features = [
     # running programs with WM_SETTINGCHANGE.
     "Win32_System_Registry",
     "Win32_UI_WindowsAndMessaging",
+    # "Retry as administrator": ShellExecuteEx's "runas" verb asks UAC.
+    "Win32_UI_Shell",
+    # ...and a named pipe to that administrator for the rest of the session.
+    "Win32_System_Pipes",
+    "Win32_System_IO",
 ] }

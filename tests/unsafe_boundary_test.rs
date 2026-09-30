@@ -76,6 +76,14 @@ const BOUNDARIES: &[(&str, &str)] = &[
         "Win32 drive mask, file attributes and the environment broadcast",
     ),
     (
+        "src/platform/windows/elevation.rs",
+        "Win32 token elevation and running a program as administrator",
+    ),
+    (
+        "src/platform/windows/pipe.rs",
+        "Win32 named pipe to the administrator helper",
+    ),
+    (
         "src/platform/windows/registry/key.rs",
         "Win32 registry key handles and string values",
     ),

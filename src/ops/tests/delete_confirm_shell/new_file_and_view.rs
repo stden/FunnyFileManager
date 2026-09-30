@@ -14,7 +14,7 @@ fn test_new_file_input_file_already_exists() -> io::Result<()> {
     let mut app = App::new()?;
     app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
     app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
-    app.set_overlay(Overlay::NewFileInput("exists.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("exists.txt".to_owned().into()));
 
     process_popup_input(&mut app, key_event(KeyCode::Enter));
     assert!(
@@ -32,7 +32,9 @@ fn test_new_file_create_error_sets_status() -> io::Result<()> {
     app.left_panel = Panel::new(temp_dir.path().to_path_buf())?;
     app.right_panel = Panel::new(temp_dir.path().to_path_buf())?;
     // Try to create a file in a nonexistent subdirectory
-    app.set_overlay(Overlay::NewFileInput("nonexistent_dir/file.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput(
+        "nonexistent_dir/file.txt".to_owned().into(),
+    ));
 
     process_popup_input(&mut app, key_event(KeyCode::Enter));
     assert!(

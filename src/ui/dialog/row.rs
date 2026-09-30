@@ -4,6 +4,7 @@
 
 use super::super::Cells;
 use super::HOTKEY_MARK;
+use crate::lineedit::LineEditor;
 use crate::status::PathMessage;
 
 /// Columns an input field claims regardless of what is in it.
@@ -31,6 +32,9 @@ pub(in crate::ui) enum Row<'a> {
         value: &'a str,
         focused: bool,
         history: bool,
+        /// Where the caret is and what is selected, for a field edited
+        /// through a [`LineEditor`]; `None` puts the caret at the end.
+        edit: Option<FieldEdit>,
     },
     /// A checkbox, drawn as Far draws it: `[x] Label`.
     ///
@@ -68,10 +72,35 @@ pub(in crate::ui) enum Row<'a> {
         value: &'a str,
         focused: bool,
         enabled: bool,
+        /// As [`Row::Input`]'s.
+        edit: Option<FieldEdit>,
     },
     /// A rule across the inner box, dividing one group of controls from the
     /// next.
     Divider,
+}
+
+/// A field's caret and selection, as byte offsets into its value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::ui) struct FieldEdit {
+    pub(in crate::ui) caret: usize,
+    pub(in crate::ui) selection: Option<(usize, usize)>,
+}
+
+impl FieldEdit {
+    pub(in crate::ui) fn of(line: &LineEditor) -> Self {
+        Self {
+            caret: line.cursor().byte(),
+            selection: line
+                .selection()
+                .map(|range| (range.start.byte(), range.end.byte())),
+        }
+    }
+
+    /// The value before the caret, which is how far in the caret is drawn.
+    pub(in crate::ui) fn before_caret(self, value: &str) -> &str {
+        value.get(..self.caret).unwrap_or(value)
+    }
 }
 
 impl<'a> Row<'a> {
@@ -80,6 +109,53 @@ impl<'a> Row<'a> {
             value,
             focused,
             history,
+            edit: None,
+        }
+    }
+
+    /// A text field showing `line`: its caret where it is, its selection
+    /// drawn selected.
+    pub fn line(line: &'a LineEditor, focused: bool, history: bool) -> Self {
+        Self::Input {
+            value: line.text(),
+            focused,
+            history,
+            edit: Some(FieldEdit::of(line)),
+        }
+    }
+
+    /// Where a text field's caret and selection are, when it has them.
+    pub(in crate::ui) const fn edit(&self) -> Option<FieldEdit> {
+        match self {
+            Self::Input { edit, .. } | Self::Field { edit, .. } => *edit,
+            _ => None,
+        }
+    }
+
+    /// A captioned text field showing `value`, caret at its end.
+    pub const fn text_field(
+        caption: &'a str,
+        value: &'a str,
+        focused: bool,
+        enabled: bool,
+    ) -> Self {
+        Self::Field {
+            caption,
+            value,
+            focused,
+            enabled,
+            edit: None,
+        }
+    }
+
+    /// A captioned text field showing `line`, as [`Row::line`] does.
+    pub fn field(caption: &'a str, line: &'a LineEditor, focused: bool, enabled: bool) -> Self {
+        Self::Field {
+            caption,
+            value: line.text(),
+            focused,
+            enabled,
+            edit: Some(FieldEdit::of(line)),
         }
     }
 

@@ -27,13 +27,27 @@ fn test_action_label_hides_typed_characters() {
     assert_eq!(action_label(Action::Copy), "Copy");
 }
 
+/// A test run never called `log_by_default`, so it writes no log unless
+/// `FFM_LOG=1` asks for one.
 #[test]
 fn test_logging_is_off_unless_opted_in() {
     if std::env::var_os("FFM_LOG").is_none() {
         assert!(
             log_dir().is_none(),
-            "logging must stay off until FFM_LOG=1 is set"
+            "a run that did not ask for logging must not log"
         );
+    }
+}
+
+/// `FFM_LOG=1` turns logging on, `FFM_LOG=0` off, and otherwise the file
+/// manager logs and everything else does not.
+#[test]
+fn ffm_log_turns_logging_on_or_off_and_otherwise_the_default_holds() {
+    for by_default in [true, false] {
+        assert!(enabled(Some("1"), by_default));
+        assert!(!enabled(Some("0"), by_default));
+        assert_eq!(enabled(None, by_default), by_default);
+        assert_eq!(enabled(Some("yes"), by_default), by_default);
     }
 }
 

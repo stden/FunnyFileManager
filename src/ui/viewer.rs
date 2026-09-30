@@ -87,8 +87,8 @@ fn render_viewer_bar(f: &mut Frame<'_>, viewer: &Viewer, area: Rect, page: usize
     f.render_widget(
         Paragraph::new(Line::from(Span::raw(row))).style(
             Style::default()
-                .bg(palette::VIEWER_BAR_BG)
-                .fg(palette::VIEWER_BAR_FG),
+                .bg(palette::STATUS_BAR_BG)
+                .fg(palette::STATUS_BAR_FG),
         ),
         area,
     );

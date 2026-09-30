@@ -120,12 +120,15 @@ impl CopyRules {
 pub fn copy_link(src: &Path, dst: &Path, rules: CopyRules) -> io::Result<()> {
     copy_symlink(src, dst)?;
     if rules.times == Times::Fresh {
+        crate::progress::file_copied();
         return Ok(());
     }
     let kept = fs::symlink_metadata(src).and_then(|source| keep_times(dst, &source));
     if kept.is_err() {
         // Best effort: the times' error is the one worth reporting.
         drop(fs::remove_file(dst));
+    } else {
+        crate::progress::file_copied();
     }
     kept
 }

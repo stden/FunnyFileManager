@@ -48,6 +48,7 @@ mod panel;
 mod panel_view;
 mod path_env;
 mod plugin_commands;
+mod progress;
 mod prompts;
 mod quickview;
 mod remote;
@@ -105,6 +106,7 @@ use layout::{
     MENU_BAR_HEIGHT, PANEL_BORDERS, PANEL_COLUMN_HEADER, PANEL_COLUMN_RULE, PANEL_INFO_ROW,
     PANEL_NON_ENTRY_ROWS,
 };
+pub use progress::progress_dialog;
 
 /// The panel ground. Kept as a name because it is referenced all over the
 /// interface; the value itself lives in [`palette`] with the rest of the scheme.

@@ -9,6 +9,7 @@ use std::mem::discriminant;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
+use super::text_field::with_clipboard;
 use crate::models::{App, Modal};
 
 mod bars;
@@ -37,15 +38,17 @@ fn route(app: &mut App, key: KeyEvent) {
     };
     match list.modal() {
         Modal::Browse => browse::process(app, key),
-        Modal::Filter(_) => bars::filter(app, key),
-        Modal::Search(_) => bars::search(app, key),
+        Modal::Filter(_) => with_clipboard(app, |app, clipboard| bars::filter(app, key, clipboard)),
+        Modal::Search(_) => with_clipboard(app, |app, clipboard| bars::search(app, key, clipboard)),
         Modal::PidJump(_) => bars::pid_jump(app, key),
         Modal::Menu(_) => menus::process(app, key),
         Modal::Help(_) => dialogs::help(app, key),
         Modal::Info(_) | Modal::Error { .. } => dialogs::dismiss(app, key),
-        Modal::Mask(_) => dialogs::mask(app, key),
+        Modal::Mask(_) => with_clipboard(app, |app, clipboard| dialogs::mask(app, key, clipboard)),
         Modal::Confirm(_) => dialogs::confirm(app, key),
-        Modal::Priority(_) => dialogs::priority(app, key),
+        Modal::Priority(_) => {
+            with_clipboard(app, |app, clipboard| dialogs::priority(app, key, clipboard));
+        }
         Modal::Renice(_) => dialogs::renice(app, key),
     }
 }

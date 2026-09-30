@@ -13,6 +13,8 @@
 
 use std::path::Path;
 
+use crate::lineedit::LineEditor;
+
 mod field;
 mod options;
 mod purpose;
@@ -22,7 +24,7 @@ pub use options::{AccessRights, ExistingFiles};
 pub use purpose::Purpose;
 
 /// Everything the Copy dialog is editing.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[expect(
     clippy::struct_excessive_bools,
     reason = "the Copy dialog's independent Far checkboxes; every combination is a valid request"
@@ -30,7 +32,7 @@ pub use purpose::Purpose;
 pub struct CopyPrompt {
     /// Where the files are going. Free text: it may be typed, and it may name
     /// somewhere neither panel is showing.
-    pub destination: String,
+    pub destination: LineEditor,
     pub rights: AccessRights,
     pub existing: ExistingFiles,
     pub timestamps: bool,
@@ -56,7 +58,7 @@ impl CopyPrompt {
     pub fn for_purpose(purpose: Purpose, what: impl Into<String>, destination: &Path) -> Self {
         Self {
             purpose,
-            destination: destination.to_string_lossy().into_owned(),
+            destination: LineEditor::from(crate::path_display::label(destination).into_owned()),
             rights: AccessRights::default(),
             existing: ExistingFiles::default(),
             timestamps: false,
@@ -183,7 +185,7 @@ impl CopyPrompt {
     /// field means to the person who just cleared it.
     #[must_use]
     pub fn is_ready(&self) -> bool {
-        !self.destination.trim().is_empty()
+        !self.destination.text().trim().is_empty()
     }
 }
 

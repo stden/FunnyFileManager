@@ -1,6 +1,7 @@
 //! Purpose: The name dialog's state — Shift+F6 rename, F7 make folder, Alt+F6 link — and the names it hands back.
 
 use super::{LinkType, NameField, NamePurpose};
+use crate::lineedit::LineEditor;
 use crate::models::FileName;
 
 mod controls;
@@ -17,11 +18,11 @@ pub struct NamePrompt {
     /// What the entry is called now, for a rename. Empty for a new folder,
     /// which is not renaming anything.
     original: FileName,
-    name: String,
+    name: LineEditor,
     link: LinkType,
     /// What a link points at. Free text, and a path rather than a name: unlike
     /// the name field, separators are exactly what belongs here.
-    link_target: String,
+    link_target: LineEditor,
     /// Far's "Process multiple names": the name field is then a `;`-separated
     /// list, and every part of it is created.
     multiple: bool,
@@ -29,16 +30,19 @@ pub struct NamePrompt {
 }
 
 impl NamePrompt {
-    /// A rename, opening on the current name: a rename is usually a small
-    /// change to a name rather than a fresh one.
+    /// A rename, opening on the current name, selected: a rename is usually
+    /// a small change to a name, which an arrow key starts, or a fresh one,
+    /// which typing over the selection starts.
     #[must_use]
     pub fn rename(original: FileName) -> Self {
+        let mut name = LineEditor::new(original.as_str());
+        name.select_all();
         Self {
             purpose: NamePurpose::Rename,
-            name: original.as_str().to_owned(),
+            name,
             original,
             link: LinkType::None,
-            link_target: String::new(),
+            link_target: LineEditor::default(),
             multiple: false,
             field: NameField::Name,
         }
@@ -50,9 +54,9 @@ impl NamePrompt {
         Self {
             purpose: NamePurpose::MakeFolder,
             original: FileName::new(String::new()),
-            name: String::new(),
+            name: LineEditor::default(),
             link: LinkType::None,
-            link_target: String::new(),
+            link_target: LineEditor::default(),
             multiple: false,
             field: NameField::Name,
         }
@@ -69,9 +73,9 @@ impl NamePrompt {
         Self {
             purpose: NamePurpose::Link,
             original: FileName::new(String::new()),
-            name,
+            name: LineEditor::from(name),
             link: LinkType::Symbolic,
-            link_target: target.display().to_string(),
+            link_target: LineEditor::from(crate::path_display::label(target).into_owned()),
             multiple: false,
             field: NameField::Name,
         }
@@ -89,7 +93,28 @@ impl NamePrompt {
 
     #[must_use]
     pub fn name(&self) -> &str {
+        self.name.text()
+    }
+
+    /// The name field, to draw.
+    #[must_use]
+    pub const fn name_line(&self) -> &LineEditor {
         &self.name
+    }
+
+    /// The link target field, to draw.
+    #[must_use]
+    pub const fn target_line(&self) -> &LineEditor {
+        &self.link_target
+    }
+
+    /// The text field the cursor is on, if it is on one.
+    pub const fn focused_line_mut(&mut self) -> Option<&mut LineEditor> {
+        match self.field {
+            NameField::Name => Some(&mut self.name),
+            NameField::Target => Some(&mut self.link_target),
+            _ => None,
+        }
     }
 
     #[must_use]
@@ -99,7 +124,7 @@ impl NamePrompt {
 
     #[must_use]
     pub fn link_target(&self) -> &str {
-        self.link_target.trim()
+        self.link_target.text().trim()
     }
 
     #[must_use]
@@ -132,7 +157,7 @@ impl NamePrompt {
     /// The name to act on, for the dialogs that ask for exactly one.
     #[must_use]
     pub fn target(&self) -> Option<&str> {
-        self.usable(&self.name)
+        self.usable(self.name.text())
     }
 
     /// Every name to create, in the order they were typed.
@@ -147,6 +172,7 @@ impl NamePrompt {
             return self.target().into_iter().collect();
         }
         self.name
+            .text()
             .split(';')
             .filter_map(|part| self.usable(part))
             .collect()

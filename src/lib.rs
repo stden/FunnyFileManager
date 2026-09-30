@@ -11,7 +11,7 @@
 //! | Module | Responsibility |
 //! |--------|----------------|
 //! | `application` | Event loop, modal-first input routing, and action dispatch |
-//! | `diagnostics` | Opt-in, payload-free logging and run outcome reporting |
+//! | `diagnostics` | Payload-free logging (on by default, `FFM_LOG=0` turns it off) and run outcome reporting |
 //! | [`models`]   | Core state: [`App`](models::App), [`Panel`](models::Panel), `DirEntry`, and the `Overlay` enum (single source of modal state) |
 //! | [`ui`]       | Pure rendering of panels, status bar, command bar, and overlays |
 //! | [`action`]   | Declarative bindings for typed main-view and editor commands |
@@ -117,6 +117,7 @@ pub mod performance;
 mod platform;
 pub mod popup;
 mod process_table;
+pub mod progress;
 pub mod prompt;
 pub mod quicksearch;
 pub mod remote;

@@ -67,7 +67,9 @@ fn list(app: &mut App, archive: &Path) {
 fn extract_to(app: &mut App, destination: &Path) {
     super::open_extract(app);
     if let Overlay::ExtractPrompt(prompt) = &mut app.overlay {
-        prompt.destination = destination.display().to_string();
+        prompt
+            .destination
+            .set_text(&crate::path_display::label(destination));
     }
 }
 

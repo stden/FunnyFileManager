@@ -3,7 +3,7 @@
 
 use ratatui::Frame;
 
-use super::{dialog, Cells};
+use super::dialog;
 
 /// Far's behaviour, kept on purpose: `!.!` and friends are pasted in as they
 /// are and the platform shell parses the line, so a file named `$(rm x)` or
@@ -28,7 +28,7 @@ pub(super) fn render(
         dialog::Ground::Prompt,
         &[
             dialog::Row::Label("Enter &command:"),
-            dialog::Row::input(dialog.command(), on_ok, true),
+            dialog::Row::line(dialog.input(), on_ok, true),
             dialog::Row::Text(UNESCAPED_WARNING[0]),
             dialog::Row::Text(UNESCAPED_WARNING[1]),
         ],
@@ -37,11 +37,8 @@ pub(super) fn render(
             dialog::Button::new("&Cancel").focused(!on_ok),
         ],
     );
-    if let Some((end, y)) = caret {
-        // The box reports the end of the text; the caret sits wherever the
-        // editor's cursor is, which may be mid-line after Left or Home.
-        let after = u16::try_from(Cells::of(dialog.input().after_cursor()).get()).unwrap_or(0);
-        f.set_cursor_position((end.saturating_sub(after), y));
+    if let Some(caret) = caret {
+        f.set_cursor_position(caret);
     }
 }
 

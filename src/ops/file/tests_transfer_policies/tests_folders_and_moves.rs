@@ -75,7 +75,9 @@ fn a_relative_destination_is_taken_against_the_active_panel() {
     mark(&mut app, "notes.txt");
 
     let mut dialog = settings(Path::new("."));
-    dialog.destination = format!("archive{}", std::path::MAIN_SEPARATOR);
+    dialog
+        .destination
+        .set_text(&format!("archive{}", std::path::MAIN_SEPARATOR));
     copy_with(&mut app, &dialog);
 
     assert!(
@@ -96,7 +98,11 @@ fn a_named_report_copies_into_a_new_nested_relative_archive() {
 
     let archive = Path::new("archive").join("2026");
     let mut dialog = settings(Path::new("."));
-    dialog.destination = format!("{}{}", archive.display(), std::path::MAIN_SEPARATOR);
+    dialog.destination.set_text(&format!(
+        "{}{}",
+        archive.display(),
+        std::path::MAIN_SEPARATOR
+    ));
     copy_with(&mut app, &dialog);
 
     let copied = from.path().join(&archive).join(name);

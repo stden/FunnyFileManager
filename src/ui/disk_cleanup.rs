@@ -52,7 +52,8 @@ fn row_text(candidate: &CleanupCandidate) -> String {
         CleanupKind::HeapDumps => candidate.path.join("*.hprof"),
         CleanupKind::Path | CleanupKind::Contents => candidate.path.clone(),
     };
-    format!("{} ({})  [{size}]", candidate.label, location.display())
+    let location = crate::path_display::label(&location);
+    format!("{} ({location})  [{size}]", candidate.label)
 }
 
 #[cfg(test)]

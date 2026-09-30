@@ -28,50 +28,17 @@ impl MaskPurpose {
 }
 
 /// Gray + / Gray −: which files, given as a mask.
+///
+/// The offered mask opens selected, as Far shows it: the first character
+/// typed replaces it, and moving the caret keeps it as text of the user's
+/// own. Appending to the offer turned `*.txt` and `semi*` into
+/// `*.txtsemi*`, which matches nothing.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MaskPrompt {
     purpose: MaskPurpose,
-    mask: MaskField,
+    mask: LineEditor,
     /// The cursor is on Cancel rather than on OK.
     on_cancel: bool,
-}
-
-/// The mask field: the offered mask, pre-selected as Far shows it, or the
-/// user's own text once any key has edited it.
-///
-/// Two states rather than a flag beside the text, because they answer a typed
-/// character differently: it replaces an offer and joins an edit. Appending
-/// to the offer turned `*.txt` and `semi*` into `*.txtsemi*`, which matches
-/// nothing.
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum MaskField {
-    Offered(LineEditor),
-    Edited(LineEditor),
-}
-
-impl MaskField {
-    const fn line(&self) -> &LineEditor {
-        match self {
-            Self::Offered(line) | Self::Edited(line) => line,
-        }
-    }
-
-    /// The text to edit where it stands; an offer becomes the user's own.
-    fn edit(&mut self) -> &mut LineEditor {
-        if let Self::Offered(line) = self {
-            *self = Self::Edited(std::mem::take(line));
-        }
-        match self {
-            Self::Offered(line) | Self::Edited(line) => line,
-        }
-    }
-
-    fn type_char(&mut self, ch: char) {
-        if let Self::Offered(_) = self {
-            *self = Self::Edited(LineEditor::default());
-        }
-        self.edit().insert_char(ch);
-    }
 }
 
 impl MaskPrompt {
@@ -82,9 +49,11 @@ impl MaskPrompt {
     /// this". A field that opens on `*` makes them type it every time.
     #[must_use]
     pub fn new(purpose: MaskPurpose, suggestion: &str) -> Self {
+        let mut mask = LineEditor::new(suggestion);
+        mask.select_all();
         Self {
             purpose,
-            mask: MaskField::Offered(LineEditor::new(suggestion)),
+            mask,
             on_cancel: false,
         }
     }
@@ -106,14 +75,27 @@ impl MaskPrompt {
 
     #[must_use]
     pub fn mask(&self) -> &str {
-        self.mask.line().text()
+        self.mask.text()
     }
 
-    /// Whether the field still holds the offered mask untouched — drawn
+    /// The field, to draw.
+    #[must_use]
+    pub const fn line(&self) -> &LineEditor {
+        &self.mask
+    }
+
+    /// The field, to edit.
+    pub const fn line_mut(&mut self) -> &mut LineEditor {
+        &mut self.mask
+    }
+
+    /// Whether the whole mask is still selected, as the offer opens — drawn
     /// selected, and replaced by the first character typed.
     #[must_use]
-    pub const fn is_offered(&self) -> bool {
-        matches!(self.mask, MaskField::Offered(_))
+    pub fn is_offered(&self) -> bool {
+        self.mask.selection().is_some_and(|range| {
+            range.start.byte() == 0 && range.end.byte() == self.mask.text().len()
+        })
     }
 
     #[must_use]
@@ -130,39 +112,13 @@ impl MaskPrompt {
     }
 
     pub fn push(&mut self, ch: char) {
-        self.mask.type_char(ch);
-    }
-
-    pub fn backspace(&mut self) {
-        self.mask.edit().backspace();
-    }
-
-    pub fn delete_forward(&mut self) {
-        self.mask.edit().delete_forward();
-    }
-
-    /// The caret moves through the text, as in any Far edit control; moving
-    /// it keeps the offer as text of the user's own.
-    pub fn left(&mut self) {
-        self.mask.edit().left();
-    }
-
-    pub fn right(&mut self) {
-        self.mask.edit().right();
-    }
-
-    pub fn home(&mut self) {
-        self.mask.edit().home();
-    }
-
-    pub fn end(&mut self) {
-        self.mask.edit().end();
+        self.mask.insert_char(ch);
     }
 
     /// What stands to the right of the caret — the width `ui` backs the
     /// terminal cursor up by from the end of the field.
     #[must_use]
     pub fn after_caret(&self) -> &str {
-        self.mask.line().after_cursor()
+        self.mask.after_cursor()
     }
 }

@@ -8,10 +8,12 @@
 mod mask_prompt;
 mod name_fields;
 mod name_prompt;
+mod operation_failed;
 
 pub use mask_prompt::{MaskPrompt, MaskPurpose};
 pub use name_fields::{LinkType, NameField, NamePurpose};
 pub use name_prompt::NamePrompt;
+pub use operation_failed::{Denial, ElevatedRetry, OperationFailed};
 
 use std::path::PathBuf;
 
@@ -89,13 +91,16 @@ pub enum Overlay {
     },
 
     /// Shift+F4 "create new file"
-    NewFileInput(String),
+    NewFileInput(crate::lineedit::LineEditor),
 
     /// Command line (pressed ':')
     CommandLine(CommandLine),
 
     /// F8 delete confirmation dialog
     DeleteConfirm(Vec<PathBuf>),
+
+    /// A copy, move or delete stopped at an entry it could not handle.
+    OperationFailed(Box<OperationFailed>),
 
     /// F10 "do you want to quit?", carrying which button has the cursor.
     QuitConfirm(Confirm),

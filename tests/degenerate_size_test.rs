@@ -64,7 +64,7 @@ fn overlays() -> Vec<(&'static str, Overlay)> {
     vec![
         ("none", Overlay::None),
         ("help", Overlay::Help),
-        ("new file", Overlay::NewFileInput("name".to_owned())),
+        ("new file", Overlay::NewFileInput("name".to_owned().into())),
         (
             "delete",
             Overlay::DeleteConfirm(vec![PathBuf::from("/tmp/x")]),

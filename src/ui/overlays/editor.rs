@@ -4,7 +4,7 @@
 
 use ratatui::{
     layout::Rect,
-    style::{Modifier, Style},
+    style::Style,
     text::{Line, Span},
     widgets::{Clear, Paragraph},
     Frame,
@@ -27,9 +27,8 @@ fn render_editor_bar(f: &mut Frame<'_>, editor: &crate::models::Editor, area: Re
     f.render_widget(
         Paragraph::new(Line::from(Span::raw(text))).style(
             Style::default()
-                .bg(palette::EDITOR_BAR_BG)
-                .fg(palette::EDITOR_BAR_FG)
-                .add_modifier(Modifier::BOLD),
+                .bg(palette::STATUS_BAR_BG)
+                .fg(palette::STATUS_BAR_FG),
         ),
         Rect {
             height: EDITOR_BAR_HEIGHT,

@@ -74,7 +74,8 @@ fn the_offered_mask_is_drawn_selected_until_it_is_edited() {
         "the offer stands out as selected"
     );
 
-    prompt.backspace();
+    prompt.line_mut().end();
+    prompt.line_mut().backspace();
     app.set_overlay(Overlay::MaskPrompt(prompt));
     let edited = background_of(&mut app, "*.r").expect("the mask is drawn");
     assert_eq!(edited, palette::FIELD_BG, "edited text is plain field text");
@@ -93,8 +94,8 @@ fn the_mask_dialog_cursor_follows_the_caret() {
     terminal.draw(|f| ui(f, &mut app)).unwrap();
     let at_end = terminal.get_cursor_position().unwrap();
 
-    prompt.left();
-    prompt.left();
+    prompt.line_mut().left();
+    prompt.line_mut().left();
     app.set_overlay(Overlay::MaskPrompt(prompt));
     terminal.draw(|f| ui(f, &mut app)).unwrap();
     let moved = terminal.get_cursor_position().unwrap();

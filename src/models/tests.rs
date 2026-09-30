@@ -165,7 +165,7 @@ fn test_uncovered_models_methods() -> io::Result<()> {
     app.set_overlay(Overlay::CommandLine(CommandLine::default()));
     assert!(app.get_command_line_mut().is_some());
 
-    app.set_overlay(Overlay::NewFileInput(String::new()));
+    app.set_overlay(Overlay::NewFileInput(String::new().into()));
     assert!(app.get_new_file_input_mut().is_some());
 
     Ok(())

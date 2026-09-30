@@ -17,7 +17,8 @@ For runtime diagrams and boundary rules, see
 | `src/application/dispatch/dialog_mouse.rs` | Mouse input translation for dialogs |
 | `src/application/wsl_jobs.rs` | Serial WSL worker, injected backend, and completion delivery |
 | `src/application/task_jobs.rs`, `task_jobs/{worker,logged,lateness,lifecycle}.rs` | The task list's sampling worker (the thread and its two one-slot channels in `worker.rs`): `TaskJobs::pump` (the loop's) wraps `pump_at(app, now)` (the tests'), which retires the worker when the list closes or reopens, applies an arrived sample, marks a late request stale (5 s) and abandons a stalled one (10 s), starts one `ffm-tasks` thread when none runs and no abandoned one is still alive, and sends the request the model says is due. Nothing is ever joined; each sample error is logged once per session |
-| `src/diagnostics.rs` | Opt-in logging, payload redaction, lifecycle log wrapper |
+| `src/diagnostics.rs` | Logging (on by default in the file manager, `FFM_LOG=0` off; off in tests unless `FFM_LOG=1`), payload redaction, lifecycle log wrapper |
+| `src/progress.rs` | Progress of a long F5/F6/F8: thread-local reports from the copy walk, the file copy and the removal, throttled to one painted frame per 100 ms; `ui/progress.rs` renders the dialog, `terminal/progress_screen.rs` paints it over the last frame |
 | `src/terminal.rs` | `TerminalOps`, `TerminalSession`, and `TerminalSuspension`; transition rollback and restoration |
 | `src/terminal/keyboard.rs` | The kitty keyboard protocol: asked for once, pushed on entry and resume where the terminal supports it, popped on exit, suspension and abort |
 

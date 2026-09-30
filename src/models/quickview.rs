@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use super::{FileSize, Viewer, Viewport};
 use crate::encoding::TextEncoding;
-use crate::scroll::{ScrollLeft, ScrollTop};
+use crate::scroll::{ScrollLeft, ScrollTop, Scrolled};
 use crate::stats::DirectoryStats;
 
 /// The entry under the other panel's cursor and its preview.
@@ -142,40 +142,16 @@ impl QuickView {
             Preview::Nothing | Preview::Folder(_) | Preview::Refused(_) => 0,
         }
     }
+}
 
-    /// Furthest the view may scroll on a `page`-row body: the last line stops
-    /// on the bottom row, as Far's does.
-    fn max_scroll(&self, page: usize) -> usize {
-        self.line_count().saturating_sub(page)
+/// Up, down, Home, End and the pan, as the file viewer scrolls.
+impl Scrolled for QuickView {
+    fn position(&mut self) -> (&mut ScrollTop, &mut ScrollLeft) {
+        (&mut self.scroll, &mut self.col)
     }
 
-    pub fn scroll_down(&mut self, lines: usize, page: usize) {
-        self.scroll = self.scroll.down(lines, self.max_scroll(page));
-    }
-
-    pub fn scroll_up(&mut self, lines: usize) {
-        self.scroll = self.scroll.up(lines);
-    }
-
-    /// Far's Home: the first screen, back at the left edge.
-    pub fn scroll_to_top(&mut self) {
-        self.scroll = ScrollTop::TOP;
-        self.col = ScrollLeft::LEFT;
-    }
-
-    /// Far's End: the last screen, back at the left edge.
-    pub fn scroll_to_bottom(&mut self, page: usize) {
-        let last = self.max_scroll(page);
-        self.scroll = ScrollTop::TOP.down(last, last);
-        self.col = ScrollLeft::LEFT;
-    }
-
-    pub fn scroll_left(&mut self, cells: usize) {
-        self.col = self.col.left(cells);
-    }
-
-    pub fn scroll_right(&mut self, cells: usize) {
-        self.col = self.col.right(cells);
+    fn line_count(&self) -> usize {
+        Self::line_count(self)
     }
 }
 

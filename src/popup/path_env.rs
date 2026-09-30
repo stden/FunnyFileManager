@@ -17,7 +17,9 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
         Mode::Edit { input, .. } => match code {
             KeyCode::Esc => editor.mode = Mode::Browse,
             KeyCode::Enter => path_env::accept_entry(editor),
-            _ => super::menu_dialog::edit(input, code, modifiers),
+            _ => {
+                super::text_field::edit(input, code, modifiers, &mut app.clipboard);
+            }
         },
         Mode::ConfirmSave => confirm_save(editor, code),
         Mode::ConfirmDiscard => match code {

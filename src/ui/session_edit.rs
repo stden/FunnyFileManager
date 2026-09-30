@@ -55,12 +55,7 @@ fn rows(d: &SessionEdit) -> Vec<Row<'_>> {
 
 /// A text field with its caption, focused when the cursor is on `field`.
 fn text<'a>(d: &SessionEdit, caption: &'a str, value: &'a str, field: SessionField) -> Row<'a> {
-    Row::Field {
-        caption,
-        value,
-        focused: d.field() == field,
-        enabled: d.is_enabled(field),
-    }
+    Row::text_field(caption, value, d.field() == field, d.is_enabled(field))
 }
 
 fn login_rows(d: &SessionEdit) -> Vec<Row<'_>> {

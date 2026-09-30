@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use super::ARCHIVE_SUFFIXES;
+use crate::lineedit::LineEditor;
 
 /// Which control of the Extract files dialog carries the cursor.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -26,7 +27,7 @@ pub struct ExtractPrompt {
     /// The destination, offered as the other panel's folder. Free text: a
     /// relative path is taken from the active panel, and a folder that does
     /// not exist yet is created.
-    pub destination: String,
+    pub destination: LineEditor,
     /// The selected entries that are archives, absolute. Empty when nothing
     /// selected is one — the dialog still opens and says so, because a key
     /// that visibly does nothing reads as a dead key.
@@ -39,7 +40,7 @@ impl ExtractPrompt {
     #[must_use]
     pub fn new(archives: Vec<PathBuf>, destination: &Path) -> Self {
         Self {
-            destination: destination.to_string_lossy().into_owned(),
+            destination: LineEditor::from(crate::path_display::label(destination).into_owned()),
             archives,
             field: ExtractField::default(),
         }
@@ -79,10 +80,10 @@ impl ExtractPrompt {
     }
 
     pub fn push(&mut self, ch: char) {
-        self.destination.push(ch);
+        self.destination.insert_char(ch);
     }
 
     pub fn backspace(&mut self) {
-        self.destination.pop();
+        self.destination.backspace();
     }
 }

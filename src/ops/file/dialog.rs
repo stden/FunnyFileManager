@@ -1,7 +1,10 @@
 //! Purpose: The F5/F6 dialog's transfer: send each selected entry where the
 //! dialog says, and report what was placed, renamed or skipped.
 
-use std::{fs, io, path::Path};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 use super::destination::Destination;
 use super::entry::reject_transfer_into_itself;
@@ -24,27 +27,60 @@ pub fn copy_with(app: &mut App, settings: &crate::copy::CopyPrompt) {
         return;
     }
 
-    let base = &app.get_active_panel_ref().path;
-    let destination = Destination::parse(&settings.destination, base, sources.len());
-    let mut outcome = DialogOutcome::default();
-    for source in &sources {
-        outcome.record(source, copy_one(source, &destination, settings));
-    }
+    let base = app.get_active_panel_ref().path.clone();
+    let outcome = transfer(&sources, &base, sources.len(), settings);
+    let batch = &outcome.batch;
+    let stopped = batch.errors.first().map(|failed| super::Stop {
+        operation: crate::progress::Operation::of(settings.purpose),
+        failed,
+        denial: batch.denial.clone(),
+        done: batch.count,
+        remaining: super::remaining(&sources, batch.left),
+        base: &base,
+        selected: sources.len(),
+        settings: Some(settings),
+    });
     report_copy_outcome(app, &outcome, settings.purpose);
+    if let Some(stopped) = &stopped {
+        super::stop(app, stopped);
+    }
     refresh_after_operation(app);
+}
+
+/// Send `sources` where `settings` say, stopping at the first that fails.
+/// `selected` is how many entries the operation was given, which decides
+/// whether a typed destination is a folder or a new name ([`Destination`]).
+pub(super) fn transfer(
+    sources: &[PathBuf],
+    base: &Path,
+    selected: usize,
+    settings: &crate::copy::CopyPrompt,
+) -> DialogOutcome {
+    let destination = Destination::parse(settings.destination.text(), base, selected);
+    let mut outcome = DialogOutcome::default();
+    let _run = crate::progress::begin(crate::progress::Operation::of(settings.purpose), sources);
+    for (index, source) in sources.iter().enumerate() {
+        outcome.record(source, copy_one(source, &destination, settings));
+        crate::progress::source_done();
+        if outcome.batch.stopped() {
+            outcome.batch.left = sources.len() - index - 1;
+            break;
+        }
+    }
+    outcome
 }
 
 /// What a dialog transfer achieved, item by item.
 #[derive(Default)]
-struct DialogOutcome {
-    batch: BatchOutcome,
+pub(super) struct DialogOutcome {
+    pub(super) batch: BatchOutcome,
     /// Left alone by the policy, at any depth of a merged folder. Not an
     /// error and not a transfer either, so it is counted apart, or the status
     /// line would claim work not done.
-    skipped: usize,
+    pub(super) skipped: usize,
     /// Put beside an existing file under a new name — which the status line
     /// has to say, because the name the user looks for is not there.
-    renamed: usize,
+    pub(super) renamed: usize,
 }
 
 impl DialogOutcome {
@@ -68,20 +104,10 @@ impl DialogOutcome {
 fn report_copy_outcome(app: &mut App, outcome: &DialogOutcome, purpose: Purpose) {
     let batch = &outcome.batch;
     app.get_active_panel().clear_marks();
-    if let Some(first_error) = batch.errors.first().cloned() {
-        let (count, error_count) = (batch.count, batch.errors.len());
-        app.set_status(match purpose {
-            Purpose::Copy => Status::CopiedWithErrors {
-                count,
-                error_count,
-                first_error,
-            },
-            Purpose::Move => Status::MovedWithErrors {
-                count,
-                error_count,
-                first_error,
-            },
-        });
+    if let Some(first_error) = batch.errors.first() {
+        let status =
+            super::transfer::stopped_status(purpose, batch.count, batch.errors.len(), first_error);
+        app.set_status(status);
         return;
     }
     app.set_status(Status::Transferred {

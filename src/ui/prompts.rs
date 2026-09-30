@@ -7,7 +7,7 @@
 
 use ratatui::Frame;
 
-use super::{dialog, Cells};
+use super::dialog;
 use crate::models::{InputPrompt, Question};
 
 /// The one-line input, its caret where the editor's cursor is.
@@ -25,18 +25,15 @@ pub(super) fn render_input(
         dialog::Ground::Prompt,
         &[
             dialog::Row::Label(prompt.purpose().label()),
-            dialog::Row::input(prompt.input().text(), on_ok, false),
+            dialog::Row::line(prompt.input(), on_ok, false),
         ],
         &[
             dialog::Button::new("&OK").default_button().focused(on_ok),
             dialog::Button::new("&Cancel").focused(!on_ok),
         ],
     );
-    if let Some((end, y)) = caret {
-        // The box reports the end of the text; the caret sits wherever the
-        // editor's cursor is, which may be mid-line after Left or Home.
-        let after = u16::try_from(Cells::of(prompt.input().after_cursor()).get()).unwrap_or(0);
-        f.set_cursor_position((end.saturating_sub(after), y));
+    if let Some(caret) = caret {
+        f.set_cursor_position(caret);
     }
 }
 

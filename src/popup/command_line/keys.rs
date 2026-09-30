@@ -34,9 +34,11 @@ pub(super) fn editing_key(app: &mut App, key: KeyEvent) {
             app.close_overlay();
             app.quick_search.clear();
         }
-        // Ctrl+C clears the line rather than quitting: inside a prompt it is
+        // Ctrl+C copies a selection, as in any field; with nothing selected
+        // it clears the line rather than quitting: inside a prompt it is
         // bash's "abandon this line", and the overlay already swallows the
         // main-view quit binding.
+        KeyCode::Char('c') if ctrl && has_selection(app) => copy_selection(app),
         KeyCode::Char('c') if ctrl => edit_and_refresh(app, LineEditor::clear),
         // Ctrl+D on an empty line closes the prompt (bash's EOF); with text to
         // its right it is a forward delete, like every other readline.
@@ -53,6 +55,9 @@ pub(super) fn editing_key(app: &mut App, key: KeyEvent) {
 }
 
 fn edit_text_key(app: &mut App, key: KeyEvent) {
+    if selection_key(app, key) || clipboard_key(app, key) {
+        return;
+    }
     let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
     let alt = key.modifiers.contains(KeyModifiers::ALT);
     match key.code {
@@ -87,6 +92,73 @@ fn edit_text_key(app: &mut App, key: KeyEvent) {
         }
         _ => {}
     }
+}
+
+/// Shift with an arrow, Home or End grows the selection, as in every field;
+/// Ctrl+Shift moves it by word. Whether `key` was one of them.
+fn selection_key(app: &mut App, key: KeyEvent) -> bool {
+    if !key.modifiers.contains(KeyModifiers::SHIFT) {
+        return false;
+    }
+    let word = key.modifiers.contains(KeyModifiers::CONTROL);
+    let motion: fn(&mut LineEditor) = match key.code {
+        KeyCode::Left if word => LineEditor::word_left,
+        KeyCode::Right if word => LineEditor::word_right,
+        KeyCode::Left => LineEditor::left,
+        KeyCode::Right => LineEditor::right,
+        KeyCode::Home => LineEditor::home,
+        KeyCode::End => LineEditor::end,
+        _ => return false,
+    };
+    move_caret(app, |line| line.extend(motion));
+    true
+}
+
+/// Ctrl+Insert copies, Ctrl+X and Shift+Del cut, Ctrl+V and Shift+Insert
+/// paste. (Ctrl+C is above: it also clears the line.) Whether `key` was one.
+fn clipboard_key(app: &mut App, key: KeyEvent) -> bool {
+    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+    let shift = key.modifiers.contains(KeyModifiers::SHIFT);
+    match key.code {
+        KeyCode::Insert if ctrl => copy_selection(app),
+        KeyCode::Char('x') if ctrl => cut_selection(app),
+        KeyCode::Delete if shift => cut_selection(app),
+        KeyCode::Char('v') if ctrl => paste(app),
+        KeyCode::Insert if shift => paste(app),
+        _ => return false,
+    }
+    true
+}
+
+fn has_selection(app: &App) -> bool {
+    state(app).is_some_and(|state| state.line.selection().is_some())
+}
+
+fn copy_selection(app: &mut App) {
+    let Some(text) = state(app).and_then(|state| state.line.selected_text().map(str::to_owned))
+    else {
+        return;
+    };
+    crate::popup::text_field::copy(&mut app.clipboard, &text);
+}
+
+fn cut_selection(app: &mut App) {
+    copy_selection(app);
+    edit_and_refresh(app, |line| {
+        line.delete_selection();
+    });
+}
+
+fn paste(app: &mut App) {
+    let Some(text) = app
+        .clipboard
+        .backend_mut()
+        .and_then(|backend| backend.get_native().ok())
+    else {
+        return;
+    };
+    let text = crate::popup::text_field::one_line(&text);
+    edit_and_refresh(app, |line| line.insert_str(&text));
 }
 
 fn completion_menu_key(app: &mut App, code: KeyCode) -> bool {

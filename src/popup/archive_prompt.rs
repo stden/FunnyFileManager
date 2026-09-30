@@ -17,22 +17,16 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
         KeyCode::Esc | KeyCode::F(10) => app.close_overlay(),
         KeyCode::Tab | KeyCode::Down => prompt.advance(true),
         KeyCode::BackTab | KeyCode::Up => prompt.advance(false),
-        // On the radio the arrows pick a format; in the name field Far uses
-        // them for the caret, so they must not change the answer there.
+        KeyCode::Enter => submit(app),
+        // The name field takes every other key: caret, selection, typing
+        // and the clipboard.
+        _ if prompt.field == ArchiveField::Name => {
+            super::text_field::edit(&mut prompt.name, code, modifiers, &mut app.clipboard);
+        }
+        // On the radio the arrows pick a format.
         KeyCode::Right => prompt.cycle(true),
         KeyCode::Left => prompt.cycle(false),
         KeyCode::Char(' ') if prompt.field.is_checkbox() => prompt.toggle(),
-        KeyCode::Backspace if prompt.field == ArchiveField::Name => {
-            prompt.name.pop();
-        }
-        KeyCode::Enter => submit(app),
-        KeyCode::Char(ch)
-            if prompt.field == ArchiveField::Name
-                && !modifiers.contains(KeyModifiers::CONTROL)
-                && !modifiers.contains(KeyModifiers::ALT) =>
-        {
-            prompt.name.push(ch);
-        }
         _ => {}
     }
     true

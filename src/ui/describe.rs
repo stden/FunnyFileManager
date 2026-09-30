@@ -3,7 +3,7 @@
 
 use ratatui::Frame;
 
-use super::{dialog, Cells};
+use super::dialog;
 
 /// Far's own title for the dialog.
 const TITLE: &str = "Describe files";
@@ -25,24 +25,17 @@ pub(super) fn render(
     // promise a list that never drops down.
     let rows = [
         dialog::Row::Label(&caption),
-        dialog::Row::input(dialog.text(), editing, false),
+        dialog::Row::line(dialog.line(), editing, false),
     ];
     let buttons = [
         dialog::Button::new("&OK").default_button().focused(editing),
         dialog::Button::new("&Cancel").focused(!editing),
     ];
-    if let Some((x, y)) =
+    if let Some(caret) =
         dialog::render_tracked(f, tracker, TITLE, dialog::Ground::Prompt, &rows, &buttons)
     {
-        f.set_cursor_position((caret_column(x, dialog.after_caret()), y));
+        f.set_cursor_position(caret);
     }
-}
-
-/// The dialog places the caret after the text; the prompt's own cursor may
-/// stand further left, by the width of what follows it.
-pub(super) fn caret_column(end: u16, after_caret: &str) -> u16 {
-    let back = u16::try_from(Cells::of(after_caret).get()).unwrap_or(u16::MAX);
-    end.saturating_sub(back)
 }
 
 #[cfg(test)]

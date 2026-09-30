@@ -25,7 +25,10 @@ fn prompt(sources: &[&str]) -> ArchivePrompt {
 #[test]
 fn a_single_file_is_offered_as_its_stem_in_the_other_panel() {
     let prompt = prompt(&["notes.txt"]);
-    assert_eq!(Path::new(&prompt.name), Path::new("/other/notes.tar.gz"));
+    assert_eq!(
+        Path::new(prompt.name.text()),
+        Path::new("/other/notes.tar.gz")
+    );
     assert_eq!(prompt.format, ArchiveFormat::TarGz);
     assert!(!prompt.delete_after);
     assert_eq!(prompt.field, ArchiveField::Name);
@@ -54,7 +57,10 @@ fn a_directory_and_a_dotfile_keep_their_whole_name() {
 #[test]
 fn several_files_are_named_after_their_folder() {
     let prompt = prompt(&["a.txt", "b.txt"]);
-    assert_eq!(Path::new(&prompt.name), Path::new("/other/work.tar.gz"));
+    assert_eq!(
+        Path::new(prompt.name.text()),
+        Path::new("/other/work.tar.gz")
+    );
     assert_eq!(prompt.caption(), "Add 2 items to the archive:");
 }
 
@@ -101,11 +107,14 @@ fn turning_the_format_radio_renames_the_extension() {
     prompt.field = ArchiveField::Format;
     prompt.cycle(true);
     assert_eq!(prompt.format, ArchiveFormat::Tar);
-    assert_eq!(Path::new(&prompt.name), Path::new("/other/notes.tar"));
+    assert_eq!(Path::new(prompt.name.text()), Path::new("/other/notes.tar"));
     assert_eq!(prompt.format_index(), 1);
     prompt.cycle(true);
     assert_eq!(prompt.format, ArchiveFormat::TarGz, "only offered formats");
-    assert_eq!(Path::new(&prompt.name), Path::new("/other/notes.tar.gz"));
+    assert_eq!(
+        Path::new(prompt.name.text()),
+        Path::new("/other/notes.tar.gz")
+    );
     prompt.cycle(false);
     assert_eq!(prompt.format, ArchiveFormat::Tar);
 }
@@ -115,10 +124,10 @@ fn turning_the_format_radio_renames_the_extension() {
 #[test]
 fn a_hand_typed_name_is_not_renamed_by_the_radio() {
     let mut prompt = prompt(&["notes.txt"]);
-    prompt.name = "/other/custom".to_owned();
+    prompt.name.set_text("/other/custom");
     prompt.field = ArchiveField::Format;
     prompt.cycle(true);
-    assert_eq!(prompt.name, "/other/custom");
+    assert_eq!(prompt.name.text(), "/other/custom");
 }
 
 /// The arrows belong to the radio only: on the name field they must not turn
@@ -145,7 +154,7 @@ fn space_toggles_only_the_checkbox() {
 fn an_empty_name_is_not_ready() {
     let mut prompt = prompt(&["notes.txt"]);
     assert!(prompt.is_ready());
-    prompt.name = "  ".to_owned();
+    prompt.name.set_text("  ");
     assert!(!prompt.is_ready());
 }
 
@@ -186,11 +195,11 @@ fn appending_names_the_archive_and_fixes_its_format() {
         ArchiveFormat::Tar,
     );
     assert!(appending.append);
-    assert_eq!(appending.name, "/other/old.tar");
+    assert_eq!(appending.name.text(), "/other/old.tar");
     assert_eq!(appending.offered, [ArchiveFormat::Tar]);
     appending.field = ArchiveField::Format;
     appending.cycle(true);
     assert_eq!(appending.format, ArchiveFormat::Tar);
-    assert_eq!(appending.name, "/other/old.tar");
+    assert_eq!(appending.name.text(), "/other/old.tar");
     assert!(!prompt(&["a.txt"]).append, "Shift+F1 makes a new archive");
 }

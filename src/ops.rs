@@ -60,7 +60,7 @@ pub(crate) use editor::{
 };
 pub use file::{
     copy_with, get_source_paths, handle_copy, handle_delete, handle_delete_confirm, handle_mkdir,
-    handle_move,
+    handle_move, helper_main, retry_as_administrator, HELPER_FLAG,
 };
 pub(crate) use viewer::view_path;
 pub use viewer::{handle_view, open_mcp_status};

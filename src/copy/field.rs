@@ -5,7 +5,7 @@
 /// An enum rather than an index so the tab order is stated once, here, instead
 /// of being implied by arithmetic at three call sites — and so a control added
 /// in the middle cannot silently renumber the rest.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum CopyField {
     #[default]
     Destination,

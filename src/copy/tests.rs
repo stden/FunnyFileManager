@@ -19,7 +19,7 @@ fn prompt() -> CopyPrompt {
 fn the_dialog_opens_on_the_destination_offering_the_other_panel() {
     let prompt = prompt();
     assert_eq!(prompt.field, CopyField::Destination);
-    assert_eq!(prompt.destination, "/tmp/target");
+    assert_eq!(prompt.destination.text(), "/tmp/target");
     assert_eq!(prompt.caption(), "Copy \"notes.txt\" t&o:");
 }
 
@@ -103,11 +103,11 @@ fn the_text_field_and_the_buttons_are_not_checkboxes() {
 fn a_blank_destination_is_not_ready() {
     let mut prompt = prompt();
     assert!(prompt.is_ready());
-    prompt.destination = "   ".to_owned();
+    prompt.destination.set_text("   ");
     assert!(
         !prompt.is_ready(),
         "blank must not fall back to the working directory"
     );
-    prompt.destination = String::new();
+    prompt.destination.set_text("");
     assert!(!prompt.is_ready());
 }

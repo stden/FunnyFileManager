@@ -120,7 +120,8 @@ for the `ffm-mcp` marker.
   silently replace production runtime behavior.
 - Logging tests pass explicit paths to the path-accepting logging seam and do
   not change the process-wide current directory.
-- Runtime logging is disabled unless `FFM_LOG=1`; enabled logs live in the
+- The file manager logs by default and `FFM_LOG=0` turns it off (tests log
+  only with `FFM_LOG=1`); enabled logs live in the
   per-user temporary directory, and character key payloads are redacted.
 
 ## 🖥️ Terminal Lifecycle

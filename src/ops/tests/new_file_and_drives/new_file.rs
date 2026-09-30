@@ -16,7 +16,7 @@ fn test_new_file_input_enter_existing_file_sets_error_message() -> io::Result<()
     let mut app = App::new().expect("test setup");
     app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
     app.left_panel.load_entries().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("exists.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("exists.txt".to_owned().into()));
 
     process_popup_input(&mut app, key_event(KeyCode::Enter));
 
@@ -56,7 +56,7 @@ fn test_new_file_input_enter_creates_new_file() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
     app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
     app.left_panel.load_entries().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("brand_new.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("brand_new.txt".to_owned().into()));
 
     process_popup_input(&mut app, key_event(KeyCode::Enter));
 

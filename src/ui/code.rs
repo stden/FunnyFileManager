@@ -58,10 +58,10 @@ fn drawn_runs(runs: Vec<(&str, Token)>, tab: TabSize) -> Vec<(Cow<'_, str>, Toke
 
 /// The colour each token class gets on the blue ground.
 ///
-/// An approximation of Colorer's default Far scheme rather than a copy of it:
-/// Colorer separates a dozen classes, and on one background most of those
-/// separations stop being legible before they stop being accurate. These seven
-/// are the ones a reader actually navigates by.
+/// Colorer's console scheme for Far, in its sixteen colours, rather than every
+/// class it has: Colorer separates a dozen classes, and on one background most
+/// of those separations stop being legible before they stop being accurate.
+/// These seven are the ones a reader actually navigates by.
 pub(super) fn token_style(token: Token) -> Style {
     match token {
         Token::Normal => Style::default().fg(palette::CODE_NORMAL),
@@ -73,7 +73,7 @@ pub(super) fn token_style(token: Token) -> Style {
             .fg(palette::CODE_KEYWORD)
             .add_modifier(Modifier::BOLD),
         Token::Str => Style::default().fg(palette::CODE_STRING),
-        // Far paints switches the same green it gives numbers.
+        // Far paints switches the same colour it gives numbers.
         Token::Number | Token::Switch => Style::default().fg(palette::CODE_NUMBER),
         Token::Comment => Style::default().fg(palette::CODE_COMMENT),
         // A directive is not a comment: Colorer gives `def:Directive` its own

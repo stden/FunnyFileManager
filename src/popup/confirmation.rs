@@ -22,6 +22,28 @@ pub(super) fn information(app: &mut App, code: KeyCode) -> bool {
     true
 }
 
+/// A copy, move or delete that stopped: OK closes it; "Retry as
+/// administrator", when offered, asks Windows for the rights and goes on.
+/// Left, Right and Tab move between the two; `A` retries at once; no other
+/// key reaches the panels behind it.
+pub(super) fn operation_failed(app: &mut App, code: KeyCode) -> bool {
+    let Overlay::OperationFailed(failure) = &mut app.overlay else {
+        return false;
+    };
+    match code {
+        KeyCode::Left | KeyCode::Right | KeyCode::Tab | KeyCode::BackTab => failure.toggle_focus(),
+        KeyCode::Char('a' | 'A') if failure.retry().is_some() => {
+            crate::ops::retry_as_administrator(app);
+        }
+        KeyCode::Enter | KeyCode::Char(' ') if failure.retry_focused() => {
+            crate::ops::retry_as_administrator(app);
+        }
+        KeyCode::Esc | KeyCode::Enter | KeyCode::F(10) | KeyCode::Char(' ') => app.close_overlay(),
+        _ => {}
+    }
+    true
+}
+
 pub(super) fn quit(app: &mut App, code: KeyCode) -> bool {
     let Overlay::QuitConfirm(answer) = &mut app.overlay else {
         return false;

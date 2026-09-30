@@ -132,6 +132,9 @@ pub(super) fn place(
     if settings.purpose == Purpose::Move && rename_within(source, dest)? == Renamed::Moved {
         return Ok(());
     }
+    if settings.purpose == Purpose::Move {
+        crate::progress::copying_across(source);
+    }
     // The copy itself gives every entry the times and modes the dialog
     // keeps (`CopyRules`), each folder once its contents are in.
     copy_entry(source, dest, settings.rules())?;

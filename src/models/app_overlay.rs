@@ -99,7 +99,7 @@ impl App {
 
     pub fn get_new_file_input(&self) -> Option<&str> {
         if let Overlay::NewFileInput(s) = &self.overlay {
-            Some(s)
+            Some(s.text())
         } else {
             None
         }
@@ -123,7 +123,7 @@ impl App {
         }
     }
 
-    pub const fn get_new_file_input_mut(&mut self) -> Option<&mut String> {
+    pub const fn get_new_file_input_mut(&mut self) -> Option<&mut LineEditor> {
         if let Overlay::NewFileInput(s) = &mut self.overlay {
             Some(s)
         } else {
@@ -142,6 +142,41 @@ impl App {
             Some(&mut state.line)
         } else {
             None
+        }
+    }
+
+    /// The text field the open dialog's cursor is on, when it is on one — what
+    /// a terminal paste types into.
+    pub fn focused_text_field(&mut self) -> Option<&mut LineEditor> {
+        use crate::copy::CopyField;
+        use crate::models::{ArchiveField, ExtractField, MenuDialog};
+
+        match &mut self.overlay {
+            Overlay::CommandLine(state) => Some(&mut state.line),
+            Overlay::NewFileInput(line) => Some(line),
+            Overlay::NamePrompt(prompt) => prompt.focused_line_mut(),
+            Overlay::MaskPrompt(prompt) => Some(prompt.line_mut()),
+            Overlay::CopyPrompt(prompt) => {
+                (prompt.field == CopyField::Destination).then_some(&mut prompt.destination)
+            }
+            Overlay::FindFile(dialog) => dialog.active_line_mut(),
+            Overlay::ArchivePrompt(prompt) => {
+                (prompt.field == ArchiveField::Name).then_some(&mut prompt.name)
+            }
+            Overlay::ExtractPrompt(prompt) => {
+                (prompt.field == ExtractField::Destination).then_some(&mut prompt.destination)
+            }
+            Overlay::InputPrompt(prompt) => Some(prompt.input_mut()),
+            Overlay::ApplyCommand(prompt) => Some(prompt.input_mut()),
+            Overlay::Describe(prompt) => Some(prompt.line_mut()),
+            Overlay::MenuDialog(dialog) => match dialog.as_mut() {
+                MenuDialog::Prompt { input, .. } => Some(input),
+                MenuDialog::Choices { .. } => None,
+            },
+            Overlay::LspEditor(editor) => {
+                editor.form_mut().and_then(|form| form.focused_line_mut())
+            }
+            _ => None,
         }
     }
 

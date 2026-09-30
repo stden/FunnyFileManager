@@ -2,9 +2,9 @@
 //! offered text selected, the quit question, the delete warning that names
 //! what it deletes, and the new-file name box.
 
-use ratatui::{layout::Rect, style::Style, Frame};
+use ratatui::Frame;
 
-use super::super::{dialog, palette, Cells};
+use super::super::{dialog, Cells};
 
 pub(in crate::ui) fn render_mask_prompt(
     f: &mut Frame<'_>,
@@ -20,7 +20,7 @@ pub(in crate::ui) fn render_mask_prompt(
         dialog::Ground::Prompt,
         &[
             dialog::Row::Label("Enter the &mask:"),
-            dialog::Row::input(prompt.mask(), !prompt.on_cancel(), true),
+            dialog::Row::line(prompt.line(), !prompt.on_cancel(), true),
         ],
         &[
             dialog::Button::new("&OK")
@@ -29,25 +29,8 @@ pub(in crate::ui) fn render_mask_prompt(
             dialog::Button::new("&Cancel").focused(prompt.on_cancel()),
         ],
     ) {
-        if prompt.is_offered() {
-            select_field_text(f, prompt.mask(), x, y);
-        }
-        f.set_cursor_position((
-            super::super::describe::caret_column(x, prompt.after_caret()),
-            y,
-        ));
+        f.set_cursor_position((x, y));
     }
-}
-
-/// Draw `text`, which ends at the caret, as a selection: Far shows an offered
-/// mask selected, and that is what tells the user typing will replace it.
-fn select_field_text(f: &mut Frame<'_>, text: &str, end: u16, y: u16) {
-    let width = u16::try_from(Cells::of(text).get()).unwrap_or(u16::MAX);
-    let cells = Rect::new(end.saturating_sub(width), y, width, 1).intersection(f.area());
-    let selected = Style::default()
-        .bg(palette::FIELD_SELECTED_BG)
-        .fg(palette::FIELD_SELECTED_FG);
-    f.buffer_mut().set_style(cells, selected);
 }
 
 pub(super) fn render_quit_confirm(
@@ -100,18 +83,23 @@ pub(super) fn render_delete_confirm(
 pub(super) fn render_new_file_input(
     f: &mut Frame<'_>,
     tracker: &mut crate::mouse::DialogMouse,
-    input: &str,
+    input: &crate::lineedit::LineEditor,
 ) {
-    let input = super::super::tail_cells(input, Cells::columns(f.area().width.saturating_sub(9)));
+    let room = Cells::columns(f.area().width.saturating_sub(9));
+    // A name wider than the screen shows its end, caret there; one that fits
+    // shows its caret and selection where they are.
+    let clipped = super::super::tail_cells(input.text(), room);
+    let field = if Cells::of(input.text()).get() <= room.get() {
+        dialog::Row::line(input, true, false)
+    } else {
+        dialog::Row::input(&clipped, true, false)
+    };
     if let Some(cursor) = dialog::render_tracked(
         f,
         tracker,
         "Create New File (Shift+F4)",
         dialog::Ground::Prompt,
-        &[
-            dialog::Row::Label("Enter filename:"),
-            dialog::Row::input(&input, true, false),
-        ],
+        &[dialog::Row::Label("Enter filename:"), field],
         &[
             dialog::Button::new("OK").default_button(),
             dialog::Button::new("Cancel"),

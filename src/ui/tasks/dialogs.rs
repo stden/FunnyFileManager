@@ -20,7 +20,6 @@ use crate::models::{Failure, FormFocus, Modal, Notice, PriorityForm, Target, Tas
 use crate::mouse::DialogMouse;
 use crate::scroll::ScrollTop;
 
-use super::super::describe::caret_column;
 use super::super::dialog::{preview_lines, render_tracked, Button, Ground, Row};
 use super::super::overlays::render_mask_prompt;
 use super::super::panel::pad_cells;
@@ -79,12 +78,7 @@ fn priority(f: &mut Frame<'_>, tracker: &mut DialogMouse, form: &PriorityForm) {
     let value = form.value();
     let rows = [
         Row::Plain(&named),
-        Row::Field {
-            caption: "Nice:",
-            value: value.text(),
-            focused: form.focus() == FormFocus::Field,
-            enabled: true,
-        },
+        Row::field("Nice:", value, form.focus() == FormFocus::Field, true),
         Row::Label("-20 runs first, 19 runs last"),
     ];
     let buttons = [
@@ -94,9 +88,8 @@ fn priority(f: &mut Frame<'_>, tracker: &mut DialogMouse, form: &PriorityForm) {
             .focused(form.focus() == FormFocus::Set),
         Button::new("&Cancel").focused(form.focus() == FormFocus::Cancel),
     ];
-    let caret = render_tracked(f, tracker, "Priority", Ground::Prompt, &rows, &buttons);
-    if let Some((x, y)) = caret {
-        f.set_cursor_position((caret_column(x, value.after_cursor()), y));
+    if let Some(caret) = render_tracked(f, tracker, "Priority", Ground::Prompt, &rows, &buttons) {
+        f.set_cursor_position(caret);
     }
 }
 

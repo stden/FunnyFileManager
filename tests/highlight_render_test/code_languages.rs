@@ -5,11 +5,11 @@ use super::*;
 // The editor's palette, as `src/ui/palette.rs` defines it. Repeated here on
 // purpose: a test that imported the constants would still pass if every colour
 // were changed at once, which is exactly the change that should fail it.
-const CODE_NORMAL: Color = Color::Rgb(120, 200, 230);
+const CODE_NORMAL: Color = Color::Rgb(0, 255, 255);
 
-const CODE_NUMBER: Color = Color::Rgb(120, 220, 120);
+const CODE_NUMBER: Color = Color::Rgb(255, 0, 255);
 
-const CODE_DIRECTIVE: Color = Color::Rgb(150, 220, 120);
+const CODE_DIRECTIVE: Color = Color::Rgb(0, 255, 0);
 
 /// One line of the file, opened in the editor, as (character, colour) pairs.
 ///

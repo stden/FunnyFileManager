@@ -41,6 +41,7 @@ impl LineEditor {
     /// leaves the previous kill intact — `Ctrl+K` at the end of the line must
     /// not silently erase what `Ctrl+W` just captured.
     fn kill_range(&mut self, start: usize, end: usize) {
+        self.anchor = None;
         let Some(killed) = self
             .text
             .get(start..end)

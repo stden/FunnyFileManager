@@ -13,12 +13,20 @@ use crate::recording::{Input, RecordingDisabled};
 use at_exit::end_session;
 
 pub fn run() -> Result<(), Box<dyn Error>> {
+    // The file manager keeps a log unless FFM_LOG=0 (see `diagnostics`).
+    crate::diagnostics::log_by_default();
     crate::diagnostics::run_with(main_impl)
 }
 
 fn main_impl() -> Result<(), Box<dyn Error>> {
     let args = std::env::args_os().skip(1).collect::<Vec<_>>();
+    // Started by "Retry as administrator": no terminal, only the pipe.
+    if let Some(served) = crate::ops::helper_main(&args) {
+        return served.map_err(Into::into);
+    }
     let (mut input, disabled) = Input::from_args(&args, crossterm::terminal::size()?)?;
+    // Long copies, moves and deletes draw their progress on this terminal.
+    let _progress = crate::progress::install(Box::new(crate::terminal::ProgressScreen::stdout()));
     run_session(&mut input, disabled)
 }
 
@@ -95,6 +103,7 @@ fn live_input(input: &Input) -> crate::models::LiveInput {
         program_pause: crate::models::ProgramPause::UntilKey,
         mcp_host: crate::ops::mcp_install::system_host(),
         lsp_probe: crate::lsp::Probe::from_process(),
+        elevation: true,
     }
 }
 

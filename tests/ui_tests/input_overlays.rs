@@ -69,7 +69,7 @@ fn test_new_file_input_overlay() {
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).unwrap();
     let mut app = test_app();
-    app.set_overlay(Overlay::NewFileInput("newfile.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("newfile.txt".to_owned().into()));
 
     terminal.draw(|f| ui(f, &mut app)).unwrap();
 
@@ -94,7 +94,7 @@ fn test_new_file_input_empty() {
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).unwrap();
     let mut app = test_app();
-    app.set_overlay(Overlay::NewFileInput(String::new()));
+    app.set_overlay(Overlay::NewFileInput(String::new().into()));
 
     terminal.draw(|f| ui(f, &mut app)).unwrap();
 

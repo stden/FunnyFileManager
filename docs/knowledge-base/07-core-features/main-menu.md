@@ -207,7 +207,7 @@ file.
   Save setup then stops with `Not saved: settings.yaml does not parse: …` and
   the exit auto-save writes nothing. A wrong value in a typed setting (`lsp`,
   `system`, …) makes FFM use the defaults for all typed settings and is only
-  logged (with `FFM_LOG=1`); no save replaces it. Fix or remove the file, and
+  logged (unless `FFM_LOG=0`); no save replaces it. Fix or remove the file, and
   the next save writes it again.
 - **Migration from `settings.json`.** Older releases wrote `settings.json`, with
   the Options entries beside the typed keys. While there is no `settings.yaml`,

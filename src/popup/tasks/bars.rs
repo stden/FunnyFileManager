@@ -10,10 +10,10 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::action::tasks::{resolve, TaskCommand};
 use crate::lineedit::LineEditor;
+use crate::models::ClipboardSlot;
 use crate::models::{
     App, ListMotion, Modal, Pid, PidQuery, SearchBar, SearchFrom, TaskList, TextBar,
 };
-use crate::popup::menu_dialog::edit;
 
 use super::browse;
 
@@ -52,7 +52,7 @@ pub(super) fn open_pid_jump(list: &mut TaskList, digit: char, page: usize) {
 
 /// The filter bar: every edit filters afresh; the list keys still move the
 /// cursor; Enter keeps the filter and Esc clears it, both closing the bar.
-pub(super) fn filter(app: &mut App, key: KeyEvent) {
+pub(super) fn filter(app: &mut App, key: KeyEvent, clipboard: &mut ClipboardSlot) {
     let viewport = app.viewport;
     let Some(list) = app.task_list_mut() else {
         return;
@@ -72,7 +72,7 @@ pub(super) fn filter(app: &mut App, key: KeyEvent) {
             let Modal::Filter(bar) = list.modal_mut() else {
                 return;
             };
-            if let Some(text) = edited(bar.line_mut(), code, key.modifiers) {
+            if let Some(text) = edited(bar.line_mut(), code, key.modifiers, clipboard) {
                 list.set_filter(&text);
             }
         }
@@ -82,7 +82,7 @@ pub(super) fn filter(app: &mut App, key: KeyEvent) {
 /// The search bar: every edit searches from the cursor down, `F3` finds the
 /// next match of what is typed, Enter and Esc leave the cursor where it is,
 /// and a list key closes the bar and then moves as it would without it.
-pub(super) fn search(app: &mut App, key: KeyEvent) {
+pub(super) fn search(app: &mut App, key: KeyEvent, clipboard: &mut ClipboardSlot) {
     let viewport = app.viewport;
     let Some(list) = app.task_list_mut() else {
         return;
@@ -103,7 +103,7 @@ pub(super) fn search(app: &mut App, key: KeyEvent) {
             find(list, &query, SearchFrom::AfterCursor, page);
         }
         code => {
-            if let Some(query) = edited(bar.line_mut(), code, key.modifiers) {
+            if let Some(query) = edited(bar.line_mut(), code, key.modifiers, clipboard) {
                 find(list, &query, SearchFrom::Cursor, page);
             }
         }
@@ -157,10 +157,14 @@ fn jump(list: &mut TaskList, pid: Option<Pid>, page: usize) {
 
 /// Applies an editing key to `line`, and gives its text when the key
 /// changed it; caret moves and other keys give `None`.
-fn edited(line: &mut LineEditor, code: KeyCode, modifiers: KeyModifiers) -> Option<String> {
-    let before = line.text().to_owned();
-    edit(line, code, modifiers);
-    (line.text() != before).then(|| line.text().to_owned())
+fn edited(
+    line: &mut LineEditor,
+    code: KeyCode,
+    modifiers: KeyModifiers,
+    clipboard: &mut ClipboardSlot,
+) -> Option<String> {
+    let changed = crate::popup::text_field::edit(line, code, modifiers, clipboard);
+    changed.then(|| line.text().to_owned())
 }
 
 /// The list keys that still move the cursor while a bar is open, as the

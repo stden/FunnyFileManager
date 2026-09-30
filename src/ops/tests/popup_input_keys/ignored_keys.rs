@@ -8,7 +8,7 @@ use super::*;
 #[test]
 fn test_new_file_input_ctrl_char_ignored() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("abc".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("abc".to_owned().into()));
 
     process_popup_input(
         &mut app,
@@ -17,7 +17,7 @@ fn test_new_file_input_ctrl_char_ignored() -> io::Result<()> {
 
     assert_eq!(
         if let Overlay::NewFileInput(ref s) = app.overlay {
-            s
+            s.text()
         } else {
             panic!()
         },
@@ -54,17 +54,14 @@ fn test_process_popup_input_command_line_alt_char_ignored() -> io::Result<()> {
 #[test]
 fn test_new_file_input_alt_char_ignored() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("abc".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("abc".to_owned().into()));
 
     process_popup_input(
         &mut app,
         key_event_with_mods(KeyCode::Char('d'), KeyModifiers::ALT),
     );
 
-    assert_eq!(
-        app.get_new_file_input_mut().map(|s| s.as_str()),
-        Some("abc")
-    );
+    assert_eq!(app.get_new_file_input_mut().map(|s| s.text()), Some("abc"));
 
     Ok(())
 }
@@ -89,14 +86,11 @@ fn test_process_popup_input_command_line_other_key() -> io::Result<()> {
 #[test]
 fn test_new_file_input_other_key_ignored() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("abc".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("abc".to_owned().into()));
 
     process_popup_input(&mut app, key_event(KeyCode::F(5)));
 
-    assert_eq!(
-        app.get_new_file_input_mut().map(|s| s.as_str()),
-        Some("abc")
-    );
+    assert_eq!(app.get_new_file_input_mut().map(|s| s.text()), Some("abc"));
 
     Ok(())
 }
@@ -105,11 +99,11 @@ fn test_new_file_input_other_key_ignored() -> io::Result<()> {
 #[test]
 fn test_new_file_input_backspace_empty() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput(String::new()));
+    app.set_overlay(Overlay::NewFileInput(String::new().into()));
 
     process_popup_input(&mut app, key_event(KeyCode::Backspace));
 
-    assert_eq!(app.get_new_file_input_mut().map(|s| s.as_str()), Some(""));
+    assert_eq!(app.get_new_file_input_mut().map(|s| s.text()), Some(""));
 
     Ok(())
 }

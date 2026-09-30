@@ -83,18 +83,14 @@ impl NamePrompt {
     }
 
     pub fn push(&mut self, ch: char) {
-        match self.field {
-            NameField::Name => self.name.push(ch),
-            NameField::Target => self.link_target.push(ch),
-            _ => {}
+        if let Some(line) = self.focused_line_mut() {
+            line.insert_char(ch);
         }
     }
 
     pub fn backspace(&mut self) {
-        match self.field {
-            NameField::Name => self.name.pop(),
-            NameField::Target => self.link_target.pop(),
-            _ => None,
-        };
+        if let Some(line) = self.focused_line_mut() {
+            line.backspace();
+        }
     }
 }

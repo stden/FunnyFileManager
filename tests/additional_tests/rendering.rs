@@ -102,7 +102,7 @@ fn test_ui_new_file_overlay() {
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).unwrap();
     let mut app = App::new().unwrap();
-    app.set_overlay(Overlay::NewFileInput("test.rs".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("test.rs".to_owned().into()));
 
     terminal.draw(|f| ui(f, &mut app)).unwrap();
 

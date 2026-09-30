@@ -83,6 +83,7 @@ pub(super) fn copy_tree(
         }
     }
 
+    crate::progress::entering(src);
     // Read before the walk: reading the folder moves its access time.
     let source = fs::metadata(src)?;
     create_dir_all_checked(dst)?;

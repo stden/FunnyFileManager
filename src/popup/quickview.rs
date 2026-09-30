@@ -10,6 +10,7 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::models::{App, PanelKind, QuickView};
+use crate::scroll::Scrolled;
 use crate::scroll::WIDE_STEP;
 
 /// Whether the quick-view panel consumed `key`.

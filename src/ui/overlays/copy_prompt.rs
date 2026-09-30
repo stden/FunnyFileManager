@@ -52,7 +52,7 @@ fn copy_rows<'a>(prompt: &'a crate::copy::CopyPrompt, caption: &'a str) -> Vec<d
     let on = |field| prompt.field == field;
     let mut rows = vec![
         dialog::Row::Label(caption),
-        dialog::Row::input(&prompt.destination, on(CopyField::Destination), true),
+        dialog::Row::line(&prompt.destination, on(CopyField::Destination), true),
         dialog::Row::Divider,
         dialog::Row::Radio {
             caption: "&Access rights:",

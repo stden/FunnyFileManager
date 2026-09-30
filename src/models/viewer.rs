@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use super::{FileSize, Viewport};
 use crate::encoding::TextEncoding;
-use crate::scroll::{ScrollLeft, ScrollTop};
+use crate::scroll::{ScrollLeft, ScrollTop, Scrolled};
 
 /// What an empty file shows, so a blank screen is not mistaken for a failure.
 const EMPTY_FILE: &str = "<empty file>";
@@ -104,46 +104,10 @@ impl Viewer {
         usize::from(viewport.rows().saturating_sub(Self::CHROME_ROWS)).max(1)
     }
 
-    /// Furthest the view may scroll on a `page`-row body: the last line stops
-    /// on the bottom row, as Far's does, instead of climbing to the top and
-    /// leaving the screen empty below it.
-    fn max_scroll(&self, page: usize) -> usize {
-        self.lines.len().saturating_sub(page)
-    }
-
     /// Keep the view within a `page`-row body — what a terminal that grew
     /// taller after End needs, so no blank rows open up under the last line.
     pub fn clamp(&mut self, page: usize) {
         self.scroll_down(0, page);
-    }
-
-    pub fn scroll_down(&mut self, lines: usize, page: usize) {
-        self.scroll = self.scroll.down(lines, self.max_scroll(page));
-    }
-
-    pub fn scroll_up(&mut self, lines: usize) {
-        self.scroll = self.scroll.up(lines);
-    }
-
-    /// Far's Home: the first screen, back at the left edge.
-    pub fn scroll_to_top(&mut self) {
-        self.scroll = ScrollTop::TOP;
-        self.col = ScrollLeft::LEFT;
-    }
-
-    /// Far's End: the last screen, back at the left edge.
-    pub fn scroll_to_bottom(&mut self, page: usize) {
-        let last = self.max_scroll(page);
-        self.scroll = ScrollTop::TOP.down(last, last);
-        self.col = ScrollLeft::LEFT;
-    }
-
-    pub fn scroll_left(&mut self, cells: usize) {
-        self.col = self.col.left(cells);
-    }
-
-    pub fn scroll_right(&mut self, cells: usize) {
-        self.col = self.col.right(cells);
     }
 
     /// The name on the status line's left: a report's title, or a file's name.
@@ -172,6 +136,17 @@ impl Viewer {
 impl Default for Viewer {
     fn default() -> Self {
         Self::report(String::new(), Vec::new())
+    }
+}
+
+/// Up, down, Home, End and the pan, as the quick view scrolls too.
+impl Scrolled for Viewer {
+    fn position(&mut self) -> (&mut ScrollTop, &mut ScrollLeft) {
+        (&mut self.scroll, &mut self.col)
+    }
+
+    fn line_count(&self) -> usize {
+        self.lines.len()
     }
 }
 

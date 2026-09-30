@@ -177,3 +177,5 @@ fn from_str_and_from_string_agree() {
     );
     assert_eq!(LineEditor::from("cd /tmp").cursor().byte(), 7);
 }
+
+mod selection;

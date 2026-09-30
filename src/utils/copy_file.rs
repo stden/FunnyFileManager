@@ -27,6 +27,7 @@ pub enum FileMode {
 /// [`io::ErrorKind::AlreadyExists`]); and a copy that fails half-way is
 /// removed, because under its final name it would pass for a complete one.
 pub fn copy_file(src: &Path, dst: &Path, rules: CopyRules) -> io::Result<()> {
+    crate::progress::entering(src);
     // A FIFO would wait for a writer on the event loop, and a device node
     // copy until the disk filled: only a regular file is opened.
     let input = open_regular_file(src)?;
@@ -38,6 +39,9 @@ pub fn copy_file(src: &Path, dst: &Path, rules: CopyRules) -> io::Result<()> {
         .open(dst)
         .map_err(|error| super::FailedAt::wrap(dst, error))?;
     let result = write_contents(&input, &mut output, rules);
+    if result.is_ok() {
+        crate::progress::file_copied();
+    }
     if result.is_err() {
         // Ours to remove: the exclusive create above is what made it. The
         // copy's own error is the one to report; a failed cleanup must not
@@ -56,9 +60,7 @@ pub fn write_contents(input: &fs::File, output: &mut fs::File, rules: CopyRules)
     if looks_sparse(&source) {
         copy_keeping_holes(input, output)?;
     } else {
-        // Lets the kernel copy the blocks itself (`copy_file_range`), or
-        // share them on a filesystem that can.
-        io::copy(&mut &*input, output)?;
+        copy_in_chunks(input, output)?;
     }
     if rules.times == Times::Source {
         output.set_times(file_times(&source)?)?;
@@ -66,6 +68,27 @@ pub fn write_contents(input: &fs::File, output: &mut fs::File, rules: CopyRules)
     match rules.modes {
         FileMode::Source => output.set_permissions(source.permissions()),
         FileMode::Fresh => Ok(()),
+    }
+}
+
+/// How much of a file is copied between two progress reports. Small enough
+/// that a big file moves the progress bar several times a second on a slow
+/// disk, large enough that the reports cost nothing next to the copy.
+const PROGRESS_CHUNK: u64 = 4 * 1024 * 1024;
+
+/// Copy `input` into `output` a chunk at a time, reporting each chunk to the
+/// progress dialog. Each chunk is still an `io::copy`, which lets the kernel
+/// copy the blocks itself (`copy_file_range`), or share them on a filesystem
+/// that can: `Take<&File>` keeps that path.
+fn copy_in_chunks(input: &fs::File, output: &mut fs::File) -> io::Result<()> {
+    use std::io::Read;
+
+    loop {
+        let copied = io::copy(&mut input.take(PROGRESS_CHUNK), output)?;
+        if copied == 0 {
+            return Ok(());
+        }
+        crate::progress::copied(copied);
     }
 }
 
@@ -113,6 +136,7 @@ fn copy_keeping_holes(mut input: &fs::File, output: &mut fs::File) -> io::Result
         if input.take(HOLE_BLOCK).read_to_end(&mut block)? == 0 {
             break;
         }
+        crate::progress::copied(u64::try_from(block.len()).unwrap_or(u64::MAX));
         if is_all_zeros(&block) {
             // A hole: move the writer to where the reader now is.
             output.seek(SeekFrom::Start(input.stream_position()?))?;

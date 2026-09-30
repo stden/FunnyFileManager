@@ -22,7 +22,9 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
         return false;
     };
     match dialog.as_mut() {
-        MenuDialog::Prompt { input, .. } => edit(input, code, modifiers),
+        MenuDialog::Prompt { input, .. } => {
+            super::text_field::edit(input, code, modifiers, &mut app.clipboard);
+        }
         MenuDialog::Choices { rows, selected, .. } => navigate(selected, rows.len(), code),
     }
     true
@@ -43,26 +45,6 @@ fn accept(app: &mut App) -> std::io::Result<()> {
             }
             Ok(())
         }
-    }
-}
-
-/// One-line field editing shared by every prompt built on a [`LineEditor`].
-pub(super) fn edit(
-    input: &mut crate::lineedit::LineEditor,
-    code: KeyCode,
-    modifiers: KeyModifiers,
-) {
-    match code {
-        KeyCode::Char(ch) if !modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) => {
-            input.insert_char(ch);
-        }
-        KeyCode::Backspace => input.backspace(),
-        KeyCode::Delete => input.delete_forward(),
-        KeyCode::Left => input.left(),
-        KeyCode::Right => input.right(),
-        KeyCode::Home => input.home(),
-        KeyCode::End => input.end(),
-        _ => {}
     }
 }
 

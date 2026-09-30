@@ -9,13 +9,21 @@ use ratatui::{
 
 use super::super::{palette, Cells};
 use super::row::{
-    caption_gap, CHOICE_WIDTH, DROP_MARKER, INPUT_WIDTH, RADIO_GAP, RADIO_OFF, RADIO_ON,
+    caption_gap, FieldEdit, CHOICE_WIDTH, DROP_MARKER, INPUT_WIDTH, RADIO_GAP, RADIO_OFF, RADIO_ON,
 };
 use super::HOTKEY_MARK;
 
+/// How a text field is drawn: which of its rows, whether it has the focus,
+/// and where its caret and selection are.
+#[derive(Clone, Copy)]
+pub(super) struct FieldLook {
+    pub(super) focused: bool,
+    pub(super) edit: Option<FieldEdit>,
+}
+
 pub(super) fn input_line(
     value: &str,
-    focused: bool,
+    look: FieldLook,
     history: bool,
     style: Style,
     width: u16,
@@ -26,15 +34,7 @@ pub(super) fn input_line(
     let field = Style::default().bg(palette::FIELD_BG).fg(palette::FIELD_FG);
     let marker = usize::from(history);
     let room = usize::from(width).max(INPUT_WIDTH).saturating_sub(marker);
-    let text = format!("{value:<room$}");
-    let mut spans = vec![Span::styled(
-        text,
-        if focused {
-            field.add_modifier(Modifier::BOLD)
-        } else {
-            field
-        },
-    )];
+    let mut spans = field_spans(value, room, field, look);
     if history {
         spans.push(Span::styled(DROP_MARKER.to_string(), style));
     }
@@ -100,6 +100,39 @@ pub(super) fn checkbox_line(
     Line::from(spans)
 }
 
+/// `value` padded to `room` columns on the field's ground, bold when focused,
+/// and its selection, while it has the focus, drawn selected.
+fn field_spans(value: &str, room: usize, field: Style, look: FieldLook) -> Vec<Span<'static>> {
+    let ground = if look.focused {
+        field.add_modifier(Modifier::BOLD)
+    } else {
+        field
+    };
+    let padded = format!("{value:<room$}");
+    let selection = look
+        .edit
+        .and_then(|edit| edit.selection)
+        .filter(|_| look.focused);
+    let parts = selection.and_then(|(start, end)| {
+        Some((
+            padded.get(..start)?,
+            padded.get(start..end)?,
+            padded.get(end..)?,
+        ))
+    });
+    let Some((before, selected, after)) = parts else {
+        return vec![Span::styled(padded, ground)];
+    };
+    let chosen = Style::default()
+        .bg(palette::FIELD_SELECTED_BG)
+        .fg(palette::FIELD_SELECTED_FG);
+    vec![
+        Span::styled(before.to_owned(), ground),
+        Span::styled(selected.to_owned(), chosen),
+        Span::styled(after.to_owned(), ground),
+    ]
+}
+
 /// A caption and a boxed value on one line, which is how both a drop-down and
 /// a captioned text field are drawn.
 ///
@@ -109,7 +142,7 @@ pub(super) fn checkbox_line(
 pub(super) fn captioned_box<'a>(
     caption: &'a str,
     value: &'a str,
-    focused: bool,
+    look: FieldLook,
     enabled: bool,
     style: Style,
     accent: Style,
@@ -133,14 +166,7 @@ pub(super) fn captioned_box<'a>(
     } else {
         palette::DISABLED_FG
     });
-    spans.push(Span::styled(
-        format!("{value:<room$}"),
-        if focused {
-            field.add_modifier(Modifier::BOLD)
-        } else {
-            field
-        },
-    ));
+    spans.extend(field_spans(value, room, field, look));
     spans.push(Span::styled(DROP_MARKER.to_string(), base));
     Line::from(spans)
 }

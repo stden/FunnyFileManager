@@ -47,11 +47,21 @@ impl DescribePrompt {
         self.text.text()
     }
 
-    /// What stands to the right of the caret — the width `ui` backs the
-    /// terminal cursor up by from the end of the field.
+    /// What stands to the right of the caret.
     #[must_use]
     pub fn after_caret(&self) -> &str {
         self.text.after_cursor()
+    }
+
+    /// The field, to draw.
+    #[must_use]
+    pub const fn line(&self) -> &LineEditor {
+        &self.text
+    }
+
+    /// The field, to edit.
+    pub const fn line_mut(&mut self) -> &mut LineEditor {
+        &mut self.text
     }
 
     #[must_use]

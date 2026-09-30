@@ -64,3 +64,23 @@ fn the_link_dialog_asks_for_a_link_not_a_folder() {
     assert!(screen.contains("Link"), "{screen}");
     assert!(screen.contains("link"), "{screen}");
 }
+
+#[test]
+fn the_editor_bar_is_black_on_teal_like_the_viewers() {
+    let root = tempfile::TempDir::new().expect("directory");
+    let editor = crate::models::Editor::from_content(
+        "main.py".to_owned(),
+        root.path().join("main.py"),
+        "import os\n",
+    );
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("terminal");
+    let mut tracker = crate::mouse::DialogMouse::default();
+    terminal
+        .draw(|frame| render_editor(frame, &editor, &mut tracker))
+        .expect("frame");
+    let buffer = terminal.backend().buffer();
+    for x in 0..80 {
+        assert_eq!(buffer[(x, 0)].bg, palette::STATUS_BAR_BG, "column {x}");
+        assert_eq!(buffer[(x, 0)].fg, palette::STATUS_BAR_FG, "column {x}");
+    }
+}

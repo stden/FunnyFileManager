@@ -12,7 +12,7 @@ use ratatui::{
 
 use super::super::{fit_quoting_path, palette, Cells};
 use super::controls::{
-    captioned_box, checkbox_line, field_caret, hotkey_spans, input_line, radio_line,
+    captioned_box, checkbox_line, field_caret, hotkey_spans, input_line, radio_line, FieldLook,
 };
 use super::row::Row;
 use crate::status::PathMessage;
@@ -61,14 +61,22 @@ fn row_caret(row: &Row<'_>) -> Option<u16> {
         Row::Input {
             value,
             focused: true,
+            edit,
             ..
-        } => u16::try_from(Cells::of(value).get()).ok(),
+        } => {
+            let before = edit.map_or(*value, |edit| edit.before_caret(value));
+            u16::try_from(Cells::of(before).get()).ok()
+        }
         Row::Field {
             caption,
             value,
             focused: true,
             enabled: true,
-        } => Some(field_caret(caption, value)),
+            edit,
+        } => Some(field_caret(
+            caption,
+            edit.map_or(*value, |edit| edit.before_caret(value)),
+        )),
         _ => None,
     }
 }
@@ -83,8 +91,11 @@ fn render_row(
     framed: Rect,
 ) {
     let accent = style.fg(palette::HOTKEY).add_modifier(Modifier::BOLD);
-    let focused = row.is_focused();
-    let enabled = row.is_enabled();
+    let (focused, enabled) = (row.is_focused(), row.is_enabled());
+    let look = FieldLook {
+        focused,
+        edit: row.edit(),
+    };
     let line = match row {
         Row::Divider => {
             render_rule(f, style, area.y, framed);
@@ -94,16 +105,16 @@ fn render_row(
         Row::Label(text) => Line::from(hotkey_spans(text, style, accent)),
         Row::Plain(text) => Line::from(Span::styled((*text).to_owned(), style)),
         Row::Path(message) => path_line(message, style, width),
-        Row::Input { value, history, .. } => input_line(value, focused, *history, style, width),
+        Row::Input { value, history, .. } => input_line(value, look, *history, style, width),
+        Row::Choice { caption, value, .. } | Row::Field { caption, value, .. } => {
+            captioned_box(caption, value, look, enabled, style, accent, width)
+        }
         Row::Radio {
             caption,
             options,
             selected,
             ..
         } => radio_line(caption, options, *selected, focused, style),
-        Row::Choice { caption, value, .. } | Row::Field { caption, value, .. } => {
-            captioned_box(caption, value, focused, enabled, style, accent, width)
-        }
         Row::Checkbox { label, checked, .. } => {
             checkbox_line(label, *checked, focused, enabled, style)
         }

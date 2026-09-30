@@ -16,7 +16,7 @@ fn a_directory_cannot_be_transferred_into_itself() {
     mark(&mut app, "project");
 
     let mut dialog = settings(&tree);
-    dialog.destination = tree.to_string_lossy().into_owned();
+    dialog.destination.set_text(&tree.to_string_lossy());
     copy_with(&mut app, &dialog);
 
     assert!(

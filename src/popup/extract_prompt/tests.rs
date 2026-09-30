@@ -74,15 +74,15 @@ fn typing_and_backspace_edit_the_destination() {
     ))));
     process_popup_input(&mut app, key(KeyCode::Char('/')));
     process_popup_input(&mut app, key(KeyCode::Char('x')));
-    assert_eq!(prompt(&app).destination, "/tmp/x");
+    assert_eq!(prompt(&app).destination.text(), "/tmp/x");
     process_popup_input(&mut app, key(KeyCode::Backspace));
-    assert_eq!(prompt(&app).destination, "/tmp/");
+    assert_eq!(prompt(&app).destination.text(), "/tmp/");
     // A control chord is a command, never a character.
     process_popup_input(
         &mut app,
         KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
     );
-    assert_eq!(prompt(&app).destination, "/tmp/");
+    assert_eq!(prompt(&app).destination.text(), "/tmp/");
 }
 
 #[test]

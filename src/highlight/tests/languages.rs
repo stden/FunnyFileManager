@@ -81,3 +81,31 @@ fn powershell_variables_include_a_scope_qualifier() {
     assert_eq!(token_of(&out, "Write-Host"), Token::Type);
     assert_eq!(token_of(&out, "$env:PATH"), Token::Type);
 }
+
+/// Kotlin has its own words: `fun`, `val` and `when` were plain text under
+/// the C table it used to share.
+#[test]
+fn kotlin_keywords_types_annotations_and_strings_are_recognised() {
+    let out = runs("Main.kt", r#"    val name: String = "hi" // greet"#);
+    assert_eq!(token_of(&out, "val"), Token::Keyword);
+    assert_eq!(token_of(&out, "String"), Token::Type);
+    assert_eq!(token_of(&out, r#""hi""#), Token::Str);
+    assert_eq!(token_of(&out, "// greet"), Token::Comment);
+
+    let out = runs(
+        "Main.kt",
+        "suspend fun load(id: Int): Unit = when (id) { else -> Unit }",
+    );
+    for keyword in ["suspend", "fun", "when", "else"] {
+        assert_eq!(token_of(&out, keyword), Token::Keyword, "{keyword}");
+    }
+    assert_eq!(token_of(&out, "Int"), Token::Type);
+    assert_eq!(runs("Main.kt", "@JvmStatic")[0].1, Token::Meta);
+}
+
+/// Gradle's Kotlin build scripts are Kotlin.
+#[test]
+fn a_kotlin_script_is_kotlin() {
+    let out = runs("build.gradle.kts", r#"val kotlinVersion = "2.1.0""#);
+    assert_eq!(token_of(&out, "val"), Token::Keyword);
+}

@@ -89,7 +89,7 @@ fn test_new_file_already_exists() -> io::Result<()> {
     fs::write(temp.path().join("exists.txt"), b"data").unwrap();
 
     let (mut app, mut terminal) = setup_app(&temp)?;
-    app.set_overlay(Overlay::NewFileInput("exists.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("exists.txt".to_owned().into()));
 
     let events = vec![
         key(KeyCode::Enter), // try to create existing file

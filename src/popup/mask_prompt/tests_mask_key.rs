@@ -4,14 +4,19 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 use super::{mask_key, MaskKey};
 use crate::mask::Mask;
-use crate::models::{MaskPrompt, MaskPurpose};
+use crate::models::{ClipboardSlot, MaskPrompt, MaskPurpose};
 
 fn offering(purpose: MaskPurpose, offered: &str) -> MaskPrompt {
     MaskPrompt::new(purpose, offered)
 }
 
 fn key(prompt: &mut MaskPrompt, code: KeyCode) -> MaskKey {
-    mask_key(prompt, code, KeyModifiers::NONE)
+    mask_key(
+        prompt,
+        code,
+        KeyModifiers::NONE,
+        &mut ClipboardSlot::default(),
+    )
 }
 
 #[test]
@@ -58,13 +63,19 @@ fn left_and_right_walk_the_buttons_only_from_a_button() {
     assert!(!prompt.on_cancel(), "on Cancel Right goes back to OK");
 }
 
-/// A Control or Alt chord is not text: the field keeps its offer.
+/// A Control or Alt chord is not text: the field keeps its offer. (Ctrl+X
+/// would cut it: that one is the clipboard's.)
 #[test]
 fn control_and_alt_characters_do_not_type() {
     for modifiers in [KeyModifiers::CONTROL, KeyModifiers::ALT] {
         let mut prompt = offering(MaskPurpose::Select, "*.txt");
         assert_eq!(
-            mask_key(&mut prompt, KeyCode::Char('x'), modifiers),
+            mask_key(
+                &mut prompt,
+                KeyCode::Char('q'),
+                modifiers,
+                &mut ClipboardSlot::default()
+            ),
             MaskKey::Editing
         );
         assert_eq!(prompt.mask(), "*.txt");

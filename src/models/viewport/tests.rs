@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::models::{App, Overlay, Viewer};
+use crate::scroll::Scrolled;
 
 /// A hundred-line report open in a fresh app.
 fn app_with_long_viewer() -> App {

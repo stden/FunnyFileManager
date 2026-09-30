@@ -1,6 +1,7 @@
 //! Purpose: Ctrl+Q on and off, and a preview that follows the cursor or the tree.
 
 use super::*;
+use crate::scroll::Scrolled;
 
 #[test]
 fn ctrl_q_previews_the_active_cursor_in_the_passive_panel() {

@@ -9,10 +9,11 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::action::tasks::{normalize, HELP};
+use crate::models::ClipboardSlot;
 use crate::models::{App, ConfirmButton, FormFocus, Modal, NiceStep, ReniceButton};
 use crate::ops::tasks::control;
 use crate::popup::mask_prompt::{mask_key, MaskKey};
-use crate::popup::menu_dialog::edit;
+use crate::popup::text_field::edit;
 use crate::scroll::ScrollTop;
 
 /// The help page: the list keys scroll it; Esc, F1, F10, `q`, `h` and `?`
@@ -54,14 +55,14 @@ pub(super) fn dismiss(app: &mut App, key: KeyEvent) {
 
 /// Gray `+` and `-`: the panel's own mask dialog keys; accepting marks or
 /// unmarks the shown processes whose name matches, and says how many.
-pub(super) fn mask(app: &mut App, key: KeyEvent) {
+pub(super) fn mask(app: &mut App, key: KeyEvent, clipboard: &mut ClipboardSlot) {
     let Some(list) = app.task_list_mut() else {
         return;
     };
     let Modal::Mask(prompt) = list.modal_mut() else {
         return;
     };
-    match mask_key(prompt, key.code, key.modifiers) {
+    match mask_key(prompt, key.code, key.modifiers, clipboard) {
         MaskKey::Editing => {}
         MaskKey::Cancelled => list.close_modal(),
         MaskKey::Accepted(purpose, mask) => {
@@ -120,7 +121,7 @@ const fn hotkey(letter: char) -> Option<ConfirmButton> {
 /// Shift+Tab move between the field, Set and Cancel; Enter presses Set,
 /// which does nothing while the value is not a nice value, or Cancel when
 /// it is focused; Esc and F10 cancel.
-pub(super) fn priority(app: &mut App, key: KeyEvent) {
+pub(super) fn priority(app: &mut App, key: KeyEvent, clipboard: &mut ClipboardSlot) {
     let Some(list) = app.task_list_mut() else {
         return;
     };
@@ -135,7 +136,9 @@ pub(super) fn priority(app: &mut App, key: KeyEvent) {
         KeyCode::BackTab => form.focus_previous(),
         KeyCode::Up => form.step(NiceStep::Raise),
         KeyCode::Down => form.step(NiceStep::Lower),
-        code if form.focus() == FormFocus::Field => edit(form.value_mut(), code, key.modifiers),
+        code if form.focus() == FormFocus::Field => {
+            edit(form.value_mut(), code, key.modifiers, clipboard);
+        }
         _ => {}
     }
 }

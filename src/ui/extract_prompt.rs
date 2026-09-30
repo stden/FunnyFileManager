@@ -19,7 +19,7 @@ pub(super) fn render(
     let caption = dialog.caption();
     let rows = [
         Row::Label(&caption),
-        Row::input(
+        Row::line(
             &dialog.destination,
             dialog.field == ExtractField::Destination,
             true,

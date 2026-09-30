@@ -101,6 +101,19 @@ fn a_folder_list_takes_paths_and_a_rename_refuses_them() {
 fn a_rename_to_the_same_name_is_nothing_to_do() {
     let mut prompt = NamePrompt::rename(FileName::new("notes.txt"));
     assert_eq!(prompt.target(), None, "unchanged");
+    // The name opens selected: End keeps it and moves past it.
+    if let Some(line) = prompt.focused_line_mut() {
+        line.end();
+    }
     prompt.push('!');
     assert_eq!(prompt.target(), Some("notes.txt!"));
+}
+
+/// Shift+F6 opens on the whole name selected, so typing replaces it.
+#[test]
+fn a_rename_opens_on_the_name_selected_and_typing_replaces_it() {
+    let mut prompt = NamePrompt::rename(FileName::new("notes.txt"));
+    assert_eq!(prompt.name_line().selected_text(), Some("notes.txt"));
+    prompt.push('n');
+    assert_eq!(prompt.name(), "n");
 }

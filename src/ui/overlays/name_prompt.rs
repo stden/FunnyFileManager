@@ -55,7 +55,7 @@ fn name_prompt_rows<'a>(
     let on = |field: NameField| prompt.field() == field;
     let mut rows = vec![
         dialog::Row::Label(question),
-        dialog::Row::input(prompt.name(), on(NameField::Name), true),
+        dialog::Row::line(prompt.name_line(), on(NameField::Name), true),
     ];
     if prompt.allows(NameField::Link) {
         rows.extend(link_option_rows(prompt));
@@ -81,11 +81,11 @@ fn link_option_rows(prompt: &crate::models::NamePrompt) -> [dialog::Row<'_>; 3] 
             value: prompt.link().label(),
             focused: on(NameField::Link),
         },
-        dialog::Row::Field {
-            caption: "&Target:",
-            value: prompt.link_target(),
-            focused: on(NameField::Target),
-            enabled: prompt.allows(NameField::Target),
-        },
+        dialog::Row::field(
+            "&Target:",
+            prompt.target_line(),
+            on(NameField::Target),
+            prompt.allows(NameField::Target),
+        ),
     ]
 }

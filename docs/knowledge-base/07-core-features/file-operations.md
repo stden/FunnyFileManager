@@ -126,8 +126,9 @@ path, relative to the active panel. What was typed means, following Far
   folder once its contents are in; a link its own times (`AT_SYMLINK_NOFOLLOW`),
   never its target's (`utils/keep_times.rs`).
 - Removes a partially written destination when an individual copy fails.
-- Continues a marked-item batch after an individual failure, reports the
-  successful and failed counts, clears marks, and then refreshes both panels.
+- Stops a marked-item batch at the first entry it cannot copy, as Far does,
+  and shows why (see "Stopped by an error" below); the status line counts
+  what was copied. Marks are cleared and both panels refreshed either way.
 
 ## 📋 Move (F6)
 
@@ -158,8 +159,9 @@ operation also remain changed.
   "…the file?" — and so does Alt+Del's wipe question; several are counted.
 - Confirmation in `popup` calls `handle_delete`.
 - Files use `fs::remove_file`; directories use `fs::remove_dir_all`.
-- Per-path failures are collected into the resulting status instead of stopping
-  the remaining deletions.
+- Stops at the first entry that will not go and shows why (see "Stopped by
+  an error" below); nothing after it is touched. A read-only file is
+  removed, as `remove_dir_all` removes one inside a folder.
 - Marks are cleared after the attempts, then both panels are refreshed. A
   refresh failure is propagated.
 
@@ -183,6 +185,73 @@ operation also remain changed.
 - On successful creation, a panel refresh is attempted. The current
   implementation deliberately does not propagate that refresh error.
 
+## 📊 Progress (F5, F6, F8)
+
+A copy, move or delete that runs longer than 100 ms shows Far's progress
+dialog: the operation, the file or folder it is at, a bar with its
+percentage, `Files: done of total` (and the sizes for a copy or move) and the
+elapsed time. It is redrawn at most once per 100 ms (`progress::SHOWN_EVERY`),
+so the file name changes at most ten times a second.
+
+- A copy and a delete first measure the selection without following links
+  ("Scanning"); the bar counts bytes for a copy and files for a delete.
+- A move measures nothing up front, since a rename takes no time: its bar
+  counts the selected entries, and a move across filesystems adds the bytes
+  of what it has to copy when it comes to it.
+- A file is copied in 4 MiB `io::copy` chunks (still `copy_file_range`
+  underneath), so the bar moves inside a big file too.
+- With the dialog shown, a folder is deleted entry by entry
+  (`ops/file/entry.rs::remove_tree_reporting`) instead of with one
+  `remove_dir_all`, never following a link; whatever that walk cannot remove
+  gets a `remove_dir_all`, whose error is the one reported. Like the move
+  fallback's removal, the walk goes by path.
+- The operation still runs on the UI thread and cannot yet be cancelled
+  with Esc.
+- The reports are thread-local and cost nothing without a painter, which only
+  the production session installs: tests install a recording painter
+  (`ops/file/tests_progress.rs`).
+
+## ⛔ Stopped by an error (F5, F6, F8)
+
+Copy, move and delete stop at the first entry they cannot handle and open
+`Overlay::OperationFailed` (`models/overlay/operation_failed.rs`), Far's red
+"Cannot copy / move / delete" box: the path (named by where inside a folder
+it failed, `utils::FailedAt`), the system's error, why in plain words when
+it is a refusal, and "Stopped: N done, M not started". The status line
+still counts what was done.
+
+Why (`ops/file/denied.rs`, `Denial`):
+
+- in use by another program (Windows' sharing or lock violation);
+- read-only (Windows attribute);
+- the account's rights: "an administrator may have them" when FFM is not
+  elevated, "denies even an administrator" when it is;
+- on Unix: the folder holding it takes no change from this user, another
+  user owns it, or its mode does not allow it.
+
+**Retry as administrator** (Windows, FFM not elevated, a refusal an
+administrator may get past; `ops/file/elevated/`). The button — the default,
+also `A` or a click — asks Windows for the rights (UAC) and starts a helper:
+this same program with `--elevated-helper <pipe> <ffm pid>`, hidden, running
+as an administrator. It redoes the failed entry and those not started, with
+the F5/F6 dialog's settings, and stops where FFM would. The helper stays for
+the rest of the session: every later refusal is handed to it at once, with
+no dialog and no second prompt. It ends when FFM exits and the pipe closes.
+
+- FFM creates the pipe (`platform/windows/pipe.rs`, first and only
+  instance, local clients only, a random name) before Windows starts the
+  helper, and lets it in only if the process connected is the one Windows
+  started; the helper serves only if the process at the other end is the
+  FFM whose id it was given. A malformed request is refused, never read as
+  a delete.
+- One JSON document a line (`elevated/protocol.rs`): FFM sends an
+  `ElevatedRetry`, the helper answers with progress snapshots, which FFM
+  draws in its own progress dialog, then an `Outcome`.
+- Saying no to the prompt leaves "Administrator rights were not granted" in
+  the status line. What even the administrator could not do is shown in the
+  same box, with nothing more to offer.
+- The quick F5/F6 (no dialog) offers no retry: it has no settings to send.
+
 ## 🧰 Utilities
 
 - `unique_destination(base, filename)` — adds a `_N` suffix until a free path
@@ -197,9 +266,9 @@ operation also remain changed.
 ## 🧩 Error and Refresh Semantics
 
 The operations return `io::Result<()>`, but they are not a transaction layer.
-Copy and move collect per-item transfer failures into status and continue the
-batch; their returned error is reserved for the final panel refresh. Delete
-does the same for per-path removal failures. Mkdir and file creation can return
+Copy, move and delete stop at the first item that fails, report it in the
+status line and in `Overlay::OperationFailed`, and return `Ok`; their returned
+error is reserved for the final panel refresh. Mkdir and file creation can return
 their direct filesystem errors. Popup handling and the main-view `report`
 boundary translate operation errors into status instead of terminating the
 event loop.

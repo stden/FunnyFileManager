@@ -9,7 +9,7 @@
 
 use crossterm::event::{KeyCode, KeyModifiers};
 
-use crate::models::{App, Overlay};
+use crate::models::{App, ExtractField, Overlay};
 
 pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> bool {
     let Overlay::ExtractPrompt(prompt) = &mut app.overlay else {
@@ -17,17 +17,17 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
     };
     match code {
         KeyCode::Esc | KeyCode::F(10) => app.close_overlay(),
-        KeyCode::Tab | KeyCode::Down | KeyCode::Right => prompt.advance(true),
-        KeyCode::BackTab | KeyCode::Up | KeyCode::Left => prompt.advance(false),
-        KeyCode::Backspace => prompt.backspace(),
+        KeyCode::Tab | KeyCode::Down => prompt.advance(true),
+        KeyCode::BackTab | KeyCode::Up => prompt.advance(false),
         KeyCode::Enter if prompt.on_cancel() => app.close_overlay(),
         KeyCode::Enter => crate::ops::archive::run_extract(app),
-        KeyCode::Char(ch)
-            if !modifiers.contains(KeyModifiers::CONTROL)
-                && !modifiers.contains(KeyModifiers::ALT) =>
-        {
-            prompt.push(ch);
+        // In the field the arrows move the caret; on the buttons they move
+        // between them.
+        _ if prompt.field == ExtractField::Destination => {
+            super::text_field::edit(&mut prompt.destination, code, modifiers, &mut app.clipboard);
         }
+        KeyCode::Right => prompt.advance(true),
+        KeyCode::Left => prompt.advance(false),
         _ => {}
     }
     true

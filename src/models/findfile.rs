@@ -3,6 +3,8 @@
 //! State only: the operations that fill it live in `ops`, and the keys that
 //! move through it in `popup`.
 
+use crate::lineedit::LineEditor;
+
 /// Which control of the Find file dialog has the cursor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FindFileField {
@@ -17,17 +19,17 @@ pub enum FindFileField {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FindFile {
     /// The name mask.
-    pub mask: String,
+    pub mask: LineEditor,
     /// Far's "Containing text".
-    pub containing: String,
+    pub containing: LineEditor,
     field: FindFileField,
 }
 
 impl Default for FindFile {
     fn default() -> Self {
         Self {
-            mask: "*".to_owned(),
-            containing: String::new(),
+            mask: LineEditor::new("*"),
+            containing: LineEditor::default(),
             field: FindFileField::Mask,
         }
     }
@@ -66,18 +68,19 @@ impl FindFile {
     }
 
     pub fn push(&mut self, ch: char) {
-        if let Some(text) = self.active_text() {
-            text.push(ch);
+        if let Some(line) = self.active_line_mut() {
+            line.insert_char(ch);
         }
     }
 
     pub fn backspace(&mut self) {
-        if let Some(text) = self.active_text() {
-            text.pop();
+        if let Some(line) = self.active_line_mut() {
+            line.backspace();
         }
     }
 
-    fn active_text(&mut self) -> Option<&mut String> {
+    /// The text field the cursor is on, if it is on one.
+    pub const fn active_line_mut(&mut self) -> Option<&mut LineEditor> {
         match self.field {
             FindFileField::Mask => Some(&mut self.mask),
             FindFileField::Containing => Some(&mut self.containing),

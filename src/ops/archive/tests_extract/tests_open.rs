@@ -17,7 +17,7 @@ fn open_offers_the_other_panel_and_the_archive_under_the_cursor() {
         panic!("dialog opens");
     };
     assert_eq!(prompt.archives, vec![archive]);
-    assert_eq!(prompt.destination, right.to_string_lossy());
+    assert_eq!(prompt.destination.text(), right.to_string_lossy());
     assert!(prompt.can_extract());
 }
 

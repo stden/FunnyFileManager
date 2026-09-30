@@ -29,10 +29,10 @@ const SCREEN_W: u16 = 90;
 const SCREEN_H: u16 = 20;
 
 const CODE_KEYWORD: Color = Color::Rgb(255, 255, 255);
-const CODE_STRING: Color = Color::Rgb(235, 185, 70);
+const CODE_STRING: Color = Color::Rgb(255, 255, 0);
 
-const CODE_COMMENT: Color = Color::Rgb(215, 135, 65);
-const CODE_TYPE: Color = Color::Rgb(140, 220, 200);
+const CODE_COMMENT: Color = Color::Rgb(0, 128, 128);
+const CODE_TYPE: Color = Color::Rgb(0, 255, 0);
 
 #[expect(
     clippy::expect_used,

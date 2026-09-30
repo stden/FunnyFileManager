@@ -91,18 +91,18 @@ fn rows<'a>(
     rows.extend(groups.iter().map(|group| dialog::Row::Label(&group.text)));
     rows.extend([
         dialog::Row::Divider,
-        dialog::Row::Field {
-            caption: "&Modification:",
-            value: &dialog.modified.current,
-            focused: on(AttributesField::Modified),
-            enabled: true,
-        },
-        dialog::Row::Field {
-            caption: "&Access time:",
-            value: &dialog.accessed.current,
-            focused: on(AttributesField::Accessed),
-            enabled: true,
-        },
+        dialog::Row::text_field(
+            "&Modification:",
+            &dialog.modified.current,
+            on(AttributesField::Modified),
+            true,
+        ),
+        dialog::Row::text_field(
+            "&Access time:",
+            &dialog.accessed.current,
+            on(AttributesField::Accessed),
+            true,
+        ),
         dialog::Row::Divider,
         dialog::Row::Checkbox {
             label: "Process &subfolders",

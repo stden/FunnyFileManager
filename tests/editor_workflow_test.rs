@@ -29,8 +29,8 @@ const REPLACEMENT: &str = "GREETING=\"new界\"\r\nNEXT=\"fresh🙂\"\r\n";
 const SAVED: &str = "GREETING=\"new界\"\r\nNEXT=\"fresh🙂\"\r\nPORT=3000\r\n";
 const BLUE: Color = Color::Rgb(0, 0, 128);
 const SELECTED: Color = Color::Rgb(85, 150, 216);
-const ENV_KEY: Color = Color::Rgb(140, 220, 200);
-const ENV_VALUE: Color = Color::Rgb(235, 185, 70);
+const ENV_KEY: Color = Color::Rgb(0, 255, 0);
+const ENV_VALUE: Color = Color::Rgb(255, 255, 0);
 
 enum Step {
     Key(KeyCode, KeyModifiers),

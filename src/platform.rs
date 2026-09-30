@@ -27,14 +27,18 @@ pub use unix::{hang_up_process_group, has_exited};
 #[cfg(unix)]
 pub use unix::{set_niceness, signal_process};
 #[cfg(windows)]
+pub use windows::{accept, client_process_id, create_pipe, open_pipe, server_process_id};
+#[cfg(windows)]
 pub use windows::{
     broadcast_environment_change, read_registry_string, update_registry_string, RegistryHive,
 };
 #[cfg(windows)]
+pub use windows::{is_elevated, launch_as_administrator, ElevatedProcess};
+#[cfg(windows)]
 pub use windows::{logical_drives, set_file_attributes};
 
 /// Whether this process can overwrite anything. Unix-only here: Windows
-/// elevation is a different question, and nothing in the file manager asks it.
+/// elevation is a different question, asked by `is_elevated`.
 #[cfg(not(unix))]
 pub const fn is_root() -> bool {
     false

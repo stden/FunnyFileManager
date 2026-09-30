@@ -19,13 +19,13 @@ fn query(app: &App) -> Option<(String, String)> {
     let Overlay::FindFile(dialog) = &app.overlay else {
         return None;
     };
-    let mask = dialog.mask.trim();
+    let mask = dialog.mask.text().trim();
     let mask = if mask.is_empty() {
         "*".to_owned()
     } else {
         mask.to_owned()
     };
-    Some((mask, dialog.containing.trim().to_owned()))
+    Some((mask, dialog.containing.text().trim().to_owned()))
 }
 
 #[cfg(test)]

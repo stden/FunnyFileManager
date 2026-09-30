@@ -8,6 +8,7 @@
 
 mod kill;
 mod motion;
+mod selection;
 
 /// A byte offset into a [`LineEditor`]'s text that sits on a `char` boundary.
 ///
@@ -27,7 +28,8 @@ impl Caret {
     }
 }
 
-/// A single editable line: the text, the caret, and one slot of killed text.
+/// A single editable line: the text, the caret, the selection, and one slot
+/// of killed text.
 ///
 /// Fields are private because the type carries an invariant the compiler cannot
 /// state: `cursor` is a byte index into `text` that always sits on a `char`
@@ -37,6 +39,10 @@ impl Caret {
 pub struct LineEditor {
     text: String,
     cursor: usize,
+    /// Where a selection started, when there is one: the selection runs from
+    /// here to the caret, either way round. On a `char` boundary, like the
+    /// caret, and cleared by every edit that does not keep it.
+    anchor: Option<usize>,
     /// Most recently killed run (`Ctrl+W` / `Ctrl+U` / `Ctrl+K`), yanked back
     /// by `Ctrl+Y`. One slot, not bash's rotating ring: `Alt+Y` rotation has no
     /// use in a file manager's command line, and a ring is state to keep
@@ -52,6 +58,7 @@ impl LineEditor {
         Self {
             cursor: text.len(),
             text: text.to_owned(),
+            anchor: None,
             kill: String::new(),
         }
     }
@@ -108,6 +115,7 @@ impl LineEditor {
     /// Replace the whole line, caret to the end (history recall, ghost accept,
     /// reverse-search accept).
     pub fn set_text(&mut self, text: &str) {
+        self.anchor = None;
         self.text.clear();
         self.text.push_str(text);
         self.cursor = self.text.len();
@@ -120,6 +128,7 @@ impl LineEditor {
     /// user was typing instead of jumping to the end of a line they did not
     /// mean to edit.
     pub fn set_split(&mut self, head: &str, tail: &str) {
+        self.anchor = None;
         self.text.clear();
         self.text.push_str(head);
         self.text.push_str(tail);
@@ -129,24 +138,33 @@ impl LineEditor {
     /// Empty the line. The kill slot survives, so `Ctrl+C` then `Ctrl+Y` still
     /// pastes what was killed before — as in bash.
     pub fn clear(&mut self) {
+        self.anchor = None;
         self.text.clear();
         self.cursor = 0;
     }
 
     // ─── editing ──────────────────────────────────────────────────────────
 
+    /// Type `ch` at the caret, over the selection if there is one.
     pub fn insert_char(&mut self, ch: char) {
+        self.delete_selection();
         self.text.insert(self.cursor, ch);
         self.cursor += ch.len_utf8();
     }
 
+    /// Insert `text` at the caret, over the selection if there is one.
     pub fn insert_str(&mut self, text: &str) {
+        self.delete_selection();
         self.text.insert_str(self.cursor, text);
         self.cursor += text.len();
     }
 
-    /// Delete the character before the caret. A no-op at the start of the line.
+    /// Delete the selection, or else the character before the caret. A no-op
+    /// at the start of the line.
     pub fn backspace(&mut self) {
+        if self.delete_selection() {
+            return;
+        }
         let start = self.prev_boundary();
         if start == self.cursor {
             return;
@@ -155,13 +173,31 @@ impl LineEditor {
         self.cursor = start;
     }
 
-    /// Delete the character under the caret. A no-op at the end of the line.
+    /// Delete the selection, or else the character under the caret. A no-op
+    /// at the end of the line.
     pub fn delete_forward(&mut self) {
+        if self.delete_selection() {
+            return;
+        }
         let end = self.next_boundary();
         if end == self.cursor {
             return;
         }
         self.text.replace_range(self.cursor..end, "");
+    }
+}
+
+/// Saved and sent as its text alone: the caret, the selection and the kill
+/// slot belong to the editing, not to what was typed.
+impl serde::Serialize for LineEditor {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.text)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for LineEditor {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        String::deserialize(deserializer).map(Self::from)
     }
 }
 
@@ -176,6 +212,7 @@ impl From<String> for LineEditor {
         Self {
             cursor: text.len(),
             text,
+            anchor: None,
             kill: String::new(),
         }
     }

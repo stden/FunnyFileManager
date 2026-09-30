@@ -67,7 +67,7 @@ fn test_ui_renders_delete_confirmation() -> io::Result<()> {
 fn test_ui_renders_new_file_input() -> io::Result<()> {
     let temp = TempDir::new()?;
     let mut app = setup_app(&temp)?;
-    app.set_overlay(Overlay::NewFileInput("newfile.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("newfile.txt".to_owned().into()));
     let mut terminal = setup_terminal()?;
     terminal.draw(|f| ui::ui(f, &mut app))?;
     Ok(())

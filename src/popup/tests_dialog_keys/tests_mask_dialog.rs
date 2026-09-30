@@ -81,6 +81,7 @@ fn backspace_edits_the_mask() {
         MaskPurpose::Select,
         "*.rs",
     )));
+    press(&mut app, KeyCode::End);
     press(&mut app, KeyCode::Backspace);
     let Overlay::MaskPrompt(prompt) = &app.overlay else {
         panic!("still open");

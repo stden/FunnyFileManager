@@ -11,13 +11,18 @@ mod path_env;
 
 use editor_search::{process_search_prompt, repeat_search};
 
-/// A terminal paste: text for the editor's document, or for the task list's
-/// open bar. Nothing else takes a paste as text.
+/// A terminal paste: text for the editor's document, for the task list's open
+/// bar, or for the text field that has the cursor in any other dialog — as one
+/// line, over its selection.
 pub(crate) fn paste_text(app: &mut App, text: &str) {
     match app.overlay {
         Overlay::Editor(_) => editor::paste_text(app, text),
         Overlay::Tasks(_) => tasks::paste(app, text),
-        _ => {}
+        _ => {
+            if let Some(line) = app.focused_text_field() {
+                line.insert_str(&text_field::one_line(text));
+            }
+        }
     }
 }
 
@@ -47,6 +52,7 @@ pub fn process_popup_input(app: &mut App, key: KeyEvent) -> bool {
         Overlay::CommandLine(_) => command_line::process(app, key),
         Overlay::DriveSelection { .. } => drives::process(app, code),
         Overlay::DeleteConfirm(_) => confirmation::delete(app, code),
+        Overlay::OperationFailed(_) => confirmation::operation_failed(app, code),
         Overlay::NewFileInput(_) => new_file::process(app, code, modifiers),
         #[cfg(feature = "keepass")]
         Overlay::Kdbx(_) => kdbx::process_kdbx_input(app, code, modifiers),
@@ -143,6 +149,7 @@ mod shortcuts;
 mod sortmenu;
 mod stub;
 mod tasks;
+pub(crate) mod text_field;
 pub(crate) mod tree;
 mod usermenu;
 mod view_history;
@@ -164,5 +171,7 @@ mod tests_console_and_editor_modes;
 mod tests_dialog_keys;
 #[cfg(test)]
 mod tests_editor_search;
+#[cfg(test)]
+mod tests_text_fields;
 #[cfg(test)]
 mod tests_viewer_keys;

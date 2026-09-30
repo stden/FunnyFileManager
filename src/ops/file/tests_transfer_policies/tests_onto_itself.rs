@@ -131,7 +131,9 @@ fn a_nested_destination_inside_the_source_leaves_nothing_behind() {
     mark(&mut app, "project");
 
     let mut dialog = settings(&tree);
-    dialog.destination = tree.join("archive/2026").to_string_lossy().into_owned();
+    dialog
+        .destination
+        .set_text(&tree.join("archive/2026").to_string_lossy());
     copy_with(&mut app, &dialog);
 
     assert!(!tree.join("archive").exists(), "nothing was created inside");

@@ -97,19 +97,19 @@ fn test_process_popup_input_new_file_input() -> io::Result<()> {
     let temp_dir = TempDir::new().expect("test setup");
     let mut app = App::new().expect("test setup");
     app.left_panel.path = temp_dir.path().to_path_buf();
-    app.set_overlay(Overlay::NewFileInput(String::new()));
+    app.set_overlay(Overlay::NewFileInput(String::new().into()));
 
     for character in "new.txt".chars() {
         process_popup_input(&mut app, key_event(KeyCode::Char(character)));
     }
 
     if let Overlay::NewFileInput(input) = &app.overlay {
-        assert_eq!(input, "new.txt");
+        assert_eq!(input.text(), "new.txt");
     }
 
     process_popup_input(&mut app, key_event(KeyCode::Backspace));
     if let Overlay::NewFileInput(input) = &app.overlay {
-        assert_eq!(input, "new.tx");
+        assert_eq!(input.text(), "new.tx");
     }
     process_popup_input(&mut app, key_event(KeyCode::Char('t')));
 
@@ -118,13 +118,13 @@ fn test_process_popup_input_new_file_input() -> io::Result<()> {
     assert!(temp_dir.path().join("new.txt").exists());
 
     // Test empty filename
-    app.set_overlay(Overlay::NewFileInput("  ".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("  ".to_owned().into()));
     process_popup_input(&mut app, key_event(KeyCode::Enter));
     assert!(!matches!(app.overlay, Overlay::NewFileInput(_)));
     assert!(app.status_text().contains("cannot be empty"));
 
     // Test existing file
-    app.set_overlay(Overlay::NewFileInput("new.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("new.txt".to_owned().into()));
     process_popup_input(&mut app, key_event(KeyCode::Enter));
     assert!(!matches!(app.overlay, Overlay::NewFileInput(_)));
     assert!(app.status_text().contains("already exists"));

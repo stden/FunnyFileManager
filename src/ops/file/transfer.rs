@@ -52,6 +52,7 @@ pub(super) fn move_into(source: &Path, target_dir: &Path) -> io::Result<PathBuf>
         // Across filesystems: exclusive copy + delete. `?` after a successful
         // exclusive copy so the source is only removed once the whole copy
         // has landed.
+        crate::progress::copying_across(source);
         match copy_entry(source, &dest, CopyRules::MOVE) {
             Ok(()) => {
                 remove_moved(source, &dest)?;
@@ -70,13 +71,19 @@ pub(super) fn move_into(source: &Path, target_dir: &Path) -> io::Result<PathBuf>
     ))
 }
 
-/// What a batch of copies/moves achieved. One failing item must not abandon the
-/// rest of the batch, so failures are collected instead of propagated.
+/// What a batch of copies/moves achieved. The batch stops at the first item
+/// that fails, as Far's does, so the user sees what went wrong before
+/// anything else is touched; the failure is collected instead of propagated,
+/// so what was done before it is still reported.
 #[derive(Default)]
 pub(super) struct BatchOutcome {
     pub(super) count: usize,
     pub(super) first_dest: Option<PathBuf>,
     pub(super) errors: Vec<FailedEntry>,
+    /// Selected items not started because an earlier one failed.
+    pub(super) left: usize,
+    /// Why the first failure happened, when it was a refusal.
+    pub(super) denial: Option<crate::models::Denial>,
 }
 
 impl BatchOutcome {
@@ -95,7 +102,15 @@ impl BatchOutcome {
             return;
         }
         let failed = FailedAt::of(&error).map_or(source, |at| at.path());
+        if self.errors.is_empty() {
+            self.denial = super::denied::classify(failed, &error);
+        }
         self.errors.push(FailedEntry::new(failed, &error));
+    }
+
+    /// Whether the batch has to stop: an item failed.
+    pub(super) fn stopped(&self) -> bool {
+        !self.errors.is_empty()
     }
 
     fn landed(&mut self, dest: PathBuf) {
@@ -110,64 +125,100 @@ fn transfer_all(
     transfer: fn(&Path, &Path) -> io::Result<PathBuf>,
 ) -> BatchOutcome {
     let mut outcome = BatchOutcome::default();
-    for source in sources {
+    for (index, source) in sources.iter().enumerate() {
         outcome.record(source, transfer(source, target_dir));
+        crate::progress::source_done();
+        if outcome.stopped() {
+            outcome.left = sources.len() - index - 1;
+            break;
+        }
     }
     outcome
 }
 
 pub fn handle_copy(app: &mut App) -> io::Result<()> {
-    let source_paths = get_source_paths(app);
-    if source_paths.is_empty() {
-        return Ok(());
-    }
-
-    let target_dir = app.get_inactive_panel().path.clone();
-    let outcome = transfer_all(&source_paths, &target_dir, copy_into);
-
-    app.get_active_panel().clear_marks();
-    if let Some(first_error) = outcome.errors.first() {
-        app.set_status(Status::CopiedWithErrors {
-            count: outcome.count,
-            error_count: outcome.errors.len(),
-            first_error: first_error.clone(),
-        });
-    } else {
-        app.set_status(Status::Transferred {
-            purpose: Purpose::Copy,
-            landed: Landed::of(outcome.count, outcome.first_dest),
-            skipped: 0,
-            renamed: 0,
-        });
-    }
-    refresh_after_operation(app);
+    quick_transfer(app, Purpose::Copy);
     Ok(())
 }
 
 pub fn handle_move(app: &mut App) -> io::Result<()> {
+    quick_transfer(app, Purpose::Move);
+    Ok(())
+}
+
+/// F5 or F6 straight to the other panel, stopping at the first entry that
+/// fails.
+fn quick_transfer(app: &mut App, purpose: Purpose) {
     let source_paths = get_source_paths(app);
     if source_paths.is_empty() {
-        return Ok(());
+        return;
     }
 
     let target_dir = app.get_inactive_panel().path.clone();
-    let outcome = transfer_all(&source_paths, &target_dir, move_into);
+    let operation = crate::progress::Operation::of(purpose);
+    let run = crate::progress::begin(operation, &source_paths);
+    let transfer = match purpose {
+        Purpose::Copy => copy_into,
+        Purpose::Move => move_into,
+    };
+    let outcome = transfer_all(&source_paths, &target_dir, transfer);
+    drop(run);
 
     app.get_active_panel().clear_marks();
-    if let Some(first_error) = outcome.errors.first() {
-        app.set_status(Status::MovedWithErrors {
-            count: outcome.count,
-            error_count: outcome.errors.len(),
-            first_error: first_error.clone(),
-        });
-    } else {
+    report_quick(app, purpose, &source_paths, &target_dir, outcome);
+    refresh_after_operation(app);
+}
+
+/// Say what the quick F5/F6 did, and where it stopped if it did.
+fn report_quick(
+    app: &mut App,
+    purpose: Purpose,
+    sources: &[PathBuf],
+    target_dir: &Path,
+    outcome: BatchOutcome,
+) {
+    let Some(first_error) = outcome.errors.first() else {
         app.set_status(Status::Transferred {
-            purpose: Purpose::Move,
+            purpose,
             landed: Landed::of(outcome.count, outcome.first_dest),
             skipped: 0,
             renamed: 0,
         });
+        return;
+    };
+    let status = stopped_status(purpose, outcome.count, outcome.errors.len(), first_error);
+    app.set_status(status);
+    let stopped = super::Stop {
+        operation: crate::progress::Operation::of(purpose),
+        failed: first_error,
+        denial: outcome.denial.clone(),
+        done: outcome.count,
+        remaining: super::remaining(sources, outcome.left),
+        base: target_dir,
+        selected: sources.len(),
+        settings: None,
+    };
+    super::stop(app, &stopped);
+}
+
+/// "Copied N item(s), M error(s): …" or its move twin.
+pub(super) fn stopped_status(
+    purpose: Purpose,
+    count: usize,
+    error_count: usize,
+    first_error: &FailedEntry,
+) -> Status {
+    let first_error = first_error.clone();
+    match purpose {
+        Purpose::Copy => Status::CopiedWithErrors {
+            count,
+            error_count,
+            first_error,
+        },
+        Purpose::Move => Status::MovedWithErrors {
+            count,
+            error_count,
+            first_error,
+        },
     }
-    refresh_after_operation(app);
-    Ok(())
 }

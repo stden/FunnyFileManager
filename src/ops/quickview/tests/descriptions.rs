@@ -3,6 +3,7 @@
 use super::{app_in, fixture, preview, refresh, select, toggle};
 use crate::menu::SettingsPage;
 use crate::models::{App, PanelKind, PanelSide, Preview};
+use crate::scroll::Scrolled;
 use std::fs;
 use tempfile::TempDir;
 

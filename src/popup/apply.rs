@@ -20,7 +20,9 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
         // Left / Right, Home / End, Delete and plain characters edit the
         // field, exactly as in the generic prompts; Ctrl / Alt chords are
         // not text.
-        _ => super::menu_dialog::edit(prompt.input_mut(), code, modifiers),
+        _ => {
+            super::text_field::edit(prompt.input_mut(), code, modifiers, &mut app.clipboard);
+        }
     }
     true
 }

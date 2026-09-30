@@ -11,7 +11,7 @@ use super::*;
 #[test]
 fn test_process_popup_input_new_file_ctrl_char_ignored() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput(String::new()));
+    app.set_overlay(Overlay::NewFileInput(String::new().into()));
 
     // Ctrl+char should not add to input
     assert!(process_popup_input(
@@ -20,7 +20,7 @@ fn test_process_popup_input_new_file_ctrl_char_ignored() -> io::Result<()> {
     ));
     assert_eq!(
         if let Overlay::NewFileInput(ref s) = app.overlay {
-            s
+            s.text()
         } else {
             panic!()
         },
@@ -34,7 +34,7 @@ fn test_process_popup_input_new_file_ctrl_char_ignored() -> io::Result<()> {
     ));
     assert_eq!(
         if let Overlay::NewFileInput(ref s) = app.overlay {
-            s
+            s.text()
         } else {
             panic!()
         },
@@ -48,7 +48,7 @@ fn test_process_popup_input_new_file_ctrl_char_ignored() -> io::Result<()> {
 #[test]
 fn test_new_file_input_esc() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("partial".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("partial".to_owned().into()));
 
     process_popup_input(&mut app, key_event(KeyCode::Esc));
 
@@ -60,12 +60,12 @@ fn test_new_file_input_esc() -> io::Result<()> {
 #[test]
 fn test_process_popup_input_new_file_backspace_on_text() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("abc".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("abc".to_owned().into()));
 
     assert!(process_popup_input(&mut app, key_event(KeyCode::Backspace)));
     assert_eq!(
         if let Overlay::NewFileInput(ref s) = app.overlay {
-            s
+            s.text()
         } else {
             panic!()
         },
@@ -78,13 +78,13 @@ fn test_process_popup_input_new_file_backspace_on_text() -> io::Result<()> {
 #[test]
 fn test_process_popup_input_new_file_other_key() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("test".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("test".to_owned().into()));
 
     // F5 key - should be consumed but not change input
     assert!(process_popup_input(&mut app, key_event(KeyCode::F(5))));
     assert_eq!(
         if let Overlay::NewFileInput(ref s) = app.overlay {
-            s
+            s.text()
         } else {
             panic!()
         },
@@ -102,7 +102,7 @@ fn test_process_popup_input_new_file_already_exists() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
     app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
     app.right_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
-    app.set_overlay(Overlay::NewFileInput("exists.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("exists.txt".to_owned().into()));
 
     assert!(process_popup_input(&mut app, key_event(KeyCode::Enter)));
     assert!(!matches!(app.overlay, Overlay::NewFileInput(_)));

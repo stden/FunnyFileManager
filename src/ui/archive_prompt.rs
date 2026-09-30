@@ -45,7 +45,7 @@ fn rows<'a>(
     let on = |field: ArchiveField| dialog.field == field;
     [
         dialog::Row::Label(caption),
-        dialog::Row::input(&dialog.name, on(ArchiveField::Name), true),
+        dialog::Row::line(&dialog.name, on(ArchiveField::Name), true),
         dialog::Row::Divider,
         dialog::Row::Radio {
             caption: "&Format:",

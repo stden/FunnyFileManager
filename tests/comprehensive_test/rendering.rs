@@ -96,7 +96,7 @@ fn test_ui_render_new_file_input() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let mut app = App::new().unwrap();
-    app.set_overlay(Overlay::NewFileInput("newfile.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("newfile.txt".to_owned().into()));
 
     terminal
         .draw(|f| funny_file_manager::ui::ui(f, &mut app))
@@ -109,7 +109,7 @@ fn test_ui_render_new_file_input_empty() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let mut app = App::new().unwrap();
-    app.set_overlay(Overlay::NewFileInput(String::new()));
+    app.set_overlay(Overlay::NewFileInput(String::new().into()));
 
     terminal
         .draw(|f| funny_file_manager::ui::ui(f, &mut app))

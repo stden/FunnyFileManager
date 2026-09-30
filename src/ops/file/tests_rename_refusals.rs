@@ -34,9 +34,16 @@ fn assert_untouched(from: &Path, to: &Path, app: &App) {
     assert_eq!(fs::read(from.join("dir/inner.txt")).unwrap(), b"inner");
     let copies: Vec<_> = fs::read_dir(to).unwrap().collect();
     assert!(copies.is_empty(), "nothing is copied: {copies:?}");
+    // The move stops at the first entry it cannot move and says so; the
+    // second is not started.
     let status = app.status.to_string();
-    assert!(status.contains("Moved 0 item(s), 2 error(s)"), "{status}");
+    assert!(status.contains("Moved 0 item(s), 1 error(s)"), "{status}");
     assert!(status.contains("forced rename denial"), "{status}");
+    let crate::models::Overlay::OperationFailed(failure) = &app.overlay else {
+        panic!("the failure is shown in a dialog");
+    };
+    assert_eq!((failure.done(), failure.left()), (0, 1));
+    assert!(failure.failed().error().contains("forced rename denial"));
 }
 
 #[test]

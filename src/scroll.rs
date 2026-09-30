@@ -121,6 +121,60 @@ impl ScrollLeft {
     }
 }
 
+/// A body of lines that scrolls up and down and pans left and right, the way
+/// the F3 viewer and the quick view both do: one set of moves, so the two
+/// cannot drift apart.
+pub trait Scrolled {
+    /// Where the view is: the first line shown, and the cells panned right.
+    fn position(&mut self) -> (&mut ScrollTop, &mut ScrollLeft);
+
+    /// How many lines there are to scroll through.
+    fn line_count(&self) -> usize;
+
+    /// Furthest the view may scroll on a `page`-row body: the last line stops
+    /// on the bottom row, as Far's does, instead of climbing to the top and
+    /// leaving the screen empty below it.
+    fn max_scroll(&self, page: usize) -> usize {
+        self.line_count().saturating_sub(page)
+    }
+
+    fn scroll_down(&mut self, lines: usize, page: usize) {
+        let last = self.max_scroll(page);
+        let (top, _) = self.position();
+        *top = top.down(lines, last);
+    }
+
+    fn scroll_up(&mut self, lines: usize) {
+        let (top, _) = self.position();
+        *top = top.up(lines);
+    }
+
+    /// Far's Home: the first screen, back at the left edge.
+    fn scroll_to_top(&mut self) {
+        let (top, left) = self.position();
+        *top = ScrollTop::TOP;
+        *left = ScrollLeft::LEFT;
+    }
+
+    /// Far's End: the last screen, back at the left edge.
+    fn scroll_to_bottom(&mut self, page: usize) {
+        let last = self.max_scroll(page);
+        let (top, left) = self.position();
+        *top = ScrollTop::TOP.down(last, last);
+        *left = ScrollLeft::LEFT;
+    }
+
+    fn scroll_left(&mut self, cells: usize) {
+        let (_, left) = self.position();
+        *left = left.left(cells);
+    }
+
+    fn scroll_right(&mut self, cells: usize) {
+        let (_, left) = self.position();
+        *left = left.right(cells);
+    }
+}
+
 /// Which items of a list `len` long a body `rows` tall will actually show.
 ///
 /// The same rule ratatui's `List` applies to its own state, worked out before

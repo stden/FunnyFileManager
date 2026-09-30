@@ -5,7 +5,7 @@
 /// Far offers more (Rename, Append); these are the four whose behaviour the
 /// copy underneath can actually carry out. Offering a fifth that silently did
 /// the same thing as Overwrite would be worse than not offering it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum ExistingFiles {
     /// Stop and ask, once per collision.
     #[default]
@@ -55,7 +55,7 @@ impl ExistingFiles {
 /// None of them can give a copy more than the source had or more than the
 /// umask allows: a mode is only ever the source's, or the one the kernel
 /// gave the file when the copy created it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum AccessRights {
     /// Whatever the platform's own copy does: a file keeps its source's
     /// permission bits, as with `cp` and `fs::copy`, and a folder is created

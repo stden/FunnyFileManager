@@ -57,7 +57,7 @@ fn test_new_file_create_via_overlay() -> io::Result<()> {
     let mut app = App::new()?;
     app.left_panel = Panel::new(temp.path().to_path_buf())?;
 
-    app.set_overlay(Overlay::NewFileInput("test_new.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("test_new.txt".to_owned().into()));
     process_popup_input(&mut app, key_event(KeyCode::Enter));
     assert!(temp.path().join("test_new.txt").exists());
     assert!(app.status_text().contains("Created"));
@@ -67,7 +67,7 @@ fn test_new_file_create_via_overlay() -> io::Result<()> {
 #[test]
 fn test_new_file_empty_name_rejected() -> io::Result<()> {
     let mut app = App::new()?;
-    app.set_overlay(Overlay::NewFileInput(String::new()));
+    app.set_overlay(Overlay::NewFileInput(String::new().into()));
     process_popup_input(&mut app, key_event(KeyCode::Enter));
     assert!(app.status_text().contains("empty"));
     Ok(())
@@ -80,7 +80,7 @@ fn test_new_file_already_exists() -> io::Result<()> {
 
     let mut app = App::new()?;
     app.left_panel = Panel::new(temp.path().to_path_buf())?;
-    app.set_overlay(Overlay::NewFileInput("exists.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("exists.txt".to_owned().into()));
     process_popup_input(&mut app, key_event(KeyCode::Enter));
     assert!(app.status_text().contains("already exists"));
     Ok(())

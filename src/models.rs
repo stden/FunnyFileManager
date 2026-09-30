@@ -96,7 +96,8 @@ pub use hotplug::DeviceList;
 pub use lifecycle::Lifecycle;
 pub use lsp_editor::LspEditor;
 pub use overlay::{
-    Confirm, LinkType, MaskPrompt, MaskPurpose, NameField, NamePrompt, NamePurpose, Overlay,
+    Confirm, Denial, ElevatedRetry, LinkType, MaskPrompt, MaskPurpose, NameField, NamePrompt,
+    NamePurpose, OperationFailed, Overlay,
 };
 pub(crate) use panel::{DirectoryListing, PanelMetadata};
 pub use panel::{Panel, PanelDetails, PanelOptions, PanelView};

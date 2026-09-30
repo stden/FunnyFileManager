@@ -57,6 +57,7 @@ impl LoopState {
             self.pending = Some(timing::Pending::start(app, &event, started));
             self.redraw = Redraw::Needed;
             handle_event(terminal, app, event, &mut self.clicks)?;
+            repaint_after_progress(terminal)?;
             crate::ops::packages::run_pending(terminal, app)?;
             run_after_frame(terminal, app)?;
             if started.elapsed() >= UNANSWERED {
@@ -131,6 +132,20 @@ pub(super) fn run_after_frame<B: Backend + Write>(
     draw_frame(terminal, app)?;
     crate::ops::mcp_install::run_pending(app);
     Ok(())
+}
+
+/// Forget what the last frame put on the screen when a progress dialog was
+/// painted over it, so the next frame redraws every cell rather than only
+/// the ones it thinks changed — the dialog's among them.
+pub(super) fn repaint_after_progress<B: Backend + Write>(
+    terminal: &mut Terminal<B>,
+) -> io::Result<()> {
+    if !crate::progress::take_painted() {
+        return Ok(());
+    }
+    terminal
+        .clear()
+        .map_err(|error| io::Error::other(error.to_string()))
 }
 
 pub(super) fn draw_frame<B: Backend + Write>(

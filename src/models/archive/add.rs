@@ -3,6 +3,7 @@
 use std::path::Path;
 
 use super::ArchiveFormat;
+use crate::lineedit::LineEditor;
 
 /// Which control in the Add to archive dialog has the cursor.
 ///
@@ -51,7 +52,7 @@ impl ArchiveField {
 pub struct ArchivePrompt {
     /// The archive to create, offered as `<name>.tar.gz` in the other panel.
     /// A relative name lands in the active panel's folder.
-    pub name: String,
+    pub name: LineEditor,
     pub format: ArchiveFormat,
     /// Far's "Delete files after archiving": the sources go once the archive
     /// is written, and only then.
@@ -83,7 +84,7 @@ impl ArchivePrompt {
             .display()
             .to_string();
         Self {
-            name,
+            name: LineEditor::from(name),
             format,
             offered,
             sources,
@@ -97,7 +98,7 @@ impl ArchivePrompt {
     #[must_use]
     pub fn appending(sources: Vec<String>, archive: &Path, format: ArchiveFormat) -> Self {
         Self {
-            name: archive.display().to_string(),
+            name: LineEditor::from(archive.display().to_string()),
             format,
             offered: vec![format],
             sources,
@@ -168,14 +169,15 @@ impl ArchivePrompt {
         let previous = self.format;
         self.format = crate::cycle::step(&self.offered, previous, forward);
         let old_suffix = format!(".{}", previous.extension());
-        if let Some(stem) = self.name.strip_suffix(&old_suffix) {
-            self.name = format!("{stem}.{}", self.format.extension());
+        if let Some(stem) = self.name.text().strip_suffix(&old_suffix) {
+            let renamed = format!("{stem}.{}", self.format.extension());
+            self.name.set_text(&renamed);
         }
     }
 
     /// Whether the dialog can be accepted. An empty name cannot.
     #[must_use]
     pub fn is_ready(&self) -> bool {
-        !self.name.trim().is_empty()
+        !self.name.text().trim().is_empty()
     }
 }

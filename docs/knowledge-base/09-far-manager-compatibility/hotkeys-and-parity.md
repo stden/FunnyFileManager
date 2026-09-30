@@ -133,6 +133,11 @@ at the host's root returns to the files.
 ## 🪟 Overlay / Dialog Keys
 
 - Esc — universally closes current overlay (consistent with Far)
+- Text fields (rename, F5/F6 destination, new file, find file, archives,
+  masks, prompts, command line) — ✅ Far's edit-control keys: Shift+arrows /
+  Home / End select, Ctrl+A selects all, Ctrl+Insert / Ctrl+C copy,
+  Shift+Delete / Ctrl+X cut, Shift+Insert / Ctrl+V paste. See
+  `06-ui-and-interaction/keyboard-handling.md` for the fields not on it yet
 - Y/N in delete confirmation — implemented
 - Viewer keys — implemented as in Far: Up/Down one line (the last line stops
   on the bottom row), PgUp/PgDn one screen, Home/End first/last screen,

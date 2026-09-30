@@ -4,6 +4,7 @@
 
 use super::tests::{app_with, draw, file_viewer, row_foregrounds, row_text};
 use super::*;
+use crate::scroll::Scrolled;
 
 #[test]
 fn the_body_starts_at_column_zero_on_row_one_and_is_highlighted() {

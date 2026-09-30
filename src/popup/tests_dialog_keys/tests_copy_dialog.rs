@@ -59,7 +59,7 @@ fn backspace_and_typing_edit_the_copy_destination() {
         let Overlay::CopyPrompt(prompt) = &app.overlay else {
             panic!("still open");
         };
-        prompt.destination.clone()
+        prompt.destination.text().to_owned()
     };
 
     press(&mut app, KeyCode::Backspace);
@@ -71,7 +71,7 @@ fn backspace_and_typing_edit_the_copy_destination() {
     let mut expected = original;
     expected.pop();
     expected.push('x');
-    assert_eq!(prompt.destination, expected);
+    assert_eq!(prompt.destination.text(), expected);
 }
 
 #[test]

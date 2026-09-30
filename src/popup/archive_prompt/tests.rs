@@ -54,7 +54,7 @@ fn open_offers_the_stem_in_the_other_panel_and_esc_closes_it() {
     let (_left, right, mut app) = app_with_notes();
     crate::ops::archive::open_add(&mut app);
     let expected = right.path().join("notes.tar.gz");
-    assert_eq!(prompt(&app).name, expected.display().to_string());
+    assert_eq!(prompt(&app).name.text(), expected.display().to_string());
     assert_eq!(prompt(&app).sources, ["notes.txt"]);
 
     press(&mut app, KeyCode::Char('x'));
@@ -88,14 +88,14 @@ fn typing_edits_the_name_field() {
     press(&mut app, KeyCode::Backspace);
     press(&mut app, KeyCode::Backspace);
     type_text(&mut app, "xz");
-    assert!(prompt(&app).name.ends_with("notes.tar.xz"));
+    assert!(prompt(&app).name.text().ends_with("notes.tar.xz"));
 
     process_popup_input(
         &mut app,
         KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL),
     );
     assert!(
-        prompt(&app).name.ends_with("notes.tar.xz"),
+        prompt(&app).name.text().ends_with("notes.tar.xz"),
         "Ctrl+Q is not a q"
     );
 }
@@ -110,7 +110,7 @@ fn tab_right_and_space_drive_the_controls() {
     assert_eq!(prompt(&app).field, ArchiveField::Format);
     press(&mut app, KeyCode::Right);
     assert_eq!(prompt(&app).format, ArchiveFormat::Tar);
-    assert!(prompt(&app).name.ends_with("notes.tar"));
+    assert!(prompt(&app).name.text().ends_with("notes.tar"));
     press(&mut app, KeyCode::Left);
     assert_eq!(prompt(&app).format, ArchiveFormat::TarGz);
 

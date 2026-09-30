@@ -7,28 +7,34 @@ impl LineEditor {
     // ─── cursor movement ──────────────────────────────────────────────────
 
     pub fn left(&mut self) {
+        self.anchor = None;
         self.cursor = self.prev_boundary();
     }
 
     pub fn right(&mut self) {
+        self.anchor = None;
         self.cursor = self.next_boundary();
     }
 
     pub const fn home(&mut self) {
+        self.anchor = None;
         self.cursor = 0;
     }
 
     pub const fn end(&mut self) {
+        self.anchor = None;
         self.cursor = self.text.len();
     }
 
     /// To the start of the word before the caret (`Alt+B` / `Ctrl+Left`).
     pub fn word_left(&mut self) {
+        self.anchor = None;
         self.cursor = self.word_start();
     }
 
     /// Past the end of the word after the caret (`Alt+F` / `Ctrl+Right`).
     pub fn word_right(&mut self) {
+        self.anchor = None;
         self.cursor = self.word_end();
     }
 

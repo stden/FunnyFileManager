@@ -1,27 +1,50 @@
-//! Opt-in process diagnostics. Logging never changes application outcomes.
+//! Process diagnostics: on by default in the file manager, off in tests unless
+//! asked for. Logging never changes application outcomes.
 
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
 use crossterm::event::KeyCode;
 
 use crate::action::Action;
 
+/// Whether a run with no `FFM_LOG` logs: the file manager itself does (see
+/// [`log_by_default`]); a test or a tool built on the library does not.
+static ON_BY_DEFAULT: AtomicBool = AtomicBool::new(false);
+
+/// Log unless `FFM_LOG=0` says not to. The production entry point calls this
+/// before anything is logged; tests never do, so a test run writes no log
+/// into the temporary directory unless `FFM_LOG=1` asks it to.
+pub fn log_by_default() {
+    ON_BY_DEFAULT.store(true, Ordering::Relaxed);
+}
+
+/// Whether to log, given `FFM_LOG`: `1` turns it on, `0` off, and anything
+/// else — unset included — leaves it at `by_default`.
+fn enabled(setting: Option<&str>, by_default: bool) -> bool {
+    match setting {
+        Some("1") => true,
+        Some("0") => false,
+        _ => by_default,
+    }
+}
+
 /// Directory the logs are written to, or `None` when logging is off.
 ///
-/// Logging is opt-in (`FFM_LOG=1`) and off by default. Key and action labels
-/// redact typed characters, but diagnostics may still describe user paths.
-/// Logs use the OS temporary directory rather than the working directory.
-/// The opt-in setting is read once and stays fixed for the process lifetime.
+/// The file manager logs by default and `FFM_LOG=0` turns it off; elsewhere
+/// it is off unless `FFM_LOG=1`. Key and action labels redact typed
+/// characters, but diagnostics may still describe user paths. Logs use the
+/// OS temporary directory rather than the working directory. The setting is
+/// read once and stays fixed for the process lifetime.
 fn log_dir() -> Option<&'static Path> {
     static DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
     DIR.get_or_init(|| {
-        std::env::var("FFM_LOG")
-            .is_ok_and(|value| value == "1")
-            .then(std::env::temp_dir)
+        let setting = std::env::var("FFM_LOG").ok();
+        enabled(setting.as_deref(), ON_BY_DEFAULT.load(Ordering::Relaxed)).then(std::env::temp_dir)
     })
     .as_deref()
 }

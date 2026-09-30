@@ -84,8 +84,9 @@ fn remove_entry(source: &Path, copy: &Path, first: &mut Kept) {
         Ok(false) => forced_refusal(source).and_then(|()| fs::remove_file(source)),
         Err(error) => Err(error),
     };
-    if let Err(reason) = removed {
-        keep(first, source, reason);
+    match removed {
+        Ok(()) => crate::progress::removed(source),
+        Err(reason) => keep(first, source, reason),
     }
 }
 

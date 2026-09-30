@@ -9,7 +9,7 @@ fn hotkey_shift_f4_opens_new_file_dialog() {
     let temp = TempDir::new().unwrap();
     let mut app = setup(&temp).unwrap();
     assert!(app.get_new_file_input().is_none());
-    app.set_overlay(Overlay::NewFileInput(String::new())); // Shift+F4 logic
+    app.set_overlay(Overlay::NewFileInput(String::new().into())); // Shift+F4 logic
     assert!(app.get_new_file_input().is_some());
 }
 
@@ -26,7 +26,7 @@ fn overlay_new_file_esc_cancels() {
 fn overlay_new_file_char_appends_to_input() {
     let temp = TempDir::new().unwrap();
     let mut app = setup(&temp).unwrap();
-    app.set_overlay(Overlay::NewFileInput(String::new()));
+    app.set_overlay(Overlay::NewFileInput(String::new().into()));
     process_popup_input(&mut app, press(KeyCode::Char('h')));
     process_popup_input(&mut app, press(KeyCode::Char('i')));
     assert_eq!(app.get_new_file_input(), Some("hi"));
@@ -58,7 +58,7 @@ fn overlay_new_file_enter_creates_file_on_disk() {
 fn overlay_new_file_enter_empty_name_shows_error() {
     let temp = TempDir::new().unwrap();
     let mut app = setup(&temp).unwrap();
-    app.set_overlay(Overlay::NewFileInput(String::new()));
+    app.set_overlay(Overlay::NewFileInput(String::new().into()));
     process_popup_input(&mut app, press(KeyCode::Enter));
     assert!(app.get_new_file_input().is_none());
     assert!(app.status_text().contains("empty") || app.status_text().contains("Filename"));

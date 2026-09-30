@@ -32,7 +32,7 @@ fn test_get_overlay_hands_back_the_live_overlay_with_its_payload() {
 #[test]
 fn test_get_new_file_input_returns_the_name_typed_so_far() {
     let mut app = new_app();
-    app.set_overlay(Overlay::NewFileInput("notes.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("notes.txt".to_owned().into()));
     assert_eq!(app.get_new_file_input(), Some("notes.txt"));
 }
 
@@ -63,7 +63,7 @@ fn test_get_delete_confirm_is_none_for_every_other_overlay() {
     let mut app = new_app();
     assert_eq!(app.get_delete_confirm(), None, "no overlay open");
 
-    app.set_overlay(Overlay::NewFileInput("notes.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("notes.txt".to_owned().into()));
     assert_eq!(
         app.get_delete_confirm(),
         None,

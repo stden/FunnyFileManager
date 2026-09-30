@@ -16,15 +16,13 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
         KeyCode::Enter if dialog.on_cancel() => app.close_overlay(),
         KeyCode::Enter => crate::ops::findfile::accept(app),
         KeyCode::Left | KeyCode::Right if dialog.on_button() => dialog.toggle_button(),
-        KeyCode::Char(ch) if is_text(modifiers) => dialog.push(ch),
-        KeyCode::Backspace => dialog.backspace(),
-        _ => {}
+        _ => {
+            if let Some(line) = dialog.active_line_mut() {
+                super::text_field::edit(line, code, modifiers, &mut app.clipboard);
+            }
+        }
     }
     true
-}
-
-fn is_text(modifiers: KeyModifiers) -> bool {
-    !modifiers.contains(KeyModifiers::CONTROL) && !modifiers.contains(KeyModifiers::ALT)
 }
 
 #[cfg(test)]

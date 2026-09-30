@@ -13,7 +13,7 @@ use super::*;
 fn typed(purpose: Purpose, text: &str) -> CopyPrompt {
     let mut dialog = settings(Path::new("."));
     dialog.purpose = purpose;
-    dialog.destination = text.to_owned();
+    dialog.destination.set_text(text);
     dialog
 }
 

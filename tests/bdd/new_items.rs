@@ -23,7 +23,7 @@ fn when_f7(world: &mut FfmWorld) -> StepResult {
 fn when_open_new_file(world: &mut FfmWorld) -> StepResult {
     world
         .app()?
-        .set_overlay(Overlay::NewFileInput(String::new()));
+        .set_overlay(Overlay::NewFileInput(String::new().into()));
     Ok(())
 }
 
@@ -110,7 +110,7 @@ fn when_create_folder_on_right_panel_through_f7(world: &mut FfmWorld, name: Stri
 
 #[when(expr = "I type filename {string}")]
 fn when_type_filename(world: &mut FfmWorld, name: String) -> StepResult {
-    world.app()?.set_overlay(Overlay::NewFileInput(name));
+    world.app()?.set_overlay(Overlay::NewFileInput(name.into()));
     Ok(())
 }
 

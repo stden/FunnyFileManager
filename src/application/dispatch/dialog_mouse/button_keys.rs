@@ -52,6 +52,8 @@ pub(super) fn dialog_button_key(app: &mut App, index: usize) -> Option<KeyEvent>
         Overlay::ApplyCommand(prompt) => Some(apply_button_key(prompt, index)),
         // A single Ok.
         Overlay::Information(_) => Some(plain(KeyCode::Esc)),
+        // "Retry as administrator" / OK, or OK alone.
+        Overlay::OperationFailed(failure) => Some(plain(failed_button(failure, index))),
         // Add / Cancel and Extract / Cancel, each with a cursor of its own
         // like the name dialog's.
         Overlay::ArchivePrompt(prompt) => Some(archive_button_key(prompt, index)),
@@ -181,4 +183,13 @@ fn copy_button_key(prompt: &mut crate::copy::CopyPrompt, index: usize) -> Option
         _ => return None,
     };
     Some(KeyEvent::new(code, KeyModifiers::empty()))
+}
+
+/// "Retry as administrator" is `A`; OK, the only button or the second, Esc.
+fn failed_button(failure: &crate::models::OperationFailed, index: usize) -> KeyCode {
+    if failure.retry().is_some() && index == 0 {
+        KeyCode::Char('a')
+    } else {
+        KeyCode::Esc
+    }
 }

@@ -80,7 +80,7 @@ fn test_popup_delete_confirm_no() -> io::Result<()> {
 #[test]
 fn test_popup_new_file_input_typing() -> io::Result<()> {
     let mut app = App::new()?;
-    app.set_overlay(Overlay::NewFileInput(String::new()));
+    app.set_overlay(Overlay::NewFileInput(String::new().into()));
     process_popup_input(&mut app, key_event(KeyCode::Char('a')));
     assert_eq!(app.get_new_file_input(), Some("a"));
     process_popup_input(&mut app, key_event(KeyCode::Char('b')));
@@ -93,7 +93,7 @@ fn test_popup_new_file_input_typing() -> io::Result<()> {
 #[test]
 fn test_popup_new_file_esc_cancels() -> io::Result<()> {
     let mut app = App::new()?;
-    app.set_overlay(Overlay::NewFileInput("partial".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("partial".to_owned().into()));
     process_popup_input(&mut app, key_event(KeyCode::Esc));
     assert!(app.get_new_file_input().is_none());
     Ok(())
@@ -103,7 +103,7 @@ fn test_popup_new_file_esc_cancels() -> io::Result<()> {
 fn test_popup_new_file_enter_creates() -> io::Result<()> {
     let temp = TempDir::new()?;
     let mut app = setup_app(&temp)?;
-    app.set_overlay(Overlay::NewFileInput("brand_new.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("brand_new.txt".to_owned().into()));
     process_popup_input(&mut app, key_event(KeyCode::Enter));
     assert!(temp.path().join("brand_new.txt").exists());
     assert!(app.get_new_file_input().is_none());

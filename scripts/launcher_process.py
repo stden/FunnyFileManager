@@ -16,7 +16,8 @@ from shell_path import resolve
 NOT_FOUND = 127
 NOT_EXECUTABLE = 126
 # A command killed by one of these is not reported: Ctrl-C, or a reader that went away.
-QUIET_SIGNALS = (signal.SIGINT, signal.SIGPIPE)
+# Windows has no SIGPIPE.
+QUIET_SIGNALS = (signal.SIGINT, getattr(signal, "SIGPIPE", None))
 
 
 def die_by(signal_number):

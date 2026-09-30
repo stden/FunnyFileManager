@@ -5,6 +5,7 @@ mod editor;
 mod editor_dialogs;
 mod information;
 mod name_prompt;
+mod operation_failed;
 mod panel_dialogs;
 
 use ratatui::{
@@ -22,6 +23,7 @@ use copy_prompt::render_copy_prompt;
 use editor::render_editor;
 use information::render_information;
 use name_prompt::render_name_prompt;
+use operation_failed::render_operation_failed;
 pub(super) use panel_dialogs::render_mask_prompt;
 use panel_dialogs::{render_delete_confirm, render_new_file_input, render_quit_confirm};
 
@@ -99,6 +101,7 @@ fn render_menu_dialog(
 ) {
     match overlay {
         Overlay::DeleteConfirm(files) => render_delete_confirm(f, tracker, files, noun),
+        Overlay::OperationFailed(failure) => render_operation_failed(f, tracker, failure),
         Overlay::WipeConfirm(dialog) => super::wipe::render(f, tracker, dialog, noun),
         Overlay::ArchivePrompt(dialog) => super::archive_prompt::render(f, tracker, dialog),
         Overlay::ExtractPrompt(dialog) => super::extract_prompt::render(f, tracker, dialog),

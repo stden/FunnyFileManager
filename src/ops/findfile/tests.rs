@@ -78,7 +78,7 @@ fn accept_keeps_only_files_whose_text_contains_the_query() {
     let mut app = App::from_panels(panel.clone(), panel);
     open(&mut app);
     if let Overlay::FindFile(dialog) = &mut app.overlay {
-        dialog.containing = "todo".to_owned();
+        dialog.containing.set_text("todo");
     }
     accept(&mut app);
     let Overlay::MenuDialog(dialog) = &app.overlay else {

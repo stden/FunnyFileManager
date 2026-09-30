@@ -1,7 +1,8 @@
 //! Purpose: The raw Win32 calls behind the Windows platform wrappers: the
 //! mounted-drive mask, a file's attribute bits and the broadcast that tells
 //! running programs the environment changed; registry string values live in
-//! `registry`.
+//! `registry`, running as an administrator in `elevation`, and the pipe to
+//! that administrator in `pipe`.
 
 use std::ffi::OsStr;
 use std::io;
@@ -13,8 +14,12 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     SendMessageTimeoutW, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE,
 };
 
+mod elevation;
+mod pipe;
 mod registry;
 
+pub use elevation::{is_elevated, launch_as_administrator, ElevatedProcess};
+pub use pipe::{accept, client_process_id, create_pipe, open_pipe, server_process_id};
 pub use registry::{read_registry_string, update_registry_string, RegistryHive};
 
 /// The drive letters Windows has mounted, as `GetLogicalDrives`' bitmask:

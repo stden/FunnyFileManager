@@ -82,6 +82,35 @@ dropdown rather than being reported through application status.
 - Search and unsaved-change confirmation remain modal within the editor;
   selection/clipboard shortcuts cannot escape those dialogs.
 
+## ✏️ Text Fields: Selection and Clipboard
+
+Every one-line text field of a dialog is a `LineEditor` (`src/lineedit.rs`,
+selection in `lineedit/selection.rs`) and hands its editing keys to one
+handler, `popup/text_field.rs`, so the keys mean the same everywhere:
+
+- Shift with Left/Right/Home/End selects; Ctrl+Shift+Left/Right by word;
+  Ctrl+A selects the whole field. A move without Shift drops the selection.
+- Typing, a paste, Backspace and Delete replace or remove the selection.
+- Ctrl+C / Ctrl+Insert copy it, Ctrl+X / Shift+Delete cut it, Ctrl+V /
+  Shift+Insert paste (as one line: line breaks become spaces, a trailing one
+  is dropped), through the session's clipboard backend as the editor's copy
+  does.
+- A terminal paste (bracketed paste) types into the field under the cursor
+  (`App::focused_text_field`).
+- `dialog::Row::line` / `Row::field` draw a field from its `LineEditor`: the
+  caret where it is, the selection in the selected-field colours.
+
+Fields on it: rename / make folder / link name and target (Shift+F6, F7,
+Alt+F6 — the name opens selected), the F5/F6 destination, Shift+F4 new file,
+Alt+F7 mask and text, Shift+F1 archive name, Shift+F2 destination, the Gray
++/- mask (its offer opens selected), Ctrl+G, Ctrl+Z describe, the F9 prompts,
+the PATH and language-server editors and the task list's bars and priority.
+The command line takes the same selection and clipboard keys, except that
+Ctrl+C with nothing selected still clears the line and Ctrl+A still goes to
+its start (readline). Still plain text with the caret at the end: the
+editor's search prompt, the NetBox session fields, the attributes dialog's
+time fields and the KeePass forms.
+
 ## 🪟 Main Key Bindings (no overlay active)
 
 **Navigation:**

@@ -15,7 +15,7 @@ fn extract_here_opens_the_extract_prompt_on_this_folder() {
     let Overlay::ExtractPrompt(prompt) = &app.overlay else {
         panic!("expected the extract prompt");
     };
-    assert_eq!(prompt.destination, home.path().display().to_string());
+    assert_eq!(prompt.destination.text(), home.path().display().to_string());
 }
 
 #[test]
@@ -31,7 +31,10 @@ fn extract_to_other_panel_opens_the_extract_prompt_on_the_other_folder() {
     let Overlay::ExtractPrompt(prompt) = &app.overlay else {
         panic!("expected the extract prompt");
     };
-    assert_eq!(prompt.destination, other.path().display().to_string());
+    assert_eq!(
+        prompt.destination.text(),
+        other.path().display().to_string()
+    );
 }
 
 /// `extra.txt` marked beside the archive `name`, the cursor back on the
@@ -62,7 +65,7 @@ fn add_selected_opens_the_add_prompt_named_after_this_archive() {
     let Overlay::ArchivePrompt(prompt) = &app.overlay else {
         panic!("expected the add prompt");
     };
-    assert_eq!(prompt.name, archive.display().to_string());
+    assert_eq!(prompt.name.text(), archive.display().to_string());
     assert!(prompt.append);
     assert_eq!(prompt.sources, ["extra.txt"]);
     assert_eq!(prompt.offered, [crate::models::ArchiveFormat::Tar]);

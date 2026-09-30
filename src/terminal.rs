@@ -43,6 +43,7 @@ mod interrupts;
 mod keyboard;
 #[cfg(any(test, coverage))]
 mod noop_ops;
+mod progress_screen;
 mod typeahead;
 mod video_mode;
 
@@ -53,6 +54,7 @@ pub use hang_up::{hung_up, watch_for_hang_up};
 pub use keyboard::{decode_input, KeyboardProtocol};
 #[cfg(any(test, coverage))]
 pub use noop_ops::NoopTerminalOps;
+pub use progress_screen::ProgressScreen;
 pub use typeahead::{cancel_requested, discard_queued};
 #[cfg(test)]
 pub use video_mode::{skip_video_mode_resize, video_mode_calls};

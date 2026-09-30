@@ -16,11 +16,6 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
         KeyCode::Esc | KeyCode::F(10) => app.close_overlay(),
         KeyCode::Tab | KeyCode::Down => prompt.advance(true),
         KeyCode::BackTab | KeyCode::Up => prompt.advance(false),
-        // The arrows belong to the control under the cursor, and the
-        // only one that answers them is the drop-down.
-        KeyCode::Right => step_link(&directory, prompt, true),
-        KeyCode::Left => step_link(&directory, prompt, false),
-        KeyCode::Backspace => prompt.backspace(),
         KeyCode::Enter => {
             let cancelled = prompt.field() == NameField::Cancel;
             let settings = prompt.clone();
@@ -35,13 +30,15 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
         // A space is a space in a text field and a toggle everywhere
         // else, which is the only reading that leaves both usable.
         KeyCode::Char(' ') if !prompt.field().is_text() => prompt.toggle(),
-        KeyCode::Char(ch)
-            if !modifiers.contains(KeyModifiers::CONTROL)
-                && !modifiers.contains(KeyModifiers::ALT) =>
-        {
-            prompt.push(ch);
+        // The arrows belong to the control under the cursor: the caret in a
+        // text field, the choice on the drop-down.
+        KeyCode::Right if !prompt.field().is_text() => step_link(&directory, prompt, true),
+        KeyCode::Left if !prompt.field().is_text() => step_link(&directory, prompt, false),
+        _ => {
+            if let Some(line) = prompt.focused_line_mut() {
+                super::text_field::edit(line, code, modifiers, &mut app.clipboard);
+            }
         }
-        _ => {}
     }
     true
 }

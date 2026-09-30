@@ -72,7 +72,7 @@ fn run_creates_a_typed_destination_relative_to_the_active_panel() {
     select(&mut app, "a.tar.gz");
     open_extract(&mut app);
     if let Overlay::ExtractPrompt(prompt) = &mut app.overlay {
-        prompt.destination = "unpacked/here".to_owned();
+        prompt.destination.set_text("unpacked/here");
     }
     run_extract(&mut app);
     assert!(temp

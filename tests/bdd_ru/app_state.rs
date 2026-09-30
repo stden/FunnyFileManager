@@ -110,13 +110,13 @@ fn given_cmdline_active(world: &mut FfmWorld, text: String) -> StepResult {
 fn given_new_file_dialog(world: &mut FfmWorld) -> StepResult {
     world
         .app()?
-        .set_overlay(Overlay::NewFileInput(String::new()));
+        .set_overlay(Overlay::NewFileInput(String::new().into()));
     Ok(())
 }
 
 #[given(expr = "диалог нового файла открыт с текстом {string}")]
 fn given_new_file_dialog_with_text(world: &mut FfmWorld, text: String) -> StepResult {
-    world.app()?.set_overlay(Overlay::NewFileInput(text));
+    world.app()?.set_overlay(Overlay::NewFileInput(text.into()));
     Ok(())
 }
 

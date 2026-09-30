@@ -65,7 +65,7 @@ pub fn run_extract(app: &mut App) {
         return;
     };
     let prompt = (**prompt).clone();
-    if prompt.destination.trim().is_empty() {
+    if prompt.destination.text().trim().is_empty() {
         app.set_status(Status::CommandOutput(
             "Extract files: the destination is empty".to_owned(),
         ));
@@ -77,7 +77,7 @@ pub fn run_extract(app: &mut App) {
         return;
     }
 
-    let destination = resolve_destination(app, &prompt.destination);
+    let destination = resolve_destination(app, prompt.destination.text());
     let outcome = extract_all(app, &prompt.archives, &destination);
     if outcome.first_error.is_none() {
         // Far spends the selection on a finished operation; a failure keeps it

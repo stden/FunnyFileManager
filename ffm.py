@@ -170,8 +170,10 @@ def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     # CPython starts with both ignored, and exec would hand that on to ffm.
     # A shell leaves them at their defaults, so a closed pipe ends this too.
-    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
-    signal.signal(signal.SIGXFSZ, signal.SIG_DFL)
+    # Windows has neither.
+    for name in ("SIGPIPE", "SIGXFSZ"):
+        if hasattr(signal, name):
+            signal.signal(getattr(signal, name), signal.SIG_DFL)
     enter_root()
     command = argv[0] if argv else None
     if command in HELP_WORDS:

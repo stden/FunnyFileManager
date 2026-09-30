@@ -13,9 +13,9 @@ pub(super) fn render(
     let on = |field| dialog.field() == field;
     let rows = [
         dialog::Row::Label("&File masks"),
-        dialog::Row::input(&dialog.mask, on(FindFileField::Mask), false),
+        dialog::Row::line(&dialog.mask, on(FindFileField::Mask), false),
         dialog::Row::Label("&Containing text"),
-        dialog::Row::input(&dialog.containing, on(FindFileField::Containing), false),
+        dialog::Row::line(&dialog.containing, on(FindFileField::Containing), false),
     ];
     let buttons = [
         dialog::Button::new("&Find")

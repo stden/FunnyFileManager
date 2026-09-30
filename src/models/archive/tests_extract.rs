@@ -16,7 +16,7 @@ fn prompt_with(names: &[&str]) -> ExtractPrompt {
 #[test]
 fn opens_on_the_destination_with_the_other_panel_offered() {
     let prompt = prompt_with(&["a.tar.gz"]);
-    assert_eq!(prompt.destination, "/dest");
+    assert_eq!(prompt.destination.text(), "/dest");
     assert_eq!(prompt.field, ExtractField::Destination);
     assert!(!prompt.on_cancel());
 }
@@ -50,10 +50,10 @@ fn typing_edits_the_destination_and_backspace_removes_the_last_char() {
     let mut prompt = prompt_with(&["a.tar"]);
     prompt.push('/');
     prompt.push('x');
-    assert_eq!(prompt.destination, "/dest/x");
+    assert_eq!(prompt.destination.text(), "/dest/x");
     prompt.backspace();
     prompt.backspace();
-    assert_eq!(prompt.destination, "/dest");
+    assert_eq!(prompt.destination.text(), "/dest");
 }
 
 #[test]

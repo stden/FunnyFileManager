@@ -266,7 +266,7 @@ failed`. A cache folder FFM cannot create or write says so (`the LSP cache folde
 is not writable`, `… is on a read-only file system`, `no space left for the LSP
 cache`) instead of a storage error.
 
-Opt-in FFM debug logging records request methods/IDs, lifecycle changes and error
+FFM's debug logging (on by default, `FFM_LOG=0` turns it off) records request methods/IDs, lifecycle changes and error
 codes. Source text is not logged. Stderr is drained separately and its byte counts
 are logged with contents redacted, because a server may print source text there.
 

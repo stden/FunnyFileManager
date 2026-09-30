@@ -37,7 +37,43 @@ pub(super) fn render_command_line(f: &mut Frame<'_>, app: &App, area: Rect) {
     };
 
     let (prompt, row) = window_command_row(state, prompt_text, width);
+    let typed_from = prompt_width(&prompt);
+    let caret = typed_from + Cells::of(&row.head);
     render_command_row(f, area, &prompt, row, width);
+    paint_selection(f, area, &state.line, typed_from, caret);
+}
+
+/// Draw the line's selection over the row: it ends at the caret or starts
+/// there, and it is cut to the typed text the row shows.
+fn paint_selection(
+    f: &mut Frame<'_>,
+    area: Rect,
+    line: &crate::lineedit::LineEditor,
+    typed_from: Cells,
+    caret: Cells,
+) {
+    let Some(selected) = line.selected_text() else {
+        return;
+    };
+    let width = Cells::of(selected).get();
+    let caret = caret.get();
+    let ends_at_caret = line
+        .selection()
+        .is_some_and(|range| range.end == line.cursor());
+    let (start, end) = if ends_at_caret {
+        (caret.saturating_sub(width).max(typed_from.get()), caret)
+    } else {
+        (caret, caret.saturating_add(width))
+    };
+    let cells = Rect::new(
+        area.x.saturating_add(screen_u16(start)),
+        area.y,
+        screen_u16(end.saturating_sub(start)),
+        1,
+    )
+    .intersection(area);
+    f.buffer_mut()
+        .set_style(cells, Style::default().fg(Color::Black).bg(Color::Cyan));
 }
 
 fn window_command_row(

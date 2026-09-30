@@ -157,7 +157,7 @@ fn open_dialog(app: &mut App, command: crate::action::DialogCommand) {
         DialogCommand::ConfirmQuit => {
             app.set_overlay(Overlay::QuitConfirm(models::Confirm::default()));
         }
-        DialogCommand::NewFile => app.set_overlay(Overlay::NewFileInput(String::new())),
+        DialogCommand::NewFile => app.set_overlay(Overlay::NewFileInput(String::new().into())),
         DialogCommand::ToggleHelp => toggle_help(app),
         DialogCommand::UserMenu => report(app, ops::menu::user::open),
         DialogCommand::WslManagement => ops::wsl::open_manager(app),

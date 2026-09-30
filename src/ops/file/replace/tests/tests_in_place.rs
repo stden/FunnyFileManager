@@ -113,7 +113,7 @@ fn a_refusal_before_writing_keeps_the_old_contents_and_names_the_file() {
     app.get_active_panel()
         .marked
         .insert(FileName::new("source"));
-    prompt.destination = dest.display().to_string();
+    prompt.destination.set_text(&dest.display().to_string());
     prompt.timestamps = true;
 
     FORCE_TIMES_FAILURE.set(true);

@@ -7,7 +7,7 @@ use super::CopyField;
 /// One dialog serves both keys: F5 and F6 differ in their title, their button
 /// and which controls apply, and in nothing else. Two copies of the same
 /// dialog would have to be kept in step by hand.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum Purpose {
     #[default]
     Copy,

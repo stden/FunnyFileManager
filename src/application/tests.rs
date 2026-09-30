@@ -17,6 +17,7 @@ mod idle_render;
 mod make_folder;
 mod marking_and_panels;
 mod mcp_register_frame;
+mod progress_repaint;
 mod quick_search_debounce;
 mod quick_search_nav;
 mod replay_resize;

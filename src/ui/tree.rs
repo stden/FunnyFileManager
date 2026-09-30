@@ -119,7 +119,7 @@ fn render_info(f: &mut Frame<'_>, tree: &FolderTree, inner: Rect) {
     let text = tree.search.query().map_or_else(
         || {
             tree.selected()
-                .map(|path| path.display().to_string())
+                .map(|path| crate::path_display::label(path).into_owned())
                 .unwrap_or_default()
         },
         |query| format!("Search: {query}_"),

@@ -14,63 +14,44 @@ pub(super) use options::OPTIONS;
 ///
 /// Ten view modes followed by panel tools and settings.
 /// The renderer checks the active mode and current panel options.
-pub(super) const PANEL: [Entry; 20] = [
-    Entry::item("&Brief", "Ctrl+1", Shortcut::ctrl('1')),
-    Entry::item("&Medium", "Ctrl+2", Shortcut::ctrl('2')),
-    Entry::item("&Full", "Ctrl+3", Shortcut::ctrl('3')),
-    Entry::item("&Wide", "Ctrl+4", Shortcut::ctrl('4')),
-    Entry::item("Detai&led", "Ctrl+5", Shortcut::ctrl('5')),
-    Entry::item("&Descriptions", "Ctrl+6", Shortcut::ctrl('6')),
-    Entry::item("Lon&g descriptions", "Ctrl+7", Shortcut::ctrl('7')),
-    Entry::item("Fil&e owners", "Ctrl+8", Shortcut::ctrl('8')),
-    Entry::item("File lin&ks", "Ctrl+9", Shortcut::ctrl('9')),
-    Entry::item("&Alternative full", "Ctrl+0", Shortcut::ctrl('0')),
-    Entry::Separator,
-    Entry::item("&Info panel", "Ctrl+L", Shortcut::ctrl('l')),
-    Entry::command("&Tree panel", "Ctrl+T", MenuCommand::Tree),
-    Entry::command("Quick &view", "Ctrl+Q", MenuCommand::QuickView),
-    Entry::Separator,
-    Entry::command("&Sort modes", "Ctrl+F12", MenuCommand::Sort),
-    Entry::command("Show lo&ng names", "Ctrl+N", MenuCommand::LongNames),
-    Entry::command(
-        "Panel &On/Off",
-        "Ctrl+F1",
-        MenuCommand::TogglePanel(crate::models::PanelSide::Left),
-    ),
-    Entry::item("&Re-read", "Ctrl+R", Shortcut::ctrl('r')),
-    Entry::item("&Change drive", "Alt+F1", Shortcut::alt(KeyCode::F(1))),
-];
-/// The same, aimed at the right panel.
-///
-/// Only the drive key differs — Far gives each side its own — and the two
-/// tables are written out rather than generated because a `Left`/`Right`
-/// parameter threaded through a `const` buys nothing a reader can see.
-pub(super) const PANEL_RIGHT: [Entry; 20] = [
-    Entry::item("&Brief", "Ctrl+1", Shortcut::ctrl('1')),
-    Entry::item("&Medium", "Ctrl+2", Shortcut::ctrl('2')),
-    Entry::item("&Full", "Ctrl+3", Shortcut::ctrl('3')),
-    Entry::item("&Wide", "Ctrl+4", Shortcut::ctrl('4')),
-    Entry::item("Detai&led", "Ctrl+5", Shortcut::ctrl('5')),
-    Entry::item("&Descriptions", "Ctrl+6", Shortcut::ctrl('6')),
-    Entry::item("Lon&g descriptions", "Ctrl+7", Shortcut::ctrl('7')),
-    Entry::item("Fil&e owners", "Ctrl+8", Shortcut::ctrl('8')),
-    Entry::item("File lin&ks", "Ctrl+9", Shortcut::ctrl('9')),
-    Entry::item("&Alternative full", "Ctrl+0", Shortcut::ctrl('0')),
-    Entry::Separator,
-    Entry::item("&Info panel", "Ctrl+L", Shortcut::ctrl('l')),
-    Entry::command("&Tree panel", "Ctrl+T", MenuCommand::Tree),
-    Entry::command("Quick &view", "Ctrl+Q", MenuCommand::QuickView),
-    Entry::Separator,
-    Entry::command("&Sort modes", "Ctrl+F12", MenuCommand::Sort),
-    Entry::command("Show lo&ng names", "Ctrl+N", MenuCommand::LongNames),
-    Entry::command(
-        "Panel &On/Off",
-        "Ctrl+F2",
-        MenuCommand::TogglePanel(crate::models::PanelSide::Right),
-    ),
-    Entry::item("&Re-read", "Ctrl+R", Shortcut::ctrl('r')),
-    Entry::item("&Change drive", "Alt+F2", Shortcut::alt(KeyCode::F(2))),
-];
+pub(super) const PANEL: [Entry; 20] =
+    panel_menu(crate::models::PanelSide::Left, "Ctrl+F1", "Alt+F1", 1);
+/// The same, aimed at the right panel: only its toggle and drive keys differ
+/// — Far gives each side its own.
+pub(super) const PANEL_RIGHT: [Entry; 20] =
+    panel_menu(crate::models::PanelSide::Right, "Ctrl+F2", "Alt+F2", 2);
+
+/// The Left or Right menu for `side`, whose Panel On/Off key is `toggle` and
+/// whose Change drive key is `drive` (Alt+F`drive_key`).
+const fn panel_menu(
+    side: crate::models::PanelSide,
+    toggle: &'static str,
+    drive: &'static str,
+    drive_key: u8,
+) -> [Entry; 20] {
+    [
+        Entry::item("&Brief", "Ctrl+1", Shortcut::ctrl('1')),
+        Entry::item("&Medium", "Ctrl+2", Shortcut::ctrl('2')),
+        Entry::item("&Full", "Ctrl+3", Shortcut::ctrl('3')),
+        Entry::item("&Wide", "Ctrl+4", Shortcut::ctrl('4')),
+        Entry::item("Detai&led", "Ctrl+5", Shortcut::ctrl('5')),
+        Entry::item("&Descriptions", "Ctrl+6", Shortcut::ctrl('6')),
+        Entry::item("Lon&g descriptions", "Ctrl+7", Shortcut::ctrl('7')),
+        Entry::item("Fil&e owners", "Ctrl+8", Shortcut::ctrl('8')),
+        Entry::item("File lin&ks", "Ctrl+9", Shortcut::ctrl('9')),
+        Entry::item("&Alternative full", "Ctrl+0", Shortcut::ctrl('0')),
+        Entry::Separator,
+        Entry::item("&Info panel", "Ctrl+L", Shortcut::ctrl('l')),
+        Entry::command("&Tree panel", "Ctrl+T", MenuCommand::Tree),
+        Entry::command("Quick &view", "Ctrl+Q", MenuCommand::QuickView),
+        Entry::Separator,
+        Entry::command("&Sort modes", "Ctrl+F12", MenuCommand::Sort),
+        Entry::command("Show lo&ng names", "Ctrl+N", MenuCommand::LongNames),
+        Entry::command("Panel &On/Off", toggle, MenuCommand::TogglePanel(side)),
+        Entry::item("&Re-read", "Ctrl+R", Shortcut::ctrl('r')),
+        Entry::item("&Change drive", drive, Shortcut::alt(KeyCode::F(drive_key))),
+    ]
+}
 /// What can be done to the files under the cursor.
 ///
 /// Far's eighteen rows, then a group of this program's own: it has a new-file

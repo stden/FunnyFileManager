@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use super::{Preview, QuickView, Refusal, TextPreview};
 use crate::encoding::TextEncoding;
 use crate::models::Viewport;
+use crate::scroll::Scrolled;
 
 fn text(lines: &[&str]) -> Preview {
     Preview::Text(TextPreview::decoded(

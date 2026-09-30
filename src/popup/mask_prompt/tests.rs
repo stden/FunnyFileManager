@@ -76,18 +76,29 @@ fn typing_replaces_the_offered_mask() {
     assert_eq!(app.status_text(), "1 changed, 1 selected");
 }
 
-/// Only the first key replaces; an edited field is the user's own text.
+/// Only the first key replaces; once the caret has moved, the field is the
+/// user's own text and typing edits it where the caret stands.
 #[test]
 fn once_edited_the_field_is_no_longer_replaced() {
     let (mut app, _dir) = app_over(&[]);
     open_offering(&mut app, "*.txt");
+    press(&mut app, KeyCode::End);
     press(&mut app, KeyCode::Backspace);
     type_text(&mut app, "t");
     assert_eq!(
         field(&app),
         "*.txt",
-        "Backspace edits the offer, then typing appends"
+        "End keeps the offer, then it is edited"
     );
+}
+
+/// The offer is selected text: Backspace removes it all, as in any field.
+#[test]
+fn backspace_on_the_offer_clears_it() {
+    let (mut app, _dir) = app_over(&[]);
+    open_offering(&mut app, "*.txt");
+    press(&mut app, KeyCode::Backspace);
+    assert_eq!(field(&app), "");
 }
 
 /// Accepting the offer untouched still applies it.

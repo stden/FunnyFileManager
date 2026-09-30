@@ -49,7 +49,7 @@ pub fn on_path(program: &str) -> bool {
 /// bar, drop the sources if asked, and re-read both panels.
 pub fn add(app: &mut App, prompt: &ArchivePrompt) {
     let cwd = app.get_active_panel_ref().path.clone();
-    let archive = resolve_archive(&prompt.name, &cwd);
+    let archive = resolve_archive(prompt.name.text(), &cwd);
     // Never overwrite: the dialog comes back with the name to change, and
     // the status bar says why it came back. A link that points nowhere holds
     // the name too — the tool would write through it.

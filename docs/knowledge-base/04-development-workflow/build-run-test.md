@@ -16,6 +16,8 @@
 | `cargo clippy -- -D warnings` | Lint (must be clean) |
 | `./scripts/lint.py` / `./ffm.py lint` | Shared local/CI format, spelling (`typos`, `cargo install typos-cli`) and Clippy gate for TUI, MCP, and Colorer |
 | `./ffm.py lint spelling` | Spell check only; project words live in `typos.toml` |
+| `./ffm.py lint complexity` | The Python scripts' complexity budget (`scripts/lint_complexity.py`, standard library only): McCabe cyclomatic complexity at most 10 and blocks nested at most 4 deep per function. The Rust gets the same from Clippy (`clippy.toml`: cognitive complexity 25, nesting 4, 30 lines per function) |
+| `./ffm.py lint duplication` | Copied code (`scripts/lint_duplication.py`, standard library only): no run of 10+ significant lines — indentation, blank lines, comments and bare punctuation left out — may appear twice in the production Rust or the scripts. Tests are left out; a copy that cannot be shared goes in its `ALLOWED` list with the reason |
 | `./ffm.py lint self-test` | Prove the spell check rejects a misspelling; run the developer scripts' unit tests (`scripts/tests`); compile positive/negative readability fixtures and compare behavior; prove the manifest lint policy on positive/negative fixtures; requires Python |
 | `cargo build --manifest-path mcp/Cargo.toml` | Build the standalone MCP server with its development profile |
 | `cargo test --manifest-path mcp/Cargo.toml` | Run the MCP package's separate test suite |
@@ -188,7 +190,7 @@ stays red on the commit that broke it.
 | Job | Runner | What it runs |
 |---|---|---|
 | Resolve Cargo.lock | ubuntu-24.04 | `cargo generate-lockfile` for the application and `colorer-sys`; uploads the `cargo-lock` artifact every job below except MCP downloads |
-| Lint | ubuntu-24.04 | `./ffm.py lint` (fmt, typos, the Clippy matrix for all three crates, the architecture contracts), then `./ffm.py lint self-test` |
+| Lint | ubuntu-24.04 | `./ffm.py lint` (fmt, typos, the Python complexity budget, the duplication check, the Clippy matrix for all three crates, the architecture contracts), then `./ffm.py lint self-test` |
 | Tests & Coverage | ubuntu-24.04 | `./ffm.py coverage`: every root test, the TUI BDD scenarios included, under llvm-cov with the 98% gate; uploads `tui-screens-Linux` |
 | BDD (s3 feature) | ubuntu-24.04, windows-2025 | the `s3` unit tests, then the `bdd` and `bdd_ru` suites |
 | Windows | windows-2025 | the whole root suite once (`cargo test --features test-helpers --no-fail-fast`, TUI BDD included), then Clippy on all targets, for the application and for `mcp/`; uploads `tui-screens-Windows` |

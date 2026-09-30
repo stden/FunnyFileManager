@@ -75,7 +75,7 @@ fn test_render_overlays_new_file_input() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let mut app = App::new().unwrap();
-    app.set_overlay(Overlay::NewFileInput("myfile.txt".to_owned()));
+    app.set_overlay(Overlay::NewFileInput("myfile.txt".to_owned().into()));
 
     terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
     assert!(screen_text(&terminal).contains("[ Cancel ]"));
@@ -97,7 +97,7 @@ fn test_render_overlays_new_file_input_empty() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let mut app = App::new().unwrap();
-    app.set_overlay(Overlay::NewFileInput(String::new()));
+    app.set_overlay(Overlay::NewFileInput(String::new().into()));
 
     terminal.draw(|f| render_overlays(f, &mut app)).unwrap();
 }
@@ -107,7 +107,7 @@ fn new_file_long_unicode_name_keeps_caret_inside_input() {
     let mut terminal = Terminal::new(TestBackend::new(30, 12)).unwrap();
     let mut app = App::new().unwrap();
     let name = format!("{}.txt", "界".repeat(40));
-    app.set_overlay(Overlay::NewFileInput(name.clone()));
+    app.set_overlay(Overlay::NewFileInput(name.clone().into()));
     terminal
         .draw(|frame| render_overlays(frame, &mut app))
         .unwrap();
@@ -115,5 +115,5 @@ fn new_file_long_unicode_name_keeps_caret_inside_input() {
     let body = app.dialog_mouse.body.unwrap();
     assert!(body.contains(cursor));
     assert!(screen_text(&terminal).contains(".txt"));
-    assert!(matches!(&app.overlay, Overlay::NewFileInput(input) if *input == name));
+    assert!(matches!(&app.overlay, Overlay::NewFileInput(input) if input.text() == name));
 }
