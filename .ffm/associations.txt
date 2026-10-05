@@ -1,0 +1,3 @@
+# One association per line: extension<TAB>command
+# Use {} for the quoted selected filename.
+# Example: txt	my-editor {}

@@ -1,0 +1,197 @@
+# Purpose: Defines the standalone MCP server crate and its dependencies.
+[package]
+name = "ffm-mcp"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.95"
+description = "MCP server for FunnyFileManager — expose file operations as AI tools"
+license = "MIT"
+keywords = ["mcp", "file-manager", "ai-tools"]
+categories = ["command-line-utilities", "filesystem"]
+
+# The auto-discovered src/lib.rs has no runnable doctests, but the doc-test
+# phase still spawns a rustdoc binary. A linked custom toolchain can ship
+# without rustdoc, and then `cargo test` aborts on the empty phase. Skip it.
+[lib]
+doctest = false
+
+[[bin]]
+name = "ffm-mcp"
+path = "src/main.rs"
+
+[dev-dependencies]
+criterion = "0.8.2"
+cucumber = "0.23.0"
+# Production is read-only; writing is enabled only to create encrypted tests.
+keepass = { version = "0.13.25", default-features = false, features = ["save_kdbx4"] }
+
+[[example]]
+name = "bench_mcp"
+path = "bench_mcp.rs"
+
+[[bench]]
+name = "tree_walk"
+harness = false
+
+[[test]]
+name = "bdd"
+harness = false
+
+[dependencies]
+rmcp = { version = "3.2.0", features = ["server", "transport-io"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+# KeePass vault parsing and complete serialization. Runtime support is read-only.
+keepass = { version = "0.13.25", default-features = false, features = ["serialization"] }
+# Maintained serde_yaml fork used for the `kbdx` tool's YAML output.
+serde_norway = "0.9.42"
+# schemars is re-exported through rmcp (see `use rmcp::schemars`); pin to the
+# same major rmcp uses (1.x) so the tool-schema derives share one version.
+schemars = "1.2.2"
+tokio = { version = "1.53.1", features = ["full"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+sha2 = "0.11.0"
+# Atomic replacement needs an O_EXCL temp file with an unguessable name — a
+# fixed sibling name is a symlink-planting target. Also used by the tests.
+tempfile = "3.27.0"
+# Match the TUI's modern HTTPS client; the SDK's legacy `rustls` default adds
+# a second TLS stack that neither application uses.
+aws-sdk-s3 = { version = "1.145.0", default-features = false, features = [
+    "sigv4a",
+    "http-1x",
+    "default-https-client",
+    "rt-tokio",
+] }
+aws-config = { version = "1.12.0", features = ["behavior-version-latest"] }
+
+# Match the application's local profiles so shared dependency artifacts can be
+# reused. The server's release profile retains Cargo's production defaults.
+[profile.dev]
+opt-level = 0
+debug = 0
+strip = "debuginfo"
+incremental = true
+codegen-units = 256
+lto = false
+debug-assertions = true
+overflow-checks = true
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.test]
+opt-level = 0
+debug = 0
+strip = "debuginfo"
+incremental = true
+codegen-units = 256
+lto = false
+debug-assertions = true
+overflow-checks = true
+
+[profile.test.package."*"]
+opt-level = 2
+
+[lints.rust]
+unfulfilled_lint_expectations = "deny"
+# The MCP server calls no native code; unsafe has no place in it.
+unsafe_code = "forbid"
+# Reliability guards nothing trips today, kept so it stays that way (the root
+# manifest names what each catches). unsafe_attr_outside_unsafe is left out:
+# forbidding unsafe_code already rejects `no_mangle` and `export_name`.
+unused_lifetimes = "warn"
+single_use_lifetimes = "warn"
+redundant_lifetimes = "warn"
+explicit_outlives_requirements = "warn"
+unused_macro_rules = "warn"
+meta_variable_misuse = "warn"
+unused_import_braces = "warn"
+unused_extern_crates = "warn"
+macro_use_extern_crate = "warn"
+trivial_numeric_casts = "warn"
+unit_bindings = "warn"
+keyword_idents_2024 = "warn"
+non_ascii_idents = "warn"
+# Code that hides what it does: a destructor run by `let _ =`, a cast a coercion
+# would do, a `pub` type nobody outside can name, a path or import that says
+# nothing, a lifetime hidden in a path (`Formatter<'_>`, not `Formatter`).
+let_underscore_drop = "warn"
+trivial_casts = "warn"
+unnameable_types = "warn"
+unused_qualifications = "warn"
+redundant_imports = "warn"
+elided_lifetimes_in_paths = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# Same crate-wide allowances as the root manifest, only where they fire here:
+# const fn is an API promise, not a default.
+missing_const_for_fn = "allow"
+# Nursery style lint that fights `match`/`if let` readability.
+option_if_let_else = "allow"
+cognitive_complexity = "warn"
+excessive_nesting = "warn"
+too_many_lines = "warn"
+# Production code never panics or exits: it returns the error, or proves the
+# invariant in an `#[expect(clippy::<lint>, reason = "...")]` on the smallest
+# item. clippy.toml lets tests unwrap, expect, index, panic, print and dbg!.
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+unreachable = "warn"
+exit = "warn"
+indexing_slicing = "warn"
+string_slice = "warn"
+as_conversions = "warn"
+# An error is handled or passed on, never dropped without a word.
+map_err_ignore = "warn"
+let_underscore_must_use = "warn"
+unused_result_ok = "warn"
+# stdout carries the MCP protocol: output goes through `tracing`, and a client
+# never reads a `{:?}`. Hash-map order and `FileType::is_file` (false for
+# devices, pipes and sockets) are never relied on.
+print_stdout = "warn"
+print_stderr = "warn"
+dbg_macro = "warn"
+use_debug = "warn"
+iter_over_hash_type = "warn"
+filetype_is_file = "warn"
+# No SAFETY comment or `# Safety` doc where nothing is unsafe; every allow and
+# expect attribute says why. The unsafe-block lints (undocumented_unsafe_blocks,
+# multiple_unsafe_ops_per_block) are left out: unsafe_code is forbidden here.
+unnecessary_safety_comment = "warn"
+unnecessary_safety_doc = "warn"
+allow_attributes_without_reason = "warn"
+# Guards against leaks, shared-state and float traps, wasted allocations, and
+# forms with a plainer spelling (`to_owned`, `?`, `name.rs` over `name/mod.rs`).
+mem_forget = "warn"
+rc_buffer = "warn"
+rc_mutex = "warn"
+clone_on_ref_ptr = "warn"
+mutex_atomic = "warn"
+mutex_integer = "warn"
+lossy_float_literal = "warn"
+float_cmp_const = "warn"
+empty_drop = "warn"
+verbose_file_reads = "warn"
+str_to_string = "warn"
+string_add = "warn"
+infinite_loop = "warn"
+large_include_file = "warn"
+get_unwrap = "warn"
+try_err = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+mod_module_files = "warn"
+needless_raw_strings = "warn"
+unnecessary_self_imports = "warn"
+redundant_type_annotations = "warn"
+deref_by_slicing = "warn"
+# Manifest hygiene: no `*` versions, no `no-`, `with-` or `use-` feature names.
+wildcard_dependencies = "warn"
+negative_feature_names = "warn"
+redundant_feature_names = "warn"

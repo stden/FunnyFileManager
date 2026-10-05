@@ -1,0 +1,116 @@
+//! Unit tests: Far's description-file format, read and rewritten.
+
+use super::*;
+use tempfile::TempDir;
+
+#[test]
+fn parses_bare_and_quoted_names() {
+    let parsed = parse("notes.txt My notes\n\"my file.txt\"   Spaced name\n\nlonely\n\"broken\r\n");
+    assert_eq!(
+        parsed.get("notes.txt").map(String::as_str),
+        Some("My notes")
+    );
+    assert_eq!(
+        parsed.get("my file.txt").map(String::as_str),
+        Some("Spaced name")
+    );
+    assert_eq!(parsed.get("lonely").map(String::as_str), Some(""));
+    assert_eq!(
+        parsed.len(),
+        3,
+        "an unterminated quote is skipped: {parsed:?}"
+    );
+}
+
+#[test]
+fn read_uses_the_first_existing_file_and_tolerates_none() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let names = default_names();
+    assert!(read(temp.path(), &names).is_empty());
+    fs::write(temp.path().join("Files.bbs"), "a.txt from bbs\n")?;
+    assert_eq!(read(temp.path(), &names)["a.txt"], "from bbs");
+    fs::write(temp.path().join("Descript.ion"), "a.txt from ion\n")?;
+    assert_eq!(read(temp.path(), &names)["a.txt"], "from ion");
+    Ok(())
+}
+
+#[test]
+fn set_description_rewrites_only_the_named_line() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let names = default_names();
+    fs::write(
+        temp.path().join("Descript.ion"),
+        "keep.txt Kept\n\"two words.txt\" Old\n",
+    )?;
+    set_description(temp.path(), &names, "two words.txt", "New")?;
+    set_description(temp.path(), &names, "added.txt", "  Added  ")?;
+    let text = fs::read_to_string(temp.path().join("Descript.ion"))?;
+    assert_eq!(
+        text,
+        "keep.txt Kept\n\"two words.txt\" New\nadded.txt Added\n"
+    );
+    set_description(temp.path(), &names, "keep.txt", "")?;
+    let text = fs::read_to_string(temp.path().join("Descript.ion"))?;
+    assert_eq!(text, "\"two words.txt\" New\nadded.txt Added\n");
+    Ok(())
+}
+
+#[test]
+fn set_description_creates_the_first_name_when_none_exists() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    set_description(temp.path(), &default_names(), "a.txt", "Fresh")?;
+    assert_eq!(read(temp.path(), &default_names())["a.txt"], "Fresh");
+    assert!(temp.path().join("Descript.ion").is_file());
+    let error = set_description(temp.path(), &[], "a.txt", "x").expect_err("no names");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    Ok(())
+}
+
+fn names_in(dir: &Path) -> Vec<String> {
+    let mut names: Vec<String> = fs::read_dir(dir)
+        .expect("listing")
+        .map(|entry| {
+            entry
+                .expect("entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+    names.sort();
+    names
+}
+
+/// Far treats `descript.ion`, `Descript.ion` and `DESCRIPT.ION` as one file.
+/// Reading finds it whatever its case, and Ctrl+Z writes back to that file
+/// instead of creating a second one beside it.
+#[test]
+fn the_description_file_is_found_and_rewritten_whatever_its_case() -> io::Result<()> {
+    for spelling in ["descript.ion", "DESCRIPT.ION", "Descript.ion"] {
+        let temp = TempDir::new()?;
+        fs::write(temp.path().join(spelling), "a.txt Old\nb.txt Kept\n")?;
+        assert_eq!(
+            read(temp.path(), &default_names())["a.txt"],
+            "Old",
+            "{spelling}"
+        );
+        set_description(temp.path(), &default_names(), "a.txt", "New")?;
+        assert_eq!(names_in(temp.path()), [spelling], "one description file");
+        assert_eq!(
+            fs::read_to_string(temp.path().join(spelling))?,
+            "b.txt Kept\na.txt New\n"
+        );
+    }
+    Ok(())
+}
+
+/// The configured order still decides between two different files, whatever
+/// case each is spelled in.
+#[test]
+fn the_search_order_holds_across_letter_case() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    fs::write(temp.path().join("files.bbs"), "a.txt from bbs\n")?;
+    fs::write(temp.path().join("DESCRIPT.ION"), "a.txt from ion\n")?;
+    assert_eq!(read(temp.path(), &default_names())["a.txt"], "from ion");
+    Ok(())
+}
