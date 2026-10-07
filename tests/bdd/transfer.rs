@@ -63,6 +63,16 @@ fn when_copy_through_f5_with_policy(world: &mut FfmWorld, policy: String) -> Ste
     world.run_key_workflow(events, "F5 transfer-dialog workflow")
 }
 
+#[when("I copy the selection through F5 asking, and keep both")]
+fn when_copy_through_f5_asking_keep_both(world: &mut FfmWorld) -> StepResult {
+    let mut events = Vec::new();
+    push_transfer_with_policy(&mut events, 5, "Ask")?;
+    // "File already exists": K for Keep both.
+    events.push(key_event(KeyCode::Char('k')));
+    push_quit(&mut events);
+    world.run_key_workflow(events, "F5 transfer-dialog workflow, keeping both")
+}
+
 #[when(expr = "I move the selection through F6 using {string}")]
 fn when_move_through_f6_with_policy(world: &mut FfmWorld, policy: String) -> StepResult {
     let mut events = Vec::new();

@@ -7,7 +7,8 @@ use std::time::Duration;
 
 use super::tests::Recorder;
 use super::{
-    begin, copying_across, file_copied, relay, take_painted, Operation, Phase, Snapshot, Tally,
+    begin, copying_across, examined, file_copied, matched, relay, take_painted, Operation, Phase,
+    Snapshot, Tally,
 };
 
 #[test]
@@ -32,6 +33,17 @@ fn copying_across_adds_the_file_bytes_to_a_move() {
     let _run = begin(Operation::Move, std::slice::from_ref(&notes));
     copying_across(&notes);
     assert_eq!(recorder.last().total.bytes, 4);
+}
+
+#[test]
+fn a_search_counts_what_it_looked_at_and_what_matched() {
+    let (recorder, _installed) = Recorder::install();
+    let _run = begin(Operation::Find, &[]);
+    examined();
+    examined();
+    matched();
+    let last = recorder.last();
+    assert_eq!((last.done.files, last.total.files), (1, 2));
 }
 
 #[test]

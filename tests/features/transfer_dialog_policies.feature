@@ -8,12 +8,12 @@ Feature: Transfer dialog policies
     Given a source directory
     And an empty destination directory
 
-  Scenario: Ask keeps the existing file and creates a uniquely named copy
+  Scenario: Ask, answered Keep both, keeps the existing file and creates a uniquely named copy
     Given a file "report.txt" with content "draft" in the source
     And a file "report.txt" with content "approved" in the destination
     And the app is set up with source and destination
     And I select "report.txt" in the active panel
-    When I copy the selection through F5 using "Ask"
+    When I copy the selection through F5 asking, and keep both
     Then "report.txt" in the destination should have content "approved"
     And "report_1.txt" in the destination should have content "draft"
     And "report.txt" in the source should have content "draft"

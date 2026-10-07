@@ -96,20 +96,11 @@ fn for_source<'a>(
     }
 }
 
-/// Send `sources` where `settings` say, stopping at the first that fails.
-/// `selected` is how many entries the operation was given, which decides
-/// whether a typed destination is a folder or a new name ([`Destination`]).
-pub(super) fn transfer(
-    sources: &[PathBuf],
-    base: &Path,
-    selected: usize,
-    settings: &crate::copy::CopyPrompt,
-) -> DialogOutcome {
-    transfer_choosing(sources, base, selected, settings, &[])
-}
-
-/// [`transfer`], with the user's answer for each source in `choices`.
-fn transfer_choosing(
+/// Send `sources` where `settings` say, stopping at the first that fails,
+/// with the user's answer for each source in `choices`. `selected` is how
+/// many entries the operation was given, which decides whether a typed
+/// destination is a folder or a new name ([`Destination`]).
+pub(super) fn transfer_choosing(
     sources: &[PathBuf],
     base: &Path,
     selected: usize,

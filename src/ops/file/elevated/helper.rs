@@ -43,9 +43,15 @@ impl<W: Write> Painter for Relay<W> {
 /// Redo `retry`, stopping at the first entry that fails, as FFM does.
 pub(super) fn run(retry: &ElevatedRetry) -> Outcome {
     match (&retry.settings, retry.operation) {
-        (Some(settings), Operation::Copy | Operation::Move) => transferred(
-            &super::super::dialog::transfer(&retry.sources, &retry.base, retry.selected, settings),
-        ),
+        (Some(settings), Operation::Copy | Operation::Move) => {
+            transferred(&super::super::dialog::transfer_choosing(
+                &retry.sources,
+                &retry.base,
+                retry.selected,
+                settings,
+                &[],
+            ))
+        }
         (None, Operation::Delete) => delete(&retry.sources),
         // Settings without a transfer, or a transfer without them: FFM
         // never sends one, and it is not read as anything it might mean.

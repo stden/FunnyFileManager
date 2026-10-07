@@ -39,13 +39,20 @@ fn skip_leaves_a_dangling_link_alone() {
 }
 
 #[test]
-fn ask_puts_the_file_beside_a_dangling_link() {
+fn ask_and_keep_both_puts_the_file_beside_a_dangling_link() {
     for purpose in [Purpose::Copy, Purpose::Move] {
         let (mut app, _from, to) = onto_a_dangling_link();
         let mut dialog = settings(to.path());
         dialog.purpose = purpose;
 
         copy_with(&mut app, &dialog);
+        // The link takes the name, so Ask asks about it.
+        assert!(
+            matches!(app.overlay, crate::models::Overlay::ExistingFile(_)),
+            "{purpose:?}: {}",
+            app.status
+        );
+        answer_existing(&mut app, crate::models::ClashAnswer::KeepBoth);
 
         assert!(link_kept(to.path()), "{purpose:?}: {}", app.status);
         assert_eq!(fs::read(to.path().join("a_1.txt")).unwrap(), b"new");

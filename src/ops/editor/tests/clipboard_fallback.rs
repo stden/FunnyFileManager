@@ -29,9 +29,23 @@ fn copying_falls_back_to_the_terminal_clipboard() {
 }
 
 #[test]
+fn the_file_name_is_typed_even_without_a_clipboard() {
+    let dir = TempDir::new().expect("dir");
+    let path = dir.path().join("t.txt");
+    let mut app = editor_app("", path.clone());
+    crate::ops::insert_editor_file_name(&mut app);
+    let editor = app.get_editor().expect("editor");
+    let name = crate::path_display::label(&path).into_owned();
+    assert_eq!(editor.content(), name);
+    let notice = editor.notice.as_deref().unwrap_or_default();
+    assert!(notice.starts_with("Copy failed"), "{notice}");
+}
+
+#[test]
 fn paste_and_copy_do_nothing_without_an_editor() {
     let mut app = App::new().expect("app");
     crate::ops::copy_editor_selection(&mut app);
+    crate::ops::insert_editor_file_name(&mut app);
     crate::ops::paste_into_editor(&mut app);
     assert!(app.get_editor().is_none());
 }
