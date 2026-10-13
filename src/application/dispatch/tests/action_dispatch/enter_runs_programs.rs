@@ -26,16 +26,19 @@ fn enter_runs_a_cmd_file_from_the_active_panel() {
 }
 
 #[cfg(windows)]
-struct ProgramTerminalGuard;
+struct ProgramTerminalGuard {
+    _lock: std::sync::MutexGuard<'static, ()>,
+}
 
 #[cfg(windows)]
 impl ProgramTerminalGuard {
     fn enter() -> Self {
+        let lock = crate::test_support::editor_env_lock();
         drop(crossterm::execute!(
             io::stdout(),
             crossterm::event::EnableMouseCapture
         ));
-        Self
+        Self { _lock: lock }
     }
 }
 
