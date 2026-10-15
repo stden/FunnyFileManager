@@ -99,3 +99,17 @@ fn assert_retained_panel(panel: &Panel, directory: &std::path::Path) {
         "the selection must stay inside the listing"
     );
 }
+
+/// `:cd` uses `canonicalize` to normalise the path. On Windows, `canonicalize`
+/// prepends `\\?\`, so the stored `panel.path` must not keep that prefix.
+#[cfg(windows)]
+#[test]
+fn cd_stores_an_ordinary_path_without_verbatim_prefix() {
+    let temp = TempDir::new().expect("temp dir");
+    let mut app = app_at(&temp);
+    execute_command(&mut app, &format!("cd {}", temp.path().display())).expect("cd");
+    assert!(
+        !app.get_active_panel().path.to_string_lossy().starts_with(r"\\?\"),
+        "panel.path must not carry the Windows verbatim prefix after :cd"
+    );
+}

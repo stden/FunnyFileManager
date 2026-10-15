@@ -1,6 +1,6 @@
 //! Purpose: Human-readable path labels without changing the paths used for filesystem I/O.
 
-use std::{borrow::Cow, path::Path};
+use std::{borrow::Cow, path::{Path, PathBuf}};
 
 #[cfg(not(windows))]
 pub fn label(path: &Path) -> Cow<'_, str> {
@@ -30,6 +30,26 @@ pub fn without_verbatim_prefix(text: &str) -> Cow<'_, str> {
         Some(rest) if starts_with_drive(rest) => Cow::Borrowed(rest),
         _ => Cow::Borrowed(text),
     }
+}
+
+/// Remove the Windows verbatim prefix from a `PathBuf` in place.
+///
+/// `\\?\C:\x` becomes `C:\x` and `\\?\UNC\server\share` becomes
+/// `\\server\share`. Non-verbatim paths and non-Windows platforms are
+/// returned unchanged. Use this to clean up paths obtained from
+/// [`std::fs::canonicalize`], which adds the prefix on Windows.
+#[must_use]
+pub fn normalize(path: PathBuf) -> PathBuf {
+    #[cfg(windows)]
+    {
+        let s = path.to_string_lossy();
+        let plain = without_verbatim_prefix(&s);
+        // `plain` is shorter only when a verbatim prefix was stripped.
+        if plain.len() < s.len() {
+            return PathBuf::from(plain.into_owned());
+        }
+    }
+    path
 }
 
 /// Whether `text` starts with a drive: a letter and a colon.

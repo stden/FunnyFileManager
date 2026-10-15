@@ -35,6 +35,9 @@ fn cmd_cd_path(app: &mut App, requested: &Path) -> io::Result<()> {
     let new_path = typed
         .canonicalize()
         .map_err(|error| crate::utils::FailedAt::wrap(&typed, error))?;
+    // `canonicalize` prepends `\\?\` on Windows. Strip it so the panel path
+    // stays in the ordinary form used everywhere else.
+    let new_path = crate::path_display::normalize(new_path);
 
     if !new_path.is_dir() {
         return Err(io::Error::new(

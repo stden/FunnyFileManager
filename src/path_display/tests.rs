@@ -104,3 +104,35 @@ fn the_verbatim_prefix_goes_from_drives_and_shares_only() {
         assert_eq!(without_verbatim_prefix(raw), plain, "{raw}");
     }
 }
+
+#[test]
+fn normalize_strips_verbatim_prefix_from_a_path_buf() {
+    use std::path::PathBuf;
+
+    for (raw, expected) in [
+        (r"\\?\C:\work\проект", r"C:\work\проект"),
+        (r"\\?\UNC\server\share\x", r"\\server\share\x"),
+        // Non-verbatim paths are returned as-is on every platform.
+        (r"C:\work", r"C:\work"),
+        ("/srv/x", "/srv/x"),
+    ] {
+        assert_eq!(
+            normalize(PathBuf::from(raw)),
+            PathBuf::from(expected),
+            "{raw}"
+        );
+    }
+}
+
+#[test]
+fn normalize_does_not_touch_device_or_volume_paths() {
+    use std::path::PathBuf;
+
+    for raw in [r"\\?\Volume{example}\", r"\\?\", r"\\.\COM1"] {
+        assert_eq!(
+            normalize(PathBuf::from(raw)),
+            PathBuf::from(raw),
+            "{raw}"
+        );
+    }
+}

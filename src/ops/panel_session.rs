@@ -25,7 +25,10 @@ pub fn load(fallback: &Path, persistence: Persistence) -> io::Result<App> {
 
 fn load_panel(saved: Option<&Path>, fallback: &Path) -> io::Result<Panel> {
     if let Some(path) = saved.filter(|path| path.is_absolute()) {
-        match Panel::new(path.to_owned()) {
+        // Strip any `\\?\` verbatim prefix that a previous session may have
+        // written (before normalize was applied at navigation time).
+        let path = crate::path_display::normalize(path.to_path_buf());
+        match Panel::new(path) {
             Ok(panel) => return Ok(panel),
             Err(error) => crate::diagnostics::log_error(&format!("restoring panel: {error}")),
         }
