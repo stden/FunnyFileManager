@@ -15,7 +15,7 @@ const MASTER_PASSWORD: &str = "synthetic-master-password";
 
 fn server_at(dir: &TempDir) -> (FfmServer, PathBuf) {
     let root = dir.path().canonicalize().expect("canonicalize temp dir");
-    (FfmServer::new(root.clone()), root)
+    (FfmServer::with_config(root.clone(), false, true), root)
 }
 
 fn cheap_database() -> Database {

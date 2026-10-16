@@ -36,6 +36,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<BatchParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         let dest_str = params
             .destination
             .as_deref()
@@ -83,6 +84,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<BatchParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         let dest_str = params
             .destination
             .as_deref()
@@ -126,7 +128,8 @@ impl FfmServer {
     pub(crate) fn batch_delete(
         &self,
         Parameters(params): Parameters<BatchParams>,
-    ) -> CallToolResult {
+    ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         let mut deleted = Vec::new();
         let mut errors = Vec::new();
 
@@ -153,7 +156,7 @@ impl FfmServer {
             "total_deleted": deleted.len(),
             "total_errors": errors.len(),
         });
-        json_response(&result)
+        Ok(json_response(&result))
     }
 }
 

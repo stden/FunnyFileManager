@@ -150,10 +150,35 @@ started in — set it explicitly, since a client-spawned process often inherits
 
 ### ⚙️ Environment Variables
 
-| Variable       | Default                   | Description                                                                                                       |
-|----------------|---------------------------|-------------------------------------------------------------------------------------------------------------------|
-| `RUST_LOG`     | `info`                    | Log level filter (trace/debug/info/warn/error)                                                                    |
-| `FFM_MCP_ROOT` | process working directory | The only directory tree tools may read or write. Resolved once at startup; every path argument is confined to it. |
+| Variable              | Default                   | Description                                                                                                       |
+|-----------------------|---------------------------|-------------------------------------------------------------------------------------------------------------------|
+| `RUST_LOG`            | `info`                    | Log level filter (trace/debug/info/warn/error)                                                                    |
+| `FFM_MCP_ROOT`        | process working directory | The only directory tree tools may read or write. Resolved once at startup; every path argument is confined to it. |
+| `FFM_MCP_READONLY`    | *(unset)*                 | Set to `1` to start the server in read-only mode. All write, delete, move, copy, symlink, chmod, S3-upload, and KeePass-export tools return an error. Read tools (`view_file`, `list_directory`, `head_file`, etc.) are unaffected. Recommended when running under untrusted AI hosts. |
+| `FFM_MCP_ALLOW_KDBX`  | *(unset)*                 | Set to `1` to enable the `kbdx` tool. When unset (the default), any call to `kbdx` is refused. This opt-in prevents inadvertent plaintext vault exposure when the server is added to a shared MCP host. |
+
+### 🔐 Security: `FFM_MCP_ALLOW_KDBX` and `FFM_MCP_READONLY`
+
+> **⚠️ Warning — enabling `kbdx` grants the MCP caller plaintext access to
+> vault contents.** Every entry, including protected fields, is returned in the
+> response. Treat the response as secret material and keep it out of logs,
+> histories, and chat contexts. Only enable `kbdx` when the MCP host and all
+> callers are fully trusted.
+
+`FFM_MCP_READONLY=1` is the recommended safe default for any AI host that
+should be able to browse and read files but must not modify the filesystem,
+upload to S3, or export KeePass secrets. In this mode the following tools
+return an error immediately:
+
+- All write/create/append/delete/copy/move tools (`create_file`, `write_file`,
+  `append_file`, `create_directory`, `copy`, `move_rename`, `delete`)
+- Batch operations (`batch_copy`, `batch_move`, `batch_delete`)
+- Symlink creation (`create_symlink`)
+- Permission changes (`permissions`)
+- S3 mutations (`s3_upload`, `s3_delete`, `s3_copy`; `s3_download` is still allowed)
+- Pattern-based mutations (`replace`, `delete_by_pattern`)
+- Bookmark writes (`set_bookmark`, `delete_bookmark`)
+- KeePass export (`kbdx`) — gated separately by `FFM_MCP_ALLOW_KDBX`
 
 ## 🔌 Protocol Flow
 

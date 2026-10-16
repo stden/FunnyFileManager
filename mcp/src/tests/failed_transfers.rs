@@ -48,7 +48,7 @@ fn batch_delete_without_recursion_refuses_a_populated_directory() {
         paths: vec!["full".to_owned(), "empty".to_owned()],
         destination: None,
         recursive: false,
-    }));
+    })).expect("batch_delete returns per-path failures, not an early error");
     let payload = tool_json(&result);
 
     assert_eq!(payload["total_deleted"], 1);

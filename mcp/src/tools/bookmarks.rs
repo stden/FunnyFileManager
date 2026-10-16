@@ -28,6 +28,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<BookmarkParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         let path_str = params
             .path
             .as_deref()
@@ -92,8 +93,10 @@ impl FfmServer {
     /// Delete a named bookmark.
     #[tool(description = "Delete a named bookmark.")]
     pub(crate) fn delete_bookmark(
+        &self,
         Parameters(params): Parameters<BookmarkParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         let mut bookmarks = load_bookmarks();
         if bookmarks.remove(&params.name).is_none() {
             return Err(McpError::invalid_params(

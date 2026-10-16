@@ -21,7 +21,7 @@ fn batch_delete_of_a_link_to_a_directory_keeps_the_target() {
         paths: vec!["link".to_owned()],
         destination: None,
         recursive: true,
-    }));
+    })).expect("batch_delete returns per-path failures, not an early error");
     let payload = tool_json(&result);
 
     assert_eq!(payload["total_deleted"], 1);
@@ -46,7 +46,7 @@ fn batch_delete_of_a_link_to_a_file_keeps_the_file() {
         paths: vec!["alias.txt".to_owned()],
         destination: None,
         recursive: false,
-    }));
+    })).expect("batch_delete returns per-path failures, not an early error");
 
     assert_eq!(tool_json(&result)["total_deleted"], 1);
     assert_gone(&root.join("alias.txt"));

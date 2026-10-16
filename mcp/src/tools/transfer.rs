@@ -42,6 +42,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<CopyMoveParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         // Resolve the link itself, never its target: canonicalizing would hand
         // back what the link points at, so copying a link would copy that file's
         // contents instead of reproducing the link.
@@ -65,6 +66,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<CopyMoveParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         // Resolve the link itself: `rename` moves a link without following it,
         // so canonicalizing here would rename the *target* out from under the
         // link — and a copy fallback would delete that target instead.
@@ -99,6 +101,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<DeleteParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         // Resolve the link itself, never its target: deleting a link must not
         // destroy what it points at, and a dangling link stays deletable.
         let path = self.safe_path_nofollow(&params.path)?;

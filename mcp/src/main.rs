@@ -25,6 +25,7 @@ mod conversions;
 mod directory_tools;
 mod fsops;
 mod globmatch;
+mod guards;
 mod kdbx;
 mod naming;
 mod paths;
@@ -58,6 +59,8 @@ mod tests;
 #[cfg(test)]
 mod tests_conversions;
 #[cfg(test)]
+mod tests_guards;
+#[cfg(test)]
 mod tests_kdbx;
 #[cfg(test)]
 mod tests_tools;
@@ -67,15 +70,40 @@ pub struct FfmServer {
     tool_router: ToolRouter<Self>,
     /// The only directory tree tools may touch, resolved once at startup.
     root: PathBuf,
+    /// Whether the server is in read-only mode (`FFM_MCP_READONLY=1`).
+    readonly: bool,
+    /// Whether the kbdx tool is enabled (`FFM_MCP_ALLOW_KDBX=1`).
+    kdbx_allowed: bool,
 }
 
 impl FfmServer {
     #[must_use]
     pub fn new(root: PathBuf) -> Self {
+        Self::with_config(root, guards::is_readonly(), guards::is_kdbx_allowed())
+    }
+
+    /// Construct a server with explicit guard flags, bypassing the environment.
+    ///
+    /// Used by tests and callers that need a deterministic configuration
+    /// regardless of the process environment.
+    #[must_use]
+    pub(crate) fn with_config(root: PathBuf, readonly: bool, kdbx_allowed: bool) -> Self {
         Self {
             tool_router: Self::tool_router(),
             root,
+            readonly,
+            kdbx_allowed,
         }
+    }
+
+    /// Fails with a read-only error when the server was started in readonly mode.
+    fn require_readwrite(&self) -> Result<(), McpError> {
+        guards::require_readwrite(self.readonly)
+    }
+
+    /// Fails with a disabled error when the kbdx tool is not enabled.
+    fn require_kdbx_allowed(&self) -> Result<(), McpError> {
+        guards::require_kdbx_allowed(self.kdbx_allowed)
     }
 
     /// Resolve an existing caller-supplied path, confined to the server root.

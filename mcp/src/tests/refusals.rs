@@ -76,7 +76,7 @@ fn batch_delete_refuses_a_path_outside_the_root_and_leaves_it_alone() {
         paths: vec![victim.display().to_string(), "inside.txt".to_owned()],
         destination: None,
         recursive: true,
-    }));
+    })).expect("batch_delete returns per-path failures, not an early error");
     let payload = tool_json(&result);
 
     assert_eq!(payload["total_deleted"], 1);

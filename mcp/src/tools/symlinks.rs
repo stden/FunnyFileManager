@@ -26,6 +26,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<SymlinkParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         let target = self.safe_path(&params.target)?;
         let link = self.safe_path_create(&params.link)?;
 

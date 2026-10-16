@@ -98,6 +98,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<S3TransferParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         let client = make_s3_client(&params.profile).await?;
         let local_path = self.safe_path(&params.local_path)?;
 
@@ -130,6 +131,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<S3DeleteParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         let client = make_s3_client(&params.profile).await?;
 
         client
@@ -153,6 +155,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<S3CopyParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         let client = make_s3_client(&params.profile).await?;
 
         let copy_source = format!("{}/{}", params.source_bucket, params.source_key);

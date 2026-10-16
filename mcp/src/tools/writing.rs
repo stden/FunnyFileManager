@@ -45,6 +45,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<CreateFileParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         let path = self.safe_path_create(&params.path)?;
         let content = params.content.as_deref().unwrap_or("");
 
@@ -81,6 +82,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<WriteFileParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         let path = self.safe_path_create(&params.path)?;
 
         if let Some(parent) = path.parent() {
@@ -103,6 +105,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<AppendFileParams>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         let path = self.safe_path_create(&params.path)?;
 
         if let Some(parent) = path.parent() {
@@ -130,6 +133,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<PathParam>,
     ) -> Result<CallToolResult, McpError> {
+        self.require_readwrite()?;
         let path = self.safe_path_create(&params.path)?;
 
         fs::create_dir_all(&path).map_err(|e| McpError::internal_error(e.to_string(), None))?;
