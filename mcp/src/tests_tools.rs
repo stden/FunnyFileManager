@@ -93,6 +93,7 @@ mod tests_links;
 mod tests_reading;
 mod tests_recent;
 mod tests_router;
+mod tests_s3_cap;
 mod tests_tail;
 mod tests_text;
 #[cfg(unix)]

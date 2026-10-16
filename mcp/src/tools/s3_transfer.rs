@@ -12,6 +12,27 @@ use serde::Deserialize;
 use serde_json::json;
 use std::fs;
 
+/// Maximum object size buffered into memory for a single `s3_download` call.
+pub const MAX_S3_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;
+
+/// Returns `Err` when `content_length` exceeds [`MAX_S3_DOWNLOAD_BYTES`].
+/// `None` (unknown length) is allowed; the body size is checked after collect.
+pub fn check_download_size(content_length: Option<i64>) -> Result<(), McpError> {
+    if let Some(len) = content_length {
+        let len = len.unsigned_abs();
+        if len > MAX_S3_DOWNLOAD_BYTES {
+            return Err(McpError::invalid_params(
+                format!(
+                    "Object too large ({len} bytes); limit is {MAX_S3_DOWNLOAD_BYTES} — \
+                     use aws s3 cp or a presigned URL for objects this large (too large)"
+                ),
+                None,
+            ));
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 struct S3TransferParams {
     /// AWS profile name
@@ -71,6 +92,8 @@ impl FfmServer {
             .send()
             .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        check_download_size(resp.content_length())?;
 
         let bytes = resp
             .body
