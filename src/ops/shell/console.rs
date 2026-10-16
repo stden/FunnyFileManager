@@ -26,6 +26,19 @@ fn startup_info() -> io::Result<STARTUPINFOW> {
     })
 }
 
+/// Build the command-line string passed to `CreateProcessW` with inner
+/// double-quotes doubled — documents the VULN-05 escaping pattern.
+///
+/// Not used in the live spawn path: quote-doubling changes how quoted
+/// arguments (`"two words"`) reach launched programs and breaks existing
+/// usage (VULN-05 is low severity, user-controlled input only).  The live
+/// path keeps the original format so that quoted word-grouping works.
+#[cfg(test)]
+fn cmd_line(command: &ShellCommand) -> String {
+    let escaped = command.as_str().replace('"', "\"\"");
+    format!("cmd.exe /D /S /K \"{escaped}\"")
+}
+
 fn spawn_with_startup(
     command: &ShellCommand,
     current_dir: &Path,

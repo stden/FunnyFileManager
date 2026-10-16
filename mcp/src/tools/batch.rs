@@ -12,7 +12,7 @@ use rmcp::{
 use serde::Deserialize;
 use serde_json::json;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct BatchParams {
@@ -36,13 +36,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<BatchParams>,
     ) -> Result<CallToolResult, McpError> {
-        self.require_readwrite()?;
-        let dest_str = params
-            .destination
-            .as_deref()
-            .ok_or_else(|| McpError::invalid_params("destination is required", None))?;
-        let dest = self.safe_path_create(dest_str)?;
-        fs::create_dir_all(&dest).map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        let dest = prepare_batch_dest(self, &params)?;
 
         let mut copied = Vec::new();
         let mut errors = Vec::new();
@@ -84,13 +78,7 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<BatchParams>,
     ) -> Result<CallToolResult, McpError> {
-        self.require_readwrite()?;
-        let dest_str = params
-            .destination
-            .as_deref()
-            .ok_or_else(|| McpError::invalid_params("destination is required", None))?;
-        let dest = self.safe_path_create(dest_str)?;
-        fs::create_dir_all(&dest).map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        let dest = prepare_batch_dest(self, &params)?;
 
         let mut moved = Vec::new();
         let mut errors = Vec::new();
@@ -158,6 +146,20 @@ impl FfmServer {
         });
         Ok(json_response(&result))
     }
+}
+
+/// Validate write access, resolve the required `destination` field through
+/// the server root, and ensure the directory exists.
+fn prepare_batch_dest(server: &FfmServer, params: &BatchParams) -> Result<PathBuf, McpError> {
+    let dest = server.safe_path_create(
+        params
+            .destination
+            .as_deref()
+            .ok_or_else(|| McpError::invalid_params("destination is required", None))?,
+    )?;
+    server.require_readwrite()?;
+    fs::create_dir_all(&dest).map_err(|e| McpError::internal_error(e.to_string(), None))?;
+    Ok(dest)
 }
 
 /// One entry of a batch move: the name it lands under, and what the move

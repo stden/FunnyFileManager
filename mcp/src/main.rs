@@ -8,7 +8,6 @@
 //! The tools themselves are declared per area under `tools/`.
 
 use rmcp::{
-    handler::server::router::tool::ToolRouter,
     model::{ServerCapabilities, ServerInfo},
     tool_handler,
     transport::stdio,
@@ -36,9 +35,11 @@ mod s3_listing;
 mod s3_profiles;
 // The tool list lives in its own import-free file so the sibling crate's MCP
 // status screen can `include!` it instead of keeping a second copy.
+mod server;
 mod tool_names;
 mod tools;
 mod walk;
+pub use server::FfmServer;
 pub use tool_names::TOOL_NAMES;
 
 // What the tool modules beside this file import from the crate root, where
@@ -65,37 +66,7 @@ mod tests_kdbx;
 #[cfg(test)]
 mod tests_tools;
 
-#[derive(Debug, Clone)]
-pub struct FfmServer {
-    tool_router: ToolRouter<Self>,
-    /// The only directory tree tools may touch, resolved once at startup.
-    root: PathBuf,
-    /// Whether the server is in read-only mode (`FFM_MCP_READONLY=1`).
-    readonly: bool,
-    /// Whether the kbdx tool is enabled (`FFM_MCP_ALLOW_KDBX=1`).
-    kdbx_allowed: bool,
-}
-
 impl FfmServer {
-    #[must_use]
-    pub fn new(root: PathBuf) -> Self {
-        Self::with_config(root, guards::is_readonly(), guards::is_kdbx_allowed())
-    }
-
-    /// Construct a server with explicit guard flags, bypassing the environment.
-    ///
-    /// Used by tests and callers that need a deterministic configuration
-    /// regardless of the process environment.
-    #[must_use]
-    pub(crate) fn with_config(root: PathBuf, readonly: bool, kdbx_allowed: bool) -> Self {
-        Self {
-            tool_router: Self::tool_router(),
-            root,
-            readonly,
-            kdbx_allowed,
-        }
-    }
-
     /// Fails with a read-only error when the server was started in readonly mode.
     fn require_readwrite(&self) -> Result<(), McpError> {
         guards::require_readwrite(self.readonly)
@@ -191,7 +162,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     // Resolved once: every tool argument is confined to this tree.
-    let root = paths::resolve_root()?;
+    let root: PathBuf = paths::resolve_root()?;
     info!(root = %root.display(), tools = TOOL_NAMES.len(), "ffm-mcp server starting");
 
     let service = FfmServer::new(root).serve(stdio()).await?;

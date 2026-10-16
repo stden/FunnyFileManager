@@ -112,6 +112,23 @@ fn canonical_windows_directory_is_preserved_when_launching_codex() {
 }
 
 #[test]
+fn cmd_exe_line_doubles_embedded_double_quotes() {
+    let command = ShellCommand::new(r#"cmd /C echo "hello""#).expect("command");
+    let line = cmd_line(&command);
+    // The outer wrapper quotes must be present.
+    assert!(
+        line.starts_with("cmd.exe /D /S /K \""),
+        "missing outer prefix"
+    );
+    assert!(line.ends_with('"'), "missing outer closing quote");
+    // Inner double-quotes must be doubled so cmd /S sees the literal character.
+    assert!(
+        line.contains("\"\"hello\"\""),
+        "inner quotes not doubled: {line}"
+    );
+}
+
+#[test]
 fn new_console_rejects_nul_instead_of_truncating_arguments() {
     let temp = TempDir::new().expect("tempdir");
     let command = ShellCommand::new("codex before\0after").expect("command");

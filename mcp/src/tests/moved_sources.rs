@@ -6,6 +6,7 @@ use super::*;
 use crate::fsops::{FORCE_REMOVAL_REFUSAL, FORCE_RENAME_FAILURE};
 use crate::tools::batch::BatchParams;
 use crate::tools::transfer::CopyMoveParams;
+use rmcp::ErrorData as McpError;
 use std::time::{Duration, SystemTime};
 
 const TREE: [&str; 3] = ["g1.txt", "g2.txt", "rootsub/r.txt"];
