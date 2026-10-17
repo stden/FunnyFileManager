@@ -10,10 +10,15 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crate::models::App;
 
 mod editor;
+mod more;
 #[cfg(feature = "keepass")]
 mod vault;
 
 pub(super) use editor::dialog_button_key_in_editor;
+use more::{
+    archive_button_key, copy_button_key, extract_button_key, failed_button, mcp_install_button_key,
+    more_button_key,
+};
 #[cfg(feature = "keepass")]
 pub(super) use vault::{kdbx_button_key, vault_prompt_button};
 
@@ -27,56 +32,38 @@ pub(super) fn dialog_button_key(app: &mut App, index: usize) -> Option<KeyEvent>
     use crate::models::{ExistingFile, Overlay};
 
     match &mut app.overlay {
-        // Yes / No.
         Overlay::QuitConfirm(_) => Some(plain(KeyCode::Char(if index == 0 { 'y' } else { 'n' }))),
-        // Delete / Cancel, and Wipe / Cancel: the same two answers.
         Overlay::DeleteConfirm(_) | Overlay::WipeConfirm(_) => {
             Some(first_or_esc(index, KeyCode::Char('y')))
         }
-        // OK / Cancel.
         Overlay::NewFileInput(_) => Some(first_or_esc(index, KeyCode::Enter)),
-        // The same two, but the dialog has a cursor of its own: a click names
-        // the button before Enter, so an old keyboard focus on Cancel cannot
-        // make a click on OK cancel.
         Overlay::NamePrompt(prompt) => Some(name_button_key(prompt, index)),
-        // OK / Cancel, with a cursor of its own like the name dialog's.
         Overlay::MaskPrompt(prompt) => {
             prompt.focus_cancel(index != 0);
             Some(plain(KeyCode::Enter))
         }
-        // OK / Cancel with a cursor of its own, like the mask dialog's.
         Overlay::Describe(prompt) => Some(describe_button_key(prompt, index)),
-        // Set / Cancel, with a cursor of its own like the name dialog's.
         Overlay::Attributes(dialog) => Some(attributes_button_key(dialog, index)),
-        // OK / Cancel of the Apply command dialog, the same way.
         Overlay::ApplyCommand(prompt) => Some(apply_button_key(prompt, index)),
-        // A single Ok.
         Overlay::Information(_) => Some(plain(KeyCode::Esc)),
-        // "Retry as administrator" / OK, or OK alone.
         Overlay::OperationFailed(failure) => Some(plain(failed_button(failure, index))),
-        // Overwrite / Skip / Keep both / Cancel: each its letter.
         Overlay::ExistingFile(_) => Some(plain(KeyCode::Char(ExistingFile::button_hotkey(index)))),
-        // Add / Cancel and Extract / Cancel, each with a cursor of its own
-        // like the name dialog's.
         Overlay::ArchivePrompt(prompt) => Some(archive_button_key(prompt, index)),
         Overlay::ExtractPrompt(prompt) => Some(extract_button_key(prompt, index)),
         Overlay::McpInstall(dialog) => mcp_install_button_key(dialog, index),
-        // Copy / Filter / Cancel. A click selects the named button before
-        // Enter, so an old keyboard focus cannot make Copy act as Cancel.
         Overlay::CopyPrompt(prompt) => copy_button_key(prompt, index),
         Overlay::Editor(editor) => dialog_button_key_in_editor(editor, index),
         Overlay::MenuDialog(dialog) => menu_dialog_button_key(dialog, index),
         Overlay::LspEditor(dialog) => lsp_editor_button_key(dialog, index),
-        // The task list's dialogs: each button its letter or its focus.
         Overlay::Tasks(list) => super::tasks::tasks_button_key(list, index),
         #[cfg(feature = "keepass")]
         Overlay::Kdbx(session) => kdbx_button_key(&session.0, index),
-        _ => None,
+        other => more_button_key(other, index),
     }
 }
 
 /// A key with no modifier.
-fn plain(code: KeyCode) -> KeyEvent {
+pub(super) fn plain(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::empty())
 }
 
@@ -141,57 +128,4 @@ fn name_button_key(prompt: &mut crate::models::NamePrompt, index: usize) -> KeyE
 fn describe_button_key(prompt: &mut crate::models::DescribePrompt, index: usize) -> KeyEvent {
     prompt.focus_cancel(index != 0);
     KeyCode::Enter.into()
-}
-
-fn archive_button_key(prompt: &mut crate::models::ArchivePrompt, index: usize) -> KeyEvent {
-    prompt.field = if index == 0 {
-        crate::models::ArchiveField::Add
-    } else {
-        crate::models::ArchiveField::Cancel
-    };
-    KeyEvent::new(KeyCode::Enter, KeyModifiers::empty())
-}
-
-fn extract_button_key(prompt: &mut crate::models::ExtractPrompt, index: usize) -> KeyEvent {
-    prompt.field = if index == 0 {
-        crate::models::ExtractField::Extract
-    } else {
-        crate::models::ExtractField::Cancel
-    };
-    KeyEvent::new(KeyCode::Enter, KeyModifiers::empty())
-}
-
-/// Register / Cancel. A click on a dimmed Register does nothing: there is no
-/// server to register.
-fn mcp_install_button_key(
-    dialog: &mut crate::models::McpInstallDialog,
-    index: usize,
-) -> Option<KeyEvent> {
-    dialog.field = match index {
-        0 if dialog.can_register() => crate::models::McpInstallField::Register,
-        0 => return None,
-        _ => crate::models::McpInstallField::Cancel,
-    };
-    Some(plain(KeyCode::Enter))
-}
-
-fn copy_button_key(prompt: &mut crate::copy::CopyPrompt, index: usize) -> Option<KeyEvent> {
-    let code = match index {
-        0 => {
-            prompt.field = crate::copy::CopyField::Copy;
-            KeyCode::Enter
-        }
-        2 => KeyCode::Esc,
-        _ => return None,
-    };
-    Some(KeyEvent::new(code, KeyModifiers::empty()))
-}
-
-/// "Retry as administrator" is `A`; OK, the only button or the second, Esc.
-fn failed_button(failure: &crate::models::OperationFailed, index: usize) -> KeyCode {
-    if failure.retry().is_some() && index == 0 {
-        KeyCode::Char('a')
-    } else {
-        KeyCode::Esc
-    }
 }

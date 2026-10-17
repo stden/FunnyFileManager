@@ -67,7 +67,7 @@ struct ValueScanner<'line, 'state> {
 impl<'line> ValueScanner<'line, '_> {
     fn scan(mut self) -> Vec<(&'line str, Token)> {
         while let Some(ch) = self.rest().chars().next() {
-            if ch == '\\' {
+            if ch == '\\' && !matches!(self.state, State::SingleQuoted) {
                 self.at += ch.len_utf8();
                 self.at += self.rest().chars().next().map_or(0, char::len_utf8);
             } else if matches!(self.state, State::Unquoted) && ch == '#' {

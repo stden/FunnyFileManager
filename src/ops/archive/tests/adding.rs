@@ -158,3 +158,38 @@ fn an_existing_tar_grows_when_appended() {
         "{listing}"
     );
 }
+
+#[test]
+fn delete_after_keeps_an_archive_inside_a_source_folder_and_removes_readonly_sources() {
+    use crate::models::{App, ArchivePrompt, Panel};
+
+    let dir = TempDir::new().expect("dir");
+    let sub = dir.path().join("sub");
+    fs::create_dir(&sub).expect("mkdir");
+    let ro = sub.join("ro.txt");
+    fs::write(&ro, b"payload").expect("write");
+    let mut perms = fs::metadata(&ro).expect("meta").permissions();
+    perms.set_readonly(true);
+    fs::set_permissions(&ro, perms).expect("readonly");
+
+    let left = Panel::new(dir.path().to_path_buf()).expect("panel");
+    let right = Panel::new(dir.path().to_path_buf()).expect("panel");
+    let mut app = App::with_panels(left, right);
+    let mut prompt = ArchivePrompt::new(
+        vec!["sub".to_owned()],
+        "inside",
+        dir.path(),
+        vec![ArchiveFormat::Tar],
+    );
+    prompt.format = ArchiveFormat::Tar;
+    prompt.name.set_text("sub/inside.tar");
+    prompt.delete_after = true;
+
+    super::super::add::add(&mut app, &prompt);
+
+    assert!(
+        sub.join("inside.tar").is_file(),
+        "archive inside source folder kept"
+    );
+    assert!(!ro.exists(), "read-only source inside folder removed");
+}

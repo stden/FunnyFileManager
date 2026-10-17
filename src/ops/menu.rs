@@ -68,6 +68,7 @@ fn execute_result(app: &mut App, command: MenuCommand) -> io::Result<()> {
         MenuCommand::UpdatePackages => super::packages::open(app),
         MenuCommand::LanguageServers => super::lsp_editor::open(app),
         MenuCommand::McpInstall => super::mcp_install::open(app),
+        MenuCommand::GitPullAll => super::git_pull::queue(app)?,
         MenuCommand::UserMenu | MenuCommand::Associations => user::edit(app, command)?,
     }
     Ok(())

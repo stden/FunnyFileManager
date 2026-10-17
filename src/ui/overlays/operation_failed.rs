@@ -54,5 +54,6 @@ const fn heading(operation: Operation) -> &'static str {
         Operation::Move => "Cannot move",
         Operation::Delete => "Cannot delete",
         Operation::Find => "Cannot search",
+        Operation::GitPull => "Cannot update Git repositories",
     }
 }

@@ -4,7 +4,7 @@
 
 use ratatui::{layout::Rect, text::Line, widgets::Paragraph, Frame};
 
-use super::{palette, Cells, Style};
+use super::{Cells, Style};
 use crate::models::{DirEntry, Panel, ShortName, ShortNames};
 use crate::scroll::visible_window;
 
@@ -89,22 +89,9 @@ pub(super) fn displayed_name<'a>(
 fn row_style(panel: &Panel, entry: &DirEntry, selected: bool) -> Style {
     let mark = super::mark_of(panel, entry);
     if selected {
-        return Style::default()
-            .bg(palette::CURSOR_BG)
-            .fg(super::cursor_colour(mark));
+        return super::cursor_style(mark);
     }
-    let foreground = if mark == super::Mark::Marked {
-        palette::MARKED
-    } else if entry.kind.is_dir() {
-        if panel.is_dirty_repo(&entry.name) {
-            palette::DIRTY_REPO
-        } else {
-            palette::DIRECTORY
-        }
-    } else {
-        palette::FILE
-    };
-    Style::default().bg(super::FAR_BLUE).fg(foreground)
+    super::entry_style(panel, entry, mark).bg(super::FAR_BLUE)
 }
 
 #[cfg(test)]

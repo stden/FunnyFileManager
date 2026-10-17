@@ -151,3 +151,33 @@ fn a_new_name_inside_the_folder_itself_is_refused() {
         app.status
     );
 }
+
+#[test]
+fn f6_case_only_rename_succeeds_for_file_and_folder() {
+    let (mut app, from, _to) = app_with(&[("foo.txt", b"case")]);
+    mark(&mut app, "foo.txt");
+    copy_with(&mut app, &typed(Purpose::Move, "FOO.txt"));
+    assert_eq!(
+        fs::read(from.path().join("FOO.txt")).expect("renamed"),
+        b"case"
+    );
+    let names: Vec<_> = fs::read_dir(from.path())
+        .expect("read_dir")
+        .map(|e| e.expect("entry").file_name())
+        .collect();
+    assert_eq!(names, vec![std::ffi::OsString::from("FOO.txt")]);
+
+    let (mut app, from, _to) = app_with(&[]);
+    fs::create_dir(from.path().join("sub")).expect("test setup");
+    fs::write(from.path().join("sub/item.txt"), b"in").expect("test setup");
+    mark(&mut app, "sub");
+    copy_with(&mut app, &typed(Purpose::Move, "SUB"));
+    assert_eq!(
+        fs::read(from.path().join("SUB/item.txt")).expect("item"),
+        b"in"
+    );
+    assert!(
+        !from.path().join("SUB/sub").exists(),
+        "must not nest into SUB/sub"
+    );
+}

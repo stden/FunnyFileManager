@@ -21,14 +21,29 @@ fn cells_before(text: &str, column: CharColumn, tab: TabSize) -> Cells {
         .fold(Cells::ZERO, |at, ch| advance(at, ch, tab))
 }
 
+/// Whether `ch` is a control character (other than TAB) or bidi formatting
+/// character that the editor replaces with [`super::UNPRINTABLE`] when drawing.
+pub(in crate::ui) fn is_unsafe_code_char(ch: char) -> bool {
+    (ch.is_control() && ch != '\t')
+        || matches!(
+            ch,
+            '\u{061c}'
+                | '\u{200e}'
+                | '\u{200f}'
+                | '\u{202a}'..='\u{202e}'
+                | '\u{2066}'..='\u{2069}'
+        )
+}
+
 /// `text` as the editor draws it when it starts at cell `start`: every TAB
-/// widened to the spaces that reach the next stop of `tab`.
+/// widened to the spaces that reach the next stop of `tab`, and every unsafe
+/// control or bidi character replaced with [`super::UNPRINTABLE`].
 ///
-/// Borrowed when there is no TAB, which is almost every line. A TAB used to
-/// reach the screen as itself; ratatui drops control characters, so it drew
-/// as nothing and everything after it slid left.
+/// Borrowed when there is no TAB or unsafe character, which is almost every
+/// line. A TAB used to reach the screen as itself; ratatui drops control
+/// characters, so it drew as nothing and everything after it slid left.
 pub(in crate::ui) fn expand_tabs(text: &str, start: Cells, tab: TabSize) -> Cow<'_, str> {
-    if !text.contains('\t') {
+    if !text.contains('\t') && !text.chars().any(is_unsafe_code_char) {
         return Cow::Borrowed(text);
     }
     let mut drawn = String::with_capacity(text.len() + tab.columns());
@@ -37,6 +52,8 @@ pub(in crate::ui) fn expand_tabs(text: &str, start: Cells, tab: TabSize) -> Cow<
         let next = advance(at, ch, tab);
         if ch == '\t' {
             drawn.extend(std::iter::repeat_n(' ', next.0 - at.0));
+        } else if is_unsafe_code_char(ch) {
+            drawn.push(super::UNPRINTABLE);
         } else {
             drawn.push(ch);
         }
@@ -75,11 +92,14 @@ impl EditorLine<'_> {
     }
 }
 
-/// The cell after `ch` when it is drawn at `at`: a TAB runs to the next stop.
+/// The cell after `ch` when it is drawn at `at`: a TAB runs to the next stop,
+/// and an unsafe code character draws as the 1-cell [`super::UNPRINTABLE`].
 fn advance(at: Cells, ch: char, tab: TabSize) -> Cells {
     if ch == '\t' {
         let columns = tab.columns();
         Cells((at.0 / columns + 1) * columns)
+    } else if is_unsafe_code_char(ch) {
+        at + Cells(1)
     } else {
         at + Cells::of_char(ch)
     }

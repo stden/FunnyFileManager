@@ -49,6 +49,9 @@ pub(in crate::ui) fn tail_cells(text: &str, width: Cells) -> String {
         kept.push(ch);
         used = used + ch_cells;
     }
+    while kept.last().is_some_and(|&ch| Cells::of_char(ch).is_zero()) {
+        kept.pop();
+    }
     let mut cut = String::from("…");
     cut.extend(kept.into_iter().rev());
     cut

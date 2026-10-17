@@ -119,7 +119,11 @@ fn contents(dialog: &Dialog) -> (&'static str, String, u16) {
             items, selected, ..
         } => {
             let text = completions(items, *selected);
-            (" Completion — ↑↓ select, Enter apply, Esc close ", text, 0)
+            (
+                " Completion — ↑↓ select, Enter insert, Tab replace, Esc close ",
+                text,
+                0,
+            )
         }
         Dialog::Definitions { items, selected } => {
             let text = definitions(items, *selected);

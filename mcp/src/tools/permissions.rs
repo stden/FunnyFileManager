@@ -34,7 +34,9 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<PermissionsParams>,
     ) -> Result<CallToolResult, McpError> {
-        self.require_readwrite()?;
+        if params.mode.is_some() || params.readonly.is_some() {
+            self.require_readwrite()?;
+        }
         let path = self.safe_path(&params.path)?;
 
         // `readonly` runs first so that a caller supplying both gets exactly

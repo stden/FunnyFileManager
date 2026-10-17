@@ -1,10 +1,11 @@
 //! Purpose: Debounce editor snapshots and map nonblocking LSP events onto the UI state.
 
+#[cfg(test)]
+use crate::lsp::{positions::Position, types::Query};
 use crate::{
     lsp::{
-        manager::{Command, Manager},
-        positions::Position,
-        types::{Query, Stamp},
+        manager::{Command, Manager, SendError},
+        types::Stamp,
     },
     models::{lsp::Intent, App, ServerState},
 };
@@ -15,14 +16,7 @@ use std::{
 
 mod events;
 
-use events::apply_event;
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-struct Context {
-    stamp: Stamp,
-    position: Option<Position>,
-    saved: u64,
-}
+use events::{apply_event, disabled_notice, requested_query, Context};
 
 #[derive(Default)]
 pub(super) struct EditorLspController {
@@ -35,13 +29,11 @@ pub(super) struct EditorLspController {
 
 impl EditorLspController {
     pub fn pump(&mut self, app: &mut App) -> bool {
-        self.flush();
         let mut redraw = self.receive(app);
-        if self.pending.is_empty() {
-            redraw |= self.observe(app, Instant::now());
-        }
-        self.flush();
-        redraw
+        self.flush(app);
+        redraw |= self.observe(app, Instant::now());
+        self.flush(app);
+        redraw | self.receive(app)
     }
 
     fn observe(&mut self, app: &mut App, now: Instant) -> bool {
@@ -49,27 +41,25 @@ impl EditorLspController {
             .get_editor()
             .and_then(|editor| app.config.lsp.for_path(&editor.path))
             .map(|(language, settings)| (language.to_owned(), settings.clone()));
-        let Some((language, settings)) = server else {
+        let (Some((language, settings)), Some(editor)) = (server, app.get_editor_mut()) else {
             self.close();
             return disabled_notice(app);
         };
-        let Some(editor) = app.get_editor_mut() else {
-            return false;
-        };
         let context = Context::from_editor(editor);
+        let restart = editor.lsp.intent == Intent::Restart;
         if self
             .observed
             .is_none_or(|old| old.stamp.id != context.stamp.id)
-            || editor.lsp.intent == Intent::Restart
+            || restart
         {
             self.open_editor(editor);
-            if self.manager.is_none() {
-                return true;
+            if self.manager.is_some() {
+                self.pending.extend(restart.then_some(Command::Restart));
+                self.pending
+                    .push_back(Command::Open(language, settings, editor.lsp_snapshot()));
+                self.sent = Some((context.stamp, context.saved));
+                self.observed = Some(context);
             }
-            self.pending
-                .push_back(Command::Open(language, settings, editor.lsp_snapshot()));
-            self.sent = Some((context.stamp, context.saved));
-            self.observed = Some(context);
             return true;
         }
         self.update(editor, context, now);
@@ -82,7 +72,13 @@ impl EditorLspController {
             self.pending.push_back(Command::Trust(context.stamp.id));
         }
         if self.observed != Some(context) {
-            self.pending.push_back(Command::Cancel);
+            if !self
+                .pending
+                .iter()
+                .any(|cmd| matches!(cmd, Command::Cancel))
+            {
+                self.pending.push_back(Command::Cancel);
+            }
             self.changed = Some(now);
             self.observed = Some(context);
         }
@@ -90,18 +86,21 @@ impl EditorLspController {
         let saved = self.sent.is_some_and(|(_, saved)| saved != context.saved);
         let settled = self
             .changed
-            .is_some_and(|changed| now.duration_since(changed) >= Duration::from_millis(120));
+            .is_some_and(|t| now.duration_since(t) >= Duration::from_millis(120));
         if (requested || saved || settled) && self.sent != Some((context.stamp, context.saved)) {
+            self.pending
+                .retain(|cmd| !matches!(cmd, Command::Update(_)));
             self.pending
                 .push_back(Command::Update(editor.lsp_snapshot()));
             self.sent = Some((context.stamp, context.saved));
+            self.pending
+                .extend(events::auto_query(editor, context, settled && !requested));
         }
-        if let Some(command) = requested_query(editor, context) {
-            self.pending.push_back(command);
-        }
+        self.pending.extend(requested_query(editor, context));
     }
 
     fn open_editor(&mut self, editor: &mut crate::models::Editor) {
+        self.pending.clear();
         editor.lsp.intent = Intent::None;
         editor.lsp.state = ServerState::Starting;
         if self.manager.is_none() {
@@ -115,6 +114,7 @@ impl EditorLspController {
     }
 
     fn close(&mut self) {
+        self.pending.clear();
         if self.observed.take().is_some() {
             self.pending.push_back(Command::Close);
         }
@@ -122,14 +122,29 @@ impl EditorLspController {
         self.changed = None;
     }
 
-    fn flush(&mut self) {
+    fn flush(&mut self, app: &mut App) {
         let Some(manager) = &self.manager else {
             return;
         };
+        let mut disconnected = false;
         while let Some(command) = self.pending.pop_front() {
-            if let Err(command) = manager.send(command) {
-                self.pending.push_front(*command);
-                break;
+            match manager.send(command) {
+                Ok(()) => {}
+                Err(SendError::Full(command)) => {
+                    self.pending.push_front(*command);
+                    break;
+                }
+                Err(SendError::Disconnected(_)) => {
+                    disconnected = true;
+                    break;
+                }
+            }
+        }
+        if disconnected {
+            self.pending.clear();
+            self.manager = None;
+            if let Some(editor) = app.get_editor_mut() {
+                editor.lsp.state = ServerState::Failed;
             }
         }
     }
@@ -144,53 +159,6 @@ impl EditorLspController {
         }
         changed
     }
-}
-
-impl Context {
-    fn from_editor(editor: &crate::models::Editor) -> Self {
-        Self {
-            stamp: editor.lsp_stamp(),
-            position: editor.lsp_position(),
-            saved: editor.lsp.saved,
-        }
-    }
-}
-
-fn disabled_notice(app: &mut App) -> bool {
-    let Some(editor) = app
-        .get_editor_mut()
-        .filter(|editor| editor.lsp.intent != Intent::None)
-    else {
-        return false;
-    };
-    editor.lsp.intent = Intent::None;
-    editor.notice = Some("LSP is disabled for this file".into());
-    true
-}
-
-fn requested_query(editor: &mut crate::models::Editor, context: Context) -> Option<Command> {
-    let Intent::Query(feature) = editor.lsp.intent else {
-        return None;
-    };
-    editor.lsp.intent = Intent::None;
-    if matches!(
-        editor.lsp.state,
-        ServerState::Unavailable
-            | ServerState::Failed
-            | ServerState::InstallationFailed
-            | ServerState::Stopped
-            | ServerState::Untrusted
-    ) {
-        editor.notice = Some(editor.lsp.state.label().into());
-        return None;
-    }
-    let position = context.position?;
-    editor.notice = Some("Requesting language-server information".into());
-    Some(Command::Query(Query {
-        stamp: context.stamp,
-        position,
-        feature,
-    }))
 }
 
 #[cfg(test)]

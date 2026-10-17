@@ -154,3 +154,37 @@ fn menu_scrolling_translation_visibility_and_colors_render_from_settings() {
     app.settings.set(SettingsPage::Colors, "gray").unwrap();
     screen(&mut app, 20, 8);
 }
+
+#[test]
+fn detail_view_row_style_and_tiny_height_header_match_table_views() {
+    use ratatui::style::Modifier;
+    let (_temp, mut app) = fixture();
+    let exec = DirEntry {
+        name: "run.sh".to_owned(),
+        executable: true,
+        ..DirEntry::default()
+    };
+    let dir = DirEntry {
+        name: "sub".to_owned(),
+        kind: crate::models::EntryKind::Directory,
+        ..DirEntry::default()
+    };
+    assert_eq!(
+        row_style(&app.left_panel, &exec, false).fg,
+        Some(super::super::palette::EXECUTABLE)
+    );
+    assert!(row_style(&app.left_panel, &dir, false)
+        .add_modifier
+        .contains(Modifier::BOLD));
+    assert!(row_style(&app.left_panel, &exec, true)
+        .add_modifier
+        .contains(Modifier::BOLD));
+
+    app.left_panel.view = PanelView::Descriptions;
+    // Terminal height 6 gives the panel 3 rows (inner.height == 1).
+    let tiny = screen(&mut app, 80, 6);
+    assert!(
+        tiny.contains("Name") && tiny.contains("Description"),
+        "inner.height == 1 must keep the column header instead of overwriting it: {tiny}"
+    );
+}

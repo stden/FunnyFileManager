@@ -1,7 +1,11 @@
 //! Purpose: Keep installation responsive to document edits, close, and application shutdown.
 
-use super::{report, DocumentId, Envelope, Event, Host, ServerState, Session, Start, SyncSender};
+use super::{
+    report, Connection, DocumentId, Envelope, Event, Host, ServerState, Session, Start, SyncSender,
+};
 use crate::lsp::install::{InstallError, Job};
+
+const MAX_IDLE_SERVERS: usize = 4;
 
 pub(super) struct Preparation {
     pub start: Start,
@@ -9,6 +13,39 @@ pub(super) struct Preparation {
 }
 
 impl Host {
+    pub(super) fn park(&mut self) {
+        if let Session::Running(mut active) = std::mem::take(&mut self.session) {
+            active.close_document();
+            if self.idle.len() >= MAX_IDLE_SERVERS {
+                self.idle.remove(0);
+            }
+            self.idle.push(*active);
+        } else {
+            self.session = Session::Closed;
+        }
+    }
+
+    pub(super) fn restart(&mut self) {
+        if let Session::Running(active) = std::mem::take(&mut self.session) {
+            self.idle.retain(|item| {
+                !(item.language == active.language
+                    && item.root == active.root
+                    && item.configured == active.configured)
+            });
+        } else {
+            self.idle.clear();
+        }
+    }
+
+    pub(super) fn take_idle(&mut self, start: &Start) -> Option<Connection> {
+        let index = self.idle.iter().position(|item| {
+            item.language == start.language
+                && item.root == start.root
+                && item.configured == start.configured
+        })?;
+        Some(self.idle.swap_remove(index))
+    }
+
     pub(super) fn install(&mut self, start: Start, events: &SyncSender<Envelope>) {
         let owner = start.snapshot.stamp.id;
         let job = self

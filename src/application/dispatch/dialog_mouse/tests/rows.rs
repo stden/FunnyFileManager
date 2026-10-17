@@ -101,3 +101,79 @@ fn field(app: &App) -> crate::models::NameField {
     };
     prompt.field()
 }
+
+use crate::models::{
+    ArchiveField, ArchiveFormat, ArchiveMenu, ArchivePrompt, AttributesDialog, AttributesField,
+    CleanupCandidate, CleanupField, CleanupKind, DiskCleanupDialog, EntrySnapshot, FindFile,
+    FindFileField, SessionEdit, SessionField,
+};
+
+#[test]
+fn clicking_rows_in_find_session_and_archive_dialogs() {
+    let dir = TempDir::new().expect("temp");
+    let mut app = app_at(&dir);
+
+    app.set_overlay(Overlay::FindFile(Box::<FindFile>::default()));
+    click_dialog_row(&mut app, 3);
+    if let Overlay::FindFile(d) = &app.overlay {
+        assert_eq!(d.field(), FindFileField::Containing);
+    }
+
+    app.set_overlay(Overlay::SessionEdit(Box::new(SessionEdit::create())));
+    click_dialog_row(&mut app, 2);
+    if let Overlay::SessionEdit(d) = &app.overlay {
+        assert_eq!(d.field(), SessionField::Host);
+    }
+
+    app.set_overlay(Overlay::ArchivePrompt(Box::new(ArchivePrompt::new(
+        vec!["a.txt".into()],
+        "a",
+        dir.path(),
+        vec![ArchiveFormat::TarGz],
+    ))));
+    click_dialog_row(&mut app, 5);
+    if let Overlay::ArchivePrompt(p) = &app.overlay {
+        assert_eq!((p.field, p.delete_after), (ArchiveField::DeleteAfter, true));
+    }
+
+    app.set_overlay(Overlay::ArchiveCommands(ArchiveMenu::default()));
+    assert_eq!(
+        click_dialog_row(&mut app, 2).map(|k| k.code),
+        Some(KeyCode::Enter)
+    );
+}
+
+#[test]
+fn clicking_rows_in_cleanup_and_attributes_dialogs() {
+    let dir = TempDir::new().expect("temp");
+    let mut app = app_at(&dir);
+
+    let mut cleanup = DiskCleanupDialog::default();
+    cleanup.candidates.clear();
+    cleanup.candidates.push(CleanupCandidate {
+        label: "Temp",
+        path: dir.path().to_path_buf(),
+        kind: CleanupKind::Contents,
+        exists: true,
+        checked: false,
+        size: None,
+    });
+    app.set_overlay(Overlay::DiskCleanup(Box::new(cleanup)));
+    click_dialog_row(&mut app, 0);
+    if let Overlay::DiskCleanup(d) = &app.overlay {
+        assert_eq!(
+            (d.field, d.candidates[0].checked),
+            (CleanupField::Item(0), true)
+        );
+    }
+
+    let attrs = AttributesDialog::from_snapshots(&[EntrySnapshot {
+        is_dir: true,
+        ..EntrySnapshot::default()
+    }]);
+    app.set_overlay(Overlay::Attributes(Box::new(attrs)));
+    click_dialog_row(&mut app, 3);
+    if let Overlay::Attributes(d) = &app.overlay {
+        assert_eq!(d.field, AttributesField::Flag(0));
+    }
+}

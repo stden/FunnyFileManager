@@ -54,7 +54,7 @@ fn listing(panel: &PanelContext, options: ListOptions) -> String {
         if options.forward_slashes {
             name = name.replace('\\', "/");
         }
-        text.push_str(&options.quote.apply(&name));
+        text.push_str(&options.quote.apply_list(&name));
         text.push_str(if cfg!(windows) { "\r\n" } else { "\n" });
     }
     text

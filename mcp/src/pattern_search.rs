@@ -16,6 +16,7 @@ pub fn glob(server: &FfmServer, params: &GlobParams) -> Result<CallToolResult, M
             None,
         ));
     }
+    globmatch::validate_pattern(&params.pattern).map_err(|e| McpError::invalid_params(e, None))?;
 
     let scan = GlobScan {
         root: &root,
@@ -24,7 +25,8 @@ pub fn glob(server: &FfmServer, params: &GlobParams) -> Result<CallToolResult, M
         max_results: params.max_results,
     };
     let mut results = Vec::new();
-    glob_recursive(&root, 0, &scan, &mut results);
+    let mut visited = 0usize;
+    glob_recursive(&root, 0, &scan, &mut results, &mut visited);
 
     let result = json!({
         "pattern": params.pattern,
@@ -48,24 +50,26 @@ fn glob_recursive(
     depth: usize,
     scan: &GlobScan<'_>,
     results: &mut Vec<serde_json::Value>,
+    visited: &mut usize,
 ) {
-    if results.len() >= scan.max_results {
+    if results.len() >= scan.max_results || *visited >= crate::walk::WALK_BUDGET {
         return;
     }
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
     for entry in entries.flatten() {
-        if results.len() >= scan.max_results {
+        if results.len() >= scan.max_results || *visited >= crate::walk::WALK_BUDGET {
             return;
         }
+        *visited += 1;
         // A link is never reported: `entry.metadata()` below follows it,
         // so its size would describe a file outside the server root
         // (see `walkable_type`).
         let Some(file_type) = walkable_type(&entry) else {
             continue;
         };
-        visit_glob_entry(&entry, file_type.is_dir(), depth, scan, results);
+        visit_glob_entry(&entry, file_type.is_dir(), depth, scan, results, visited);
     }
 }
 
@@ -75,6 +79,7 @@ fn visit_glob_entry(
     depth: usize,
     scan: &GlobScan<'_>,
     results: &mut Vec<serde_json::Value>,
+    visited: &mut usize,
 ) {
     let path = entry.path();
     let relative = relative_slash_path(scan.root, &path);
@@ -95,6 +100,6 @@ fn visit_glob_entry(
         None => true,
     };
     if is_dir && descend {
-        glob_recursive(&path, depth + 1, scan, results);
+        glob_recursive(&path, depth + 1, scan, results, visited);
     }
 }

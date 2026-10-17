@@ -162,3 +162,33 @@ fn grep_stops_at_max_results_inside_one_file() {
 
     assert_eq!(tool_json(&result)["count"], 2);
 }
+
+#[test]
+fn search_and_grep_reject_a_file_or_missing_root() {
+    let dir = TempDir::new().expect("temp dir");
+    let (server, root) = server_at(&dir);
+    write_file_at(&root.join("doc.txt"), "needle");
+
+    for path in ["doc.txt", "missing_dir"] {
+        let search_err = server
+            .search(Parameters(SearchParams {
+                path: path.to_owned(),
+                pattern: "doc".to_owned(),
+                max_results: 10,
+                files_only: false,
+                dirs_only: false,
+            }))
+            .expect_err("search requires an existing directory");
+        assert!(search_err.message.contains("not a directory"));
+
+        let grep_err = server
+            .grep(Parameters(GrepParams {
+                path: path.to_owned(),
+                pattern: "needle".to_owned(),
+                extension: None,
+                max_results: 10,
+            }))
+            .expect_err("grep requires an existing directory");
+        assert!(grep_err.message.contains("not a directory"));
+    }
+}

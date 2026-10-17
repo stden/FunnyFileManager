@@ -5,7 +5,8 @@
 
 use super::*;
 use crate::tools::{
-    keepass::KdbxFormat, keepass::KdbxParams, reading::ViewFileParams, writing::WriteFileParams,
+    keepass::KdbxFormat, keepass::KdbxParams, permissions::PermissionsParams,
+    reading::ViewFileParams, writing::WriteFileParams,
 };
 use keepass::config::KdfConfig;
 use keepass::{Database, DatabaseKey};
@@ -29,6 +30,11 @@ fn server_kdbx(dir: &TempDir) -> (FfmServer, PathBuf) {
 fn server_readonly(dir: &TempDir) -> (FfmServer, PathBuf) {
     let root = dir.path().canonicalize().expect("canonicalize temp dir");
     (FfmServer::with_config(root.clone(), true, false), root)
+}
+
+fn server_readonly_kdbx(dir: &TempDir) -> (FfmServer, PathBuf) {
+    let root = dir.path().canonicalize().expect("canonicalize temp dir");
+    (FfmServer::with_config(root.clone(), true, true), root)
 }
 
 /// Create a minimal encrypted `KeePass` vault at `path` with a single password.
@@ -93,6 +99,18 @@ fn kbdx_is_allowed_when_ffm_mcp_allow_kdbx_is_set() {
 }
 
 #[test]
+fn kbdx_is_allowed_in_readonly_mode_when_kdbx_allowed() {
+    let dir = TempDir::new().expect("temp dir");
+    let (server, root) = server_readonly_kdbx(&dir);
+    let vault = root.join("test.kdbx");
+    create_cheap_vault(&vault);
+
+    server
+        .kbdx(Parameters(kdbx_params(&vault)))
+        .expect("read-only kbdx export should succeed in readonly mode");
+}
+
+#[test]
 fn write_tool_is_blocked_in_readonly_mode() {
     let dir = TempDir::new().expect("temp dir");
     let (server, root) = server_readonly(&dir);
@@ -118,12 +136,59 @@ fn read_tool_is_allowed_in_readonly_mode() {
     let (server, root) = server_readonly(&dir);
     let readable = root.join("readable.txt");
     fs::write(&readable, "hello world").expect("create readable fixture");
+    let path = readable.display().to_string();
 
     server
         .view_file(Parameters(ViewFileParams {
-            path: readable.display().to_string(),
+            path: path.clone(),
             offset: None,
             limit: None,
         }))
         .expect("view_file should succeed in read-only mode");
+    let read_perms = PermissionsParams {
+        path: path.clone(),
+        mode: None,
+        readonly: None,
+    };
+    server
+        .permissions(Parameters(read_perms))
+        .expect("read permissions in readonly");
+    let set_perms = PermissionsParams {
+        path,
+        mode: None,
+        readonly: Some(true),
+    };
+    server
+        .permissions(Parameters(set_perms))
+        .expect_err("set permissions fails in readonly");
+}
+
+#[test]
+fn dry_run_tools_work_in_readonly_mode() {
+    let dir = TempDir::new().expect("temp dir");
+    let (server, root) = server_readonly(&dir);
+    fs::write(root.join("sample.txt"), "old content").expect("write fixture");
+    let root_str = root.display().to_string();
+
+    let rep = ReplaceParams {
+        path: root_str.clone(),
+        find: "old".into(),
+        replace: "new".into(),
+        extension: None,
+        name_pattern: None,
+        dry_run: true,
+    };
+    server
+        .replace(Parameters(rep))
+        .expect("replace dry_run in readonly");
+    let del = DeleteByPatternParams {
+        path: root_str,
+        pattern: "*.txt".into(),
+        include_dirs: false,
+        recursive: true,
+        dry_run: true,
+    };
+    server
+        .delete_by_pattern(Parameters(del))
+        .expect("delete dry_run in readonly");
 }

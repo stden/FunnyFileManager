@@ -8,7 +8,10 @@ use ratatui::{
     Frame,
 };
 
+mod xml;
+
 pub(super) fn render(frame: &mut Frame<'_>, editor: &Editor, area: Rect, top: usize, skip: Cells) {
+    xml::render(frame, editor, area, top, skip);
     let Some((line, column, partner_line, partner_column)) = matching_pair(editor) else {
         return;
     };
@@ -38,7 +41,7 @@ pub(super) fn render(frame: &mut Frame<'_>, editor: &Editor, area: Rect, top: us
 /// `skip` cells are scrolled off; `None` for a missing line or for a character
 /// scrolled off the left edge, which clamping to column 0 would paint over
 /// whatever shows there.
-fn column_on_screen(
+pub(super) fn column_on_screen(
     editor: &Editor,
     line_index: usize,
     column_index: usize,

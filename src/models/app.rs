@@ -53,6 +53,7 @@ pub struct App {
     /// Input-to-frame timings; saving belongs to production bootstrap.
     pub performance: crate::performance::Performance,
     pub(crate) package_update: Option<crate::packages::UpdatePlan>,
+    pub(crate) git_pull_root: Option<std::path::PathBuf>,
     /// Where the dialog on screen was drawn, and how far it has been dragged.
     /// Written by the renderer, read by the next click.
     pub dialog_mouse: crate::mouse::DialogMouse,
@@ -146,6 +147,7 @@ impl App {
             console: ConsoleLog::default(),
             performance: crate::performance::Performance::default(),
             package_update: None,
+            git_pull_root: None,
             dialog_mouse: crate::mouse::DialogMouse::default(),
             pending_row: None,
             panels_shown: PanelsShown::default(),

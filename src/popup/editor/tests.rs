@@ -68,7 +68,7 @@ fn ctrl_a_copies_the_entire_document_and_typing_replaces_it() {
     assert_eq!(clipboard.0.borrow().text, "a界\r\nβ🙂\r\n");
     assert_eq!(app.get_editor().expect("editor").state, EditState::Clean);
     key(&mut app, KeyCode::Char('x'), KeyModifiers::NONE);
-    assert_eq!(app.get_editor().expect("editor").content(), "x");
+    assert_eq!(app.get_editor().expect("editor").content(), "x\r\n");
 }
 
 #[test]

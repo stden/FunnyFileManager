@@ -99,3 +99,34 @@ pub(super) fn click_in_menu(app: &mut App, menu: menu::Menu, column: u16, row: u
     // means everywhere else too.
     app.close_overlay();
 }
+
+pub(super) fn click_plugin_commands<B: Backend + Write>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+    column: u16,
+    row: u16,
+) -> bool {
+    let crate::models::Overlay::PluginCommands(list) = &mut app.overlay else {
+        return false;
+    };
+    let Some(area) = app.dialog_mouse.area else {
+        return false;
+    };
+    if column <= area.x || column + 1 >= area.right() || row <= area.y || row + 1 >= area.bottom() {
+        return false;
+    }
+    let index = usize::from(row - area.y - 1);
+    if index >= crate::models::PluginCommand::ALL.len() {
+        return false;
+    }
+    list.move_cursor(crate::models::RowMotion::First);
+    for _ in 0..index {
+        list.move_cursor(crate::models::RowMotion::Next);
+    }
+    dispatch_key(
+        terminal,
+        app,
+        KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE),
+    );
+    true
+}

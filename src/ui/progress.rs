@@ -60,16 +60,19 @@ const fn title(operation: Operation) -> &'static str {
         Operation::Move => " Move ",
         Operation::Delete => " Delete ",
         Operation::Find => " Find ",
+        Operation::GitPull => " Git pull ",
     }
 }
 
 fn lines(snapshot: &Snapshot, width: usize) -> Vec<Line<'static>> {
     let heading = match (snapshot.phase, snapshot.operation) {
         (_, Operation::Find) => "Searching in",
+        (Phase::Scanning, Operation::GitPull) => "Finding repositories (Esc / Ctrl+C: cancel)",
         (Phase::Scanning, _) => "Scanning",
         (Phase::Working, Operation::Copy) => "Copying",
         (Phase::Working, Operation::Move) => "Moving",
         (Phase::Working, Operation::Delete) => "Deleting",
+        (Phase::Working, Operation::GitPull) => "Updating repositories (Esc / Ctrl+C: cancel)",
     };
     let current = printable_name(&crate::path_display::label(&snapshot.current)).into_owned();
     let meter = match (snapshot.phase, snapshot.operation) {
@@ -102,6 +105,12 @@ fn bar(permille: u16, width: usize) -> String {
 /// was found so far.
 fn counts(snapshot: &Snapshot) -> String {
     let (done, total) = (snapshot.done, snapshot.total);
+    if snapshot.operation == Operation::GitPull {
+        return match snapshot.phase {
+            Phase::Scanning => format!("Repositories found: {}", total.files),
+            Phase::Working => format!("Repositories: {} of {}", done.files, total.files),
+        };
+    }
     if snapshot.operation == Operation::Find {
         return format!("Found: {}   Checked: {}", done.files, total.files);
     }
@@ -154,3 +163,6 @@ fn tail(text: &str, width: usize) -> String {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod tests_git_pull;

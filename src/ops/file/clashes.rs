@@ -16,7 +16,7 @@ pub(super) fn find(
     base: &Path,
     settings: &crate::copy::CopyPrompt,
 ) -> Vec<Clash> {
-    let destination = Destination::parse(settings.destination.text(), base, sources.len());
+    let destination = Destination::parse(settings.destination.text(), base, sources, sources.len());
     sources
         .iter()
         .filter_map(|source| {

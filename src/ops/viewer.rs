@@ -161,11 +161,31 @@ fn show_file_bytes(app: &mut App, selected: PathBuf, bytes: &[u8]) {
     // The one history Alt+F11 lists; F4 and Alt+F4 record into it too.
     app.view_history.touch(&selected);
     let mut viewer = Viewer::file(selected, bytes);
-    let spaces = " ".repeat(app.settings.number(crate::menu::SettingsPage::Viewer));
+    let tab_size = app
+        .settings
+        .number(crate::menu::SettingsPage::Viewer)
+        .max(1);
     for line in &mut viewer.lines {
-        *line = line.replace('\t', &spaces);
+        *line = expand_viewer_tabs(line, tab_size);
     }
     app.set_overlay(Overlay::Viewer(viewer));
+}
+
+fn expand_viewer_tabs(line: &str, tab_size: usize) -> String {
+    use unicode_width::UnicodeWidthChar;
+    let mut out = String::with_capacity(line.len() + tab_size);
+    let mut col = 0;
+    for ch in line.chars() {
+        if ch == '\t' {
+            let next = (col / tab_size + 1) * tab_size;
+            out.extend(std::iter::repeat_n(' ', next - col));
+            col = next;
+        } else {
+            out.push(ch);
+            col += UnicodeWidthChar::width(ch).unwrap_or(0);
+        }
+    }
+    out
 }
 
 // FIFOs and device nodes are the inputs these tests need; neither exists on

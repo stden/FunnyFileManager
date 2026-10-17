@@ -71,7 +71,7 @@ pub(super) fn select_panel_or_column<B: Backend>(
     app: &mut App,
     side: models::PanelSide,
 ) {
-    if app.get_active_panel_ref().view.columns() == 1 {
+    if panel_mouse::columns(app.get_active_panel_ref()) == 1 {
         ops::panels::select(app, side);
         return;
     }

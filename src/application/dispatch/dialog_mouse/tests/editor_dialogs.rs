@@ -57,6 +57,44 @@ fn editor_search_buttons_select_the_named_direction() {
     assert_eq!(code(&mut app, 2), KeyCode::Esc);
 }
 
+fn prompt(app: &App) -> &SearchPrompt {
+    app.get_editor()
+        .expect("editor")
+        .search
+        .prompt
+        .as_ref()
+        .expect("prompt")
+}
+
+#[test]
+fn editor_search_rows_focus_query_and_toggle_checkboxes() {
+    use crate::search::{Case, WordMatch};
+    let dir = TempDir::new().expect("temp");
+    let mut app = app_at(&dir);
+    app.set_overlay(Overlay::Editor(Editor {
+        search: crate::search::SearchState {
+            prompt: Some(SearchPrompt::default()),
+            ..Default::default()
+        },
+        ..Default::default()
+    }));
+
+    click_dialog_row(&mut app, 3);
+    assert_eq!(
+        (prompt(&app).field, prompt(&app).case),
+        (SearchField::Case, Case::Match)
+    );
+
+    click_dialog_row(&mut app, 4);
+    assert_eq!(
+        (prompt(&app).field, prompt(&app).words),
+        (SearchField::Words, WordMatch::WholeWords)
+    );
+
+    click_dialog_row(&mut app, 1);
+    assert_eq!(prompt(&app).field, SearchField::Query);
+}
+
 #[test]
 fn editor_not_found_and_exit_dialogs_map_their_buttons() {
     let dir = TempDir::new().expect("temp");

@@ -7,7 +7,7 @@ use std::path::Path;
 use super::FILE_PASSES;
 #[cfg(feature = "colorer")]
 use super::{colorer, paint};
-use super::{dotenv, syntax_for, tokenize, LineMode, Syntax, Token};
+use super::{dotenv, markup, syntax_for, tokenize, LineMode, Syntax, Token};
 
 #[derive(Debug)]
 enum Scanner {
@@ -15,6 +15,7 @@ enum Scanner {
     Tokens { syntax: Syntax, in_block: bool },
     Markdown { in_fence: bool },
     Dotenv(dotenv::State),
+    Markup(markup::State),
 }
 
 /// Highlights a file's lines in order with language-specific continuation state.
@@ -41,6 +42,7 @@ impl Highlighter {
             },
             LineMode::Markdown => Scanner::Markdown { in_fence: false },
             LineMode::Dotenv => Scanner::Dotenv(dotenv::State::default()),
+            LineMode::Markup => Scanner::Markup(markup::State::default()),
         });
         Self {
             scanner,
@@ -144,6 +146,7 @@ impl Highlighter {
             Scanner::Tokens { syntax, in_block } => tokenize(line, *syntax, in_block),
             Scanner::Markdown { in_fence } => Self::markdown_line(line, in_fence),
             Scanner::Dotenv(state) => state.line(line),
+            Scanner::Markup(state) => state.line(line),
         }
     }
 

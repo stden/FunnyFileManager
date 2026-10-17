@@ -32,13 +32,18 @@ pub fn copy_symlink(src: &Path, dst: &Path) -> io::Result<()> {
     }
     #[cfg(windows)]
     {
+        use std::os::windows::fs::FileTypeExt;
         // Windows picks the link flavour at creation time, and creating one may
         // need privileges — best effort, the error is reported like any other.
-        if src.is_dir() {
+        let is_dir_link = fs::symlink_metadata(src)
+            .is_ok_and(|meta| meta.file_type().is_symlink_dir())
+            || src.is_dir();
+        let created = if is_dir_link {
             std::os::windows::fs::symlink_dir(target, dst)
         } else {
             std::os::windows::fs::symlink_file(target, dst)
-        }
+        };
+        created.map_err(|error| super::FailedAt::wrap(dst, error))
     }
     #[cfg(not(any(unix, windows)))]
     {

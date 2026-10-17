@@ -7,10 +7,9 @@ use ratatui::{
     text::{Line, Span},
 };
 
+use super::super::panel::pad_cells;
 use super::super::{palette, Cells};
-use super::row::{
-    caption_gap, FieldEdit, CHOICE_WIDTH, DROP_MARKER, INPUT_WIDTH, RADIO_GAP, RADIO_OFF, RADIO_ON,
-};
+use super::row::{caption_gap, FieldEdit, DROP_MARKER, RADIO_GAP, RADIO_OFF, RADIO_ON};
 use super::HOTKEY_MARK;
 
 /// How a text field is drawn: which of its rows, whether it has the focus,
@@ -32,8 +31,7 @@ pub(super) fn input_line(
     // well: Far's does, and a short well beside empty dialog reads as a
     // layout that failed rather than as a place to type.
     let field = Style::default().bg(palette::FIELD_BG).fg(palette::FIELD_FG);
-    let marker = usize::from(history);
-    let room = usize::from(width).max(INPUT_WIDTH).saturating_sub(marker);
+    let room = input_room(width, history);
     let mut spans = field_spans(value, room, field, look);
     if history {
         spans.push(Span::styled(DROP_MARKER.to_string(), style));
@@ -108,19 +106,10 @@ fn field_spans(value: &str, room: usize, field: Style, look: FieldLook) -> Vec<S
     } else {
         field
     };
-    let padded = format!("{value:<room$}");
-    let selection = look
-        .edit
-        .and_then(|edit| edit.selection)
-        .filter(|_| look.focused);
-    let parts = selection.and_then(|(start, end)| {
-        Some((
-            padded.get(..start)?,
-            padded.get(start..end)?,
-            padded.get(end..)?,
-        ))
-    });
-    let Some((before, selected, after)) = parts else {
+    let (head, tail) = window_field(value, room, look);
+    let padded = pad_cells(&format!("{head}{tail}"), Cells::new(room));
+    let Some((before, selected, after)) = window_selection(value, &head, &tail, &padded, look)
+    else {
         return vec![Span::styled(padded, ground)];
     };
     let chosen = Style::default()
@@ -131,6 +120,32 @@ fn field_spans(value: &str, room: usize, field: Style, look: FieldLook) -> Vec<S
         Span::styled(selected.to_owned(), chosen),
         Span::styled(after.to_owned(), ground),
     ]
+}
+
+fn window_selection<'a>(
+    value: &str,
+    head: &str,
+    tail: &str,
+    padded: &'a str,
+    look: FieldLook,
+) -> Option<(&'a str, &'a str, &'a str)> {
+    let edit = look.edit.filter(|_| look.focused)?;
+    let (start, end) = edit.selection.filter(|(s, e)| s < e)?;
+    let sel_before = value.get(start..edit.caret.min(end)).unwrap_or("");
+    let sel_after = value.get(edit.caret.max(start)..end).unwrap_or("");
+    let sel_start = if sel_before.is_empty() {
+        head.len()
+    } else if head.ends_with(sel_before) {
+        head.len() - sel_before.len()
+    } else {
+        0
+    };
+    let sel_end = head.len() + sel_after.len().min(tail.len());
+    (sel_start < sel_end).then_some((
+        padded.get(..sel_start)?,
+        padded.get(sel_start..sel_end)?,
+        padded.get(sel_end..)?,
+    ))
 }
 
 /// A caption and a boxed value on one line, which is how both a drop-down and
@@ -157,10 +172,7 @@ pub(super) fn captioned_box<'a>(
     let mut spans = hotkey_spans(caption, base, if enabled { accent } else { base });
     spans.push(Span::styled(" ".repeat(gap), style));
 
-    let taken = Cells::of(&caption.replace(HOTKEY_MARK, "")).get() + gap;
-    let room = usize::from(width)
-        .saturating_sub(taken + 1)
-        .max(CHOICE_WIDTH);
+    let (_, room) = captioned_room(caption, width);
     let field = Style::default().bg(palette::FIELD_BG).fg(if enabled {
         palette::FIELD_FG
     } else {
@@ -174,4 +186,6 @@ pub(super) fn captioned_box<'a>(
 mod hotkey;
 
 pub(in crate::ui) use hotkey::field_caret;
-pub(in crate::ui::dialog) use hotkey::{focused_control_style, hotkey_spans};
+pub(in crate::ui::dialog) use hotkey::{
+    captioned_room, focused_control_style, hotkey_spans, input_room, row_caret, window_field,
+};

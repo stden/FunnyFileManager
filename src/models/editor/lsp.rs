@@ -9,6 +9,14 @@ use crate::lsp::{
 };
 
 mod completion;
+pub mod matcher;
+
+pub fn is_identifier_char(ch: char) -> bool {
+    ch.is_alphanumeric() || ch == '_'
+}
+
+#[derive(Clone, Default)]
+pub struct CompletionPool(pub(super) Vec<Completion>);
 
 #[derive(Clone, Default)]
 pub struct EditorLspState {
@@ -19,6 +27,9 @@ pub struct EditorLspState {
     pub(crate) diagnostics: Vec<Diagnostic>,
     pub(crate) intent: Intent,
     pub(crate) popup: Option<Dialog>,
+    pub(crate) completions: Option<Box<CompletionPool>>,
+    pub(crate) auto_complete: bool,
+    pub(crate) silent_completion: bool,
 }
 
 impl EditorLspState {
@@ -105,16 +116,13 @@ impl Editor {
     }
 
     pub(crate) fn show_lsp_reply(&mut self, query: Query, reply: Reply) -> Option<Definition> {
+        let silent = std::mem::take(&mut self.lsp.silent_completion);
         if !self.accepts_lsp_reply(query) {
             return None;
         }
         match reply {
             Reply::Completions(items) if !items.is_empty() => {
-                self.lsp.popup = Some(Dialog::Completion {
-                    query,
-                    items,
-                    selected: 0,
-                });
+                self.open_completion_popup(query, items, silent);
             }
             Reply::Hover(text) if !text.is_empty() => {
                 self.lsp.popup = Some(Dialog::Hover { text, scroll: 0 });
@@ -123,7 +131,8 @@ impl Editor {
             Reply::Definitions(items) if !items.is_empty() => {
                 self.lsp.popup = Some(Dialog::Definitions { items, selected: 0 });
             }
-            _ => self.notice = Some("No language-server results".into()), // Empty results of all features.
+            _ if !silent => self.notice = Some("No language-server results".into()),
+            _ => {}
         }
         None
     }

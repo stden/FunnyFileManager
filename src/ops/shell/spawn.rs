@@ -12,6 +12,12 @@ use super::windows_shell_args;
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
+#[cfg(windows)]
+thread_local! {
+    static ACTIVE_JOBS: std::cell::RefCell<Vec<(u32, std::os::windows::io::OwnedHandle)>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
 pub(super) fn spawn_shell(command: &str, current_dir: &Path) -> io::Result<Child> {
     #[cfg(windows)]
     let mut shell = {
@@ -42,14 +48,32 @@ pub(super) fn spawn_shell(command: &str, current_dir: &Path) -> io::Result<Child
         shell
     };
 
-    shell
+    let child = shell
         .current_dir(current_dir)
         // Piped, not inherited: the child must not draw over the TUI, and we
         // still want its output after a kill.
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()
+        .spawn()?;
+    #[cfg(windows)]
+    remember_job(&child);
+    Ok(child)
+}
+
+#[cfg(windows)]
+fn remember_job(child: &Child) {
+    if let Ok(job) = crate::windows::process_tree_job(child) {
+        let id = child.id();
+        ACTIVE_JOBS.with(|jobs| {
+            let mut jobs = jobs.borrow_mut();
+            jobs.retain(|(existing_id, _)| *existing_id != id);
+            if jobs.len() >= 8 {
+                jobs.remove(0);
+            }
+            jobs.push((id, job));
+        });
+    }
 }
 
 /// How long a command has to act on SIGHUP before its group gets SIGKILL.
@@ -60,10 +84,18 @@ const HANG_UP_GRACE: Duration = Duration::from_secs(1);
 #[cfg(unix)]
 const GRACE_POLL: Duration = Duration::from_millis(10);
 
-/// Tear down a timed-out / cancelled shell, including Unix grandchildren.
+/// Tear down a timed-out / cancelled shell, including grandchildren.
 pub(super) fn kill_shell_tree(child: &mut Child) {
     // Best effort throughout: the timeout or the cancel is what gets reported,
     // and a child that already exited has nothing left to kill or reap.
+    #[cfg(windows)]
+    {
+        let id = child.id();
+        ACTIVE_JOBS.with(|jobs| {
+            jobs.borrow_mut()
+                .retain(|(existing_id, _)| *existing_id != id);
+        });
+    }
     #[cfg(unix)]
     hang_up_then_kill(child);
     drop(child.kill());
@@ -88,3 +120,6 @@ fn hang_up_then_kill(child: &Child) {
     }
     drop(crate::platform::kill_process_group(child));
 }
+
+#[cfg(test)]
+mod tests;

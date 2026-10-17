@@ -8,6 +8,7 @@ mod colorer_paint;
 mod file_names;
 mod languages;
 mod markdown;
+mod markup;
 
 /// Concatenating the runs must reproduce the line exactly.
 ///

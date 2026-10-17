@@ -90,6 +90,9 @@ struct Stop<'a> {
 /// what it did — or, when the refusal is one an administrator may get past
 /// and the session already has one, let the administrator go on at once.
 fn stop(app: &mut App, stop: &Stop<'_>) {
+    if stop.settings.is_none() {
+        elevated::remember_context(&[], 0, 0);
+    }
     let retry = elevated::retry_for(
         app.live.elevation,
         stop.operation,

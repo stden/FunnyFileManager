@@ -32,9 +32,19 @@ impl Panel {
         }
     }
 
+    /// The description file names in effect: the panel's custom
+    /// `options.description_file` when non-empty, else `description_names`.
+    pub(super) fn active_description_names(&self) -> &[String] {
+        if self.options.description_file.is_empty() {
+            &self.description_names
+        } else {
+            std::slice::from_ref(&self.options.description_file)
+        }
+    }
+
     /// Re-read the directory, preserving the last complete snapshot on error.
     pub fn load_entries(&mut self) -> io::Result<()> {
-        let listing = directory::read(&self.path, &self.description_names)?;
+        let listing = directory::read(&self.path, self.active_description_names())?;
         let mut updated = self.clone();
         updated.apply_listing(listing);
         let view = updated.view;
@@ -50,7 +60,7 @@ impl Panel {
     /// while preserving its path and cursor. If that refresh also fails, keep
     /// the last complete snapshot. Always report the destination's error.
     pub fn navigate_to(&mut self, path: PathBuf) -> io::Result<()> {
-        let listing = match directory::read(&path, &self.description_names) {
+        let listing = match directory::read(&path, self.active_description_names()) {
             Ok(listing) => listing,
             Err(error) => {
                 let previous_selection = self.selected();

@@ -10,6 +10,9 @@ use super::{complaint, Run};
 use crate::models::{App, ArchiveFormat, ArchivePrompt, Overlay};
 use crate::status::Status;
 
+mod cleanup;
+use cleanup::{delete_sources, discard_partial};
+
 /// One archive to write: where, how, and from what.
 ///
 /// Separated from the dialog so the run can be tested without one.
@@ -81,24 +84,6 @@ pub fn add(app: &mut App, prompt: &ArchivePrompt) {
     drop(crate::utils::refresh_panels(app));
 }
 
-/// Remove what a failed run left at `archive`, which this run created: tar
-/// writes every member it can read before it reports the one it could not,
-/// and the half that is left looks like a finished archive. Never called for
-/// an archive that was there before — a failed append may have changed it,
-/// but removing it would lose what it held. A removal that fails is said in
-/// the transcript; the run's own failure stays the status.
-fn discard_partial(app: &mut App, archive: &Path) {
-    let Err(error) = std::fs::remove_file(archive) else {
-        return;
-    };
-    // Nothing written at all — the tool never started — is nothing to remove.
-    if error.kind() != io::ErrorKind::NotFound {
-        let shown = archive.display();
-        let text = format!("{shown}: the incomplete archive could not be removed: {error}");
-        app.console.record_error(&text);
-    }
-}
-
 /// A typed name is absolute or lives in the active panel's folder, the way
 /// the copy dialog resolves its destination.
 fn resolve_archive(name: &str, cwd: &Path) -> PathBuf {
@@ -130,7 +115,7 @@ fn report(
         ));
     }
     let kept = if delete_after {
-        delete_sources(cwd, request.sources)
+        delete_sources(cwd, request.sources, request.archive)
     } else {
         0
     };
@@ -138,28 +123,6 @@ fn report(
         count: request.sources.len(),
         archive: request.archive.to_owned(),
         kept,
-    }
-}
-
-/// Remove every source; the count of those that would not go.
-///
-/// Only reached after the archive is written, so a source that stays is a
-/// leftover, never a loss.
-fn delete_sources(cwd: &Path, sources: &[String]) -> usize {
-    sources
-        .iter()
-        .map(|name| cwd.join(name))
-        .filter(|path| remove_path(path).is_err())
-        .count()
-}
-
-/// Remove `path` without ever following a link: a symlink to a directory is
-/// unlinked, not walked.
-fn remove_path(path: &Path) -> io::Result<()> {
-    if std::fs::symlink_metadata(path)?.is_dir() {
-        std::fs::remove_dir_all(path)
-    } else {
-        std::fs::remove_file(path)
     }
 }
 

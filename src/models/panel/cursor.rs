@@ -71,15 +71,16 @@ impl Panel {
         self.state.selected()
     }
 
-    /// The row the cursor is on in what the panel shows: a `NetBox` list's
-    /// own cursor, else the file list's highlight. The status line gives the
-    /// info row back once this moves.
+    /// The row the cursor is on in what the panel shows: a `NetBox` or tree
+    /// list's own cursor, else the file list's highlight. The status line
+    /// gives the info row back once this moves.
     #[must_use]
     pub fn shown_cursor(&self) -> Option<usize> {
         match &self.kind {
             PanelKind::Sessions(sessions) => Some(sessions.cursor()),
             PanelKind::Remote(remote) => Some(remote.cursor()),
-            PanelKind::Files | PanelKind::Tree(_) | PanelKind::QuickView(_) => self.selected(),
+            PanelKind::Tree(tree) => Some(tree.cursor),
+            PanelKind::Files | PanelKind::QuickView(_) => self.selected(),
         }
     }
 

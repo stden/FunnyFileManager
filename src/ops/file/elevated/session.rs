@@ -58,7 +58,11 @@ pub(super) fn exchange(retry: &ElevatedRetry) -> io::Result<Outcome> {
 }
 
 fn talk(link: &mut Link, retry: &ElevatedRetry) -> io::Result<Outcome> {
-    protocol::send(&mut link.writer, retry)?;
+    let request = protocol::Request {
+        retry: retry.clone(),
+        choices: protocol::context_choices(),
+    };
+    protocol::send(&mut link.writer, &request)?;
     loop {
         match protocol::receive::<Reply>(&mut link.reader)? {
             Some(Reply::Progress(snapshot)) => crate::progress::relay(&snapshot),

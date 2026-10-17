@@ -40,37 +40,65 @@ pub enum QuoteMode {
 
 impl QuoteMode {
     pub(crate) fn apply(self, text: &str) -> String {
-        let needs_quotes = self == Self::Always
-            || self == Self::Spaces
-                && text.chars().any(|c| {
-                    matches!(
-                        c,
-                        ' ' | '\t'
-                            | ';'
-                            | '&'
-                            | '|'
-                            | '$'
-                            | '`'
-                            | '"'
-                            | '\''
-                            | '('
-                            | ')'
-                            | '<'
-                            | '>'
-                            | '\n'
-                            | '\r'
-                    )
-                });
+        let needs_quotes =
+            self == Self::Always || (self == Self::Spaces && text.chars().any(shell_metachar));
         if needs_quotes {
-            let escaped = text
-                .replace('"', "\\\"")
-                .replace('$', "\\$")
-                .replace('`', "\\`");
-            format!("\"{escaped}\"")
+            format!("\"{}\"", escape_shell(text))
         } else {
             text.to_owned()
         }
     }
+
+    pub(crate) fn apply_list(self, text: &str) -> String {
+        if self == Self::Always {
+            format!("\"{}\"", text.replace('"', "\\\""))
+        } else {
+            text.to_owned()
+        }
+    }
+}
+
+#[cfg(windows)]
+const fn shell_metachar(c: char) -> bool {
+    matches!(
+        c,
+        ' ' | '\t' | ';' | '&' | '|' | '"' | '\'' | '(' | ')' | '<' | '>' | '^' | '\n' | '\r'
+    )
+}
+
+#[cfg(not(windows))]
+const fn shell_metachar(c: char) -> bool {
+    matches!(
+        c,
+        ' ' | '\t'
+            | ';'
+            | '&'
+            | '|'
+            | '$'
+            | '`'
+            | '"'
+            | '\''
+            | '\\'
+            | '('
+            | ')'
+            | '<'
+            | '>'
+            | '\n'
+            | '\r'
+    )
+}
+
+#[cfg(windows)]
+fn escape_shell(text: &str) -> String {
+    text.replace('"', "\\\"")
+}
+
+#[cfg(not(windows))]
+fn escape_shell(text: &str) -> String {
+    text.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('$', "\\$")
+        .replace('`', "\\`")
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

@@ -19,6 +19,7 @@ pub fn delete_by_pattern(
             None,
         ));
     }
+    globmatch::validate_pattern(&params.pattern).map_err(|e| McpError::invalid_params(e, None))?;
 
     let mut run = DeleteRun::default();
 

@@ -135,3 +135,36 @@ fn ctrl_z_edits_a_lowercase_descript_ion_in_place() {
     assert_eq!(shown, "Old and new", "the view shows the edit");
     assert_eq!(described(&app, "a.txt").as_deref(), Some("Old and new"));
 }
+
+#[test]
+fn options_description_file_is_honored_by_listing_and_ctrl_z() {
+    let temp = TempDir::new().expect("temp");
+    fs::write(temp.path().join("a.txt"), "").expect("a.txt");
+    fs::write(temp.path().join("custom.desc"), "a.txt Initial\n").expect("custom.desc");
+    fs::write(temp.path().join("Descript.ion"), "a.txt Ignored\n").expect("Descript.ion");
+
+    let mut app = App::with_panels(
+        Panel::new(temp.path().to_path_buf()).expect("left"),
+        Panel::new(temp.path().to_path_buf()).expect("right"),
+    );
+    app.get_active_panel().options.description_file = "custom.desc".to_owned();
+    app.get_active_panel().load_entries().expect("reload");
+
+    assert_eq!(described(&app, "a.txt").as_deref(), Some("Initial"));
+    assert!(app.get_active_panel().select_named("a.txt"));
+
+    open(&mut app);
+    assert_eq!(prompt(&app).text(), "Initial");
+    type_text(&mut app, " updated");
+    accept(&mut app);
+
+    assert_eq!(
+        fs::read_to_string(temp.path().join("custom.desc")).expect("custom.desc"),
+        "a.txt Initial updated\n"
+    );
+    assert_eq!(
+        fs::read_to_string(temp.path().join("Descript.ion")).expect("Descript.ion"),
+        "a.txt Ignored\n"
+    );
+    assert_eq!(described(&app, "a.txt").as_deref(), Some("Initial updated"));
+}

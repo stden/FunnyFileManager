@@ -18,6 +18,7 @@ enum Session {
 
 struct Start {
     language: String,
+    configured: ServerSettings,
     settings: ServerSettings,
     snapshot: Snapshot,
     // Canonical identity for trust; preserve the original spelling for external tools.
@@ -28,6 +29,7 @@ struct Start {
 #[derive(Default)]
 pub(super) struct Host {
     session: Session,
+    pub(super) idle: Vec<Connection>,
     trusted: Vec<PathBuf>,
     pub(super) cache: Option<PathBuf>,
 }
@@ -36,16 +38,16 @@ impl Host {
     pub fn command(&mut self, command: Command, events: &SyncSender<Envelope>) {
         match command {
             Command::Open(language, settings, snapshot) => {
-                self.session = Session::Closed;
+                self.park();
                 let owner = snapshot.stamp.id;
-                let start = Start::prepare(language, settings, snapshot);
-                match start {
+                match Start::prepare(language, settings, snapshot) {
                     Ok(start) => self.open(start, events),
                     Err(error) => failed(events, owner, &error),
                 }
             }
+            Command::Restart => self.restart(),
             Command::Trust(owner) => self.trust(owner, events),
-            Command::Close => self.session = Session::Closed,
+            Command::Close => self.park(),
             command => self.forward(command),
         }
     }
@@ -91,6 +93,11 @@ impl Host {
     }
 
     fn start(&mut self, start: Start, events: &SyncSender<Envelope>) {
+        if let Some(mut connection) = self.take_idle(&start) {
+            connection.reopen(start.snapshot, events);
+            self.session = Session::Running(Box::new(connection));
+            return;
+        }
         let owner = start.snapshot.stamp.id;
         report(events, owner, Event::State(ServerState::Starting));
         match Connection::start(
@@ -99,7 +106,9 @@ impl Host {
             start.snapshot.clone(),
             &start.workspace,
         ) {
-            Ok(connection) => {
+            Ok(mut connection) => {
+                connection.root = start.root;
+                connection.configured = start.configured;
                 self.session = Session::Running(Box::new(connection));
                 report(events, owner, Event::State(ServerState::Initializing));
             }
@@ -115,6 +124,7 @@ impl Host {
 
     pub fn pump(&mut self, events: &SyncSender<Envelope>) {
         self.installation(events);
+        self.idle.retain_mut(|conn| conn.pump(events).is_ok());
         if let Session::Running(active) = &mut self.session {
             if let Err(message) = active.pump(events) {
                 crate::diagnostics::log_error(message);
@@ -141,6 +151,7 @@ impl Start {
         let root = workspace.canonicalize()?;
         Ok(Self {
             language,
+            configured: settings.clone(),
             settings,
             snapshot,
             root,

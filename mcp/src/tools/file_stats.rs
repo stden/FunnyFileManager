@@ -53,6 +53,7 @@ impl FfmServer {
     }
 }
 
+#[derive(Default)]
 struct TextCounts {
     lines: u64,
     words: u64,
@@ -62,36 +63,40 @@ struct TextCounts {
     longest_at: u64,
 }
 
-fn count_file_text(path: &Path) -> Result<TextCounts, McpError> {
-    let file = fs::File::open(path).map_err(|e| McpError::internal_error(e.to_string(), None))?;
-    let mut lines = 0u64;
-    let mut words = 0u64;
-    let mut chars = 0u64;
-    let mut bytes = 0u64;
-    let mut longest = 0usize;
-    let mut longest_at = 0u64;
-
-    for (number, line) in io::BufRead::split(io::BufReader::new(file), b'\n').enumerate() {
-        let line = line.map_err(|e| McpError::internal_error(e.to_string(), None))?;
-        let text = String::from_utf8_lossy(&line);
+impl TextCounts {
+    fn record_line(&mut self, buf: &[u8]) {
+        self.lines += 1;
+        self.bytes += saturating_u64(buf.len());
+        let trimmed = buf
+            .strip_suffix(b"\r\n")
+            .or_else(|| buf.strip_suffix(b"\n"))
+            .unwrap_or(buf);
+        let text = String::from_utf8_lossy(trimmed);
         let char_count = text.chars().count();
-        lines += 1;
-        words += saturating_u64(text.split_whitespace().count());
-        chars += saturating_u64(char_count);
-        // `split` dropped the separator; every line but a last one without
-        // a trailing newline had one.
-        bytes += saturating_u64(line.len()) + 1;
-        if char_count > longest {
-            longest = char_count;
-            longest_at = saturating_u64(number) + 1;
+        self.words += saturating_u64(text.split_whitespace().count());
+        self.chars += saturating_u64(char_count);
+        if self.longest_at == 0 || char_count > self.longest {
+            self.longest = char_count;
+            self.longest_at = self.lines;
         }
     }
-    Ok(TextCounts {
-        lines,
-        words,
-        chars,
-        bytes,
-        longest,
-        longest_at,
-    })
+}
+
+fn count_file_text(path: &Path) -> Result<TextCounts, McpError> {
+    use io::BufRead as _;
+
+    let file = fs::File::open(path).map_err(|e| McpError::internal_error(e.to_string(), None))?;
+    let mut reader = io::BufReader::new(file);
+    let mut buf = Vec::new();
+    let mut counts = TextCounts::default();
+
+    while reader
+        .read_until(b'\n', &mut buf)
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?
+        > 0
+    {
+        counts.record_line(&buf);
+        buf.clear();
+    }
+    Ok(counts)
 }

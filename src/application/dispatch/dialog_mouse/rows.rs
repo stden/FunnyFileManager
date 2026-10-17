@@ -1,6 +1,10 @@
 //! Purpose: a click on a dialog's body row — a field takes the cursor, a checkbox toggles, and a row that is only a sentence does nothing.
 
+use crossterm::event::KeyEvent;
+
 use crate::models::App;
+
+mod more;
 
 /// A click on a dialog's `index`-th body row.
 ///
@@ -11,7 +15,7 @@ use crate::models::App;
 /// In both, a checkbox answers to the click that reached it and every other
 /// control takes the cursor and waits — which is what clicking a text field
 /// means everywhere else.
-pub(super) fn click_dialog_row(app: &mut App, index: usize) {
+pub(super) fn click_dialog_row(app: &mut App, index: usize) -> Option<KeyEvent> {
     use crate::models::{NameField, Overlay};
 
     match &mut app.overlay {
@@ -19,19 +23,26 @@ pub(super) fn click_dialog_row(app: &mut App, index: usize) {
             if let Some(encoding) = crate::encoding::TextEncoding::ALL.get(index) {
                 editor.encoding_choice = Some(*encoding);
             }
+            None
         }
-        Overlay::CopyPrompt(prompt) => click_copy_row(prompt, index),
-        Overlay::LspEditor(editor) => click_lsp_form_row(editor, index),
+        Overlay::CopyPrompt(prompt) => {
+            click_copy_row(prompt, index);
+            None
+        }
+        Overlay::LspEditor(editor) => {
+            click_lsp_form_row(editor, index);
+            None
+        }
         Overlay::NamePrompt(prompt) => {
-            let Some(field) = prompt.field_at_row(index) else {
-                return;
-            };
-            prompt.focus(field);
-            if prompt.field() == NameField::Multiple {
-                prompt.toggle();
+            if let Some(field) = prompt.field_at_row(index) {
+                prompt.focus(field);
+                if prompt.field() == NameField::Multiple {
+                    prompt.toggle();
+                }
             }
+            None
         }
-        _ => {}
+        other => more::click_more_row(other, index),
     }
 }
 

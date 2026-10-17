@@ -14,6 +14,23 @@ impl Editor {
         query: Query,
         item: &Completion,
     ) -> Result<(), &'static str> {
+        self.apply_completion(query, item, false)
+    }
+
+    pub(crate) fn complete_lsp_replace(
+        &mut self,
+        query: Query,
+        item: &Completion,
+    ) -> Result<(), &'static str> {
+        self.apply_completion(query, item, true)
+    }
+
+    fn apply_completion(
+        &mut self,
+        query: Query,
+        item: &Completion,
+        overwrite_suffix: bool,
+    ) -> Result<(), &'static str> {
         if self.lsp_stamp() != query.stamp || self.lsp_position() != Some(query.position) {
             return Err("Completion expired; request it again");
         }
@@ -21,10 +38,7 @@ impl Editor {
             return Err("Snippet completion is not supported");
         }
         let mut text = self.lsp_text();
-        let primary = item
-            .edit
-            .clone()
-            .unwrap_or_else(|| self.fallback_edit(item, query));
+        let primary = self.primary_edit(item, query, overwrite_suffix);
         let (edits, caret) = prepare(&text, &primary, &item.additional_edits)?;
         for (range, replacement) in edits.into_iter().rev() {
             text.replace_range(range, &replacement);
@@ -35,14 +49,28 @@ impl Editor {
         self.cursor_line = line;
         self.cursor_col = column;
         self.selection = super::super::EditorSelection::None;
+        self.lsp.completions = None;
         self.mark_modified();
         Ok(())
     }
 
+    fn primary_edit(&self, item: &Completion, query: Query, overwrite_suffix: bool) -> TextEdit {
+        let mut primary = item
+            .edit
+            .clone()
+            .unwrap_or_else(|| self.fallback_edit(item, query));
+        if overwrite_suffix {
+            if let Some(end) = self.identifier_end_position() {
+                primary.range.end = primary.range.end.max(end);
+            }
+        }
+        primary
+    }
+
     fn set_completed_text(&mut self, text: &str, caret: usize) {
-        // Keep the final empty line only when the inserted text places the caret there.
-        self.format.trailing_newline = text.ends_with('\n') && caret < text.len();
-        let content = if self.format.trailing_newline {
+        // Keep the final empty line only when the file has no trailing newline
+        // or the inserted text places the caret there.
+        let content = if self.format.trailing_newline && caret < text.len() {
             text.strip_suffix('\n').unwrap_or(text)
         } else {
             text
@@ -57,14 +85,32 @@ impl Editor {
         Some((line, column))
     }
 
-    fn fallback_edit(&self, item: &Completion, query: Query) -> TextEdit {
-        let line = self.line();
-        let prefix: String = line.chars().take(self.cursor_col).collect();
+    pub(crate) fn completion_prefix(&self) -> String {
+        let prefix: String = self.line().chars().take(self.cursor_col).collect();
         let count = prefix
             .chars()
             .rev()
-            .take_while(|ch| ch.is_alphanumeric() || *ch == '_')
+            .take_while(|ch| super::is_identifier_char(*ch))
             .count();
+        prefix
+            .chars()
+            .skip(prefix.chars().count().saturating_sub(count))
+            .collect()
+    }
+
+    fn identifier_end_position(&self) -> Option<Position> {
+        let line = self.line();
+        let suffix = line
+            .chars()
+            .skip(self.cursor_col)
+            .take_while(|ch| super::is_identifier_char(*ch))
+            .count();
+        positions::from_chars(self.cursor_line, line, self.cursor_col + suffix)
+    }
+
+    fn fallback_edit(&self, item: &Completion, query: Query) -> TextEdit {
+        let line = self.line();
+        let count = self.completion_prefix().chars().count();
         let start = positions::from_chars(self.cursor_line, line, self.cursor_col - count)
             .unwrap_or(query.position);
         TextEdit {

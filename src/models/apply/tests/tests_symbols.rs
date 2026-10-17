@@ -91,3 +91,19 @@ fn list_files_require_the_far_terminator() {
 fn a_missing_list_file_expands_to_nothing() {
     assert_eq!(expand("cat !@!"), "cat ");
 }
+
+#[test]
+fn quote_mode_escapes_appropriately_for_platform_and_list_files() {
+    use super::super::symbols::QuoteMode;
+    assert_eq!(
+        QuoteMode::Always.apply_list(r"C:\dir\$var`1.txt"),
+        r#""C:\dir\$var`1.txt""#
+    );
+    #[cfg(windows)]
+    assert_eq!(
+        QuoteMode::Always.apply(r"C:\dir\$var`1.txt"),
+        r#""C:\dir\$var`1.txt""#
+    );
+    #[cfg(not(windows))]
+    assert_eq!(QuoteMode::Spaces.apply(r"back\slash"), r#""back\\slash""#);
+}

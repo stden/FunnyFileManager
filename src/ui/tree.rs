@@ -18,7 +18,13 @@ use super::{far_block, palette, Cells, FAR_BLUE, PANEL_INFO_ROW};
 use crate::models::{Branch, FolderTree, Guide, Panel, PanelKind, TreeRow};
 use crate::scroll::visible_window;
 
-pub(super) fn render(f: &mut Frame<'_>, panel: &mut Panel, area: Rect, is_active: bool) {
+pub(super) fn render(
+    f: &mut Frame<'_>,
+    panel: &mut Panel,
+    area: Rect,
+    is_active: bool,
+    footer: Option<&crate::status::PathMessage<'_>>,
+) {
     let PanelKind::Tree(tree) = &mut panel.kind else {
         return;
     };
@@ -41,7 +47,7 @@ pub(super) fn render(f: &mut Frame<'_>, panel: &mut Panel, area: Rect, is_active
         ..inner
     };
     render_rows(f, tree, body, is_active);
-    render_info(f, tree, inner);
+    render_info(f, tree, inner, footer);
 }
 
 /// Far highlights the active panel's title; the tree has no path to show
@@ -115,24 +121,33 @@ fn guide_text(row: &TreeRow) -> String {
     text
 }
 
-/// The row above the bottom border: the search being typed, else the full
-/// path of the folder under the cursor — which is what the other panel is
-/// showing, or would show on Enter.
-fn render_info(f: &mut Frame<'_>, tree: &FolderTree, inner: Rect) {
-    let text = tree.search.query().map_or_else(
-        || {
-            tree.selected()
-                .map(|path| {
-                    crate::ui::printable_name(&crate::path_display::label(path)).into_owned()
-                })
-                .unwrap_or_default()
-        },
-        |query| format!("Search: {}_", crate::ui::printable_name(query)),
-    );
+/// The row above the bottom border: the search being typed, else the status
+/// in `footer`, else the full path of the folder under the cursor — which is
+/// what the other panel is showing, or would show on Enter.
+fn render_info(
+    f: &mut Frame<'_>,
+    tree: &FolderTree,
+    inner: Rect,
+    footer: Option<&crate::status::PathMessage<'_>>,
+) {
     let width = Cells::columns(inner.width);
+    let shown = if let Some(query) = tree.search.query() {
+        super::head_cells(
+            &format!("Search: {}_", crate::ui::printable_name(query)),
+            width,
+        )
+    } else if let Some(message) = footer {
+        super::fit_quoting_path(&message.before, &message.path, &message.after, width)
+    } else {
+        let text = tree
+            .selected()
+            .map(|path| crate::ui::printable_name(&crate::path_display::label(path)).into_owned())
+            .unwrap_or_default();
+        super::head_cells(&text, width)
+    };
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
-            super::head_cells(&text, width),
+            shown,
             Style::default().fg(Color::LightCyan).bg(FAR_BLUE),
         ))),
         Rect {

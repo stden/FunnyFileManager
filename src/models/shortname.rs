@@ -59,10 +59,18 @@ impl ShortNames {
     /// Short names for `names`, numbered in the order given.
     #[must_use]
     pub fn for_listing<'a>(names: impl IntoIterator<Item = &'a str>) -> Self {
+        let names: Vec<&'a str> = names.into_iter().collect();
+        let reserved: HashSet<String> = names
+            .iter()
+            .filter_map(|&name| {
+                let basis = Basis::of(name);
+                (!basis.stem.is_empty() && basis.fits(name)).then(|| basis.join(&basis.stem))
+            })
+            .collect();
         let mut taken = HashSet::new();
         let mut by_name = HashMap::new();
         for name in names {
-            let short = unique_short_name(name, &taken);
+            let short = unique_short_name(name, &taken, &reserved);
             taken.insert(short.0.clone());
             by_name.insert(name.to_owned(), short);
         }
@@ -83,9 +91,9 @@ impl ShortNames {
     }
 }
 
-/// The first short form of `name` that nothing before it in the listing has
-/// claimed.
-fn unique_short_name(name: &str, taken: &HashSet<String>) -> ShortName {
+/// The first short form of `name` that nothing in the listing has claimed or
+/// reserved as its own 8.3 name.
+fn unique_short_name(name: &str, taken: &HashSet<String>, reserved: &HashSet<String>) -> ShortName {
     let basis = Basis::of(name);
     // `..`, or a name that is nothing but dots and blanks: there is no stem
     // to shorten, and Windows shows such an entry as it is.
@@ -98,13 +106,12 @@ fn unique_short_name(name: &str, taken: &HashSet<String>) -> ShortName {
             return ShortName::new(plain);
         }
     }
-    // Each claimed name blocks at most one candidate, so one more than their
-    // count is always free. The bound keeps the search finite, and the
-    // fallback keeps it total without a panic.
-    let last = taken.len() + 1;
+    // Each claimed or reserved name blocks at most one candidate, so one more
+    // than their combined count is always free.
+    let last = taken.len() + reserved.len() + 1;
     let numbered = (1..=last)
         .map(|n| basis.numbered(n))
-        .find(|candidate| !taken.contains(candidate))
+        .find(|candidate| !taken.contains(candidate) && !reserved.contains(candidate))
         .unwrap_or_else(|| basis.numbered(last));
     ShortName::new(numbered)
 }

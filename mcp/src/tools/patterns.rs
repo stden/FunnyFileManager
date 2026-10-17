@@ -116,7 +116,9 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<ReplaceParams>,
     ) -> Result<CallToolResult, McpError> {
-        self.require_readwrite()?;
+        if !params.dry_run {
+            self.require_readwrite()?;
+        }
         replace::replace(self, &params)
     }
 
@@ -128,7 +130,9 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<DeleteByPatternParams>,
     ) -> Result<CallToolResult, McpError> {
-        self.require_readwrite()?;
+        if !params.dry_run {
+            self.require_readwrite()?;
+        }
         cleanup::delete_by_pattern(self, &params)
     }
 }

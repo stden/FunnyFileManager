@@ -59,6 +59,7 @@ impl LoopState {
                 self.pending = Some(pending);
                 self.redraw = Redraw::Needed;
             }
+            crate::ops::git_pull::run_pending(app);
             repaint_after_progress(terminal)?;
             crate::ops::packages::run_pending(terminal, app)?;
             run_after_frame(terminal, app)?;

@@ -53,7 +53,8 @@ pub fn accept(app: &mut App) {
     let text = prompt.text().to_owned();
     let rest = prompt.pending().to_vec();
     let panel = app.get_active_panel();
-    let written = description::set_description(&panel.path, &panel.description_names, &name, &text);
+    let written =
+        description::set_description(&panel.path, panel.active_description_names(), &name, &text);
     if let Err(error) = written {
         app.close_overlay();
         app.set_status(Status::Error(format!("Cannot describe {name}: {error}")));

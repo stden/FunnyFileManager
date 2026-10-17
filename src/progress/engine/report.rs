@@ -76,7 +76,7 @@ pub fn copying_across(source: &Path) {
 /// moves a whole folder in one step; a copy and a delete count every file.
 pub fn source_done() {
     update(|shown| {
-        if shown.operation == Operation::Move {
+        if matches!(shown.operation, Operation::Move | Operation::GitPull) {
             shown.done.files = shown.done.files.saturating_add(1);
         }
     });

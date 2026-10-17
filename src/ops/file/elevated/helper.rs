@@ -19,8 +19,8 @@ use crate::utils::FailedAt;
 pub(super) fn serve(mut input: impl BufRead, output: impl Write + 'static) -> io::Result<()> {
     let output = Rc::new(RefCell::new(output));
     let _painter = crate::progress::install(Box::new(Relay(Rc::clone(&output))));
-    while let Some(retry) = protocol::receive::<ElevatedRetry>(&mut input)? {
-        let outcome = run(&retry);
+    while let Some(request) = protocol::receive::<protocol::Request>(&mut input)? {
+        let outcome = run_with(&request.retry, &request.choices);
         protocol::send(&mut *output.borrow_mut(), &Reply::Finished(outcome))?;
     }
     Ok(())
@@ -41,7 +41,12 @@ impl<W: Write> Painter for Relay<W> {
 }
 
 /// Redo `retry`, stopping at the first entry that fails, as FFM does.
+#[cfg(test)]
 pub(super) fn run(retry: &ElevatedRetry) -> Outcome {
+    run_with(retry, &protocol::context_choices())
+}
+
+pub(super) fn run_with(retry: &ElevatedRetry, choices: &[super::super::dialog::Choice]) -> Outcome {
     match (&retry.settings, retry.operation) {
         (Some(settings), Operation::Copy | Operation::Move) => {
             transferred(&super::super::dialog::transfer_choosing(
@@ -49,7 +54,7 @@ pub(super) fn run(retry: &ElevatedRetry) -> Outcome {
                 &retry.base,
                 retry.selected,
                 settings,
-                &[],
+                choices,
             ))
         }
         (None, Operation::Delete) => delete(&retry.sources),

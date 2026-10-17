@@ -9,6 +9,7 @@ pub enum MenuCommand {
     Performance,
     LanguageServers,
     UpdatePackages,
+    GitPullAll,
     Path(crate::path_env::Scope),
     Compare,
     /// Edit the user menu's file; F2 opens the menu itself.

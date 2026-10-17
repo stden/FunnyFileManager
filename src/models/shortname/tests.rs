@@ -87,6 +87,10 @@ fn a_literal_short_name_keeps_its_slot() {
         short(&["LONGNA~1.EXT", "longnamed.ext"]),
         ["LONGNA~1.EXT", "LONGNA~2.EXT"]
     );
+    assert_eq!(
+        short(&["file1234567.txt", "file12~1.txt"]),
+        ["FILE12~2.TXT", "FILE12~1.TXT"]
+    );
 }
 
 #[test]

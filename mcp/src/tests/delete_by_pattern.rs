@@ -105,3 +105,21 @@ fn delete_by_pattern_rejects_a_file_as_the_root() {
         error.message
     );
 }
+
+#[test]
+fn delete_by_pattern_rejects_oversized_pattern() {
+    let dir = TempDir::new().expect("temp dir");
+    let (server, root) = server_at(&dir);
+    let too_long = "a".repeat(globmatch::MAX_PATTERN_LEN + 1);
+
+    let err = server
+        .delete_by_pattern(Parameters(DeleteByPatternParams {
+            path: root.display().to_string(),
+            pattern: too_long,
+            include_dirs: false,
+            recursive: true,
+            dry_run: true,
+        }))
+        .expect_err("oversized pattern must be rejected");
+    assert!(err.message.contains("glob pattern"));
+}

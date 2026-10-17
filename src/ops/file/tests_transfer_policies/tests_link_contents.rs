@@ -123,3 +123,28 @@ fn walk_depth(root: &Path) -> usize {
         .max()
         .unwrap_or(0)
 }
+
+#[cfg(unix)]
+#[test]
+fn merging_a_folder_with_a_followed_link_loop_is_refused() {
+    use std::os::unix::fs::symlink;
+
+    let (mut app, from, to) = app_with(&[]);
+    let src_tree = from.path().join("tree");
+    fs::create_dir(&src_tree).expect("test setup");
+    symlink("..", src_tree.join("loop")).expect("test setup");
+    fs::create_dir_all(to.path().join("tree/loop")).expect("test setup");
+    mark(&mut app, "tree");
+
+    let mut dialog = settings(to.path());
+    dialog.existing = ExistingFiles::Overwrite;
+    dialog.symlink_contents = true;
+    copy_with(&mut app, &dialog);
+
+    assert!(
+        matches!(app.status, Status::CopiedWithErrors { .. }),
+        "merge loop must be reported: {:?}",
+        app.status
+    );
+    assert!(walk_depth(&to.path().join("tree")) < 6);
+}

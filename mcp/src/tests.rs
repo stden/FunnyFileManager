@@ -47,6 +47,7 @@ fn write_file_at(path: &Path, content: &str) {
     fs::write(path, content).expect("write fixture file");
 }
 
+mod bookmarks;
 mod delete_by_pattern;
 mod failed_transfers;
 mod find;

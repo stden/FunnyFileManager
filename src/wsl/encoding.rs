@@ -18,7 +18,7 @@ pub(super) fn decode_text(bytes: &[u8], truncated: bool) -> Result<String, Strin
             (bytes, Some(u16::from_le_bytes))
         } else if let Some(bytes) = bytes.strip_prefix(&[0xfe, 0xff]) {
             (bytes, Some(u16::from_be_bytes))
-        } else if bytes.as_chunks::<2>().0.iter().any(|pair| pair[1] == 0) {
+        } else if looks_like_bomless_utf16le(bytes, truncated) {
             (bytes, Some(u16::from_le_bytes))
         } else {
             (
@@ -34,6 +34,21 @@ pub(super) fn decode_text(bytes: &[u8], truncated: bool) -> Result<String, Strin
         String::from_utf8(bytes.to_vec()).map_err(|_| INVALID_TEXT.to_owned())?
     };
     Ok(text.trim_matches('\0').to_owned())
+}
+
+fn looks_like_bomless_utf16le(bytes: &[u8], truncated: bool) -> bool {
+    if !bytes.len().is_multiple_of(2) && !truncated {
+        return false;
+    }
+    let pairs = bytes.as_chunks::<2>().0;
+    let ascii_utf16 = pairs.iter().filter(|&&[lo, hi]| lo != 0 && hi == 0).count();
+    if ascii_utf16 == 0 {
+        return false;
+    }
+    let bare_newline = pairs
+        .iter()
+        .any(|&[lo, hi]| (lo == b'\n' && hi != 0) || hi == b'\n');
+    !bare_newline && ascii_utf16 * 2 >= pairs.len()
 }
 
 #[expect(
@@ -57,3 +72,6 @@ fn decode_utf16(bytes: &[u8], truncated: bool, decode: Utf16Decoder) -> Result<S
         String::from_utf16(&words).map_err(|_| INVALID_TEXT.to_owned())
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -94,12 +94,34 @@ fn editor_debounces_changes_saves_and_restarts_without_losing_text() {
     app.get_editor_mut().unwrap().save().unwrap();
     controller.pump(&mut app);
     assert_eq!(controller.sent.unwrap().1, 1);
+    assert_reopen_reuses_server(&root, &mut controller, &mut app);
     restart_without_another_trust_prompt(&mut controller, &mut app);
     close(&mut controller, &mut app);
     drop(controller);
     assert!(fs::read_to_string(root.path().join("methods"))
         .unwrap()
         .ends_with("exit\n"));
+}
+
+fn assert_reopen_reuses_server(
+    root: &TempDir,
+    controller: &mut EditorLspController,
+    app: &mut App,
+) {
+    let pid_before_close = fs::read_to_string(root.path().join("pid")).unwrap();
+    close(controller, app);
+    app.set_overlay(Overlay::Editor(Editor::from_content(
+        "second.rs".into(),
+        root.path().join("second.rs"),
+        "fn second() {}",
+    )));
+    pump_until(controller, app, |editor| {
+        editor.lsp.state == ServerState::Ready && !editor.lsp.diagnostics.is_empty()
+    });
+    assert_eq!(
+        fs::read_to_string(root.path().join("pid")).unwrap(),
+        pid_before_close
+    );
 }
 
 fn restart_without_another_trust_prompt(controller: &mut EditorLspController, app: &mut App) {

@@ -8,6 +8,12 @@ use std::{fs, path::Path};
 
 pub fn grep(server: &FfmServer, params: &GrepParams) -> Result<CallToolResult, McpError> {
     let path = server.safe_path(&params.path)?;
+    if !path.is_dir() {
+        return Err(McpError::invalid_params(
+            format!("not a directory: {}", path.display()),
+            None,
+        ));
+    }
     let pattern_lower = params.pattern.to_lowercase();
     let mut results = Vec::new();
     let mut visited = 0usize;

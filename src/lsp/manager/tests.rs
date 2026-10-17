@@ -12,15 +12,13 @@ fn full_and_disconnected_mailboxes_return_the_unsent_command() {
         task: None,
     };
     assert!(manager.send(Command::Close).is_ok());
-    assert!(matches!(
-        *manager.send(Command::Cancel).err().unwrap(),
-        Command::Cancel
-    ));
+    let full = manager.send(Command::Cancel).err().unwrap();
+    assert!(matches!(full, SendError::Full(_)));
+    assert!(matches!(*full, Command::Cancel));
     assert!(matches!(receiver.try_recv().unwrap(), Command::Close));
     drop(receiver);
-    assert!(matches!(
-        *manager.send(Command::Close).err().unwrap(),
-        Command::Close
-    ));
+    let disconnected = manager.send(Command::Close).err().unwrap();
+    assert!(matches!(disconnected, SendError::Disconnected(_)));
+    assert!(matches!(*disconnected, Command::Close));
     assert!(manager.poll().is_none());
 }

@@ -130,3 +130,42 @@ fn a_transfer_without_its_settings_is_never_read_as_a_delete() {
     assert_eq!(outcome.left, 1);
     assert!(outcome.failed.is_some());
 }
+
+fn serve_once(request: &protocol::Request) -> Vec<Reply> {
+    let (mut wire, out) = (Vec::new(), Written::default());
+    protocol::send(&mut wire, request).unwrap();
+    helper::serve(Cursor::new(wire), out.clone()).unwrap();
+    out.replies()
+}
+
+#[test]
+fn the_helper_honours_per_file_clash_choices() {
+    use crate::copy::ExistingFiles::{Ask, Overwrite, Skip};
+    let (from, to) = (TempDir::new().unwrap(), TempDir::new().unwrap());
+    let (a, b) = (from.path().join("a.txt"), from.path().join("b.txt"));
+    let (ta, tb) = (to.path().join("a.txt"), to.path().join("b.txt"));
+    for (p, d) in [(&a, "new a"), (&b, "new b"), (&ta, "old a"), (&tb, "old b")] {
+        fs::write(p, d).unwrap();
+    }
+    let mut settings = CopyPrompt::for_purpose(Purpose::Copy, "marked", to.path());
+    settings.existing = Ask;
+    let request = protocol::Request {
+        retry: ElevatedRetry {
+            operation: Operation::Copy,
+            sources: vec![a.clone(), b.clone()],
+            base: from.path().to_path_buf(),
+            selected: 2,
+            settings: Some(settings),
+        },
+        choices: vec![(a, Overwrite), (b, Skip)],
+    };
+    let replies = serve_once(&request);
+    assert_eq!(fs::read_to_string(&ta).unwrap(), "new a");
+    assert_eq!(fs::read_to_string(&tb).unwrap(), "old b");
+    let finished = Reply::Finished(Outcome {
+        done: 1,
+        skipped: 1,
+        ..Outcome::default()
+    });
+    assert_eq!(replies.last(), Some(&finished));
+}

@@ -101,3 +101,40 @@ fn a_directory_is_wiped_file_by_file_and_then_removed() {
         "no temporary names left behind"
     );
 }
+
+#[test]
+fn a_readonly_file_is_zeroed_and_removed() {
+    let dir = TempDir::new().expect("temp dir");
+    let file = dir.path().join("readonly.txt");
+    fs::write(&file, b"secret").expect("write");
+    let mut perms = fs::metadata(&file).expect("meta").permissions();
+    perms.set_readonly(true);
+    fs::set_permissions(&file, perms).expect("readonly");
+    let witness = Witness::install();
+
+    wipe_path(&file).expect("wipe");
+
+    assert_eq!(witness.at(Stage::Overwritten).len(), 1);
+    assert!(!file.exists());
+}
+
+#[test]
+fn a_failed_removal_restores_the_original_name() {
+    let dir = TempDir::new().expect("temp dir");
+    let folder = dir.path().join("keep_name");
+    fs::create_dir(&folder).expect("mkdir");
+    WITNESS.with(|witness| {
+        *witness.borrow_mut() = Some(Box::new(|stage: Stage, path: &Path| {
+            if stage == Stage::Renamed {
+                drop(fs::write(path.join("late.txt"), b"appeared"));
+            }
+        }));
+    });
+
+    let result = wipe_path(&folder);
+    WITNESS.with(|witness| *witness.borrow_mut() = None);
+
+    assert!(result.is_err());
+    assert!(folder.is_dir(), "original directory name restored");
+    assert!(folder.join("late.txt").is_file());
+}

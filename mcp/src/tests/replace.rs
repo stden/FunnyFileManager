@@ -119,3 +119,22 @@ fn replace_name_pattern_filter_leaves_other_names_alone() {
         "the name filter must exclude, not merely order"
     );
 }
+
+#[test]
+fn replace_rejects_oversized_name_pattern() {
+    let dir = TempDir::new().expect("temp dir");
+    let (server, root) = server_at(&dir);
+    let too_long = "a".repeat(globmatch::MAX_PATTERN_LEN + 1);
+
+    let err = server
+        .replace(Parameters(ReplaceParams {
+            path: root.display().to_string(),
+            find: "old".to_owned(),
+            replace: "new".to_owned(),
+            extension: None,
+            name_pattern: Some(too_long),
+            dry_run: true,
+        }))
+        .expect_err("oversized name_pattern must be rejected");
+    assert!(err.message.contains("glob pattern"));
+}

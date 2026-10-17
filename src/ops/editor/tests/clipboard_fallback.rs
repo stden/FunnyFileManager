@@ -58,3 +58,33 @@ fn reloading_a_directory_as_text_is_refused() {
     let notice = app.get_editor().expect("editor").notice.clone();
     assert!(notice.is_some(), "{notice:?}");
 }
+
+#[test]
+fn reloading_rejects_nul_bytes_and_preserves_indent_and_last_search() {
+    let dir = TempDir::new().expect("dir");
+    let path = dir.path().join("sample.txt");
+    fs::write(&path, b"a\x00b").expect("write binary");
+    let mut app = editor_app("initial", path.clone());
+    {
+        let editor = app.get_editor_mut().expect("editor");
+        editor.format.indent = Indent::Tabs;
+        editor.search.last = crate::search::Needle::new("needle").map(crate::search::Search::new);
+    }
+    crate::ops::reload_editor_encoding(&mut app, crate::encoding::TextEncoding::Windows1251);
+    let editor = app.get_editor().expect("editor");
+    assert_eq!(editor.lines, ["initial"]);
+    assert!(editor
+        .notice
+        .as_deref()
+        .is_some_and(|msg| msg.contains("NUL")));
+
+    fs::write(&path, b"reloaded text").expect("write text");
+    crate::ops::reload_editor_encoding(&mut app, crate::encoding::TextEncoding::Utf8);
+    let editor = app.get_editor().expect("editor");
+    assert_eq!(editor.lines, ["reloaded text"]);
+    assert_eq!(editor.format.indent, Indent::Tabs);
+    assert_eq!(
+        editor.search.last.as_ref().map(|s| s.needle.as_str()),
+        Some("needle")
+    );
+}

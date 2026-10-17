@@ -124,3 +124,20 @@ fn a_read_only_subfolder_stays_behind() {
     moved.expect("the batch reports");
     assert_reported_truthfully(&app, from.path(), to.path());
 }
+
+#[test]
+fn a_readonly_file_in_moved_source_is_removed() {
+    let root = TempDir::new().expect("test setup");
+    let (source, copy) = (root.path().join("source"), root.path().join("copy"));
+    fs::create_dir_all(&source).expect("test setup");
+    let ro = source.join("ro.txt");
+    fs::write(&ro, b"ro").expect("test setup");
+    crate::utils::copy_dir_all(&source, &copy).expect("test setup");
+    let mut perms = fs::metadata(&ro).expect("meta").permissions();
+    perms.set_readonly(true);
+    fs::set_permissions(&ro, perms).expect("set readonly");
+
+    remove_moved(&source, &copy).expect("read-only moved source removed");
+    assert!(!source.exists());
+    assert_eq!(fs::read(copy.join("ro.txt")).expect("copy"), b"ro");
+}

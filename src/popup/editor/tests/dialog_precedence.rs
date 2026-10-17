@@ -110,3 +110,18 @@ fn assert_unsaved_search(app: &App, path: &std::path::Path) {
         "original界"
     );
 }
+
+#[test]
+fn encoding_and_search_dialogs_take_keyboard_precedence_matching_render_order() {
+    let temp = TempDir::new().expect("temporary directory");
+    let mut app = app_with_editor("text", temp.path().join("text.txt"));
+    {
+        let editor = app.get_editor_mut().expect("editor");
+        editor.state = EditState::ConfirmingExit(ExitChoice::Save);
+        editor.encoding_choice = Some(TextEncoding::Utf8);
+    }
+    key(&mut app, KeyCode::Esc, KeyModifiers::NONE);
+    let editor = app.get_editor().expect("editor stays open");
+    assert!(editor.encoding_choice.is_none());
+    assert_eq!(editor.state, EditState::ConfirmingExit(ExitChoice::Save));
+}

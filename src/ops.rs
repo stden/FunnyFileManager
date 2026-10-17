@@ -15,6 +15,7 @@ pub mod filter;
 pub mod findfile;
 pub mod findfolder;
 pub mod folder_history;
+pub(crate) mod git_pull;
 pub mod history_list;
 pub mod hotplug;
 pub mod link;

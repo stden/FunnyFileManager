@@ -21,6 +21,7 @@ mod protocol;
 #[cfg(windows)]
 mod session;
 
+pub(super) use protocol::remember_context;
 use protocol::Outcome;
 
 /// The command-line flag that makes FFM the administrator helper.
@@ -122,6 +123,7 @@ fn exchange(_retry: &ElevatedRetry) -> io::Result<Outcome> {
 /// Report what the administrator did, on top of the `done` entries before.
 fn finish(app: &mut App, done: usize, retry: &ElevatedRetry, outcome: &Outcome) {
     let count = done + outcome.done;
+    let (prior_skipped, prior_renamed) = protocol::take_prior_counts();
     let purpose = retry.settings.as_ref().map(|settings| settings.purpose);
     let Some(failure) = &outcome.failed else {
         app.set_status(match purpose {
@@ -129,8 +131,8 @@ fn finish(app: &mut App, done: usize, retry: &ElevatedRetry, outcome: &Outcome) 
             Some(purpose) => Status::Transferred {
                 purpose,
                 landed: Landed::of(count, None),
-                skipped: outcome.skipped,
-                renamed: outcome.renamed,
+                skipped: prior_skipped + outcome.skipped,
+                renamed: prior_renamed + outcome.renamed,
             },
         });
         return;

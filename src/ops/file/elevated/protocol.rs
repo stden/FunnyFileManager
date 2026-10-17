@@ -34,6 +34,57 @@ pub struct Failure {
     pub denial: Option<Denial>,
 }
 
+/// What FFM sends the helper for one retry: the `ElevatedRetry` itself and
+/// any per-file "already existing files" answers from the clash dialog.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Request {
+    #[serde(flatten)]
+    pub retry: crate::models::ElevatedRetry,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub choices: Vec<(PathBuf, crate::copy::ExistingFiles)>,
+}
+
+#[derive(Default)]
+struct RetryContext {
+    choices: Vec<(PathBuf, crate::copy::ExistingFiles)>,
+    skipped: usize,
+    renamed: usize,
+}
+
+thread_local! {
+    static CONTEXT: std::cell::RefCell<RetryContext> =
+        std::cell::RefCell::new(RetryContext::default());
+}
+
+pub(in super::super) fn remember_context(
+    choices: &[(PathBuf, crate::copy::ExistingFiles)],
+    skipped: usize,
+    renamed: usize,
+) {
+    CONTEXT.with(|ctx| {
+        *ctx.borrow_mut() = RetryContext {
+            choices: choices.to_vec(),
+            skipped,
+            renamed,
+        };
+    });
+}
+
+#[cfg(any(windows, test))]
+pub(super) fn context_choices() -> Vec<(PathBuf, crate::copy::ExistingFiles)> {
+    CONTEXT.with(|ctx| ctx.borrow().choices.clone())
+}
+
+pub(super) fn take_prior_counts() -> (usize, usize) {
+    CONTEXT.with(|ctx| {
+        let mut ctx = ctx.borrow_mut();
+        let counts = (ctx.skipped, ctx.renamed);
+        ctx.skipped = 0;
+        ctx.renamed = 0;
+        counts
+    })
+}
+
 /// The pipe itself: only Windows runs the helper, and the tests speak it
 /// over in-memory buffers. Elsewhere FFM never starts a helper, so nothing
 /// here would be called.

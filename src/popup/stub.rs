@@ -11,7 +11,7 @@ use crossterm::event::KeyCode;
 use crate::models::App;
 
 pub(super) fn close_on_escape(app: &mut App, code: KeyCode) -> bool {
-    if matches!(code, KeyCode::Esc | KeyCode::F(10)) {
+    if matches!(code, KeyCode::Enter | KeyCode::Esc | KeyCode::F(10)) {
         app.close_overlay();
     }
     true

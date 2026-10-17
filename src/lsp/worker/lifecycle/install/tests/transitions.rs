@@ -160,7 +160,8 @@ fn cached_installation_starts_with_the_latest_document_and_shuts_down_cleanly() 
         "latest edit"
     );
     host.command(Command::Close, &events);
+    drop(host);
     assert!(fs::read_to_string(root.path().join("methods"))
         .unwrap()
-        .ends_with("shutdown\nexit\n"));
+        .ends_with("textDocument/didClose\nshutdown\nexit\n"));
 }

@@ -26,6 +26,9 @@ mod lifecycle;
 mod shutdown;
 
 struct Connection {
+    language: String,
+    root: PathBuf,
+    configured: ServerSettings,
     owner: DocumentId,
     path: PathBuf,
     process: Process,
@@ -58,6 +61,9 @@ impl Connection {
             .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::InvalidInput))?;
         let process = Process::start(settings, root)?;
         Ok(Self {
+            language: language.clone(),
+            root: root.to_path_buf(),
+            configured: settings.clone(),
             owner: snapshot.stamp.id,
             path: snapshot.path.clone(),
             process,

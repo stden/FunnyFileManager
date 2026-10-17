@@ -35,6 +35,8 @@ pub enum Operation {
     /// `total.files` counts the entries looked at and `done.files` the
     /// matches, so a long search shows it is still going and what it found.
     Find,
+    /// Update Git working copies below the active panel's directory.
+    GitPull,
 }
 
 impl Operation {
@@ -53,7 +55,7 @@ impl Operation {
     const fn scans_first(self) -> bool {
         match self {
             Self::Copy | Self::Delete => true,
-            Self::Move | Self::Find => false,
+            Self::Move | Self::Find | Self::GitPull => false,
         }
     }
 }

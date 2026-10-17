@@ -75,13 +75,14 @@ fn remove_entry(source: &Path, copy: &Path, first: &mut Kept) {
         let reason = io::Error::other("it appeared after the copy was made");
         return keep(first, source, reason);
     }
-    let is_folder = fs::symlink_metadata(source).map(|meta| meta.is_dir());
-    let removed = match is_folder {
-        Ok(true) => {
+    let removed = match fs::symlink_metadata(source).map(|meta| meta.file_type()) {
+        Ok(kind) if kind.is_dir() => {
             remove_contents(source, copy, first);
             forced_refusal(source).and_then(|()| fs::remove_dir(source))
         }
-        Ok(false) => forced_refusal(source).and_then(|()| fs::remove_file(source)),
+        Ok(kind) => {
+            forced_refusal(source).and_then(|()| super::entry::remove_link_or_file(source, kind))
+        }
         Err(error) => Err(error),
     };
     match removed {

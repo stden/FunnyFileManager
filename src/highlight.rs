@@ -14,6 +14,7 @@ mod dotenv;
 mod formats;
 mod highlighter;
 mod languages;
+mod markup;
 #[cfg(feature = "colorer")]
 mod regions;
 mod shells;
@@ -55,6 +56,15 @@ pub enum Token {
     /// untangle them first.
     Switch,
     Punctuation,
+    /// Markup element names (`<groupId>`, `</project>`) and `=` delimiters:
+    /// Colorer's light grey (`#C0C0C0`).
+    Tag,
+    /// Hyperlinks in markup attributes/comments and unclosed multi-line tag
+    /// openings (`<project`): Colorer's bright red (`#FF0000`).
+    Url,
+    /// Bare URI in markup element text (`<url>http://...</url>`): Colorer's
+    /// black on dark-red background (`#000000` on `#800000`).
+    Uri,
 }
 
 /// One language's lexical surface: what starts a comment, what quotes a
@@ -88,6 +98,7 @@ enum LineMode {
     Tokens,
     Markdown,
     Dotenv,
+    Markup,
 }
 
 #[cfg(test)]

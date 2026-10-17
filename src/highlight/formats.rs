@@ -32,17 +32,8 @@ pub(super) const JSON: Syntax = Syntax {
 };
 
 pub(super) const MARKUP: Syntax = Syntax {
-    mode: LineMode::Tokens,
-    line_comments: &[],
-    block_comment: Some(("<!--", "-->")),
-    quotes: &['"', '\''],
-    keywords: &[],
-    types: &[],
-    meta_prefix: None,
-    section_headers: false,
-    variable_prefix: None,
-    word_hyphens: false,
-    switch_prefix: None,
+    mode: LineMode::Markup,
+    ..CONFIG
 };
 
 /// Structured formats select their own scanner instead of a token table.

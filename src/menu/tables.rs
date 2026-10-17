@@ -154,4 +154,9 @@ pub(super) const COMMANDS: &[Entry] = &[
     Entry::item("&Go to root", "Ctrl+\\", Action::GoRoot),
     #[cfg(windows)]
     Entry::item("&WSL manager", "Ctrl+Alt+W", Action::WslManagement),
+    Entry::item(
+        "Git pull for all repositories",
+        "",
+        Action::Menu(MenuCommand::GitPullAll),
+    ),
 ];

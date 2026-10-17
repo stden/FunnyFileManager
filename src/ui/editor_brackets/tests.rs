@@ -137,3 +137,46 @@ fn columns_count_characters_not_bytes_in_both_directions() {
     assert_eq!(highlighted(&editor(text, 0, 2), 0, 0), [(2, 0), (4, 0)]);
     assert_eq!(highlighted(&editor(text, 0, 4), 0, 0), [(2, 0), (4, 0)]);
 }
+
+#[test]
+fn xml_tag_pair_highlights_both_opening_and_closing_tags_in_bright_red() {
+    let line = "  <fb-contrib.version>7.7.4</fb-contrib.version>";
+    let mut ed = Editor::from_content("pom.xml".into(), PathBuf::from("pom.xml"), line);
+    ed.cursor_line = 0;
+    ed.cursor_col = 44; // Inside `</fb-contrib.version>`
+    let mut terminal = Terminal::new(TestBackend::new(60, 1)).unwrap();
+    terminal
+        .draw(|frame| render(frame, &ed, frame.area(), 0, Cells::new(0)))
+        .unwrap();
+    let buffer = terminal.backend().buffer();
+    let red: Vec<u16> = (0..60)
+        .filter(|&x| buffer[(x, 0)].fg == super::super::palette::CODE_URL)
+        .collect();
+    let expected: Vec<u16> = (2..22).chain(27..48).collect();
+    assert_eq!(red, expected);
+}
+
+#[test]
+fn multiline_xml_opening_tag_with_attributes_pairs_with_closing_tag() {
+    let xml = "<project xmlns=\"http://maven.apache.org/POM/4.0.0\"\n         xsi:schemaLocation=\"x\">\n</project>";
+    let mut ed = Editor::from_content("pom.xml".into(), PathBuf::from("pom.xml"), xml);
+    ed.cursor_line = 0;
+    ed.cursor_col = 0;
+    let spans = xml::matching_xml_pair(&ed).unwrap();
+    assert_eq!(
+        spans[0],
+        xml::TagSpan {
+            line: 0,
+            start_col: 0,
+            end_col: 8
+        }
+    );
+    assert_eq!(
+        spans[1],
+        xml::TagSpan {
+            line: 2,
+            start_col: 0,
+            end_col: 10
+        }
+    );
+}

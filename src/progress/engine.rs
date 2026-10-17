@@ -45,7 +45,8 @@ impl Shown {
     fn new(operation: Operation, sources: &[PathBuf], now: Instant) -> Self {
         let (phase, files) = match operation {
             Operation::Copy | Operation::Delete | Operation::Find => (Phase::Scanning, 0),
-            Operation::Move => (
+            Operation::GitPull if sources.is_empty() => (Phase::Scanning, 0),
+            Operation::Move | Operation::GitPull => (
                 Phase::Working,
                 u64::try_from(sources.len()).unwrap_or(u64::MAX),
             ),

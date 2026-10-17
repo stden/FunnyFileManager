@@ -53,12 +53,11 @@ pub(super) fn run(
     let outcome = transfer_choosing(sources, base, sources.len(), settings, choices);
     let batch = &outcome.batch;
     let remaining = super::remaining(sources, batch.left);
-    // An administrator's retry goes on as the user answered for the entry
-    // that failed.
-    let retry_settings = remaining.first().map_or_else(
-        || Cow::Borrowed(settings),
-        |first| for_source(first, settings, choices),
-    );
+    // An administrator's retry goes on as the user answered for each entry.
+    let retry_settings = match remaining {
+        [only] => for_source(only, settings, choices),
+        _ => Cow::Borrowed(settings),
+    };
     let stopped = batch.errors.first().map(|failed| super::Stop {
         operation: crate::progress::Operation::of(settings.purpose),
         failed,
@@ -71,6 +70,7 @@ pub(super) fn run(
     });
     report_copy_outcome(app, &outcome, settings.purpose);
     if let Some(stopped) = &stopped {
+        super::elevated::remember_context(choices, outcome.skipped, outcome.renamed);
         super::stop(app, stopped);
     }
     refresh_after_operation(app);
@@ -107,7 +107,7 @@ pub(super) fn transfer_choosing(
     settings: &crate::copy::CopyPrompt,
     choices: &[Choice],
 ) -> DialogOutcome {
-    let destination = Destination::parse(settings.destination.text(), base, selected);
+    let destination = Destination::parse(settings.destination.text(), base, sources, selected);
     let mut outcome = DialogOutcome::default();
     let _run = crate::progress::begin(crate::progress::Operation::of(settings.purpose), sources);
     for (index, source) in sources.iter().enumerate() {

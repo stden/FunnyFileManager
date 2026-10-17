@@ -105,5 +105,19 @@ fn overwriting_keeps_the_readonly_attribute_copied_from_the_source() {
     fs::set_permissions(dest, writable).unwrap();
 }
 
+#[test]
+fn overwriting_a_readonly_destination_succeeds_for_copy_and_move() {
+    for purpose in [Purpose::Copy, Purpose::Move] {
+        let (root, source, dest) = files();
+        let mut readonly = fs::metadata(&dest).unwrap().permissions();
+        readonly.set_readonly(true);
+        fs::set_permissions(&dest, readonly).unwrap();
+
+        let prompt = CopyPrompt::for_purpose(purpose, "source", root.path());
+        entry(&source, &dest, &prompt).unwrap();
+        assert_eq!(fs::read(&dest).unwrap(), b"new");
+    }
+}
+
 #[cfg(unix)]
 mod tests_in_place;

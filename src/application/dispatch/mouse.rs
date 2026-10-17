@@ -1,14 +1,13 @@
 //! Purpose: turn panel-area mouse presses and scrolls into the actions they stand for.
 
 use std::io::Write;
-use std::time::Instant;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{backend::Backend, Terminal};
 
 use crate::action::Action;
 use crate::diagnostics::log_action;
-use crate::models::{self, App, CommandLine, Overlay, ViewMode};
+use crate::models::{App, CommandLine, Overlay, ViewMode};
 
 use super::{dialog_mouse, dispatch_action, dispatch_key, panel_mouse};
 
@@ -33,14 +32,7 @@ pub(in crate::application) fn dispatch_mouse<B>(
 ) where
     B: Backend + Write,
 {
-    let target = crate::mouse::hit(
-        area,
-        mouse.column,
-        mouse.row,
-        crate::ui::FKEY_COUNT,
-        app.panels_on_screen(),
-    );
-    let target = panel_mouse::target(app, target, area, mouse.column);
+    let target = panel_mouse::hit(app, area, mouse.column, mouse.row);
     if overlay_consumes_mouse(terminal, app, mouse, target, panel_clicks)
         || dispatch_scroll(terminal, app, mouse, target, panel_clicks)
         || !is_panel_press(mouse, panel_clicks)
@@ -139,7 +131,9 @@ fn dispatch_target<B: Backend + Write>(
             panel_clicks.reset();
             dispatch_key(terminal, app, KeyEvent::new(KeyCode::F(number), modifiers));
         }
-        Target::PanelRow { side, row } => click_panel_row(terminal, app, side, row, panel_clicks),
+        Target::PanelRow { side, row } => {
+            panel_mouse::click_row(terminal, app, side, row, panel_clicks);
+        }
         Target::Panel(side) => {
             panel_clicks.reset();
             app.active_panel = side;
@@ -151,48 +145,5 @@ fn dispatch_target<B: Backend + Write>(
             }
         }
         Target::Nothing => panel_clicks.reset(),
-    }
-}
-
-fn click_panel_row<B: Backend + Write>(
-    terminal: &mut Terminal<B>,
-    app: &mut App,
-    side: models::PanelSide,
-    row: usize,
-    panel_clicks: &mut crate::mouse::PanelClicks,
-) {
-    app.active_panel = side;
-    if app.get_active_panel_ref().kind.is_netbox() {
-        click_netbox_row(terminal, app, side, row, panel_clicks);
-        return;
-    }
-    let panel = app.get_active_panel();
-    let index = panel.list_state_mut().offset() + row;
-    if index >= panel.entries.len() {
-        panel_clicks.reset();
-        return;
-    }
-    let click = panel_clicks.press(side, index, Instant::now());
-    panel.select(Some(index));
-    if click == crate::mouse::PanelRowClick::Activate {
-        dispatch_action(terminal, app, Action::Open);
-    }
-}
-
-/// A click on a row of a `NetBox` panel: the panel's own cursor moves there —
-/// never the hidden file list's — and a double click opens it, as Enter does.
-fn click_netbox_row<B: Backend + Write>(
-    terminal: &mut Terminal<B>,
-    app: &mut App,
-    side: models::PanelSide,
-    row: usize,
-    panel_clicks: &mut crate::mouse::PanelClicks,
-) {
-    let Some(index) = app.get_active_panel().kind.select_visible_row(row) else {
-        panel_clicks.reset();
-        return;
-    };
-    if panel_clicks.press(side, index, Instant::now()) == crate::mouse::PanelRowClick::Activate {
-        dispatch_action(terminal, app, Action::Open);
     }
 }

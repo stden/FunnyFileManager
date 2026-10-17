@@ -1,6 +1,35 @@
 use super::*;
 
 #[test]
+fn cancellation_stops_a_captured_command_without_reporting_a_timeout() {
+    let temp = tempfile::TempDir::new().expect("temporary directory");
+    let mut command = sleep_command();
+    let error = capture_cancellable(&mut command, Duration::from_secs(60), temp.path(), || true)
+        .expect_err("cancelled");
+    assert_eq!(error.kind(), io::ErrorKind::Interrupted);
+    assert!(error.to_string().starts_with("Command cancelled"));
+}
+
+#[cfg(windows)]
+fn sleep_command() -> Command {
+    let mut command = Command::new("powershell.exe");
+    command.args([
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "Start-Sleep -Seconds 20",
+    ]);
+    command
+}
+
+#[cfg(not(windows))]
+fn sleep_command() -> Command {
+    let mut command = Command::new("sleep");
+    command.arg("20");
+    command
+}
+
+#[test]
 fn timed_out_commands_are_terminated_and_reaped() -> io::Result<()> {
     let directory = tempfile::TempDir::new()?;
     let mut command = if cfg!(windows) {

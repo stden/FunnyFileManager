@@ -106,9 +106,19 @@ fn reload_editor(editor: &mut Editor, encoding: crate::encoding::TextEncoding) -
         return Err(io::Error::other("Cannot reload this file as text"));
     };
     let content = encoding.decode(&bytes)?;
+    if content.contains('\0') {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "binary file (it contains NUL bytes)",
+        ));
+    }
     let mut reloaded = Editor::from_content(editor.title.clone(), editor.path.clone(), &content);
     reloaded.disk = Some(Fingerprint::of(&bytes));
     reloaded.tab_size = editor.tab_size;
+    reloaded.search.last.clone_from(&editor.search.last);
+    if editor.format.indent == crate::models::Indent::Tabs {
+        reloaded.format.indent = crate::models::Indent::Tabs;
+    }
     reloaded.cursor_line = editor
         .cursor_line
         .min(reloaded.lines.len().saturating_sub(1));

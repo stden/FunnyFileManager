@@ -118,3 +118,28 @@ fn an_empty_tree_draws_its_frame_and_nothing_else() {
     assert!(screen.contains(" Tree "), "{screen}");
     assert!(!screen.contains("├─"), "{screen}");
 }
+
+#[test]
+fn status_footer_shows_on_active_tree_info_row_and_expires_on_move() {
+    let mut app = App::new().expect("test app");
+    app.left_panel.kind = PanelKind::Tree(Box::new(tree_on("/home/bob")));
+    app.set_status(crate::status::Status::CommandOutput(
+        "No files to view".to_owned(),
+    ));
+    app.expire_status_on_move();
+    let (_, screen) = draw(&mut app);
+    assert!(
+        screen.contains("No files to view"),
+        "active tree info row must display the status message: {screen}"
+    );
+
+    if let PanelKind::Tree(tree) = &mut app.left_panel.kind {
+        tree.up();
+    }
+    app.expire_status_on_move();
+    let (_, screen) = draw(&mut app);
+    assert!(
+        !screen.contains("No files to view") && screen.contains("/home/ann"),
+        "moving the tree cursor must expire the status message: {screen}"
+    );
+}

@@ -71,18 +71,18 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<SearchParams>,
     ) -> Result<CallToolResult, McpError> {
-        let path = self.safe_path(&params.path)?;
+        let path = self.safe_dir(&params.path)?;
         let pattern_lower = params.pattern.to_lowercase();
+        let scan = SearchScan {
+            pattern: &pattern_lower,
+            files_only: params.files_only,
+            dirs_only: params.dirs_only,
+            max: params.max_results,
+        };
         let mut results = Vec::new();
+        let mut visited = 0usize;
 
-        search_recursive(
-            &path,
-            &pattern_lower,
-            params.files_only,
-            params.dirs_only,
-            &mut results,
-            params.max_results,
-        );
+        search_recursive(&path, &scan, &mut results, &mut visited);
 
         let result = json!({
             "pattern": params.pattern,
@@ -123,29 +123,38 @@ impl FfmServer {
     }
 }
 
-fn search_recursive(
-    dir: &Path,
-    pattern: &str,
+struct SearchScan<'a> {
+    pattern: &'a str,
     files_only: bool,
     dirs_only: bool,
-    results: &mut Vec<serde_json::Value>,
     max: usize,
+}
+
+fn search_recursive(
+    dir: &Path,
+    scan: &SearchScan<'_>,
+    results: &mut Vec<serde_json::Value>,
+    visited: &mut usize,
 ) {
-    if results.len() >= max {
+    if results.len() >= scan.max || *visited >= crate::walk::WALK_BUDGET {
         return;
     }
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
     for entry in entries.flatten() {
-        if results.len() >= max {
+        if results.len() >= scan.max || *visited >= crate::walk::WALK_BUDGET {
             return;
         }
+        *visited += 1;
+        let Some(file_type) = crate::walk::walkable_type(&entry) else {
+            continue;
+        };
         let name = entry.file_name().to_string_lossy().to_string();
-        let is_dir = entry.file_type().is_ok_and(|t| t.is_dir());
+        let is_dir = file_type.is_dir();
 
-        if name.to_lowercase().contains(pattern) {
-            let include = (!files_only || !is_dir) && (!dirs_only || is_dir);
+        if name.to_lowercase().contains(scan.pattern) {
+            let include = (!scan.files_only || !is_dir) && (!scan.dirs_only || is_dir);
             if include {
                 results.push(json!({
                     "path": entry.path().display().to_string(),
@@ -155,7 +164,7 @@ fn search_recursive(
             }
         }
         if is_dir {
-            search_recursive(&entry.path(), pattern, files_only, dirs_only, results, max);
+            search_recursive(&entry.path(), scan, results, visited);
         }
     }
 }

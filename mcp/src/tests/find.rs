@@ -94,3 +94,33 @@ fn find_rejects_a_file_as_the_root() {
         error.message
     );
 }
+
+#[test]
+fn glob_and_find_reject_oversized_patterns() {
+    let dir = TempDir::new().expect("temp dir");
+    let (server, root) = server_at(&dir);
+    let too_long = "a".repeat(globmatch::MAX_PATTERN_LEN + 1);
+
+    let glob_err = server
+        .glob(Parameters(GlobParams {
+            path: root.display().to_string(),
+            pattern: too_long.clone(),
+            max_results: 10,
+        }))
+        .expect_err("oversized glob pattern must be rejected");
+    assert!(glob_err.message.contains("glob pattern"));
+
+    let find_err = server
+        .find(Parameters(FindParams {
+            path: root.display().to_string(),
+            name: Some(too_long),
+            file_type: None,
+            min_size: None,
+            max_size: None,
+            max_depth: None,
+            modified_within_secs: None,
+            max_results: 10,
+        }))
+        .expect_err("oversized find name pattern must be rejected");
+    assert!(find_err.message.contains("glob pattern"));
+}

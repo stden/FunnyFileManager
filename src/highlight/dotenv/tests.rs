@@ -99,3 +99,13 @@ fn escapes_unicode_and_incomplete_input_preserve_every_character() {
         .iter()
         .all(|(_, token)| *token == Token::Normal));
 }
+
+#[test]
+fn single_quoted_values_treat_backslashes_as_literal_characters() {
+    let mut highlighter = Highlighter::new(Path::new(".env"));
+    let first = highlighter.line(r"WIN_DIR='C:\Windows\System32\' # comment");
+    assert!(first.contains(&(r"'C:\Windows\System32\'", Token::Str)));
+    assert!(first.contains(&("# comment", Token::Comment)));
+    let second = highlighter.line("NEXT_KEY=ok");
+    assert!(second.contains(&("NEXT_KEY", Token::Type)));
+}

@@ -7,6 +7,15 @@ it through the keyboard's dispatcher once the drop-down has closed
 The behavior is tailored to FunnyFileManager rather than reproducing every
 Far Manager dialog.
 
+**Git pull for all repositories** is available in Commands and the F2 user menu.
+It searches the active panel's current directory recursively, including a repository at that directory.
+It skips directory links, Git internals, and dependency folders (`node_modules`, `target`, `.venv`, `venv`, `__pycache__`).
+Each repository keeps its current branch. Pulls allow fast-forward updates only, without automatic rebases or stashes.
+A repository that cannot update reports its error; the remaining repositories still run.
+The command skips submodules and leaves their current revisions unchanged.
+The progress dialog shows the current repository. Esc or Ctrl+C cancels the operation and stops the active Git process tree.
+Each Git command has a two-minute limit. Ctrl+O shows the complete report and the final counts.
+
 The Commands menu also provides action timing statistics, installed-package
 updates, separate user/system PATH editors, and Install MCP server. Their
 owners are `performance` / `ops/performance`, `packages` / `ops/packages`,

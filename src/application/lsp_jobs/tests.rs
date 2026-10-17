@@ -142,3 +142,36 @@ fn request_errors_are_visible_only_for_the_current_cursor_and_revision() {
         Some("newer feedback")
     );
 }
+
+#[test]
+fn pending_commands_coalesce_and_clear_on_close() {
+    let root = TempDir::new().unwrap();
+    let mut app = app(&root);
+    let mut controller = EditorLspController::default();
+    let now = Instant::now();
+    let editor = app.get_editor_mut().unwrap();
+    let initial = Context::from_editor(editor);
+    controller.observed = Some(initial);
+    controller.sent = Some((initial.stamp, initial.saved));
+
+    editor.insert_char('a');
+    let c1 = Context::from_editor(editor);
+    controller.update(editor, c1, now);
+    controller.update(editor, c1, now + Duration::from_millis(200));
+    editor.insert_char('b');
+    let c2 = Context::from_editor(editor);
+    controller.update(editor, c2, now + Duration::from_millis(250));
+    controller.update(editor, c2, now + Duration::from_millis(400));
+
+    assert_eq!(
+        controller.pending.len(),
+        2,
+        "one Cancel and one latest Update"
+    );
+    assert!(matches!(controller.pending[0], Command::Cancel));
+    assert!(matches!(controller.pending[1], Command::Update(_)));
+
+    controller.close();
+    assert_eq!(controller.pending.len(), 1);
+    assert!(matches!(controller.pending[0], Command::Close));
+}

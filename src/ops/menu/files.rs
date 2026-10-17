@@ -14,8 +14,7 @@ pub(super) fn quote(path: &Path) -> String {
         .display()
         .to_string()
         .replace(['\n', '\r', '\0'], "")
-        .replace('"', "\"\"")
-        .replace('%', "%%");
+        .replace('"', "\"\"");
     format!("\"{clean}\"")
 }
 

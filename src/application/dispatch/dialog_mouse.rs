@@ -37,7 +37,7 @@ use button_keys::dialog_button_key_in_editor;
 use button_keys::kdbx_button_key;
 #[cfg(feature = "keepass")]
 use button_keys::vault_prompt_button;
-use menus::{click_choice_menu, click_in_menu, click_sort_menu};
+use menus::{click_choice_menu, click_in_menu, click_plugin_commands, click_sort_menu};
 use rows::click_dialog_row;
 
 /// The pointer, while a dialog owns the screen.
@@ -106,7 +106,11 @@ fn click_dialog<B: Backend + Write>(
             app.dialog_mouse.grabbed = Some((column, row));
         }
         DialogTarget::Button(index) => press_button(terminal, app, index),
-        DialogTarget::Row(index) => click_dialog_row(app, index),
+        DialogTarget::Row(index) => {
+            if let Some(key) = click_dialog_row(app, index) {
+                super::dispatch_key(terminal, app, key);
+            }
+        }
         DialogTarget::Outside | DialogTarget::Popup => {}
     }
 }
@@ -132,6 +136,7 @@ fn click_special_dialog<B: Backend + Write>(
 ) -> bool {
     if click_sort_menu(terminal, app, column, row)
         || click_choice_menu(terminal, app, column, row)
+        || click_plugin_commands(terminal, app, column, row)
         || tasks::click_task_list(terminal, app, column, row)
     {
         return true;

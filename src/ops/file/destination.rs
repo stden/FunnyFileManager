@@ -26,10 +26,16 @@ pub(super) enum Destination {
 impl Destination {
     /// Read `typed` for a transfer of `count` items. A relative path is taken
     /// against `base`, the active panel's folder.
-    pub(super) fn parse(typed: &str, base: &Path, count: usize) -> Self {
+    pub(super) fn parse(typed: &str, base: &Path, sources: &[PathBuf], count: usize) -> Self {
         let typed = typed.trim();
         let path = base.join(typed);
-        let is_folder = count > 1 || typed.ends_with(std::path::is_separator) || path.is_dir();
+        let case_rename = count == 1
+            && !typed.ends_with(std::path::is_separator)
+            && sources
+                .first()
+                .is_some_and(|source| super::placement::is_case_only_rename(source, &path));
+        let is_folder = !case_rename
+            && (count > 1 || typed.ends_with(std::path::is_separator) || path.is_dir());
         match (is_folder, path.parent(), path.file_name()) {
             (false, Some(folder), Some(name)) => Self::Renamed {
                 folder: folder.to_path_buf(),

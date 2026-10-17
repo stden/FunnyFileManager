@@ -9,7 +9,7 @@ use std::borrow::Cow;
 
 pub use clip::fit_name;
 pub(super) use clip::{fit_path, fit_quoting_path, head_cells, tail_cells};
-pub(super) use editor_line::{expand_tabs, EditorLine};
+pub(super) use editor_line::{expand_tabs, is_unsafe_code_char, EditorLine};
 
 /// What a name shows where the terminal would draw nothing.
 ///
@@ -167,6 +167,9 @@ pub(super) fn take_cells(text: &str, width: Cells) -> (String, Cells) {
 /// half-drawn, so the second value can exceed `width` by one; callers position
 /// against it, never against `width`.
 pub(super) fn skip_cells(text: &str, width: Cells) -> (&str, Cells) {
+    if width.is_zero() {
+        return (text, Cells::ZERO);
+    }
     let mut rest = text.chars();
     let mut used = Cells::ZERO;
     while used < width {
@@ -175,7 +178,10 @@ pub(super) fn skip_cells(text: &str, width: Cells) -> (&str, Cells) {
         };
         used = used + Cells::of_char(ch);
     }
-    (rest.as_str(), used)
+    let tail = rest
+        .as_str()
+        .trim_start_matches(|ch| Cells::of_char(ch).is_zero());
+    (tail, used)
 }
 
 /// A cell count or offset as a screen coordinate, saturating at `u16::MAX`.

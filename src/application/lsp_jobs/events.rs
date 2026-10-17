@@ -1,7 +1,91 @@
 //! Purpose: apply a language server's event to the editor it belongs to — state, diagnostics, replies — and ignore replies meant for an older context.
 
-use crate::lsp::manager::{Envelope, Event};
-use crate::models::{App, ServerState};
+use crate::lsp::{
+    manager::{Command, Envelope, Event},
+    positions::Position,
+    types::{Query, Stamp},
+};
+use crate::models::{lsp::Intent, App, ServerState};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) struct Context {
+    pub stamp: Stamp,
+    pub position: Option<Position>,
+    pub saved: u64,
+}
+
+impl Context {
+    pub(super) fn from_editor(editor: &crate::models::Editor) -> Self {
+        Self {
+            stamp: editor.lsp_stamp(),
+            position: editor.lsp_position(),
+            saved: editor.lsp.saved,
+        }
+    }
+}
+
+pub(super) fn disabled_notice(app: &mut App) -> bool {
+    let Some(editor) = app
+        .get_editor_mut()
+        .filter(|editor| editor.lsp.intent != Intent::None)
+    else {
+        return false;
+    };
+    editor.lsp.intent = Intent::None;
+    editor.notice = Some("LSP is disabled for this file".into());
+    true
+}
+
+pub(super) fn auto_query(
+    editor: &mut crate::models::Editor,
+    context: Context,
+    settled: bool,
+) -> Option<Command> {
+    if !settled || !editor.lsp.auto_complete {
+        return None;
+    }
+    editor.lsp.auto_complete = false;
+    if editor.lsp.state != ServerState::Ready {
+        return None;
+    }
+    let position = context.position?;
+    editor.lsp.silent_completion = true;
+    Some(Command::Query(Query {
+        stamp: context.stamp,
+        position,
+        feature: crate::lsp::types::Feature::Completion,
+    }))
+}
+
+pub(super) fn requested_query(
+    editor: &mut crate::models::Editor,
+    context: Context,
+) -> Option<Command> {
+    let Intent::Query(feature) = editor.lsp.intent else {
+        return None;
+    };
+    editor.lsp.intent = Intent::None;
+    editor.lsp.auto_complete = false;
+    editor.lsp.silent_completion = false;
+    if matches!(
+        editor.lsp.state,
+        ServerState::Unavailable
+            | ServerState::Failed
+            | ServerState::InstallationFailed
+            | ServerState::Stopped
+            | ServerState::Untrusted
+    ) {
+        editor.notice = Some(editor.lsp.state.label().into());
+        return None;
+    }
+    let position = context.position?;
+    editor.notice = Some("Requesting language-server information".into());
+    Some(Command::Query(Query {
+        stamp: context.stamp,
+        position,
+        feature,
+    }))
+}
 
 pub(super) fn apply_event(app: &mut App, Envelope(owner, event): Envelope) -> bool {
     let trust = app.config.editor.lsp_trust;
@@ -70,7 +154,7 @@ fn workspace_trust(
         crate::config::LspTrust::Automatic => {
             editor.lsp.popup = None;
             editor.lsp.state = ServerState::Starting;
-            editor.lsp.intent = crate::models::lsp::Intent::Trust;
+            editor.lsp.intent = Intent::Trust;
         }
     }
 }

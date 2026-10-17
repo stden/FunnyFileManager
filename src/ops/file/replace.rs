@@ -31,8 +31,7 @@ pub(super) enum Replacement {
 /// decides. Only a committed copy may remove the source of a move across
 /// filesystems. A failure that belongs to the destination is reported there.
 pub(super) fn entry(source: &Path, dest: &Path, settings: &CopyPrompt) -> io::Result<()> {
-    if settings.purpose == Purpose::Move
-        && super::rename_within(source, dest)? == super::Renamed::Moved
+    if settings.purpose == Purpose::Move && rename_replacing(source, dest)? == super::Renamed::Moved
     {
         return Ok(());
     }
@@ -44,6 +43,20 @@ pub(super) fn entry(source: &Path, dest: &Path, settings: &CopyPrompt) -> io::Re
         super::remove_moved(source, dest)?;
     }
     Ok(())
+}
+
+fn rename_replacing(source: &Path, dest: &Path) -> io::Result<super::Renamed> {
+    match super::rename_within(source, dest) {
+        Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
+            if stage::is_windows_dir_symlink(dest) {
+                return Ok(super::Renamed::AcrossFilesystems);
+            }
+            stage::clear_windows_readonly(dest)
+                .and_then(|()| super::rename_within(source, dest))
+                .or(Err(error))
+        }
+        other => other,
+    }
 }
 
 /// Stage the replacement unless renaming over `dest` would change what it

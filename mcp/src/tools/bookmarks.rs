@@ -14,10 +14,10 @@ use std::path::PathBuf;
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct BookmarkParams {
     /// Bookmark name/key
-    name: String,
+    pub name: String,
     /// Path to bookmark (required for `set_bookmark`)
     #[serde(default)]
-    path: Option<String>,
+    pub path: Option<String>,
 }
 
 #[tool_router(router = bookmark_tools, vis = "pub(super)")]
@@ -40,7 +40,7 @@ impl FfmServer {
             .path
             .as_deref()
             .ok_or_else(|| McpError::invalid_params("path is required for set_bookmark", None))?;
-        let path = self.safe_path(path_str)?;
+        let path = self.safe_dir(path_str)?;
 
         let mut bookmarks = load_bookmarks();
         if !bookmarks.contains_key(&params.name) && bookmarks.len() >= 1000 {
@@ -88,19 +88,7 @@ impl FfmServer {
     #[tool(description = "List all saved bookmarks with their paths.")]
     pub(crate) fn list_bookmarks(&self) -> CallToolResult {
         let bookmarks = load_bookmarks();
-        let entries: Vec<serde_json::Value> = bookmarks
-            .iter()
-            .map(|(name, path)| {
-                let exists = path
-                    .as_str()
-                    .is_some_and(|p| self.safe_path(p).is_ok_and(|resolved| resolved.exists()));
-                json!({
-                    "name": name,
-                    "path": path,
-                    "exists": exists,
-                })
-            })
-            .collect();
+        let entries = self.visible_bookmarks(&bookmarks);
 
         let result = json!({
             "count": entries.len(),
@@ -117,16 +105,46 @@ impl FfmServer {
     ) -> Result<CallToolResult, McpError> {
         self.require_readwrite()?;
         let mut bookmarks = load_bookmarks();
-        if bookmarks.remove(&params.name).is_none() {
-            return Err(McpError::invalid_params(
-                format!("bookmark not found: {}", params.name),
-                None,
-            ));
-        }
+        self.remove_confined_bookmark(&mut bookmarks, &params.name)?;
         save_bookmarks(&bookmarks).map_err(|e| McpError::internal_error(e, None))?;
 
         let result = json!({ "deleted_bookmark": params.name });
         Ok(json_response(&result))
+    }
+
+    pub(crate) fn visible_bookmarks(
+        &self,
+        bookmarks: &serde_json::Map<String, serde_json::Value>,
+    ) -> Vec<serde_json::Value> {
+        bookmarks
+            .iter()
+            .filter_map(|(name, path)| {
+                let path_str = path.as_str()?;
+                let resolved = self.safe_path(path_str).ok()?;
+                Some(json!({
+                    "name": name,
+                    "path": path,
+                    "exists": resolved.exists(),
+                }))
+            })
+            .collect()
+    }
+
+    pub(crate) fn remove_confined_bookmark(
+        &self,
+        bookmarks: &mut serde_json::Map<String, serde_json::Value>,
+        name: &str,
+    ) -> Result<(), McpError> {
+        let Some(stored) = bookmarks.get(name) else {
+            return Err(McpError::invalid_params(
+                format!("bookmark not found: {name}"),
+                None,
+            ));
+        };
+        let path_str = stored.as_str().unwrap_or("");
+        self.safe_path(path_str)?;
+        bookmarks.remove(name);
+        Ok(())
     }
 }
 

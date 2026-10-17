@@ -38,18 +38,16 @@ fn completion(app: &mut App) {
 }
 
 #[test]
-fn popup_keys_select_apply_and_dismiss_without_inserting_control_text() {
+fn popup_keys_filter_while_typing_widen_on_backspace_and_apply_with_enter_or_tab() {
     let root = TempDir::new().unwrap();
     let mut app = fixture(&root);
     completion(&mut app);
-    for key in [
-        KeyCode::Down,
-        KeyCode::Down,
-        KeyCode::Up,
-        KeyCode::Char('x'),
-    ] {
+    for key in [KeyCode::Down, KeyCode::Down, KeyCode::Up] {
         assert!(process(&mut app, key));
     }
+    assert!(process(&mut app, KeyCode::Char('p')));
+    assert_eq!(app.get_editor().unwrap().content(), "help");
+    assert!(process(&mut app, KeyCode::Backspace));
     assert_eq!(app.get_editor().unwrap().content(), "hel");
     assert!(process(&mut app, KeyCode::Enter));
     assert_eq!(app.get_editor().unwrap().content(), "hello");
@@ -58,6 +56,25 @@ fn popup_keys_select_apply_and_dismiss_without_inserting_control_text() {
     assert!(process(&mut app, KeyCode::Esc));
     assert!(app.get_editor().unwrap().lsp.popup.is_none());
     assert!(!process(&mut app, KeyCode::Esc));
+}
+
+#[test]
+fn tab_replaces_identifier_suffix_while_enter_preserves_it() {
+    let root = TempDir::new().unwrap();
+    let mut app = fixture(&root);
+    let editor = app.get_editor_mut().unwrap();
+    editor.lines = vec!["hel_old()".into()];
+    editor.cursor_col = 3;
+    completion(&mut app);
+    assert!(process(&mut app, KeyCode::Tab));
+    assert_eq!(app.get_editor().unwrap().content(), "hello()");
+
+    let editor = app.get_editor_mut().unwrap();
+    editor.lines = vec!["hel_old()".into()];
+    editor.cursor_col = 3;
+    completion(&mut app);
+    assert!(process(&mut app, KeyCode::Enter));
+    assert_eq!(app.get_editor().unwrap().content(), "hello_old()");
 }
 
 #[test]

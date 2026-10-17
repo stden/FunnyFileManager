@@ -57,7 +57,7 @@ fn without_a_configuration_directory_there_is_no_command_file() -> io::Result<()
         panic!("choices");
     };
     let labels: Vec<&str> = rows.iter().map(|row| row.label.as_str()).collect();
-    assert_eq!(labels, ["Edit user menu"]);
+    assert_eq!(labels, ["Edit user menu", "Git pull for all repositories"]);
     for command in [MenuCommand::UserMenu, MenuCommand::Associations] {
         let error = edit(&mut app, command).expect_err("no configuration directory");
         assert_eq!(error.kind(), io::ErrorKind::NotFound);
@@ -108,4 +108,22 @@ fn app_with_config(config: &Path) -> App {
     let mut app = App::from_panels(panel.clone(), panel);
     app.settings = crate::models::settings::Settings::with_file(config.join("settings.yaml"));
     app
+}
+
+#[test]
+fn associated_command_does_not_reexpand_braces_inside_filename() -> io::Result<()> {
+    let temp = tempfile::TempDir::new()?;
+    fs::write(
+        temp.path().join("associations.txt"),
+        "txt\tmy-editor \"{}\" '{}'\n",
+    )?;
+    let tricky = "a{}b.txt";
+    fs::write(temp.path().join(tricky), "x")?;
+    let mut app = app_with_config(temp.path());
+    assert!(app.get_active_panel().select_named(tricky));
+
+    let cmd = associated_command(&app)?.expect("associated command");
+    let quoted = super::super::files::quote(&temp.path().join(tricky));
+    assert_eq!(cmd, format!("my-editor {quoted} {quoted}"));
+    Ok(())
 }

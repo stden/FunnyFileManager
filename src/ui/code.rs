@@ -53,41 +53,25 @@ fn drawn_runs(runs: Vec<(&str, Token)>, tab: TabSize, limit: Cells) -> Vec<(Cow<
         if at >= limit {
             break;
         }
-        let clean = sanitize_code_run(text);
-        let drawn = match clean {
-            Cow::Borrowed(borrowed) => expand_tabs(borrowed, at, tab),
-            Cow::Owned(owned) => Cow::Owned(expand_tabs(&owned, at, tab).into_owned()),
-        };
+        let drawn = expand_tabs(text, at, tab);
         at = at + Cells::of(&drawn);
         out.push((drawn, token));
     }
     out
 }
 
-fn is_unsafe_code_char(ch: char) -> bool {
-    (ch.is_control() && ch != '\t')
-        || matches!(
-            ch,
-            '\u{061c}'
-                | '\u{200e}'
-                | '\u{200f}'
-                | '\u{202a}'..='\u{202e}'
-                | '\u{2066}'..='\u{2069}'
-        )
-}
-
 fn sanitize_code_run(text: &str) -> Cow<'_, str> {
     if text
         .bytes()
         .all(|b| (0x20..0x7F).contains(&b) || b == b'\t')
-        || !text.chars().any(is_unsafe_code_char)
+        || !text.chars().any(super::cells::is_unsafe_code_char)
     {
         Cow::Borrowed(text)
     } else {
         Cow::Owned(
             text.chars()
                 .map(|ch| {
-                    if is_unsafe_code_char(ch) {
+                    if super::cells::is_unsafe_code_char(ch) {
                         super::cells::UNPRINTABLE
                     } else {
                         ch
@@ -122,6 +106,11 @@ pub(super) fn token_style(token: Token) -> Style {
         // colour, and `#include` drawn comment-orange reads as dead code.
         Token::Meta => Style::default().fg(palette::CODE_DIRECTIVE),
         Token::Punctuation => Style::default().fg(palette::CODE_PUNCTUATION),
+        Token::Tag => Style::default().fg(palette::CODE_TAG),
+        Token::Url => Style::default().fg(palette::CODE_URL),
+        Token::Uri => Style::default()
+            .fg(palette::CODE_URI_FG)
+            .bg(palette::CODE_URI_BG),
     }
 }
 
@@ -185,11 +174,18 @@ pub(super) fn highlighted_window(
 ) -> Vec<Line<'static>> {
     let mut cache = cache.borrow_mut();
     cache.prepare(path, lines, top.saturating_add(rows));
+    let limit = skip + width;
     lines
         .iter()
         .enumerate()
         .skip(top)
         .take(rows)
-        .map(|(index, line)| clip_runs(cache.runs(index, line), skip, width))
+        .map(|(index, line)| {
+            clip_runs(
+                drawn_runs(cache.runs(index, line), TabSize::DEFAULT, limit),
+                skip,
+                width,
+            )
+        })
         .collect()
 }

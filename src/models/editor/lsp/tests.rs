@@ -144,3 +144,55 @@ fn snapshots_and_popup_shapes_follow_the_current_editor_context() {
         .is_none());
     assert!(matches!(editor.lsp.popup, Some(Dialog::Definitions { .. })));
 }
+
+#[test]
+fn completion_preserves_trailing_newline_flag_and_trailing_empty_lines() {
+    let root = TempDir::new().unwrap();
+    let mut editor = editor(&root, "fo\n");
+    editor.format.trailing_newline = false;
+    editor.lines = vec!["fo".into(), String::new()];
+    editor.cursor_line = 0;
+    editor.cursor_col = 2;
+    let item = completion(json!({"label":"foo"}));
+    editor.complete_lsp(query(&editor), &item).unwrap();
+    assert!(!editor.format.trailing_newline);
+    assert_eq!(editor.lines, ["foo", ""]);
+    assert_eq!(editor.content(), "foo\n");
+}
+
+#[test]
+fn camel_humps_and_prefix_matcher_ranks_candidates_like_intellij() {
+    let items: Vec<_> = [
+        "other",
+        "has_gmv_in",
+        "getMyVariable",
+        "gmvExact",
+        "get_my_value",
+    ]
+    .into_iter()
+    .map(|label| completion(json!({"label": label})))
+    .collect();
+    let ranked = matcher::filter_and_rank(&items, "gmv");
+    let labels: Vec<&str> = ranked.iter().map(|item| item.label.as_str()).collect();
+    assert_eq!(
+        labels,
+        ["gmvExact", "getMyVariable", "get_my_value", "has_gmv_in"]
+    );
+}
+
+#[test]
+fn live_completion_and_suffix_replacement_helpers_update_buffer() {
+    assert!(is_identifier_char('_'));
+    let root = TempDir::new().unwrap();
+    let mut ed = editor(&root, "get_old\n");
+    ed.lsp.state = ServerState::Ready;
+    ed.cursor_col = 4;
+    assert_eq!(ed.completion_prefix(), "get_");
+    ed.maybe_trigger_completion('v');
+    assert!(ed.lsp.auto_complete);
+    let item = completion(json!({"label":"get_value"}));
+    let q = query(&ed);
+    ed.update_live_completion(q, vec![item.clone()]);
+    ed.complete_lsp_replace(query(&ed), &item).unwrap();
+    assert_eq!(ed.lines[0], "get_value");
+}

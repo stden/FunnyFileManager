@@ -152,3 +152,33 @@ fn every_denial_explains_itself() {
         .explanation()
         .contains("/locked"));
 }
+
+#[test]
+fn pre_elevation_skipped_and_renamed_counts_are_added_to_outcome() {
+    let dir = TempDir::new().unwrap();
+    let mut app = app_in(dir.path());
+    remember_context(&[], 2, 1);
+    let retry = ElevatedRetry {
+        operation: Operation::Copy,
+        sources: vec![dir.path().join("a")],
+        base: dir.path().to_path_buf(),
+        selected: 4,
+        settings: Some(CopyPrompt::for_purpose(Purpose::Copy, "a", dir.path())),
+    };
+    let outcome = Outcome {
+        done: 1,
+        skipped: 1,
+        renamed: 2,
+        ..Outcome::default()
+    };
+    finish(&mut app, 1, &retry, &outcome);
+    assert_eq!(
+        app.status,
+        Status::Transferred {
+            purpose: Purpose::Copy,
+            landed: Landed::of(2, None),
+            skipped: 3,
+            renamed: 3,
+        }
+    );
+}

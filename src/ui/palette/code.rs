@@ -36,6 +36,17 @@ pub(in crate::ui) const CODE_DIRECTIVE: Color = Color::Rgb(0, 255, 0);
 /// competing with the words.
 pub(in crate::ui) const CODE_PUNCTUATION: Color = Color::Rgb(255, 255, 255);
 
+/// Markup element names and `=` delimiters: light grey (`#C0C0C0`).
+pub(in crate::ui) const CODE_TAG: Color = Color::Rgb(192, 192, 192);
+
+/// Hyperlinks inside markup attributes/comments and unclosed tag openings:
+/// bright red (`#FF0000`).
+pub(in crate::ui) const CODE_URL: Color = Color::Rgb(255, 0, 0);
+
+/// Bare URI in markup element text (`<url>http://...</url>`): black on dark red.
+pub(in crate::ui) const CODE_URI_FG: Color = Color::Rgb(0, 0, 0);
+pub(in crate::ui) const CODE_URI_BG: Color = Color::Rgb(128, 0, 0);
+
 /// The status bar above the editor and the viewer: the file on the left, the
 /// position on the right, black on the teal of the menu bar, as Far paints
 /// both.

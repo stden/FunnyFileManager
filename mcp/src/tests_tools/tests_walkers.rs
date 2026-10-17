@@ -158,3 +158,26 @@ fn disk_usage_does_not_total_a_tree_outside_the_root() {
         "following the link would have summed a tree outside the root, got {size} bytes"
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn search_does_not_report_a_link_out_of_the_root() {
+    let dir = TempDir::new().expect("temp dir");
+    let (server, root) = server_at(&dir);
+    let _outside = plant_link_out_of_root(&root, "creds", "aws_secret_access_key = hunter2");
+    write_file_at(&root.join("creds_local.txt"), "public");
+
+    let result = server
+        .search(Parameters(crate::tools::search::SearchParams {
+            path: ".".to_owned(),
+            pattern: "creds".to_owned(),
+            max_results: 100,
+            files_only: false,
+            dirs_only: false,
+        }))
+        .expect("search runs");
+    let payload = tool_json(&result);
+
+    assert_eq!(payload["count"], 1, "got: {payload}");
+    assert_eq!(payload["results"][0]["name"], "creds_local.txt");
+}

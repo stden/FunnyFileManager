@@ -46,8 +46,8 @@ use info::render_panel_info;
 pub(super) use layout::panel_layout;
 pub use layout::stripe_at;
 use rows::render_entries;
-use styles::mark_of;
-pub(super) use styles::{cursor_colour, cursor_style, separator_style, Mark};
+pub(super) use styles::{cursor_style, separator_style, Mark};
+use styles::{entry_style, mark_of};
 use table::{header_line, render_column_rule};
 
 pub(super) fn render_panel(
@@ -90,7 +90,9 @@ fn render_panel_contents(
         if inner.height >= PANEL_NON_ENTRY_ROWS {
             selection::render(f, panel, divider_row(inner));
         }
-        render_panel_info(f, panel, inner, footer, &[]);
+        if inner.height > PANEL_COLUMN_HEADER {
+            render_panel_info(f, panel, inner, footer, &[]);
+        }
         return;
     };
     let layout = panel_layout(panel.view, Cells::columns(inner.width));

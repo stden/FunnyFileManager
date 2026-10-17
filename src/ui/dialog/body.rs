@@ -12,7 +12,7 @@ use ratatui::{
 
 use super::super::{fit_quoting_path, palette, Cells};
 use super::controls::{
-    captioned_box, checkbox_line, field_caret, hotkey_spans, input_line, radio_line, FieldLook,
+    captioned_box, checkbox_line, hotkey_spans, input_line, radio_line, row_caret, FieldLook,
 };
 use super::row::Row;
 use crate::status::PathMessage;
@@ -35,7 +35,7 @@ pub(super) fn render_body(
         let y = body.y + offset;
         // One past the last character: the caret sits where the next one will
         // go, which is where a text field's cursor belongs.
-        let column = row_caret(row);
+        let column = row_caret(row, body.width);
         if let Some(column) = column {
             caret = Some((body.x + column, y));
         }
@@ -54,31 +54,6 @@ pub(super) fn render_body(
     }
 
     caret
-}
-
-fn row_caret(row: &Row<'_>) -> Option<u16> {
-    match row {
-        Row::Input {
-            value,
-            focused: true,
-            edit,
-            ..
-        } => {
-            let before = edit.map_or(*value, |edit| edit.before_caret(value));
-            u16::try_from(Cells::of(before).get()).ok()
-        }
-        Row::Field {
-            caption,
-            value,
-            focused: true,
-            enabled: true,
-            edit,
-        } => Some(field_caret(
-            caption,
-            edit.map_or(*value, |edit| edit.before_caret(value)),
-        )),
-        _ => None,
-    }
 }
 
 /// One body row, drawn according to what it is.

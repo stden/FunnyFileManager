@@ -88,7 +88,7 @@ fn render_one_panel(
     let panel = app.panel_mut(side);
     match panel.kind {
         PanelKind::Files => render_panel(f, panel, area, is_active, footer),
-        PanelKind::Tree(_) => tree::render(f, panel, area, is_active),
+        PanelKind::Tree(_) => tree::render(f, panel, area, is_active, footer),
         PanelKind::QuickView(_) => quickview::render(f, panel, area, is_active),
         PanelKind::Sessions(_) => sessions::render(f, panel, area, is_active, footer),
         PanelKind::Remote(_) => remote::render(f, panel, area, is_active, footer),

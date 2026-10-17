@@ -51,18 +51,19 @@ pub(super) fn place_over_existing(
     use crate::copy::ExistingFiles;
     use merge::Shape;
 
+    if settings.purpose == Purpose::Move && is_case_only_rename(source, dest) {
+        return place(source, dest, settings).map(|()| Placed::AsSent(dest.to_path_buf()));
+    }
     let shapes = (
         Shape::of_source(source, settings),
         Shape::of_existing(dest)?,
     );
     let folders = shapes == (Shape::Folder, Shape::Folder);
-    match settings.existing {
-        // Two folders merge, and the choice is made file by file inside.
-        ExistingFiles::Skip if !folders => return Ok(Placed::Skipped),
-        ExistingFiles::OnlyNewer if !folders && !is_newer(source, dest) => {
-            return Ok(Placed::Skipped);
-        }
-        _ => {}
+    if !folders
+        && (settings.existing == ExistingFiles::Skip
+            || (settings.existing == ExistingFiles::OnlyNewer && !is_newer(source, dest)))
+    {
+        return Ok(Placed::Skipped);
     }
     reject_transfer_onto_itself(source, dest)?;
     if settings.existing == ExistingFiles::Ask {
@@ -77,8 +78,7 @@ pub(super) fn place_over_existing(
             skipped,
         });
     }
-    replace::entry(source, dest, settings)?;
-    Ok(Placed::AsSent(dest.to_path_buf()))
+    replace::entry(source, dest, settings).map(|()| Placed::AsSent(dest.to_path_buf()))
 }
 
 /// "Keep both" in the "File already exists" question, which reaches here as
@@ -155,4 +155,33 @@ pub(super) fn is_newer(source: &Path, dest: &Path) -> bool {
         (Some(from), Some(to)) => from > to,
         _ => true,
     }
+}
+
+/// Whether `source` and `dest` are the same directory entry in the same
+/// folder, differing only in the case of the name.
+pub(super) fn is_case_only_rename(source: &Path, dest: &Path) -> bool {
+    let (Some(src_name), Some(dst_name)) = (source.file_name(), dest.file_name()) else {
+        return false;
+    };
+    if src_name == dst_name
+        || src_name.to_string_lossy().to_lowercase() != dst_name.to_string_lossy().to_lowercase()
+    {
+        return false;
+    }
+    let folder = replace::folder_of(dest);
+    if replace::folder_of(source).canonicalize().ok() != folder.canonicalize().ok() {
+        return false;
+    }
+    let same_entry = replace::are_hard_links(source, dest)
+        || matches!(
+            (source.canonicalize(), dest.canonicalize()),
+            (Ok(real_src), Ok(real_dst)) if real_src == real_dst
+        )
+        || (cfg!(windows)
+            && fs::symlink_metadata(source).is_ok()
+            && fs::symlink_metadata(dest).is_ok());
+    same_entry
+        && fs::read_dir(folder).is_ok_and(|mut entries| {
+            !entries.any(|entry| entry.is_ok_and(|e| e.file_name() == dst_name))
+        })
 }

@@ -16,11 +16,15 @@ pub fn find(server: &FfmServer, params: &FindParams) -> Result<CallToolResult, M
             None,
         ));
     }
+    if let Some(pattern) = &params.name {
+        globmatch::validate_pattern(pattern).map_err(|e| McpError::invalid_params(e, None))?;
+    }
 
     let now = std::time::SystemTime::now();
     let mut results = Vec::new();
+    let mut visited = 0usize;
 
-    find_recursive(&root, 0, params, now, &mut results);
+    find_recursive(&root, 0, params, now, &mut results, &mut visited);
 
     let result = json!({
         "root": root.display().to_string(),
@@ -36,8 +40,9 @@ fn find_recursive(
     params: &FindParams,
     now: std::time::SystemTime,
     results: &mut Vec<serde_json::Value>,
+    visited: &mut usize,
 ) {
-    if results.len() >= params.max_results {
+    if results.len() >= params.max_results || *visited >= crate::walk::WALK_BUDGET {
         return;
     }
     if params.max_depth.is_some_and(|max| depth > max) {
@@ -49,11 +54,12 @@ fn find_recursive(
     };
 
     for entry in entries.flatten() {
-        if results.len() >= params.max_results {
+        if results.len() >= params.max_results || *visited >= crate::walk::WALK_BUDGET {
             return;
         }
+        *visited += 1;
 
-        visit_find_entry(&entry, depth, params, now, results);
+        visit_find_entry(&entry, depth, params, now, results, visited);
     }
 }
 
@@ -102,6 +108,7 @@ fn visit_find_entry(
     params: &FindParams,
     now: std::time::SystemTime,
     results: &mut Vec<serde_json::Value>,
+    visited: &mut usize,
 ) {
     let name = entry.file_name().to_string_lossy().to_string();
     let Ok(meta) = fs::symlink_metadata(entry.path()) else {
@@ -129,6 +136,6 @@ fn visit_find_entry(
     }
 
     if is_dir && !is_symlink {
-        find_recursive(&entry.path(), depth + 1, params, now, results);
+        find_recursive(&entry.path(), depth + 1, params, now, results, visited);
     }
 }

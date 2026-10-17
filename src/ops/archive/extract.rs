@@ -36,26 +36,36 @@ const STAGING_PREFIX: &str = ".ffm-extract";
 pub fn extract_archive(archive: &Path, destination: &Path) -> io::Result<Output> {
     let name = archive.file_name().unwrap_or_default().to_string_lossy();
     let named = |error: io::Error| io::Error::other(format!("{name}: {error}"));
-    let tool = Tool::for_archive(archive).map_err(named)?;
+    let archive = absolute(archive).map_err(&named)?;
+    let tool = Tool::for_archive(&archive).map_err(&named)?;
     validate_listing(
-        &tool.names(archive).text().map_err(named)?,
-        &tool.details(archive).text().map_err(named)?,
+        &tool.names(&archive).text().map_err(&named)?,
+        &tool.details(&archive).text().map_err(&named)?,
     )
-    .map_err(named)?;
+    .map_err(&named)?;
     fs::create_dir_all(destination)?;
+    let destination = absolute(destination)?;
     let staging = tempfile::Builder::new()
         .prefix(STAGING_PREFIX)
-        .tempdir_in(destination)
-        .map_err(named)?;
+        .tempdir_in(&destination)
+        .map_err(&named)?;
     let output = tool
-        .unpack(archive, staging.path())
+        .unpack(&archive, staging.path())
         .execute(staging.path())
-        .map_err(named)?;
+        .map_err(&named)?;
     if !output.status.success() {
         return Err(named(io::Error::other(complaint(&output))));
     }
-    settle(staging.path(), destination).map_err(named)?;
+    settle(staging.path(), &destination).map_err(named)?;
     Ok(output)
+}
+
+fn absolute(path: &Path) -> io::Result<PathBuf> {
+    if path.is_absolute() {
+        Ok(path.to_path_buf())
+    } else {
+        Ok(std::env::current_dir()?.join(path))
+    }
 }
 
 /// Enter in the Extract files dialog: unpack every archive it holds into its

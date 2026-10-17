@@ -10,8 +10,10 @@ use std::sync::{
 };
 use std::thread::{self, JoinHandle};
 
+#[derive(Debug)]
 pub enum Command {
     Open(String, ServerSettings, Snapshot),
+    Restart,
     Trust(DocumentId),
     Update(Snapshot),
     Query(Query),
@@ -26,6 +28,22 @@ pub struct Manager {
     events: Option<Receiver<Envelope>>,
     stop: Arc<AtomicBool>,
     task: Option<JoinHandle<()>>,
+}
+
+#[derive(Debug)]
+pub enum SendError {
+    Full(Box<Command>),
+    Disconnected(Box<Command>),
+}
+
+impl std::ops::Deref for SendError {
+    type Target = Command;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Full(command) | Self::Disconnected(command) => command,
+        }
+    }
 }
 
 impl Manager {
@@ -45,12 +63,13 @@ impl Manager {
         })
     }
 
-    pub fn send(&self, command: Command) -> Result<(), Box<Command>> {
+    pub fn send(&self, command: Command) -> Result<(), SendError> {
         self.commands
             .try_send(command)
             .map_err(|error| match error {
-                mpsc::TrySendError::Full(command) | mpsc::TrySendError::Disconnected(command) => {
-                    Box::new(command)
+                mpsc::TrySendError::Full(command) => SendError::Full(Box::new(command)),
+                mpsc::TrySendError::Disconnected(command) => {
+                    SendError::Disconnected(Box::new(command))
                 }
             })
     }

@@ -17,6 +17,7 @@ const FIXTURE_SRV: &[&str] = &[
     "database",
     "doc",
     "docs",
+    "example",
     "project",
     "project.rs",
     "root",

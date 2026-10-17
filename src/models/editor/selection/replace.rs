@@ -35,14 +35,11 @@ impl Editor {
     }
 
     fn delete_all(&mut self) -> bool {
-        let changed = self.lines.iter().any(|line| !line.is_empty())
-            || self.lines.len() > 1
-            || self.format.trailing_newline;
+        let changed = self.lines.iter().any(|line| !line.is_empty()) || self.lines.len() > 1;
         self.lines = vec![String::new()];
         self.cursor_line = 0;
         self.cursor_col = 0;
         self.selection = EditorSelection::None;
-        self.format.trailing_newline = false;
         if changed {
             self.mark_modified();
         }

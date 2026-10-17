@@ -69,6 +69,10 @@ pub fn open(app: &mut App) -> io::Result<()> {
         label: "Edit user menu".to_owned(),
         target: ChoiceTarget::Menu(MenuCommand::UserMenu),
     });
+    rows.push(MenuChoice {
+        label: super::super::git_pull::LABEL.to_owned(),
+        target: ChoiceTarget::Menu(MenuCommand::GitPullAll),
+    });
     super::choices(app, "User menu", rows);
     Ok(())
 }
@@ -92,12 +96,29 @@ pub fn associated_command(app: &App) -> io::Result<Option<String>> {
     Ok(pairs
         .into_iter()
         .find(|(key, _)| key.eq_ignore_ascii_case(extension))
-        .map(|(_, command)| {
-            command
-                .replace("\"{}\"", &quoted)
-                .replace("'{}'", &quoted)
-                .replace("{}", &quoted)
-        }))
+        .map(|(_, command)| expand_placeholder(&command, &quoted)))
+}
+
+fn expand_placeholder(command: &str, quoted: &str) -> String {
+    let mut out = String::with_capacity(command.len() + quoted.len());
+    let mut rest = command;
+    while !rest.is_empty() {
+        if let Some(after) = rest
+            .strip_prefix("\"{}\"")
+            .or_else(|| rest.strip_prefix("'{}'"))
+            .or_else(|| rest.strip_prefix("{}"))
+        {
+            out.push_str(quoted);
+            rest = after;
+        } else {
+            let mut chars = rest.chars();
+            if let Some(ch) = chars.next() {
+                out.push(ch);
+            }
+            rest = chars.as_str();
+        }
+    }
+    out
 }
 
 /// The `key<TAB>value` lines of the file at `path`; none when it is missing.
@@ -121,3 +142,6 @@ fn read_pairs(path: &Path) -> io::Result<Vec<(String, String)>> {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod tests_git_pull;

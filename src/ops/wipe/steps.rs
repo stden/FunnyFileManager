@@ -50,11 +50,11 @@ impl Removal {
 pub fn wipe_path(path: &Path) -> io::Result<usize> {
     let metadata = fs::symlink_metadata(path)?;
     if metadata.is_symlink() {
-        fs::remove_file(path)?;
-        return Ok(0);
+        return remove_symlink(path, metadata.file_type()).map(|()| 0);
     }
     if metadata.is_dir() {
         let shared = wipe_children(path)?;
+        clear_readonly(path);
         rename_then_remove(path, Removal::Dir)?;
         return Ok(shared);
     }
@@ -62,11 +62,36 @@ pub fn wipe_path(path: &Path) -> io::Result<usize> {
     let shared = metadata.is_file() && crate::directory::link_count(&metadata) > 1;
     #[cfg(windows)]
     let shared = metadata.is_file() && crate::ops::panel_details::windows::has_multiple_links(path);
+    clear_readonly(path);
     if metadata.is_file() && !shared {
         zero_fill(path)?;
     }
     rename_then_remove(path, Removal::File)?;
     Ok(usize::from(shared))
+}
+
+fn remove_symlink(path: &Path, file_type: fs::FileType) -> io::Result<()> {
+    clear_readonly(path);
+    #[cfg(windows)]
+    if std::os::windows::fs::FileTypeExt::is_symlink_dir(&file_type) {
+        return fs::remove_dir(path).or_else(|_| fs::remove_file(path));
+    }
+    let _ = file_type;
+    fs::remove_file(path)
+}
+
+#[expect(
+    clippy::permissions_set_readonly_false,
+    reason = "clears the read-only attribute before zero-filling and removing a wiped entry"
+)]
+fn clear_readonly(path: &Path) {
+    if let Ok(meta) = fs::symlink_metadata(path) {
+        let mut perms = meta.permissions();
+        if perms.readonly() {
+            perms.set_readonly(false);
+            drop(fs::set_permissions(path, perms));
+        }
+    }
 }
 
 fn wipe_children(dir: &Path) -> io::Result<usize> {
@@ -108,7 +133,9 @@ fn rename_then_remove(path: &Path, removal: Removal) -> io::Result<()> {
     let temporary = temporary_name(path)?;
     fs::rename(path, &temporary)?;
     witness(Stage::Renamed, &temporary);
-    removal.apply(&temporary)
+    removal.apply(&temporary).inspect_err(|_| {
+        drop(fs::rename(&temporary, path));
+    })
 }
 
 /// A name nothing in the entry's own directory has: the rename must stay on

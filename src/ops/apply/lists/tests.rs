@@ -62,3 +62,15 @@ fn native_code_pages_preserve_ascii_and_allow_empty_lists() {
         assert!(encode("", encoding).expect("empty").is_empty());
     }
 }
+
+#[test]
+fn quoted_list_preserves_backslashes_and_dollars() {
+    let panel = PanelContext {
+        selected: vec![Names::same(r"dir\$name`1.txt")],
+        ..PanelContext::default()
+    };
+    assert_eq!(
+        listing(&panel, options("!@Q!")).trim_end(),
+        r#""dir\$name`1.txt""#
+    );
+}

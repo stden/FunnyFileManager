@@ -147,20 +147,38 @@ fn the_information_panels_only_button_dismisses_it() {
     let mut app = app_at(&dir);
     app.set_overlay(Overlay::Information(Box::default()));
     assert_eq!(code(&mut app, 0), KeyCode::Esc);
-}
-
-/// An overlay with no buttons at all maps nothing, rather than mapping every
-/// index to whatever the first dialog happened to use.
-#[test]
-fn an_overlay_without_buttons_maps_no_button_at_all() {
-    let dir = TempDir::new().expect("temp");
-    let mut app = app_at(&dir);
     app.set_overlay(Overlay::Help);
     assert!(dialog_button_key(&mut app, 0).is_none());
-
     app.set_overlay(Overlay::Editor(Editor::default()));
-    assert!(
-        dialog_button_key(&mut app, 0).is_none(),
-        "an editor with no dialog up has no buttons either"
+    assert!(dialog_button_key(&mut app, 0).is_none());
+}
+
+#[test]
+fn find_file_session_cleanup_prompts_and_stubs_map_their_buttons() {
+    use crate::models::*;
+    let dir = TempDir::new().expect("temp");
+    let mut app = app_at(&dir);
+    app.set_overlay(Overlay::FindFile(Box::<FindFile>::default()));
+    assert_eq!(code(&mut app, 1), KeyCode::Enter);
+    assert!(matches!(&app.overlay, Overlay::FindFile(d) if d.field() == FindFileField::Cancel));
+    app.set_overlay(Overlay::SessionEdit(Box::new(SessionEdit::create())));
+    assert_eq!(code(&mut app, 1), KeyCode::Enter);
+    assert!(matches!(&app.overlay, Overlay::SessionEdit(d) if d.field() == SessionField::Cancel));
+    app.set_overlay(Overlay::DiskCleanup(Box::<DiskCleanupDialog>::default()));
+    assert_eq!(code(&mut app, 0), KeyCode::Enter);
+    assert!(matches!(&app.overlay, Overlay::DiskCleanup(d) if d.field == CleanupField::Run));
+    let prompt = InputPrompt::new(InputPurpose::ImportNetBox, "");
+    app.set_overlay(Overlay::InputPrompt(Box::new(prompt)));
+    assert_eq!(code(&mut app, 1), KeyCode::Enter);
+    assert!(matches!(&app.overlay, Overlay::InputPrompt(p) if p.on_cancel()));
+    let q = Question::new(QuestionPurpose::DeleteSession(
+        SessionName::new("s").unwrap(),
+    ));
+    app.set_overlay(Overlay::Question(q));
+    assert_eq!(
+        (code(&mut app, 0), code(&mut app, 1)),
+        (KeyCode::Char('y'), KeyCode::Char('n'))
     );
+    app.set_overlay(Overlay::Filter(FilterPrompt::default()));
+    assert_eq!(code(&mut app, 0), KeyCode::Enter);
 }

@@ -120,3 +120,17 @@ fn extract_archive_accepts_a_colon_in_a_zip_member() {
         "notes"
     );
 }
+
+#[test]
+fn extract_archive_accepts_relative_archive_and_destination_paths() {
+    let cwd = std::env::current_dir().expect("cwd");
+    let temp = TempDir::new_in(&cwd).expect("temp in cwd");
+    let rel_base = Path::new(temp.path().file_name().expect("dir name"));
+    pack(temp.path(), "rel.tar");
+    extract_archive(&rel_base.join("rel.tar"), &rel_base.join("rel-out"))
+        .expect("relative extract succeeds");
+    assert_eq!(
+        fs::read_to_string(temp.path().join("rel-out/payload/nested/hello.txt")).expect("read"),
+        "hello"
+    );
+}

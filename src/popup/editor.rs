@@ -59,12 +59,8 @@ pub(super) fn process_editor_input(app: &mut App, code: KeyCode, modifiers: KeyM
 /// when none is and the key belongs to the document.
 fn process_editor_dialog(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> Option<bool> {
     let editor = app.get_editor_mut()?;
-    if let Some(choice) = editor.state.exit_choice() {
-        confirm_exit(app, code, choice);
-        return Some(true);
-    }
-    if let Some(prompt) = editor.state.overwrite_prompt() {
-        save::confirm_overwrite(app, code, prompt);
+    if editor.encoding_choice.is_some() {
+        process_encoding(app, code);
         return Some(true);
     }
     if editor.search.prompt.is_some() {
@@ -77,11 +73,15 @@ fn process_editor_dialog(app: &mut App, code: KeyCode, modifiers: KeyModifiers) 
         editor.search.not_found = None;
         return Some(true);
     }
-    if editor.encoding_choice.is_some() {
-        process_encoding(app, code);
+    if let Some(choice) = editor.state.exit_choice() {
+        confirm_exit(app, code, choice);
         return Some(true);
     }
-    lsp::process(app, code).then_some(true)
+    if let Some(prompt) = editor.state.overwrite_prompt() {
+        save::confirm_overwrite(app, code, prompt);
+        return Some(true);
+    }
+    lsp::process_key(app, code, modifiers)
 }
 
 /// Interpret the editor command language after modal input has been handled.
@@ -112,9 +112,14 @@ fn apply_editor_command(app: &mut App, command: EditorCommand) {
         EditorCommand::Backspace => editor.backspace(),
         EditorCommand::Delete => editor.delete_forward(),
         EditorCommand::Indent => insert_indent(editor),
-        EditorCommand::Insert(ch) => editor.insert_char(ch),
+        EditorCommand::Insert(ch) => insert_char_and_complete(editor, ch),
         EditorCommand::Ignore => {}
     }
+}
+
+fn insert_char_and_complete(editor: &mut crate::models::Editor, ch: char) {
+    editor.insert_char(ch);
+    editor.maybe_trigger_completion(ch);
 }
 
 /// Tab: the file's own indentation — a TAB character in a file that uses

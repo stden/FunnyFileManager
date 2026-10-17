@@ -48,6 +48,31 @@ impl Connection {
         }
         Ok(())
     }
+
+    pub(super) fn close_document(&mut self) {
+        self.owner = super::DocumentId::default();
+        self.pending = None;
+        self.query = None;
+        self.client.close();
+        let _ignored = self.flush();
+    }
+
+    pub(super) fn reopen(
+        &mut self,
+        snapshot: super::Snapshot,
+        events: &super::SyncSender<super::Envelope>,
+    ) {
+        self.owner = snapshot.stamp.id;
+        self.path.clone_from(&snapshot.path);
+        self.pending = Some(snapshot);
+        self.query = None;
+        let state = if self.client.is_ready() {
+            super::ServerState::Ready
+        } else {
+            super::ServerState::Initializing
+        };
+        super::report(events, self.owner, super::Event::State(state));
+    }
 }
 
 impl Drop for Connection {

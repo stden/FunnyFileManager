@@ -155,3 +155,34 @@ fn copy_of_a_link_reproduces_the_link() {
     assert_is_symlink(&root.join("alias.txt"));
     assert_is_symlink(&root.join("copy.txt"));
 }
+
+#[cfg(unix)]
+#[test]
+fn list_and_sort_directory_classify_directory_symlinks_as_dir() {
+    let dir = TempDir::new().expect("temp dir");
+    let (server, root) = server_at(&dir);
+    fs::create_dir(root.join("real_dir")).expect("mkdir");
+    std::os::unix::fs::symlink(root.join("real_dir"), root.join("dir_link")).expect("symlink");
+    write_file_at(&root.join("aaa.txt"), "x");
+
+    let listed = tool_json(
+        &server
+            .list_directory(Parameters(crate::tools::PathParam {
+                path: ".".to_owned(),
+            }))
+            .expect("list_directory"),
+    );
+    assert_eq!(listed["entries"][0]["name"], "dir_link");
+    assert_eq!(listed["entries"][0]["type"], "dir");
+
+    let sorted = tool_json(
+        &server
+            .sort_directory(Parameters(crate::tools::listing::SortDirectoryParams {
+                path: ".".to_owned(),
+                sort: "name".to_owned(),
+            }))
+            .expect("sort_directory"),
+    );
+    assert_eq!(sorted["entries"][0]["name"], "dir_link");
+    assert_eq!(sorted["entries"][0]["type"], "dir");
+}

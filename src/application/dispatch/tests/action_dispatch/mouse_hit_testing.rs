@@ -101,3 +101,60 @@ fn brief_panel_click_selects_the_file_in_the_clicked_column() {
     );
     assert_eq!(app.left_panel.selected(), Some(16));
 }
+
+#[test]
+fn non_file_panels_ignore_brief_stripes_and_keep_quickview_safe() {
+    let (mut app, mut terminal, _dir) = app_and_terminal(&["a.txt", "b.txt"]);
+    let screen = ratatui::layout::Rect::new(0, 0, 80, 24);
+    app.left_panel.view = models::PanelView::Brief;
+
+    app.left_panel.kind = PanelKind::Sessions(Box::new(models::SessionsPanel::from_store(
+        &crate::sessions::SessionStore::default(),
+    )));
+    assert_eq!(panel_mouse::page(&app, 16), 16);
+    navigation::select_panel_or_column(&terminal, &mut app, PanelSide::Right);
+    assert_eq!(app.active_panel, PanelSide::Right);
+
+    app.left_panel.kind = PanelKind::QuickView(Box::default());
+    app.left_panel.select(Some(0));
+    let mut clicks = crate::mouse::PanelClicks::default();
+    let click = crossterm::event::MouseEvent {
+        kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left),
+        column: 25,
+        row: 4,
+        modifiers: KeyModifiers::NONE,
+    };
+    dispatch_mouse(&mut terminal, &mut app, click, screen, &mut clicks);
+    assert_eq!(
+        (app.active_panel, app.left_panel.selected()),
+        (PanelSide::Left, Some(0))
+    );
+}
+
+#[test]
+fn tree_panel_routes_clicks_to_headerless_tree_rows() {
+    let (mut app, mut terminal, _dir) = app_and_terminal(&["a.txt", "b.txt"]);
+    let screen = ratatui::layout::Rect::new(0, 0, 80, 24);
+    let sub = app.left_panel.path.join("sub");
+    fs::create_dir_all(&sub).unwrap();
+    let mut tree = models::FolderTree::rooted_at(app.left_panel.path.clone());
+    tree.expand(&mut |_| vec![sub.clone()]);
+    app.left_panel.kind = PanelKind::Tree(Box::new(tree));
+    let row0 = crate::mouse::Target::PanelRow {
+        side: PanelSide::Left,
+        row: 0,
+    };
+    assert_eq!(panel_mouse::hit(&app, screen, 25, 2), row0);
+    let click = crossterm::event::MouseEvent {
+        kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left),
+        column: 25,
+        row: 3,
+        modifiers: KeyModifiers::NONE,
+    };
+    let mut clicks = crate::mouse::PanelClicks::default();
+    dispatch_mouse(&mut terminal, &mut app, click, screen, &mut clicks);
+    let PanelKind::Tree(tree) = &app.left_panel.kind else {
+        panic!("expected tree");
+    };
+    assert_eq!(tree.cursor, 1);
+}

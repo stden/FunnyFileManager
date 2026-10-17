@@ -68,7 +68,6 @@ impl FfmServer {
         Parameters(params): Parameters<KdbxParams>,
     ) -> Result<CallToolResult, McpError> {
         self.require_kdbx_allowed()?;
-        self.require_readwrite()?;
         if params.password.is_none() && params.keyfile.is_none() {
             return Err(McpError::invalid_params(
                 "provide a password, a key file, or both",

@@ -89,6 +89,10 @@ fn ctrl_arrows_pan_twenty_columns() {
 #[test]
 fn every_other_key_falls_through_to_the_panel_actions() {
     let (_dir, mut app) = app_over_a_long_file();
+    assert!(
+        process(&mut app, key(KeyCode::Enter)),
+        "Enter is consumed by quick view so it never opens the hidden file list"
+    );
     assert!(!process(&mut app, key(KeyCode::Tab)));
     assert!(!process(&mut app, key(KeyCode::F(10))));
     assert!(!process(

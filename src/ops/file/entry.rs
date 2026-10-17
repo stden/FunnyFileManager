@@ -132,13 +132,23 @@ fn remove_tree_reporting(folder: &Path) -> io::Result<()> {
 /// Remove a file or a link. A link to a folder is itself a folder entry on
 /// Windows, removed with `remove_dir`, which never touches its target; a
 /// read-only file there is removed as `remove_dir_all` removes it.
-fn remove_link_or_file(path: &Path, file_type: fs::FileType) -> io::Result<()> {
+pub(super) fn remove_link_or_file(path: &Path, file_type: fs::FileType) -> io::Result<()> {
+    #[cfg(windows)]
+    if std::os::windows::fs::FileTypeExt::is_symlink_dir(&file_type) {
+        return fs::remove_dir(path).or_else(|error| {
+            if error.kind() == io::ErrorKind::PermissionDenied {
+                remove_read_only(path, true).or(Err(error))
+            } else {
+                Err(error)
+            }
+        });
+    }
     match fs::remove_file(path) {
         Err(error) if cfg!(windows) && file_type.is_symlink() => {
             fs::remove_dir(path).or(Err(error))
         }
         Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
-            remove_read_only(path).or(Err(error))
+            remove_read_only(path, false).or(Err(error))
         }
         removed => removed,
     }
@@ -150,9 +160,9 @@ fn remove_link_or_file(path: &Path, file_type: fs::FileType) -> io::Result<()> {
 #[cfg(windows)]
 #[expect(
     clippy::permissions_set_readonly_false,
-    reason = "Windows: clears the read-only attribute of a file about to be removed"
+    reason = "Windows: clears the read-only attribute of a file or link about to be removed"
 )]
-fn remove_read_only(path: &Path) -> io::Result<()> {
+fn remove_read_only(path: &Path, is_dir: bool) -> io::Result<()> {
     let permissions = fs::symlink_metadata(path)?.permissions();
     if !permissions.readonly() {
         return Err(io::Error::from(io::ErrorKind::PermissionDenied));
@@ -160,7 +170,12 @@ fn remove_read_only(path: &Path) -> io::Result<()> {
     let mut writable = permissions.clone();
     writable.set_readonly(false);
     fs::set_permissions(path, writable)?;
-    fs::remove_file(path).inspect_err(|_| {
+    let removed = if is_dir {
+        fs::remove_dir(path)
+    } else {
+        fs::remove_file(path)
+    };
+    removed.inspect_err(|_| {
         // Best effort: the removal's error is the one worth reporting.
         drop(fs::set_permissions(path, permissions));
     })
@@ -169,6 +184,6 @@ fn remove_read_only(path: &Path) -> io::Result<()> {
 /// A Unix file's own mode does not decide whether it can be removed: its
 /// folder's does.
 #[cfg(not(windows))]
-fn remove_read_only(_path: &Path) -> io::Result<()> {
+fn remove_read_only(_path: &Path, _is_dir: bool) -> io::Result<()> {
     Err(io::Error::from(io::ErrorKind::PermissionDenied))
 }

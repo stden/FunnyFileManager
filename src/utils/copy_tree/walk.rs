@@ -37,7 +37,7 @@ impl Walk {
     pub(super) fn guarded(src: &Path, dst: &Path) -> Self {
         Self {
             entered: src.canonicalize().ok().into_iter().collect(),
-            output: dst.canonicalize().ok(),
+            output: canonical_target(dst),
         }
     }
 
@@ -46,7 +46,7 @@ impl Walk {
         if self
             .output
             .as_ref()
-            .is_some_and(|out| real.starts_with(out))
+            .is_some_and(|out| real.starts_with(out) || out.starts_with(real))
         {
             return Some(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -63,6 +63,15 @@ impl Walk {
                 )
             })
     }
+}
+
+fn canonical_target(dst: &Path) -> Option<PathBuf> {
+    dst.canonicalize().ok().or_else(|| {
+        dst.ancestors().find_map(|ancestor| {
+            let real = ancestor.canonicalize().ok()?;
+            Some(real.join(dst.strip_prefix(ancestor).ok()?))
+        })
+    })
 }
 
 pub(super) fn copy_tree(

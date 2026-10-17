@@ -125,3 +125,37 @@ fn file_stats_counts_lines_words_and_the_longest_line() {
     assert_eq!(json["longest_line_number"], 2);
     assert_eq!(json["longest_line_chars"], 15);
 }
+
+#[test]
+fn file_stats_handles_crlf_empty_first_line_and_missing_trailing_newline() {
+    let dir = TempDir::new().expect("temp dir");
+    let (server, root) = server_at(&dir);
+    write_file_at(&root.join("crlf.txt"), "ab\r\ncdef\r\n");
+    write_file_at(&root.join("blank.txt"), "\n");
+    write_file_at(&root.join("no_nl.txt"), "hello");
+
+    let stats = |name: &str| {
+        tool_json(
+            &server
+                .file_stats(Parameters(PathParam {
+                    path: root.join(name).display().to_string(),
+                }))
+                .expect("file_stats"),
+        )
+    };
+
+    let crlf = stats("crlf.txt");
+    assert_eq!(crlf["lines"], 2);
+    assert_eq!(crlf["characters"], 6);
+    assert_eq!(crlf["longest_line_chars"], 4);
+    assert_eq!(crlf["bytes_counted"], 10);
+
+    let blank = stats("blank.txt");
+    assert_eq!(blank["lines"], 1);
+    assert_eq!(blank["longest_line_chars"], 0);
+    assert_eq!(blank["longest_line_number"], 1);
+
+    let no_nl = stats("no_nl.txt");
+    assert_eq!(no_nl["bytes"], 5);
+    assert_eq!(no_nl["bytes_counted"], 5);
+}

@@ -4,9 +4,10 @@
 
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use crate::copy::{CopyPrompt, Purpose};
+use crate::copy::{CopyPrompt, ExistingFiles, Purpose};
+use crate::utils::LinkPolicy;
 
 /// One end of a transfer, as far as taking the other's place goes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,11 +80,60 @@ pub(super) fn reject_merge_into_holder(source: &Path, dest: &Path) -> io::Result
 /// it went. A moved folder is removed once it is empty, and kept when
 /// something in it was skipped.
 pub(super) fn merge_into(source: &Path, dest: &Path, settings: &CopyPrompt) -> io::Result<usize> {
+    let mut guard = MergeGuard::new(source, dest, settings.rules().links);
+    merge_tree(source, dest, settings, &mut guard)
+}
+
+#[derive(Default)]
+struct MergeGuard {
+    entered: Vec<PathBuf>,
+    output: Option<PathBuf>,
+}
+
+impl MergeGuard {
+    fn new(source: &Path, dest: &Path, links: LinkPolicy) -> Self {
+        if links == LinkPolicy::Recreate {
+            return Self::default();
+        }
+        Self {
+            entered: source.canonicalize().ok().into_iter().collect(),
+            output: dest.canonicalize().ok(),
+        }
+    }
+
+    fn check(&self, source: &Path) -> io::Result<PathBuf> {
+        let real = source.canonicalize()?;
+        if self
+            .output
+            .as_ref()
+            .is_some_and(|out| real.starts_with(out) || out.starts_with(&real))
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("{} leads into the copy itself", source.display()),
+            ));
+        }
+        if self.entered.iter().any(|open| open.starts_with(&real)) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("symbolic link loop at {}", source.display()),
+            ));
+        }
+        Ok(real)
+    }
+}
+
+fn merge_tree(
+    source: &Path,
+    dest: &Path,
+    settings: &CopyPrompt,
+    guard: &mut MergeGuard,
+) -> io::Result<usize> {
     let mut first_error = None;
     let mut skipped = 0_usize;
     for entry in fs::read_dir(source)? {
-        let result = entry
-            .and_then(|entry| merge_entry(&entry.path(), &dest.join(entry.file_name()), settings));
+        let result =
+            entry.and_then(|e| merge_entry(&e.path(), &dest.join(e.file_name()), settings, guard));
         match result {
             Ok(left) => skipped = skipped.saturating_add(left),
             Err(error) => {
@@ -101,8 +151,33 @@ pub(super) fn merge_into(source: &Path, dest: &Path, settings: &CopyPrompt) -> i
 }
 
 /// Place one entry of a merge; how many entries the choice left alone.
-fn merge_entry(source: &Path, dest: &Path, settings: &CopyPrompt) -> io::Result<usize> {
+fn merge_entry(
+    source: &Path,
+    dest: &Path,
+    settings: &CopyPrompt,
+    guard: &mut MergeGuard,
+) -> io::Result<usize> {
+    let checked = (settings.rules().links == LinkPolicy::Follow
+        && Shape::of_source(source, settings) == Shape::Folder)
+        .then(|| guard.check(source))
+        .transpose()?;
     if crate::utils::name_is_taken(dest) {
+        if settings.existing != ExistingFiles::Ask
+            && (
+                Shape::of_source(source, settings),
+                Shape::of_existing(dest)?,
+            ) == (Shape::Folder, Shape::Folder)
+        {
+            super::placement::reject_transfer_onto_itself(source, dest)?;
+            reject_merge_into_holder(source, dest)?;
+            if let Some(real) = checked {
+                guard.entered.push(real);
+                let res = merge_tree(source, dest, settings, guard);
+                guard.entered.pop();
+                return res;
+            }
+            return merge_tree(source, dest, settings, guard);
+        }
         super::place_over_existing(source, dest, settings).map(|placed| placed.skipped())
     } else {
         super::place(source, dest, settings).map(|()| 0)

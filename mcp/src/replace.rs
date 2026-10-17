@@ -20,6 +20,9 @@ pub fn replace(server: &FfmServer, params: &ReplaceParams) -> Result<CallToolRes
             None,
         ));
     }
+    if let Some(pattern) = &params.name_pattern {
+        globmatch::validate_pattern(pattern).map_err(|e| McpError::invalid_params(e, None))?;
+    }
 
     let opts = ReplaceOpts {
         find: &params.find,

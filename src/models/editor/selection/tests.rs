@@ -142,3 +142,13 @@ fn a_large_multiline_paste_preserves_the_document_tail_and_caret() {
     );
     assert_eq!(editor.selection, EditorSelection::None);
 }
+
+#[test]
+fn select_all_replacement_preserves_trailing_newline() {
+    let mut editor = editor("first\r\nsecond\r\n");
+    assert!(editor.format.trailing_newline);
+    editor.select_all();
+    editor.insert_text("replaced");
+    assert!(editor.format.trailing_newline);
+    assert_eq!(editor.content(), "replaced\r\n");
+}

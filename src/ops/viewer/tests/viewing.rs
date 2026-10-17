@@ -112,3 +112,18 @@ fn viewing_a_file_records_it_in_the_view_history() -> io::Result<()> {
     assert_eq!(app.view_history.last(), Some(file.as_path()));
     Ok(())
 }
+
+#[test]
+fn viewing_expands_tabs_to_next_tab_stop() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let file = temp.path().join("tabs.txt");
+    fs::write(&file, "a\tb\nab\tc\n界\td\n")?;
+    let panel = crate::models::Panel::new(temp.path().to_path_buf())?;
+    let mut app = App::with_panels(panel.clone(), panel);
+
+    view_path(&mut app, file)?;
+
+    let viewer = app.get_viewer().expect("viewer open");
+    assert_eq!(viewer.lines, vec!["a   b", "ab  c", "界  d"]);
+    Ok(())
+}

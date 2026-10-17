@@ -42,8 +42,49 @@ pub(super) fn stage(source: &Path, dest: &Path, settings: &CopyPrompt) -> io::Re
     };
     // tempfile::persist clears Windows attributes. This entry was created
     // by copy_entry, so it has no temporary attribute to clear.
+    prepare_windows_target(dest).map_err(|error| FailedAt::wrap(dest, error))?;
     fs::rename(staged.path(), dest).map_err(|error| FailedAt::wrap(dest, error))?;
     staged.disable_cleanup(true);
+    Ok(())
+}
+
+#[cfg(windows)]
+pub(super) fn is_windows_dir_symlink(path: &Path) -> bool {
+    use std::os::windows::fs::FileTypeExt;
+    fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink_dir())
+}
+
+#[cfg(not(windows))]
+pub(super) const fn is_windows_dir_symlink(_path: &Path) -> bool {
+    false
+}
+
+#[cfg(windows)]
+#[expect(
+    clippy::permissions_set_readonly_false,
+    reason = "Windows: clears the read-only attribute of a destination about to be overwritten"
+)]
+pub(super) fn clear_windows_readonly(dest: &Path) -> io::Result<()> {
+    let permissions = fs::symlink_metadata(dest)?.permissions();
+    if !permissions.readonly() {
+        return Err(io::Error::from(io::ErrorKind::PermissionDenied));
+    }
+    let mut writable = permissions;
+    writable.set_readonly(false);
+    fs::set_permissions(dest, writable)
+}
+
+#[cfg(not(windows))]
+pub(super) fn clear_windows_readonly(_dest: &Path) -> io::Result<()> {
+    Err(io::Error::from(io::ErrorKind::PermissionDenied))
+}
+
+fn prepare_windows_target(dest: &Path) -> io::Result<()> {
+    drop(clear_windows_readonly(dest));
+    #[cfg(windows)]
+    if is_windows_dir_symlink(dest) {
+        fs::remove_dir(dest)?;
+    }
     Ok(())
 }
 
