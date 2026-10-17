@@ -1,0 +1,155 @@
+//! Purpose: Pure LSP initialization, capability negotiation, and document/query session.
+
+use super::{
+    document::Document,
+    features::{Diagnostic, Reply},
+    rpc::{Incoming, Pending, ResponseError, Session},
+    types::{Query, Snapshot, Stamp},
+    uri,
+};
+use serde_json::{json, Value};
+
+mod capabilities;
+mod incoming;
+use capabilities::Capabilities;
+
+#[derive(Debug, Clone)]
+pub enum Event {
+    TrustRequired(std::path::PathBuf),
+    State(super::types::ServerState),
+    InstallationFailed(&'static str),
+    Diagnostics(Stamp, Vec<Diagnostic>),
+    Reply(Query, Result<Reply, ResponseError>),
+}
+
+pub(super) struct Client {
+    pub rpc: Session,
+    pub document: Option<Document>,
+    capabilities: Option<Capabilities>,
+    pub events: Vec<Event>,
+    language: String,
+    root_uri: String,
+    pub shutdown_complete: bool,
+}
+
+impl Client {
+    pub fn new(language: String, root_uri: String) -> Self {
+        let mut rpc = Session::default();
+        rpc.request(
+            "initialize",
+            capabilities::initialize(&root_uri),
+            Pending::Initialize,
+        );
+        Self {
+            rpc,
+            document: None,
+            capabilities: None,
+            events: Vec::new(),
+            language,
+            root_uri,
+            shutdown_complete: false,
+        }
+    }
+
+    pub const fn is_ready(&self) -> bool {
+        self.capabilities.is_some()
+    }
+
+    pub fn receive(&mut self, message: Value) -> Result<(), &'static str> {
+        match self.rpc.receive(message)? {
+            Incoming::Response(Pending::Initialize, result) => self.initialized(result)?,
+            Incoming::Response(Pending::Query(query), result) => self.answer(query, result),
+            Incoming::Response(Pending::Shutdown, _) => self.shutdown_complete = true,
+            Incoming::Notification(method, params) => self.notification(&method, &params)?,
+            Incoming::Request(id, method, params) => self.server_request(&id, &method, &params),
+            Incoming::Unknown => {}
+        }
+        Ok(())
+    }
+
+    fn initialized(&mut self, result: Result<Value, ResponseError>) -> Result<(), &'static str> {
+        let value = result.map_err(|error| {
+            crate::diagnostics::log_error(&format!("LSP initialize error {}", error.code));
+            "LSP initialization rejected"
+        })?;
+        let capabilities = value.get("capabilities").unwrap_or(&Value::Null);
+        self.capabilities = Some(Capabilities::parse(capabilities)?);
+        self.rpc.notify("initialized", json!({}));
+        self.events
+            .push(Event::State(super::types::ServerState::Ready));
+        crate::diagnostics::log_action("LSP initialized");
+        Ok(())
+    }
+
+    pub fn synchronize(&mut self, snapshot: Snapshot) -> Result<(), &'static str> {
+        if !self.is_ready() {
+            return Err("LSP is not ready");
+        }
+        let uri = uri::from_path(&snapshot.path).ok_or("Invalid document path")?;
+        if self
+            .document
+            .as_ref()
+            .is_some_and(|doc| doc.snapshot.stamp.id != snapshot.stamp.id)
+        {
+            self.close();
+        }
+        let caps = self.capabilities.as_ref().ok_or("LSP is not ready")?;
+        self.rpc.cancel_queries();
+        if let Some(document) = &mut self.document {
+            let saved = document.snapshot.saved != snapshot.saved;
+            document.update(snapshot, caps.change, &mut self.rpc)?;
+            caps.save(document, saved, &mut self.rpc);
+        } else {
+            self.document = Some(if caps.open_close {
+                Document::open(snapshot, uri, &self.language, &mut self.rpc)
+            } else {
+                Document {
+                    snapshot,
+                    uri,
+                    version: 1,
+                }
+            });
+        }
+        Ok(())
+    }
+
+    pub fn close(&mut self) {
+        self.rpc.cancel_queries();
+        if let Some(document) = self.document.take() {
+            if self
+                .capabilities
+                .as_ref()
+                .is_some_and(|caps| caps.open_close)
+            {
+                document.close(&mut self.rpc);
+            }
+        }
+    }
+
+    pub fn query(&mut self, query: Query) -> Result<(), &'static str> {
+        self.rpc.cancel_queries();
+        let document = self
+            .document
+            .as_ref()
+            .filter(|doc| doc.snapshot.stamp == query.stamp)
+            .ok_or("Document changed")?;
+        if !self
+            .capabilities
+            .as_ref()
+            .is_some_and(|caps| caps.supports(query.feature))
+        {
+            return Err("Language server does not support this feature");
+        }
+        self.rpc.request(
+            query.feature.method(),
+            json!({"textDocument":{"uri":document.uri},"position":query.position}),
+            Pending::Query(query),
+        );
+        Ok(())
+    }
+
+    pub fn shutdown(&mut self) {
+        self.close();
+        self.rpc.request("shutdown", Value::Null, Pending::Shutdown);
+    }
+}

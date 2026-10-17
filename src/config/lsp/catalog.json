@@ -1,0 +1,74 @@
+{
+  "rust": { "command": "rust-analyzer" },
+  "python": {
+    "command": "pylsp", "extensions": ["py", "pyi"],
+    "root_markers": ["pyproject.toml", "setup.py", "requirements.txt", ".git"],
+    "install": { "kind": "python", "package": "python-lsp-server[pyflakes,pycodestyle]", "module": "pylsp" }
+  },
+  "java": {
+    "command": "jdtls", "extensions": ["java"],
+    "root_markers": ["pom.xml", "build.gradle", "build.gradle.kts", ".git"],
+    "install": {
+      "kind": "jdtls",
+      "url": "https://download.eclipse.org/jdtls/milestones/1.61.0/jdt-language-server-1.61.0-202609031315.tar.gz",
+      "sha256": "338e7e73d61836651ba2453919a0d34fa763eb4e7c03342092309bffb8934c64"
+    }
+  },
+  "javascript": {
+    "command": "typescript-language-server", "args": ["--stdio"], "extensions": ["js", "mjs", "cjs"],
+    "root_markers": ["package.json", "jsconfig.json", ".git"],
+    "install": { "kind": "npm", "packages": ["typescript-language-server", "typescript@6"], "package": "typescript-language-server", "binary": "typescript-language-server" }
+  },
+  "javascriptreact": {
+    "command": "typescript-language-server", "args": ["--stdio"], "extensions": ["jsx"],
+    "root_markers": ["package.json", "jsconfig.json", ".git"],
+    "install": { "kind": "npm", "packages": ["typescript-language-server", "typescript@6"], "package": "typescript-language-server", "binary": "typescript-language-server" }
+  },
+  "typescript": {
+    "command": "typescript-language-server", "args": ["--stdio"], "extensions": ["ts", "mts", "cts"],
+    "root_markers": ["tsconfig.json", "package.json", ".git"],
+    "install": { "kind": "npm", "packages": ["typescript-language-server", "typescript@6"], "package": "typescript-language-server", "binary": "typescript-language-server" }
+  },
+  "typescriptreact": {
+    "command": "typescript-language-server", "args": ["--stdio"], "extensions": ["tsx"],
+    "root_markers": ["tsconfig.json", "package.json", ".git"],
+    "install": { "kind": "npm", "packages": ["typescript-language-server", "typescript@6"], "package": "typescript-language-server", "binary": "typescript-language-server" }
+  },
+  "html": {
+    "command": "vscode-html-language-server", "args": ["--stdio"], "extensions": ["html", "htm"],
+    "root_markers": ["package.json", ".git"],
+    "install": { "kind": "npm", "packages": ["vscode-langservers-extracted"], "package": "vscode-langservers-extracted", "binary": "vscode-html-language-server" }
+  },
+  "css": {
+    "command": "vscode-css-language-server", "args": ["--stdio"], "extensions": ["css"],
+    "root_markers": ["package.json", ".git"],
+    "install": { "kind": "npm", "packages": ["vscode-langservers-extracted"], "package": "vscode-langservers-extracted", "binary": "vscode-css-language-server" }
+  },
+  "json": {
+    "command": "vscode-json-language-server", "args": ["--stdio"], "extensions": ["json", "jsonc"],
+    "root_markers": ["package.json", ".git"],
+    "install": { "kind": "npm", "packages": ["vscode-langservers-extracted"], "package": "vscode-langservers-extracted", "binary": "vscode-json-language-server" }
+  },
+  "yaml": {
+    "command": "yaml-language-server", "args": ["--stdio"], "extensions": ["yaml", "yml"],
+    "root_markers": ["package.json", ".git"],
+    "install": { "kind": "npm", "packages": ["yaml-language-server"], "package": "yaml-language-server", "binary": "yaml-language-server" }
+  },
+  "shellscript": {
+    "command": "bash-language-server", "args": ["start"], "extensions": ["sh", "bash"],
+    "root_markers": [".git"],
+    "install": { "kind": "npm", "packages": ["bash-language-server"], "package": "bash-language-server", "binary": "bash-language-server" }
+  },
+  "bat": {
+    "command": "batch-language-server",
+    "args": ["--stdio"],
+    "extensions": ["bat", "cmd"],
+    "root_markers": [".git"],
+    "install": {
+      "kind": "npm",
+      "packages": ["@jcs-pr/batch-language-server"],
+      "package": "@jcs-pr/batch-language-server",
+      "binary": "batch-language-server"
+    }
+  }
+}

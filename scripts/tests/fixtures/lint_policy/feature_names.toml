@@ -1,0 +1,5 @@
+# Negative: feature names that say "not" or "with" instead of naming the feature.
+# scripts/test_lint_policy.py appends this table to the negative crate's manifest.
+[features]
+no-colour = []
+with-colour = []

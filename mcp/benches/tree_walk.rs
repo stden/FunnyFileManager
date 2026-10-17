@@ -1,0 +1,187 @@
+//! Purpose: Benchmarks production directory-tree readers on realistic fixtures.
+
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use ffm_mcp::tree_walk::{directory_size, render_directory_tree};
+use std::env;
+use std::fs;
+use std::hint::black_box;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+use tempfile::TempDir;
+
+enum FixtureRoot {
+    Generated(TempDir),
+    Existing(PathBuf),
+}
+
+struct TreeFixture {
+    root: FixtureRoot,
+    entries: u64,
+    bytes: u64,
+}
+
+impl TreeFixture {
+    fn path(&self) -> &Path {
+        match &self.root {
+            FixtureRoot::Generated(temp) => temp.path(),
+            FixtureRoot::Existing(path) => path,
+        }
+    }
+
+    fn generated(temp: TempDir, entries: u64) -> Self {
+        let bytes = directory_size(temp.path());
+        Self {
+            root: FixtureRoot::Generated(temp),
+            entries,
+            bytes,
+        }
+    }
+
+    fn existing(path: PathBuf) -> Self {
+        assert!(path.is_dir(), "real-tree benchmark path is not a directory");
+        let entries = count_entries(&path);
+        let bytes = directory_size(&path);
+        Self {
+            root: FixtureRoot::Existing(path),
+            entries,
+            bytes,
+        }
+    }
+}
+
+fn count_entries(root: &Path) -> u64 {
+    let mut count = 0_u64;
+    let mut pending = vec![root.to_path_buf()];
+
+    while let Some(directory) = pending.pop() {
+        let Ok(entries) = fs::read_dir(directory) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            count += 1;
+            if entry
+                .file_type()
+                .is_ok_and(|file_type| file_type.is_dir() && !file_type.is_symlink())
+            {
+                pending.push(entry.path());
+            }
+        }
+    }
+
+    count
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "criterion gives a bench no error channel: a fixture it cannot seed must abort the run"
+)]
+fn write_files(path: &Path, count: u64) -> u64 {
+    for index in 0..count {
+        fs::write(path.join(format!("file_{index:04}.bin")), [b'x'; 128])
+            .expect("seed benchmark file");
+    }
+    count
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "criterion gives a bench no error channel: a fixture it cannot seed must abort the run"
+)]
+fn seed_balanced_level(path: &Path, depth: usize, fanout: usize, files: u64) -> u64 {
+    let mut entries = write_files(path, files);
+    if depth == 0 {
+        return entries;
+    }
+
+    for index in 0..fanout {
+        let child = path.join(format!("dir_{index:02}"));
+        fs::create_dir(&child).expect("seed benchmark directory");
+        entries += 1 + seed_balanced_level(&child, depth - 1, fanout, files);
+    }
+    entries
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "criterion gives a bench no error channel: a fixture it cannot seed must abort the run"
+)]
+fn balanced_fixture() -> TreeFixture {
+    let temp = TempDir::new().expect("benchmark temp dir");
+    let entries = seed_balanced_level(temp.path(), 4, 4, 8);
+    TreeFixture::generated(temp, entries)
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "criterion gives a bench no error channel: a fixture it cannot seed must abort the run"
+)]
+fn wide_fixture() -> TreeFixture {
+    let temp = TempDir::new().expect("benchmark temp dir");
+    let mut entries = write_files(temp.path(), 2_048);
+    for index in 0..32 {
+        let child = temp.path().join(format!("dir_{index:02}"));
+        fs::create_dir(&child).expect("seed benchmark directory");
+        entries += 1 + write_files(&child, 4);
+    }
+    TreeFixture::generated(temp, entries)
+}
+
+#[expect(
+    clippy::print_stderr,
+    reason = "a bench names its fixtures on stderr, beside criterion's own report"
+)]
+fn fixtures() -> Vec<(String, TreeFixture)> {
+    let mut fixtures = vec![
+        ("balanced".to_owned(), balanced_fixture()),
+        ("wide".to_owned(), wide_fixture()),
+    ];
+    if let Some(path) = env::var_os("FFM_BENCH_REAL_TREE").map(PathBuf::from) {
+        fixtures.push(("real_windows".to_owned(), TreeFixture::existing(path)));
+    }
+
+    for (shape, fixture) in &fixtures {
+        eprintln!(
+            "tree fixture {shape}: {} entries, {} bytes at {}",
+            fixture.entries,
+            fixture.bytes,
+            fixture.path().display()
+        );
+    }
+    fixtures
+}
+
+fn bench_directory_tree_readers(c: &mut Criterion) {
+    let fixtures = fixtures();
+    bench_directory_size(c, &fixtures);
+    bench_render_directory_tree(c, &fixtures);
+}
+
+fn bench_directory_size(c: &mut Criterion, fixtures: &[(String, TreeFixture)]) {
+    let mut group = c.benchmark_group("directory_size");
+    group.sample_size(30);
+    group.measurement_time(Duration::from_secs(5));
+    for (shape, fixture) in fixtures {
+        // Logical bytes accounted for per second; file contents are not read.
+        group.throughput(Throughput::Bytes(fixture.bytes.max(1)));
+        group.bench_with_input(BenchmarkId::from_parameter(shape), fixture, |b, fixture| {
+            b.iter(|| black_box(directory_size(black_box(fixture.path()))));
+        });
+    }
+    group.finish();
+}
+
+fn bench_render_directory_tree(c: &mut Criterion, fixtures: &[(String, TreeFixture)]) {
+    let mut group = c.benchmark_group("render_directory_tree");
+    group.sample_size(30);
+    group.measurement_time(Duration::from_secs(5));
+    for (shape, fixture) in fixtures {
+        group.throughput(Throughput::Elements(fixture.entries));
+        group.bench_with_input(BenchmarkId::from_parameter(shape), fixture, |b, fixture| {
+            b.iter(|| black_box(render_directory_tree(black_box(fixture.path()), usize::MAX)));
+        });
+    }
+    group.finish();
+}
+
+criterion_group!(benches, bench_directory_tree_readers);
+criterion_main!(benches);

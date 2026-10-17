@@ -1,0 +1,6 @@
+[toolchain]
+# The exact release CI uses. Bump it on purpose, in its own commit: a new
+# stable brings new Clippy lints, and the gate denies every warning.
+channel = "1.98.1"
+profile = "minimal"
+components = ["rustfmt", "clippy"]
