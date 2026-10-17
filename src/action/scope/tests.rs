@@ -5,9 +5,9 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::{menu_scope, ActionScope};
-use crate::action::{resolve, Action, DialogCommand, Navigation};
+use crate::action::{Action, DialogCommand, Navigation};
 use crate::menu::{MenuCommand, SettingsPage};
-use crate::models::PanelSide;
+use crate::test_support::panels_action as resolve;
 
 mod rows_and_dialogs;
 

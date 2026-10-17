@@ -8,8 +8,7 @@ use super::tests::screen_text;
 use super::*;
 use crate::{
     lineedit::LineEditor,
-    menu::MenuCommand,
-    models::{ChoiceTarget, MenuChoice},
+    models::{ChoiceTarget, MenuChoice, MenuPrompt},
 };
 
 #[test]
@@ -67,7 +66,7 @@ fn empty_and_scrolled_choices_render_and_small_prompts_do_not_panic() {
 #[test]
 fn resizing_prompts_and_lists_keeps_the_cursor_on_screen() {
     let prompt = MenuDialog::Prompt {
-        command: MenuCommand::Filter,
+        purpose: MenuPrompt::Filter,
         title: "Filter".to_owned(),
         caption: "目录".repeat(40),
         input: LineEditor::new(&"目录".repeat(40)),

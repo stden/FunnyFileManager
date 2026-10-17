@@ -1,118 +1,127 @@
 //! Purpose: the Options drop-down — one row per settings page, then Save setup.
 
+use crate::action::Action;
 use crate::menu::{Entry, MenuCommand, SettingsPage};
 
 /// Editable settings and explicit persistence through Save setup.
 pub(in crate::menu) const OPTIONS: [Entry; 27] = [
-    Entry::command(
+    Entry::item(
         "S&ystem settings",
         "",
-        MenuCommand::Settings(SettingsPage::System),
+        Action::Menu(MenuCommand::Settings(SettingsPage::System)),
     ),
-    Entry::command(
+    Entry::item(
         "&Panel settings",
         "",
-        MenuCommand::Settings(SettingsPage::Panel),
+        Action::Menu(MenuCommand::Settings(SettingsPage::Panel)),
     ),
-    Entry::command(
+    Entry::item(
         "&Tree settings",
         "",
-        MenuCommand::Settings(SettingsPage::Tree),
+        Action::Menu(MenuCommand::Settings(SettingsPage::Tree)),
     ),
-    Entry::command(
+    Entry::item(
         "&Interface settings",
         "",
-        MenuCommand::Settings(SettingsPage::Interface),
+        Action::Menu(MenuCommand::Settings(SettingsPage::Interface)),
     ),
-    Entry::command(
+    Entry::item(
         "Lan&guages",
         "",
-        MenuCommand::Settings(SettingsPage::Language),
+        Action::Menu(MenuCommand::Settings(SettingsPage::Language)),
     ),
-    Entry::command(
+    Entry::item(
         "Pl&ugins configuration",
         "",
-        MenuCommand::Settings(SettingsPage::Plugins),
+        Action::Menu(MenuCommand::Settings(SettingsPage::Plugins)),
     ),
-    Entry::command(
+    Entry::item(
         "Plugins manage&r settings",
         "",
-        MenuCommand::Settings(SettingsPage::PluginManager),
+        Action::Menu(MenuCommand::Settings(SettingsPage::PluginManager)),
     ),
-    Entry::command(
+    Entry::item(
         "Di&alog settings",
         "",
-        MenuCommand::Settings(SettingsPage::Dialog),
+        Action::Menu(MenuCommand::Settings(SettingsPage::Dialog)),
     ),
-    Entry::command(
+    Entry::item(
         "Menu settings",
         "",
-        MenuCommand::Settings(SettingsPage::Menu),
+        Action::Menu(MenuCommand::Settings(SettingsPage::Menu)),
     ),
-    Entry::command(
+    Entry::item(
         "&Command line settings",
         "",
-        MenuCommand::Settings(SettingsPage::CommandLine),
+        Action::Menu(MenuCommand::Settings(SettingsPage::CommandLine)),
     ),
-    Entry::command(
+    Entry::item(
         "AutoComplete settings",
         "",
-        MenuCommand::Settings(SettingsPage::AutoComplete),
+        Action::Menu(MenuCommand::Settings(SettingsPage::AutoComplete)),
     ),
-    Entry::command(
+    Entry::item(
         "Inf&oPanel settings",
         "",
-        MenuCommand::Settings(SettingsPage::Information),
+        Action::Menu(MenuCommand::Settings(SettingsPage::Information)),
     ),
-    Entry::command(
+    Entry::item(
         "Groups of file mas&ks",
         "",
-        MenuCommand::Settings(SettingsPage::Masks),
+        Action::Menu(MenuCommand::Settings(SettingsPage::Masks)),
     ),
     Entry::Separator,
-    Entry::command(
+    Entry::item(
         "Co&nfirmations",
         "",
-        MenuCommand::Settings(SettingsPage::Confirmations),
+        Action::Menu(MenuCommand::Settings(SettingsPage::Confirmations)),
     ),
-    Entry::command(
+    Entry::item(
         "File panel &modes",
         "",
-        MenuCommand::Settings(SettingsPage::PanelModes),
+        Action::Menu(MenuCommand::Settings(SettingsPage::PanelModes)),
     ),
-    Entry::command(
+    Entry::item(
         "File &descriptions",
         "",
-        MenuCommand::Settings(SettingsPage::Descriptions),
+        Action::Menu(MenuCommand::Settings(SettingsPage::Descriptions)),
     ),
-    Entry::command(
+    Entry::item(
         "&Folder description files",
         "",
-        MenuCommand::Settings(SettingsPage::FolderDescriptions),
+        Action::Menu(MenuCommand::Settings(SettingsPage::FolderDescriptions)),
     ),
     Entry::Separator,
-    Entry::command(
+    Entry::item(
         "&Viewer settings",
         "",
-        MenuCommand::Settings(SettingsPage::Viewer),
+        Action::Menu(MenuCommand::Settings(SettingsPage::Viewer)),
     ),
-    Entry::command(
+    Entry::item(
         "&Editor settings",
         "",
-        MenuCommand::Settings(SettingsPage::Editor),
+        Action::Menu(MenuCommand::Settings(SettingsPage::Editor)),
     ),
-    Entry::command(
+    Entry::item(
         "Code pages",
         "",
-        MenuCommand::Settings(SettingsPage::CodePages),
+        Action::Menu(MenuCommand::Settings(SettingsPage::CodePages)),
     ),
     Entry::Separator,
-    Entry::command("Co&lors", "", MenuCommand::Settings(SettingsPage::Colors)),
-    Entry::command(
+    Entry::item(
+        "Co&lors",
+        "",
+        Action::Menu(MenuCommand::Settings(SettingsPage::Colors)),
+    ),
+    Entry::item(
         "Files &highlighting and sort groups",
         "",
-        MenuCommand::Settings(SettingsPage::Highlighting),
+        Action::Menu(MenuCommand::Settings(SettingsPage::Highlighting)),
     ),
     Entry::Separator,
-    Entry::command("&Save setup", "Shift+F9", MenuCommand::SaveSetup),
+    Entry::item(
+        "&Save setup",
+        "Shift+F9",
+        Action::Menu(MenuCommand::SaveSetup),
+    ),
 ];

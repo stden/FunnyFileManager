@@ -1,5 +1,5 @@
 //! Purpose: unit tests for `menu`, one topic per child module.
-use super::{hotkey_of, label_of, Entry, Heading, Menu, MenuCommand, Shortcut};
+use super::{hotkey_of, label_of, Entry, Heading, Menu};
 
 #[cfg(test)]
 mod tests_hotkeys;

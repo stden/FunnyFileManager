@@ -1,8 +1,6 @@
-//! Purpose: A drop-down row — its label, the key or command it runs, and the keystroke type.
+//! Purpose: A drop-down row — its label, the shortcut it prints, and the action it runs.
 
-use crossterm::event::{KeyCode, KeyModifiers};
-
-use super::MenuCommand;
+use crate::action::Action;
 
 /// What a drop-down row is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -11,7 +9,10 @@ pub enum Entry {
     Item {
         label: &'static str,
         shortcut: &'static str,
-        activation: Activation,
+        /// What the row runs: the same value its key resolves to, so a
+        /// command cannot behave differently depending on how it was
+        /// reached. A row Far gives no key holds an [`Action::Menu`].
+        action: Action,
         /// Drawn with Far's tick in the left margin.
         checked: bool,
     },
@@ -19,19 +20,12 @@ pub enum Entry {
     Separator,
 }
 
-/// Every menu item has exactly one executable route.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Activation {
-    Shortcut(Shortcut),
-    Command(MenuCommand),
-}
-
 impl Entry {
-    pub(super) const fn item(label: &'static str, shortcut: &'static str, key: Shortcut) -> Self {
+    pub(super) const fn item(label: &'static str, shortcut: &'static str, action: Action) -> Self {
         Self::Item {
             label,
             shortcut,
-            activation: Activation::Shortcut(key),
+            action,
             checked: false,
         }
     }
@@ -42,72 +36,12 @@ impl Entry {
         matches!(self, Self::Item { .. })
     }
 
-    pub(super) const fn command(
-        label: &'static str,
-        shortcut: &'static str,
-        command: MenuCommand,
-    ) -> Self {
-        Self::Item {
-            label,
-            shortcut,
-            activation: Activation::Command(command),
-            checked: false,
-        }
-    }
-
+    /// The action this row runs; a separator runs nothing.
     #[must_use]
-    pub const fn menu_command(&self) -> Option<MenuCommand> {
+    pub const fn action(&self) -> Option<Action> {
         match self {
-            Self::Item {
-                activation: Activation::Command(command),
-                ..
-            } => Some(*command),
-            _ => None,
+            Self::Item { action, .. } => Some(*action),
+            Self::Separator => None,
         }
-    }
-
-    /// The key this row stands for.
-    #[must_use]
-    pub const fn key(&self) -> Option<Shortcut> {
-        match self {
-            Self::Item {
-                activation: Activation::Shortcut(key),
-                ..
-            } => Some(*key),
-            _ => None,
-        }
-    }
-}
-
-/// A keystroke a menu row stands for.
-///
-/// Stored rather than resolved to an [`crate::action::Action`]: the menu then
-/// goes through the same dispatch the keyboard does, so a command cannot
-/// behave differently depending on how it was reached.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Shortcut {
-    pub code: KeyCode,
-    pub modifiers: KeyModifiers,
-}
-
-impl Shortcut {
-    pub(super) const fn new(code: KeyCode, modifiers: KeyModifiers) -> Self {
-        Self { code, modifiers }
-    }
-
-    pub(super) const fn ctrl(ch: char) -> Self {
-        Self::new(KeyCode::Char(ch), KeyModifiers::CONTROL)
-    }
-
-    pub(super) const fn plain(code: KeyCode) -> Self {
-        Self::new(code, KeyModifiers::NONE)
-    }
-
-    pub(super) const fn alt(code: KeyCode) -> Self {
-        Self::new(code, KeyModifiers::ALT)
-    }
-
-    pub(super) const fn shift(code: KeyCode) -> Self {
-        Self::new(code, KeyModifiers::SHIFT)
     }
 }

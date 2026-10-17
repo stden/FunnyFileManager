@@ -1,8 +1,9 @@
 use super::*;
 use crate::models::{CommandLine, Panel};
 use crate::{
+    action::Action,
     menu::{Heading, Menu, MenuCommand},
-    models::{ChoiceTarget, MenuChoice, MenuDialog},
+    models::{ChoiceTarget, MenuChoice, MenuDialog, MenuPrompt},
     packages::{Elevation, Manager, UpdatePlan},
 };
 use std::time::Duration;

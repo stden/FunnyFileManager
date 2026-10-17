@@ -17,6 +17,17 @@ pub fn action_violations(sources: &[SourceFile]) -> Vec<String> {
     messages(&forbidden_dependencies(sources, checked, &forbidden))
 }
 
+pub fn keymap_violations(sources: &[SourceFile]) -> Vec<String> {
+    let forbidden = [
+        RENDERING_FORBIDDEN.as_slice(),
+        &INPUT_ONLY_FORBIDDEN,
+        &KEYMAP_ONLY_FORBIDDEN,
+    ]
+    .concat();
+    let checked = |file: &SourceFile| !file.is_test() && file.in_module("keymap");
+    messages(&forbidden_dependencies(sources, checked, &forbidden))
+}
+
 #[test]
 fn ui_rule_reports_operations_and_environment_mutation() {
     let sources = sources(&[
@@ -94,4 +105,30 @@ fn ui_and_action_rules_reject_the_os_adapters() {
             "src/action/tasks.rs:4: `crate::platform::clock_ticks_per_second` (forbidden: `crate::platform`)",
         ]
     );
+}
+
+/// The keymap names commands and chords, nothing that acts: a table that
+/// read `ffm.yml` itself, or drew a label, would be a second owner of both.
+#[test]
+fn keymap_rule_rejects_io_rendering_and_configuration() {
+    let reads_the_file = "use crate::config::dir;\nuse crate::ui::palette;\n\nfn text() -> std::io::Result<String> {\n    std::fs::read_to_string(crate::ops::keymap::path())\n}\n";
+    let sources = sources(&[
+        ("src/keymap/load.rs", reads_the_file),
+        ("src/keymap/tests.rs", reads_the_file),
+        (
+            "src/keymap.rs",
+            "use crate::action::{Action, Bindings};\nuse crate::models::PanelSide;\n",
+        ),
+    ]);
+    assert_eq!(
+        keymap_violations(&sources),
+        [
+            "src/keymap/load.rs:1: `crate::config::dir` (forbidden: `crate::config`)",
+            "src/keymap/load.rs:2: `crate::ui::palette` (forbidden: `crate::ui`)",
+            "src/keymap/load.rs:4: `std::io::Result` (forbidden: `std::io`)",
+            "src/keymap/load.rs:5: `std::fs::read_to_string` (forbidden: `std::fs`)",
+            "src/keymap/load.rs:5: `crate::ops::keymap::path` (forbidden: `crate::ops`)",
+        ]
+    );
+    assert_eq!(action_violations(&sources), Vec::<String>::new());
 }

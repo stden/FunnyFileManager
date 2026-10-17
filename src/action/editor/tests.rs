@@ -1,169 +1,162 @@
-//! Contract tests for binding precedence and modifier policies.
+//! Contract tests for the editor's keys: the keymap's defaults, matched
+//! with exactly their modifiers, and what a key means that nothing is bound to.
+
+mod selection;
 
 use super::*;
+use crate::keymap::Keymap;
+use crate::models::LspFeature;
+
+mod fallback;
+mod letters;
+mod remapped;
+
+const NONE: KeyModifiers = KeyModifiers::NONE;
+const SHIFT: KeyModifiers = KeyModifiers::SHIFT;
+const ALT: KeyModifiers = KeyModifiers::ALT;
+const CTRL: KeyModifiers = KeyModifiers::CONTROL;
+
+/// The command the default keys give the key.
+fn command(code: KeyCode, modifiers: KeyModifiers) -> EditorCommand {
+    resolve(&Keymap::default().editor, KeyEvent::new(code, modifiers))
+}
+
+const fn moves(motion: EditorNavigation, selection: SelectionMode) -> EditorCommand {
+    EditorCommand::Move { motion, selection }
+}
+
+/// Each key that runs its command with the modifiers shown: the plain keys,
+/// Shift+F7 and Ctrl+Insert.
+const PLAIN_KEYS: [(KeyCode, KeyModifiers, EditorCommand); 11] = [
+    (KeyCode::F(2), NONE, EditorCommand::Save),
+    (KeyCode::F(7), NONE, EditorCommand::Search),
+    (KeyCode::F(7), SHIFT, EditorCommand::RepeatSearch),
+    (KeyCode::F(8), NONE, EditorCommand::ChooseEncoding),
+    (KeyCode::F(10), NONE, EditorCommand::Close),
+    (KeyCode::Esc, NONE, EditorCommand::Close),
+    (KeyCode::Enter, NONE, EditorCommand::Newline),
+    (KeyCode::Backspace, NONE, EditorCommand::Backspace),
+    (KeyCode::Delete, NONE, EditorCommand::Delete),
+    (KeyCode::Tab, NONE, EditorCommand::Indent),
+    (KeyCode::Insert, CTRL, EditorCommand::Copy),
+];
+
+/// Keys the editor obeyed while it ignored the modifiers nothing was bound
+/// with. Exact matching makes each one fall to the fallback, which runs
+/// nothing: a sample of the 106 rows `tests/keymap_golden/editor.tsv` lists
+/// as `fallback`.
+const ONCE_LENIENT: [(KeyCode, KeyModifiers); 14] = [
+    (KeyCode::F(2), SHIFT),
+    (KeyCode::F(2), CTRL),
+    (KeyCode::F(7), ALT),
+    (KeyCode::F(7), SHIFT.union(ALT)),
+    (KeyCode::F(8), SHIFT),
+    (KeyCode::F(10), ALT),
+    (KeyCode::Esc, SHIFT),
+    (KeyCode::Enter, SHIFT),
+    (KeyCode::Enter, CTRL),
+    (KeyCode::Backspace, ALT),
+    (KeyCode::Delete, SHIFT),
+    (KeyCode::Tab, CTRL),
+    (KeyCode::Tab, SHIFT),
+    (KeyCode::BackTab, SHIFT),
+];
+
+const MOTIONS: [(KeyCode, EditorNavigation); 8] = [
+    (KeyCode::Left, EditorNavigation::Left),
+    (KeyCode::Right, EditorNavigation::Right),
+    (KeyCode::Up, EditorNavigation::Up),
+    (KeyCode::Down, EditorNavigation::Down),
+    (KeyCode::Home, EditorNavigation::Home),
+    (KeyCode::End, EditorNavigation::End),
+    (KeyCode::PageUp, EditorNavigation::PageUp),
+    (KeyCode::PageDown, EditorNavigation::PageDown),
+];
 
 #[test]
-fn clipboard_bindings_require_the_exact_modifier_combination() {
-    for (modifiers, command) in [
-        (KeyModifiers::CONTROL, EditorCommand::Copy),
-        (KeyModifiers::SHIFT, EditorCommand::Paste),
-        (KeyModifiers::NONE, EditorCommand::Ignore),
-        (KeyModifiers::ALT, EditorCommand::Ignore),
-        (
-            KeyModifiers::CONTROL | KeyModifiers::SHIFT,
-            EditorCommand::Ignore,
-        ),
-        (
-            KeyModifiers::ALT | KeyModifiers::SHIFT,
-            EditorCommand::Ignore,
-        ),
-    ] {
-        assert_eq!(resolve(KeyEvent::new(KeyCode::Insert, modifiers)), command);
+fn the_default_keys_run_their_commands() {
+    for (code, modifiers, expected) in PLAIN_KEYS {
+        assert_eq!(command(code, modifiers), expected, "{modifiers:?} {code:?}");
     }
 }
 
 #[test]
-fn ctrl_c_copies_for_both_character_cases_and_rejects_extra_modifiers() {
-    for ch in ['c', 'C'] {
+fn a_modifier_nothing_is_bound_with_makes_another_key_which_runs_nothing() {
+    for (code, modifiers) in ONCE_LENIENT {
         assert_eq!(
-            resolve(KeyEvent::new(KeyCode::Char(ch), KeyModifiers::CONTROL)),
+            command(code, modifiers),
+            EditorCommand::Ignore,
+            "{modifiers:?} {code:?}"
+        );
+    }
+}
+
+#[test]
+fn the_caret_moves_bare_and_selects_with_shift_alone() {
+    for (code, motion) in MOTIONS {
+        for (modifiers, expected) in [
+            (NONE, moves(motion, SelectionMode::Move)),
+            (SHIFT, moves(motion, SelectionMode::Extend)),
+            (CTRL, EditorCommand::Ignore),
+            (ALT, EditorCommand::Ignore),
+            (CTRL.union(SHIFT), EditorCommand::Ignore),
+        ] {
+            assert_eq!(command(code, modifiers), expected, "{modifiers:?} {code:?}");
+        }
+    }
+}
+
+#[test]
+fn insert_copies_with_ctrl_and_pastes_with_shift_and_nothing_else() {
+    for (modifiers, expected) in [
+        (CTRL, EditorCommand::Copy),
+        (SHIFT, EditorCommand::Paste),
+        (NONE, EditorCommand::Ignore),
+        (ALT, EditorCommand::Ignore),
+        (CTRL.union(SHIFT), EditorCommand::Ignore),
+        (ALT.union(SHIFT), EditorCommand::Ignore),
+    ] {
+        assert_eq!(command(KeyCode::Insert, modifiers), expected);
+    }
+}
+
+/// A desktop that passes Super, Hyper or Meta through makes no key dead.
+#[test]
+fn super_hyper_and_meta_are_not_part_of_a_key() {
+    for extra in [KeyModifiers::SUPER, KeyModifiers::HYPER, KeyModifiers::META] {
+        assert_eq!(
+            command(KeyCode::Char('c'), CTRL.union(extra)),
             EditorCommand::Copy
         );
-        for extra in [KeyModifiers::SHIFT, KeyModifiers::ALT, KeyModifiers::SUPER] {
-            assert_eq!(
-                resolve(KeyEvent::new(
-                    KeyCode::Char(ch),
-                    KeyModifiers::CONTROL | extra
-                )),
-                EditorCommand::Ignore
-            );
-        }
-    }
-}
-
-#[test]
-fn ctrl_v_pastes_and_modified_variants_remain_unsupported() {
-    for ch in ['v', 'V'] {
+        assert_eq!(command(KeyCode::F(2), extra), EditorCommand::Save);
         assert_eq!(
-            resolve(KeyEvent::new(KeyCode::Char(ch), KeyModifiers::CONTROL)),
-            EditorCommand::Paste
+            command(KeyCode::Char('x'), extra),
+            EditorCommand::Insert('x')
         );
-        for extra in [KeyModifiers::SHIFT, KeyModifiers::ALT] {
-            assert_eq!(
-                resolve(KeyEvent::new(
-                    KeyCode::Char(ch),
-                    KeyModifiers::CONTROL | extra
-                )),
-                EditorCommand::Ignore
-            );
-        }
     }
 }
 
 #[test]
-fn navigation_carries_selection_intent_without_changing_an_editor() {
-    for (code, motion) in [
-        (KeyCode::Left, EditorNavigation::Left),
-        (KeyCode::Right, EditorNavigation::Right),
-        (KeyCode::Up, EditorNavigation::Up),
-        (KeyCode::Down, EditorNavigation::Down),
-        (KeyCode::Home, EditorNavigation::Home),
-        (KeyCode::End, EditorNavigation::End),
-        (KeyCode::PageUp, EditorNavigation::PageUp),
-        (KeyCode::PageDown, EditorNavigation::PageDown),
-    ] {
-        for (modifiers, selection) in [
-            (KeyModifiers::NONE, SelectionMode::Move),
-            (KeyModifiers::SHIFT, SelectionMode::Extend),
-            (
-                KeyModifiers::CONTROL | KeyModifiers::SHIFT,
-                SelectionMode::Extend,
-            ),
-        ] {
-            assert_eq!(
-                resolve(KeyEvent::new(code, modifiers)),
-                EditorCommand::Move { motion, selection }
-            );
-        }
-    }
-}
-
-#[test]
-fn qualified_search_wins_and_plain_commands_keep_their_modifier_policy() {
-    for (code, modifiers, command) in [
-        (
-            KeyCode::F(7),
-            KeyModifiers::SHIFT | KeyModifiers::ALT,
-            EditorCommand::RepeatSearch,
-        ),
-        (KeyCode::F(7), KeyModifiers::NONE, EditorCommand::Search),
-        (KeyCode::F(2), KeyModifiers::CONTROL, EditorCommand::Save),
-        (KeyCode::Esc, KeyModifiers::NONE, EditorCommand::Close),
-        (KeyCode::F(10), KeyModifiers::NONE, EditorCommand::Close),
-        (KeyCode::Enter, KeyModifiers::NONE, EditorCommand::Newline),
-        (
-            KeyCode::Backspace,
-            KeyModifiers::NONE,
-            EditorCommand::Backspace,
-        ),
-        (KeyCode::Delete, KeyModifiers::NONE, EditorCommand::Delete),
-        (KeyCode::Tab, KeyModifiers::SHIFT, EditorCommand::Indent),
-    ] {
-        assert_eq!(resolve(KeyEvent::new(code, modifiers)), command);
-    }
-}
-
-#[test]
-fn text_input_accepts_unicode_and_consumes_control_sequences() {
-    for (code, modifiers, command) in [
-        (
-            KeyCode::Char('界'),
-            KeyModifiers::NONE,
-            EditorCommand::Insert('界'),
-        ),
-        (
-            KeyCode::Char('Ж'),
-            KeyModifiers::SHIFT,
-            EditorCommand::Insert('Ж'),
-        ),
-        (
-            KeyCode::Char('x'),
-            KeyModifiers::CONTROL,
-            EditorCommand::Ignore,
-        ),
-        (KeyCode::Char('x'), KeyModifiers::ALT, EditorCommand::Ignore),
-        (KeyCode::Null, KeyModifiers::NONE, EditorCommand::Ignore),
-    ] {
-        assert_eq!(resolve(KeyEvent::new(code, modifiers)), command);
-    }
-}
-#[test]
-fn lsp_bindings_are_explicit_and_require_exact_modifiers() {
-    use crate::models::LspFeature;
+fn the_language_servers_keys_require_exact_modifiers() {
     for (key, feature) in [
         (' ', LspFeature::Completion),
         ('k', LspFeature::Hover),
         (']', LspFeature::Definition),
     ] {
         assert_eq!(
-            resolve(KeyEvent::new(KeyCode::Char(key), KeyModifiers::CONTROL)),
+            command(KeyCode::Char(key), CTRL),
             EditorCommand::Lsp(feature)
         );
         assert_eq!(
-            resolve(KeyEvent::new(
-                KeyCode::Char(key),
-                KeyModifiers::CONTROL | KeyModifiers::ALT
-            )),
+            command(KeyCode::Char(key), CTRL.union(ALT)),
             EditorCommand::Ignore
         );
     }
     assert_eq!(
-        resolve(KeyEvent::new(
-            KeyCode::Char('r'),
-            KeyModifiers::CONTROL | KeyModifiers::ALT
-        )),
+        command(KeyCode::Char('r'), CTRL.union(ALT)),
         EditorCommand::RestartLsp
     );
+    assert_eq!(command(KeyCode::Char('r'), CTRL), EditorCommand::Ignore);
 }
 
 /// A terminal without the kitty protocol sends Ctrl+] as byte 0x1D, which
@@ -172,25 +165,7 @@ fn lsp_bindings_are_explicit_and_require_exact_modifiers() {
 #[test]
 fn ctrl_5_is_a_legacy_terminals_ctrl_bracket_and_goes_to_definition() {
     assert_eq!(
-        resolve(KeyEvent::new(KeyCode::Char('5'), KeyModifiers::CONTROL)),
-        EditorCommand::Lsp(crate::models::LspFeature::Definition)
+        command(KeyCode::Char('5'), CTRL),
+        EditorCommand::Lsp(LspFeature::Definition)
     );
-}
-
-#[test]
-fn ctrl_alt_l_formats_document_for_both_cases_and_rejects_extra_modifiers() {
-    let ctrl_alt = KeyModifiers::CONTROL | KeyModifiers::ALT;
-    for ch in ['l', 'L'] {
-        assert_eq!(
-            resolve(KeyEvent::new(KeyCode::Char(ch), ctrl_alt)),
-            EditorCommand::FormatDocument
-        );
-        assert_eq!(
-            resolve(KeyEvent::new(
-                KeyCode::Char(ch),
-                ctrl_alt | KeyModifiers::SHIFT
-            )),
-            EditorCommand::Ignore
-        );
-    }
 }

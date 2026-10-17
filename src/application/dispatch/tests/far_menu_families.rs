@@ -28,7 +28,8 @@ fn a_view_mode_lands_on_the_active_panel() {
     apply_action(
         &mut terminal,
         &mut app,
-        Action::Panel(PanelCommand::View(PanelView::Wide)),
+        Action::PanelView(PanelView::Wide),
+        true,
     );
     assert_eq!(app.right_panel.view, PanelView::Wide);
     assert_eq!(
@@ -46,7 +47,8 @@ fn hiding_the_active_panel_makes_the_other_active() {
     apply_action(
         &mut terminal,
         &mut app,
-        Action::MenuCommand(MenuCommand::TogglePanel(PanelSide::Left)),
+        Action::Panel(PanelCommand::TogglePanel(PanelSide::Left)),
+        true,
     );
     assert_eq!(app.panels_shown, PanelsShown::RightOnly);
     assert_eq!(app.active_panel, PanelSide::Right);
@@ -59,7 +61,8 @@ fn tree_quick_view_and_long_names_toggle_back_and_forth() {
     apply_action(
         &mut terminal,
         &mut app,
-        Action::MenuCommand(MenuCommand::Tree),
+        Action::Panel(PanelCommand::Tree),
+        true,
     );
     assert!(app.get_active_panel_ref().kind.is_tree());
     // Far's Ctrl+Q previews on the passive panel; the cursor stays put.
@@ -67,6 +70,7 @@ fn tree_quick_view_and_long_names_toggle_back_and_forth() {
         &mut terminal,
         &mut app,
         Action::Panel(PanelCommand::QuickView),
+        true,
     );
     assert!(app.get_inactive_panel_ref().kind.is_quick_view());
     assert!(app.get_active_panel_ref().kind.is_tree());
@@ -74,13 +78,20 @@ fn tree_quick_view_and_long_names_toggle_back_and_forth() {
         &mut terminal,
         &mut app,
         Action::Panel(PanelCommand::QuickView),
+        true,
     );
     assert_eq!(app.get_inactive_panel_ref().kind, PanelKind::Files);
+}
 
+#[test]
+fn long_names_toggles_back_and_forth() {
+    let mut app = App::new().expect("test app");
+    let mut terminal = terminal();
     apply_action(
         &mut terminal,
         &mut app,
-        Action::MenuCommand(MenuCommand::LongNames),
+        Action::Panel(PanelCommand::LongNames),
+        true,
     );
     assert!(app.get_active_panel_ref().options.short_names);
     assert_eq!(app.status_text(), "Short names");
@@ -94,6 +105,7 @@ fn a_sort_key_sets_the_mode_without_a_dialog() {
         &mut terminal,
         &mut app,
         Action::Panel(PanelCommand::Sort(models::SortMode::Size)),
+        true,
     );
     assert_eq!(app.get_active_panel_ref().sort_mode, models::SortMode::Size);
     assert!(!app.overlay.is_active());
@@ -106,6 +118,7 @@ fn a_panel_view_action_sets_the_active_listing() {
         &mut terminal(),
         &mut app,
         Action::PanelView(PanelView::Wide),
+        true,
     );
     assert_eq!(app.get_active_panel_ref().view, PanelView::Wide);
 }
@@ -117,7 +130,8 @@ fn a_tree_panel_consumes_movement_keys() {
     apply_action(
         &mut terminal,
         &mut app,
-        Action::MenuCommand(MenuCommand::Tree),
+        Action::Panel(PanelCommand::Tree),
+        true,
     );
     dispatch_key(&mut terminal, &mut app, key_event(KeyCode::Down));
     assert!(app.get_active_panel_ref().kind.is_tree());
@@ -131,8 +145,9 @@ fn a_quick_view_panel_consumes_its_own_keys() {
         &mut terminal,
         &mut app,
         Action::Panel(PanelCommand::QuickView),
+        true,
     );
-    apply_action(&mut terminal, &mut app, Action::SwitchPanel);
+    apply_action(&mut terminal, &mut app, Action::SwitchPanel, true);
     assert!(app.get_active_panel_ref().kind.is_quick_view());
     dispatch_key(&mut terminal, &mut app, key_event(KeyCode::Down));
 }
@@ -144,7 +159,11 @@ fn plain_dispatch_still_names_grouped_actions() {
     apply_plain_action(&mut terminal, &mut app, Action::PanelView(PanelView::Brief));
     assert_eq!(app.get_active_panel_ref().view, PanelView::Brief);
     apply_plain_action(&mut terminal, &mut app, Action::File(FileCommand::Link));
-    apply_plain_action(&mut terminal, &mut app, Action::Menu(MenuCommand::FindFile));
+    apply_plain_action(
+        &mut terminal,
+        &mut app,
+        Action::Menu(MenuCommand::Shortcuts),
+    );
 }
 
 #[test]
@@ -154,6 +173,7 @@ fn long_names_toggle_through_the_panel_command() {
         &mut terminal(),
         &mut app,
         Action::Panel(PanelCommand::LongNames),
+        true,
     );
     assert!(app.get_active_panel_ref().options.short_names);
 }
@@ -166,6 +186,7 @@ fn hiding_a_panel_through_the_panel_command_matches_the_menu() {
         &mut terminal(),
         &mut app,
         Action::Panel(PanelCommand::TogglePanel(PanelSide::Left)),
+        true,
     );
     assert_eq!(app.panels_shown, PanelsShown::RightOnly);
 }

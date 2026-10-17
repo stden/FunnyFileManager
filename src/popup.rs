@@ -165,11 +165,13 @@ pub(crate) mod tree;
 mod usermenu;
 mod view_history;
 mod viewer;
+mod wheel;
 mod wipe;
-mod wsl;
+pub(crate) mod wsl;
 use editor::process_editor_input;
+pub(crate) use wheel::wheel;
 #[cfg(feature = "keepass")]
-mod kdbx;
+pub(crate) mod kdbx;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

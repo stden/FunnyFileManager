@@ -1,9 +1,11 @@
 //! Purpose: keyboard handling for the `.kdbx` vault-browser overlay.
 //!
-//! Keys: `Enter` unlocks while locked and copies the password once unlocked,
-//! `Ctrl+U` copies the user name, `Ctrl+R` opens the password dialog, printable characters
-//! edit the password (locked) or the filter (unlocked), `Backspace` deletes,
-//! `Up`/`Down`/`PgUp`/`PgDn` move, `Esc` remembers and closes, `Ctrl+L` locks.
+//! Which key means what is the keymap's `vault` context, read by
+//! `action::vault`; `browse` applies the command while the vault is browsed,
+//! `form` takes `Save` and `Undo` from it in the entry form, and `dialogs`
+//! keeps the dialog protocol of the password dialog and the delete question,
+//! the password dialog closing on `Reveal` as well, the command that opened
+//! it.
 //!
 //! # Everything else is swallowed
 //!
@@ -19,93 +21,52 @@
 //! `String`. Nothing here logs, and every [`Status`] it produces is either
 //! payload-free or carries a fixed label (see [`Secret`]).
 
-use crate::models::Lifecycle;
 use std::time::Instant;
 
-use crossterm::event::{KeyCode, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::kdbx::Motion;
+use crate::action::vault::{resolve, VaultCommand};
 use crate::models::App;
-use crate::status::{Secret, Status};
+use crate::status::Status;
 
+mod browse;
 mod copy;
 mod dialogs;
 mod form;
 
+use browse::browse_command;
 use copy::{copy, toggle_reveal};
 use dialogs::{request_delete, undo_vault_change, vault_dialog_input};
 use form::edit_input;
-
-/// Rows `PgUp` / `PgDn` jump inside the entry list.
-///
-/// A fixed step, like the built-in editor's `EDITOR_PAGE`: the key handler does
-/// not know the terminal size, and the overlay is 80% of the screen, so 10 rows
-/// stays inside the visible window on the 24-row terminal the rest of the UI
-/// assumes as its floor.
-const VAULT_PAGE: usize = 10;
 
 /// Handle one key for the vault browser. Always returns `true` — see the module
 /// docs.
 pub(super) fn process_kdbx_input(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> bool {
     let now = Instant::now();
-    if modifiers == KeyModifiers::CONTROL && matches!(code, KeyCode::Char('l' | 'L')) {
+    let key = KeyEvent::new(code, modifiers);
+    let command = resolve(&app.keymap.vault, key);
+    // Locking is answered first, in the form and the dialogs too.
+    if command == Some(VaultCommand::Lock) {
         lock_and_close(app);
         return true;
     }
-    if edit_input(app, code, modifiers, now) {
+    if edit_input(app, key, command, now) {
         return true;
     }
-    if vault_dialog_input(app, code, modifiers, now) {
+    if vault_dialog_input(app, code, command, now) {
         return true;
     }
-    if modifiers == KeyModifiers::CONTROL && matches!(code, KeyCode::Char('c' | 'C')) {
-        lock_and_close(app);
-        app.lifecycle = Lifecycle::Quitting;
-        return true;
+    if let Some(command) = command {
+        browse_command(app, command, now);
     }
-    browse_key(app, code, modifiers, now);
     true
 }
 
-fn browse_key(app: &mut App, code: KeyCode, modifiers: KeyModifiers, now: Instant) {
-    let ctrl = modifiers.contains(KeyModifiers::CONTROL);
-    let alt = modifiers.contains(KeyModifiers::ALT);
-    let locked = app
-        .kdbx_session()
-        .is_some_and(|session| session.state.is_locked());
-
-    match code {
-        KeyCode::Esc => remember_and_close(app),
-        KeyCode::F(4) => begin_edit(app, now),
-        KeyCode::F(6) => toggle_view(app),
-        KeyCode::F(8) => request_delete(app, now),
-
-        KeyCode::Char('r' | 'R') if ctrl && locked => toggle_master_password(app),
-        KeyCode::Char('r' | 'R') if ctrl => toggle_reveal(app, now),
-        KeyCode::Char('u' | 'U') if ctrl => copy(app, Secret::Username, now),
-        KeyCode::Char('z' | 'Z') if ctrl => undo_vault_change(app, now),
-
-        KeyCode::Enter if locked => unlock(app, now),
-        KeyCode::Enter => copy(app, Secret::Password, now),
-
-        KeyCode::Backspace => touch_session(app, |session| session.backspace(now)),
-        KeyCode::Up => move_selection(app, Motion::Prev, now),
-        KeyCode::Down => move_selection(app, Motion::Next, now),
-        KeyCode::PageUp => move_selection(app, Motion::PageUp(VAULT_PAGE), now),
-        KeyCode::PageDown => move_selection(app, Motion::PageDown(VAULT_PAGE), now),
-        KeyCode::Home => move_selection(app, Motion::PageUp(usize::MAX), now),
-        KeyCode::End => move_selection(app, Motion::PageDown(usize::MAX), now),
-
-        // One entry point for printable input; `KdbxSession::type_char` routes it
-        // to the masked password field or the filter, so a master password can
-        // never be typed into the box that is rendered in clear.
-        KeyCode::Char(ch) if !ctrl && !alt => touch_session(app, |session| {
-            session.type_char(ch, now);
-        }),
-
-        // Deliberately empty: no key reaches the panels while this overlay is up.
-        _ => {}
-    }
+/// Apply a command that arrived without a key — one of the unlock prompt's
+/// buttons — as its key would be: the form and the vault's dialogs, which
+/// read the key itself, are never up while the vault is locked.
+pub fn apply(app: &mut App, command: VaultCommand) {
+    browse_command(app, command, Instant::now());
 }
 
 fn toggle_view(app: &mut App) {
@@ -153,10 +114,6 @@ fn touch_session(app: &mut App, edit: impl FnOnce(&mut crate::kdbx::KdbxSession)
     if let Some(session) = app.kdbx_session_mut() {
         edit(session);
     }
-}
-
-fn move_selection(app: &mut App, motion: Motion, now: Instant) {
-    touch_session(app, |session| session.move_selection(motion, now));
 }
 
 /// `Ctrl+L`: overwrite every remembered key and close the overlay.

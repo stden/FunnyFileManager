@@ -18,7 +18,7 @@ fn dispatch(app: &mut App, action: Action) -> io::Result<()> {
     let mut terminal = Terminal::new(backend)?;
     // `apply_action` returns no Result at all: a handler failure can only reach
     // the status bar, never the caller.
-    apply_action(&mut terminal, app, action);
+    apply_action(&mut terminal, app, action, true);
     Ok(())
 }
 

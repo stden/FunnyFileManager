@@ -63,7 +63,7 @@ fn choosing_a_row_under_a_panel_heading_makes_that_panel_active() {
     press(&mut app, KeyCode::Enter);
 
     assert!(!app.overlay.is_active());
-    assert!(app.pending_key.is_some(), "the row's key is handed on");
+    assert!(app.pending_row.is_some(), "the row is handed on");
     assert_eq!(app.active_panel, PanelSide::Right);
 }
 
@@ -90,7 +90,7 @@ fn enter_closes_the_bar_and_hands_on_the_rows_key() {
     press(&mut app, KeyCode::Enter);
 
     assert!(!app.overlay.is_active(), "the bar left the screen first");
-    assert!(app.pending_key.is_some(), "and the command was handed on");
+    assert!(app.pending_row.is_some(), "and the row was handed on");
 }
 
 #[test]
@@ -133,6 +133,6 @@ fn escape_closes_the_bar_and_runs_nothing() {
     open_menu(&mut app, Heading::Files);
     press(&mut app, KeyCode::Esc);
     assert!(!app.overlay.is_active());
-    assert!(app.pending_key.is_none());
+    assert!(app.pending_row.is_none());
     assert!(app.lifecycle.is_running(), "{:?}", Lifecycle::Running);
 }

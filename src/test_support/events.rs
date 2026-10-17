@@ -1,6 +1,7 @@
 //! Shared deterministic input and rendered-screen helpers for crate unit tests.
 
 use super::WritableTestBackend;
+use crate::action::{Action, KeyChord};
 #[cfg(feature = "test-helpers")]
 use crate::models::Panel;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -12,6 +13,21 @@ pub fn key_event(code: KeyCode) -> KeyEvent {
 
 pub fn key_event_with_mods(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
     KeyEvent::new(code, modifiers)
+}
+
+/// The chord `text` writes, as `ffm.yml` spells it (`Ctrl+F3`, `K`, `Alt++`).
+///
+/// # Panics
+///
+/// When `text` is not a chord, which fails the test that wrote it.
+pub fn chord(text: &str) -> KeyChord {
+    text.parse()
+        .unwrap_or_else(|error| panic!("{text}: {error}"))
+}
+
+/// The action `key` runs in the panels under the default keys.
+pub fn panels_action(key: KeyEvent) -> Action {
+    crate::action::resolve(&crate::keymap::tables::PANELS.defaults(), key)
 }
 
 pub fn buffer_text(terminal: &Terminal<WritableTestBackend>) -> String {

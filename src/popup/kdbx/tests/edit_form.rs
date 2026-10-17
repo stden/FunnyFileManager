@@ -67,6 +67,22 @@ fn ctrl_z_undoes_the_latest_edit_keystroke() {
 }
 
 #[test]
+fn ctrl_z_with_another_modifier_held_is_not_the_form_undo() {
+    let ctrl = KeyModifiers::CONTROL;
+    for modifiers in [ctrl | KeyModifiers::SHIFT, ctrl | KeyModifiers::ALT] {
+        let (_dir, mut app) = app_with_unlocked_vault();
+        focus(&mut app, "GitHub");
+        process_popup_input(&mut app, key(KeyCode::F(4)));
+        type_str(&mut app, "X");
+
+        process_popup_input(&mut app, KeyEvent::new(KeyCode::Char('z'), modifiers));
+
+        let form = app.kdbx_session().unwrap().vault().unwrap().form().unwrap();
+        assert_eq!(form.title(), "GitHubX", "{modifiers:?} undid the keystroke");
+    }
+}
+
+#[test]
 fn dirty_form_asks_to_save_on_exit_and_n_discards() {
     let (_dir, mut app) = app_with_unlocked_vault();
     focus(&mut app, "GitHub");

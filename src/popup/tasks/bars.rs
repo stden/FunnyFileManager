@@ -8,6 +8,7 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
+use crate::action::tasks::search::{self, TaskSearchCommand};
 use crate::action::tasks::{resolve, TaskCommand};
 use crate::lineedit::LineEditor;
 use crate::models::ClipboardSlot;
@@ -96,13 +97,13 @@ pub(super) fn search(app: &mut App, key: KeyEvent, clipboard: &mut ClipboardSlot
     let Modal::Search(bar) = list.modal_mut() else {
         return;
     };
-    match key.code {
-        KeyCode::Enter | KeyCode::Esc => list.close_modal(),
-        KeyCode::F(3) if !bar.line().text().is_empty() => {
+    match (search::resolve(key), key.code) {
+        (Some(TaskSearchCommand::FindNext), _) if !bar.line().text().is_empty() => {
             let query = bar.line().text().to_owned();
             find(list, &query, SearchFrom::AfterCursor, page);
         }
-        code => {
+        (_, KeyCode::Enter | KeyCode::Esc) => list.close_modal(),
+        (_, code) => {
             if let Some(query) = edited(bar.line_mut(), code, key.modifiers, clipboard) {
                 find(list, &query, SearchFrom::Cursor, page);
             }

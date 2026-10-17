@@ -26,7 +26,7 @@ impl Action {
     #[must_use]
     pub const fn scope(self) -> ActionScope {
         match self {
-            Self::MenuCommand(command) | Self::Menu(command) => menu_scope(command),
+            Self::Menu(command) => menu_scope(command),
             Self::Dialog(command) => dialog_scope(command),
             Self::Navigate(command) => navigation_scope(command),
             Self::Selection(_)
@@ -67,28 +67,14 @@ pub const fn menu_scope(command: MenuCommand) -> ActionScope {
         | MenuCommand::UpdatePackages
         | MenuCommand::McpInstall
         | MenuCommand::Path(_)
-        | MenuCommand::Tree
-        | MenuCommand::QuickView
-        | MenuCommand::Sort
-        | MenuCommand::LongNames
-        | MenuCommand::TogglePanel(_)
-        | MenuCommand::FindFile
-        | MenuCommand::History
-        | MenuCommand::VideoMode
-        | MenuCommand::FindFolder
-        | MenuCommand::ViewHistory
-        | MenuCommand::FolderHistory
         | MenuCommand::Associations
         | MenuCommand::Shortcuts
-        | MenuCommand::Filter
-        | MenuCommand::Screens
-        | MenuCommand::Tasks
         | MenuCommand::Devices
         | MenuCommand::Settings(_)
         | MenuCommand::SaveSetup => ActionScope::Program,
-        // Open-ended on purpose, and on the safe side: the Files menu,
-        // Compare and the user menu act on entries, and a row added later is
-        // refused over a `NetBox` panel until it is named above.
+        // Open-ended on purpose, and on the safe side: Compare and the user
+        // menu act on entries, and a row added later is refused over a
+        // `NetBox` panel until it is named above.
         _ => ActionScope::Entries,
     }
 }

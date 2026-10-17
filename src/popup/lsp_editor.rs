@@ -1,12 +1,15 @@
 //! Purpose: The Language servers dialog's keys, one function per mode.
 //!
 //! Every key reaches this dialog while it is open, so none of them can clash
-//! with a panel or command-line binding; each means what it already means in
-//! FFM or Far. Keys a mode does not list are ignored.
+//! with a panel or command-line binding. The list's and the view's keys are
+//! the keymap's `language_servers` context (`App.keymap`), looked up exactly
+//! by `action::lsp_editor`; a key nothing is bound to is swallowed. The form
+//! and the exit question keep the dialog protocol here.
 
-use crossterm::event::{KeyCode, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::editor::{exit_key, ExitKey};
+use crate::action::lsp_editor::{resolve, LspListCommand};
 use crate::models::lsp_editor::{FormTarget, ListFocus, Mode, Step};
 use crate::models::{App, ExitChoice, LspEditor, Overlay};
 use crate::ops::lsp_editor::{self as ops, SaveOutcome};
@@ -42,15 +45,14 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
             .map_or(Keys::Form, |list| Keys::List(list.focus())),
         Mode::ConfirmExit(choice) => Keys::Exit(*choice),
     };
-    match keys {
-        Keys::Browse if modifiers.is_empty() => browse(app, code),
-        Keys::View if modifiers.is_empty() => view(app, code),
-        // No list or view key takes a modifier, and a modified key is another
-        // key: Shift+F8 or Alt+F7 means something else in Far.
-        Keys::Browse | Keys::View => {}
-        Keys::Form => form(app, code, modifiers),
-        Keys::List(focus) => list(app, code, modifiers, focus),
-        Keys::Exit(choice) => confirm_exit(app, code, choice),
+    let command = resolve(&app.keymap.language_servers, KeyEvent::new(code, modifiers));
+    match (keys, command) {
+        (Keys::Browse, Some(command)) => browse(app, command),
+        (Keys::View, Some(command)) => view(app, command),
+        (Keys::Browse | Keys::View, None) => {}
+        (Keys::Form, _) => form(app, code, modifiers),
+        (Keys::List(focus), _) => list(app, code, modifiers, focus),
+        (Keys::Exit(choice), _) => confirm_exit(app, code, choice),
     }
     true
 }
@@ -68,37 +70,26 @@ fn set_mode(app: &mut App, mode: Mode) {
     }
 }
 
-/// The move a navigation key makes in a list or the view.
-const fn step(code: KeyCode) -> Option<Step> {
-    match code {
-        KeyCode::Up => Some(Step::Up),
-        KeyCode::Down => Some(Step::Down),
-        KeyCode::PageUp => Some(Step::PageUp),
-        KeyCode::PageDown => Some(Step::PageDown),
-        KeyCode::Home => Some(Step::First),
-        KeyCode::End => Some(Step::Last),
-        _ => None,
+fn move_selection(app: &mut App, step: Step) {
+    if let Some(editor) = editor(app) {
+        editor.move_selection(step);
     }
 }
 
 /// The server list.
-fn browse(app: &mut App, code: KeyCode) {
-    if let (Some(step), Some(editor)) = (step(code), editor(app)) {
-        editor.move_selection(step);
-        return;
-    }
-    match code {
-        KeyCode::Enter | KeyCode::F(4) => edit_selected(app),
-        KeyCode::Char(' ') => ops::toggle(app),
-        KeyCode::Insert | KeyCode::F(7) => ops::open_form(app, &FormTarget::New),
-        KeyCode::Delete | KeyCode::F(8) => ops::delete_selected(app),
-        KeyCode::F(2) => {
+fn browse(app: &mut App, command: LspListCommand) {
+    match command {
+        LspListCommand::Move(step) => move_selection(app, step),
+        LspListCommand::Edit => edit_selected(app),
+        LspListCommand::ToggleEnabled => ops::toggle(app),
+        LspListCommand::Add => ops::open_form(app, &FormTarget::New),
+        LspListCommand::Remove => ops::delete_selected(app),
+        LspListCommand::Save => {
             ops::save(app);
         }
-        KeyCode::F(3) => set_mode(app, Mode::View(ScrollTop::TOP)),
-        KeyCode::F(5) => ops::recheck(app),
-        KeyCode::Esc | KeyCode::F(10) => close(app),
-        _ => {}
+        LspListCommand::View => set_mode(app, Mode::View(ScrollTop::TOP)),
+        LspListCommand::Recheck => ops::recheck(app),
+        LspListCommand::Close => close(app),
     }
 }
 
@@ -109,7 +100,7 @@ fn edit_selected(app: &mut App) {
     ops::open_form(app, &FormTarget::Existing(language));
 }
 
-/// Esc / F10: close at once when nothing changed, else ask.
+/// `close`: at once when nothing changed, else ask.
 fn close(app: &mut App) {
     if editor(app).is_some_and(|editor| editor.dirty()) {
         set_mode(app, Mode::ConfirmExit(ExitChoice::default()));
@@ -120,16 +111,23 @@ fn close(app: &mut App) {
     }
 }
 
-/// F3: every server, scrolled.
-fn view(app: &mut App, code: KeyCode) {
-    if let (Some(step), Some(editor)) = (step(code), editor(app)) {
-        editor.scroll_view(step);
-        return;
-    }
-    match code {
-        KeyCode::F(5) => ops::recheck(app),
-        KeyCode::F(3 | 10) | KeyCode::Esc => set_mode(app, Mode::Browse),
-        _ => {}
+/// The view of every server: it scrolls with the list's moves, checks
+/// again with `recheck` and returns to the list with `view` or `close`.
+fn view(app: &mut App, command: LspListCommand) {
+    match command {
+        LspListCommand::Move(step) => {
+            if let Some(editor) = editor(app) {
+                editor.scroll_view(step);
+            }
+        }
+        LspListCommand::Recheck => ops::recheck(app),
+        LspListCommand::View | LspListCommand::Close => set_mode(app, Mode::Browse),
+        // The list's own commands: nothing to do in the view.
+        LspListCommand::Edit
+        | LspListCommand::ToggleEnabled
+        | LspListCommand::Add
+        | LspListCommand::Remove
+        | LspListCommand::Save => {}
     }
 }
 

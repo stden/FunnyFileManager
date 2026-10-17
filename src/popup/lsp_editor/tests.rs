@@ -13,6 +13,7 @@ use crate::test_support::lsp_machine::{
 };
 
 mod exit_question;
+mod keymap;
 mod servers;
 
 fn mode(app: &App) -> &Mode {
@@ -106,8 +107,9 @@ fn the_form_and_the_exit_question_open_centred() {
     assert_eq!(app.dialog_mouse.offset, (0, 0), "the exit question");
 }
 
-/// Keys not listed do nothing: with a modifier, a list or view key is a
-/// different key (Shift+F8, Alt+F7 and Shift+F2 mean other things in Far).
+/// A key nothing is bound to does nothing: with a modifier, a list or view
+/// key is another key (Shift+F8, Alt+F7 and Shift+F2 mean other things in
+/// Far).
 #[test]
 fn a_modified_list_or_view_key_does_nothing() {
     let machine = LspMachine::new();

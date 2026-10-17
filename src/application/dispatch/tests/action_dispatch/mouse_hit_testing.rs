@@ -5,7 +5,7 @@ use super::*;
 #[test]
 fn sort_menu_mouse_click_activates_the_clicked_criterion() {
     let (mut app, mut terminal, _dir) = app_and_terminal(&["file"]);
-    ops::menu::execute(&mut app, menu::MenuCommand::Sort);
+    ops::sortmenu::open(&mut app);
     let mut clicks = crate::mouse::PanelClicks::default();
     let screen = ratatui::layout::Rect::new(0, 0, 80, 24);
     let mut mouse = crossterm::event::MouseEvent {

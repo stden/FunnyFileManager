@@ -146,17 +146,17 @@ fn every_visible_button_click_matches_its_rendered_key_after_resize() {
     let dialog = dialog(&["Debian"]);
     for (width, height) in [(90, 24), (42, 12), (18, 6)] {
         let buffer = draw(&dialog, width, height);
-        for (label, key) in [
-            ("Open", KeyCode::Enter),
-            ("F2", KeyCode::F(2)),
-            ("F5", KeyCode::F(5)),
-            ("F6", KeyCode::F(6)),
-            ("Esc", KeyCode::Esc),
+        for (label, command) in [
+            ("Open", WslCommand::Open),
+            ("F2", WslCommand::Refresh),
+            ("F5", WslCommand::Update),
+            ("F6", WslCommand::UpdatePackages),
+            ("Esc", WslCommand::Close),
         ] {
             let (column, row) = locate(&buffer, label);
             assert_eq!(
                 wsl_button_at(buffer.area, &dialog, column, row),
-                Some(key),
+                Some(command),
                 "{label} at {width}x{height}"
             );
         }
@@ -184,7 +184,7 @@ fn busy_buttons_are_dim_and_disabled_while_close_stays_clickable() {
         let (column, row) = locate(&buffer, "Esc");
         assert_eq!(
             wsl_button_at(buffer.area, &dialog, column, row),
-            Some(KeyCode::Esc)
+            Some(WslCommand::Close)
         );
         assert_eq!(buffer[(column, row)].fg, palette::HOTKEY);
     }

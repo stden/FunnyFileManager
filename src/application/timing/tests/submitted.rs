@@ -1,22 +1,57 @@
 //! Purpose: timing labels of submitted menu operations and dialogs — distinct names, never the paths or text they carried.
 
 use super::*;
+use crate::action::{FileCommand, PanelCommand, ToolCommand};
+
+/// The drop-down `heading`, with the cursor on the row that runs `action`.
+fn menu_at(heading: Heading, action: Action) -> Menu {
+    let mut menu = Menu::open(heading);
+    menu.row = menu
+        .entries()
+        .iter()
+        .position(|entry| entry.action() == Some(action))
+        .unwrap_or_else(|| panic!("{heading:?} has no {action:?} row"));
+    menu
+}
 
 #[test]
 fn submitted_menu_operations_have_distinct_payload_free_names() {
     let temp = tempfile::TempDir::new().expect("tempdir");
     let mut app = app(&temp);
-    let mut menu = Menu::open(Heading::Commands);
-    menu.row = menu
-        .entries()
-        .iter()
-        .position(|entry| entry.menu_command() == Some(MenuCommand::UpdatePackages))
-        .expect("update row");
-    app.set_overlay(Overlay::Menu(menu));
+    app.set_overlay(Overlay::Menu(menu_at(
+        Heading::Commands,
+        Action::Menu(MenuCommand::UpdatePackages),
+    )));
     assert_eq!(
         key_label(&app, KeyEvent::from(KeyCode::Enter)),
         "Menu/UpdatePackages"
     );
+}
+
+/// A row with a key is named by the command it holds, whichever family
+/// names it, as it was while every keyed row was a `MenuCommand`: the stats
+/// screen keeps one line per menu function instead of one "Menu/Enter" line
+/// for all of them.
+#[test]
+fn submitted_keyed_rows_are_named_by_their_command() {
+    let temp = tempfile::TempDir::new().expect("tempdir");
+    let mut app = app(&temp);
+    for (heading, action, label) in [
+        (Heading::Files, Action::File(FileCommand::Link), "Menu/Link"),
+        (
+            Heading::Left,
+            Action::Panel(PanelCommand::Tree),
+            "Menu/Tree",
+        ),
+        (
+            Heading::Commands,
+            Action::Tool(ToolCommand::FindFile),
+            "Menu/FindFile",
+        ),
+    ] {
+        app.set_overlay(Overlay::Menu(menu_at(heading, action)));
+        assert_eq!(key_label(&app, KeyEvent::from(KeyCode::Enter)), label);
+    }
 }
 
 #[test]
@@ -60,7 +95,7 @@ fn submitted_dialogs_without_a_named_operation_keep_the_generic_label() {
     assert!(!directory.contains("private"), "{directory}");
 
     app.set_overlay(Overlay::MenuDialog(Box::new(MenuDialog::Prompt {
-        command: MenuCommand::Filter,
+        purpose: MenuPrompt::Filter,
         title: "private title".to_owned(),
         caption: "private caption".to_owned(),
         input: LineEditor::new("private-mask"),

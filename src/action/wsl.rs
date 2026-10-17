@@ -1,6 +1,11 @@
 //! WSL dialog key language. Resolving input never starts a process.
+//!
+//! The keys are the `wsl_manager` context of the keymap: [`resolve`] looks
+//! the key's chord up in the bindings it is handed and names no key itself.
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::KeyEvent;
+
+use super::Bindings;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WslCommand {
@@ -13,26 +18,18 @@ pub enum WslCommand {
     Update,
     UpdatePackages,
     Close,
+    /// The answer to a key nothing is bound to: the dialog consumes it.
     Ignore,
 }
 
-/// Resolve one key to a dialog command. System and package updates stay distinct.
+/// The command `key` runs in the dialog, as `bindings` gives it.
+///
+/// Only the chord exactly as bound runs its command, so Shift+Enter is not
+/// Enter and Ctrl+Up is not Up. Every other key is [`WslCommand::Ignore`],
+/// which keeps it inside the dialog.
 #[must_use]
-pub fn resolve(key: KeyEvent) -> WslCommand {
-    use WslCommand::{Close, Down, First, Ignore, Last, Open, Refresh, Up, Update, UpdatePackages};
-
-    keymap! { key;
-        KeyCode::Up => Up,
-        KeyCode::Down => Down,
-        KeyCode::Home => First,
-        KeyCode::End => Last,
-        KeyCode::Enter if without(CONTROL + ALT) => Open,
-        KeyCode::F(2) if without(CONTROL + ALT + SHIFT) => Refresh,
-        KeyCode::F(5) if without(CONTROL + ALT + SHIFT) => Update,
-        KeyCode::F(6) if without(CONTROL + ALT + SHIFT) => UpdatePackages,
-        KeyCode::Esc => Close,
-        _ => Ignore,
-    }
+pub fn resolve(bindings: &Bindings<WslCommand>, key: KeyEvent) -> WslCommand {
+    bindings.resolve(key).unwrap_or(WslCommand::Ignore)
 }
 
 #[cfg(test)]

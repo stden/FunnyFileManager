@@ -60,7 +60,7 @@ fn a_file_opened_with_f4_is_listed_by_the_view_history() -> io::Result<()> {
     let mut app = open(&temp_dir, "leaf.txt", b"leaf\n")?;
     app.close_overlay();
 
-    crate::ops::menu::execute(&mut app, crate::menu::MenuCommand::ViewHistory);
+    crate::ops::menu::execute_tool(&mut app, crate::action::ToolCommand::ViewHistory)?;
 
     let Overlay::MenuDialog(dialog) = &app.overlay else {
         panic!("the view history is open");

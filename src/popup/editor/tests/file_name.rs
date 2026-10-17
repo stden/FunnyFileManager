@@ -29,7 +29,7 @@ fn ctrl_f_types_the_file_name_when_the_clipboard_fails() {
     let clipboard = Clipboard::default();
     clipboard.0.borrow_mut().fail = true;
     app.clipboard.install(Box::new(clipboard));
-    key(&mut app, KeyCode::Char('F'), KeyModifiers::CONTROL);
+    key(&mut app, KeyCode::Char('f'), KeyModifiers::CONTROL);
     let editor = app.get_editor().expect("editor");
     assert_eq!(editor.content(), crate::path_display::label(&path));
     let notice = editor.notice.as_deref().expect("visible error");

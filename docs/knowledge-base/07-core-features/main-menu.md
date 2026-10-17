@@ -1,9 +1,11 @@
 # F9 main menu
 
-Every non-separator F9 entry is executable. Menus use the existing keyboard
-dispatcher or a typed `MenuCommand`; effects live in `src/ops/menu/`. The
-behavior is tailored to FunnyFileManager rather than reproducing every Far
-Manager dialog.
+Every non-separator F9 entry is executable. A row holds the same `Action`
+its key resolves to (`MenuCommand` for the rows Far gives no key) and runs
+it through the keyboard's dispatcher once the drop-down has closed
+(`App.pending_row`, `dispatch_action`); effects live in `src/ops/menu/`.
+The behavior is tailored to FunnyFileManager rather than reproducing every
+Far Manager dialog.
 
 The Commands menu also provides action timing statistics, installed-package
 updates, separate user/system PATH editors, and Install MCP server. Their

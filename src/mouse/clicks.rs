@@ -2,7 +2,29 @@
 
 use std::time::{Duration, Instant};
 
+use crossterm::event::MouseEventKind;
+
 use crate::models::PanelSide;
+
+/// A turn of the wheel, which every screen answers as a cursor move of its
+/// own: a panel's, the console's, the viewer's, or a dialog's Up and Down.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Wheel {
+    Up,
+    Down,
+}
+
+impl Wheel {
+    /// The turn `kind` reports, if it is one.
+    #[must_use]
+    pub const fn of(kind: MouseEventKind) -> Option<Self> {
+        match kind {
+            MouseEventKind::ScrollUp => Some(Self::Up),
+            MouseEventKind::ScrollDown => Some(Self::Down),
+            _ => None,
+        }
+    }
+}
 
 /// What a press on a panel row means for this click sequence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

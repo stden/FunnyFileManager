@@ -70,6 +70,59 @@ fn the_rename_field_selects_with_shift_and_copies() {
     assert_eq!(rename_field(&app), "report.txt.txt");
 }
 
+/// The command line's text, when it is open.
+fn command_line_text(app: &mut App) -> Option<String> {
+    app.get_command_line_mut()
+        .map(|line| line.text().to_owned())
+}
+
+#[test]
+fn the_command_line_copies_cuts_and_pastes_with_the_ctrl_keys() {
+    let (mut app, memory) = app_with(Overlay::None);
+    app.set_overlay(Overlay::CommandLine(crate::models::CommandLine::default()));
+    for ch in "echo hi".chars() {
+        press(&mut app, KeyCode::Char(ch), KeyModifiers::NONE);
+    }
+
+    // Shift+Home selects the whole line; Ctrl+Insert copies it and keeps it.
+    press(&mut app, KeyCode::Home, KeyModifiers::SHIFT);
+    press(&mut app, KeyCode::Insert, KeyModifiers::CONTROL);
+    assert_eq!(*memory.0.borrow(), "echo hi");
+    assert_eq!(command_line_text(&mut app).as_deref(), Some("echo hi"));
+
+    // Ctrl+X cuts it, leaving the line empty.
+    press(&mut app, KeyCode::Char('x'), KeyModifiers::CONTROL);
+    assert_eq!(command_line_text(&mut app).as_deref(), Some(""));
+    assert_eq!(*memory.0.borrow(), "echo hi");
+
+    // Ctrl+V puts it back at the caret.
+    press(&mut app, KeyCode::Char('v'), KeyModifiers::CONTROL);
+    assert_eq!(command_line_text(&mut app).as_deref(), Some("echo hi"));
+}
+
+#[test]
+fn enter_with_the_completion_list_open_takes_the_candidate_and_runs_nothing() {
+    let temp = tempfile::TempDir::new().expect("temp dir");
+    for name in ["Documents", "Downloads"] {
+        std::fs::create_dir(temp.path().join(name)).expect("mkdir");
+    }
+    let (mut app, _memory) = app_with(Overlay::None);
+    app.set_overlay(Overlay::CommandLine(crate::models::CommandLine::from(
+        "cat Do",
+    )));
+    app.left_panel = Panel::new(temp.path().to_path_buf()).expect("panel");
+    app.active_panel = crate::models::PanelSide::Left;
+
+    // Tab with two candidates opens the list; Enter takes the highlighted one.
+    press(&mut app, KeyCode::Tab, KeyModifiers::NONE);
+    press(&mut app, KeyCode::Enter, KeyModifiers::NONE);
+    let text = command_line_text(&mut app).expect("the command line stays open");
+    assert!(
+        text.starts_with("cat Do") && text != "cat Do",
+        "Enter should complete the word, not run the line: {text:?}"
+    );
+}
+
 #[test]
 fn a_terminal_paste_types_into_the_focused_field() {
     let rename = NamePrompt::rename(FileName::new("old.txt"));

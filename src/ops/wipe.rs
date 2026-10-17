@@ -17,8 +17,8 @@
 //! file with other hard links goes the same way, and the summary says so:
 //! its bytes belong to those names too.
 //!
-//! Reached from the Files menu row and from `Alt+Del`, both of which resolve
-//! to `MenuCommand::Wipe`; `ops::menu` hands that command here.
+//! Reached from the Files menu row and from `Alt+Del`, both of which name
+//! `FileCommand::Wipe`; `ops::menu` hands that command here.
 
 use crate::models::{App, Overlay};
 use crate::status::{FailedEntry, Status};

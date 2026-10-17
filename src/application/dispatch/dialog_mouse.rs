@@ -5,18 +5,22 @@
 //! is under the pointer, which key that button stands for, and whether a press
 //! on blank dialog is a grip rather than a command.
 //!
-//! Every answer is a keystroke. A click is turned into the key that already
-//! does the job, rather than into a second way of doing it, so the mouse and
-//! the keyboard cannot drift apart and a dialog gains mouse support by naming
-//! its buttons rather than by growing a handler of its own.
+//! Every answer is the key of the dialog protocol the control stands for,
+//! or, where the screen has commands of its own — the viewer, the editor's
+//! text, the task list's table, the WSL manager, the vault's unlock prompt —
+//! that command. A click is turned into what already does the job, rather
+//! than into a second way of doing it, so the mouse and the keyboard cannot
+//! drift apart and a dialog gains mouse support by naming its buttons
+//! rather than by growing a handler of its own.
 
 use std::io::Write;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{backend::Backend, Terminal};
 
 use crate::models::App;
-use crate::mouse::DialogTarget;
+use crate::mouse::{DialogTarget, Wheel};
+use crate::popup;
 
 mod button_keys;
 mod menus;
@@ -31,6 +35,8 @@ use button_keys::dialog_button_key;
 use button_keys::dialog_button_key_in_editor;
 #[cfg(all(test, feature = "keepass"))]
 use button_keys::kdbx_button_key;
+#[cfg(feature = "keepass")]
+use button_keys::vault_prompt_button;
 use menus::{click_choice_menu, click_in_menu, click_sort_menu};
 use rows::click_dialog_row;
 
@@ -50,15 +56,19 @@ pub(super) fn dispatch_dialog_mouse<B>(
     use crossterm::event::{MouseButton, MouseEventKind};
 
     let (column, row) = (mouse.column, mouse.row);
-    match mouse.kind {
-        MouseEventKind::ScrollUp | MouseEventKind::ScrollDown => {
-            let code = if mouse.kind == MouseEventKind::ScrollUp {
-                KeyCode::Up
-            } else {
-                KeyCode::Down
+    if let Some(wheel) = Wheel::of(mouse.kind) {
+        // A screen with scroll commands of its own takes the wheel as one;
+        // a dialog takes it as the Up or Down key of its protocol.
+        if !popup::wheel(app, wheel, mouse.modifiers) {
+            let code = match wheel {
+                Wheel::Up => KeyCode::Up,
+                Wheel::Down => KeyCode::Down,
             };
             super::dispatch_key(terminal, app, KeyEvent::new(code, mouse.modifiers));
         }
+        return;
+    }
+    match mouse.kind {
         MouseEventKind::Down(MouseButton::Left) => {
             click_dialog(terminal, app, column, row);
         }
@@ -95,13 +105,22 @@ fn click_dialog<B: Backend + Write>(
             // which is how you look at what is underneath.
             app.dialog_mouse.grabbed = Some((column, row));
         }
-        DialogTarget::Button(index) => {
-            if let Some(key) = dialog_button_key(app, index) {
-                super::dispatch_key(terminal, app, key);
-            }
-        }
+        DialogTarget::Button(index) => press_button(terminal, app, index),
         DialogTarget::Row(index) => click_dialog_row(app, index),
         DialogTarget::Outside | DialogTarget::Popup => {}
+    }
+}
+
+/// The `index`-th button: the vault's unlock prompt has commands of its own;
+/// every other dialog's button is a key of its protocol.
+fn press_button<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut App, index: usize) {
+    #[cfg(feature = "keepass")]
+    if let Some(command) = vault_prompt_button(app, index) {
+        popup::kdbx::apply(app, command);
+        return;
+    }
+    if let Some(key) = dialog_button_key(app, index) {
+        super::dispatch_key(terminal, app, key);
     }
 }
 
@@ -122,19 +141,16 @@ fn click_special_dialog<B: Backend + Write>(
             let screen = ratatui::layout::Rect::new(0, 0, size.width, size.height);
             crate::ui::wsl_button_at(screen, dialog, column, row)
         });
-        if let Some(code) = clicked {
-            super::dispatch_key(terminal, app, KeyEvent::new(code, KeyModifiers::NONE));
+        if let Some(command) = clicked {
+            popup::wsl::apply(app, command);
         }
         return true;
     }
     if let crate::models::Overlay::Menu(menu) = &app.overlay {
         click_in_menu(app, *menu, column, row);
-        // The same handoff the keyboard does: a chosen row runs its command by
-        // pressing that command's key, once the menu has left the screen.
-        if let Some(shortcut) = app.pending_key.take() {
-            let chosen = KeyEvent::new(shortcut.code, shortcut.modifiers);
-            super::dispatch_key(terminal, app, chosen);
-        }
+        // The same handoff the keyboard does: the chosen row runs once the
+        // menu has left the screen.
+        super::run_pending_row(terminal, app);
         return true;
     }
 

@@ -47,10 +47,11 @@ fn key_label(app: &App, key: KeyEvent) -> String {
         }
     }
     if matches!(app.overlay, Overlay::None) {
-        return crate::diagnostics::action_label(crate::action::resolve(key));
+        let action = crate::action::resolve(&app.keymap.panels, key);
+        return crate::diagnostics::action_label(action);
     }
     if matches!(app.overlay, Overlay::Editor(_)) {
-        let command = crate::action::editor::resolve(key);
+        let command = crate::action::editor::resolve(&app.keymap.editor, key);
         return match command {
             crate::action::editor::EditorCommand::Insert(_) => "Editor/Insert".to_owned(),
             other => format!("Editor/{other:?}"),
@@ -70,8 +71,8 @@ fn submitted_label(overlay: &Overlay) -> Option<String> {
         Overlay::CommandLine(line) => Some(command_label(line.line.text())),
         Overlay::Menu(menu) => menu
             .entry()
-            .and_then(crate::menu::Entry::menu_command)
-            .map(|command| format!("Menu/{command:?}")),
+            .and_then(crate::menu::Entry::action)
+            .and_then(menu_row_label),
         Overlay::MenuDialog(dialog) => {
             let MenuDialog::Choices { rows, selected, .. } = dialog.as_ref() else {
                 return None;
@@ -85,6 +86,21 @@ fn submitted_label(overlay: &Overlay) -> Option<String> {
         }
         _ => None,
     }
+}
+
+/// The name of a menu row's operation: the command it holds, whichever
+/// family names it, so the stats screen keeps one line per menu function.
+/// A row that holds a bare panel action is labelled as its key would be.
+fn menu_row_label(action: crate::action::Action) -> Option<String> {
+    use crate::action::Action;
+    let command = match action {
+        Action::Menu(command) => format!("{command:?}"),
+        Action::Panel(command) => format!("{command:?}"),
+        Action::File(command) => format!("{command:?}"),
+        Action::Tool(command) => format!("{command:?}"),
+        _ => return None,
+    };
+    Some(format!("Menu/{command}"))
 }
 
 fn command_label(text: &str) -> String {

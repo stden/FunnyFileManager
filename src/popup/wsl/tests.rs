@@ -2,7 +2,9 @@
 
 use tempfile::TempDir;
 
+use crate::keymap::{tables, ActionName, Explicit};
 use crate::models::{DistributionName, WslDialog, WslOperation, WslRequestId};
+use crate::test_support::chord;
 
 use super::*;
 
@@ -25,6 +27,12 @@ fn dialog(app: &App) -> &WslDialog {
 
 fn key(app: &mut App, code: KeyCode) {
     assert!(process(app, code, KeyModifiers::NONE));
+}
+
+/// Presses the key written `text`, as a terminal sends it.
+fn press(app: &mut App, text: &str) {
+    let event = chord(text).to_event();
+    assert!(process(app, event.code, event.modifiers), "{text}");
 }
 
 #[test]
@@ -103,4 +111,37 @@ fn unsupported_keys_never_reach_the_files_behind_the_dialog() {
     app.set_overlay(Overlay::Help);
     assert!(!process(&mut app, KeyCode::Esc, KeyModifiers::NONE));
     assert!(matches!(app.overlay, Overlay::Help));
+}
+
+/// Exact matching: a modifier makes another key, which the dialog consumes
+/// and answers with nothing.
+#[test]
+fn a_key_held_with_a_modifier_stays_in_the_dialog_and_does_nothing() {
+    let mut app = app();
+    for text in ["Ctrl+Down", "Shift+End", "Shift+Enter", "Alt+F5", "Alt+Esc"] {
+        press(&mut app, text);
+        assert_eq!(dialog(&app).selected(), Some(0), "{text}");
+        assert!(app.wsl_requests.pending().is_empty(), "{text}");
+    }
+}
+
+#[test]
+fn the_dialog_reads_the_keys_the_app_holds() {
+    let file = Explicit::from([
+        (ActionName::new("cursor_down"), vec![chord("j")]),
+        (ActionName::new("refresh"), vec![chord("Ctrl+R")]),
+    ]);
+    let mut app = app();
+    app.keymap.wsl_manager = tables::WSL_MANAGER.layered(&file).bindings;
+    press(&mut app, "Down");
+    press(&mut app, "F2");
+    assert_eq!(dialog(&app).selected(), Some(0));
+    assert!(app.wsl_requests.pending().is_empty());
+    press(&mut app, "j");
+    press(&mut app, "Ctrl+R");
+    assert_eq!(dialog(&app).selected(), Some(1));
+    assert_eq!(
+        app.wsl_requests.pending()[0].operation,
+        WslOperation::Refresh
+    );
 }

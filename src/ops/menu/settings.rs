@@ -6,10 +6,10 @@
 use crate::{
     config::document,
     history::Persistence,
-    menu::{MenuCommand, SettingsPage},
+    menu::SettingsPage,
     models::{
         settings::{specification, OptionsSection, PageValues, Settings},
-        App,
+        App, MenuPrompt,
     },
     status::Status,
 };
@@ -22,7 +22,7 @@ use std::{
 pub fn open(app: &mut App, page: SettingsPage) {
     let (title, _, caption) = specification(page);
     let value = app.settings.get(page).to_owned();
-    super::prompt(app, MenuCommand::Settings(page), title, caption, &value);
+    super::prompt(app, MenuPrompt::Settings(page), title, caption, &value);
 }
 
 /// Load the pages from the settings file under the config home, if the

@@ -113,9 +113,9 @@ The language records the user's intent; the interpreter owns its consequences.
 
 | Input context | Typed language | Interpreter |
 |---|---|---|
-| Main view | `Action`, resolved by the declarative keymap in `action.rs` | `application/dispatch.rs` |
-| Editor buffer | `EditorCommand`, resolved by `action::editor::resolve(KeyEvent)` | `popup/editor.rs::apply_editor_command` |
-| WSL manager | `WslCommand`, resolved by `action::wsl::resolve(KeyEvent)` | `popup/wsl.rs` |
+| Main view | `Action`, resolved by `action::resolve(bindings, KeyEvent)` over `App.keymap.panels` | `application/dispatch.rs` |
+| Editor buffer | `EditorCommand`, resolved by `action::editor::resolve(bindings, KeyEvent)` over `App.keymap.editor` | `popup/editor.rs::apply_editor_command` |
+| WSL manager | `WslCommand`, resolved by `action::wsl::resolve(&app.keymap.wsl_manager, KeyEvent)` | `popup/wsl.rs` |
 | Submitted command line | `Command`, parsed and validated in `command.rs` | `ops/dispatch.rs` |
 
 ```mermaid
@@ -125,7 +125,7 @@ flowchart LR
     Action --> Dispatch[application dispatch]
     EditorKeys[Editor key] --> Priority{Confirmation or search active?}
     Priority -->|yes| Local[Consume in the active editor prompt]
-    Priority -->|no| EditorMap[action/editor keymap]
+    Priority -->|no| EditorMap["editor table bindings, then fallback"]
     EditorMap --> EditorCommand[EditorCommand]
     EditorCommand --> Executor[popup/editor interpreter]
     Text[Submitted command line] --> Parse[Command parse and validation]
@@ -139,8 +139,8 @@ flowchart LR
     CommandOps --> Effects
 ```
 
-Both keymaps use the shared `keymap!` syntax in `action/keymap.rs`. Bindings
-are ordered and the first match wins. Modifier policy is explicit:
+The shared `keymap!` syntax in `action/keymap.rs` describes ordered bindings
+where it is used. The first match wins, and modifier policy is explicit:
 
 | Binding clause | Meaning |
 |---|---|
@@ -148,6 +148,11 @@ are ordered and the first match wins. Modifier policy is explicit:
 | `exact(CONTROL)` | Requires Control alone, as for editor copy |
 | `without(CONTROL + ALT)` | Rejects either modifier, as for inserted text |
 | No clause | Matches the key regardless of modifiers |
+
+The panels' and editor's keys are rows of their tables in `src/keymap/tables/`,
+held by `App.keymap.panels` and `App.keymap.editor`. They match exactly: a
+modifier nothing is bound with makes another key, which reaches the context's
+fixed fallback in `action.rs` or `action/editor.rs`.
 
 The editor language expresses `Move { motion, selection }`, text editing,
 search, save/close, and clipboard intent. `EditorNavigation` carries direction

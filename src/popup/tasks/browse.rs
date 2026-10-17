@@ -29,7 +29,7 @@ pub(super) fn process(app: &mut App, key: KeyEvent) {
 }
 
 /// `command` on a list whose table shows `page` rows.
-fn apply(list: &mut TaskList, command: TaskCommand, page: usize) {
+pub(super) fn apply(list: &mut TaskList, command: TaskCommand, page: usize) {
     match command {
         TaskCommand::Move(motion) => list.move_cursor(motion, page),
         TaskCommand::Pan(Pan::Left(step)) => list.pan_left(step.cells()),

@@ -50,10 +50,13 @@ priority. `process_popup_input` matches the active variant:
   it, Tab and Up/Down navigate it, Enter accepts the selection, and Esc
   dismisses the menu before it can close the overlay.
 - DriveSelection, DeleteConfirm, and NewFileInput
-- WSL manager — `action/wsl.rs` maps keys to `WslCommand`; `popup/wsl.rs`
-  interprets navigation and queues operations. Enter opens the selected root,
-  F2 refreshes distributions, F5 updates WSL, F6 updates selected-distribution
-  packages, and Esc closes. Busy operations still allow navigation and close.
+- WSL manager — `action/wsl.rs` looks the key's chord up in
+  `App.keymap.wsl_manager` and answers with a `WslCommand`; `popup/wsl.rs`
+  interprets navigation and queues operations. By default Enter opens the
+  selected root, F2 refreshes distributions, F5 updates WSL, F6 updates
+  selected-distribution packages, and Esc closes. A key runs a command with
+  exactly its modifiers (Ctrl+Up is not Up); any other key is consumed and
+  ignored. Busy operations still allow navigation and close.
 
 Quick search is *not* an overlay: `Alt+character` is resolved as a normal action
 by `action::resolve`, then applied in `application/dispatch.rs`. Console is the
@@ -194,15 +197,30 @@ time fields and the KeePass forms.
 
 ## ✏️ Implementation Notes for Agents
 
-- Main-view and editor bindings share the declarative `keymap!` macro in
+- The declarative `keymap!` macro describes ordered bindings in
   `action/keymap.rs`. Entries use Rust patterns and optional modifier clauses:
   `has(ALT + CONTROL)` allows extra modifiers, `exact(CONTROL)` permits only the
   named combination, and `without(CONTROL + ALT)` rejects either modifier.
   Unqualified entries ignore modifiers. Bindings match from top to bottom;
-  the final wildcard returns `Action::QuickSearchClear` in the main view or
-  `EditorCommand::Ignore` in the editor.
-- Add non-modal bindings to `Action` and `action::resolve`. Editor bindings
-  belong to the declarative keymap in `action/editor.rs`, returning a typed
+  the final wildcard supplies the context's fallback.
+- Main-view (panels) keys use the planned `panels` context of `ffm.yml`: the rows in
+  `src/keymap/tables/panels/` name each action with its default keys, and
+  `action::resolve(&bindings, key)` looks the key's exact chord up in
+  `Keymap.panels`. Modifiers are exact: `Shift+F5` is not `F5`. A chord nothing
+  binds falls back (`fallback` in `src/action.rs`): Alt with a character is a
+  quick search, any other character opens the command line, and every other
+  key clears the quick search.
+  The application currently uses the default table; loading `ffm.yml` is
+  migration step 8, so these contexts cannot yet be remapped through a file.
+- Editor keys are rows of the `editor` table in `src/keymap/tables/editor.rs`,
+  held by `App.keymap.editor` and matched exactly on the normalized chord: a
+  modifier nothing is bound with makes another key, which runs nothing. A key
+  nothing is bound to goes to the editor's fallback in `action/editor.rs`: a
+  character without Ctrl or Alt types itself, and any other key is
+  `EditorCommand::Ignore`.
+- Add non-modal bindings to the `panels` table, naming an `Action` interpreted
+  by `application/dispatch.rs`. Editor bindings
+  belong to the `editor` table in `src/keymap/tables/editor.rs`, naming a typed
   `EditorCommand`; `popup/editor.rs` interprets it after confirmation/search
   handling. The resolver performs no state changes or clipboard access.
 - Add other modal behavior to the relevant `Overlay` arm in

@@ -2,27 +2,64 @@
 
 use super::*;
 
+/// The unlock prompt's buttons are the vault's own commands — Unlock,
+/// Reveal, Cancel — not keys of a dialog protocol.
 #[cfg(feature = "keepass")]
 #[test]
-fn locked_vault_buttons_use_unlock_and_cancel_keys() {
+fn locked_vault_buttons_are_unlock_reveal_and_cancel() {
+    use crate::action::vault::VaultCommand;
     let dir = TempDir::new().expect("temp");
     let mut app = app_at(&dir);
     let session = crate::kdbx::KdbxSession::new(dir.path().join("vault.kdbx"));
     app.set_overlay(Overlay::Kdbx(crate::models::KdbxOverlay(session)));
-    assert_eq!(code(&mut app, 0), KeyCode::Enter);
-    let reveal = dialog_button_key(&mut app, 1).expect("reveal button");
-    assert_eq!(reveal.code, KeyCode::Char('r'));
-    assert_eq!(reveal.modifiers, KeyModifiers::CONTROL);
-    assert_eq!(code(&mut app, 2), KeyCode::Esc);
-    assert_eq!(dialog_button_key(&mut app, 3), None);
+    assert_eq!(vault_prompt_button(&app, 0), Some(VaultCommand::Activate));
+    assert_eq!(vault_prompt_button(&app, 1), Some(VaultCommand::Reveal));
+    assert_eq!(vault_prompt_button(&app, 2), Some(VaultCommand::Close));
+    assert_eq!(vault_prompt_button(&app, 3), None);
+    assert_eq!(dialog_button_key(&mut app, 0), None, "no protocol key");
+}
+
+/// Through the pointer: a click on the drawn Reveal button shows the typed
+/// master password, as Ctrl+R does.
+#[cfg(feature = "keepass")]
+#[test]
+fn clicking_the_reveal_button_shows_the_master_password() {
+    let dir = TempDir::new().expect("temp");
+    let mut app = app_at(&dir);
+    let mut term = terminal();
+    let session = crate::kdbx::KdbxSession::new(dir.path().join("vault.kdbx"));
+    app.set_overlay(Overlay::Kdbx(crate::models::KdbxOverlay(session)));
+    popup::process_popup_input(&mut app, KeyEvent::from(KeyCode::Char('s')));
+    draw(&mut app, &mut term);
+    let &(_, left, _) = app
+        .dialog_mouse
+        .buttons
+        .iter()
+        .find(|(button, _, _)| *button == 1)
+        .expect("the Reveal button was drawn");
+    let buttons_y = app.dialog_mouse.buttons_y;
+
+    dispatch_dialog_mouse(
+        &mut term,
+        &mut app,
+        mouse(MouseEventKind::Down(MouseButton::Left), left, buttons_y),
+    );
+
+    let prompt = app
+        .kdbx_session()
+        .and_then(crate::kdbx::KdbxSession::prompt);
+    assert!(prompt.is_some_and(crate::kdbx::UnlockPrompt::is_revealed));
 }
 
 #[cfg(feature = "keepass")]
 #[test]
 fn unlocked_vault_does_not_activate_stale_unlock_buttons() {
-    let (_dir, session, _now) = crate::kdbx::tests_support::unlocked_sample();
+    let (dir, session, _now) = crate::kdbx::tests_support::unlocked_sample();
     assert_eq!(kdbx_button_key(&session, 0), None);
     assert_eq!(kdbx_button_key(&session, 1), None);
+    let mut app = app_at(&dir);
+    app.set_overlay(Overlay::Kdbx(crate::models::KdbxOverlay(session)));
+    assert_eq!(vault_prompt_button(&app, 0), None, "no prompt is up");
 }
 
 /// The unlocked vault's own dialogs (password, delete confirmation) answer

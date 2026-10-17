@@ -69,3 +69,57 @@ fn the_panel_headings_name_the_side_they_act_on() {
         );
     }
 }
+
+/// Every row of a panel menu, label and shortcut, separators as "-", as Far
+/// prints them.
+fn printed(heading: Heading) -> Vec<(String, String)> {
+    Menu::open(heading)
+        .entries()
+        .iter()
+        .map(|entry| match entry {
+            Entry::Item {
+                label, shortcut, ..
+            } => ((*label).to_owned(), (*shortcut).to_owned()),
+            Entry::Separator => ("-".to_owned(), String::new()),
+        })
+        .collect()
+}
+
+/// The rows both panel menus print, with the side's own toggle and drive keys.
+fn expected(toggle: &str, drive: &str) -> Vec<(String, String)> {
+    [
+        ("&Brief", "Ctrl+1"),
+        ("&Medium", "Ctrl+2"),
+        ("&Full", "Ctrl+3"),
+        ("&Wide", "Ctrl+4"),
+        ("Detai&led", "Ctrl+5"),
+        ("&Descriptions", "Ctrl+6"),
+        ("Lon&g descriptions", "Ctrl+7"),
+        ("Fil&e owners", "Ctrl+8"),
+        ("File lin&ks", "Ctrl+9"),
+        ("&Alternative full", "Ctrl+0"),
+        ("-", ""),
+        ("&Info panel", "Ctrl+L"),
+        ("&Tree panel", "Ctrl+T"),
+        ("Quick &view", "Ctrl+Q"),
+        ("-", ""),
+        ("&Sort modes", "Ctrl+F12"),
+        ("Show lo&ng names", "Ctrl+N"),
+        ("Panel &On/Off", toggle),
+        ("&Re-read", "Ctrl+R"),
+        ("&Change drive", drive),
+    ]
+    .into_iter()
+    .map(|(label, shortcut)| (label.to_owned(), shortcut.to_owned()))
+    .collect()
+}
+
+/// Every row of the two panel menus, label and shortcut, separators included,
+/// as Far prints them. The menus are one table written by a macro for each
+/// side, so a label that the macro gets wrong is wrong on both sides at once;
+/// comparing the sides with each other cannot see that, so this pins the text.
+#[test]
+fn the_panel_menus_print_every_row_as_far_does() {
+    assert_eq!(printed(Heading::Left), expected("Ctrl+F1", "Alt+F1"));
+    assert_eq!(printed(Heading::Right), expected("Ctrl+F2", "Alt+F2"));
+}

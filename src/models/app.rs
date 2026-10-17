@@ -56,18 +56,20 @@ pub struct App {
     /// Where the dialog on screen was drawn, and how far it has been dragged.
     /// Written by the renderer, read by the next click.
     pub dialog_mouse: crate::mouse::DialogMouse,
-    /// A keystroke the menu chose, dispatched once the drop-down has closed, so
-    /// a command that opens a window of its own is not fighting the menu for
-    /// the screen.
-    pub pending_key: Option<crate::menu::Shortcut>,
-    /// What the menu chose, to be run once the menu has closed. A row with a
-    /// key runs by pressing that key; a row without one carries its command.
-    /// Either way the drop-down leaves the screen first, so a command that
+    /// The menu row chosen, whose action the dispatcher runs once the
+    /// drop-down has left the screen, so a command that opens a window of
+    /// its own is not fighting the menu for it. The row rather than its
+    /// action: state names the menu, never the action layer above it.
+    pub pending_row: Option<crate::menu::Entry>,
     /// Which panels are on screen — `Ctrl+F1` / `Ctrl+F2` hide one side.
     pub panels_shown: PanelsShown,
     /// The Options menu's pages. Defaults here; the production entry point
     /// replaces them with the saved file, the way it does `history`.
     pub config: crate::config::Settings,
+    /// The keys in force on every screen. The defaults here, so that no
+    /// test reads the user's `ffm.yml`; the production entry point replaces
+    /// them with the file's.
+    pub keymap: crate::keymap::Keymap,
     /// Files F3 and F4 opened — `Alt+F11`. Session-only until bootstrap loads
     /// the persisted list.
     pub view_history: ViewHistory,
@@ -145,9 +147,10 @@ impl App {
             performance: crate::performance::Performance::default(),
             package_update: None,
             dialog_mouse: crate::mouse::DialogMouse::default(),
-            pending_key: None,
+            pending_row: None,
             panels_shown: PanelsShown::default(),
             config: crate::config::Settings::default(),
+            keymap: crate::keymap::Keymap::default(),
             view_history: ViewHistory::default(),
             folder_history: FolderHistory::default(),
             panel_session: crate::panel_session::PanelSession::default(),

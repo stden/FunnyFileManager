@@ -3,7 +3,7 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::models::{App, Overlay};
+use crate::models::{App, Overlay, RowMotion};
 use crate::ops::plugin_commands;
 use crate::status::Status;
 
@@ -14,7 +14,7 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
     let Overlay::PluginCommands(list) = &mut app.overlay else {
         return false;
     };
-    if let Some(motion) = super::netbox::row_motion(KeyEvent::new(code, modifiers), PAGE) {
+    if let Some(motion) = row_motion(KeyEvent::new(code, modifiers), PAGE) {
         list.move_cursor(motion);
         return true;
     }
@@ -29,6 +29,27 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
         _ => {}
     }
     true
+}
+
+/// The list key `key` is, for a list `page` rows high: the dialog
+/// protocol's list keys, bare or shifted. `Ctrl` and `Alt` chords mean
+/// something else everywhere.
+const fn row_motion(key: KeyEvent, page: usize) -> Option<RowMotion> {
+    if key
+        .modifiers
+        .intersects(KeyModifiers::CONTROL.union(KeyModifiers::ALT))
+    {
+        return None;
+    }
+    Some(match key.code {
+        KeyCode::Up => RowMotion::Previous,
+        KeyCode::Down => RowMotion::Next,
+        KeyCode::Home => RowMotion::First,
+        KeyCode::End => RowMotion::Last,
+        KeyCode::PageUp => RowMotion::PageUp(page),
+        KeyCode::PageDown => RowMotion::PageDown(page),
+        _ => return None,
+    })
 }
 
 #[cfg(test)]

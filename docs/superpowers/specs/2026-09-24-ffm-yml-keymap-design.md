@@ -2,9 +2,10 @@
 
 # Configurable keys in `ffm.yml`: design
 
-_2026-09-24. Status: design, nothing implemented. Branch `feat/ffm-yml-keymap`
-from `main` fa4a84d. This file is the plan; once code lands, the reference is
-the knowledge-base page named in §11._
+_2026-09-24. Status: design; steps 1–4, the core of step 5 and the context switches recorded in §14 built. Branch `feat/ffm-yml-keymap`
+from `main` fa4a84d; the code lands on `feat/ffm-yml-keymap-impl` from
+cefb537c. This file is the plan; once code lands, the reference is the
+knowledge-base page named in §11._
 
 ## 1. What the user asked for
 
@@ -823,6 +824,626 @@ may still change it:
 - **Q8** A recording carries the keymap it was made with, so a replay
   resolves keys the way the recorded session did.
 - **Q9** Windows AltGr text input is a separate follow-up.
+
+## 14. As built
+
+Where the code that landed differs from the plan above, and why. The plan is
+not rewritten; a step's entry here is what a reader of the code should trust.
+
+### 14.1 Step 1: `action/chord.rs` (2026-09-25)
+
+- **`Platform` lives in `action::chord`**, not `config`. §6.1 says "as
+  `config::Platform` does": that value is `pub(super)` in `config::home`, and
+  the purity rule forbids `action` to name `config`, so `chord::Platform`
+  is its own two-variant enum (`Unix`, `Windows`) with a `CURRENT` constant.
+  `KeyChord::from_event(key)` is `Platform::CURRENT.chord(key)`; tests run
+  both platforms' rules on any host.
+- **Space is a named key**: `Key::Named(NamedKey::Space)`, never
+  `Key::Char(' ')`. `from_event` folds crossterm's `Char(' ')` into it, so a
+  binding written `Space` matches Ctrl+Space's NUL as well.
+- **`f4` reads as F4.** §5.4 spells the function keys `F1`–`F24`; names are
+  case-insensitive, and so is the `F`.
+- **`from_event` never reads `KeyEventKind`**: the event loops pass presses
+  only (`application::input`, `terminal::crossterm_ops`), so a release or
+  repeat handed to it means the same chord.
+- **`to_event` sends `BackTab`** for Shift+Tab, with the SHIFT flag, because
+  that is what every terminal sends and what the old resolvers match; the
+  golden oracle (step 4) feeds `to_event` to them.
+- **Shift is in a symbol under Alt as it is without modifiers.** §5.4 says
+  a character other than a letter under Ctrl *or Alt* is taken as written,
+  and §6.1 rule 3 removes SHIFT only without Ctrl or Alt. But every terminal
+  sends Alt+Shift+= as the symbol Shift produced: Unix as Alt+`'+'` with no
+  flag (legacy bytes, and kitty through crossterm's alternate-key
+  substitution), the Windows console as Alt+`'+'` *with* SHIFT, because it
+  sets the flag whenever Shift is down. So `from_event` drops SHIFT from a
+  non-letter (Space included) under Alt without Ctrl on both platforms —
+  `Alt++` matches on Windows too — and the syntax refuses `Alt+Shift+=` and
+  `Alt+Shift+Space` with the `Shift+1` error, since no terminal could send
+  them. Under Ctrl nothing changes: Windows reports the unshifted key
+  (`'='` + CONTROL + SHIFT), so `Ctrl+Shift+=` stays writable and
+  `ShiftedSymbol` warns about it. A letter under Alt keeps Shift written out.
+- **`to_event` upper-cases a shifted letter under Alt** (`Alt+Shift+K` →
+  `'K'` + ALT + SHIFT), the legacy Unix and Windows event of §2.2, which
+  reads back as itself on both platforms; the golden oracle thus records
+  `QuickSearch('K')`, as a terminal gives it. A shifted letter under Ctrl has
+  no event that reads the same on both platforms (legacy bytes lose the
+  Shift, kitty upper-cases the letter and drops the flag, Windows keeps
+  both), so it stays lower-case with the SHIFT flag: what both platforms
+  read back, and the lower-case letter the old `has(CONTROL)` resolvers
+  match.
+- **`is_printable` refuses the invisible format characters** that
+  `char::is_control` does not name — U+00AD soft hyphen, U+200B–U+200F
+  zero-width and bidi marks, U+2028–U+202E separators and bidi embeddings,
+  U+2060–U+2069 word joiner and bidi isolates, U+FEFF — as `NotPrintable`,
+  because one pasted from a browser or an editor would otherwise be a
+  silent, invisible dead binding. §5.4's "printable Unicode scalar" is read
+  as excluding them.
+- **`Delivery` follows the parity doc's byte table, not §7.3's shorthand.**
+  One answer per chord, the worst first — a key that never arrives outranks
+  one the desktop may take, which outranks a symbol terminals report
+  differently:
+  - `LegacyAs(chord)`: Ctrl+I → Tab, Ctrl+M → Enter, Ctrl+[ and Ctrl+3 →
+    Esc, Ctrl+8 → Backspace, Ctrl+1/9/0 → the digit, Ctrl+2 and Ctrl+@ →
+    Ctrl+Space (NUL), Ctrl+4 → Ctrl+\ (which `terminal::decode_input`
+    makes of 0x1C), Ctrl+] → Ctrl+5, Ctrl+^ → Ctrl+6, Ctrl+_ → Ctrl+7, and
+    Ctrl+Shift+letter → Ctrl+letter (Shift lost) — or that byte's key when
+    it has one, Ctrl+Shift+I → Tab and Ctrl+Shift+M → Enter, because Shift
+    does not reach a control byte. Ctrl+5, Ctrl+6 and Ctrl+7
+    are **not** warned about: the parity doc says they reach their view
+    modes, and §7.3's "Ctrl+digit" is read as the digits that do not.
+    Ctrl+@, Ctrl+^ and Ctrl+_ are added because crossterm reads 0x00 and
+    0x1C–0x1F as Ctrl+Space and Ctrl+4–7, the same table the parity doc
+    cites for Ctrl+\ and Ctrl+].
+  - `LegacyLost`: F3 with any modifier (xterm's cursor-position report, for
+    Ctrl+Shift+F3 too), F13–F24 with or without modifiers.
+  - `TakenFirst(Taker)`: `Terminal` for F10, F11, Alt+Enter, Shift+PgUp/PgDn;
+    `Desktop` for Alt+F4, Alt+Space, Ctrl+Alt+Del and Ctrl+Space (IBus and
+    macOS both take it, per the parity doc's NetBox notes); `MacOs` for
+    Ctrl+arrows and for Alt with a character (Option without "Option as
+    Meta" types a character; Alt with a named or function key is delivered).
+    §7.3's Ctrl+Shift+C/V/T/N/W are not a class of their own: every
+    Ctrl+Shift+letter is already `LegacyAs`, and Ctrl+Shift+C arriving as
+    Ctrl+C is the worse of the two problems.
+  - `AltGr`: Ctrl+Alt with anything but a letter (digits included), unless
+    a legacy collision came first (Ctrl+Alt+2 is Alt+NUL as bytes).
+  - `ShiftedSymbol`: Ctrl with a symbol Shift produces on the US layout
+    (`~!@#$%^&*()_+{}|:"<>?`) or with Shift written out before a non-letter
+    (`Ctrl+Shift+=`); Ctrl+= and Ctrl+; are `Everywhere`, as §7.3 does not
+    name them.
+  - `Delivery::on_legacy` is the §6.4 exit-action test: `Everywhere`,
+    `TakenFirst` and `AltGr` pass; `LegacyAs`, `LegacyLost` and
+    `ShiftedSymbol` (§2.2: no control byte for Ctrl+Shift+=) do not.
+- **Tests** are the sibling files `chord/tests*.rs` (helper and small types,
+  syntax, round trips over the whole §9.1 domain on both platforms, raw
+  events, named keys, delivery), each under the repository's 200-line cap —
+  the 300 of §8.1 is the older figure — with the event tables as
+  module-level constants so no test function passes Clippy's 30 lines.
+
+### 14.2 Step 2: typed commands for the inline contexts (2026-09-25)
+
+- **One module per context, one `resolve(KeyEvent) -> Option<C>` each**:
+  `action/viewer.rs` (`ViewerCommand { Close, Scroll(ViewerScroll) }`,
+  the ten scroll moves; the quick view takes `Scroll` alone),
+  `action/command_line.rs` (`LineCommand`, with `Move(LineMotion)` and
+  `Edit(LineEdit)` so the popup applies a caret move and a text change
+  through one function each), `action/command_line/search.rs`
+  (`LineSearchCommand`), `action/command_line/completion.rs`
+  (`CompletionCommand`), `action/tree.rs` (`TreeCommand`),
+  `action/netbox.rs` (`NetboxCommand { Move, NewSession, Row(RowCommand) }`,
+  the row commands being the bare keys on the row under the cursor),
+  `action/lsp_editor.rs` (`LspListCommand`; the module is named after its
+  `popup`/`ops`/`models` siblings, the context stays `language_servers`),
+  `action/path_env.rs` (`PathCommand`), `action/vault.rs` (`VaultCommand`)
+  and `action/tasks/search.rs` (`TaskSearchCommand`). `None` is the
+  popup's fallback of §6.3: fall through (quick view, tree, NetBox), swallow
+  (viewer, Language servers, PATH editor, vault) or the bar's editing keys
+  (task search).
+- **The resolvers are stateless.** The step was phrased as
+  `resolve(event, state)`, but no context needs state to name the command.
+  Where a mode selects the key map — the command line's editing, search and
+  completion; the Language servers' list and view; the vault's list and
+  entry form — the popup picks which context's resolver runs, which is
+  §6.3's layering and what §8.4's "every caller passes its context" will
+  be. Where state decides what a command *does* — the tree's Esc and
+  Backspace consume the key only with a search running, the vault's Enter
+  and Ctrl+R depend on locked or unlocked, the PATH editor's Esc closes at
+  once when nothing changed — the interpreter decides, as the old `match`
+  arms did.
+- **Families and fallbacks are variants**: `TreeCommand::Search(char)`,
+  `VaultCommand::Type(char)`, `LineEdit::Insert(char)`,
+  `LineSearchCommand::Extend(char)`, as `TaskCommand::Search` and
+  `PidJump` already were; step 5 moves them into the fallback arm of §8.4.
+  `TreeCommand::NeedsFilePanel` is today's F5–F8 refusal by key code; the
+  refusal by scope stays step 5's.
+- **The six list motions are `models::ListMotion`** in `tree_panel`,
+  `netbox_panel` and `vault` (`ListMotion::with_page` is now crate-visible,
+  so a NetBox panel turns a move into its `RowMotion`); `language_servers`
+  keeps its own `models::lsp_editor::Step`, and the viewer and the PATH
+  editor name their moves flat, as their models do.
+- **No edge changes** (§10: users see nothing), where binding by command
+  alone would have changed two. (1) On the command line the grey suggestion
+  is still taken on the Right and End *key codes*, with any modifier, and
+  the popup checks that before it resolves the key: A.4 ties the acceptance
+  to `char_right`, `word_right` and `line_end`, and by command Ctrl+E and
+  Alt+F would accept where today they move a caret that is already at the
+  end. Step 5 binds it by command and records that change, with the
+  knowledge-base page, as its own. (2) In the vault's entry form Ctrl+Z
+  undoes with exactly Ctrl held, as it always did: `VaultCommand::Undo`
+  keeps the list's `has(CONTROL)`, and the form reads the event's modifiers
+  before it takes the command. §6.2's exact matching makes both exact at
+  step 5, so the form never loosens and tightens again in between.
+- **The quick view's `scroll_view` is `popup::viewer::scroll_viewer` over
+  `QuickView`**: the same ten arms, a second copy under the Rule of Three
+  (the two inline key matches were twins already). A third copy, or the
+  step that next touches the viewer, makes the six scroll methods one trait
+  the two models share, and one function.
+- **The vault form's Ctrl+C** (copy the password being edited) is the
+  form's own key, not a `vault` action — A.8 gives the form `save` and
+  `undo` only — and is matched before the resolver's `lock_and_quit`.
+- **The F11 Plugin commands list** borrowed the NetBox panels' list-key
+  helper. It is a fixed-protocol dialog (§4.2) and must not follow a
+  `netbox_panel` remap, so it holds its own bare-or-shifted list keys.
+- **Modifier leniency is kept for now**: each resolver reproduces today's
+  policy chord by chord (`has`, `exact`, `without`, unqualified), so the
+  golden oracle of step 4 pins the old behaviour and §6.2's exact matching
+  arrives with step 5.
+- **Tests**: every behaviour test is unchanged, and the two edges above
+  are pinned by new ones — on the command line Ctrl+E and Alt+F leave the
+  suggestion alone while Right and End with a modifier take it, the open
+  completion list withdraws the ghost and its closing brings it back; in
+  the vault form Ctrl+Z with Shift or Alt held does nothing. The tests of
+  the private helpers the refactor dissolved moved with them —
+  `popup/netbox`'s `row_motion` and `is_bare` to `action/netbox` and
+  `popup/plugin_commands` — and `popup/tree`'s probe of `step` with a
+  non-cursor key went, the helper now taking a `ListMotion`. Each resolver
+  has its own table test in `action/<context>/tests.rs`.
+
+### 14.3 Step 3: one `Action` per function, `dispatch_action` (2026-09-26)
+
+- **The twins went the families' way.** `MenuCommand` lost every variant a
+  `PanelCommand`, `FileCommand` or `ToolCommand` already named; Ctrl+T and
+  Ctrl+F12, which had no twin, became `PanelCommand::Tree` and
+  `PanelCommand::SortMenu`, rows of the Left / Right menu like the rest of
+  that enum. `MenuCommand` keeps the rows Far gives no key, and Save setup:
+  `Action::Menu(MenuCommand::SaveSetup)` is therefore the one `Menu` value a
+  key (Shift+F9) resolves to. `Action::MenuCommand` is gone. The exact-
+  modifier layer `action/menu.rs` stays until step 5 deletes it, now
+  returning the unified actions, so the leniency of every chord is exactly
+  what it was (§2.3): Ctrl+Shift+T is still not the tree.
+- **A row holds its `Action`**, and only that: `menu::Shortcut`,
+  `Activation`, `Entry::command`, `menu_command()` and `key()` are gone,
+  `Entry::item(label, shortcut, action)` is the one constructor, and the
+  drop-down's ticks read the row's action instead of resolving a key. The
+  printed shortcut strings stay until step 6; the unit test
+  `every_printed_shortcut_resolves_to_the_rows_action` parses each with
+  `KeyChord` (Far's `Gray +` as the plain `+`) and resolves it, which
+  replaces the integration test's private key parser.
+- **`pending_action` is `App.pending_row: Option<menu::Entry>`.** §8.5 puts
+  an `Option<Action>` on `App`, but the models layer may not name `action`
+  (`module_boundaries`: `models_do_not_reach_into_higher_layers`), and it
+  already names `menu`. The row is the one thing ever pending;
+  `dispatch::run_pending_row` takes its action after the drop-down has
+  closed, from `dispatch_key` and from the menu click alike. `ops::menu::
+  activate` only closes the menu and leaves the row.
+- **`dispatch_action` is `dispatch_key` for an action**: the active panel's
+  kind reads it first (`panel_kind_answers`, the twin of
+  `panel_kind_consumes`), then `apply_action` clears the quick search and
+  reinterprets the console as before. The panel kinds read an action the
+  way they read a key: `TreeCommand::from_action`,
+  `NetboxCommand::from_action` and `ViewerScroll::from_action` name the
+  cursor moves, Open and — for the tree — Re-read, the group keys and the
+  F5–F8 refusal; for a NetBox list the file actions whose keys Far's NetBox
+  gives a session, so Files → View over the sessions list still views the
+  session as F3 does. What a NetBox panel does not read is refused by scope
+  through `popup::netbox::refuse_entry` (the action form of
+  `refuse_entry_key`, with the "this command works on files" line that
+  `ops::menu` used to print); the tree and the quick view let the rest fall
+  through, as their keys do — the tree's refusal by scope is step 5's
+  (§6.3). `dispatch_key` itself is unchanged: a key still goes through the
+  panel kinds' key resolvers, so nothing a key did moved.
+- **Effects by family live in `ops::menu`**: `execute_panel`,
+  `execute_file`, `execute_tool` beside `execute(MenuCommand)`, since the
+  twins' effects had been split between `application` and `ops`. The
+  console runs the three families as it ran their `MenuCommand` twins: the
+  exact chords behave as before; a chord with an extra modifier
+  (Ctrl+Shift+A) that used to be swallowed there now runs too (§2.3). The
+  sort modes Ctrl+F3 … Ctrl+F11 (`PanelCommand::Sort`) never had a twin and
+  were swallowed there; they still are, and `PanelCommand::View` with them,
+  as `Action::PanelView` is. The review of step 3 found them sorting the
+  hidden panel; `ctrl_f3_in_the_console_leaves_the_hidden_panel_alone`
+  pins the swallow.
+- **`models::MenuPrompt`** says what the one-line prompt asks for —
+  `Filter`, `FindFolder`, `Settings(page)` — because the prompt held a
+  `MenuCommand` and can hold neither `ToolCommand` nor `Action`.
+  `ops::menu::submit` takes it, so "this command has no text prompt" is a
+  type error rather than an `io::Error`; Find file's prompt existed only
+  for tests, which call `find_files`.
+- **Edges that changed**, all in corners a key never reaches:
+  - Files → Invert selection over a tree panel "needs a file panel" like
+    the other file operations; the `*` key still searches the tree for `*`.
+  - A keyed row refused over a NetBox panel prints the command line ("this
+    command works on files …") where its key printed the key line; the
+    remote panel's line differed as well. Keyless rows: unchanged.
+  - The wheel carries no modifiers any more: Ctrl+wheel over a tree moved
+    the hidden file list's cursor, now the tree's; Ctrl- or Alt+wheel over
+    a NetBox panel was refused with the key line, now moves the list;
+    Shift+wheel in the editor extended the selection, now moves the caret.
+- **Mouse.** The wheel is `mouse::Wheel`, read once from the event; over the
+  panels it is `Action::NavUp` / `NavDown` and a double click `Action::Open`
+  through `dispatch_action`, so the console, the tree, the preview and a
+  NetBox list answer as they answer the keys. Over an overlay `popup::wheel`
+  gives it to the viewer (a line), the editor's text (`EditorCommand::Move`
+  without selection — the editor scrolls by moving the caret) or the task
+  list's table (`TaskCommand::Move`); over anything else, the editor's and
+  the task list's own dialogs included, it stays the Up or Down key of the
+  dialog protocol. A key-bar cell still presses `F(n)` (§8.5).
+- **Buttons.** The WSL manager's controls carry a `WslCommand` and a click
+  applies it through `popup::wsl::apply`; `ui::wsl_button_at` returns the
+  command. The vault's unlock prompt buttons are `VaultCommand::Activate`,
+  `Reveal` and `Close` (`vault_prompt_button`, applied by
+  `popup::kdbx::apply`); the password dialog's and the delete question's
+  buttons keep the protocol's Enter and Esc (`kdbx_button_key`). Every other
+  dialog's buttons synthesize protocol keys, as §8.5 keeps them.
+- **`dispatch_key` is exported under `test-helpers`** and
+  `tests/menu_commands_test.rs` gained `required-features = ["test-helpers"]`:
+  choosing a row now runs it through the dispatcher, which draws, so the
+  test drives a `WritableTestBackend` the way `e2e_test` does.
+- **A latent twin found, left for step 5**: `Action::PanelView(mode)` (the
+  keys and the rows, `ops::panel_details::set_view`) and
+  `PanelCommand::View(mode)` (`ops::panelview::set`, reached by one test
+  only) both set a view. The row tables' bijection deletes the second.
+- **The twin tables are held to one meaning until step 5.**
+  `action::tests::keyed_sources` lists every key-less source of an action —
+  the menu rows with a printed shortcut, and the mouse's Up, Down and Enter
+  — and each panel kind's tests assert that `from_action` reads each as
+  `resolve` reads its key. The NetBox lists agree in full, and the quick
+  view's scroll twin on every scroll (Close is the viewer's alone). The
+  tree's exceptions are listed in its test and are these and no others:
+  `*` (above), and Alt+F6, Alt+F7 and Alt+F8, which the key table answers
+  with "needs a file panel" because it takes F5–F8 with any modifier
+  (§2.3) while the rows — Link, Find file, History — are not the tree's
+  and fall through. That leniency predates step 3 (`popup::tree` on main)
+  and step 5's exact matching ends it.
+- **Tests**: the NetBox menu-row tests moved from `ops::menu::tests_netbox`
+  to `application::dispatch::tests::netbox_panels`, since the refusal moved
+  layers, and gained the session's F8 from the Files menu; the ops tests
+  call `execute_panel` / `execute_file` / `execute_tool` and `MenuPrompt`,
+  and the assertions that a file row "has no text prompt" went with the
+  error they asserted. New: `action_over_panel_kinds` (a tree's moves,
+  its F5–F8 line, a program row over it, the preview's scroll, a host's
+  refusal), `dialog_mouse::tests::wheel`, the `from_action` tables, the
+  vault's Reveal button through the pointer. The diagnostics log names
+  `Panel(Tree)` where it named `MenuCommand(Tree)`. A keyed row's timing
+  label on the stats screen is `Menu/<command>` as it was, whichever family
+  names the command now (`timing::menu_row_label`; the review of step 3
+  found the families falling to the generic `Menu/…/Enter` line); two
+  names follow their variants, `Menu/Sort` → `Menu/SortMenu` and
+  `Menu/Archive` → `Menu/AddToArchive`. The knowledge base's `main-menu.md`
+  and the Ctrl+Q row of the parity page name the new types; the doc pass is
+  still step 10.
+
+### 14.4 Step 4: the golden oracle (2026-09-26)
+
+- **`tests/keymap_golden/<context>.tsv`**, not `tests/golden/keymap/`, with
+  a `README.md` beside the tables: the folder says what it holds, next to
+  the other repository-level guards under `tests/`. The generator and the
+  replay are one integration test, `tests/keymap_golden_test.rs` with its
+  modules under `tests/keymap_golden_test/`, rather than the
+  `keymap/tests/golden.rs` of §9.1: at step 4 there is no `keymap` module,
+  a test under `tests/` reaches every resolver through the public API, and
+  it may read and write files, which `src/action` may not. The generator is
+  the ignored test `regenerate_the_golden_tables`; the replay walks each
+  table in lockstep with the domain and fails on the first line whose key,
+  class or result is not what the resolver gives, on a missing row and on
+  an extra one, so a table cannot drift by hand. Step 5 keeps the test and
+  points it at the keymap.
+- **Fifteen tables, not fourteen.** `quick_view.tsv` records the `viewer`
+  context as the quick-view panel reads it — its scroll commands consumed,
+  everything else, the viewer's closing keys included, falling through to
+  `panels` — because that layering is the one fact of §4.1 the `viewer`
+  table alone cannot pin. The Language servers' list and view, the vault's
+  list and form, and the tree with and without a search running share a
+  resolver each (§14.2) and need no second table.
+- **Layered contexts are recorded as outcomes**, as §9.1 says for the tree
+  and NetBox panels, and likewise for the completion list over
+  `command_line`, the quick view over `panels` and the task list's search
+  bar, where Up, Down, PgUp and PgDn close the bar and go on to `task_list`,
+  F3 is the bar's own key, and every other key is the bar's fixed editing,
+  written `nothing`. The result column is a consumed command in its debug
+  form, `nothing`, `-> <action>` for a fall-through with the parent's
+  answer, or `refuses <action>` for a NetBox panel's refusal by scope
+  (`popup::netbox::refuse_entry_key`; the remote host reads the same table
+  and hands the five commands that need or make a session — Shift+F4's
+  `NewSession` and the four row commands of F3, F4, F5 and F8 — back to be
+  refused, Shift+F4 as the panels' `Dialog(NewFile)`, which acts on the
+  entries; `a_host_hands_the_five_session_commands_back_to_be_refused`
+  pins the five). The tree's F5–F8 refusal is the consumed command
+  `NeedsFilePanel`, as its resolver returns it: at step 5 it becomes a
+  refusal by scope, the pinned change of §6.3, and F3, F4, Ins, Alt+Del,
+  Ctrl+A … stop falling through with it.
+- **The result column is the debug form throughout**, since action names
+  arrive with step 5's row tables; §9.1's "an action name" is read as the
+  command the name stands for, so step 5 compares by command value and
+  does not rewrite 13 500 rows.
+- **Classes are mechanical.** Only a consumed command can be `bound` or
+  `lenient`; `nothing`, a fall-through and a refusal are always
+  `fallback`. A consumed command equal to what §6.3's fallback gives the
+  raw event — the families `CommandLineChar`, `QuickSearch`, `Insert`,
+  `Search`, `Type`, `Extend`, `PidJump`, and the `_ =>` arm's own
+  `QuickSearchClear` or `Ignore` — is `fallback`; a command that a strict
+  subset of the chord's modifiers also yields is `lenient`, a subset being
+  read back through the terminal's event so that Shift alone with a letter
+  is the capital (`K` is a subset of `Ctrl+Shift+K`, `Alt++` has none but
+  `+`); any other command is `bound`. The tree's `:` therefore reads
+  `fallback -> CommandLine` although the old table names it: a fall-through
+  is not a command of the tree's.
+- **The domain** is the round-trip tests' (§14.1) without the Super key,
+  in a copy of its own: an integration test cannot reach a `#[cfg(test)]`
+  module, and sharing the list would put the oracle behind the
+  `test-helpers` feature, out of a plain `cargo test`. Both copies carry a
+  `TODO(Rule of Three)` that names the other, and a third user moves the
+  domain behind that feature. The oracle does not lean on the two staying
+  alike: it proves the round trips of its own rows (**Tests** below). The
+  domain is F1–F24, the fifteen named keys, `BackTab`, printable ASCII and
+  `é ж Ж ß € 中`, times the eight modifier sets, normalized on both
+  platforms and united — the Windows rules add no chord, so there are 804
+  — plus twelve codes no chord
+  names (F0, F25, Null, CapsLock, ScrollLock, NumLock, PrintScreen, Pause,
+  Menu, KeypadBegin, Media(Play), Modifier(LeftShift)) with every modifier
+  set, named as crossterm names them behind the chord's modifier prefix so
+  that they never parse as chords: 900 rows per table. Rows are sorted by
+  `KeyChord`'s own order — characters by code point, then F-keys, then
+  named keys; within a key none, Shift, Alt, Alt+Shift, Ctrl, Ctrl+Shift,
+  Ctrl+Alt, all three — the unbindable rows after, so a key's variants
+  stand together in a diff.
+- **At step 4, the lenient count per context was pinned** beside its reason in
+  `tests/keymap_golden_test.rs`, as §9.1 asks: panels 222, tree_panel 53,
+  netbox_panel 6, quick_view 54, viewer 82, editor 106, command_line 100,
+  command_line_search 30, command_line_completion 31, task_list 91,
+  task_list_search 7, wsl_manager 36, language_servers 0, path_editor 89,
+  vault 100 — 1 007 rows over the fifteen tables
+  whose meaning §6.2's exact matching changes at step 5. Three rows record
+  what §2.3 did not name: the panels' Ctrl+Space marks, because the `Space`
+  arm is unqualified and comes before the Ctrl combos; the panels' Shift+Tab
+  (`BackTab`) does not switch panels; the command line's Alt+Shift+B does
+  nothing, because the arm matches the lower-case `b` while the terminal
+  sends `B`.
+  These are the step-4 counts; by foundation `29dadeb2`, the command line
+  pinned 103 lenient rows and the total was 1 010 before context switches.
+- **Tests**: the replay; every event of the domain gives a chord on both
+  platforms, so no key is silently left out; every row's text parses to
+  the chord that both platforms read from the event its result was
+  recorded for, and an unbindable row gives no chord either way, so the
+  keymap's tests can read the tables (the review of step 4 found that
+  test comparing a row's event with itself); every row names a different
+  key; the pinned counts. The `Outcome`, `Class` and `Context` types and
+  the fifteen `run`/`family` pairs live in the test's modules, not in
+  `src`, since nothing but the oracle needs them.
+
+### 14.5 Step 5, core: `Bindings`, the row tables, `Keymap::default()` (2026-09-27)
+
+The context switches below read their keys from the keymap through the
+shared core described here. Each screen keeps its own fallback and modal
+boundary while replacing its old resolver's binding table.
+
+The WSL manager, Language servers list, PATH editor and vault use the same
+`app.keymap` foundation as the panels, editor, viewer, quick view, command line
+and NetBox. Their switches preserve each context's own fallback.
+The PATH editor's pinned lenient count is now 0 (89 before its switch), as
+are the other switched contexts' counts. The tree and task contexts retain
+their old resolvers until their own switches: `tree_panel` still has 53
+lenient rows, `task_list` 91 and `task_list_search` 7; `language_servers`
+already had 0 before its switch. `ffm.yml` loading remains
+step 8; the current application uses `Keymap::default()`, while tests can
+inject different bindings.
+
+**What a context switch uses.**
+
+```rust
+// crate::action::Bindings<C>, C: Copy + PartialEq  (src/action/bindings.rs)
+pub fn command(&self, chord: KeyChord) -> Option<C>;   // exact
+pub fn resolve(&self, key: KeyEvent) -> Option<C>;     // from_event, then command
+pub fn keys(&self, command: C) -> impl Iterator<Item = KeyChord> + '_;
+pub fn chords(&self) -> impl Iterator<Item = (KeyChord, C)> + '_;
+pub fn bind(&mut self, command: C, chord: KeyChord) -> Option<C>;
+
+// crate::keymap::Keymap: one pub field per context, `Default` = the tables
+app.keymap.viewer: Bindings<ViewerCommand>
+
+// a context's resolver after its switch (§8.4), its callers passing
+// `&app.keymap.<context>`:
+pub fn resolve(bindings: &Bindings<ViewerCommand>, key: KeyEvent) -> Option<ViewerCommand> {
+    bindings.resolve(key)
+}
+pub fn resolve(bindings: &Bindings<Action>, key: KeyEvent) -> Action {
+    bindings.resolve(key).unwrap_or_else(|| fallback(key))
+}
+```
+
+A family (`Insert`, `Search`, `Type`, `QuickSearch` …) and `Ignore` are the
+`fallback`'s, read from the raw event (§6.1); no row names them. A test
+builds other keys with `tables::<CONTEXT>.layered(&explicit).bindings` or
+with `bind`, and writes a chord with `test_support::chord("Ctrl+F3")`.
+
+- **`Bindings` has no constructor to refuse a repeated chord.** It starts
+  empty and `bind` gives a chord to a command, taking it from the command
+  that held it and returning that one, as `BTreeMap::insert` does. No chord
+  can stand twice, so the invariant of §6.4 holds by construction, and
+  nothing on the way to `Keymap::default()` has an error to drop or an
+  `expect` to justify. §6.4's "taken back from any action holding them" is
+  `bind`.
+- **One ordered list, walked.** `Bindings` is a `Vec` of chord and command
+  in the order they were bound, which is the order `keys` gives and a label
+  will print; a context holds a hundred chords at most. An index beside
+  the list would be a second copy to keep in step.
+- **`label(command)` waits for step 6.** Q6 keeps Far's labels, so a
+  label is not always the first chord's text (`Gray +` for `+`), and what it
+  is belongs with the step that prints it.
+- **A row is `row(name, command, defaults).note(origin, summary)`**, with
+  `.exit()` for a way out: `const` builders, two lines a row under rustfmt
+  where the struct literal of §8.2 takes eight. A row holds `name`,
+  `command`, `defaults`, `origin`, `summary` and `role`. `bar` and `help`
+  arrive with step 6, which reads them, as two more builders on the rows
+  that have them. The group is the `Group { title, rows }` a row stands in;
+  a `Table { context, groups }` is a context.
+- **`Origin::FarNoKey`** is the file's `Far: none` — a Far command Far
+  gives no key — beside §8.2's five. `FarSame` says Far's key is the row's
+  first default (`toggle_mark`'s Ins), `Far(key)` names it where it is
+  another or spelled differently (`F4` for `edit: ['Enter', 'F4']`,
+  `Gray +`). A test holds `FarSame` rows to having a default and `FarNoKey`
+  rows to having none.
+- **A way out is a `Role` on its row**, not a list of names per context:
+  the rule reads the table it already walks. `keymap/tests/exits.rs` pins
+  the ways out of every context to §6.4's list and holds each to a default
+  that `Delivery::on_legacy` passes.
+- **Chords are written by composing**: `f(3)`, `ch('+')`, `named(Ins)`, and
+  `ctrl`, `alt`, `shift` around any of them (`ctrl(alt(ch('w')))`), six
+  functions where §8.2's `shift_f(4)` and `ctrl('\\')` would be one per
+  pair. `f` takes the number through `FunctionKey::saturating`, which holds
+  it to F1–F24 instead of failing: a constant has no error path, and a
+  panic in it would be the repository's first. The tables' tests read every
+  default back through its text, which also refuses a capital under Ctrl
+  and Shift beside a character.
+- **The layers are `Table::layered(&Explicit) -> Layered`**, `Explicit`
+  being a map from `ActionName` to the chords the file gives and `Layered`
+  the bindings with the `Conflict`s decided on the way: `Claimed`,
+  `DefaultDisplaced`, `ExitRestored`. Step 7 turns a parsed file into an
+  `Explicit` and a `Conflict` into a `Problem` with its severity, path and
+  position. `Table::defaults()` is the same function with no file. Read
+  where §6.4 leaves room:
+  - a chord two named actions claim displaces a default as well, since
+    step 3 subtracts what step 1 gave: with `view` and `edit` both on F5,
+    `copy` loses F5 and F5 does nothing;
+  - a chord three actions claim is reported against the first claimant
+    once for each of the others; a chord one action lists twice is one
+    claim;
+  - a restored way out keeps the keys the file gave it and gets its
+    defaults after them, so `close: 'Ctrl+Shift+Q'` still closes on a
+    terminal that sends it;
+  - restoring one way out can strip another (`confirm_quit: 'Ctrl+O'`,
+    `toggle_console: []`), so the rule runs one pass for each way out;
+  - a name that is no action of the table is not read: telling the user
+    is step 7's `UnknownAction`.
+- **`panels` has 116 rows, not A.1's 117.** `key_bindings` runs
+  `MenuCommand::Keymap`, which arrives with step 9 and brings its row.
+- **The tree has no row for `NeedsFilePanel`**: the refusal follows the
+  panels action's scope (§6.3) and is the tree's switch.
+  `PanelCommand::View`, the twin §14.3 found, has no name either and no
+  menu row or key builds it; deleting it is the panels switch, where
+  `ops::menu` and the console's dispatch change anyway.
+- **`vault` and `wsl_manager` are tables of every build**, as their command
+  enums are; a build without `KeePass` reads no `vault` key.
+- **`models` names `keymap`.** `App.keymap` is §8.3's; the models rule
+  forbids `crate::action`, not `crate::keymap`, as `pending_row` names
+  `crate::menu`.
+- **The purity rule for `src/keymap*` landed with the module** rather than
+  with step 7: the action rule's list and, of its own, `crate::ui` and
+  `crate::config`, with a planted fixture like the other rules.
+- **Origins are the code's comments read as data.** Left and Right are
+  `FarSame` although FFM also makes that side active; the viewer's `close`
+  is `FarSame` with Enter among its keys; the editor's `copy` and `paste`
+  name Far's Ctrl+Ins and Shift+Ins; the command line's rows name bash's
+  key; the task list's name htop's where `action/tasks.rs` says the key is
+  htop's. The Options pages take their summary from
+  `SettingsPage::title`, the one place that text lives.
+- **Tests.** `tests/keymap_golden_test/defaults.rs` holds the default
+  keymap to the golden tables before any context switches: every `bound`
+  row is a default with the same command, the tree's four `NeedsFilePanel`
+  rows excepted and pinned, and every default is a key the old resolver
+  answers with that command — in a `bound` row, or a `lenient` one for the
+  task list's Ctrl+T, which `t` with any modifier also gave. The quick view
+  is held to the viewer's scroll rows. In `src`: `action/bindings/tests.rs`;
+  `keymap/layering/tests*` over a six-action table with two ways out, every
+  rule of §6.4 and 216 files fighting over four keys; `keymap/tests*` for
+  the tables (§9.2's names, bijection, menu rows, repeated chords, `FarSame`),
+  a row count per context, a sample of Appendix A from each and the printed
+  key of every menu row being its action's first default. The chord tests'
+  `chord(text)` helper moved to `test_support`, its third user.
+- **`from_action` stays until step 6.** The key-less sources of an action
+  (a menu row that prints a shortcut, the wheel's two cursor moves, the
+  double click's Open) still read through `NetboxCommand::from_action`, the
+  hand-written twin of `resolve`. `keyed_sources` holds the twin to the
+  default keys, so the two agree on the defaults; a file that moves a row's
+  key does not move that row's menu item or its double click, which keep
+  the default reading. Step 6 prints every shortcut from the keymap (the
+  printed shortcut strings stay until then, §14.3), so a key-less source
+  reads its key there, and `from_action` goes with the tables it mirrors.
+- **The NetBox switch.** `popup::sessions` and `popup::remote` resolve their
+  keys through `app.keymap.netbox_panel` with `Bindings::resolve`: an exact
+  match on the chord (§6.2) after `from_event` (§6.1). Two things change for
+  the user. The six Shift list moves (Shift+Up, Shift+Down, Shift+Home,
+  Shift+End, Shift+PgUp, Shift+PgDn) no longer move the list, also with
+  Super, Hyper or Meta held. With the panels' exact defaults, these
+  unbound keys fall through as `QuickSearchClear`. Super, Hyper and Meta
+  are dropped before the match, so Enter,
+  F3, F4, F5, F8 and Shift+F4 act on the list with any of them held. The
+  golden table's `lenient` count for `netbox_panel` goes from 6 to 0:
+  those list moves are now `fallback`. Its other fall-through and refusal
+  rows follow the panels' exact defaults as that context switches too.
+
+### 14.6 Step 5, the viewer and the quick view (2026-10-17)
+
+- **The switch.** `popup::viewer` and `popup::quickview` resolve through
+  `app.keymap.viewer`. `action::viewer::resolve` takes that
+  `Bindings<ViewerCommand>` and looks the key up exactly (§6.2): the viewer
+  swallows a key it does not bind, and the quick view hands it to the
+  panels. The lenient count of both contexts is 0, and the golden replay
+  runs against `Keymap::default().viewer`.
+- **What changed.** 82 `viewer` rows and 54 `quick_view` rows moved from
+  `lenient` to `fallback`; each is a modifier added to a key the viewer
+  binds. Other contexts record their own switch separately. The parity doc's
+  "Leniency List (Exact Matching)" section names them.
+- **The scroll tables are one.** §14.2 names the step that next touches the
+  viewer as the point to unify the two scroll tables, and this is that step.
+  They are `popup::viewer::scroll_body`, one function over the `Scrolled`
+  trait that both `Viewer` and `QuickView` implement. The TODO is gone; the
+  §14.2 text stays as the record of step 2.
+- **A key-less scroll.** `ViewerScroll::from_action`, the mouse wheel over
+  the preview, arrives as a panel action with no key behind it, so no
+  remap of `viewer` changes it.
+- **The quick view's fall-through.** A modified scroll key reaches the
+  file panels' exact bindings. With both contexts switched, Shift+Down and
+  Shift+Left have no default panel binding and fall back to
+  `QuickSearchClear`; they no longer move the hidden cursor or switch panels.
+  A binding added to the panels still applies after the viewer hands it on.
+
+### 14.7 Step 5, `wsl_manager`: the WSL manager reads the keymap (2026-09-27)
+
+- **`action::wsl::resolve(&Bindings<WslCommand>, KeyEvent) -> WslCommand`**
+  is the lookup and the fallback of §6.3: `bindings.resolve(key)`, else
+  `WslCommand::Ignore`. `Ignore` stays a variant rather than becoming
+  `None`: the popup applies it like any command and the key stays in the
+  dialog, which is §6.3's "every key is consumed". No row names it, so no
+  file can bind it. `popup::wsl::process` hands the resolver
+  `&app.keymap.wsl_manager`; the `keymap!` match of `action/wsl.rs` is gone.
+- **What changed for the user is 36 chords**, every one a `lenient` row of
+  `wsl_manager.tsv` that is a `fallback` row answering `Ignore` now: Up,
+  Down, Home, End and Esc each held with Shift, Alt, Alt+Shift, Ctrl,
+  Ctrl+Shift, Ctrl+Alt or Ctrl+Alt+Shift (35), and Shift+Enter. The nine
+  `bound` rows are unchanged, and so are the other 855 rows. The pinned
+  `lenient` count went from 36 to 0.
+- **No normalization rule of §6.1 changes a row.** The manager binds no
+  character, so the rules on letters and Shift have nothing to fold; a
+  `BackTab` was ignored and Shift+Tab is unbound; a code no chord names was
+  ignored and still is. Super, Hyper and Meta are outside the oracle's
+  domain and were never read by the old arms (`without(CONTROL + ALT)`), so
+  Super+F5 updates as before.
+- **The buttons are untouched.** They carry their `WslCommand` since step 3
+  and never ask the keymap, so a button works whatever its action's key is.
+  Their labels still print the default key (`[F2 Refresh list]`) until
+  step 6 reads them from the keymap.
+- **The oracle reads `Keymap::default().wsl_manager`**, built once in a
+  `LazyLock` inside the context's `run` function of
+  `tests/keymap_golden_test/overlays.rs`: the replay and the classifier
+  call it several thousand times, and a static of the function's own keeps
+  the change to that shared file inside the context's lines.
+- **Tests.** `action/wsl/tests.rs`: the nine defaults; each default with
+  each of the seven modifier sets is ignored; unbound and unbindable keys;
+  Super; a key the file gives an action replaces its default, and a default
+  given to another action runs that action; no binding at all.
+  `popup/wsl/tests.rs`: a modified key stays in the dialog and neither
+  moves the selection nor queues a request; the dialog obeys the bindings
+  `App` holds.
 
 ## Appendix A. Default bindings
 

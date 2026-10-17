@@ -23,6 +23,7 @@ mod copy;
 mod delete;
 mod edit_form;
 mod errors;
+mod keymap;
 mod structure;
 mod unlock;
 

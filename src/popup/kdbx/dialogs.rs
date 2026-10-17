@@ -2,17 +2,20 @@
 
 use std::time::Instant;
 
-use crossterm::event::{KeyCode, KeyModifiers};
+use crossterm::event::KeyCode;
 
 use super::copy::copy;
 use super::touch_session;
+use crate::action::vault::VaultCommand;
 use crate::models::App;
 use crate::status::{Secret, Status};
 
+/// Whether one of the vault's dialogs took the key, which the vault's keys
+/// resolved to `command`.
 pub(super) fn vault_dialog_input(
     app: &mut App,
     code: KeyCode,
-    modifiers: KeyModifiers,
+    command: Option<VaultCommand>,
     now: Instant,
 ) -> bool {
     use crate::kdbx::vault::Page;
@@ -25,22 +28,22 @@ pub(super) fn vault_dialog_input(
     };
     match page {
         Page::Browse(_) => false,
-        Page::Password(_) => password_dialog_input(app, code, modifiers, now),
+        Page::Password(_) => password_dialog_input(app, code, command, now),
         Page::DeleteConfirm(_) => delete_dialog_input(app, code, now),
     }
 }
 
+/// Enter copies and Esc closes, as the dialog protocol has them; the key of
+/// `Reveal`, which opened the dialog, closes it too.
 fn password_dialog_input(
     app: &mut App,
     code: KeyCode,
-    modifiers: KeyModifiers,
+    command: Option<VaultCommand>,
     now: Instant,
 ) -> bool {
     if code == KeyCode::Enter {
         copy(app, Secret::Password, now);
-    } else if code == KeyCode::Esc
-        || (modifiers == KeyModifiers::CONTROL && matches!(code, KeyCode::Char('r' | 'R')))
-    {
+    } else if code == KeyCode::Esc || command == Some(VaultCommand::Reveal) {
         touch_session(app, |session| session.close_vault_dialog(now));
     }
     true

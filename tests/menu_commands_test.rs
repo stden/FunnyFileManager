@@ -2,10 +2,13 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use funny_file_manager::{
+    dispatch_key,
     menu::{Heading, Menu},
     models::{App, Overlay, Panel, SortMode, SortRow},
     popup::process_popup_input,
+    WritableTestBackend,
 };
+use ratatui::Terminal;
 use std::{fs, io};
 use tempfile::TempDir;
 
@@ -39,51 +42,6 @@ fn choosing_the_right_panel_menu_changes_only_the_right_panel() -> io::Result<()
     Ok(())
 }
 
-#[test]
-fn every_printed_extended_shortcut_resolves_to_its_menu_command() {
-    for heading in Heading::ALL {
-        for entry in Menu::open(heading).entries() {
-            let funny_file_manager::menu::Entry::Item { shortcut, .. } = entry else {
-                continue;
-            };
-            let Some(command) = entry.menu_command() else {
-                continue;
-            };
-            if shortcut.is_empty() {
-                continue;
-            }
-            let Some(key) = printed_shortcut(shortcut) else {
-                panic!("{shortcut} does not name a key");
-            };
-            assert_eq!(
-                funny_file_manager::action::resolve(key),
-                funny_file_manager::action::Action::MenuCommand(command),
-                "{shortcut}"
-            );
-        }
-    }
-}
-
-/// The key a menu prints as `text` (`Ctrl+F3`, `Del`), or `None` if it names none.
-fn printed_shortcut(text: &str) -> Option<KeyEvent> {
-    let (modifier, key) = text.split_once('+').unwrap_or(("", text));
-    let modifiers = match modifier {
-        "Ctrl" => KeyModifiers::CONTROL,
-        "Alt" => KeyModifiers::ALT,
-        "Shift" => KeyModifiers::SHIFT,
-        "" => KeyModifiers::NONE,
-        _ => return None,
-    };
-    let code = if let Some(number) = key.strip_prefix('F') {
-        KeyCode::F(number.parse().ok()?)
-    } else if key == "Del" {
-        KeyCode::Delete
-    } else {
-        KeyCode::Char(key.chars().next()?.to_ascii_lowercase())
-    };
-    Some(KeyEvent::new(code, modifiers))
-}
-
 #[expect(
     clippy::expect_used,
     reason = "test fixture: a menu without the named entry fails the test that chose it"
@@ -96,7 +54,14 @@ fn select_menu(app: &mut App, heading: Heading, label: &str) {
         .position(|entry| funny_file_manager::menu::label_of(entry).replace('&', "") == label)
         .expect("menu entry exists");
     app.set_menu(menu);
-    enter(app);
+    // Enter closes the drop-down and hands the row on; the dispatcher runs
+    // it once the menu has left the screen.
+    let mut terminal = Terminal::new(WritableTestBackend::new(80, 24)).expect("test terminal");
+    dispatch_key(
+        &mut terminal,
+        app,
+        KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE),
+    );
 }
 
 #[test]

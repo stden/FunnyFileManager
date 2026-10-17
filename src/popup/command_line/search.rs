@@ -1,8 +1,9 @@
 //! Purpose: Ctrl+R's reverse search through the command history, which owns the keyboard while it runs.
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::KeyEvent;
 
 use super::{refresh_ghost, state, state_mut};
+use crate::action::command_line::search::{resolve, LineSearchCommand};
 use crate::history::RingIndex;
 use crate::models::{App, Recall};
 
@@ -19,34 +20,35 @@ pub(super) fn start_search(app: &mut App) {
     };
 }
 
-/// Keys while a reverse search is running.
+/// Keys while a reverse search is running: every one is consumed, because
+/// the search owns the keyboard.
 pub(super) fn search_key(app: &mut App, key: KeyEvent) -> bool {
-    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-    let alt = key.modifiers.contains(KeyModifiers::ALT);
+    if let Some(command) = resolve(&app.keymap.command_line_search, key) {
+        apply(app, command);
+    }
+    true
+}
 
-    match key.code {
+fn apply(app: &mut App, command: LineSearchCommand) {
+    match command {
         // Another Ctrl+R steps to the next older match.
-        KeyCode::Char('r') if ctrl => {
+        LineSearchCommand::SearchOlder => {
             let from = next_search_start(app);
             search_from(app, from);
         }
-        // Ctrl+G is bash's abort; Esc and Ctrl+C get the same treatment.
-        KeyCode::Char('g' | 'c') if ctrl => cancel_search(app),
-        KeyCode::Esc => cancel_search(app),
-        KeyCode::Enter => finish_search(app),
-        KeyCode::Backspace => {
+        LineSearchCommand::Cancel => cancel_search(app),
+        LineSearchCommand::Accept => finish_search(app),
+        LineSearchCommand::Backspace => {
             edit_query(app, |query| {
                 query.pop();
             });
             search_from(app, RingIndex::NEWEST);
         }
-        KeyCode::Char(ch) if !ctrl && !alt => {
+        LineSearchCommand::Extend(ch) => {
             edit_query(app, |query| query.push(ch));
             search_from(app, RingIndex::NEWEST);
         }
-        _ => {}
     }
-    true
 }
 
 /// Where the next `Ctrl+R` should resume: one past the entry on screen.

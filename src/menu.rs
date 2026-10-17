@@ -4,8 +4,9 @@
 //! commands: it is where the program says what it can do, which for a file
 //! manager with forty hotkeys is most of the documentation a user ever reads.
 //!
-//! Items route through shared keyboard dispatch or a typed menu command.
-//! Every non-separator row has an executable route; operations live in ops.
+//! Every non-separator row holds the [`crate::action::Action`] its key
+//! resolves to, or a [`MenuCommand`] when Far gives it no key, and runs it
+//! through the same dispatch the keyboard uses; operations live in ops.
 
 mod command;
 mod cursor;
@@ -14,7 +15,7 @@ mod tables;
 
 pub use command::{MenuCommand, SettingsPage};
 pub use cursor::Menu;
-pub use entry::{Activation, Entry, Shortcut};
+pub use entry::Entry;
 
 /// One heading on the bar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

@@ -1,8 +1,13 @@
 use super::*;
 use crate::{
+    action::ToolCommand,
     menu::{MenuCommand, SettingsPage},
     models::Panel,
 };
+
+fn open_tool(app: &mut App, command: ToolCommand) {
+    crate::ops::menu::execute_tool(app, command).expect("the tool opens");
+}
 
 fn fixture() -> (tempfile::TempDir, App) {
     let temp = tempfile::TempDir::new().unwrap();
@@ -13,7 +18,7 @@ fn fixture() -> (tempfile::TempDir, App) {
 #[test]
 fn prompt_edits_text_without_leaking_modified_shortcuts() {
     let (_temp, mut app) = fixture();
-    crate::ops::menu::execute(&mut app, MenuCommand::Filter);
+    open_tool(&mut app, ToolCommand::Filter);
     for key in [
         KeyCode::Char('a'),
         KeyCode::Char('c'),
@@ -52,7 +57,7 @@ fn invalid_input_keeps_the_prompt_open_and_cancel_setting_is_respected() {
 #[test]
 fn choices_navigation_clamps_and_enter_applies_the_highlighted_row() {
     let (_temp, mut app) = fixture();
-    crate::ops::menu::execute(&mut app, MenuCommand::Screens);
+    open_tool(&mut app, ToolCommand::Screens);
     for key in [
         KeyCode::Up,
         KeyCode::PageDown,
@@ -66,7 +71,7 @@ fn choices_navigation_clamps_and_enter_applies_the_highlighted_row() {
     }
     process(&mut app, KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(app.view, crate::models::ViewMode::Console);
-    crate::ops::menu::execute(&mut app, MenuCommand::ViewHistory);
+    open_tool(&mut app, ToolCommand::ViewHistory);
     process(&mut app, KeyCode::Enter, KeyModifiers::NONE);
     assert!(app.overlay.is_active());
     process(&mut app, KeyCode::Esc, KeyModifiers::NONE);
@@ -104,7 +109,7 @@ fn menu_wrap_setting_controls_navigation_at_both_boundaries() {
 #[test]
 fn screen_choices_navigate_and_open_the_requested_screen() {
     let (_temp, mut app) = fixture();
-    crate::ops::menu::execute(&mut app, MenuCommand::Screens);
+    open_tool(&mut app, ToolCommand::Screens);
     process(&mut app, KeyCode::Up, KeyModifiers::NONE);
     process(&mut app, KeyCode::Down, KeyModifiers::NONE);
     process(&mut app, KeyCode::Enter, KeyModifiers::NONE);

@@ -87,10 +87,17 @@ still invoke it through a model type.
 
 | Source | Responsibility |
 |---|---|
-| `src/action.rs` | Pure main-view `KeyEvent` to `Action` mapping |
+| `src/action.rs` | Pure main-view `resolve(bindings, KeyEvent)` over `App.keymap.panels`, with the panels' fixed fallback |
 | `src/action/keymap.rs` | Shared ordered `keymap!` DSL with `has`, `exact`, and `without` modifier policies |
-| `src/action/editor.rs` | Declarative editor keymap and typed `EditorCommand` language; no state mutation or effects |
-| `src/action/wsl.rs` | Pure WSL dialog keymap and distinct `WslCommand` update intents |
+| `src/action/editor.rs` | Typed `EditorCommand` language and pure `resolve(bindings, KeyEvent)` over `App.keymap.editor`; no state mutation or effects |
+| `src/action/wsl.rs` | Distinct `WslCommand` update intents and the pure lookup of a key in the `wsl_manager` bindings it is handed |
+| `src/action/viewer.rs` | Pure `resolve(&Bindings<ViewerCommand>, KeyEvent) -> Option<ViewerCommand>` over `App.keymap.viewer`; the viewer consumes an unbound key, and the quick view takes scroll commands and passes other keys to the panels |
+| `src/action/command_line.rs` (+ `search.rs`, `completion.rs`) | Pure binding lookup for `LineCommand`, `LineSearchCommand` and `CompletionCommand` over the three command-line contexts; fixed typed-text fallbacks and the matching `popup` owners retain their mode boundaries |
+| `src/action/netbox.rs` | Pure `resolve(&Bindings<NetboxCommand>, KeyEvent) -> Option<NetboxCommand>` over `App.keymap.netbox_panel`; sessions and remote panels interpret commands and apply panels fallback/refusal by action scope |
+| `src/action/tree.rs`, `tasks/search.rs` | Pure `resolve(KeyEvent) -> Option<C>` for `TreeCommand` and `TaskSearchCommand`; these contexts retain their legacy key tables until their own switches |
+| `src/action/lsp_editor.rs` | One pure `resolve(&Bindings<LspListCommand>, KeyEvent) -> Option<LspListCommand>`: the Language servers list and view keys, looked up exactly in the keymap's `language_servers` bindings (`App.keymap`); `popup::lsp_editor` applies the command |
+| `src/action/path_env.rs` | `resolve(&Bindings<PathCommand>, KeyEvent) -> Option<PathCommand>`: the PATH editor list reads `App.keymap.path_editor`; its entry field and confirmation questions keep the dialog protocol |
+| `src/action/vault.rs` | `resolve(&Bindings<VaultCommand>, KeyEvent) -> Option<VaultCommand>`: the vault's keys are the keymap's `vault` bindings, matched exactly; a character with neither Ctrl nor Alt is typed when no binding names it. `popup::kdbx` applies the command |
 | `src/popup.rs` | Exhaustive overlay routing and shared editor-search prompt helpers |
 | `src/popup/command_line.rs` | Command-line editing, completion, history, and command acceptance |
 | `src/popup/viewer.rs`, `src/popup/confirmation.rs` | Viewer input and help, information, quit, and delete confirmations |
@@ -114,9 +121,9 @@ still invoke it through a model type.
 | `src/ops/mcp_install.rs` | F9 Commands > Install MCP server: `open`, `switch_scope`, `register`; children survey the machine (`survey`), write configs atomically (`config_file`), run `claude mcp` (`claude`), build the report (`report`) and read the real machine (`system`) |
 | `src/ops/vault.rs` | KeePass file detection and vault-browser opening |
 | `src/ops/wsl.rs` | WSL request creation, completion interpretation, and panel navigation |
-| `src/ops/tree.rs`, `quickview.rs`, `panels.rs`, `longnames.rs`, `panelview.rs` | Left/Right menu toggles (`Ctrl+T`, `Ctrl+Q`, `Ctrl+F1/F2`, `Ctrl+N`) and the view-mode switch (`Ctrl+1` … `Ctrl+0`) |
+| `src/ops/tree.rs`, `quickview.rs`, `panels.rs`, `longnames.rs`, `panel_details.rs` | Left/Right menu toggles (`Ctrl+T`, `Ctrl+Q`, `Ctrl+F1/F2`, `Ctrl+N`) and the view-mode switch (`Ctrl+1` … `Ctrl+0`), which reads the columns the mode shows |
 | `src/popup/tree.rs`, `src/popup/quickview.rs` | Keys of a tree or quick-view panel, asked by `dispatch_key` before the file-panel actions while `Panel.kind` is one of them |
-| `src/popup/sessions.rs`, `src/popup/remote.rs`, `src/popup/netbox.rs` | Keys of a sessions or remote panel, asked the same way while `Panel.kind` is `Sessions` or `Remote`; `netbox.rs` holds their list keys and refuses a key whose `Action::scope()` is `Entries` |
+| `src/popup/sessions.rs`, `src/popup/remote.rs`, `src/popup/netbox.rs` | Keys of a sessions or remote panel, asked the same way while `Panel.kind` is `Sessions` or `Remote`, applying `action::netbox`'s commands; `netbox.rs` refuses a key whose `Action::scope()` is `Entries` |
 | `src/popup/session_edit.rs`, `src/popup/plugin_commands.rs`, `src/popup/input_prompt.rs`, `src/popup/question.rs` | Keys of the session dialog, the F11 list, and the input / yes-no dialogs |
 | `src/ops/sessions.rs`, `src/ops/sessions/import.rs`, `src/ops/remote.rs`, `src/ops/prompts.rs`, `src/ops/plugin_commands.rs` | The sessions panel and every change to the store (`change` saves a copy before it takes effect), `:sessions` (`execute`) and the `.netbox` import (`import::run`); browsing a host through a `RemoteFs` (`connect`, `open_with`, `enter`, `leave`); the answers of the input / yes-no dialogs; running an F11 row |
 | `src/sessions.rs`, `src/sessions/import.rs`, `src/sessions/import/netbox.rs` | `SessionStore` (`<config>/ffm/sessions.json`, owner-only, atomic, size-bounded; a file that did not load is never written over; `adopt` keeps the user's own entries) and `read_text`; what an import found (`Imported`, `Skipped`, `SkipReason`, `ImportReport`, `ImportError`); the `.netbox` importer — size-bounded, no DTD, node and session limits, every value URL-decoded and checked, saved passwords counted and never read |
@@ -277,9 +284,13 @@ Choose the implementation owner from these tables. Keep state transitions with
 their state, coordinate effects in application/operations, and collect external
 facts before rendering. Preserve compatibility with re-exports or existing
 method signatures rather than duplicate implementations.
-For a new editor binding, declare its typed intent in `action/editor.rs`, then
-interpret it in `popup/editor.rs`; keep buffer invariants in the editor model
-and external effects in `ops/editor`.
+For a new editor binding, name its typed intent in `keymap/tables/editor.rs`
+and declare the command in `action/editor.rs`, then interpret it in
+`popup/editor.rs`; keep buffer invariants in the editor model
+and external effects in `ops/editor`. The viewer, the command line, the tree
+and NetBox panels, the Language servers dialog, the PATH editor, the vault and
+the task list's search bar follow the same split: the typed command in
+`action/<context>.rs`, its interpretation in the `popup` owner.
 
 Put executable tests in dedicated test files. No Rust or Python file may exceed
 200 lines — application code, tests, benches, examples, `mcp/`, `colorer-sys/`

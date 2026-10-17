@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::{
+    action::Action,
     menu::{Heading, Menu, SettingsPage},
     models::{
         ChoiceTarget, MenuChoice, MenuDialog, Overlay, Panel, PanelSide, PanelsShown, ViewMode,

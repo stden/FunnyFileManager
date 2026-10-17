@@ -1,4 +1,4 @@
-//! Purpose: completion on the command line — Tab's candidate menu, and the ghost suggestion Right or End accepts at the end of the line.
+//! Purpose: completion on the command line — Tab's candidate menu, and the ghost suggestion that a move to the right (`char_right`, `word_right`, `line_end`) accepts at the end of the line.
 
 use super::{state, state_mut};
 use crate::complete::{self, CompletionContext};
@@ -90,7 +90,8 @@ pub(in crate::popup) fn refresh_menu(app: &mut App) {
     }
 }
 
-/// Whether `Right`/`End` should accept the suggestion instead of moving.
+/// Whether a move to the right should accept the suggestion instead of moving:
+/// `char_right`, `word_right` and `line_end` do, with the caret at the end.
 pub(super) fn ghost_acceptable(app: &App) -> bool {
     state(app).is_some_and(|s| s.ghost.is_some() && s.line.at_end())
 }

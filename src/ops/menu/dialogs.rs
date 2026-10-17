@@ -7,8 +7,7 @@ use std::io;
 use super::execute;
 use crate::{
     lineedit::LineEditor,
-    menu::MenuCommand,
-    models::{App, ChoiceTarget, MenuChoice, MenuDialog, Overlay},
+    models::{App, ChoiceTarget, MenuChoice, MenuDialog, MenuPrompt, Overlay},
 };
 
 pub fn choose(app: &mut App, target: ChoiceTarget) -> io::Result<()> {
@@ -33,9 +32,9 @@ pub fn choose(app: &mut App, target: ChoiceTarget) -> io::Result<()> {
     Ok(())
 }
 
-pub(super) fn prompt(app: &mut App, command: MenuCommand, title: &str, caption: &str, value: &str) {
+pub(super) fn prompt(app: &mut App, purpose: MenuPrompt, title: &str, caption: &str, value: &str) {
     app.set_overlay(Overlay::MenuDialog(Box::new(MenuDialog::Prompt {
-        command,
+        purpose,
         title: title.to_owned(),
         caption: caption.to_owned(),
         input: LineEditor::new(value),

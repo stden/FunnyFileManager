@@ -84,7 +84,7 @@ Feature: Step branches the other features leave idle
     And I press PageDown
 
   Scenario: Local paths are not S3 paths, and profile discovery keeps default
-    When I parse path "/srv/example"
+    When I parse path "/example/path"
     Then a local path is not an S3 path
     When I list AWS profiles
     Then the profiles should include "default"

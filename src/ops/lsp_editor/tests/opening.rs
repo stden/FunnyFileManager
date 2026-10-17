@@ -141,6 +141,9 @@ fn the_lsp_command_and_the_commands_menu_row_open_the_dialog() {
         .find(|entry| crate::menu::label_of(entry).contains("Language servers"))
         .copied()
         .expect("LSP menu entry");
-    crate::ops::menu::activate(&mut app, entry);
+    let Some(crate::action::Action::Menu(command)) = entry.action() else {
+        panic!("the row holds its menu command: {entry:?}");
+    };
+    crate::ops::menu::execute(&mut app, command);
     assert!(matches!(app.overlay, Overlay::LspEditor(_)));
 }

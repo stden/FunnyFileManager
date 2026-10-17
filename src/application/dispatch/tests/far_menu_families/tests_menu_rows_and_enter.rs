@@ -21,7 +21,7 @@ fn each_keyless_row_takes_the_same_road() {
     let config = tempfile::TempDir::new().expect("config dir");
     for (command, is_open) in cases {
         let mut app = app_on(config.path(), Some(config.path()));
-        apply_action(&mut terminal(), &mut app, Action::Menu(command));
+        apply_action(&mut terminal(), &mut app, Action::Menu(command), true);
         assert!(is_open(&app.overlay), "{command:?}");
     }
 }
@@ -38,7 +38,7 @@ fn enter_on_a_keyless_row_runs_its_command_once_the_menu_has_closed() {
         matches!(&app.overlay, Overlay::MenuDialog(_)),
         "the first Options row opened its page"
     );
-    assert_eq!(app.pending_key, None, "and nothing is left waiting");
+    assert_eq!(app.pending_row, None, "and nothing is left waiting");
 }
 
 #[test]
@@ -58,7 +58,7 @@ fn enter_on_a_keyed_row_presses_its_key() {
 #[test]
 fn f2_opens_the_user_menu() {
     let mut app = App::new().expect("test app");
-    apply_action(&mut terminal(), &mut app, Action::UserMenu);
+    apply_action(&mut terminal(), &mut app, Action::UserMenu, true);
     // Far's F2 offers the user's own commands to choose from; editing that
     // file is a separate row in the Commands menu.
     assert!(matches!(app.overlay, Overlay::MenuDialog(_)));
@@ -71,7 +71,8 @@ fn the_console_still_runs_a_menu_command() {
     apply_action(
         &mut terminal(),
         &mut app,
-        Action::MenuCommand(MenuCommand::FindFile),
+        Action::Tool(ToolCommand::FindFile),
+        true,
     );
     assert!(matches!(app.overlay, Overlay::FindFile(_)));
 }
@@ -85,7 +86,7 @@ fn enter_runs_an_associated_command() {
     std::fs::write(dir.path().join("associations.txt"), association).expect("assoc");
     let mut app = app_on(dir.path(), Some(dir.path()));
     assert!(app.get_active_panel().select_named("note.txt"));
-    apply_action(&mut terminal(), &mut app, Action::Open);
+    apply_action(&mut terminal(), &mut app, Action::Open, true);
     assert!(ran.exists(), "{:?}", app.status);
 }
 
@@ -96,7 +97,7 @@ fn a_broken_associations_file_is_reported_instead_of_opening() {
     std::fs::write(dir.path().join("note.txt"), "x").expect("file");
     let mut app = app_on(dir.path(), Some(dir.path()));
     assert!(app.get_active_panel().select_named("note.txt"));
-    apply_action(&mut terminal(), &mut app, Action::Open);
+    apply_action(&mut terminal(), &mut app, Action::Open, true);
     assert!(matches!(app.status, status::Status::Error(_)));
 }
 
@@ -116,9 +117,9 @@ fn a_folders_own_ffm_files_are_never_read_or_run() {
     std::fs::write(dir.path().join(".ffm/user-menu.txt"), "Build\tmake\n").expect("menu");
     let mut app = app_on(dir.path(), None);
     assert!(app.get_active_panel().select_named("README.txt"));
-    apply_action(&mut terminal(), &mut app, Action::Open);
+    apply_action(&mut terminal(), &mut app, Action::Open, true);
     assert!(!pwned.exists(), "the folder's association ran");
-    apply_action(&mut terminal(), &mut app, Action::UserMenu);
+    apply_action(&mut terminal(), &mut app, Action::UserMenu, true);
     let Overlay::MenuDialog(dialog) = &app.overlay else {
         panic!("the user menu is open: {:?}", app.status);
     };

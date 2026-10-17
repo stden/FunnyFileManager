@@ -29,7 +29,7 @@ fn each_file_command_opens_its_own_dialog() {
         // Off `..`: a file command has nothing to ask about there, and
         // Wipe, like F8, declines rather than opening a dialog about nothing.
         assert!(app.get_active_panel().select_named("Cargo.toml"));
-        apply_action(&mut terminal(), &mut app, Action::File(command));
+        apply_action(&mut terminal(), &mut app, Action::File(command), true);
         assert!(is_open(&app.overlay), "{command:?}");
     }
 }
@@ -60,7 +60,7 @@ fn each_tool_opens_its_own_dialog() {
         let mut app = App::new().expect("test app");
         let host = crate::test_support::processes::FixtureHost::new(Vec::new());
         app.task_host.install(std::sync::Arc::new(host));
-        apply_action(&mut terminal(), &mut app, Action::Tool(command));
+        apply_action(&mut terminal(), &mut app, Action::Tool(command), true);
         assert!(is_open(&app.overlay), "{command:?}");
     }
 }
@@ -118,7 +118,7 @@ fn archive_dialog_buttons_answer_to_the_mouse() {
 #[test]
 fn wsl_management_opens_the_manager() {
     let mut app = App::new().expect("test app");
-    apply_action(&mut terminal(), &mut app, Action::WslManagement);
+    apply_action(&mut terminal(), &mut app, Action::WslManagement, true);
     assert!(matches!(app.overlay, Overlay::Wsl(_)));
 }
 
@@ -127,8 +127,8 @@ fn wsl_management_opens_the_manager() {
 #[test]
 fn shift_f9_is_the_menu_save_setup_and_keeps_the_keys_it_does_not_own() {
     let shift_f9 = KeyEvent::new(KeyCode::F(9), KeyModifiers::SHIFT);
-    let action = resolve(shift_f9);
-    assert_eq!(action, Action::MenuCommand(MenuCommand::SaveSetup));
+    let action = crate::test_support::panels_action(shift_f9);
+    assert_eq!(action, Action::Menu(MenuCommand::SaveSetup));
 
     let temp = tempfile::TempDir::new().expect("dir");
     let path = temp.path().join("settings.yaml");
@@ -140,7 +140,7 @@ fn shift_f9_is_the_menu_save_setup_and_keeps_the_keys_it_does_not_own() {
     let mut app = App::new().expect("app");
     app.settings = models::settings::Settings::with_file(path.clone());
     app.settings.set(SettingsPage::Editor, "8").expect("valid");
-    apply_action(&mut terminal(), &mut app, action);
+    apply_action(&mut terminal(), &mut app, action, true);
 
     let yaml = |text: &str| -> serde_norway::Value { serde_norway::from_str(text).expect("YAML") };
     assert_eq!(
@@ -154,7 +154,7 @@ fn shift_f9_is_the_menu_save_setup_and_keeps_the_keys_it_does_not_own() {
 fn a_configured_mask_is_the_group_selection_suggestion() {
     let mut app = App::new().expect("test app");
     app.settings.set(SettingsPage::Masks, "*.rs").expect("mask");
-    apply_action(&mut terminal(), &mut app, Action::SelectGroup);
+    apply_action(&mut terminal(), &mut app, Action::SelectGroup, true);
     let Overlay::MaskPrompt(prompt) = &app.overlay else {
         panic!("the mask prompt opened");
     };

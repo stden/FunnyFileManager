@@ -18,7 +18,7 @@ use crate::models::{PanelSide, PanelsShown};
 mod clicks;
 mod dialog;
 
-pub(crate) use clicks::{PanelClicks, PanelRowClick};
+pub(crate) use clicks::{PanelClicks, PanelRowClick, Wheel};
 pub use dialog::{DialogMouse, DialogTarget};
 
 /// The `count` cells of the F-key bar, in columns, for a terminal this wide.

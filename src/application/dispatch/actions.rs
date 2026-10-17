@@ -4,7 +4,7 @@ use std::io::Write;
 
 use ratatui::{backend::Backend, Terminal};
 
-use crate::action::{Action, FileCommand, PanelCommand, ToolCommand};
+use crate::action::Action;
 use crate::editor::{handle_edit, handle_edit_builtin};
 use crate::models::{self, App, CommandLine, Lifecycle, NamePrompt, Overlay};
 use crate::ops::{handle_delete_confirm, handle_view};
@@ -25,16 +25,16 @@ pub(super) fn apply_panel_action<B: Backend + Write>(
     action: Action,
 ) {
     match action {
-        Action::Menu(command) | Action::MenuCommand(command) => ops::menu::execute(app, command),
+        Action::Menu(command) => ops::menu::execute(app, command),
         Action::PanelView(mode) => report(app, |app| {
             ops::panel_details::set_view(app.get_active_panel(), mode)
         }),
         Action::Navigate(command) => apply_navigation(terminal, app, command),
         Action::Selection(command) => apply_selection(app, command),
         Action::Dialog(command) => open_dialog(app, command),
-        Action::Panel(command) => apply_panel(app, command),
-        Action::File(command) => apply_file(app, command),
-        Action::Tool(command) => apply_tool(terminal, app, command),
+        Action::Panel(command) => ops::menu::execute_panel(app, command),
+        Action::File(command) => ops::menu::execute_file(app, command),
+        Action::Tool(command) => report(app, |app| ops::menu::execute_tool(app, command)),
         plain => apply_plain_action(terminal, app, plain),
     }
 }
@@ -45,7 +45,7 @@ where
     B: Backend + Write,
 {
     match action {
-        Action::Menu(command) | Action::MenuCommand(command) => ops::menu::execute(app, command),
+        Action::Menu(command) => ops::menu::execute(app, command),
         Action::PanelView(mode) => report(app, |app| {
             ops::panel_details::set_view(app.get_active_panel(), mode)
         }),
@@ -74,55 +74,6 @@ where
         | Action::Panel(_)
         | Action::File(_)
         | Action::Tool(_) => {}
-    }
-}
-
-/// The Left / Right menu: how the active panel shows its listing.
-fn apply_panel(app: &mut App, command: PanelCommand) {
-    match command {
-        PanelCommand::View(view) => ops::panelview::set(app, view),
-        PanelCommand::QuickView => ops::quickview::toggle(app),
-        PanelCommand::Sort(mode) => ops::sortmenu::set(app, mode),
-        PanelCommand::TogglePanel(side) => ops::panels::toggle(app, side),
-        PanelCommand::LongNames => ops::longnames::toggle(app),
-    }
-}
-
-/// The Files menu rows beyond the bare F-keys.
-fn apply_file(app: &mut App, command: FileCommand) {
-    match command {
-        FileCommand::Link => ops::link::open(app),
-        FileCommand::Wipe => ops::wipe::open(app),
-        FileCommand::AddToArchive => ops::archive::open_add(app),
-        FileCommand::Extract => ops::archive::open_extract(app),
-        FileCommand::ArchiveCommands => ops::archive::open_commands(app),
-        FileCommand::Attributes => ops::attributes::open(app),
-        FileCommand::ApplyCommand => ops::apply::open(app),
-        FileCommand::Describe => ops::describe::open(app),
-    }
-}
-
-/// The Commands menu: the same operation the F9 row runs.
-fn apply_tool<B: Backend + Write>(
-    _terminal: &mut Terminal<B>,
-    app: &mut App,
-    command: ToolCommand,
-) {
-    ops::menu::execute(app, menu_tool(command));
-}
-
-const fn menu_tool(command: ToolCommand) -> crate::menu::MenuCommand {
-    use crate::menu::MenuCommand;
-    match command {
-        ToolCommand::FindFile => MenuCommand::FindFile,
-        ToolCommand::History => MenuCommand::History,
-        ToolCommand::VideoMode => MenuCommand::VideoMode,
-        ToolCommand::FindFolder => MenuCommand::FindFolder,
-        ToolCommand::ViewHistory => MenuCommand::ViewHistory,
-        ToolCommand::FolderHistory => MenuCommand::FolderHistory,
-        ToolCommand::Filter => MenuCommand::Filter,
-        ToolCommand::Screens => MenuCommand::Screens,
-        ToolCommand::Tasks => MenuCommand::Tasks,
     }
 }
 

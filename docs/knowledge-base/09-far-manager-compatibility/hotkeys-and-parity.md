@@ -102,11 +102,43 @@ This document tracks how closely FunnyFileManager matches classic Far Manager ke
 | `sessions`           | ✅        | NetBox's stored-sessions panel; `sessions import netbox [path]` imports a `.netbox` export (the file under a file panel's cursor when no path is given) |
 | Shell fallback       | ✅        | Any unknown command runs in shell |
 
+### Keys that changed with exact matching
+
+Command-line keys match their default chord exactly (keymap design spec §6.2): a
+modifier nobody binds is no longer ignored. These keys acted and now do
+nothing:
+
+- Enter, Esc, Up, Down and Backspace with Shift, Ctrl or Alt, and Tab with Ctrl
+  or Alt: Shift+Enter and Alt+Enter no longer run the line; Shift+Up and
+  Ctrl+Down no longer step the history; Alt+Tab no longer completes.
+- Del with Ctrl or Alt: Ctrl+Del and Alt+Del no longer delete a character.
+  Shift+Del still cuts.
+- Home and End with Ctrl or Alt: Ctrl+Home, Alt+Home, Ctrl+End and Alt+End no
+  longer move the caret. Shift+Home and Shift+End still select; Ctrl+Shift+Home
+  and Alt+Shift+End no longer do.
+- Shift or Alt with a Ctrl+letter: Ctrl+Shift+C no longer copies or clears
+  the line, and Ctrl+Alt+W no longer cuts the word before the caret.
+- Alt+Shift with Left and Right, and Ctrl+Alt with Left and Right: Alt+Shift+Left
+  no longer selects, and Ctrl+Alt+Right no longer moves a word. Shift+Left and
+  Ctrl+Shift+Left still select.
+- An extra modifier on the clipboard keys: Ctrl+Shift+Insert, Alt+Shift+Insert
+  and Ctrl+Shift+Del no longer copy, paste or cut. Ctrl+Insert, Shift+Insert
+  and Shift+Del still do.
+
+The completion list and the Ctrl+R search lose the same keys: Shift+Enter no
+longer accepts a candidate, and Ctrl+Shift+C no longer cancels a search.
+
+Keys that now act: Ctrl+E and Alt+F take the grey suggestion when the caret is
+at the end of the line, as Right, End, Ctrl+Right and Alt+Right already did.
+Selection bindings such as Shift+Right, Shift+End and Ctrl+Shift+Right still
+select instead of accepting it. Ctrl+Shift+E and Alt+Shift+F have no default
+binding and do nothing.
+
 ## 🧭 Panel Kinds (Left / Right menu)
 
 | Key     | Far Manager Action      | FFM Status | Notes |
 |---------|-------------------------|------------|-------|
-| Ctrl+Q  | Toggle quick view panel | ✅         | As in Far, the *passive* panel becomes the preview and the cursor stays on the file list; pressed inside the preview it turns that panel back into a file list. A file shows its first screen through the viewer's decoder and highlighter (the encoding label, size and percent in the info row; binary, oversized and non-regular files are declined with a one-line reason); a folder shows its first readable configured description (`README.md`, then `README.txt` by default) while InfoPanel settings is on, otherwise `crate::stats` totals (size, files, folders) — a folder that cannot be read says `Cannot read: <reason>`, and folders inside it that could not be read mark the totals as lower bounds, as F3's Information box does. Unusable descriptions are skipped; changing the description settings updates the open preview. The preview follows the cursor of a file or tree panel on every event. With the preview panel active, Up/Down, PgUp/PgDn, Home/End, Left/Right and Ctrl+Left/Ctrl+Right scroll it like the viewer; every other key falls through. The key and the Left/Right menu row share one path: `MenuCommand::QuickView` → `ops::quickview::toggle`. |
+| Ctrl+Q  | Toggle quick view panel | ✅         | As in Far, the *passive* panel becomes the preview and the cursor stays on the file list; pressed inside the preview it turns that panel back into a file list. A file shows its first screen through the viewer's decoder and highlighter (the encoding label, size and percent in the info row; binary, oversized and non-regular files are declined with a one-line reason); a folder shows its first readable configured description (`README.md`, then `README.txt` by default) while InfoPanel settings is on, otherwise `crate::stats` totals (size, files, folders) — a folder that cannot be read says `Cannot read: <reason>`, and folders inside it that could not be read mark the totals as lower bounds, as F3's Information box does. Unusable descriptions are skipped; changing the description settings updates the open preview. The preview follows the cursor of a file or tree panel on every event. With the preview panel active, Up/Down, PgUp/PgDn, Home/End, Left/Right and Ctrl+Left/Ctrl+Right scroll it like the viewer; every other key falls through. The key and the Left/Right menu row share one path: `PanelCommand::QuickView` → `ops::quickview::toggle`. |
 
 ## 🌐 NetBox Panels
 
@@ -129,6 +161,12 @@ transport yet, so connecting says so. See
 A remote panel (the seam the transport will fill; reached in this build only
 through tests) moves with the list keys, Enter enters a directory, and `..`
 at the host's root returns to the files.
+
+The list keys take no modifier (exact matching, keymap spec §6.2): Shift+Up,
+Shift+Down, Shift+Home, Shift+End, Shift+PgUp and Shift+PgDn no longer move
+the sessions list or a remote host. With the panels' exact defaults, these
+unbound chords fall through as `QuickSearchClear`; they do not act on the
+hidden file list (keymap spec §6.2 and §14.5, step 5).
 
 ## 🪟 Overlay / Dialog Keys
 
@@ -153,9 +191,12 @@ at the host's root returns to the files.
 F9 → Commands → Language servers (LSP), or `lsp` on the command line. While it
 is open every key goes to it, so none of these clash with a panel or
 command-line binding; each means what it already means in FFM or Far. Keys not
-listed do nothing (F1, F6, F9, F11, F12, Shift+F9, Ctrl+Z, Alt+letters). A list
-or view key with Shift, Ctrl or Alt held is another key and does nothing too:
-Shift+F8 does not reset, Alt+F7 does not add, Shift+F2 does not save.
+listed do nothing (F1, F6, F9, F11, F12, Shift+F9, Ctrl+Z, Alt+letters).
+Shift+Space toggles Enabled in the list, as Space does: Shift is part of the
+space character, so it is the same key. Super, Hyper and Meta are ignored, so
+Super+F8 deletes a server as F8 does. Any other list or view key with Shift,
+Ctrl or Alt held is another key and does nothing: Shift+F8 does not reset,
+Alt+F7 does not add, Shift+F2 does not save.
 
 Each mode's key bar and bottom-border legend name only the keys that act
 there. The form and the exit question blank the key bar, since no F-key acts
@@ -234,6 +275,62 @@ Mission Control's "Application windows" by default, so neither may reach the
 terminal; Alt+Down (Option+Down) does wherever the terminal sends Option as
 Alt, and with AutoComplete on, typing opens the list by itself.
 
+## ✏️ Editor Keys (Exact Matching)
+
+The editor's keys are rows of the `editor` table (`src/keymap/tables/editor.rs`).
+A row runs only for the chord with exactly its modifiers, as the design spec's
+§6.2 says (`docs/superpowers/specs/2026-09-24-ffm-yml-keymap-design.md`). Before
+the switch an editor key still ran its command with an extra modifier that
+nothing bound, so the keys below stopped acting. They are the 106 chords
+that were `lenient` in `tests/keymap_golden/editor.tsv`; each now reads
+`fallback` there and runs nothing. The bare keys and Shift alone on the
+caret moves are unchanged.
+
+| Keys | Was | Now |
+|------|-----|-----|
+| Left, Right, Up, Down, Home, End, PgUp, PgDn with Alt or Ctrl, with or without Shift: Ctrl+Left, Ctrl+Right, Ctrl+Up, Alt+Shift+Home | the caret move; with Shift, the selection | nothing |
+| Enter, Backspace, Del, Esc, F2, F8, F10 with Shift, Alt or Ctrl: Alt+Enter, Shift+Enter, Ctrl+Del, Ctrl+Backspace, Shift+F2, Alt+F8 | new line, delete, close, save, choose the encoding | nothing |
+| F7 with Alt or Ctrl, with or without Shift: Alt+F7, Ctrl+F7 | search; with Shift, repeat the search | nothing; Shift+F7 still repeats the search |
+| Tab with Alt or Ctrl: Alt+Tab, Ctrl+Tab | indent | nothing |
+
+**Capitals under Ctrl (Unix only).** On Unix a capital letter under Ctrl, or
+under Ctrl and Alt, is the Shift chord, so Ctrl+Shift+C (kitty sends it as a
+capital C under Ctrl) no longer copies, Ctrl+Shift+F no longer types the file
+name, and Ctrl+Alt+Shift+L no longer formats the document. The Windows console
+sends the same capital for `CapsLock`, which keeps Ctrl+C, Ctrl+F and
+Ctrl+Alt+L as they were. The lowercase keys work on every platform.
+
+Nobody can give these keys back yet: `ffm.yml` is read by a later step of the
+keymap design (spec §10 step 8), so until then the defaults are the only keys.
+
+## 🛤️ PATH editor dialog
+
+F9 → Commands → Edit PATH (current user or all users). While its list is
+browsed, a key acts only with exactly the modifiers of its own chord, and keys
+not listed do nothing. The plain keys are unchanged, but Shift, Alt or Ctrl
+added to Up, Down, Home, End, Ins, F7, Enter, F4, Del, F8, F2, F5 or Esc does
+nothing: Shift+Up does not move the cursor, Alt+Home does not go to the first
+entry, Ctrl+Home does not either, Shift+Del does not drop an entry, Shift+F2
+does not save and Alt+Enter does not edit. Ctrl+Up and Ctrl+Down still move the
+entry, but not with Shift or Alt added: Ctrl+Shift+Up and Ctrl+Alt+Down do
+nothing. The entry field and the two questions keep their own keys.
+
+## 🔐 KeePass vault
+
+Enter or F3 on a `.kdbx` file opens the vault. While it is open every key goes
+to it, so none of these clash with a panel or command-line binding. A character
+is typed into the password while the vault is locked, and into its filter once
+it is unlocked. The other keys do nothing (F1, F3, F9, F10, Tab, Ins, Del, Left,
+Right).
+
+A vault key with Shift, Ctrl or Alt held is another key and does nothing too;
+Shift only changes the case of a typed character. So the Shift, Ctrl and Alt
+variants of F2, F4, F6, F8, Enter, Esc, Backspace and the six list moves (Up,
+Down, PgUp, PgDn, Home, End) do nothing, and so do Ctrl+R, Ctrl+U and Ctrl+Z
+with Shift or Alt: Shift+F8 does not delete, Alt+Enter does not unlock, Ctrl+Up
+does not move. On kitty-protocol terminals Ctrl+Shift+L does not lock either,
+because the terminal sends it as an upper-case L with Ctrl.
+
 ## 🧭 Left / Right Menu
 
 | Key    | Far Action      | FFM Status | Notes |
@@ -270,6 +367,18 @@ Ctrl+С rather than Ctrl+C — because crossterm 0.29 does not read the
 protocol's base-layout key. Switch to the Latin layout for Ctrl shortcuts on
 those terminals.
 
+## WSL manager keys (exact matching)
+
+A screen that reads its keys from the keymap (`App.keymap`) runs a command
+only for a key held with exactly the modifiers of its binding: a modifier
+more is another key. The chords below ran the bare key's command before and
+do nothing now. Each is a `fallback` row of the screen's table in
+`tests/keymap_golden/`.
+
+| Screen | Chords that no longer answer | What they did |
+|--------|------------------------------|---------------|
+| WSL manager (`wsl_manager`) | Up, Down, Home, End and Esc held with Shift, Alt or Ctrl in any combination; Shift+Enter (36 chords) | Moved the selection, closed the manager, opened the distribution. The manager still consumes them: none reaches the panels behind it. F2, F5 and F6 already answered only without a modifier. |
+
 ## ↔️ Known Differences (Intentional)
 
 - F4 opens the built-in editor, with syntax highlighting and optional language servers. Alt+F4 delegates to the external editor.
@@ -277,6 +386,90 @@ those terminals.
 - F9 → Commands → `Install MCP server` (hotkey `e`) is an FFM extra with no Far counterpart: it registers `ffm-mcp` with AI clients. See [session tools](../../session-tools.md#mcp-server-setup).
 - Drive letters on Unix are simulated as `/`.
 - With the `s3` feature, credential-file profiles appear as extra drive-menu rows. Selecting one does not open a bucket. See [S3](../../tutorials/s3.md).
+
+## 🔁 Leniency List (Exact Matching)
+
+### File panels
+
+Each modifier is exact: `Shift+F5` is not `F5`, and a chord nothing binds is another key. Before the keymap switch, these chords ran the bare key's command. Now a chord nothing binds follows the panels' fallback: Alt with a character starts a quick search, any other printable key opens the command line, and every other key clears the quick search. The table lists every chord that changed, from the regenerated `tests/keymap_golden/panels.tsv`. File remapping is planned for migration step 8; once it lands, an explicit binding such as `copy: ['F5', 'Shift+F5']` in `ffm.yml` can retain a chord (spec §6.2).
+
+| Used to run | Chords that no longer run it |
+|---|---|
+| `*` invert selection | `Ctrl+*`, `Ctrl+Shift+*` |
+| `+` select group | `Ctrl++`, `Ctrl+Shift++` |
+| `-` unselect group | `Ctrl+-`, `Ctrl+Shift+-` |
+| Ctrl+1 … Ctrl+0 view modes | `Ctrl+Shift+0`, `Ctrl+Alt+0`, `Ctrl+Alt+Shift+0`, `Ctrl+Shift+1`, `Ctrl+Alt+1`, `Ctrl+Alt+Shift+1`, `Ctrl+Shift+2`, `Ctrl+Alt+2`, `Ctrl+Alt+Shift+2`, `Ctrl+Shift+3`, `Ctrl+Alt+3`, `Ctrl+Alt+Shift+3`, `Ctrl+Shift+4`, `Ctrl+Alt+4`, `Ctrl+Alt+Shift+4`, `Ctrl+Shift+5`, `Ctrl+Alt+5`, `Ctrl+Alt+Shift+5`, `Ctrl+Shift+6`, `Ctrl+Alt+6`, `Ctrl+Alt+Shift+6`, `Ctrl+Shift+7`, `Ctrl+Alt+7`, `Ctrl+Alt+Shift+7`, `Ctrl+Shift+8`, `Ctrl+Alt+8`, `Ctrl+Alt+Shift+8`, `Ctrl+Shift+9`, `Ctrl+Alt+9`, `Ctrl+Alt+Shift+9` |
+| : | `Alt+:` (now quick search) |
+| Ctrl+\ go to root | `Ctrl+Shift+\`, `Ctrl+Alt+\`, `Ctrl+Alt+Shift+\` |
+| Ctrl+A attributes | `Ctrl+Shift+A`, `Ctrl+Alt+A`, `Ctrl+Alt+Shift+A` |
+| Ctrl+C quit | `Ctrl+Shift+C`, `Ctrl+Alt+C`, `Ctrl+Alt+Shift+C` |
+| Ctrl+G apply command | `Ctrl+Shift+G`, `Ctrl+Alt+G`, `Ctrl+Alt+Shift+G` |
+| Ctrl+I file panel filter | `Ctrl+Shift+I`, `Ctrl+Alt+I`, `Ctrl+Alt+Shift+I` |
+| Ctrl+L information | `Ctrl+Shift+L`, `Ctrl+Alt+L`, `Ctrl+Alt+Shift+L` |
+| Ctrl+M restore selection | `Ctrl+Shift+M`, `Ctrl+Alt+M`, `Ctrl+Alt+Shift+M` |
+| Ctrl+N long names | `Ctrl+Shift+N`, `Ctrl+Alt+N`, `Ctrl+Alt+Shift+N` |
+| Ctrl+O console | `Ctrl+Shift+O`, `Ctrl+Alt+O`, `Ctrl+Alt+Shift+O` |
+| Ctrl+Q quick view | `Ctrl+Shift+Q`, `Ctrl+Alt+Q`, `Ctrl+Alt+Shift+Q` |
+| Ctrl+R refresh | `Ctrl+Shift+R`, `Ctrl+Alt+R`, `Ctrl+Alt+Shift+R` |
+| Ctrl+U swap panels | `Ctrl+Shift+U`, `Ctrl+Alt+U`, `Ctrl+Alt+Shift+U` |
+| Ctrl+W task list | `Ctrl+Shift+W` |
+| Ctrl+Alt+W WSL manager | `Ctrl+Alt+Shift+W` |
+| Ctrl+Z describe | `Ctrl+Shift+Z`, `Ctrl+Alt+Z`, `Ctrl+Alt+Shift+Z` |
+| Alt+F1 drive menu, left | `Alt+Shift+F1`, `Ctrl+Alt+F1`, `Ctrl+Alt+Shift+F1` |
+| Alt+F2 drive menu, right | `Alt+Shift+F2`, `Ctrl+Alt+F2`, `Ctrl+Alt+Shift+F2` |
+| Shift+F1 add to archive | `Ctrl+Shift+F1` |
+| Shift+F2 extract | `Ctrl+Shift+F2` |
+| F3 view | `Alt+F3`, `Alt+Shift+F3`, `Ctrl+Alt+F3`, `Ctrl+Alt+Shift+F3` |
+| Shift+F3 archive commands | `Ctrl+Shift+F3` |
+| Alt+F4 external editor | `Alt+Shift+F4`, `Ctrl+Alt+F4`, `Ctrl+Alt+Shift+F4` |
+| Shift+F4 new file | `Ctrl+Shift+F4` |
+| F5 copy | `Shift+F5`, `Alt+F5`, `Alt+Shift+F5`, `Ctrl+Shift+F5`, `Ctrl+Alt+F5`, `Ctrl+Alt+Shift+F5` |
+| Alt+F6 link | `Alt+Shift+F6`, `Ctrl+Alt+F6`, `Ctrl+Alt+Shift+F6` |
+| Shift+F6 rename | `Ctrl+Shift+F6` |
+| F7 new folder | `Shift+F7`, `Ctrl+Shift+F7` |
+| Alt+F7 find file | `Alt+Shift+F7`, `Ctrl+Alt+F7`, `Ctrl+Alt+Shift+F7` |
+| F8 delete | `Shift+F8`, `Ctrl+Shift+F8` |
+| Alt+F8 command history | `Alt+Shift+F8`, `Ctrl+Alt+F8`, `Ctrl+Alt+Shift+F8` |
+| Alt+F9 video mode | `Alt+Shift+F9`, `Ctrl+Alt+F9`, `Ctrl+Alt+Shift+F9` |
+| F9 menu bar | `Ctrl+Shift+F9` |
+| F10 quit | `Shift+F10`, `Ctrl+Shift+F10` |
+| Alt+F10 find folder | `Alt+Shift+F10`, `Ctrl+Alt+F10`, `Ctrl+Alt+Shift+F10` |
+| F11 plugin commands | `Shift+F11`, `Ctrl+Shift+F11` |
+| Alt+F11 view history | `Alt+Shift+F11`, `Ctrl+Alt+F11`, `Ctrl+Alt+Shift+F11` |
+| F12 screens | `Shift+F12`, `Ctrl+Shift+F12` |
+| Alt+F12 folder history | `Alt+Shift+F12`, `Ctrl+Alt+F12`, `Ctrl+Alt+Shift+F12` |
+| Enter open | `Shift+Enter`, `Alt+Enter`, `Alt+Shift+Enter`, `Ctrl+Enter`, `Ctrl+Shift+Enter`, `Ctrl+Alt+Enter`, `Ctrl+Alt+Shift+Enter` |
+| Tab switch panel | `Alt+Tab`, `Ctrl+Tab`, `Ctrl+Alt+Tab` |
+| Backspace quick search | `Shift+Backspace`, `Alt+Backspace`, `Alt+Shift+Backspace`, `Ctrl+Backspace`, `Ctrl+Shift+Backspace`, `Ctrl+Alt+Backspace`, `Ctrl+Alt+Shift+Backspace` |
+| Insert and Space mark | `Shift+Ins`, `Alt+Ins`, `Alt+Shift+Ins`, `Ctrl+Ins`, `Ctrl+Shift+Ins`, `Ctrl+Alt+Ins`, `Ctrl+Alt+Shift+Ins`, `Alt+Space` (now quick search), `Ctrl+Space`, `Ctrl+Shift+Space`, `Ctrl+Alt+Space`, `Ctrl+Alt+Shift+Space` |
+| Alt+Delete wipe | `Alt+Shift+Del`, `Ctrl+Alt+Del`, `Ctrl+Alt+Shift+Del` |
+| Home | `Shift+Home`, `Alt+Home`, `Alt+Shift+Home`, `Ctrl+Home`, `Ctrl+Shift+Home`, `Ctrl+Alt+Home`, `Ctrl+Alt+Shift+Home` |
+| End | `Shift+End`, `Alt+End`, `Alt+Shift+End`, `Ctrl+End`, `Ctrl+Shift+End`, `Ctrl+Alt+End`, `Ctrl+Alt+Shift+End` |
+| PgUp | `Shift+PgUp`, `Alt+PgUp`, `Alt+Shift+PgUp`, `Ctrl+PgUp`, `Ctrl+Shift+PgUp`, `Ctrl+Alt+PgUp`, `Ctrl+Alt+Shift+PgUp` |
+| PgDn | `Shift+PgDn`, `Alt+PgDn`, `Alt+Shift+PgDn`, `Ctrl+PgDn`, `Ctrl+Shift+PgDn`, `Ctrl+Alt+PgDn`, `Ctrl+Alt+Shift+PgDn` |
+| Up | `Shift+Up`, `Alt+Up`, `Alt+Shift+Up`, `Ctrl+Up`, `Ctrl+Shift+Up`, `Ctrl+Alt+Up`, `Ctrl+Alt+Shift+Up` |
+| Down | `Shift+Down`, `Alt+Down`, `Alt+Shift+Down`, `Ctrl+Down`, `Ctrl+Shift+Down`, `Ctrl+Alt+Down`, `Ctrl+Alt+Shift+Down` |
+| Left | `Shift+Left`, `Alt+Left`, `Alt+Shift+Left`, `Ctrl+Left`, `Ctrl+Shift+Left`, `Ctrl+Alt+Left`, `Ctrl+Alt+Shift+Left` |
+| Right | `Shift+Right`, `Alt+Right`, `Alt+Shift+Right`, `Ctrl+Right`, `Ctrl+Shift+Right`, `Ctrl+Alt+Right`, `Ctrl+Alt+Shift+Right` |
+
+Two chords now start a quick search instead of their old command: `Alt+:` searches for `:`, and `Alt+Space` for a space.
+
+### Viewer and quick view
+
+A key with a modifier that no binding names does nothing of its own: it no
+longer acts as the bare key does. The chords a screen changes are pinned
+in the golden tables under `tests/keymap_golden/`:
+
+- **F3 viewer.** Esc, Enter, F3 and F10 with Shift, Alt or Ctrl added no
+  longer close it. Up, Down, PgUp, PgDn, Home and End with a modifier added
+  no longer scroll it, Ctrl+Up and Ctrl+Down included. Left and Right with
+  Shift or Alt added no longer pan it; Ctrl+Left and Ctrl+Right still pan
+  twenty columns. The viewer swallows these keys.
+- **Ctrl+Q quick view.** The same scroll keys with a modifier added no longer
+  scroll the preview. They reach the file panels' exact bindings. With the
+  defaults, these modified scroll keys have no binding and clear the quick
+  search instead of moving either panel. Ctrl+Left and Ctrl+Right still pan
+  the preview twenty columns through the viewer's own bindings.
 
 ## 🧑‍💻 Far Manager Reference
 

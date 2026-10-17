@@ -43,7 +43,7 @@ reverse search is running.
 | `Ctrl+R` | — | previous match | start reverse search |
 | `Enter` | accept candidate | accept match into the line | execute |
 | `Esc` | close dropdown | cancel, restore the typed line | close the overlay |
-| `Left` / `Right` | — | — | move caret; `Right`/`End` **at end of line** accept the ghost |
+| `Left` / `Right` | — | — | move caret; `Right`/`End`, bare or with any modifier, **at end of line** accept the ghost (`Ctrl+E` and `Alt+F` only move) |
 | `Home` / `Ctrl+A`, `End` / `Ctrl+E` | — | — | line start / end |
 | `Alt+B` / `Ctrl+Left`, `Alt+F` / `Ctrl+Right` | — | — | word left / right |
 | `Backspace`, `Delete` | edit + refresh candidates | edit query | edit the line |

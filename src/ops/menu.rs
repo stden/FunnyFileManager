@@ -1,8 +1,14 @@
-//! Canonical effects for the main menu's extended commands.
+//! Canonical effects for the F9 menu's commands: the rows outside the
+//! families, and the panel, file and tool families a key names too.
 
 use std::io;
 
-use crate::{menu::MenuCommand, models::App, status::Status};
+use crate::action::{FileCommand, PanelCommand, ToolCommand};
+use crate::{
+    menu::MenuCommand,
+    models::{App, MenuPrompt},
+    status::Status,
+};
 
 mod compare;
 mod dialogs;
@@ -36,32 +42,12 @@ pub fn activate_row(app: &mut App, menu: crate::menu::Menu) {
     activate(app, entry);
 }
 
+/// Close the drop-down and leave `entry` for the dispatcher, which runs its
+/// action through the same road a key takes — the active panel's kind asked
+/// first — once the menu has left the screen.
 pub fn activate(app: &mut App, entry: crate::menu::Entry) {
     app.close_overlay();
-    if let Some(command) = entry.menu_command() {
-        // A leftover F-key from an earlier row must not run after this
-        // command has already opened its own dialog (Alt+F7 vs F7).
-        app.pending_key = None;
-        if acts_on_hidden_entries(app, command) {
-            app.set_status(Status::CommandOutput(HIDDEN_ENTRIES.to_owned()));
-            return;
-        }
-        execute(app, command);
-    } else {
-        app.pending_key = entry.key();
-    }
-}
-
-/// What a menu row that would act on the files under a `NetBox` panel says.
-const HIDDEN_ENTRIES: &str =
-    "NetBox: this command works on files; press Enter on `..` to return to them";
-
-/// Whether `command` would act on the entries of a file list that a `NetBox`
-/// panel hides. A keyed row is refused by the panel itself, since its key
-/// comes back through the dispatcher; a row run here must be asked the same.
-fn acts_on_hidden_entries(app: &App, command: MenuCommand) -> bool {
-    app.get_active_panel_ref().kind.is_netbox()
-        && crate::action::menu_scope(command) == crate::action::ActionScope::Entries
+    app.pending_row = Some(entry);
 }
 
 pub fn execute(app: &mut App, command: MenuCommand) {
@@ -70,69 +56,63 @@ pub fn execute(app: &mut App, command: MenuCommand) {
     }
 }
 
-fn open_search(app: &mut App, command: MenuCommand) {
-    if command == MenuCommand::FindFile {
-        crate::ops::findfile::open(app);
-    } else {
-        search::prompt(app, command);
-    }
-}
-
 fn execute_result(app: &mut App, command: MenuCommand) -> io::Result<()> {
     match command {
-        MenuCommand::Sort => super::sortmenu::open(app),
-        MenuCommand::FindFile | MenuCommand::FindFolder => open_search(app, command),
-        MenuCommand::Tree => super::tree::toggle(app),
         MenuCommand::Compare => compare::compare(app),
-        MenuCommand::Link => crate::ops::link::open(app),
-        MenuCommand::Wipe => crate::ops::wipe::open(app),
-        MenuCommand::Describe => crate::ops::describe::open(app),
-        MenuCommand::Attributes => crate::ops::attributes::open(app),
-        MenuCommand::ApplyCommand => crate::ops::apply::open(app),
-        MenuCommand::QuickView => crate::ops::quickview::toggle(app),
-        MenuCommand::History => history(app),
         MenuCommand::Shortcuts => shortcuts(app),
         MenuCommand::Settings(page) => settings::open(app, page),
         MenuCommand::SaveSetup => settings::save(app)?,
-        MenuCommand::Tasks => super::tasks::open(app)?,
-        MenuCommand::Filter
-        | MenuCommand::LongNames
-        | MenuCommand::TogglePanel(_)
-        | MenuCommand::FolderHistory
-        | MenuCommand::ViewHistory
-        | MenuCommand::Screens
-        | MenuCommand::Devices
-        | MenuCommand::VideoMode => workflows::execute(app, command)?,
-        MenuCommand::Archive => crate::ops::archive::open_add(app),
-        MenuCommand::Extract => crate::ops::archive::open_extract(app),
-        MenuCommand::ArchiveCommands => crate::ops::archive::open_commands(app),
-        other => execute_tools(app, other)?,
+        MenuCommand::Devices => workflows::devices(app),
+        MenuCommand::Path(scope) => super::path_env::open(app, scope)?,
+        MenuCommand::Performance => super::performance::open(app),
+        MenuCommand::UpdatePackages => super::packages::open(app),
+        MenuCommand::LanguageServers => super::lsp_editor::open(app),
+        MenuCommand::McpInstall => super::mcp_install::open(app),
+        MenuCommand::UserMenu | MenuCommand::Associations => user::edit(app, command)?,
     }
     Ok(())
 }
 
-fn execute_tools(app: &mut App, command: MenuCommand) -> io::Result<()> {
+/// The Left / Right menu: how the active panel shows its listing.
+pub fn execute_panel(app: &mut App, command: PanelCommand) {
     match command {
-        MenuCommand::Path(scope) => super::path_env::open(app, scope),
-        MenuCommand::Performance => {
-            super::performance::open(app);
-            Ok(())
-        }
-        MenuCommand::UpdatePackages => {
-            super::packages::open(app);
-            Ok(())
-        }
-        MenuCommand::LanguageServers => {
-            super::lsp_editor::open(app);
-            Ok(())
-        }
-        MenuCommand::McpInstall => {
-            super::mcp_install::open(app);
-            Ok(())
-        }
-        MenuCommand::UserMenu | MenuCommand::Associations => user::edit(app, command),
-        _ => Err(io::Error::other("Unknown tool")),
+        PanelCommand::QuickView => super::quickview::toggle(app),
+        PanelCommand::Tree => super::tree::toggle(app),
+        PanelCommand::Sort(mode) => super::sortmenu::set(app, mode),
+        PanelCommand::SortMenu => super::sortmenu::open(app),
+        PanelCommand::TogglePanel(side) => super::panels::toggle(app, side),
+        PanelCommand::LongNames => super::longnames::toggle(app),
     }
+}
+
+/// The Files menu rows beyond the bare F-keys: each opens its own dialog.
+pub fn execute_file(app: &mut App, command: FileCommand) {
+    match command {
+        FileCommand::Link => super::link::open(app),
+        FileCommand::Wipe => super::wipe::open(app),
+        FileCommand::AddToArchive => super::archive::open_add(app),
+        FileCommand::Extract => super::archive::open_extract(app),
+        FileCommand::ArchiveCommands => super::archive::open_commands(app),
+        FileCommand::Attributes => super::attributes::open(app),
+        FileCommand::ApplyCommand => super::apply::open(app),
+        FileCommand::Describe => super::describe::open(app),
+    }
+}
+
+/// The Commands menu: searches, histories and the program's own windows.
+pub fn execute_tool(app: &mut App, command: ToolCommand) -> io::Result<()> {
+    match command {
+        ToolCommand::FindFile => super::findfile::open(app),
+        ToolCommand::FindFolder => search::prompt(app),
+        ToolCommand::History => history(app),
+        ToolCommand::VideoMode => super::videomode::toggle(app)?,
+        ToolCommand::ViewHistory => workflows::view_history(app),
+        ToolCommand::FolderHistory => workflows::folder_history(app),
+        ToolCommand::Filter => workflows::open_filter(app),
+        ToolCommand::Screens => workflows::screens(app),
+        ToolCommand::Tasks => super::tasks::open(app)?,
+    }
+    Ok(())
 }
 
 /// Alt+F7: the dialog has a mask and a containing-text field. The menu prompt
@@ -141,25 +121,15 @@ pub fn find_files(app: &mut App, mask: &str, containing: &str) {
     search::find(app, mask, false, containing);
 }
 
-pub fn submit(app: &mut App, command: MenuCommand, text: &str) -> io::Result<()> {
-    match command {
-        MenuCommand::FindFile => {
-            search::find(app, text, false, "");
-            Ok(())
-        }
-        MenuCommand::FindFolder => {
-            search::find(app, text, true, "");
-            Ok(())
-        }
-        MenuCommand::Settings(page) => settings::submit(app, page, text),
-        MenuCommand::Filter => workflows::filter(app, text),
-
-        _ => Err(io::Error::other("This command has no text prompt")),
+/// The answer typed into the menu's one-line prompt.
+pub fn submit(app: &mut App, purpose: MenuPrompt, text: &str) -> io::Result<()> {
+    match purpose {
+        MenuPrompt::FindFolder => search::find(app, text, true, ""),
+        MenuPrompt::Settings(page) => settings::submit(app, page, text)?,
+        MenuPrompt::Filter => workflows::filter(app, text)?,
     }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests;
-
-#[cfg(test)]
-mod tests_netbox;

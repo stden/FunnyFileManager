@@ -33,7 +33,7 @@ fn clicking_a_menu_command_row_runs_its_key_and_closes_the_menu() {
         matches!(app.overlay, Overlay::None),
         "the menu closed before the key ran"
     );
-    assert_eq!(app.pending_key, None, "the pending key was consumed");
+    assert_eq!(app.pending_row, None, "the chosen row was consumed");
     let root = std::path::PathBuf::from(if cfg!(windows) { "C:\\" } else { "/" });
     assert_eq!(
         app.get_active_panel().path,

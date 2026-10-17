@@ -15,7 +15,7 @@ mod vault;
 
 pub(super) use editor::dialog_button_key_in_editor;
 #[cfg(feature = "keepass")]
-pub(super) use vault::kdbx_button_key;
+pub(super) use vault::{kdbx_button_key, vault_prompt_button};
 
 /// The key a dialog's `index`-th button stands for.
 ///

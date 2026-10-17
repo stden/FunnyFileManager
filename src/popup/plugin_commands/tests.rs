@@ -1,10 +1,11 @@
 //! Unit tests: F11's list walks its rows, runs one on Enter, closes on Esc
 //! and F10, and swallows every other key.
 
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use tempfile::TempDir;
 
-use crate::models::{App, Overlay, PluginCommand};
+use super::row_motion;
+use crate::models::{App, Overlay, PluginCommand, RowMotion};
 use crate::popup::process_popup_input;
 use crate::popup::tests::key;
 use crate::test_support::netbox::app_in;
@@ -77,7 +78,28 @@ fn another_overlay_is_not_this_dialogs() {
     assert!(!super::process(
         &mut app,
         KeyCode::Enter,
-        crossterm::event::KeyModifiers::NONE
+        KeyModifiers::NONE
     ));
     assert!(!app.is_overlay_active());
+}
+
+#[test]
+fn the_list_keys_are_the_bare_or_shifted_arrows_and_pages() {
+    let with = |code, modifiers| KeyEvent::new(code, modifiers);
+    let table = [
+        (KeyCode::Up, RowMotion::Previous),
+        (KeyCode::Down, RowMotion::Next),
+        (KeyCode::Home, RowMotion::First),
+        (KeyCode::End, RowMotion::Last),
+        (KeyCode::PageUp, RowMotion::PageUp(7)),
+        (KeyCode::PageDown, RowMotion::PageDown(7)),
+    ];
+    for (code, motion) in table {
+        assert_eq!(row_motion(key(code), 7), Some(motion), "{code:?}");
+        assert_eq!(row_motion(with(code, KeyModifiers::SHIFT), 7), Some(motion));
+        assert_eq!(row_motion(with(code, KeyModifiers::CONTROL), 7), None);
+        assert_eq!(row_motion(with(code, KeyModifiers::ALT), 7), None);
+    }
+    assert_eq!(row_motion(key(KeyCode::Enter), 7), None);
+    assert_eq!(row_motion(key(KeyCode::Char('j')), 7), None);
 }

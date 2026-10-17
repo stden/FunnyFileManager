@@ -1,11 +1,17 @@
 //! Editor command DSL: describe intent without changing state or doing I/O.
 //!
+//! The keys are the keymap's `editor` context — the defaults of
+//! `keymap::tables::EDITOR`, or what `ffm.yml` makes of them — and are
+//! matched exactly: Shift+F2 is not F2. What is decided here is only what a
+//! key means when nothing is bound to it.
+//!
 //! Confirmation and search prompts consume input before this resolver runs.
 //! The interpreter in `popup::editor` owns state transitions and delegates
 //! clipboard and persistence effects to operations.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
+use super::Bindings;
 use crate::models::SelectionMode;
 
 /// Navigation intent; the interpreter supplies the editor's page distance.
@@ -51,68 +57,30 @@ pub enum EditorCommand {
     Ignore,
 }
 
-/// Resolve a key into a typed command using the shared ordered binding DSL.
+/// The command `key` runs in the editor: the one its chord is bound to in
+/// `bindings`, and for a key nothing is bound to, the editor's fallback.
 #[must_use]
-pub fn resolve(key: KeyEvent) -> EditorCommand {
-    resolve_lsp(key).unwrap_or_else(|| resolve_editing(key))
+pub fn resolve(bindings: &Bindings<EditorCommand>, key: KeyEvent) -> EditorCommand {
+    bindings.resolve(key).unwrap_or_else(|| fallback(key))
 }
 
-fn resolve_lsp(key: KeyEvent) -> Option<EditorCommand> {
-    use crate::models::LspFeature;
-    keymap! { key;
-        KeyCode::Char(' ') if exact(CONTROL) => Some(EditorCommand::Lsp(LspFeature::Completion)),
-        KeyCode::Char('k' | 'K') if exact(CONTROL) => Some(EditorCommand::Lsp(LspFeature::Hover)),
-        // A terminal without the kitty protocol sends Ctrl+] as the byte it
-        // sends for Ctrl+5 (0x1D), which crossterm reports as Ctrl+5; the
-        // editor has no Ctrl+5 of its own.
-        KeyCode::Char(']' | '5') if exact(CONTROL) => {
-            Some(EditorCommand::Lsp(LspFeature::Definition))
-        },
-        KeyCode::Char('r' | 'R') if exact(CONTROL + ALT) => Some(EditorCommand::RestartLsp),
-        KeyCode::Char('l' | 'L') if exact(CONTROL + ALT) => Some(EditorCommand::FormatDocument),
-        _ => None,
-    }
-}
-
-fn resolve_editing(key: KeyEvent) -> EditorCommand {
-    use EditorCommand::{Backspace, Close, Copy, Delete, Ignore, Indent, Insert, Move};
-    use EditorCommand::{Newline, Paste, RepeatSearch, Save, Search};
-    use EditorNavigation as Nav;
-
-    let selection = selection_mode(key.modifiers);
-
-    keymap! { key;
-        KeyCode::Char('a' | 'A') if exact(CONTROL) => EditorCommand::SelectAll,
-        KeyCode::Insert | KeyCode::Char('c' | 'C') if exact(CONTROL) => Copy,
-        KeyCode::Char('v' | 'V') if exact(CONTROL) => Paste,
-        KeyCode::Char('f' | 'F') if exact(CONTROL) => EditorCommand::InsertFileName,
-        KeyCode::Insert if exact(SHIFT) => Paste,
-        KeyCode::Left => Move { motion: Nav::Left, selection },
-        KeyCode::Right => Move { motion: Nav::Right, selection },
-        KeyCode::Up => Move { motion: Nav::Up, selection },
-        KeyCode::Down => Move { motion: Nav::Down, selection },
-        KeyCode::Home => Move { motion: Nav::Home, selection },
-        KeyCode::End => Move { motion: Nav::End, selection },
-        KeyCode::PageUp => Move { motion: Nav::PageUp, selection },
-        KeyCode::PageDown => Move { motion: Nav::PageDown, selection },
-        KeyCode::F(7) if has(SHIFT) => RepeatSearch,
-        KeyCode::F(7) => Search,
-        KeyCode::F(2) => Save,
-        KeyCode::F(8) => EditorCommand::ChooseEncoding,
-        KeyCode::Esc | KeyCode::F(10) => Close,
-        KeyCode::Enter => Newline,
-        KeyCode::Backspace => Backspace,
-        KeyCode::Delete => Delete,
-        KeyCode::Tab => Indent,
-        KeyCode::Char(ch) if without(CONTROL + ALT) => Insert(ch),
-        _ => Ignore,
+/// A key nothing is bound to. A character without Ctrl or Alt types itself,
+/// read from the event as the terminal sent it, so `CapsLock`'s capital stays
+/// a capital; every other key is consumed by the editor's modal boundary.
+fn fallback(key: KeyEvent) -> EditorCommand {
+    const COMMAND_MODIFIERS: KeyModifiers = KeyModifiers::CONTROL.union(KeyModifiers::ALT);
+    match key.code {
+        KeyCode::Char(ch) if !key.modifiers.intersects(COMMAND_MODIFIERS) => {
+            EditorCommand::Insert(ch)
+        }
+        _ => EditorCommand::Ignore,
     }
 }
 
 #[cfg(test)]
 mod tests;
 
-fn selection_mode(modifiers: KeyModifiers) -> SelectionMode {
+pub(crate) fn selection_mode(modifiers: KeyModifiers) -> SelectionMode {
     if modifiers.contains(KeyModifiers::SHIFT) {
         SelectionMode::Extend
     } else {

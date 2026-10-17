@@ -35,9 +35,9 @@ fn accept(app: &mut App) -> std::io::Result<()> {
         return Ok(());
     };
     match dialog.as_ref() {
-        MenuDialog::Prompt { command, input, .. } => {
-            let (command, text) = (*command, input.text().to_owned());
-            crate::ops::menu::submit(app, command, &text)
+        MenuDialog::Prompt { purpose, input, .. } => {
+            let (purpose, text) = (*purpose, input.text().to_owned());
+            crate::ops::menu::submit(app, purpose, &text)
         }
         MenuDialog::Choices { rows, selected, .. } => {
             if let Some(row) = rows.get(*selected) {

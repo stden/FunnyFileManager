@@ -6,7 +6,7 @@ use std::fs;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use funny_file_manager::action::{resolve, Action, PanelCommand};
-use funny_file_manager::menu::MenuCommand;
+use funny_file_manager::keymap::Keymap;
 use funny_file_manager::models::{App, Overlay, Panel, SortMode};
 use funny_file_manager::ops::sortmenu;
 use funny_file_manager::popup::process_popup_input;
@@ -62,8 +62,8 @@ fn screen_text(app: &mut App) -> String {
 #[test]
 fn ctrl_f12_opens_the_menu_and_the_ctrl_f_keys_name_fars_modes() {
     assert!(matches!(
-        resolve(ctrl(KeyCode::F(12))),
-        Action::MenuCommand(MenuCommand::Sort)
+        resolve(&Keymap::default().panels, ctrl(KeyCode::F(12))),
+        Action::Panel(PanelCommand::SortMenu)
     ));
     let expected = [
         (3, SortMode::Name),
@@ -77,7 +77,7 @@ fn ctrl_f12_opens_the_menu_and_the_ctrl_f_keys_name_fars_modes() {
         (11, SortMode::Owner),
     ];
     for (key, mode) in expected {
-        let action = resolve(ctrl(KeyCode::F(key)));
+        let action = resolve(&Keymap::default().panels, ctrl(KeyCode::F(key)));
         assert!(
             matches!(action, Action::Panel(PanelCommand::Sort(found)) if found == mode),
             "Ctrl+F{key} -> {mode:?}, got {action:?}"

@@ -63,5 +63,5 @@ fn closing_with_f9_runs_nothing() {
     let (mut app, _dir) = app_over(&FILES);
     app.set_menu(crate::menu::Menu::open(crate::menu::Heading::Files));
     process_popup_input(&mut app, key_event(KeyCode::F(9)));
-    assert!(app.pending_key.is_none(), "no command was handed on");
+    assert!(app.pending_row.is_none(), "no row was handed on");
 }

@@ -7,9 +7,10 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use super::{resolve, Action, PanelCommand};
+use super::{Action, FileCommand, PanelCommand, ToolCommand};
 use crate::menu::MenuCommand;
 use crate::models::{PanelSide, PanelView, SortMode};
+use crate::test_support::panels_action as resolve;
 
 const CTRL: KeyModifiers = KeyModifiers::CONTROL;
 const ALT: KeyModifiers = KeyModifiers::ALT;
@@ -41,7 +42,7 @@ fn ctrl_digits_are_the_ten_view_modes_in_fars_order() {
 fn the_left_right_menu_sort_keys() {
     let sort = |mode| Action::Panel(PanelCommand::Sort(mode));
     assert_bindings(&[
-        (KeyCode::F(12), CTRL, Action::MenuCommand(MenuCommand::Sort)),
+        (KeyCode::F(12), CTRL, Action::Panel(PanelCommand::SortMenu)),
         (KeyCode::F(3), CTRL, sort(SortMode::Name)),
         (KeyCode::F(4), CTRL, sort(SortMode::Extension)),
         (KeyCode::F(5), CTRL, sort(SortMode::ModificationTime)),
@@ -56,63 +57,70 @@ fn the_left_right_menu_sort_keys() {
 
 #[test]
 fn the_left_right_menu_toggle_keys() {
-    let toggle = |side| Action::MenuCommand(MenuCommand::TogglePanel(side));
-    let command = Action::MenuCommand;
+    let panel = Action::Panel;
     assert_bindings(&[
-        (KeyCode::Char('t'), CTRL, command(MenuCommand::Tree)),
-        (KeyCode::Char('q'), CTRL, command(MenuCommand::QuickView)),
-        (KeyCode::Char('n'), CTRL, command(MenuCommand::LongNames)),
-        (KeyCode::F(1), CTRL, toggle(PanelSide::Left)),
-        (KeyCode::F(2), CTRL, toggle(PanelSide::Right)),
+        (KeyCode::Char('t'), CTRL, panel(PanelCommand::Tree)),
+        (KeyCode::Char('q'), CTRL, panel(PanelCommand::QuickView)),
+        (KeyCode::Char('n'), CTRL, panel(PanelCommand::LongNames)),
+        (
+            KeyCode::F(1),
+            CTRL,
+            panel(PanelCommand::TogglePanel(PanelSide::Left)),
+        ),
+        (
+            KeyCode::F(2),
+            CTRL,
+            panel(PanelCommand::TogglePanel(PanelSide::Right)),
+        ),
     ]);
 }
 
 #[test]
 fn the_files_menu_keys() {
-    let command = Action::MenuCommand;
+    let file = Action::File;
     assert_bindings(&[
-        (KeyCode::F(6), ALT, command(MenuCommand::Link)),
-        (KeyCode::Delete, ALT, command(MenuCommand::Wipe)),
-        (KeyCode::F(1), SHIFT, command(MenuCommand::Archive)),
-        (KeyCode::F(2), SHIFT, command(MenuCommand::Extract)),
-        (KeyCode::F(3), SHIFT, command(MenuCommand::ArchiveCommands)),
-        (KeyCode::Char('a'), CTRL, command(MenuCommand::Attributes)),
-        (KeyCode::Char('g'), CTRL, command(MenuCommand::ApplyCommand)),
-        (KeyCode::Char('z'), CTRL, command(MenuCommand::Describe)),
+        (KeyCode::F(6), ALT, file(FileCommand::Link)),
+        (KeyCode::Delete, ALT, file(FileCommand::Wipe)),
+        (KeyCode::F(1), SHIFT, file(FileCommand::AddToArchive)),
+        (KeyCode::F(2), SHIFT, file(FileCommand::Extract)),
+        (KeyCode::F(3), SHIFT, file(FileCommand::ArchiveCommands)),
+        (KeyCode::Char('a'), CTRL, file(FileCommand::Attributes)),
+        (KeyCode::Char('g'), CTRL, file(FileCommand::ApplyCommand)),
+        (KeyCode::Char('z'), CTRL, file(FileCommand::Describe)),
     ]);
 }
 
 #[test]
 fn the_commands_menu_keys() {
-    let command = Action::MenuCommand;
+    let tool = Action::Tool;
     assert_bindings(&[
-        (KeyCode::F(7), ALT, command(MenuCommand::FindFile)),
-        (KeyCode::F(8), ALT, command(MenuCommand::History)),
-        (KeyCode::F(9), ALT, command(MenuCommand::VideoMode)),
-        (KeyCode::F(10), ALT, command(MenuCommand::FindFolder)),
-        (KeyCode::F(11), ALT, command(MenuCommand::ViewHistory)),
-        (KeyCode::F(12), ALT, command(MenuCommand::FolderHistory)),
-        (KeyCode::Char('i'), CTRL, command(MenuCommand::Filter)),
+        (KeyCode::F(7), ALT, tool(ToolCommand::FindFile)),
+        (KeyCode::F(8), ALT, tool(ToolCommand::History)),
+        (KeyCode::F(9), ALT, tool(ToolCommand::VideoMode)),
+        (KeyCode::F(10), ALT, tool(ToolCommand::FindFolder)),
+        (KeyCode::F(11), ALT, tool(ToolCommand::ViewHistory)),
+        (KeyCode::F(12), ALT, tool(ToolCommand::FolderHistory)),
+        (KeyCode::Char('i'), CTRL, tool(ToolCommand::Filter)),
         (
             KeyCode::F(12),
             KeyModifiers::NONE,
-            command(MenuCommand::Screens),
+            tool(ToolCommand::Screens),
         ),
-        (KeyCode::Char('w'), CTRL, command(MenuCommand::Tasks)),
-        (KeyCode::F(9), SHIFT, command(MenuCommand::SaveSetup)),
+        (KeyCode::Char('w'), CTRL, tool(ToolCommand::Tasks)),
+        (KeyCode::F(9), SHIFT, Action::Menu(MenuCommand::SaveSetup)),
     ]);
 }
 
-/// The keys that were already bound keep their meaning beside the new ones:
-/// `Ctrl+Alt+W` is still WSL, not the task list, and a modified F-key the
-/// tables do not name still falls through to the bare key.
+/// Exact matching: each chord is its own key. Ctrl+Alt+W is the WSL manager,
+/// not Ctrl+W's task list; Shift+F5 and Alt+F3 are not Copy and View any more,
+/// so they fall back.
 #[test]
-fn the_new_bindings_do_not_shadow_the_old_ones() {
+fn chords_beside_a_binding_are_other_keys() {
     assert_bindings(&[
         (KeyCode::Char('w'), CTRL.union(ALT), Action::WslManagement),
         (KeyCode::Char('o'), CTRL, Action::ToggleConsole),
-        (KeyCode::F(5), SHIFT, Action::Copy),
-        (KeyCode::F(3), ALT, Action::View),
+        (KeyCode::F(5), SHIFT, Action::QuickSearchClear),
+        (KeyCode::F(3), ALT, Action::QuickSearchClear),
         (
             KeyCode::Delete,
             KeyModifiers::NONE,
@@ -121,7 +129,8 @@ fn the_new_bindings_do_not_shadow_the_old_ones() {
     ]);
 }
 
-/// A menu row without a key is the one action no key produces.
+/// The rows Far gives no key are built only by the menu: none of these keys
+/// resolves to one.
 #[test]
 fn no_key_resolves_to_a_menu_command() {
     for code in [KeyCode::F(12), KeyCode::Char('c'), KeyCode::Enter] {
@@ -132,4 +141,28 @@ fn no_key_resolves_to_a_menu_command() {
             ));
         }
     }
+}
+
+/// The menu takes its own keys exactly: a chord with extra modifiers is not a
+/// menu key, even where the main view would still answer it.
+#[test]
+fn the_menu_takes_only_its_exact_keys() {
+    use super::is_menu_key;
+    let panels = crate::keymap::tables::PANELS.defaults();
+
+    assert!(is_menu_key(
+        &panels,
+        KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL)
+    ));
+    assert!(!is_menu_key(
+        &panels,
+        KeyEvent::new(
+            KeyCode::Char('t'),
+            KeyModifiers::CONTROL | KeyModifiers::ALT
+        )
+    ));
+    assert!(!is_menu_key(
+        &panels,
+        KeyEvent::new(KeyCode::Delete, KeyModifiers::ALT | KeyModifiers::SHIFT)
+    ));
 }

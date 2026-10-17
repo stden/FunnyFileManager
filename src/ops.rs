@@ -27,7 +27,6 @@ mod panel;
 pub(crate) mod panel_details;
 pub mod panel_session;
 pub mod panels;
-pub mod panelview;
 pub mod path_env;
 pub mod performance;
 pub mod plugin_commands;

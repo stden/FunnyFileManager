@@ -1,4 +1,8 @@
-//! Typed commands for menu operations that also have keyboard entry points.
+//! Purpose: the F9 rows outside the panel, file and tool families, one typed command each.
+//!
+//! Most of these rows have no key and exist only in the menu; Save setup has
+//! Shift+F9. A row whose function a key already names is not here: it holds
+//! that key's `Action`, so the menu and the keyboard cannot drift apart.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MenuCommand {
@@ -6,35 +10,15 @@ pub enum MenuCommand {
     LanguageServers,
     UpdatePackages,
     Path(crate::path_env::Scope),
-    Tree,
-    QuickView,
-    Sort,
-    LongNames,
-    TogglePanel(crate::models::PanelSide),
-    Link,
-    Wipe,
-    Archive,
-    Extract,
-    ArchiveCommands,
-    Attributes,
-    ApplyCommand,
-    Describe,
-    FindFile,
-    History,
-    VideoMode,
-    FindFolder,
-    ViewHistory,
-    FolderHistory,
     Compare,
+    /// Edit the user menu's file; F2 opens the menu itself.
     UserMenu,
     Associations,
     Shortcuts,
-    Filter,
-    Screens,
-    Tasks,
     Devices,
     McpInstall,
     Settings(SettingsPage),
+    /// `Shift+F9`.
     SaveSetup,
 }
 

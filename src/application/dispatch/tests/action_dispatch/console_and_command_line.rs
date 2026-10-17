@@ -94,3 +94,65 @@ fn colon_opens_the_command_line_even_while_the_console_is_showing() {
         "the command line still opens from the console, Far-style"
     );
 }
+
+/// The chord's key with its modifiers, as the terminal sends it.
+fn press_chord(
+    app: &mut App,
+    terminal: &mut Terminal<WritableTestBackend>,
+    code: KeyCode,
+    modifiers: KeyModifiers,
+) {
+    dispatch_key(terminal, app, key_event_with_mods(code, modifiers));
+}
+
+/// In console mode the F9 menu's own keys run their commands as they always
+/// have. The same command reached by a chord with extra modifiers is swallowed:
+/// a lenient chord must not wipe a file or open a dialog behind the transcript.
+#[test]
+fn console_runs_the_menus_own_keys_and_not_their_lenient_chords() {
+    let (mut app, mut terminal, _dir) = app_and_terminal(&["a.txt"]);
+    app.view = ViewMode::Console;
+
+    press_chord(
+        &mut app,
+        &mut terminal,
+        KeyCode::Char('a'),
+        KeyModifiers::CONTROL,
+    );
+    assert!(
+        matches!(app.overlay, Overlay::Attributes(_)),
+        "Ctrl+A is the menu's own key and runs Attributes"
+    );
+    app.close_overlay();
+
+    press_chord(
+        &mut app,
+        &mut terminal,
+        KeyCode::Char('a'),
+        KeyModifiers::CONTROL | KeyModifiers::ALT,
+    );
+    assert!(
+        !app.is_overlay_active(),
+        "Ctrl+Alt+A opened a dialog behind the console"
+    );
+}
+
+/// The wipe chord with extra modifiers is swallowed in console mode, so it
+/// cannot delete a file behind the transcript.
+#[test]
+fn console_does_not_wipe_behind_the_transcript() {
+    let (mut app, mut terminal, dir) = app_and_terminal(&["a.txt"]);
+    app.view = ViewMode::Console;
+
+    press_chord(
+        &mut app,
+        &mut terminal,
+        KeyCode::Delete,
+        KeyModifiers::ALT | KeyModifiers::SHIFT,
+    );
+    assert!(!app.is_overlay_active(), "Alt+Shift+Del opened a dialog");
+    assert!(
+        dir.path().join("a.txt").exists(),
+        "Alt+Shift+Del wiped a file behind the console"
+    );
+}

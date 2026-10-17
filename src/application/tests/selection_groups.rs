@@ -10,11 +10,11 @@ use std::fs;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use tempfile::TempDir;
 
-use crate::action::{resolve, Action};
+use crate::action::Action;
 use crate::mask::Mask;
 use crate::models::{App, MaskPurpose, Overlay, Panel};
 use crate::popup::process_popup_input;
-use crate::test_support::key_event;
+use crate::test_support::{key_event, panels_action as resolve};
 
 mod dialog_and_f9;
 

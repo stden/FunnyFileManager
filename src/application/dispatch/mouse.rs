@@ -1,4 +1,4 @@
-//! Purpose: turn panel-area mouse presses and scrolls into the keys they stand for.
+//! Purpose: turn panel-area mouse presses and scrolls into the actions they stand for.
 
 use std::io::Write;
 use std::time::Instant;
@@ -6,20 +6,24 @@ use std::time::Instant;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{backend::Backend, Terminal};
 
+use crate::action::Action;
 use crate::diagnostics::log_action;
 use crate::models::{self, App, CommandLine, Overlay, ViewMode};
 
-use super::{dialog_mouse, dispatch_key, panel_mouse};
+use super::{dialog_mouse, dispatch_action, dispatch_key, panel_mouse};
 
 /// Turn a mouse click into the action the thing under it would have taken.
 ///
 /// Only the left button, and only on press: a release is the same gesture
 /// arriving a second time, and acting on both would run every command twice.
 ///
-/// A click is translated into the *key* it stands for rather than into an
-/// effect of its own. That is what keeps the mouse from becoming a second
-/// implementation of the program: clicking `5Copy` runs exactly what F5 runs,
-/// including whatever guards and dialogs F5 goes through.
+/// A gesture is translated into the *action* it stands for — the wheel is
+/// `cursor_up`, a double click is `open` — and dispatched the way that
+/// action's key is, rather than into an effect of its own. That is what keeps
+/// the mouse from becoming a second implementation of the program: a double
+/// click runs exactly what Enter runs, including whatever guards and dialogs
+/// Enter goes through. A key-bar cell is the one gesture that is a key: it
+/// presses `F(n)` with the modifiers held, which is what its label says.
 pub(in crate::application) fn dispatch_mouse<B>(
     terminal: &mut Terminal<B>,
     app: &mut App,
@@ -80,6 +84,9 @@ fn overlay_consumes_mouse<B: Backend + Write>(
     }
 }
 
+/// The wheel is a cursor move: over the console it scrolls the transcript,
+/// over a panel it moves that panel's cursor — the tree's, the preview's or
+/// the sessions list's when the panel is one of those.
 fn dispatch_scroll<B: Backend + Write>(
     terminal: &mut Terminal<B>,
     app: &mut App,
@@ -87,19 +94,20 @@ fn dispatch_scroll<B: Backend + Write>(
     target: crate::mouse::Target,
     panel_clicks: &mut crate::mouse::PanelClicks,
 ) -> bool {
-    use crate::mouse::Target;
-    use crossterm::event::MouseEventKind;
-    let code = match mouse.kind {
-        MouseEventKind::ScrollUp => KeyCode::Up,
-        MouseEventKind::ScrollDown => KeyCode::Down,
-        _ => return false,
+    use crate::mouse::{Target, Wheel};
+    let Some(wheel) = Wheel::of(mouse.kind) else {
+        return false;
+    };
+    let action = match wheel {
+        Wheel::Up => Action::NavUp,
+        Wheel::Down => Action::NavDown,
     };
     panel_clicks.reset();
     if app.view == ViewMode::Console {
-        dispatch_key(terminal, app, KeyEvent::new(code, mouse.modifiers));
+        dispatch_action(terminal, app, action);
     } else if let Target::PanelRow { side, .. } | Target::Panel(side) = target {
         app.active_panel = side;
-        dispatch_key(terminal, app, KeyEvent::new(code, mouse.modifiers));
+        dispatch_action(terminal, app, action);
     }
     true
 }
@@ -167,16 +175,12 @@ fn click_panel_row<B: Backend + Write>(
     let click = panel_clicks.press(side, index, Instant::now());
     panel.select(Some(index));
     if click == crate::mouse::PanelRowClick::Activate {
-        dispatch_key(
-            terminal,
-            app,
-            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
-        );
+        dispatch_action(terminal, app, Action::Open);
     }
 }
 
 /// A click on a row of a `NetBox` panel: the panel's own cursor moves there —
-/// never the hidden file list's — and a double click is Enter on it.
+/// never the hidden file list's — and a double click opens it, as Enter does.
 fn click_netbox_row<B: Backend + Write>(
     terminal: &mut Terminal<B>,
     app: &mut App,
@@ -189,10 +193,6 @@ fn click_netbox_row<B: Backend + Write>(
         return;
     };
     if panel_clicks.press(side, index, Instant::now()) == crate::mouse::PanelRowClick::Activate {
-        dispatch_key(
-            terminal,
-            app,
-            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
-        );
+        dispatch_action(terminal, app, Action::Open);
     }
 }

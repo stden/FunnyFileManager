@@ -59,18 +59,13 @@ fn render_drop_down_entries(f: &mut Frame<'_>, app: &App, menu: &Menu, ground: S
 
 /// `entry` with its tick set from the state it stands for.
 pub fn checked_entry(app: &App, mut entry: Entry) -> Entry {
+    use crate::action::{Action, PanelCommand};
     let panel = app.get_active_panel_ref();
-    let checked = if let Some(key) = entry.key() {
-        match crate::action::resolve(crossterm::event::KeyEvent::new(key.code, key.modifiers)) {
-            crate::action::Action::PanelView(mode) => panel.view == mode,
-            _ => false,
-        }
-    } else {
-        match entry.menu_command() {
-            Some(crate::menu::MenuCommand::LongNames) => !panel.options.short_names,
-            Some(crate::menu::MenuCommand::TogglePanel(side)) => app.panels_shown.shows(side),
-            _ => false,
-        }
+    let checked = match entry.action() {
+        Some(Action::PanelView(mode)) => panel.view == mode,
+        Some(Action::Panel(PanelCommand::LongNames)) => !panel.options.short_names,
+        Some(Action::Panel(PanelCommand::TogglePanel(side))) => app.panels_shown.shows(side),
+        _ => false,
     };
     if let Entry::Item { checked: mark, .. } = &mut entry {
         *mark = checked;

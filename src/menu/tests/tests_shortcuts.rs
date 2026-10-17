@@ -1,67 +1,62 @@
-//! Purpose: the keys a row carries: shortcuts resolve to the action they name, and the constructors.
+//! Purpose: the shortcut a row prints is a key of the action it holds, and what a row is.
 use super::*;
+
+use crate::action::{Action, KeyChord};
+use crate::test_support::panels_action as resolve;
+
+/// The key text beside a row, as a chord: Far's "Gray +" is the plain `+`
+/// here, since terminals cannot tell the pad's keys from the row's.
+fn printed_chord(entry: &Entry) -> Option<KeyChord> {
+    let Entry::Item { shortcut, .. } = entry else {
+        return None;
+    };
+    if shortcut.is_empty() {
+        return None;
+    }
+    let text = shortcut.strip_prefix("Gray ").unwrap_or(shortcut);
+    Some(
+        text.parse()
+            .unwrap_or_else(|error| panic!("{shortcut:?}: {error}")),
+    )
+}
 
 // ─── the shortcuts a menu prints must be real ───────────────────────────────
 
-/// Every key a menu row names must actually be that key.
+/// Every key a menu row prints must resolve to the action the row holds.
 ///
 /// The bug this exists for: `Alt+F8` was offered for "History", but the key
-/// table matches `F(8)` without checking modifiers, so it resolved to the
+/// table matched `F(8)` without checking modifiers, so it resolved to the
 /// delete confirmation. A row that reads as harmless opened a destructive
-/// dialog — the worst shape a wrong shortcut can take.
-///
-/// The invariant is general rather than a table of expected actions, which
-/// would just be the menu written twice: if a row's key carries a modifier,
-/// resolving it must differ from resolving the same key *without* the
-/// modifier. When they agree, the modifier is being dropped.
+/// dialog — the worst shape a wrong shortcut can take. The row now holds the
+/// action and prints the key; this is what keeps the two from drifting.
 #[test]
-fn a_modified_shortcut_must_not_resolve_like_an_unmodified_one() {
-    use crossterm::event::{KeyEvent, KeyModifiers};
-
-    use crate::action::resolve;
-
+fn every_printed_shortcut_resolves_to_the_rows_action() {
     for heading in Heading::ALL {
         for entry in Menu::open(heading).entries() {
-            let Some(shortcut) = entry.key() else {
+            let Some(chord) = printed_chord(entry) else {
                 continue;
             };
-            if shortcut.modifiers == KeyModifiers::NONE {
-                continue;
-            }
-            let with = resolve(KeyEvent::new(shortcut.code, shortcut.modifiers));
-            let without = resolve(KeyEvent::new(shortcut.code, KeyModifiers::NONE));
-            assert_ne!(
-                with,
-                without,
-                "{heading:?}: {:?} offers {:?}+{:?}, but the modifier is ignored — \
-                 it does whatever the bare key does ({without:?})",
+            assert_eq!(
+                resolve(chord.to_event()),
+                entry.action().expect("a row with a shortcut is an item"),
+                "{heading:?}: {:?} prints {chord}",
                 label_of(entry),
-                shortcut.modifiers,
-                shortcut.code,
             );
         }
     }
 }
 
-/// …and no row may reach a destructive action unless it says so.
+/// …and no row may hold a destructive action unless it says so.
 ///
 /// A second, blunter guard on the same failure: whatever else goes wrong, the
 /// only menu row allowed to open the delete confirmation is the one labelled
 /// Delete.
 #[test]
 fn only_the_delete_row_can_reach_the_delete_dialog() {
-    use crossterm::event::KeyEvent;
-
-    use crate::action::{resolve, Action};
-
     for heading in Heading::ALL {
         for entry in Menu::open(heading).entries() {
-            let Some(shortcut) = entry.key() else {
-                continue;
-            };
-            let label = label_of(entry);
-            let action = resolve(KeyEvent::new(shortcut.code, shortcut.modifiers));
-            if matches!(action, Action::DeleteConfirm) {
+            if entry.action() == Some(Action::DeleteConfirm) {
+                let label = label_of(entry);
                 assert!(
                     label.contains("Delete"),
                     "{heading:?}: {label:?} reaches the delete dialog"
@@ -71,76 +66,41 @@ fn only_the_delete_row_can_reach_the_delete_dialog() {
     }
 }
 
-/// Every row that claims a key must reach something that does work — not the
-/// quick-search reset every unrecognised `Ctrl+letter` falls into.
+/// Every row must hold something that does work — not the quick-search reset
+/// every unrecognised `Ctrl+letter` falls into, nor a typed character.
 #[test]
-fn no_row_falls_through_to_the_quick_search_reset() {
-    use crossterm::event::KeyEvent;
-
-    use crate::action::{resolve, Action};
-
+fn no_row_holds_the_quick_search_reset() {
     for heading in Heading::ALL {
         for entry in Menu::open(heading).entries() {
-            let Some(shortcut) = entry.key() else {
-                continue;
-            };
-            let action = resolve(KeyEvent::new(shortcut.code, shortcut.modifiers));
             assert!(
                 !matches!(
-                    action,
-                    Action::QuickSearchClear | Action::CommandLineChar(_)
+                    entry.action(),
+                    Some(Action::QuickSearchClear | Action::CommandLineChar(_))
                 ),
-                "{heading:?}: {:?} claims a key that is not recognised — it falls \
-                 through to {action:?}",
+                "{heading:?}: {:?} holds {:?}",
                 label_of(entry),
+                entry.action(),
             );
         }
     }
 }
 
-// ─── the two constructors, and what makes a row grey ────────────────────────
+// ─── what a row is ──────────────────────────────────────────────────────────
 
-/// The whole "greyed" mechanism is the difference between these two: a row
-/// built by `item` carries a key and answers Enter, one built by `planned`
-/// carries none and is skipped by the cursor. Called at runtime here because
-/// the tables call them at compile time, and a constructor that swapped the
-/// two would produce a menu that looks right and does nothing.
+/// An item can be chosen and holds its action; a separator can be neither
+/// chosen nor run. Called at runtime here because the tables call the
+/// constructor at compile time, and a constructor that dropped the action
+/// would produce a menu that looks right and does nothing.
 #[test]
-fn shortcut_and_command_items_are_both_executable() {
-    use crossterm::event::KeyCode;
-
-    use super::{Entry, Shortcut};
-
-    let working = Entry::item("&Delete", "F8", Shortcut::plain(KeyCode::F(8)));
-    assert!(working.is_selectable(), "a row with a key can be chosen");
-    assert_eq!(working.key().map(|key| key.code), Some(KeyCode::F(8)));
+fn an_item_holds_its_action_and_a_separator_holds_none() {
+    let working = Entry::item("&Delete", "F8", Action::DeleteConfirm);
+    assert!(
+        working.is_selectable(),
+        "a row with an action can be chosen"
+    );
+    assert_eq!(working.action(), Some(Action::DeleteConfirm));
     assert_eq!(label_of(&working), "&Delete");
 
-    let command = Entry::command("Add &to archive", "Shift+F1", MenuCommand::Archive);
-    assert!(command.is_selectable());
-    assert_eq!(command.menu_command(), Some(MenuCommand::Archive));
-    assert_eq!(label_of(&command), "Add &to archive");
-}
-
-/// Each shortcut constructor must set its own modifier and no other. A
-/// copy-paste slip here is how `Alt+F8` came to mean `F8` — the bug that
-/// pointed a menu row at the delete confirmation.
-#[test]
-fn each_shortcut_constructor_sets_exactly_its_own_modifier() {
-    use crossterm::event::{KeyCode, KeyModifiers};
-
-    use super::Shortcut;
-
-    for (built, expected) in [
-        (Shortcut::plain(KeyCode::F(3)), KeyModifiers::NONE),
-        (Shortcut::alt(KeyCode::F(3)), KeyModifiers::ALT),
-        (Shortcut::shift(KeyCode::F(3)), KeyModifiers::SHIFT),
-    ] {
-        assert_eq!(built.code, KeyCode::F(3), "the key itself is unchanged");
-        assert_eq!(built.modifiers, expected);
-    }
-
-    let control = Shortcut::ctrl('r');
-    assert_eq!(control.code, KeyCode::Char('r'));
-    assert_eq!(control.modifiers, KeyModifiers::CONTROL);
+    assert!(!Entry::Separator.is_selectable());
+    assert_eq!(Entry::Separator.action(), None);
 }

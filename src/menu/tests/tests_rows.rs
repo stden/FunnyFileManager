@@ -29,10 +29,7 @@ fn entries_are_one_thing_or_the_other() {
                 Entry::Separator => assert!(!entry.is_selectable()),
                 Entry::Item { label, .. } => {
                     assert!(!label.is_empty(), "{heading:?} has an unnamed item");
-                    assert_eq!(
-                        entry.is_selectable(),
-                        entry.key().is_some() || entry.menu_command().is_some()
-                    );
+                    assert_eq!(entry.is_selectable(), entry.action().is_some());
                 }
             }
         }
@@ -42,8 +39,6 @@ fn entries_are_one_thing_or_the_other() {
 #[cfg(windows)]
 #[test]
 fn wsl_menu_uses_the_same_command_as_its_keyboard_shortcut() {
-    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-
     let menu = Menu::open(Heading::Commands);
     let row = menu.row_for_hotkey('w').expect("WSL manager hotkey");
     let entry = &menu.entries()[row];
@@ -55,13 +50,7 @@ fn wsl_menu_uses_the_same_command_as_its_keyboard_shortcut() {
             ..
         }
     ));
-    let key = entry.key().expect("enabled WSL manager");
-    assert_eq!(key.code, KeyCode::Char('w'));
-    assert_eq!(key.modifiers, KeyModifiers::CONTROL | KeyModifiers::ALT);
-    assert_eq!(
-        crate::action::resolve(KeyEvent::new(key.code, key.modifiers)),
-        crate::action::Action::WslManagement,
-    );
+    assert_eq!(entry.action(), Some(crate::action::Action::WslManagement));
 }
 
 #[cfg(not(windows))]

@@ -3,8 +3,8 @@
 use super::{app, paste};
 use crate::config::LspSettings;
 use crate::lineedit::LineEditor;
-use crate::menu::MenuCommand;
 use crate::models::lsp_editor::{Access, FormField, FormTarget, Mode as LspMode};
+use crate::models::menu_dialog::MenuPrompt;
 use crate::models::{LspEditor, MenuDialog, Overlay};
 use crate::path_env::{Mode as PathMode, PathEditor, Scope, Snapshot};
 use tempfile::TempDir;
@@ -32,7 +32,7 @@ fn find_file_paste_follows_the_active_field_and_skips_the_buttons() {
 fn menu_prompts_accept_paste_and_choice_lists_do_not() {
     let root = TempDir::new().unwrap();
     let prompt = MenuDialog::Prompt {
-        command: MenuCommand::FindFolder,
+        purpose: MenuPrompt::FindFolder,
         title: "Find folder".into(),
         caption: "Folder:".into(),
         input: LineEditor::new("folder"),
@@ -43,8 +43,8 @@ fn menu_prompts_accept_paste_and_choice_lists_do_not() {
         panic!("the menu prompt stays open");
     };
     assert!(
-        matches!(dialog.as_ref(), MenuDialog::Prompt { command, input, .. }
-        if *command == MenuCommand::FindFolder && input.text() == "folder/child")
+        matches!(dialog.as_ref(), MenuDialog::Prompt { purpose, input, .. }
+        if *purpose == MenuPrompt::FindFolder && input.text() == "folder/child")
     );
     app.set_overlay(Overlay::MenuDialog(Box::new(MenuDialog::Choices {
         title: "Folders".into(),

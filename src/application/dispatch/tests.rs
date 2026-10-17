@@ -11,6 +11,7 @@ use crate::application::run_app_with_event_reader;
 use crate::ui::ui;
 
 mod action_dispatch;
+mod action_over_panel_kinds;
 mod dispatch_errors;
 mod event_loop_keys;
 mod event_loop_toggles;

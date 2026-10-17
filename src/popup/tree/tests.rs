@@ -177,6 +177,4 @@ fn search_helpers_are_idle_without_a_tree() {
     let mut app = App::new().expect("app");
     assert!(!super::shorten_search(&mut app));
     assert!(!super::clear_search(&mut app));
-    let mut tree = FolderTree::default();
-    super::step(&mut tree, KeyCode::Left, 1);
 }

@@ -2,9 +2,9 @@
 //! the centred window, its status and list rows, and the buttons wrapped to
 //! fit — full labels first, then compact ones, then only Esc.
 
-use crossterm::event::KeyCode;
 use ratatui::layout::Rect;
 
+use crate::action::wsl::WslCommand;
 use crate::models::{WslActivity, WslDialog};
 
 use super::super::{far_block, Cells};
@@ -12,58 +12,58 @@ use super::super::{far_block, Cells};
 #[derive(Clone, Copy)]
 pub(super) struct Control {
     pub(super) label: &'static str,
-    pub(super) key: KeyCode,
+    pub(super) command: WslCommand,
 }
 
 impl Control {
     pub(super) fn enabled(self, dialog: &WslDialog) -> bool {
-        self.key == KeyCode::Esc || !matches!(dialog.activity, WslActivity::Busy { .. })
+        self.command == WslCommand::Close || !matches!(dialog.activity, WslActivity::Busy { .. })
     }
 }
 
 const CONTROLS: [Control; 5] = [
     Control {
         label: "[Enter Open root]",
-        key: KeyCode::Enter,
+        command: WslCommand::Open,
     },
     Control {
         label: "[F2 Refresh list]",
-        key: KeyCode::F(2),
+        command: WslCommand::Refresh,
     },
     Control {
         label: "[F5 Update WSL]",
-        key: KeyCode::F(5),
+        command: WslCommand::Update,
     },
     Control {
         label: "[F6 Update packages]",
-        key: KeyCode::F(6),
+        command: WslCommand::UpdatePackages,
     },
     Control {
         label: "[Esc Close]",
-        key: KeyCode::Esc,
+        command: WslCommand::Close,
     },
 ];
 
 const COMPACT: [Control; 5] = [
     Control {
         label: "Open",
-        key: KeyCode::Enter,
+        command: WslCommand::Open,
     },
     Control {
         label: "F2",
-        key: KeyCode::F(2),
+        command: WslCommand::Refresh,
     },
     Control {
         label: "F5",
-        key: KeyCode::F(5),
+        command: WslCommand::Update,
     },
     Control {
         label: "F6",
-        key: KeyCode::F(6),
+        command: WslCommand::UpdatePackages,
     },
     Control {
         label: "Esc",
-        key: KeyCode::Esc,
+        command: WslCommand::Close,
     },
 ];
 

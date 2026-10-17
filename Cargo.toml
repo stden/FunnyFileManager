@@ -139,6 +139,12 @@ name = "e2e_test"
 path = "tests/e2e_test.rs"
 required-features = ["test-helpers"]
 
+# Runs menu rows through the production dispatcher, which draws.
+[[test]]
+name = "menu_commands_test"
+path = "tests/menu_commands_test.rs"
+required-features = ["test-helpers"]
+
 [[test]]
 name = "highlight_render_test"
 path = "tests/highlight_render_test.rs"

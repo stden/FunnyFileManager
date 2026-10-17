@@ -159,16 +159,16 @@ fn test_apply_action_toggle_help_and_console() -> io::Result<()> {
     let backend = WritableTestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend)?;
 
-    apply_action(&mut terminal, &mut app, Action::ToggleHelp);
+    apply_action(&mut terminal, &mut app, Action::ToggleHelp, true);
     assert!(matches!(app.overlay, Overlay::Help));
 
-    apply_action(&mut terminal, &mut app, Action::ToggleHelp);
+    apply_action(&mut terminal, &mut app, Action::ToggleHelp, true);
     assert!(matches!(app.overlay, Overlay::None));
 
-    apply_action(&mut terminal, &mut app, Action::ToggleConsole);
+    apply_action(&mut terminal, &mut app, Action::ToggleConsole, true);
     assert_eq!(app.view, ViewMode::Console);
 
-    apply_action(&mut terminal, &mut app, Action::ToggleConsole);
+    apply_action(&mut terminal, &mut app, Action::ToggleConsole, true);
     assert!(matches!(app.overlay, Overlay::None));
 
     Ok(())

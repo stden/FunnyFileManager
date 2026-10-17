@@ -13,7 +13,7 @@ mod models;
 mod rendering_and_input;
 use facade::{facade_rule_violations, handlers_forwarding_violations};
 use models::models_violations;
-use rendering_and_input::{action_violations, ui_violations};
+use rendering_and_input::{action_violations, keymap_violations, ui_violations};
 
 /// Effects rendering never performs: storage, processes, network, process
 /// environment, every module that coordinates or executes operations, and the
@@ -41,6 +41,11 @@ pub const RENDERING_FORBIDDEN: [&str; 17] = [
 
 /// Key resolution is a pure mapping: it does not read the environment or do I/O either.
 const INPUT_ONLY_FORBIDDEN: [&str; 2] = ["std::io", "std::env"];
+
+/// The keymap is as pure as key resolution, and it neither draws nor reads
+/// a file: `ui` reads it for labels, and `ops` hands it the text `config`
+/// read, never the other way round.
+const KEYMAP_ONLY_FORBIDDEN: [&str; 2] = ["crate::ui", "crate::config"];
 
 /// Layers above state, and the effects state never performs. The process
 /// table is an adapter above the models: they define its ports, it fills them.
@@ -74,6 +79,11 @@ fn ui_renders_without_executing_operations() {
 #[test]
 fn action_resolves_input_without_io() {
     assert_eq!(action_violations(&tui_sources()), Vec::<String>::new());
+}
+
+#[test]
+fn keymap_is_built_without_io_rendering_or_configuration() {
+    assert_eq!(keymap_violations(&tui_sources()), Vec::<String>::new());
 }
 
 #[test]

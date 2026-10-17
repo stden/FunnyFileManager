@@ -1,7 +1,9 @@
 use super::*;
+use crate::test_support::panels_action as resolve;
 use crossterm::event::{KeyCode, KeyModifiers};
 
 mod fallback_rows;
+pub(in crate::action) mod keyed_sources;
 mod modifiers;
 mod quick_search;
 
@@ -103,7 +105,7 @@ fn test_resolve_fkeys() {
     // Far's F12 lists the screens; the console toggle stays on Ctrl+O.
     assert_eq!(
         resolve(key(KeyCode::F(12))),
-        Action::MenuCommand(MenuCommand::Screens)
+        Action::Tool(ToolCommand::Screens)
     );
 }
 

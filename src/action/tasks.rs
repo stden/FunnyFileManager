@@ -101,6 +101,7 @@ impl PanStep {
 
 mod help;
 mod keys;
+pub mod search;
 
 pub use help::HELP;
 pub use keys::{normalize, resolve};

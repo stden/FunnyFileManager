@@ -105,6 +105,18 @@ fn the_verbatim_prefix_goes_from_drives_and_shares_only() {
     }
 }
 
+/// Non-verbatim paths come back as they went in, on every platform.
+#[test]
+fn normalize_leaves_non_verbatim_paths_alone() {
+    use std::path::PathBuf;
+
+    for raw in [r"C:\work", "/srv/x"] {
+        assert_eq!(normalize(PathBuf::from(raw)), PathBuf::from(raw), "{raw}");
+    }
+}
+
+/// Windows strips the verbatim prefix from a `PathBuf`.
+#[cfg(windows)]
 #[test]
 fn normalize_strips_verbatim_prefix_from_a_path_buf() {
     use std::path::PathBuf;
@@ -112,15 +124,23 @@ fn normalize_strips_verbatim_prefix_from_a_path_buf() {
     for (raw, expected) in [
         (r"\\?\C:\work\проект", r"C:\work\проект"),
         (r"\\?\UNC\server\share\x", r"\\server\share\x"),
-        // Non-verbatim paths are returned as-is on every platform.
-        (r"C:\work", r"C:\work"),
-        ("/srv/x", "/srv/x"),
     ] {
         assert_eq!(
             normalize(PathBuf::from(raw)),
             PathBuf::from(expected),
             "{raw}"
         );
+    }
+}
+
+/// Off Windows there is no verbatim prefix to strip, so the spelling stays.
+#[cfg(not(windows))]
+#[test]
+fn normalize_returns_verbatim_spellings_unchanged_off_windows() {
+    use std::path::PathBuf;
+
+    for raw in [r"\\?\C:\work\проект", r"\\?\UNC\server\share\x"] {
+        assert_eq!(normalize(PathBuf::from(raw)), PathBuf::from(raw), "{raw}");
     }
 }
 

@@ -1,9 +1,13 @@
-//! Unit tests: Far's viewer keys, against a viewer that has been drawn once.
+//! Unit tests: Far's viewer keys, against a viewer that has been drawn once —
+//! the default keys exactly as written, and the keys the app's keymap gives.
 
 use super::process_popup_input;
 use super::tests::key;
+use crate::keymap::tables::VIEWER;
+use crate::keymap::{ActionName, Explicit};
 use crate::models::{App, Overlay, Viewer, Viewport};
 use crate::scroll::{ScrollLeft, ScrollTop};
+use crate::test_support::chord;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 /// A hundred-line viewer whose keys page as if the body were `rows` tall.
@@ -113,4 +117,45 @@ fn a_file_that_fits_never_scrolls() {
             ScrollTop::TOP
         );
     }
+}
+
+/// Exact matching: the viewer swallows a key with a modifier nobody bound
+/// and neither scrolls nor closes on it.
+#[test]
+fn a_key_with_a_modifier_nobody_bound_does_nothing() {
+    let mut app = drawn_viewer(23);
+    for (code, modifiers) in [
+        (KeyCode::Down, KeyModifiers::SHIFT),
+        (KeyCode::PageDown, KeyModifiers::CONTROL),
+        (KeyCode::End, KeyModifiers::ALT),
+        (KeyCode::Right, KeyModifiers::SHIFT),
+        (KeyCode::Right, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
+        (KeyCode::Esc, KeyModifiers::ALT),
+        (KeyCode::Enter, KeyModifiers::CONTROL),
+        (KeyCode::F(3), KeyModifiers::SHIFT),
+        (KeyCode::F(10), KeyModifiers::ALT),
+    ] {
+        let pressed = KeyEvent::new(code, modifiers);
+        assert!(process_popup_input(&mut app, pressed), "{pressed:?}");
+        assert_eq!(scroll(&app), 0, "{pressed:?}");
+        assert_eq!(col(&app), ScrollLeft::LEFT, "{pressed:?}");
+    }
+}
+
+#[test]
+fn the_viewer_obeys_the_keys_of_the_apps_keymap() {
+    let mut app = drawn_viewer(23);
+    let explicit = Explicit::from([
+        (ActionName::new("line_down"), vec![chord("j")]),
+        (ActionName::new("close"), vec![chord("q")]),
+    ]);
+    app.keymap.viewer = VIEWER.layered(&explicit).bindings;
+    process_popup_input(&mut app, key(KeyCode::Char('j')));
+    assert_eq!(scroll(&app), 1);
+    assert!(process_popup_input(&mut app, key(KeyCode::Down)));
+    assert_eq!(scroll(&app), 1, "Down has no command left");
+    assert!(process_popup_input(&mut app, key(KeyCode::Esc)));
+    assert!(app.get_viewer().is_some(), "Esc has no command left");
+    process_popup_input(&mut app, key(KeyCode::Char('q')));
+    assert!(app.get_viewer().is_none());
 }

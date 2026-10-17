@@ -9,10 +9,12 @@ use std::path::PathBuf;
 use crossterm::event::KeyEvent;
 use ratatui::{backend::Backend, Terminal};
 
-use crate::action::{resolve, Action};
+use crate::action::tree::TreeCommand;
+use crate::action::viewer::ViewerScroll;
+use crate::action::{is_menu_key, resolve, Action};
 use crate::diagnostics::{action_label, log_action};
 use crate::models::{App, PanelKind, ViewMode};
-use crate::popup::process_popup_input;
+use crate::popup::{self, process_popup_input};
 
 mod actions;
 mod console;
@@ -54,7 +56,7 @@ fn report(app: &mut App, operation: impl FnOnce(&mut App) -> io::Result<()>) {
 /// Infallible by construction: every fallible effect goes through [`report`],
 /// so a failing file operation can only ever reach the status bar, never the
 /// event loop.
-fn apply_action<B>(terminal: &mut Terminal<B>, app: &mut App, action: Action)
+fn apply_action<B>(terminal: &mut Terminal<B>, app: &mut App, action: Action, menu_key: bool)
 where
     B: Backend + Write,
 {
@@ -65,7 +67,7 @@ where
         app.quick_search.clear();
     }
     if app.view == ViewMode::Console {
-        console_action(terminal, app, action);
+        console_action(terminal, app, action, menu_key);
         return;
     }
     apply_panel_action(terminal, app, action);
@@ -80,20 +82,61 @@ where
         if !app.lifecycle.is_running() {
             log_action("Quitting from overlay");
         }
-        // A menu row runs its command by pressing the command's own key, so
-        // the menu and the keyboard cannot drift apart and the shortcut
-        // printed beside a row is the one that actually runs.
-        if let Some(shortcut) = app.pending_key.take() {
-            let chosen = KeyEvent::new(shortcut.code, shortcut.modifiers);
-            dispatch_key(terminal, app, chosen);
-        }
+        run_pending_row(terminal, app);
         return;
     }
     if panel_kind_consumes(app, key) {
         return;
     }
 
-    apply_action(terminal, app, resolve(key));
+    let action = resolve(&app.keymap.panels, key);
+    let menu_key = is_menu_key(&app.keymap.panels, key);
+    apply_action(terminal, app, action, menu_key);
+}
+
+/// Run the menu row chosen while the drop-down was up, now that it has left
+/// the screen. The row holds the same [`Action`] its key resolves to and takes
+/// the same road, so the menu and the keyboard cannot drift apart.
+pub(super) fn run_pending_row<B>(terminal: &mut Terminal<B>, app: &mut App)
+where
+    B: Backend + Write,
+{
+    if let Some(action) = app.pending_row.take().and_then(|row| row.action()) {
+        dispatch_action(terminal, app, action);
+    }
+}
+
+/// Apply an action that arrived without a key — a menu row, a mouse gesture —
+/// the way [`dispatch_key`] applies a key's: the active panel's kind reads it
+/// first, then it acts on the panels or the console.
+pub(super) fn dispatch_action<B>(terminal: &mut Terminal<B>, app: &mut App, action: Action)
+where
+    B: Backend + Write,
+{
+    if panel_kind_answers(app, action) {
+        return;
+    }
+    apply_action(terminal, app, action, true);
+}
+
+/// [`panel_kind_consumes`] for an action instead of a key: the tree, quick
+/// view, sessions and remote panels read the moves, Open and the file
+/// actions whose keys they own as their own commands; a `NetBox` panel refuses
+/// the rest that would act on the entries hidden beneath it.
+fn panel_kind_answers(app: &mut App, action: Action) -> bool {
+    if app.view != ViewMode::Panels {
+        return false;
+    }
+    match app.get_active_panel_ref().kind {
+        PanelKind::Files => false,
+        PanelKind::Tree(_) => {
+            TreeCommand::from_action(action).is_some_and(|command| popup::tree::apply(app, command))
+        }
+        PanelKind::QuickView(_) => ViewerScroll::from_action(action)
+            .is_some_and(|scroll| popup::quickview::scroll(app, scroll)),
+        PanelKind::Sessions(_) => popup::sessions::answer(app, action),
+        PanelKind::Remote(_) => popup::remote::answer(app, action),
+    }
 }
 
 /// A tree, quick-view, sessions or remote panel is asked about a key before
@@ -105,10 +148,10 @@ fn panel_kind_consumes(app: &mut App, key: KeyEvent) -> bool {
     }
     match app.get_active_panel_ref().kind {
         PanelKind::Files => false,
-        PanelKind::Tree(_) => crate::popup::tree::process(app, key),
-        PanelKind::QuickView(_) => crate::popup::quickview::process(app, key),
-        PanelKind::Sessions(_) => crate::popup::sessions::process(app, key),
-        PanelKind::Remote(_) => crate::popup::remote::process(app, key),
+        PanelKind::Tree(_) => popup::tree::process(app, key),
+        PanelKind::QuickView(_) => popup::quickview::process(app, key),
+        PanelKind::Sessions(_) => popup::sessions::process(app, key),
+        PanelKind::Remote(_) => popup::remote::process(app, key),
     }
 }
 

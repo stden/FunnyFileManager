@@ -1,6 +1,6 @@
 //! Purpose: the typed sub-commands an `Action` carries, one enum per menu or workflow.
 
-use crate::models::{PanelSide, PanelView, SortMode};
+use crate::models::{PanelSide, SortMode};
 
 use super::Action;
 
@@ -73,15 +73,18 @@ impl Action {
     pub const RestoreSelection: Self = Self::Selection(SelectionCommand::RestoreSelection);
 }
 
-/// The Left / Right menu, row for row: what a panel shows and how.
+/// The Left / Right menu, row for row: what a panel shows and how. The ten
+/// view modes are [`Action::PanelView`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PanelCommand {
-    /// `Ctrl+1` … `Ctrl+0` — one of Far's ten column layouts.
-    View(PanelView),
     /// `Ctrl+Q` — a preview of the other panel's cursor, or back.
     QuickView,
+    /// `Ctrl+T` — the panel as a folder tree, or back to its files.
+    Tree,
     /// `Ctrl+F3` … — a sort mode straight from its key.
     Sort(SortMode),
+    /// `Ctrl+F12` — the sort modes menu.
+    SortMenu,
     /// `Ctrl+F1` / `Ctrl+F2` — that panel on or off the screen.
     TogglePanel(PanelSide),
     /// `Ctrl+N` — long names or their 8.3 form.

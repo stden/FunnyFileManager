@@ -5,7 +5,7 @@ use crate::{
 };
 use tempfile::TempDir;
 
-fn fixture() -> (TempDir, App) {
+pub(super) fn fixture() -> (TempDir, App) {
     let temp = TempDir::new().expect("tempdir");
     let panel = Panel::new(temp.path().to_owned()).expect("panel");
     let mut app = App::with_panels(panel.clone(), panel);
@@ -21,18 +21,18 @@ fn fixture() -> (TempDir, App) {
     (temp, app)
 }
 
-fn dialog(app: &App) -> &PathEditor {
+pub(super) fn dialog(app: &App) -> &PathEditor {
     let Overlay::PathEditor(editor) = &app.overlay else {
         panic!("PATH dialog");
     };
     editor
 }
 
-fn key(app: &mut App, code: KeyCode) {
+pub(super) fn key(app: &mut App, code: KeyCode) {
     assert!(process(app, code, KeyModifiers::NONE));
 }
 
-fn add(app: &mut App, text: &str) {
+pub(super) fn add(app: &mut App, text: &str) {
     key(app, KeyCode::Insert);
     for ch in text.chars() {
         key(app, KeyCode::Char(ch));

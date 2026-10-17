@@ -8,7 +8,7 @@ use super::*;
 fn open_with(app: &mut App, command: &str) {
     crate::ops::apply::open(app);
     for ch in command.chars() {
-        crate::popup::process_popup_input(app, KeyCode::Char(ch).into());
+        popup::process_popup_input(app, KeyCode::Char(ch).into());
     }
 }
 
@@ -44,7 +44,7 @@ fn clicking_ok_runs_the_command_and_clicking_cancel_does_not() {
     assert!(app.get_active_panel().select_named("a.txt"));
 
     open_with(&mut app, "cp !.! !.bak");
-    crate::popup::process_popup_input(&mut app, KeyCode::Tab.into());
+    popup::process_popup_input(&mut app, KeyCode::Tab.into());
     assert!(on_cancel(&app), "the keyboard focus is on Cancel");
     click_text(&mut term, &mut app, "OK");
     assert!(matches!(app.overlay, Overlay::None));

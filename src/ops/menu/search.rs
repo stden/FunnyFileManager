@@ -2,8 +2,7 @@
 
 use crate::{
     mask::Mask,
-    menu::MenuCommand,
-    models::{App, MenuChoice},
+    models::{App, MenuChoice, MenuPrompt},
 };
 use std::{
     fs, io,
@@ -188,12 +187,13 @@ fn read_directory(path: &Path) -> io::Result<fs::ReadDir> {
     fs::read_dir(path)
 }
 
-pub(super) fn prompt(app: &mut App, command: MenuCommand) {
-    let folders = matches!(command, MenuCommand::FindFolder);
+/// Alt+F10: the folder mask prompt. Find file (Alt+F7) has a dialog of
+/// its own, with a containing-text field.
+pub(super) fn prompt(app: &mut App) {
     super::prompt(
         app,
-        command,
-        if folders { "Find folder" } else { "Find file" },
+        MenuPrompt::FindFolder,
+        "Find folder",
         "Name mask (recursive, maximum 100,000 entries)",
         "*",
     );

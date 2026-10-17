@@ -5,10 +5,12 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use tempfile::TempDir;
 
 use super::process;
+use crate::action::netbox::NetboxCommand;
 use crate::models::{
-    App, EditPurpose, InputPurpose, Overlay, PanelKind, QuestionPurpose, SessionsPanel,
+    App, EditPurpose, InputPurpose, ListMotion, Overlay, PanelKind, QuestionPurpose, SessionsPanel,
 };
 use crate::sessions::SessionStore;
+use crate::test_support::chord;
 use crate::test_support::netbox::{app_in, app_on_sessions, name, session};
 
 fn bare(code: KeyCode) -> KeyEvent {
@@ -49,6 +51,36 @@ fn the_list_keys_move_the_cursor() {
     assert!(process(&mut app, bare(KeyCode::Down)));
     assert!(process(&mut app, bare(KeyCode::Up)));
     assert_eq!(list(&app).cursor(), 0);
+}
+
+/// Exact matching (design §6.2): a shifted list key is not the list's, so
+/// the cursor stays where it is.
+#[test]
+fn a_shifted_list_key_does_not_move_the_cursor() {
+    let dir = TempDir::new().expect("temp dir");
+    let mut app = app(&dir);
+    for code in [KeyCode::Down, KeyCode::End, KeyCode::PageDown] {
+        process(&mut app, KeyEvent::new(code, KeyModifiers::SHIFT));
+        assert_eq!(list(&app).cursor(), 0, "Shift+{code:?}");
+    }
+}
+
+/// The list reads the keys of the app's keymap, whatever they are.
+#[test]
+fn the_list_obeys_the_keys_of_the_apps_keymap() {
+    let dir = TempDir::new().expect("temp dir");
+    let mut app = app(&dir);
+    let keys = &mut app.keymap.netbox_panel;
+    keys.bind(NetboxCommand::Move(ListMotion::End), chord("Ctrl+F3"));
+    keys.bind(NetboxCommand::NewSession, chord("End"));
+
+    assert!(process(&mut app, chord("Ctrl+F3").to_event()));
+    assert_eq!(list(&app).cursor(), 2);
+    assert!(process(&mut app, bare(KeyCode::End)));
+    assert!(matches!(
+        &app.overlay,
+        Overlay::SessionEdit(dialog) if dialog.purpose() == &EditPurpose::Create
+    ));
 }
 
 #[test]
@@ -141,7 +173,9 @@ fn a_key_for_the_hidden_files_is_refused_and_a_program_key_passes() {
         app.status_text(),
         "NetBox: this key works on files; press Enter on `..` to return to them"
     );
-    assert!(process(
+    assert!(process(&mut app, bare(KeyCode::F(3))));
+    // Alt+F3 is no key of the list under exact matching: the program keeps it.
+    assert!(!process(
         &mut app,
         KeyEvent::new(KeyCode::F(3), KeyModifiers::ALT)
     ));

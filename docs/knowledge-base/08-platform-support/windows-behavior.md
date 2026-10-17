@@ -45,6 +45,10 @@ registered distributions and shows the current operation's busy state or outcome
 | F6 | Upgrade installed packages inside the selected distribution |
 | Esc | Close the manager |
 
+A key answers with exactly these modifiers: Ctrl+Up does not move the
+selection, Shift+Enter does not open a root and Alt+Esc does not close. The
+manager consumes such a key and does nothing.
+
 Platform updates and Linux package updates are separate. Microsoft's
 [WSL command reference](https://learn.microsoft.com/en-us/windows/wsl/basic-commands)
 describes the platform commands. File access uses normal panels, so existing

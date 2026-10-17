@@ -1,8 +1,13 @@
 //! Generic F9 dialogs activate the same operations from rendered mouse targets.
 
 use super::*;
-use crate::menu::{MenuCommand, SettingsPage};
+use crate::action::ToolCommand;
+use crate::menu::SettingsPage;
 use crate::models::{ChoiceTarget, MenuChoice, MenuDialog, ViewMode};
+
+fn open_filter(app: &mut App) {
+    crate::ops::menu::execute_tool(app, ToolCommand::Filter).expect("the filter prompt");
+}
 
 fn choices(app: &mut App, count: usize, selected: usize) {
     let rows = (0..count)
@@ -74,12 +79,12 @@ fn menu_prompt_buttons_apply_and_cancel_when_escape_is_disabled() {
     let mut app = app_at(&dir);
     let mut term = terminal();
     app.settings.set(SettingsPage::Dialog, "off").unwrap();
-    crate::ops::menu::execute(&mut app, MenuCommand::Filter);
-    crate::popup::process_popup_input(&mut app, KeyCode::Char('x').into());
+    open_filter(&mut app);
+    popup::process_popup_input(&mut app, KeyCode::Char('x').into());
     click_text(&mut term, &mut app, "OK");
     assert_eq!(app.left_panel.options.filter, "x");
     assert!(matches!(app.overlay, Overlay::None));
-    crate::ops::menu::execute(&mut app, MenuCommand::Filter);
+    open_filter(&mut app);
     click_text(&mut term, &mut app, "Cancel");
     assert!(matches!(app.overlay, Overlay::None));
     assert_eq!(app.left_panel.options.filter, "x");
@@ -89,13 +94,13 @@ fn menu_prompt_buttons_apply_and_cancel_when_escape_is_disabled() {
 fn only_prompt_variants_expose_apply_and_cancel_button_keys() {
     let dir = TempDir::new().unwrap();
     let mut app = app_at(&dir);
-    crate::ops::menu::execute(&mut app, MenuCommand::Filter);
+    open_filter(&mut app);
     assert_eq!(code(&mut app, 0), KeyCode::Enter);
     assert_eq!(code(&mut app, 1), KeyCode::F(10));
     assert!(dialog_button_key(&mut app, 2).is_none());
     choices(&mut app, 1, 0);
     assert!(dialog_button_key(&mut app, 0).is_none());
-    crate::ops::menu::execute(&mut app, MenuCommand::Sort);
+    crate::ops::sortmenu::open(&mut app);
     assert!(dialog_button_key(&mut app, 0).is_none());
 }
 
@@ -107,7 +112,7 @@ fn a_click_on_a_sort_row_chooses_it_and_the_rule_is_a_grip() {
     let mut app = app_at(&dir);
     let mut term = terminal();
 
-    crate::ops::menu::execute(&mut app, MenuCommand::Sort);
+    crate::ops::sortmenu::open(&mut app);
     click_text(&mut term, &mut app, "Creation time");
     assert!(matches!(app.overlay, Overlay::None));
     assert_eq!(
@@ -115,12 +120,12 @@ fn a_click_on_a_sort_row_chooses_it_and_the_rule_is_a_grip() {
         crate::models::SortMode::CreationTime
     );
 
-    crate::ops::menu::execute(&mut app, MenuCommand::Sort);
+    crate::ops::sortmenu::open(&mut app);
     click_text(&mut term, &mut app, "Reverse order");
     assert!(matches!(app.overlay, Overlay::None));
     assert!(app.left_panel.sort_reversed);
 
-    crate::ops::menu::execute(&mut app, MenuCommand::Sort);
+    crate::ops::sortmenu::open(&mut app);
     draw(&mut app, &mut term);
     let area = app.dialog_mouse.area.expect("the menu was drawn");
     let rule = (area.x + 2, area.y + 1 + 9);

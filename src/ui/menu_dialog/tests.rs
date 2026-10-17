@@ -1,12 +1,12 @@
 use super::*;
-use crate::{lineedit::LineEditor, menu::MenuCommand};
+use crate::{lineedit::LineEditor, models::MenuPrompt};
 use ratatui::style::Color;
 use ratatui::{backend::TestBackend, Terminal};
 
 #[test]
 fn prompt_uses_a_compact_gray_form_with_real_buttons() {
     let dialog = MenuDialog::Prompt {
-        command: MenuCommand::Filter,
+        purpose: MenuPrompt::Filter,
         title: "Filter".to_owned(),
         caption: "File mask".to_owned(),
         input: LineEditor::new("*.rs"),
@@ -29,7 +29,7 @@ fn prompt_uses_a_compact_gray_form_with_real_buttons() {
 fn prompt_wraps_the_caption_and_scrolls_to_the_input_cursor() {
     let mut terminal = Terminal::new(TestBackend::new(60, 20)).unwrap();
     let dialog = MenuDialog::Prompt {
-        command: MenuCommand::ApplyCommand,
+        purpose: MenuPrompt::Filter,
         title: "Apply command".to_owned(),
         caption: "Command to run for each selected file; {} is replaced with its quoted path. SSD/backups may retain data."
             .to_owned(),
@@ -59,7 +59,7 @@ fn prompt_wraps_the_caption_and_scrolls_to_the_input_cursor() {
 #[test]
 fn small_prompts_do_not_panic() {
     let prompt = MenuDialog::Prompt {
-        command: MenuCommand::Filter,
+        purpose: MenuPrompt::Filter,
         title: String::new(),
         caption: String::new(),
         input: LineEditor::default(),
@@ -81,7 +81,7 @@ fn caption_wrapping_preserves_unbroken_paths_and_unicode_boundaries() {
 #[test]
 fn short_terminals_keep_input_clear_of_buttons() {
     let prompt = MenuDialog::Prompt {
-        command: MenuCommand::Filter,
+        purpose: MenuPrompt::Filter,
         title: "Filter".to_owned(),
         caption: "File mask".to_owned(),
         input: LineEditor::new("filename"),
@@ -107,7 +107,7 @@ fn editing_inside_a_long_unicode_input_keeps_text_after_the_cursor() {
         input.left();
     }
     let dialog = MenuDialog::Prompt {
-        command: MenuCommand::Filter,
+        purpose: MenuPrompt::Filter,
         title: "Filter".to_owned(),
         caption: "File mask".to_owned(),
         input,

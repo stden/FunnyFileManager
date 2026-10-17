@@ -52,9 +52,9 @@ fn ctrl_f1_on_the_active_panel_hands_the_cursor_over() {
 #[test]
 fn the_menu_row_is_the_same_toggle_as_the_key() {
     let mut app = app();
-    crate::ops::menu::execute(
+    crate::ops::menu::execute_panel(
         &mut app,
-        crate::menu::MenuCommand::TogglePanel(PanelSide::Right),
+        crate::action::PanelCommand::TogglePanel(PanelSide::Right),
     );
     assert_eq!(app.panels_shown, PanelsShown::LeftOnly);
     assert_eq!(app.status.to_string(), "Right panel off");

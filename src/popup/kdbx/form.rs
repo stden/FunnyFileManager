@@ -1,16 +1,20 @@
-//! Purpose: keys of the vault's F4 edit form — typing, Tab, undo and F2 — and of its "save changes?" question.
+//! Purpose: keys of the vault's F4 edit form — typing, Tab, the `Save` and `Undo` commands — and of its "save changes?" question.
 
 use std::time::Instant;
 
-use crossterm::event::{KeyCode, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::copy::copy_edit_password;
+use crate::action::vault::VaultCommand;
 use crate::models::App;
 
+/// Whether the entry form took `key`, resolved to `command` by the vault's
+/// keys. The form's own keys are the dialog protocol; only `Save` and `Undo`
+/// come from the command.
 pub(super) fn edit_input(
     app: &mut App,
-    code: KeyCode,
-    modifiers: KeyModifiers,
+    key: KeyEvent,
+    command: Option<VaultCommand>,
     now: Instant,
 ) -> bool {
     let editing = app
@@ -21,7 +25,9 @@ pub(super) fn edit_input(
     if !editing {
         return false;
     }
-    if modifiers == KeyModifiers::CONTROL && matches!(code, KeyCode::Char('c' | 'C')) {
+    // The form's Ctrl+C copies the password being edited; it is the form's
+    // own key, not the vault's "lock and quit".
+    if key.modifiers == KeyModifiers::CONTROL && matches!(key.code, KeyCode::Char('c' | 'C')) {
         copy_edit_password(app, now);
         return true;
     }
@@ -34,9 +40,9 @@ pub(super) fn edit_input(
         .and_then(crate::kdbx::Vault::form)
         .is_some_and(|form| form.mode() == crate::kdbx::FormMode::ConfirmSave);
     if confirming {
-        confirm_edit_input(session, code, now);
+        confirm_edit_input(session, key.code, now);
     } else {
-        edit_key(session, code, modifiers, now);
+        edit_key(session, key, command, now);
     }
     true
 }
@@ -62,26 +68,30 @@ pub(super) fn confirm_edit_input(
 
 fn edit_key(
     session: &mut crate::kdbx::KdbxSession,
-    code: KeyCode,
-    modifiers: KeyModifiers,
+    key: KeyEvent,
+    command: Option<VaultCommand>,
     now: Instant,
 ) {
     let Some(form) = session.vault_mut().and_then(crate::kdbx::Vault::form_mut) else {
         return;
     };
-    match code {
-        KeyCode::F(2) => {
+    match (command, key.code) {
+        (Some(VaultCommand::Save), _) => {
             session.save_edit(now);
         }
-        KeyCode::Esc if form.is_dirty() => form.set_mode(crate::kdbx::FormMode::ConfirmSave),
-        KeyCode::Esc => session.cancel_edit(now),
-        KeyCode::BackTab => form.focus_prev(),
-        KeyCode::Tab => form.focus_next(),
-        KeyCode::Backspace => form.backspace(),
-        KeyCode::Char('z' | 'Z') if modifiers == KeyModifiers::CONTROL => {
+        (Some(VaultCommand::Undo), _) => {
             form.undo();
         }
-        KeyCode::Char(ch) if !modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) => {
+        (_, KeyCode::Esc) if form.is_dirty() => form.set_mode(crate::kdbx::FormMode::ConfirmSave),
+        (_, KeyCode::Esc) => session.cancel_edit(now),
+        (_, KeyCode::BackTab) => form.focus_prev(),
+        (_, KeyCode::Tab) => form.focus_next(),
+        (_, KeyCode::Backspace) => form.backspace(),
+        (_, KeyCode::Char(ch))
+            if !key
+                .modifiers
+                .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+        {
             form.push_char(ch);
         }
         _ => {}

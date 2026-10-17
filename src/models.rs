@@ -145,7 +145,7 @@ pub use tree::{Branch, Expansion, FolderTree, Guide, TreeRow};
 pub use usermenu::UserMenu;
 
 mod menu_dialog;
-pub use menu_dialog::{ChoiceTarget, MenuChoice, MenuDialog};
+pub use menu_dialog::{ChoiceTarget, MenuChoice, MenuDialog, MenuPrompt};
 pub mod settings;
 #[cfg(feature = "keepass")]
 pub use vault_browser::KdbxOverlay;

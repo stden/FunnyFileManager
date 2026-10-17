@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use tempfile::TempDir;
 use unicode_width::UnicodeWidthStr;
 
@@ -27,6 +27,7 @@ mod pointer_clicks;
 mod rows;
 mod tasks;
 mod tool_buttons;
+mod wheel;
 mod wsl;
 
 fn app_at(dir: &TempDir) -> App {
@@ -47,11 +48,16 @@ fn terminal() -> Terminal<WritableTestBackend> {
 }
 
 fn mouse(kind: MouseEventKind, column: u16, row: u16) -> MouseEvent {
+    mouse_with(kind, column, row, KeyModifiers::empty())
+}
+
+/// A mouse event with the keys held down while it happens.
+fn mouse_with(kind: MouseEventKind, column: u16, row: u16, modifiers: KeyModifiers) -> MouseEvent {
     MouseEvent {
         kind,
         column,
         row,
-        modifiers: KeyModifiers::empty(),
+        modifiers,
     }
 }
 

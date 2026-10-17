@@ -1,6 +1,6 @@
-//! Purpose: the command line's editing keymap — history, completion, submit and dismiss, cursor motion, kill and yank, and plain text.
+//! Purpose: the command line's editing commands applied — history, completion, submit and dismiss, caret moves, selection, the clipboard, kill and yank, and plain text.
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::KeyEvent;
 
 use super::completion::{accept_candidate, accept_ghost, ghost_acceptable};
 use super::history::history_step;
@@ -9,125 +9,108 @@ use super::{
     close_menu, complete_at_cursor, edit_and_refresh, menu_open, move_caret, refresh_ghost, state,
     submit, with_menu, Step,
 };
+use crate::action::command_line::completion::{self, CompletionCommand};
+use crate::action::command_line::{resolve, LineClipboard, LineCommand, LineEdit, LineMotion};
 use crate::lineedit::LineEditor;
 use crate::models::{App, Menu};
 
-/// The full editing keymap (see the table in the design spec).
+/// The keys of the line being edited, as the keymap binds them. An open
+/// completion list is asked first; a key it does not use edits the line.
 pub(super) fn editing_key(app: &mut App, key: KeyEvent) {
-    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-    if menu_open(app) && completion_menu_key(app, key.code) {
-        return;
+    if menu_open(app) {
+        if let Some(command) = completion::resolve(&app.keymap.command_line_completion, key) {
+            completion_menu_key(app, command);
+            return;
+        }
     }
+    if let Some(command) = resolve(&app.keymap.command_line, key) {
+        apply(app, command);
+    }
+}
 
-    match key.code {
-        // ─── history ──────────────────────────────────────────────────────
-        KeyCode::Up => history_step(app, Step::Older),
-        KeyCode::Down => history_step(app, Step::Newer),
-        KeyCode::Char('r') if ctrl => start_search(app),
-
-        // ─── completion ───────────────────────────────────────────────────
-        KeyCode::Tab => complete_at_cursor(app),
-
-        // ─── submit and dismiss ───────────────────────────────────────────
-        KeyCode::Enter => submit(app),
-        KeyCode::Esc => {
+fn apply(app: &mut App, command: LineCommand) {
+    match command {
+        LineCommand::HistoryBack => history_step(app, Step::Older),
+        LineCommand::HistoryForward => history_step(app, Step::Newer),
+        LineCommand::HistorySearch => start_search(app),
+        LineCommand::Complete => complete_at_cursor(app),
+        LineCommand::Submit => submit(app),
+        LineCommand::Cancel => {
             app.close_overlay();
             app.quick_search.clear();
         }
-        // Ctrl+C copies a selection, as in any field; with nothing selected
-        // it clears the line rather than quitting: inside a prompt it is
-        // bash's "abandon this line", and the overlay already swallows the
-        // main-view quit binding.
-        KeyCode::Char('c') if ctrl && has_selection(app) => copy_selection(app),
-        KeyCode::Char('c') if ctrl => edit_and_refresh(app, LineEditor::clear),
-        // Ctrl+D on an empty line closes the prompt (bash's EOF); with text to
-        // its right it is a forward delete, like every other readline.
-        KeyCode::Char('d') if ctrl => {
-            if state(app).is_some_and(|s| s.line.is_empty()) {
-                app.close_overlay();
-            } else {
-                edit_and_refresh(app, LineEditor::delete_forward);
-            }
+        // Ctrl+C copies a selection, as in any field; with nothing selected it
+        // clears the line rather than quitting: inside a prompt it is bash's
+        // "abandon this line", and the overlay already swallows the main-view
+        // quit binding.
+        LineCommand::CopyOrClear if has_selection(app) => copy_selection(app),
+        LineCommand::CopyOrClear => edit_and_refresh(app, LineEditor::clear),
+        LineCommand::DeleteCharOrClose => delete_char_or_close(app),
+        // A move to the right has nowhere to go from the end of the line,
+        // the state the prompt is in until the caret is moved: there it
+        // takes the suggestion, and mid-line it is an ordinary caret move.
+        LineCommand::Move(motion) if goes_right(motion) && ghost_acceptable(app) => {
+            accept_ghost(app);
         }
-
-        _ => edit_text_key(app, key),
+        LineCommand::Move(motion) => move_caret(app, |line| apply_motion(line, motion)),
+        LineCommand::Select(motion) => move_caret(app, |line| line.extend(motion_of(motion))),
+        LineCommand::Clipboard(operation) => clipboard(app, operation),
+        LineCommand::Edit(edit) => edit_and_refresh(app, |line| apply_edit(line, edit)),
     }
 }
 
-fn edit_text_key(app: &mut App, key: KeyEvent) {
-    if selection_key(app, key) || clipboard_key(app, key) {
-        return;
-    }
-    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-    let alt = key.modifiers.contains(KeyModifiers::ALT);
-    match key.code {
-        // ─── ghost acceptance, then cursor motion ─────────────────────────
-        // Right/End accept the suggestion only with the caret already at the
-        // end of the line — the state the prompt is always in until the user
-        // moves the caret. So the existing gesture survives, and mid-line
-        // these keys are ordinary cursor moves.
-        KeyCode::Right | KeyCode::End if ghost_acceptable(app) => accept_ghost(app),
-        KeyCode::Left if ctrl || alt => move_caret(app, LineEditor::word_left),
-        KeyCode::Right if ctrl || alt => move_caret(app, LineEditor::word_right),
-        KeyCode::Char('b') if alt => move_caret(app, LineEditor::word_left),
-        KeyCode::Char('f') if alt => move_caret(app, LineEditor::word_right),
-        KeyCode::Left => move_caret(app, LineEditor::left),
-        KeyCode::Right => move_caret(app, LineEditor::right),
-        KeyCode::Home => move_caret(app, LineEditor::home),
-        KeyCode::End => move_caret(app, LineEditor::end),
-        KeyCode::Char('a') if ctrl => move_caret(app, LineEditor::home),
-        KeyCode::Char('e') if ctrl => move_caret(app, LineEditor::end),
-
-        // ─── kill and yank ────────────────────────────────────────────────
-        KeyCode::Char('w') if ctrl => edit_and_refresh(app, LineEditor::kill_word_left),
-        KeyCode::Char('u') if ctrl => edit_and_refresh(app, LineEditor::kill_to_start),
-        KeyCode::Char('k') if ctrl => edit_and_refresh(app, LineEditor::kill_to_end),
-        KeyCode::Char('y') if ctrl => edit_and_refresh(app, LineEditor::yank),
-
-        // ─── plain text ───────────────────────────────────────────────────
-        KeyCode::Backspace => edit_and_refresh(app, LineEditor::backspace),
-        KeyCode::Delete => edit_and_refresh(app, LineEditor::delete_forward),
-        KeyCode::Char(ch) if !ctrl && !alt => {
-            edit_and_refresh(app, |line| line.insert_char(ch));
-        }
-        _ => {}
+/// Ctrl+D on an empty line closes the prompt (bash's EOF); with text to its
+/// right it is a forward delete, like every other readline.
+fn delete_char_or_close(app: &mut App) {
+    if state(app).is_some_and(|s| s.line.is_empty()) {
+        app.close_overlay();
+    } else {
+        edit_and_refresh(app, LineEditor::delete_forward);
     }
 }
 
-/// Shift with an arrow, Home or End grows the selection, as in every field;
-/// Ctrl+Shift moves it by word. Whether `key` was one of them.
-fn selection_key(app: &mut App, key: KeyEvent) -> bool {
-    if !key.modifiers.contains(KeyModifiers::SHIFT) {
-        return false;
-    }
-    let word = key.modifiers.contains(KeyModifiers::CONTROL);
-    let motion: fn(&mut LineEditor) = match key.code {
-        KeyCode::Left if word => LineEditor::word_left,
-        KeyCode::Right if word => LineEditor::word_right,
-        KeyCode::Left => LineEditor::left,
-        KeyCode::Right => LineEditor::right,
-        KeyCode::Home => LineEditor::home,
-        KeyCode::End => LineEditor::end,
-        _ => return false,
-    };
-    move_caret(app, |line| line.extend(motion));
-    true
+/// The three moves towards the end of the line, whatever keys run them.
+const fn goes_right(motion: LineMotion) -> bool {
+    matches!(
+        motion,
+        LineMotion::CharRight | LineMotion::WordRight | LineMotion::LineEnd
+    )
 }
 
-/// Ctrl+Insert copies, Ctrl+X and Shift+Del cut, Ctrl+V and Shift+Insert
-/// paste. (Ctrl+C is above: it also clears the line.) Whether `key` was one.
-fn clipboard_key(app: &mut App, key: KeyEvent) -> bool {
-    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-    let shift = key.modifiers.contains(KeyModifiers::SHIFT);
-    match key.code {
-        KeyCode::Insert if ctrl => copy_selection(app),
-        KeyCode::Char('x') if ctrl => cut_selection(app),
-        KeyCode::Delete if shift => cut_selection(app),
-        KeyCode::Char('v') if ctrl => paste(app),
-        KeyCode::Insert if shift => paste(app),
-        _ => return false,
+fn apply_motion(line: &mut LineEditor, motion: LineMotion) {
+    motion_of(motion)(line);
+}
+
+/// The caret move a motion names, as a function of the line.
+fn motion_of(motion: LineMotion) -> fn(&mut LineEditor) {
+    match motion {
+        LineMotion::CharLeft => LineEditor::left,
+        LineMotion::CharRight => LineEditor::right,
+        LineMotion::WordLeft => LineEditor::word_left,
+        LineMotion::WordRight => LineEditor::word_right,
+        LineMotion::LineStart => LineEditor::home,
+        LineMotion::LineEnd => LineEditor::end,
     }
-    true
+}
+
+fn apply_edit(line: &mut LineEditor, edit: LineEdit) {
+    match edit {
+        LineEdit::KillWordLeft => line.kill_word_left(),
+        LineEdit::KillToStart => line.kill_to_start(),
+        LineEdit::KillToEnd => line.kill_to_end(),
+        LineEdit::Yank => line.yank(),
+        LineEdit::Backspace => line.backspace(),
+        LineEdit::DeleteChar => line.delete_forward(),
+        LineEdit::Insert(ch) => line.insert_char(ch),
+    }
+}
+
+fn clipboard(app: &mut App, operation: LineClipboard) {
+    match operation {
+        LineClipboard::Copy => copy_selection(app),
+        LineClipboard::Cut => cut_selection(app),
+        LineClipboard::Paste => paste(app),
+    }
 }
 
 fn has_selection(app: &App) -> bool {
@@ -161,20 +144,17 @@ fn paste(app: &mut App) {
     edit_and_refresh(app, |line| line.insert_str(&text));
 }
 
-fn completion_menu_key(app: &mut App, code: KeyCode) -> bool {
-    match code {
-        KeyCode::Down => with_menu(app, Menu::next),
-        KeyCode::Up => with_menu(app, Menu::previous),
-        KeyCode::Tab => {
-            with_menu(app, Menu::next);
-            refresh_ghost(app);
-        }
-        KeyCode::Enter => accept_candidate(app),
-        KeyCode::Esc => {
+fn completion_menu_key(app: &mut App, command: CompletionCommand) {
+    match command {
+        CompletionCommand::Next => with_menu(app, Menu::next),
+        CompletionCommand::Previous => with_menu(app, Menu::previous),
+        // A buffer edit like any other: it refreshes the ghost itself.
+        CompletionCommand::Accept => accept_candidate(app),
+        // The ghost is withdrawn while a list is open; closing the list is
+        // what lets a history match apply again.
+        CompletionCommand::Close => {
             close_menu(app);
             refresh_ghost(app);
         }
-        _ => return false,
     }
-    true
 }

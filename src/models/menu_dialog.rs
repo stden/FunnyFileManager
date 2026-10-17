@@ -2,12 +2,26 @@
 
 use std::path::PathBuf;
 
-use crate::{lineedit::LineEditor, menu::MenuCommand};
+use crate::{
+    lineedit::LineEditor,
+    menu::{MenuCommand, SettingsPage},
+};
+
+/// What the menu's one-line prompt asks for, and so what its answer does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MenuPrompt {
+    /// The active panel's file mask (Commands → File panel filter).
+    Filter,
+    /// A folder mask to search for (Commands → Find folder).
+    FindFolder,
+    /// One Options page's value.
+    Settings(SettingsPage),
+}
 
 #[derive(Debug, Clone)]
 pub enum MenuDialog {
     Prompt {
-        command: MenuCommand,
+        purpose: MenuPrompt,
         title: String,
         caption: String,
         input: LineEditor,

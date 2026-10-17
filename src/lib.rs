@@ -15,6 +15,7 @@
 //! | [`models`]   | Core state: [`App`](models::App), [`Panel`](models::Panel), `DirEntry`, and the `Overlay` enum (single source of modal state) |
 //! | [`ui`]       | Pure rendering of panels, status bar, command bar, and overlays |
 //! | [`action`]   | Declarative bindings for typed main-view and editor commands |
+//! | [`keymap`]   | Every screen's key bindings as one value, and the tables of their defaults |
 //! | [`command`]  | Typed command-line DSL (`Command::parse`) for the `:` prompt |
 //! | [`ops`]      | Canonical command, file, shell, viewer, and MCP operations |
 //! | [`popup`]    | Modal input handling and overlay state transitions |
@@ -101,6 +102,7 @@ pub mod i18n;
 pub mod kdbx;
 #[cfg(feature = "keepass")]
 pub mod keepass;
+pub mod keymap;
 pub mod lineedit;
 pub(crate) mod lsp;
 pub mod mask;
@@ -135,6 +137,10 @@ pub mod utils;
 pub mod windows;
 pub mod wsl;
 
+/// The production key dispatcher, for integration tests that drive a menu row
+/// or a dialog through it against a writable test terminal.
+#[cfg(any(test, feature = "test-helpers"))]
+pub use application::dispatch_key;
 #[cfg(any(test, feature = "test-helpers"))]
 pub use application::run_app_with_wsl_backend;
 

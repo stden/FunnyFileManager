@@ -27,7 +27,7 @@ fn edited_command_files_are_persistent_and_available_in_the_user_menu() {
         .unwrap();
     user::open(&mut app).unwrap();
     assert_eq!(rows(&app)[0].label, "Configured plugin command");
-    assert!(user::edit(&mut app, MenuCommand::Sort).is_err());
+    assert!(user::edit(&mut app, MenuCommand::Compare).is_err());
 }
 
 /// Alt+F11 lists the view history ffm persists, so a restart does not empty
@@ -45,7 +45,7 @@ fn view_history_lists_the_files_viewed_before_a_restart() {
 
     let (_temp, mut restarted) = fixture();
     restarted.view_history = crate::models::ViewHistory::load();
-    execute_result(&mut restarted, MenuCommand::ViewHistory).unwrap();
+    execute_tool(&mut restarted, ToolCommand::ViewHistory).unwrap();
 
     let labels: Vec<_> = rows(&restarted)
         .iter()

@@ -10,7 +10,9 @@ use std::mem::discriminant;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::text_field::with_clipboard;
-use crate::models::{App, Modal};
+use crate::action::tasks::TaskCommand;
+use crate::models::{App, ListMotion, Modal};
+use crate::mouse::Wheel;
 
 mod bars;
 mod browse;
@@ -51,6 +53,27 @@ fn route(app: &mut App, key: KeyEvent) {
         }
         Modal::Renice(_) => dialogs::renice(app, key),
     }
+}
+
+/// The wheel over the table: a cursor move, as Up and Down are. `false`
+/// while a bar, a menu or a dialog is open on the list — it reads the key
+/// itself.
+pub(super) fn wheel(app: &mut App, wheel: Wheel) -> bool {
+    let viewport = app.viewport;
+    let Some(list) = app.task_list_mut() else {
+        return false;
+    };
+    if !matches!(list.modal(), Modal::Browse) {
+        return false;
+    }
+    list.clear_notice();
+    let page = list.page_for(viewport);
+    let motion = match wheel {
+        Wheel::Up => ListMotion::Up,
+        Wheel::Down => ListMotion::Down,
+    };
+    browse::apply(list, TaskCommand::Move(motion), page);
+    true
 }
 
 /// A terminal paste into the open bar, if one is.

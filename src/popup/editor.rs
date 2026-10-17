@@ -9,6 +9,27 @@ use encoding::process_encoding;
 use exit::{close_editor, confirm_exit};
 pub(super) use exit::{exit_key, ExitKey};
 
+/// The wheel over the text: a cursor move, as Up and Down are. `false` while
+/// one of the editor's dialogs is up — it reads the key itself.
+pub(super) fn wheel(app: &mut App, wheel: crate::mouse::Wheel, modifiers: KeyModifiers) -> bool {
+    let Some(editor) = app.get_editor_mut().filter(|editor| editor.accepts_text()) else {
+        return false;
+    };
+    editor.notice = None;
+    let motion = match wheel {
+        crate::mouse::Wheel::Up => EditorNavigation::Up,
+        crate::mouse::Wheel::Down => EditorNavigation::Down,
+    };
+    apply_editor_command(
+        app,
+        EditorCommand::Move {
+            motion,
+            selection: crate::action::editor::selection_mode(modifiers),
+        },
+    );
+    true
+}
+
 /// A terminal paste is document text, never a sequence of editor shortcuts.
 pub fn paste_text(app: &mut App, text: &str) {
     if let Some(editor) = app.get_editor_mut().filter(|editor| editor.accepts_text()) {
@@ -29,7 +50,7 @@ pub(super) fn process_editor_input(app: &mut App, code: KeyCode, modifiers: KeyM
     };
     editor.notice = None;
 
-    let command = editor_keymap::resolve(KeyEvent::new(code, modifiers));
+    let command = editor_keymap::resolve(&app.keymap.editor, KeyEvent::new(code, modifiers));
     apply_editor_command(app, command);
     true
 }

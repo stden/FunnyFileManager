@@ -1,11 +1,11 @@
-//! Unit tests: the list keys a `NetBox` panel moves by, and the refusal of a
-//! key that would act on the file list hidden beneath it.
+//! Unit tests: the page a `NetBox` panel's list move takes, and the refusal
+//! of a key that would act on the file list hidden beneath it.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use tempfile::TempDir;
 
-use super::{is_bare, refuse_entry_key, row_motion};
-use crate::models::RowMotion;
+use super::refuse_entry_key;
+use crate::models::{ListMotion, RowMotion};
 use crate::test_support::netbox::app_in;
 
 fn with(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
@@ -17,36 +17,13 @@ fn bare(code: KeyCode) -> KeyEvent {
 }
 
 #[test]
-fn the_list_keys_are_the_bare_or_shifted_arrows_and_pages() {
-    let table = [
-        (KeyCode::Up, RowMotion::Previous),
-        (KeyCode::Down, RowMotion::Next),
-        (KeyCode::Home, RowMotion::First),
-        (KeyCode::End, RowMotion::Last),
-        (KeyCode::PageUp, RowMotion::PageUp(7)),
-        (KeyCode::PageDown, RowMotion::PageDown(7)),
-    ];
-    for (code, motion) in table {
-        assert_eq!(row_motion(bare(code), 7), Some(motion), "{code:?}");
-        assert_eq!(row_motion(with(code, KeyModifiers::SHIFT), 7), Some(motion));
-        assert_eq!(row_motion(with(code, KeyModifiers::CONTROL), 7), None);
-        assert_eq!(row_motion(with(code, KeyModifiers::ALT), 7), None);
-    }
-    assert_eq!(row_motion(bare(KeyCode::Enter), 7), None);
-    assert_eq!(row_motion(bare(KeyCode::Char('j')), 7), None);
-}
-
-#[test]
-fn a_bare_key_has_no_modifier_at_all() {
-    assert!(is_bare(bare(KeyCode::Enter), KeyCode::Enter));
-    assert!(!is_bare(bare(KeyCode::Enter), KeyCode::F(3)));
-    for modifier in [
-        KeyModifiers::SHIFT,
-        KeyModifiers::CONTROL,
-        KeyModifiers::ALT,
-    ] {
-        assert!(!is_bare(with(KeyCode::F(3), modifier), KeyCode::F(3)));
-    }
+fn a_list_move_takes_the_panel_page() {
+    assert_eq!(ListMotion::Up.with_page(7), RowMotion::Previous);
+    assert_eq!(ListMotion::Down.with_page(7), RowMotion::Next);
+    assert_eq!(ListMotion::Home.with_page(7), RowMotion::First);
+    assert_eq!(ListMotion::End.with_page(7), RowMotion::Last);
+    assert_eq!(ListMotion::PageUp.with_page(7), RowMotion::PageUp(7));
+    assert_eq!(ListMotion::PageDown.with_page(7), RowMotion::PageDown(7));
 }
 
 #[test]
@@ -89,11 +66,4 @@ fn a_program_key_is_handed_back_untouched() {
         );
     }
     assert_eq!(app.status_text(), "before");
-}
-
-#[test]
-fn a_key_with_any_other_modifier_is_not_bare_either() {
-    for modifier in [KeyModifiers::SUPER, KeyModifiers::META, KeyModifiers::HYPER] {
-        assert!(!is_bare(with(KeyCode::Enter, modifier), KeyCode::Enter));
-    }
 }

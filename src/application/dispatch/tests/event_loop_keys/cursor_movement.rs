@@ -61,10 +61,10 @@ fn test_apply_action_pages_selection_by_one_screen() -> io::Result<()> {
     let backend = WritableTestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend)?;
 
-    apply_action(&mut terminal, &mut app, Action::PageDown);
+    apply_action(&mut terminal, &mut app, Action::PageDown, true);
     assert_eq!(app.left_panel.selected(), Some(16));
 
-    apply_action(&mut terminal, &mut app, Action::PageUp);
+    apply_action(&mut terminal, &mut app, Action::PageUp, true);
     assert_eq!(app.left_panel.selected(), Some(0));
 
     Ok(())

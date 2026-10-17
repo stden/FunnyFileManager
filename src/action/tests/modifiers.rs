@@ -1,11 +1,12 @@
-//! Purpose: Modifier handling of the main-view keymap — qualified keys precede
-//! bare ones, extra modifiers are contained, unsupported ones fall back to the
-//! bare key, and the Ctrl letter combos keep their panel meanings.
+//! Purpose: Modifier handling of the panels keymap. A chord is exactly the
+//! keys it names: a bound chord answers, and a modifier the binding does not
+//! have is another key, which the panels' fallback answers. The Ctrl letter
+//! combos keep their panel meanings.
 use super::*;
 
 #[test]
 fn test_resolve_modifier_qualified_precede_bare() {
-    // Alt+F1/F2 are drive menus, not help.
+    // Alt+F1/F2 are drive menus, not help; F2 bare is the user menu.
     assert_eq!(
         resolve(key_mod(KeyCode::F(1), KeyModifiers::ALT)),
         Action::DriveMenu(PanelSide::Left)
@@ -13,6 +14,10 @@ fn test_resolve_modifier_qualified_precede_bare() {
     assert_eq!(
         resolve(key_mod(KeyCode::F(2), KeyModifiers::ALT)),
         Action::DriveMenu(PanelSide::Right)
+    );
+    assert_eq!(
+        resolve(key_mod(KeyCode::F(2), KeyModifiers::empty())),
+        Action::UserMenu
     );
     // Shift+F4 is "new file", Alt+F4 is "external editor" — not bare "edit".
     assert_eq!(
@@ -26,45 +31,55 @@ fn test_resolve_modifier_qualified_precede_bare() {
 }
 
 #[test]
-fn test_resolve_dsl_preserves_order_and_modifier_containment() {
+fn test_resolve_extra_modifiers_are_other_keys() {
     let cases = [
         (
             KeyCode::F(4),
             KeyModifiers::ALT | KeyModifiers::SHIFT,
-            Action::EditExternal,
+            Action::QuickSearchClear,
         ),
         (
             KeyCode::F(1),
             KeyModifiers::ALT | KeyModifiers::CONTROL,
-            Action::DriveMenu(PanelSide::Left),
+            Action::QuickSearchClear,
         ),
         (
             KeyCode::Char('u'),
             KeyModifiers::CONTROL | KeyModifiers::ALT,
-            Action::SwapPanels,
+            Action::QuickSearchClear,
         ),
         (
             KeyCode::Char('c'),
             KeyModifiers::CONTROL | KeyModifiers::ALT,
-            Action::Quit,
+            Action::QuickSearchClear,
         ),
     ];
     assert_keymap(cases);
 }
 
+/// A chord nothing binds falls back: Alt with a character searches for it,
+/// any other character opens the command line, and every other key clears the
+/// quick search. Alt+F5 is not Copy, and Alt+Enter is not Open.
 #[test]
-fn test_resolve_unsupported_modifiers_keep_key_behavior() {
+fn test_resolve_unbound_modifier_chords_fall_back() {
     let cases = [
-        (KeyCode::F(5), KeyModifiers::ALT, Action::Copy),
-        (KeyCode::Enter, KeyModifiers::ALT, Action::Open),
-        (KeyCode::Char(' '), KeyModifiers::ALT, Action::ToggleMark),
-        (KeyCode::Char(':'), KeyModifiers::ALT, Action::CommandLine),
+        (KeyCode::F(5), KeyModifiers::ALT, Action::QuickSearchClear),
+        (KeyCode::Enter, KeyModifiers::ALT, Action::QuickSearchClear),
+        (
+            KeyCode::Char(' '),
+            KeyModifiers::ALT,
+            Action::QuickSearch(' '),
+        ),
+        (
+            KeyCode::Char(':'),
+            KeyModifiers::ALT,
+            Action::QuickSearch(':'),
+        ),
         (
             KeyCode::Backspace,
             KeyModifiers::SHIFT,
-            Action::QuickSearchBackspace,
+            Action::QuickSearchClear,
         ),
-        (KeyCode::F(2), KeyModifiers::empty(), Action::UserMenu),
         (
             KeyCode::Char('C'),
             KeyModifiers::CONTROL,

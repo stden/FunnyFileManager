@@ -52,7 +52,7 @@ pub enum ListMotion {
 
 impl ListMotion {
     /// The move over a list whose page is `page` rows.
-    const fn with_page(self, page: usize) -> RowMotion {
+    pub(crate) const fn with_page(self, page: usize) -> RowMotion {
         match self {
             Self::Up => RowMotion::Previous,
             Self::Down => RowMotion::Next,

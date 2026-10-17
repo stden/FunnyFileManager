@@ -2,7 +2,6 @@
 
 mod geometry;
 
-use crossterm::event::KeyCode;
 use ratatui::{
     layout::{Position, Rect},
     style::{Color, Modifier, Style},
@@ -11,21 +10,27 @@ use ratatui::{
     Frame,
 };
 
+use crate::action::wsl::WslCommand;
 use crate::models::{WslActivity, WslDialog, WslOperation};
 
 use super::{far_block, head_cells, palette, Cells};
 use geometry::{layout, Layout};
 
-/// Return the key represented by the visible button under a click.
+/// The command of the visible, enabled button under a click.
 /// Rendering and mouse input use the same geometry, including narrow wrapping.
 #[must_use]
-pub fn wsl_button_at(screen: Rect, dialog: &WslDialog, column: u16, row: u16) -> Option<KeyCode> {
+pub fn wsl_button_at(
+    screen: Rect,
+    dialog: &WslDialog,
+    column: u16,
+    row: u16,
+) -> Option<WslCommand> {
     layout(screen, dialog)
         .buttons
         .into_iter()
         .find_map(|button| {
             (button.control.enabled(dialog) && button.area.contains(Position::new(column, row)))
-                .then_some(button.control.key)
+                .then_some(button.control.command)
         })
 }
 

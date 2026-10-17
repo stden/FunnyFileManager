@@ -6,11 +6,22 @@ use crate::action::wsl::{resolve, WslCommand};
 use crate::models::{App, Overlay, WslActivity};
 
 pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> bool {
-    let Overlay::Wsl(dialog) = &mut app.overlay else {
+    if !matches!(app.overlay, Overlay::Wsl(_)) {
         return false;
+    }
+    let command = resolve(&app.keymap.wsl_manager, KeyEvent::new(code, modifiers));
+    apply(app, command);
+    true
+}
+
+/// Apply `command` to the open dialog — a key's, or one of its buttons'.
+/// While a request runs only the moves and Close answer.
+pub fn apply(app: &mut App, command: WslCommand) {
+    let Overlay::Wsl(dialog) = &mut app.overlay else {
+        return;
     };
     let busy = matches!(dialog.activity, WslActivity::Busy { .. });
-    match resolve(KeyEvent::new(code, modifiers)) {
+    match command {
         WslCommand::Up => dialog.move_up(),
         WslCommand::Down => dialog.move_down(),
         WslCommand::First => dialog.first(),
@@ -26,7 +37,6 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
         | WslCommand::UpdatePackages
         | WslCommand::Ignore => {}
     }
-    true
 }
 
 #[cfg(test)]

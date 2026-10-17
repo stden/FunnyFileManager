@@ -42,8 +42,11 @@ See `docs/knowledge-base/03-rust-best-practices/type-system.md` for details and 
 - `src/directory.rs`: Filesystem adapter producing complete panel snapshots.
 - `src/action.rs`: Pure main-view key-to-`Action` mapping.
 - `src/action/keymap.rs`: Shared ordered `keymap!` DSL with explicit modifier policies.
-- `src/action/editor.rs`: Pure declarative editor keymap and typed `EditorCommand` language.
-- `src/action/wsl.rs`: Pure WSL manager keymap and typed `WslCommand` language.
+- `src/action/chord.rs`, `src/action/bindings.rs`: `KeyChord`, the normalized key every table is keyed by, and `Bindings`, one screen's chords with the command each runs (exact lookup).
+- `src/keymap.rs`: `Keymap`, one `Bindings` per context of `ffm.yml`, held in `App.keymap`; `src/keymap/tables/` names every action with its command and default keys, `src/keymap/layering.rs` builds a context's bindings from its table and a file's keys. Pure, like `action`.
+- `src/action/editor.rs`: Typed `EditorCommand` language and its pure `resolve(bindings, key)`; the editor's keys are the rows of `src/keymap/tables/editor.rs`.
+- `src/action/wsl.rs`: Typed `WslCommand` language; its keys are the `wsl_manager` table of `src/keymap/tables/`, read from `App.keymap`.
+- `src/action/viewer.rs`, `command_line.rs`, `tree.rs`, `netbox.rs`, `lsp_editor.rs`, `path_env.rs`, `vault.rs`, `tasks/search.rs`: The same pattern for every other screen with keys of its own — a typed command enum and a pure `resolve`, interpreted by the matching `popup` owner.
 - `src/application/wsl_jobs.rs`: Serial WSL background worker with an injected backend.
 - `src/command.rs`, `src/lineedit.rs`, `src/complete.rs`: Command parsing, editing, history recall, and completion.
 - `src/console.rs`, `src/status.rs`: Typed command transcript and user-facing outcomes.
@@ -98,9 +101,9 @@ does not support. With no overlay, `action::resolve` is a pure key-to-`Action`
 mapping; `application/dispatch.rs::apply_action` owns effect dispatch. Rendering reads `App`
 after each transition and never decides which operation to run.
 
-Editor input follows the same DSL pattern: `action/editor.rs` resolves keys to
-`EditorCommand`, then `popup/editor.rs` interprets the command through model
-transitions and canonical operations. Editor confirmation and search prompts
+Editor input resolves through the `editor` keymap table (`App.keymap.editor`):
+`action/editor.rs` turns a key into an `EditorCommand`, then `popup/editor.rs`
+interprets the command through model transitions and canonical operations. Editor confirmation and search prompts
 consume input before that resolution. Submitted command lines similarly parse
 to `Command` before `ops/dispatch.rs` interprets them.
 
@@ -162,8 +165,11 @@ flowchart LR
 
 | Change | Primary owner |
 |--------|---------------|
-| Main-view hotkey | `src/action.rs`, then effect dispatch in `src/application/dispatch.rs` |
-| Editor key binding or command | `src/action/editor.rs`, then interpretation in `src/popup/editor.rs` |
+| Main-view hotkey | default in `src/keymap/tables/panels/`, command and fallback in `src/action.rs`, then effect dispatch in `src/application/dispatch.rs` |
+| Editor key binding | the `editor` row in `src/keymap/tables/editor.rs`; command in `src/action/editor.rs`, then interpretation in `src/popup/editor.rs` |
+| Viewer, command line, NetBox, Language servers, vault or WSL default key | `src/keymap/tables/<context>.rs`; typed command in `src/action/<context>.rs`, then interpretation in the matching `src/popup/` owner |
+| Tree or task-search key | `src/action/<context>.rs`, then interpretation in the matching `src/popup/` owner |
+| PATH editor default key | `src/keymap/tables/path_editor.rs`, then the command in `src/action/path_env.rs` and interpretation in `src/popup/path_env.rs` |
 | Modal/dialog key behavior | `src/popup.rs` or a focused `src/popup/` child |
 | Command syntax or validation | `src/command.rs` |
 | Command editing/completion/history | `src/lineedit.rs`, `src/complete.rs`, `src/history.rs` |

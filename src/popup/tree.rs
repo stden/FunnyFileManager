@@ -5,11 +5,13 @@
 //! and closes its rows and nothing more, so `Ctrl+T` still turns it off,
 //! `Tab` still switches panels and `:` still opens the command line — the
 //! rows are folders, not entries, and every key that would act on entries
-//! either goes to the file panel or is told to wait for one.
+//! either goes to the file panel or is told to wait for one. Which key means
+//! what is `action::tree`'s; this file applies the command.
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::KeyEvent;
 
-use crate::models::{App, FolderTree};
+use crate::action::tree::{resolve, TreeCommand};
+use crate::models::{App, FolderTree, ListMotion};
 use crate::ops::tree::{self, tree_mut};
 use crate::status::Status;
 
@@ -21,78 +23,75 @@ pub fn process(app: &mut App, key: KeyEvent) -> bool {
     if tree_mut(app).is_none() {
         return false;
     }
-    if key.modifiers.contains(KeyModifiers::CONTROL) {
-        return control_key(app, key.code);
-    }
-    match key.code {
-        KeyCode::Enter => {
-            tree::enter(app);
-            true
-        }
-        KeyCode::Esc => clear_search(app),
-        KeyCode::Backspace => shorten_search(app),
-        KeyCode::F(5..=8) => {
-            app.set_status(Status::CommandOutput(NEEDS_FILE_PANEL.to_owned()));
-            true
-        }
-        KeyCode::Char(':') => false,
-        // Far's `Gray +` / `Gray -`; terminals cannot tell the pad's keys
-        // from the row's, so the plain characters serve, as they do for
-        // marking on a file panel.
-        KeyCode::Char('+') => moved(app, FolderTree::next_sibling),
-        KeyCode::Char('-') => moved(app, FolderTree::previous_sibling),
-        KeyCode::Char(ch) => search(app, ch),
-        code => cursor_key(app, code),
+    resolve(key).is_some_and(|command| apply(app, command))
+}
+
+/// Apply `command` to the tree; `false` when the tree had no use for it
+/// after all (a search key with no search running), so the key falls
+/// through to the file panel.
+pub fn apply(app: &mut App, command: TreeCommand) -> bool {
+    match command {
+        TreeCommand::Move(motion) => move_cursor(app, motion),
+        TreeCommand::Expand => expand(app),
+        TreeCommand::Collapse => moved(app, |tree| tree.collapse() || tree.move_to_parent()),
+        TreeCommand::GoToFolder => go_to_folder(app),
+        TreeCommand::NextSibling => moved(app, FolderTree::next_sibling),
+        TreeCommand::PreviousSibling => moved(app, FolderTree::previous_sibling),
+        TreeCommand::FindNext => find_next(app),
+        TreeCommand::RefreshTree => refresh(app),
+        TreeCommand::ClearSearch => clear_search(app),
+        TreeCommand::ShortenSearch => shorten_search(app),
+        TreeCommand::Search(ch) => search(app, ch),
+        TreeCommand::NeedsFilePanel => needs_file_panel(app),
     }
 }
 
-fn control_key(app: &mut App, code: KeyCode) -> bool {
-    match code {
-        KeyCode::Enter => moved(app, |tree| {
-            let query = tree.search.query().unwrap_or_default().to_owned();
-            tree.find_next(&query)
-        }),
-        KeyCode::Char('r' | 'R') => {
-            tree::refresh(app);
-            true
-        }
-        _ => false,
-    }
-}
-
-/// The keys that only move the cursor. Every one is the tree's even when
-/// the cursor is already at the end it is being pushed towards: a file panel
-/// would not do anything else with them either.
-fn cursor_key(app: &mut App, code: KeyCode) -> bool {
+/// A cursor move is the tree's even when the cursor is already at the end
+/// it is being pushed towards: a file panel would not do anything else with
+/// the key either.
+fn move_cursor(app: &mut App, motion: ListMotion) -> bool {
     let page = crate::ui::panel_page_size(app.viewport.rows());
-    match code {
-        KeyCode::Right => {
-            tree::expand_or_descend(app);
-            true
-        }
-        KeyCode::Left => moved(app, |tree| tree.collapse() || tree.move_to_parent()),
-        KeyCode::Up
-        | KeyCode::Down
-        | KeyCode::Home
-        | KeyCode::End
-        | KeyCode::PageUp
-        | KeyCode::PageDown => moved(app, |tree| {
-            step(tree, code, page);
-            true
-        }),
-        _ => false,
-    }
+    moved(app, |tree| {
+        step(tree, motion, page);
+        true
+    })
 }
 
-fn step(tree: &mut FolderTree, code: KeyCode, page: usize) {
-    match code {
-        KeyCode::Up => tree.up(),
-        KeyCode::Down => tree.down(),
-        KeyCode::Home => tree.first(),
-        KeyCode::End => tree.last(),
-        KeyCode::PageUp => tree.page_up(page),
-        KeyCode::PageDown => tree.page_down(page),
-        _ => {}
+fn expand(app: &mut App) -> bool {
+    tree::expand_or_descend(app);
+    true
+}
+
+fn go_to_folder(app: &mut App) -> bool {
+    tree::enter(app);
+    true
+}
+
+fn find_next(app: &mut App) -> bool {
+    moved(app, |tree| {
+        let query = tree.search.query().unwrap_or_default().to_owned();
+        tree.find_next(&query)
+    })
+}
+
+fn refresh(app: &mut App) -> bool {
+    tree::refresh(app);
+    true
+}
+
+fn needs_file_panel(app: &mut App) -> bool {
+    app.set_status(Status::CommandOutput(NEEDS_FILE_PANEL.to_owned()));
+    true
+}
+
+fn step(tree: &mut FolderTree, motion: ListMotion, page: usize) {
+    match motion {
+        ListMotion::Up => tree.up(),
+        ListMotion::Down => tree.down(),
+        ListMotion::Home => tree.first(),
+        ListMotion::End => tree.last(),
+        ListMotion::PageUp => tree.page_up(page),
+        ListMotion::PageDown => tree.page_down(page),
     }
 }
 
@@ -123,6 +122,7 @@ fn search(app: &mut App, ch: char) -> bool {
     })
 }
 
+/// `false` without a search to shorten: the key is then the file panel's.
 fn shorten_search(app: &mut App) -> bool {
     let Some(tree) = tree_mut(app) else {
         return false;
@@ -137,6 +137,7 @@ fn shorten_search(app: &mut App) -> bool {
     true
 }
 
+/// `false` without a search to end: the key is then the file panel's.
 fn clear_search(app: &mut App) -> bool {
     let Some(tree) = tree_mut(app) else {
         return false;
