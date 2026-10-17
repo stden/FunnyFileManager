@@ -1,0 +1,79 @@
+//! Purpose: Where a recording goes by default, and the private directory it goes in.
+
+use std::io;
+use std::path::{Path, PathBuf};
+
+/// Where `--record` puts a session when it is given no path: a new name in
+/// `root`, the private directory [`default_root`] names.
+pub(super) fn default_path(root: &Path) -> io::Result<PathBuf> {
+    create_private_dir(root)?;
+    let time = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(io::Error::other)?
+        .as_nanos();
+    Ok(root.join(format!("session-{time}-{}.py", std::process::id())))
+}
+
+/// The temporary directory is shared by every local user and the first one to
+/// create a shared name owns it, so each user gets a directory of their own.
+pub(super) fn default_root() -> PathBuf {
+    #[cfg(unix)]
+    let name = format!("ffm-recordings-{}", crate::platform::real_uid());
+    #[cfg(not(unix))]
+    let name = String::from("ffm-recordings");
+    std::env::temp_dir().join(name)
+}
+
+/// Create the recordings directory as 0700 rather than at the mercy of the
+/// umask: a recording names the paths its author browsed and holds the keys
+/// they typed.
+pub(super) fn create_private_dir(path: &Path) -> io::Result<()> {
+    crate::file_write::create_dirs_owner_only(path)?;
+    ensure_private(path)
+}
+
+/// `create_dir_all` is happy with a directory that was already there, whatever
+/// its owner and mode — and the temporary directory is world-writable, so a
+/// hostile local user can put one there first under this user's name. Ours
+/// gets tightened; anyone else's is refused, which disables the recording
+/// rather than writing keystrokes somewhere someone else chose.
+#[cfg(unix)]
+fn ensure_private(path: &Path) -> io::Result<()> {
+    ensure_private_to(path, crate::platform::real_uid())
+}
+
+/// [`ensure_private`] for the user `us`: a test plays another user by naming
+/// a uid that is not the directory's owner.
+#[cfg(unix)]
+fn ensure_private_to(path: &Path, us: u32) -> io::Result<()> {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+    // `symlink_metadata`, so a symlink pointing at somewhere agreeable cannot
+    // answer for the directory it stands in front of.
+    let info = std::fs::symlink_metadata(path)?;
+    if !info.is_dir() || info.uid() != us {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            // The reason first: the status line cuts a long message short.
+            format!("not a directory of your own: {}", path.display()),
+        ));
+    }
+    if info.permissions().mode() & 0o077 != 0 {
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700))?;
+    }
+    Ok(())
+}
+
+/// Windows has no equivalent of the shared, world-writable temporary
+/// directory this guards against: each user's is their own.
+#[cfg(not(unix))]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "shares the Unix signature, where the operation can fail"
+)]
+const fn ensure_private(_path: &Path) -> io::Result<()> {
+    Ok(())
+}
+
+#[cfg(all(test, unix))]
+mod tests;

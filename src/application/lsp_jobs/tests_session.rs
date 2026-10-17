@@ -1,0 +1,174 @@
+//! Purpose: Exercise the editor controller, popup keys, save, restart, and close against a fake process.
+
+use super::*;
+use crate::lsp::manager::{Envelope, Event};
+use crate::{
+    config::ServerSettings,
+    models::{lsp::Dialog, Editor, LspFeature, Overlay, Panel},
+};
+use std::{fs, thread};
+use tempfile::TempDir;
+
+pub(super) fn fixture(root: &TempDir) -> App {
+    let panel = || Panel::from_entries(root.path().to_path_buf(), Vec::new());
+    let mut app = App::with_panels(panel(), panel());
+    let script = root.path().join("server.py");
+    fs::write(&script, include_str!("../../lsp/tests/server.py")).unwrap();
+    app.config.lsp.0.insert(
+        "rust".into(),
+        ServerSettings {
+            command: "python".into(),
+            args: vec![script.to_string_lossy().into_owned()],
+            ..ServerSettings::default()
+        },
+    );
+    app.set_overlay(Overlay::Editor(Editor::from_content(
+        "main.rs".into(),
+        root.path().join("main.rs"),
+        "fn main() {}",
+    )));
+    app
+}
+
+pub(super) fn pump_until(
+    controller: &mut EditorLspController,
+    app: &mut App,
+    ready: impl Fn(&Editor) -> bool,
+) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        controller.pump(app);
+        if ready(app.get_editor().unwrap()) {
+            return;
+        }
+        assert!(Instant::now() < deadline, "Editor LSP timed out");
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+fn trust_fixture(controller: &mut EditorLspController, app: &mut App) {
+    pump_until(controller, app, |editor| {
+        matches!(editor.lsp.popup, Some(Dialog::Trust { .. }))
+    });
+    let editor = app.get_editor_mut().unwrap();
+    editor.lsp.popup = None;
+    editor.lsp.intent = Intent::Trust; // Explicit approval of a workspace created by this test.
+}
+
+#[test]
+fn installation_failures_show_the_prerequisite_without_blocking_edits() {
+    let root = TempDir::new().unwrap();
+    let mut app = fixture(&root);
+    let owner = app.get_editor().unwrap().lsp.id;
+    assert!(apply_event(
+        &mut app,
+        Envelope(owner, Event::InstallationFailed("Java 21 required"))
+    ));
+    let editor = app.get_editor_mut().unwrap();
+    assert_eq!(editor.lsp.state, ServerState::InstallationFailed);
+    assert_eq!(editor.notice.as_deref(), Some("Java 21 required"));
+    editor.insert_char('x');
+    assert!(editor.lines[0].contains('x'));
+    assert!(ServerState::InstallationFailed.label().contains("retries"));
+    assert!(ServerState::Installing.label().contains("background"));
+}
+
+#[test]
+fn editor_debounces_changes_saves_and_restarts_without_losing_text() {
+    let root = TempDir::new().unwrap();
+    let mut app = fixture(&root);
+    let mut controller = EditorLspController::default();
+    trust_fixture(&mut controller, &mut app);
+    pump_until(&mut controller, &mut app, |editor| {
+        !editor.lsp.diagnostics.is_empty()
+    });
+    app.get_editor_mut().unwrap().insert_char('x');
+    controller.pump(&mut app);
+    assert_ne!(
+        controller.sent.unwrap().0,
+        app.get_editor().unwrap().lsp_stamp()
+    );
+    pump_until(&mut controller, &mut app, |editor| {
+        !editor.lsp.diagnostics.is_empty()
+    });
+    app.get_editor_mut().unwrap().save().unwrap();
+    controller.pump(&mut app);
+    assert_eq!(controller.sent.unwrap().1, 1);
+    restart_without_another_trust_prompt(&mut controller, &mut app);
+    close(&mut controller, &mut app);
+    drop(controller);
+    assert!(fs::read_to_string(root.path().join("methods"))
+        .unwrap()
+        .ends_with("exit\n"));
+}
+
+fn restart_without_another_trust_prompt(controller: &mut EditorLspController, app: &mut App) {
+    let text = app.get_editor().unwrap().content();
+    app.get_editor_mut().unwrap().lsp.intent = Intent::Restart;
+    controller.pump(app);
+    pump_until(controller, app, |editor| {
+        editor.lsp.state == ServerState::Ready
+    });
+    assert_eq!(app.get_editor().unwrap().content(), text);
+}
+
+fn close(controller: &mut EditorLspController, app: &mut App) {
+    app.close_overlay();
+    controller.pump(app);
+    assert!(controller.observed.is_none());
+}
+
+#[test]
+fn editor_receives_completion_hover_and_definition_from_the_background_worker() {
+    let root = TempDir::new().unwrap();
+    let mut app = fixture(&root);
+    let mut controller = EditorLspController::default();
+    trust_fixture(&mut controller, &mut app);
+    pump_until(&mut controller, &mut app, |editor| {
+        editor.lsp.state == ServerState::Ready
+    });
+    for feature in [LspFeature::Completion, LspFeature::Hover] {
+        app.get_editor_mut().unwrap().lsp.intent = Intent::Query(feature);
+        pump_until(&mut controller, &mut app, |editor| {
+            editor.lsp.popup.is_some()
+        });
+        let dialog = app.get_editor_mut().unwrap().lsp.popup.take().unwrap();
+        assert!(matches!(
+            dialog,
+            Dialog::Completion { .. } | Dialog::Hover { .. }
+        ));
+    }
+    let editor = app.get_editor_mut().unwrap();
+    editor.cursor_col = 5;
+    editor.lsp.intent = Intent::Query(LspFeature::Definition);
+    pump_until(&mut controller, &mut app, |editor| editor.cursor_col == 0);
+}
+#[test]
+#[ignore = "explicit performance probe; timings are machine dependent"]
+fn measure_editor_startup_and_typing_while_the_server_is_busy() {
+    let root = TempDir::new().unwrap();
+    let mut app = fixture(&root);
+    app.config.lsp.0.get_mut("rust").unwrap().enabled = crate::config::Enablement::Disabled;
+    let start = Instant::now();
+    let mut controller = EditorLspController::default();
+    controller.pump(&mut app);
+    eprintln!("editor startup without LSP: {:?}", start.elapsed());
+    let settings = app.config.lsp.0.get_mut("rust").unwrap();
+    settings.enabled = crate::config::Enablement::Enabled;
+    settings.args.push("busy".into());
+    trust_fixture(&mut controller, &mut app);
+    pump_until(&mut controller, &mut app, |editor| {
+        editor.lsp.state == ServerState::Initializing
+    });
+    let typing = Instant::now();
+    for _ in 0..1000 {
+        app.get_editor_mut().unwrap().insert_char('x');
+        controller.pump(&mut app);
+    }
+    eprintln!(
+        "1000 edits and event-loop pumps during initialization: {:?}",
+        typing.elapsed()
+    );
+    assert_eq!(app.get_editor().unwrap().lines[0].chars().count(), 1012);
+    assert!(typing.elapsed() < Duration::from_secs(2));
+}
