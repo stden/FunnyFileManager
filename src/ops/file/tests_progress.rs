@@ -125,7 +125,7 @@ fn a_delete_counts_every_file_it_removes() {
 #[cfg(unix)]
 #[test]
 fn a_delete_shown_in_progress_removes_a_link_and_never_its_target() {
-    let (_recorder, _installed) = Recorder::install();
+    let (recorder, _installed) = Recorder::install();
     let temp = TempDir::new().expect("test setup");
     let kept = temp.path().join("kept");
     tree(&kept);
@@ -139,6 +139,7 @@ fn a_delete_shown_in_progress_removes_a_link_and_never_its_target() {
 
     assert!(!folder.exists());
     assert!(kept.join("sub").join("b.txt").exists());
+    assert_eq!(recorder.last().total, tally(1, 0), "count the link once");
 }
 
 #[test]

@@ -21,7 +21,7 @@ pub fn begin(operation: Operation, sources: &[PathBuf]) -> Run {
     .unwrap_or(false);
     if started && operation.scans_first() {
         for source in sources {
-            measure(source);
+            measure(source, operation);
         }
         update(|shown| shown.phase = Phase::Working);
     }
@@ -69,7 +69,7 @@ pub fn copying_across(source: &Path) {
     if !is_shown() {
         return;
     }
-    measure(source);
+    measure(source, Operation::Move);
 }
 
 /// One of the selected entries is done. A move counts them, since a rename
@@ -115,13 +115,13 @@ pub fn is_shown() -> bool {
 
 /// Add what is under `root` to the operation's total, without following a
 /// link: see [`found`].
-fn measure(root: &Path) {
+fn measure(root: &Path, operation: Operation) {
     let mut folders = vec![root.to_path_buf()];
     let Ok(metadata) = fs::symlink_metadata(root) else {
         return;
     };
     if !metadata.is_dir() {
-        found(Some(root), &metadata);
+        found(Some(root), metadata.file_type(), metadata.len());
         return;
     }
     while let Some(folder) = folders.pop() {
@@ -132,28 +132,40 @@ fn measure(root: &Path) {
             continue;
         };
         for entry in entries.flatten() {
-            let Ok(metadata) = entry.metadata() else {
+            let Ok((kind, size)) = measure_entry(&entry, operation) else {
                 continue;
             };
-            if metadata.is_dir() {
+            if kind.is_dir() {
                 folders.push(entry.path());
             } else {
-                found(None, &metadata);
+                found(None, kind, size);
             }
         }
     }
+}
+
+/// A delete only needs entry types, usually available without a metadata lookup.
+fn measure_entry(
+    entry: &fs::DirEntry,
+    operation: Operation,
+) -> std::io::Result<(fs::FileType, u64)> {
+    if operation == Operation::Delete {
+        return Ok((entry.file_type()?, 0));
+    }
+    let metadata = entry.metadata()?;
+    Ok((metadata.file_type(), metadata.len()))
 }
 
 /// Count one file or link found by [`measure`]: as a file to do for a copy
 /// or a delete, whose bar counts them, and by the bytes a copy or a move
 /// across filesystems will read. A move's files are already counted by the
 /// entries selected; see [`source_done`].
-fn found(path: Option<&Path>, metadata: &fs::Metadata) {
-    let size = if metadata.is_file() {
-        metadata.len()
-    } else {
-        0
-    };
+#[expect(
+    clippy::filetype_is_file,
+    reason = "only regular files contribute bytes; links and special entries still count as files"
+)]
+fn found(path: Option<&Path>, kind: fs::FileType, size: u64) {
+    let size = if kind.is_file() { size } else { 0 };
     update(|shown| {
         if let Some(path) = path {
             shown.set_current(path);

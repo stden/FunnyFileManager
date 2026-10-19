@@ -20,12 +20,15 @@
 
 use criterion::{criterion_group, criterion_main};
 
+#[path = "ops_bench/delete_progress.rs"]
+mod delete_progress;
 #[path = "ops_bench/interactive.rs"]
 mod interactive;
 #[path = "ops_bench/transfer.rs"]
 mod transfer;
 #[path = "ops_bench/trees.rs"]
 mod trees;
+use delete_progress::bench_delete_progress;
 use interactive::{bench_directory_load, bench_editor_open, bench_unique_destination_collisions};
 use transfer::{bench_copy, bench_delete, bench_move};
 use trees::{many_small, source_tree, Shape};
@@ -35,6 +38,7 @@ criterion_group!(
     bench_copy,
     bench_move,
     bench_delete,
+    bench_delete_progress,
     bench_unique_destination_collisions,
     bench_editor_open,
     bench_directory_load,
