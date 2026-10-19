@@ -27,7 +27,9 @@ pub(super) fn edit_input(
     }
     // The form's Ctrl+C copies the password being edited; it is the form's
     // own key, not the vault's "lock and quit".
-    if key.modifiers == KeyModifiers::CONTROL && matches!(key.code, KeyCode::Char('c' | 'C')) {
+    if key.modifiers == KeyModifiers::CONTROL
+        && matches!(key.code, KeyCode::Char('c' | 'C' | 'с' | 'С'))
+    {
         copy_edit_password(app, now);
         return true;
     }

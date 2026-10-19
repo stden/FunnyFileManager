@@ -104,3 +104,17 @@ fn completion_is_idle_when_the_setting_is_off() {
     process(&mut app, plain(KeyCode::Tab));
     assert_eq!(typed(&app), "g");
 }
+
+#[test]
+fn ctrl_o_toggles_console_view_while_editing_command_line() {
+    let dir = TempDir::new().expect("temp");
+    let mut app = app_with_history(&dir, &[]);
+    process(&mut app, plain(KeyCode::Char('g')));
+    assert_eq!(app.view, crate::models::ViewMode::Panels);
+    process(&mut app, ctrl('o'));
+    assert_eq!(app.view, crate::models::ViewMode::Console);
+    assert_eq!(typed(&app), "g");
+    process(&mut app, ctrl('щ'));
+    assert_eq!(app.view, crate::models::ViewMode::Panels);
+    assert_eq!(typed(&app), "g");
+}

@@ -25,6 +25,10 @@ pub(super) fn editing_key(app: &mut App, key: KeyEvent) {
     }
     if let Some(command) = resolve(&app.keymap.command_line, key) {
         apply(app, command);
+    } else if crate::action::resolve(&app.keymap.panels, key)
+        == crate::action::Action::ToggleConsole
+    {
+        app.view = app.view.toggled();
     }
 }
 

@@ -126,3 +126,32 @@ fn a_key_no_chord_names_runs_nothing() {
     let super_f5 = KeyEvent::new(KeyCode::F(5), KeyModifiers::SUPER);
     assert_eq!(bindings.resolve(super_f5), Some(Command::Copy));
 }
+
+#[test]
+fn russian_layout_ctrl_and_alt_chords_fall_back_to_qwerty_keys() {
+    let bindings = bound(&[
+        (Command::Copy, "Ctrl+C"),
+        (Command::Rename, "Ctrl+O"),
+        (Command::Quit, "Alt+V"),
+    ]);
+    assert_eq!(
+        bindings.resolve(KeyEvent::new(KeyCode::Char('с'), KeyModifiers::CONTROL)),
+        Some(Command::Copy)
+    );
+    assert_eq!(
+        bindings.resolve(KeyEvent::new(KeyCode::Char('щ'), KeyModifiers::CONTROL)),
+        Some(Command::Rename)
+    );
+    assert_eq!(
+        bindings.resolve(KeyEvent::new(KeyCode::Char('м'), KeyModifiers::ALT)),
+        Some(Command::Quit)
+    );
+    assert_eq!(
+        bindings.resolve(KeyEvent::new(KeyCode::Char('с'), KeyModifiers::NONE)),
+        None
+    );
+    assert_eq!(
+        bindings.resolve(KeyEvent::new(KeyCode::Enter, KeyModifiers::CONTROL)),
+        None
+    );
+}

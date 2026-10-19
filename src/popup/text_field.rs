@@ -50,15 +50,15 @@ fn clipboard_key(
     let ctrl = modifiers.contains(KeyModifiers::CONTROL);
     let shift = modifiers.contains(KeyModifiers::SHIFT);
     match code {
-        KeyCode::Char('a' | 'A') if ctrl => input.select_all(),
-        KeyCode::Char('c' | 'C') | KeyCode::Insert if ctrl => {
+        KeyCode::Char('a' | 'A' | 'ф' | 'Ф') if ctrl => input.select_all(),
+        KeyCode::Char('c' | 'C' | 'с' | 'С') | KeyCode::Insert if ctrl => {
             if let Some(text) = input.selected_text() {
                 copy(clipboard, text);
             }
         }
-        KeyCode::Char('x' | 'X') if ctrl => cut(input, clipboard),
+        KeyCode::Char('x' | 'X' | 'ч' | 'Ч') if ctrl => cut(input, clipboard),
         KeyCode::Delete if shift => cut(input, clipboard),
-        KeyCode::Char('v' | 'V') if ctrl => paste(input, clipboard),
+        KeyCode::Char('v' | 'V' | 'м' | 'М') if ctrl => paste(input, clipboard),
         KeyCode::Insert if shift => paste(input, clipboard),
         _ => return false,
     }

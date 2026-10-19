@@ -69,10 +69,14 @@ fn ctrl_a_copies_the_entire_document_and_typing_replaces_it() {
     assert_eq!(app.get_editor().expect("editor").state, EditState::Clean);
     key(&mut app, KeyCode::Char('x'), KeyModifiers::NONE);
     assert_eq!(app.get_editor().expect("editor").content(), "x\r\n");
+    key(&mut app, KeyCode::Char('ф'), KeyModifiers::CONTROL);
+    key(&mut app, KeyCode::Char('с'), KeyModifiers::CONTROL);
+    assert_eq!(clipboard.0.borrow().text, "x\r\n");
+    key(&mut app, KeyCode::End, KeyModifiers::CONTROL);
+    key(&mut app, KeyCode::Char('м'), KeyModifiers::CONTROL);
+    assert_eq!(app.get_editor().expect("editor").content(), "xx\r\n\r\n");
     key(&mut app, KeyCode::Home, KeyModifiers::CONTROL);
     assert_eq!(app.get_editor().expect("editor").cursor_col, 0);
-    key(&mut app, KeyCode::End, KeyModifiers::CONTROL);
-    assert_eq!(app.get_editor().expect("editor").cursor_col, 1);
 }
 
 #[test]

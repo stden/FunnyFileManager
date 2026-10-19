@@ -76,7 +76,8 @@ pub fn is_cancel_event(event: &crossterm::event::Event) -> bool {
     if key.kind != KeyEventKind::Press {
         return false;
     }
-    let ctrl_c = key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL);
+    let ctrl_c = matches!(key.code, KeyCode::Char('c' | 'C' | 'с' | 'С'))
+        && key.modifiers.contains(KeyModifiers::CONTROL);
     ctrl_c || key.code == KeyCode::Esc
 }
 
