@@ -18,6 +18,7 @@ pub(crate) fn paste_text(app: &mut App, text: &str) {
     match app.overlay {
         Overlay::Editor(_) => editor::paste_text(app, text),
         Overlay::Tasks(_) => tasks::paste(app, text),
+        Overlay::CommandLine(_) => command_line::paste(app, text),
         _ => paste_plain(app, text),
     }
 }
@@ -27,6 +28,9 @@ fn paste_plain(app: &mut App, text: &str) {
     let line = text_field::one_line(text);
     if let Some(field) = app.focused_text_field() {
         field.insert_str(&line);
+        if matches!(app.overlay, Overlay::LspEditor(_)) {
+            crate::ops::lsp_editor::refresh_completion(app, crate::ops::lsp_editor::Trigger::Typed);
+        }
         return;
     }
     match &mut app.overlay {

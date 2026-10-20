@@ -22,13 +22,15 @@ impl Document {
     pub(super) fn new(
         path: &Path,
         lines: &[String],
-        fingerprint: u64,
+        #[cfg(test)] fingerprint: u64,
+        #[cfg(not(test))] _fingerprint: u64,
         revision: Option<u64>,
     ) -> Self {
         let engine = Highlighter::for_file(path, lines);
         let initial = engine.continuation();
         Self {
             path: path.to_path_buf(),
+            #[cfg(test)]
             fingerprint,
             revision,
             line_count: lines.len(),
@@ -41,31 +43,72 @@ impl Document {
 
     pub(super) fn reconcile(&mut self, lines: &[String], end: usize, initial: Continuation) {
         if lines.len() != self.line_count {
-            let prefix = self
-                .states
-                .iter()
-                .zip(lines.iter())
-                .take_while(|(&(old_hash, _), line)| old_hash == hash_of(line))
-                .count();
-            self.spans.truncate(prefix);
-            self.states.truncate(prefix);
-            self.line_count = lines.len();
-            self.extend(lines, end);
-            return;
+            self.shift_line_count(lines, initial);
         }
         self.reconcile_in_place(lines, end, initial);
         self.extend(lines, end);
     }
 
+    fn shift_line_count(&mut self, lines: &[String], initial: Continuation) {
+        let prefix = self
+            .states
+            .iter()
+            .zip(lines.iter())
+            .take_while(|(&(old_hash, _), line)| old_hash == hash_of(line))
+            .count();
+        if prefix < self.states.len() {
+            if lines.len() > self.line_count {
+                self.splice_inserted_lines(lines, prefix, initial);
+            } else {
+                self.drain_removed_lines(lines, prefix, initial);
+            }
+        }
+        self.spans.truncate(lines.len());
+        self.states.truncate(lines.len());
+        self.line_count = lines.len();
+    }
+
+    fn splice_inserted_lines(&mut self, lines: &[String], prefix: usize, initial: Continuation) {
+        let added = lines.len() - self.line_count;
+        let state_at_prefix = self.state_before(prefix).unwrap_or(initial);
+        self.spans
+            .splice(prefix..prefix, std::iter::repeat_with(Vec::new).take(added));
+        self.states.splice(
+            prefix..prefix,
+            lines
+                .get(prefix..prefix + added)
+                .into_iter()
+                .flatten()
+                .map(|line| (!hash_of(line), state_at_prefix)),
+        );
+    }
+
+    fn drain_removed_lines(&mut self, lines: &[String], prefix: usize, initial: Continuation) {
+        let removed = (self.line_count - lines.len()).min(self.states.len() - prefix);
+        let old_in = self.state_before(prefix + removed).unwrap_or(initial);
+        let new_in = self.state_before(prefix).unwrap_or(initial);
+        self.spans.drain(prefix..prefix + removed);
+        self.states.drain(prefix..prefix + removed);
+        if let Some((slot, line)) = self
+            .states
+            .get_mut(prefix)
+            .zip(lines.get(prefix))
+            .filter(|_| old_in != new_in)
+        {
+            slot.0 = !hash_of(line);
+        }
+    }
+
     fn reconcile_in_place(&mut self, lines: &[String], end: usize, initial: Continuation) {
-        let limit = end.min(self.spans.len()).min(lines.len());
+        let limit = self.spans.len().min(lines.len());
         let mut incoming = initial;
         let mut old_incoming = initial;
-        for ((line, state_slot), span_slot) in lines
+        for (idx, ((line, state_slot), span_slot)) in lines
             .iter()
             .zip(self.states.iter_mut())
             .zip(self.spans.iter_mut())
             .take(limit)
+            .enumerate()
         {
             let line_hash = hash_of(line);
             let (old_hash, old_after) = *state_slot;
@@ -74,16 +117,17 @@ impl Document {
                 old_incoming = old_after;
                 continue;
             }
+            if idx >= end {
+                self.spans.truncate(idx);
+                self.states.truncate(idx);
+                return;
+            }
             self.engine.resume(incoming);
             *span_slot = lex_line(&mut self.engine, line);
             let new_after = self.engine.continuation().unwrap_or(incoming);
             *state_slot = (line_hash, new_after);
             incoming = new_after;
             old_incoming = old_after;
-        }
-        if incoming != old_incoming {
-            self.spans.truncate(limit);
-            self.states.truncate(limit);
         }
     }
 

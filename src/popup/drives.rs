@@ -127,14 +127,15 @@ const fn drive_index_down(index: usize, count: usize) -> usize {
 /// entries of the directory being left and, on an unreadable drive, rolls the
 /// panel back instead of parking it on a path it cannot list.
 fn open_drive(app: &mut App, side: PanelSide, path: PathBuf) -> Result<PathBuf, String> {
-    // A local drive means local files: a sessions list or a host drawn over
-    // the panel goes first, a remote panel's connection with it — so even a
-    // drive that cannot be read leaves the panel showing its files.
+    // A local drive means local files: a sessions list, a host, a tree, or a
+    // quick view drawn over the panel goes first — so even a drive that cannot
+    // be read leaves the panel showing its files.
     crate::ops::sessions::back_to_files_on(app, side);
     let panel = match side {
         PanelSide::Left => &mut app.left_panel,
         PanelSide::Right => &mut app.right_panel,
     };
+    panel.kind = crate::models::PanelKind::Files;
     panel.navigate_to(path).map_err(|err| err.to_string())?;
     Ok(panel.path.clone())
 }

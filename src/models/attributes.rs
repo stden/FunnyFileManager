@@ -137,16 +137,16 @@ impl AttributesDialog {
 
 /// One name when the selection agrees on it, [`VARIOUS`] when it does not,
 /// and blank when nothing is known.
-fn shared_name<'a>(names: impl Iterator<Item = Option<&'a str>>) -> String {
-    let mut shared: Option<&str> = None;
+fn shared_name<'a>(mut names: impl Iterator<Item = Option<&'a str>>) -> String {
+    let Some(first) = names.next() else {
+        return String::new();
+    };
     for name in names {
-        match (shared, name) {
-            (None, Some(name)) => shared = Some(name),
-            (Some(seen), other) if other != Some(seen) => return VARIOUS.to_owned(),
-            _ => {}
+        if name != first {
+            return VARIOUS.to_owned();
         }
     }
-    shared.unwrap_or_default().to_owned()
+    first.unwrap_or_default().to_owned()
 }
 
 #[cfg(test)]

@@ -73,11 +73,13 @@ fn compare_marks_missing_or_different_sized_files_on_both_sides() {
     fs::write(right.path().join("alpha.txt"), "short").unwrap();
     fs::write(right.path().join("beta.bin"), "beta").unwrap();
     fs::write(right.path().join("right-only"), "new").unwrap();
+    fs::write(right.path().join("folder"), "").unwrap();
     app.right_panel = Panel::new(right.path().to_owned()).unwrap();
     execute_result(&mut app, MenuCommand::Compare).unwrap();
     assert!(app.left_panel.marked.contains("alpha.txt"));
     assert!(app.right_panel.marked.contains("alpha.txt"));
     assert!(app.right_panel.marked.contains("right-only"));
+    assert!(app.right_panel.marked.contains("folder"));
     assert!(!app.left_panel.marked.contains("beta.bin"));
     assert!(!app.left_panel.marked.contains("folder"));
 }

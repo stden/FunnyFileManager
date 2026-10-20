@@ -147,3 +147,9 @@ fn oversized_patterns_are_rejected_and_never_match() {
 
     validate_pattern("src/**/*.rs").expect("an ordinary pattern is fine");
 }
+
+#[test]
+fn unicode_segment_matching_folds_case_across_wildcards() {
+    assert!(matches("документы/Отчёт-2026.TXT", "**/отчёт-*.txt"));
+    assert!(!matches("документы/Отчёт-2026.TXT", "**/приказ-*.txt"));
+}

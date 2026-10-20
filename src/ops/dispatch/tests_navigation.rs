@@ -107,7 +107,9 @@ fn assert_retained_panel(panel: &Panel, directory: &std::path::Path) {
 fn cd_stores_an_ordinary_path_without_verbatim_prefix() {
     let temp = TempDir::new().expect("temp dir");
     let mut app = app_at(&temp);
+    app.get_active_panel().kind = crate::models::PanelKind::Tree(Box::default());
     execute_command(&mut app, &format!("cd {}", temp.path().display())).expect("cd");
+    assert_eq!(app.get_active_panel().kind, crate::models::PanelKind::Files);
     assert!(
         !app.get_active_panel()
             .path

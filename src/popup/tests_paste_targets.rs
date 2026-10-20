@@ -163,3 +163,32 @@ fn popup_panel_and_confirmation_guards_when_inactive() {
     assert!(!super::sessions::apply(&mut app, cmd));
     super::wsl::apply(&mut app, crate::action::wsl::WslCommand::Close);
 }
+
+#[test]
+fn paste_text_updates_command_line_search_and_editor_search_prompt() {
+    use crate::models::{CommandLine, Editor, Recall};
+    let mut app = app_with(Overlay::CommandLine(CommandLine::default()));
+    app.history.record("git status");
+    if let Overlay::CommandLine(state) = &mut app.overlay {
+        state.recall = Recall::Searching {
+            query: String::new(),
+            hit: None,
+            stash: String::new(),
+        };
+    }
+    paste_text(&mut app, "status\n");
+    let Overlay::CommandLine(state) = &app.overlay else {
+        panic!("command line");
+    };
+    assert_eq!(state.text(), "git status");
+
+    let mut editor = Editor::from_content("a.rs".into(), PathBuf::from("a.rs"), "hello");
+    editor.search.prompt = Some(crate::search::SearchPrompt::default());
+    app.set_overlay(Overlay::Editor(editor));
+    paste_text(&mut app, "needle\n");
+    let q = app
+        .get_editor()
+        .and_then(|e| e.search.prompt.as_ref())
+        .map(|p| p.query.as_str());
+    assert_eq!(q, Some("needle"));
+}

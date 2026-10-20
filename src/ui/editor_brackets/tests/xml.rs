@@ -50,16 +50,17 @@ fn xml_scanner_ignores_comments_pis_doctypes_quoted_brackets_and_malformed_tags(
         "<!-- <root> ignored\n",
         "     still in comment -->\n",
         "<root a=\"x>y\" b='z/>w'>\n",
+        "  <![CDATA[ a > b </root> ]]>\n",
         "  a < b </> </bad attr> <unclosed>\n",
         "  <item><item>val</item></item>\n",
         "</root >"
     );
-    let root_pair = [TagSpan::new(4, 0, 5), TagSpan::new(7, 0, 8)];
+    let root_pair = [TagSpan::new(4, 0, 5), TagSpan::new(8, 0, 8)];
     assert_eq!(matching_xml_pair(&xml_editor(xml, 4, 1)), Some(root_pair));
-    assert_eq!(matching_xml_pair(&xml_editor(xml, 7, 2)), Some(root_pair));
+    assert_eq!(matching_xml_pair(&xml_editor(xml, 8, 2)), Some(root_pair));
 
-    let outer_item = [TagSpan::new(6, 2, 8), TagSpan::new(6, 24, 31)];
-    assert_eq!(matching_xml_pair(&xml_editor(xml, 6, 3)), Some(outer_item));
+    let outer_item = [TagSpan::new(7, 2, 8), TagSpan::new(7, 24, 31)];
+    assert_eq!(matching_xml_pair(&xml_editor(xml, 7, 3)), Some(outer_item));
 }
 
 #[test]
@@ -98,5 +99,20 @@ fn cursor_outside_tag_on_line_with_angle_brackets_skips_full_scan() {
     assert_eq!(
         matching_xml_pair(&xml_editor("if a < b && c > d {}", 0, 5)),
         None
+    );
+}
+
+#[test]
+fn xml_scanner_bounds_search_window_around_cursor_line() {
+    let mut lines = vec!["<far>".to_owned()];
+    lines.extend((0..1_050).map(|_| "  <item>ok</item>".to_owned()));
+    lines.push("</far>".to_owned());
+    let text = lines.join("\n");
+    // `<far>` at line 0 and `</far>` at line 1051 are more than MAX_SCAN_LINES apart.
+    assert_eq!(matching_xml_pair(&xml_editor(&text, 1_051, 1)), None);
+    // `<item>` on line 1050 still pairs inside the window.
+    assert_eq!(
+        matching_xml_pair(&xml_editor(&text, 1_050, 3)),
+        Some([TagSpan::new(1_050, 2, 8), TagSpan::new(1_050, 10, 17)])
     );
 }

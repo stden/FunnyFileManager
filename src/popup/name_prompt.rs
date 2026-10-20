@@ -118,14 +118,25 @@ fn apply_make_folder(app: &mut App, prompt: &NamePrompt) {
         // directory is what the user is about to enter, and hunting for it in
         // a long listing is the work the dialog was meant to save. For a path
         // that is its first folder, the one this panel shows.
-        let shown = first.split(std::path::is_separator).next().unwrap_or(first);
-        settle_on(app, shown);
+        settle_on(app, first_normal_component(&directory, first));
     }
     app.set_status(match (failure, made) {
         (Some(failed), _) => failed,
         (None, 1) => Status::CreatedDir(directory.join(first).display().to_string()),
         (None, count) => Status::CreatedDirs { count, directory },
     });
+}
+
+fn first_normal_component<'a>(directory: &std::path::Path, first: &'a str) -> &'a str {
+    let rel = std::path::Path::new(first);
+    rel.strip_prefix(directory)
+        .unwrap_or(rel)
+        .components()
+        .find_map(|c| match c {
+            std::path::Component::Normal(name) => name.to_str(),
+            _ => None,
+        })
+        .unwrap_or(first)
 }
 
 fn create_folder(

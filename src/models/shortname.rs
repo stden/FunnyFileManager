@@ -52,29 +52,33 @@ impl std::fmt::Display for ShortName {
 /// names — and looks each row up, rather than paying that pass per row.
 #[derive(Debug, Clone, Default)]
 pub struct ShortNames {
-    by_name: HashMap<String, ShortName>,
+    by_name: std::sync::Arc<HashMap<String, ShortName>>,
 }
 
 impl ShortNames {
     /// Short names for `names`, numbered in the order given.
     #[must_use]
     pub fn for_listing<'a>(names: impl IntoIterator<Item = &'a str>) -> Self {
-        let names: Vec<&'a str> = names.into_iter().collect();
-        let reserved: HashSet<String> = names
-            .iter()
-            .filter_map(|&name| {
-                let basis = Basis::of(name);
-                (!basis.stem.is_empty() && basis.fits(name)).then(|| basis.join(&basis.stem))
-            })
+        let bases: Vec<(&'a str, Basis)> = names
+            .into_iter()
+            .map(|name| (name, Basis::of(name)))
             .collect();
-        let mut taken = HashSet::new();
-        let mut by_name = HashMap::new();
-        for name in names {
-            let short = unique_short_name(name, &taken, &reserved);
+        let reserved: HashSet<String> = bases
+            .iter()
+            .filter(|(name, basis)| !basis.stem.is_empty() && basis.fits(name))
+            .map(|(_, basis)| basis.join(&basis.stem))
+            .collect();
+        let mut taken = HashSet::with_capacity(bases.len());
+        let mut counters = HashMap::new();
+        let mut by_name = HashMap::with_capacity(bases.len());
+        for (name, basis) in bases {
+            let short = unique_short_name(name, &basis, &taken, &reserved, &mut counters);
             taken.insert(short.0.clone());
             by_name.insert(name.to_owned(), short);
         }
-        Self { by_name }
+        Self {
+            by_name: std::sync::Arc::new(by_name),
+        }
     }
 
     /// Short names for a panel's entries, in panel order.
@@ -93,8 +97,13 @@ impl ShortNames {
 
 /// The first short form of `name` that nothing in the listing has claimed or
 /// reserved as its own 8.3 name.
-fn unique_short_name(name: &str, taken: &HashSet<String>, reserved: &HashSet<String>) -> ShortName {
-    let basis = Basis::of(name);
+fn unique_short_name(
+    name: &str,
+    basis: &Basis,
+    taken: &HashSet<String>,
+    reserved: &HashSet<String>,
+    counters: &mut HashMap<(String, String), usize>,
+) -> ShortName {
     // `..`, or a name that is nothing but dots and blanks: there is no stem
     // to shorten, and Windows shows such an entry as it is.
     if basis.stem.is_empty() {
@@ -106,14 +115,21 @@ fn unique_short_name(name: &str, taken: &HashSet<String>, reserved: &HashSet<Str
             return ShortName::new(plain);
         }
     }
-    // Each claimed or reserved name blocks at most one candidate, so one more
-    // than their combined count is always free.
-    let last = taken.len() + reserved.len() + 1;
-    let numbered = (1..=last)
-        .map(|n| basis.numbered(n))
-        .find(|candidate| !taken.contains(candidate) && !reserved.contains(candidate))
-        .unwrap_or_else(|| basis.numbered(last));
-    ShortName::new(numbered)
+    // `Basis::numbered` uses at most the first `STEM_LIMIT - 2` characters of
+    // `stem` plus `extension`, and `taken` only grows, so resuming from the
+    // last tested `n` for this prefix avoids rescanning `1..n` on collisions.
+    let key = (
+        basis.stem.chars().take(STEM_LIMIT - 2).collect(),
+        basis.extension.clone(),
+    );
+    let next = counters.entry(key).or_insert(1);
+    loop {
+        let candidate = basis.numbered(*next);
+        *next += 1;
+        if !taken.contains(&candidate) && !reserved.contains(&candidate) {
+            return ShortName::new(candidate);
+        }
+    }
 }
 
 /// What is left of a name once Windows has cleaned it: the uppercased stem

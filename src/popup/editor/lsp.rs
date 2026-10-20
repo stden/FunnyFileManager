@@ -82,8 +82,9 @@ fn edit_completion(
         }
         KeyCode::Backspace if plain => {
             editor.notice = None;
+            let had_prefix = !editor.completion_prefix().is_empty();
             editor.backspace();
-            if editor.completion_prefix().is_empty() {
+            if !had_prefix || editor.completion_prefix().is_empty() {
                 editor.lsp.completions = None;
             } else {
                 editor.update_live_completion(query, items);

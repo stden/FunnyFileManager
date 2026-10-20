@@ -35,7 +35,11 @@ impl Editor {
     }
 
     fn delete_all(&mut self) -> bool {
-        let changed = self.lines.iter().any(|line| !line.is_empty()) || self.lines.len() > 1;
+        let has_body = self.lines.iter().any(|line| !line.is_empty()) || self.lines.len() > 1;
+        let changed = has_body || self.format.trailing_newline;
+        if !has_body {
+            self.format.trailing_newline = false;
+        }
         self.lines = vec![String::new()];
         self.cursor_line = 0;
         self.cursor_col = 0;
@@ -51,9 +55,7 @@ impl Editor {
         if text.is_empty() {
             return;
         }
-        self.delete_selection();
-        self.ensure_line();
-        let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
+        let normalized = self.prepare_insert(text);
         let at = self.byte_col(self.cursor_col);
         let Some(line) = self.line_mut() else {
             return;
@@ -75,5 +77,19 @@ impl Editor {
             line.push_str(&suffix);
         }
         self.mark_modified();
+    }
+
+    fn prepare_insert(&mut self, text: &str) -> String {
+        let strip_trailing = self.selection == EditorSelection::All && self.format.trailing_newline;
+        self.delete_selection();
+        if strip_trailing {
+            self.format.trailing_newline = true;
+        }
+        self.ensure_line();
+        let mut normalized = text.replace("\r\n", "\n").replace('\r', "\n");
+        if strip_trailing && normalized.ends_with('\n') {
+            normalized.pop();
+        }
+        normalized
     }
 }

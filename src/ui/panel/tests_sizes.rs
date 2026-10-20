@@ -8,13 +8,13 @@ fn float_abbreviation(bytes: u32) -> String {
     const UNITS: [&str; 5] = ["", "K", "M", "G", "T"];
     let mut value = f64::from(bytes);
     let mut unit = 0;
-    while value >= 1000.0 && unit + 1 < UNITS.len() {
+    while value.round() >= 1000.0 && unit + 1 < UNITS.len() {
         value /= 1024.0;
         unit += 1;
     }
     if unit == 0 {
         bytes.to_string()
-    } else if value >= 100.0 {
+    } else if (value * 10.0).round() >= 1000.0 {
         format!("{value:.0} {}", UNITS[unit])
     } else {
         format!("{value:.1} {}", UNITS[unit])
@@ -43,6 +43,8 @@ fn abbreviated_sizes_stay_in_terabytes_at_the_top_of_u64() {
     assert_eq!(abbreviate_bytes(u64::MAX), "16777216 T");
     assert_eq!(abbreviate_bytes(999), "999");
     assert_eq!(abbreviate_bytes(1000), "1.0 K");
+    assert_eq!(abbreviate_bytes(102_350), "100 K");
+    assert_eq!(abbreviate_bytes(1_023_488), "1.0 M");
 }
 
 #[test]

@@ -124,3 +124,27 @@ fn directory_measurement_helpers_update_and_resort_by_size() {
         Some(FileSize::from_bytes(10))
     );
 }
+
+#[test]
+fn navigation_history_retains_the_most_recent_hundred_folders_in_order() {
+    let mut panel = Panel::from_entries(PathBuf::from("/dir/0"), Vec::new());
+    for step in 1..=105 {
+        panel.apply_navigation(
+            PathBuf::from(format!("/dir/{step}")),
+            DirectoryListing {
+                entries: Vec::new(),
+                parent: None,
+                metadata: PanelMetadata::default(),
+            },
+        );
+    }
+    assert_eq!(panel.navigation_history.len(), 100);
+    assert_eq!(
+        panel.navigation_history.front(),
+        Some(&PathBuf::from("/dir/5"))
+    );
+    assert_eq!(
+        panel.navigation_history.back(),
+        Some(&PathBuf::from("/dir/104"))
+    );
+}

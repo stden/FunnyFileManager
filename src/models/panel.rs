@@ -2,9 +2,15 @@
 //! Filesystem loading and navigation effects live in `ops::panel`.
 
 use ratatui::widgets::ListState;
-use std::{collections::BTreeSet, path::PathBuf};
+use std::{
+    cell::RefCell,
+    collections::{BTreeSet, VecDeque},
+    path::PathBuf,
+};
 
-use super::{DirEntry, FileName, FileSize, PanelFilter, PanelKind, SortMode, SortOrder};
+use super::{
+    DirEntry, FileName, FileSize, PanelFilter, PanelKind, ShortNames, SortMode, SortOrder,
+};
 
 mod cursor;
 mod listing;
@@ -70,9 +76,11 @@ pub struct Panel {
     pub(crate) pending_visit: Option<PathBuf>,
     pub details: PanelDetails,
     pub options: PanelOptions,
-    pub navigation_history: Vec<PathBuf>,
+    pub navigation_history: VecDeque<PathBuf>,
     /// Facts captured with the listing, never queried while rendering.
     metadata: PanelMetadata,
+    /// Cached 8.3 short-name table for the current listing order.
+    short_names: RefCell<Option<((usize, usize), ShortNames)>>,
 }
 
 impl Panel {
@@ -89,6 +97,24 @@ impl Panel {
     /// Writable space captured with this listing, or unknown.
     pub(crate) const fn available_space(&self) -> Option<FileSize> {
         self.metadata.available_space
+    }
+
+    /// Cached 8.3 forms for the current listing, built on first draw and
+    /// reused across frames until the listing or its sort order changes.
+    #[must_use]
+    pub(crate) fn short_names(&self) -> ShortNames {
+        let key = (self.entries.as_ptr().addr(), self.entries.len());
+        if let Some((_, table)) = self
+            .short_names
+            .borrow()
+            .as_ref()
+            .filter(|(cached_key, _)| *cached_key == key)
+        {
+            return table.clone();
+        }
+        let table = ShortNames::for_entries(&self.entries);
+        *self.short_names.borrow_mut() = Some((key, table.clone()));
+        table
     }
 
     /// A panel over an already-known listing, touching no filesystem.
@@ -116,8 +142,9 @@ impl Panel {
             pending_visit: Some(panel_path),
             details: PanelDetails::default(),
             options: PanelOptions::default(),
-            navigation_history: Vec::new(),
+            navigation_history: VecDeque::new(),
             metadata: PanelMetadata::default(),
+            short_names: RefCell::new(None),
         };
         panel.select(panel.entries.first().map(|_| 0));
         panel

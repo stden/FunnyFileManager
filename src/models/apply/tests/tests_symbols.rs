@@ -83,6 +83,13 @@ fn list_files_require_the_far_terminator() {
     assert!(wants_list_file("cat !$!"));
     assert!(!wants_list_file("echo !!@!"));
     assert!(!wants_list_file("echo !.!"));
+    assert_eq!(substitute("cat !@ !.!", &main, &selected), "cat a@ a.txt");
+    assert_eq!(
+        substitute("echo !$HOME !.!", &main, &selected),
+        "echo a$HOME a.txt"
+    );
+    assert!(!wants_list_file("cat !@ !.!"));
+    assert!(!wants_list_file("echo !$HOME !.!"));
 }
 
 /// A template that names the list file but was given none expands it to

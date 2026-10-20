@@ -3,9 +3,9 @@
 
 mod scan;
 
-use super::super::{palette, screen_u16, Cells};
-use super::column_on_screen;
-use crate::models::Editor;
+use super::super::{palette, screen_u16, Cells, EditorLine};
+use super::byte_at_char;
+use crate::models::{CharColumn, Editor};
 use ratatui::{layout::Rect, Frame};
 use scan::XmlScanner;
 
@@ -61,14 +61,27 @@ fn paint_span(
     if span.line < top || span.line >= top.saturating_add(usize::from(area.height)) {
         return;
     }
+    let Some(text) = editor.lines.get(span.line) else {
+        return;
+    };
+    let display = EditorLine {
+        text,
+        tab: editor.tab_size,
+    };
+    let dropped = display.dropped(skip);
+    let start = display.cells_before(CharColumn::new(span.start_col));
+    let end = display.cells_before(CharColumn::new(span.end_col));
+    if end <= dropped {
+        return;
+    }
+    let first_x = start.saturating_sub(dropped).get();
+    let last_x = end
+        .saturating_sub(dropped)
+        .get()
+        .min(usize::from(area.width));
     let y = area.y.saturating_add(screen_u16(span.line - top));
-    for col in span.start_col..span.end_col {
-        let Some(x) = column_on_screen(editor, span.line, col, skip) else {
-            continue;
-        };
-        if x < usize::from(area.width) {
-            frame.buffer_mut()[(area.x.saturating_add(screen_u16(x)), y)].set_fg(palette::CODE_URL);
-        }
+    for x in first_x..last_x {
+        frame.buffer_mut()[(area.x.saturating_add(screen_u16(x)), y)].set_fg(palette::CODE_URL);
     }
 }
 
@@ -80,12 +93,6 @@ pub(super) fn matching_xml_pair(editor: &Editor) -> Option<[TagSpan; 2]> {
         return None;
     }
     XmlScanner::default().find_pair(&editor.lines, cursor_line, cursor_col)
-}
-
-fn byte_at_char(line: &str, char_idx: usize) -> usize {
-    line.char_indices()
-        .nth(char_idx)
-        .map_or(line.len(), |(idx, _)| idx)
 }
 
 fn cursor_near_xml_tag(line: &str, cursor_col: usize) -> bool {

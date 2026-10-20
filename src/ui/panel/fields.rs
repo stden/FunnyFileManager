@@ -125,7 +125,7 @@ pub(in crate::ui) fn abbreviate_bytes(bytes: u64) -> String {
     let mut scale = 1;
     let mut unit = None;
     for next in UNITS {
-        if bytes < 1000 * scale {
+        if divide_rounded(bytes, scale) < 1000 {
             break;
         }
         scale *= 1024;
@@ -134,10 +134,10 @@ pub(in crate::ui) fn abbreviate_bytes(bytes: u64) -> String {
     let Some(unit) = unit else {
         return bytes.to_string();
     };
-    if bytes >= 100 * scale {
+    let tenths = divide_rounded(bytes * 10, scale);
+    if tenths >= 1000 {
         format!("{} {unit}", divide_rounded(bytes, scale))
     } else {
-        let tenths = divide_rounded(bytes * 10, scale);
         format!("{}.{} {unit}", tenths / 10, tenths % 10)
     }
 }

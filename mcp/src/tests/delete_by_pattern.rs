@@ -84,6 +84,26 @@ fn delete_by_pattern_dry_run_reports_a_directory_without_removing_it() {
 }
 
 #[test]
+fn delete_by_pattern_dry_run_does_not_double_count_matching_files_in_matching_dirs() {
+    let dir = TempDir::new().expect("temp dir");
+    let (server, root) = server_at(&dir);
+    write_file_at(&root.join("cache.tmp").join("inner.txt"), "inner");
+
+    let wildcard = server
+        .delete_by_pattern(Parameters(DeleteByPatternParams {
+            path: root.display().to_string(),
+            pattern: "*".to_owned(),
+            include_dirs: true,
+            recursive: true,
+            dry_run: true,
+        }))
+        .expect("wildcard dry run");
+    let wildcard_json = tool_json(&wildcard);
+    assert_eq!(wildcard_json["deleted_count"], 2);
+    assert_eq!(wildcard_json["total_size"], 5);
+}
+
+#[test]
 fn delete_by_pattern_rejects_a_file_as_the_root() {
     let dir = TempDir::new().expect("temp dir");
     let (server, root) = server_at(&dir);

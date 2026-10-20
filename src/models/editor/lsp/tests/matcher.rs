@@ -79,6 +79,18 @@ fn live_completion_updates_text_edit_range_and_replaces_identifier_suffix() {
 }
 
 #[test]
+fn live_completion_clears_pool_when_nothing_matches() {
+    let root = TempDir::new().unwrap();
+    let mut ed = editor(&root, "get\n");
+    ed.cursor_col = 3;
+    let q = query(&ed);
+    ed.insert_char('z');
+    ed.update_live_completion(q, vec![completion(json!({"label": "get_value"}))]);
+    assert!(ed.lsp.popup.is_none());
+    assert!(ed.lsp.completions.is_none());
+}
+
+#[test]
 fn silent_completion_skips_unmatched_popup_and_triggers_follow_operators() {
     let root = TempDir::new().unwrap();
     let mut ed = editor(&root, "xyz");

@@ -1,7 +1,7 @@
 //! Purpose: A caller-supplied file name is one component, never a path.
 
 use super::*;
-use crate::naming::join_child;
+use crate::naming::{join_child, unique_destination};
 use crate::tools::utilities::UniqueNameParams;
 
 // ═══════════════════════════════════════════════════════════════
@@ -63,4 +63,19 @@ fn join_child_accepts_only_one_ordinary_component() {
             "'{hostile}' must not be joinable onto a confined directory"
         );
     }
+}
+
+#[test]
+fn unique_destination_treats_dangling_symlink_as_taken() {
+    let dir = TempDir::new().expect("temp dir");
+    let taken = dir.path().join("report.txt");
+    #[cfg(unix)]
+    std::os::unix::fs::symlink("missing-target", &taken).expect("symlink");
+    #[cfg(windows)]
+    if std::os::windows::fs::symlink_file("missing-target", &taken).is_err() {
+        fs::write(&taken, b"fallback").expect("write");
+    }
+
+    let unique = unique_destination(dir.path(), "report.txt").expect("unique name");
+    assert_eq!(unique, dir.path().join("report_1.txt"));
 }

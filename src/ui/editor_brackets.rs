@@ -55,7 +55,7 @@ pub(super) fn column_on_screen(
     cell.get().checked_sub(display.dropped(skip).get())
 }
 
-const MAX_SCAN_LINES: usize = 1_000;
+pub(super) const MAX_SCAN_LINES: usize = 1_000;
 
 fn matching_pair(editor: &Editor) -> Option<(usize, usize, usize, usize)> {
     let (line, column, bracket) = candidate(editor)?;
@@ -144,7 +144,10 @@ const fn step_bracket(byte: u8, bracket: u8, wanted: u8, depth: &mut usize) -> b
     false
 }
 
-fn byte_at_char(text: &str, char_col: usize) -> usize {
+pub(super) fn byte_at_char(text: &str, char_col: usize) -> usize {
+    if text.is_ascii() {
+        return char_col.min(text.len());
+    }
     text.char_indices()
         .nth(char_col)
         .map_or(text.len(), |(idx, _)| idx)

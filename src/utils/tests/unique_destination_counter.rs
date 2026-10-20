@@ -17,6 +17,12 @@ fn test_unique_destination_sparse_conflict_numbers() {
 
     let dest = unique_destination(base, OsStr::new("report.txt")).unwrap();
     assert_eq!(dest, base.join("report_2.txt"));
+
+    for i in [2, 4, 5, 6, 8] {
+        File::create(base.join(format!("report_{i}.txt"))).unwrap();
+    }
+    let dest_after_four = unique_destination(base, OsStr::new("report.txt")).unwrap();
+    assert_eq!(dest_after_four, base.join("report_7.txt"));
 }
 
 #[test]

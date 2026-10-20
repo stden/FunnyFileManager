@@ -69,7 +69,7 @@ impl FfmServer {
         match bookmarks.get(&params.name) {
             Some(path) => {
                 let path_str = path.as_str().unwrap_or("");
-                let resolved = self.safe_path(path_str)?;
+                let resolved = self.safe_path_create(path_str)?;
                 let result = json!({
                     "bookmark": params.name,
                     "path": path,
@@ -120,7 +120,7 @@ impl FfmServer {
             .iter()
             .filter_map(|(name, path)| {
                 let path_str = path.as_str()?;
-                let resolved = self.safe_path(path_str).ok()?;
+                let resolved = self.safe_path_create(path_str).ok()?;
                 Some(json!({
                     "name": name,
                     "path": path,
@@ -142,7 +142,7 @@ impl FfmServer {
             ));
         };
         let path_str = stored.as_str().unwrap_or("");
-        self.safe_path(path_str)?;
+        self.safe_path_create(path_str)?;
         bookmarks.remove(name);
         Ok(())
     }

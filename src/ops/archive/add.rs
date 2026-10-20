@@ -79,6 +79,9 @@ pub fn add(app: &mut App, prompt: &ArchivePrompt) {
     if !existed && !matches!(status, Status::AddedToArchive { .. }) {
         discard_partial(app, &archive);
     }
+    if matches!(status, Status::AddedToArchive { kept: 0, .. }) {
+        app.get_active_panel().clear_marks();
+    }
     app.set_status(status);
     // A refresh failure is not the archiver's failure.
     drop(crate::utils::refresh_panels(app));

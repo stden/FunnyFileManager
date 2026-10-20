@@ -70,3 +70,23 @@ fn visible_and_deletable_bookmarks_are_confined_to_the_server_root() {
         .expect("bookmark inside root is deletable");
     assert!(!bookmarks.contains_key("inside"));
 }
+
+#[test]
+fn stale_bookmarks_with_deleted_parent_directories_remain_visible_and_deletable() {
+    let dir = TempDir::new().expect("temp dir");
+    let (server, root) = server_at(&dir);
+    let mut bookmarks = serde_json::Map::new();
+    let missing_parent = root.join("gone_parent").join("nested_leaf");
+    bookmarks.insert(
+        "stale".to_owned(),
+        json!(missing_parent.display().to_string()),
+    );
+    let visible = server.visible_bookmarks(&bookmarks);
+    assert_eq!(visible.len(), 1);
+    assert_eq!(visible[0]["name"], "stale");
+    assert_eq!(visible[0]["exists"], false);
+    server
+        .remove_confined_bookmark(&mut bookmarks, "stale")
+        .expect("stale bookmark with deleted parent is still deletable");
+    assert!(!bookmarks.contains_key("stale"));
+}

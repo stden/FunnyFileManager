@@ -79,19 +79,40 @@ fn grep_file(path: &Path, pattern: &str, results: &mut Vec<serde_json::Value>, m
     let Ok(file) = fs::File::open(path) else {
         return;
     };
-    for (line_num, line) in io::BufReader::new(file).lines().enumerate() {
-        if results.len() >= max {
-            return;
+    let mut reader = io::BufReader::new(file);
+    let mut line = String::new();
+    let mut line_num = 0usize;
+    while results.len() < max {
+        line.clear();
+        let Ok(bytes) = reader.read_line(&mut line) else {
+            break;
+        };
+        if bytes == 0 {
+            break;
         }
-        let Ok(line) = line else { break };
-        if line.to_lowercase().contains(pattern) {
+        line_num += 1;
+        if contains_lowercased(&line, pattern) {
             results.push(json!({
                 "file": path.display().to_string(),
-                "line": line_num + 1,
+                "line": line_num,
                 "content": line.trim(),
             }));
         }
     }
+}
+
+fn contains_lowercased(haystack: &str, needle_lower: &str) -> bool {
+    if needle_lower.is_empty() {
+        return true;
+    }
+    if haystack.is_ascii() && needle_lower.is_ascii() {
+        let (haystack, needle) = (haystack.as_bytes(), needle_lower.as_bytes());
+        return haystack.len() >= needle.len()
+            && haystack
+                .windows(needle.len())
+                .any(|window| window.eq_ignore_ascii_case(needle));
+    }
+    haystack.to_lowercase().contains(needle_lower)
 }
 
 fn searchable_file(path: &Path, extension: Option<&str>) -> bool {

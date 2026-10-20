@@ -140,3 +140,34 @@ fn a_table_can_be_built_from_panel_entries() {
         Some("CARGO~1.TOM")
     );
 }
+
+#[test]
+fn panel_short_names_cache_reuses_and_invalidates_on_listing_change() {
+    let entry = |name: &str| DirEntry {
+        name: name.to_owned(),
+        ..DirEntry::default()
+    };
+    let mut panel = crate::models::Panel::from_entries(
+        std::path::PathBuf::from("/dir"),
+        vec![entry("longfilename1.txt"), entry("longfilename2.txt")],
+    );
+    let first = panel.short_names();
+    let second = panel.short_names();
+    assert!(std::sync::Arc::ptr_eq(&first.by_name, &second.by_name));
+    assert_eq!(
+        first.get("longfilename2.txt").map(ShortName::as_str),
+        Some("LONGFI~2.TXT")
+    );
+
+    panel.apply_listing(crate::models::DirectoryListing {
+        entries: vec![entry("longfilename2.txt")],
+        parent: None,
+        metadata: crate::models::PanelMetadata::default(),
+    });
+    let refreshed = panel.short_names();
+    assert!(!std::sync::Arc::ptr_eq(&first.by_name, &refreshed.by_name));
+    assert_eq!(
+        refreshed.get("longfilename2.txt").map(ShortName::as_str),
+        Some("LONGFI~1.TXT")
+    );
+}

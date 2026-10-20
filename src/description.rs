@@ -99,6 +99,11 @@ pub fn parse(text: &str) -> HashMap<String, String> {
 }
 
 fn parse_line(line: &str) -> Option<(String, String)> {
+    let (name, description) = parse_line_slices(line)?;
+    Some((name.to_owned(), description.to_owned()))
+}
+
+fn parse_line_slices(line: &str) -> Option<(&str, &str)> {
     let line = line.trim_end_matches(['\r', '\u{4}']);
     let (name, rest) = if let Some(quoted) = line.strip_prefix('"') {
         quoted.split_once('"')?
@@ -108,7 +113,7 @@ fn parse_line(line: &str) -> Option<(String, String)> {
     if name.is_empty() {
         return None;
     }
-    Some((name.to_owned(), rest.trim().to_owned()))
+    Some((name, rest.trim()))
 }
 
 /// One line as Far writes it: the name quoted when it contains a space.
@@ -136,7 +141,9 @@ pub fn set_description(dir: &Path, names: &[String], name: &str, text: &str) -> 
     let existing = text_of(&path)?;
     let mut lines: Vec<String> = existing
         .lines()
-        .filter(|line| parse_line(line).is_none_or(|(existing_name, _)| existing_name != name))
+        .filter(|line| {
+            parse_line_slices(line).is_none_or(|(existing_name, _)| existing_name != name)
+        })
         .map(str::to_owned)
         .collect();
     if !text.trim().is_empty() {

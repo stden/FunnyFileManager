@@ -82,10 +82,15 @@ impl DeleteKind {
     }
 }
 
-fn delete_pattern_recursive(dir: &Path, params: &DeleteByPatternParams, run: &mut DeleteRun) {
+fn delete_pattern_recursive(
+    dir: &Path,
+    params: &DeleteByPatternParams,
+    run: &mut DeleteRun,
+) -> u64 {
     let Ok(entries) = fs::read_dir(dir) else {
-        return;
+        return 0;
     };
+    let mut claimed = 0;
     for entry in entries.flatten() {
         // Links remain excluded before size calculation or recursive deletion.
         let Some(file_type) = walkable_type(&entry) else {
@@ -94,26 +99,36 @@ fn delete_pattern_recursive(dir: &Path, params: &DeleteByPatternParams, run: &mu
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
         if file_type.is_dir() {
-            if params.recursive {
-                delete_pattern_recursive(&path, params, run);
-            }
+            let child_claimed = if params.recursive {
+                delete_pattern_recursive(&path, params, run)
+            } else {
+                0
+            };
+            claimed += child_claimed;
             if params.include_dirs && globmatch::matches(&name, &params.pattern) {
-                delete_match(&path, DeleteKind::Directory, params, run);
+                claimed += delete_match(&path, DeleteKind::Directory, child_claimed, params, run);
             }
         } else if globmatch::matches(&name, &params.pattern) {
-            delete_match(&path, DeleteKind::File, params, run);
+            claimed += delete_match(&path, DeleteKind::File, 0, params, run);
         }
     }
+    claimed
 }
 
 /// Report the entry at the same point in the post-order traversal for preview or deletion.
 fn delete_match(
     path: &Path,
     kind: DeleteKind,
+    child_claimed: u64,
     params: &DeleteByPatternParams,
     run: &mut DeleteRun,
-) {
-    let size = kind.size(path);
+) -> u64 {
+    let raw = kind.size(path);
+    let size = if params.dry_run {
+        raw.saturating_sub(child_claimed)
+    } else {
+        raw
+    };
     if params.dry_run {
         run.deleted.push(json!({
             "path": path.display().to_string(),
@@ -121,17 +136,19 @@ fn delete_match(
             "size": size,
             "would_delete": true,
         }));
-        return;
+        return size;
     }
-    match kind.remove(path, params.recursive) {
-        Ok(()) => run.deleted.push(json!({
-            "path": path.display().to_string(),
-            "type": kind.label(),
-            "size": size,
-        })),
-        Err(error) => run.errors.push(json!({
+    if let Err(error) = kind.remove(path, params.recursive) {
+        run.errors.push(json!({
             "path": path.display().to_string(),
             "error": error.to_string(),
-        })),
+        }));
+        return 0;
     }
+    run.deleted.push(json!({
+        "path": path.display().to_string(),
+        "type": kind.label(),
+        "size": size,
+    }));
+    size
 }

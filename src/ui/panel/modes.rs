@@ -63,14 +63,10 @@ fn render_rows(
 }
 
 /// The 8.3 forms of the listing while the panel shows short names; `None`
-/// while it shows long ones. Built once per draw, not per row: a name's `~N`
-/// depends on every name before it, so the table is one pass over the whole
-/// listing.
+/// while it shows long ones. Cached on the panel across draws until the
+/// listing or its sort order changes.
 pub(super) fn short_names(panel: &Panel) -> Option<ShortNames> {
-    panel
-        .options
-        .short_names
-        .then(|| ShortNames::for_entries(&panel.entries))
+    panel.options.short_names.then(|| panel.short_names())
 }
 
 /// What a row shows for `name`: its 8.3 form where the table has one, else

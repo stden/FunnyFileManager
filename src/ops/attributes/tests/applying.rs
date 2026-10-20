@@ -88,3 +88,23 @@ fn a_missing_target_is_counted_and_named() {
         "the failure names the target"
     );
 }
+
+#[test]
+fn process_subfolders_stamps_children_before_parent_directory() {
+    let temp = TempDir::new().expect("temp");
+    let dir = temp.path().join("folder");
+    let child = dir.join("child.txt");
+    fs::create_dir_all(&dir).expect("mkdir");
+    fs::write(&child, "x").expect("write");
+    let mut app = app_at(temp.path());
+    app.left_panel.select_named("folder");
+    open(&mut app);
+    let mut dialog = dialog(&app).clone();
+    dialog.modified.current = "2001-02-03 04:05:06".to_owned();
+    dialog.process_subfolders = true;
+    app.close_overlay();
+
+    apply(&mut app, &dialog);
+
+    assert_eq!(app.status_text(), "Attributes set on 2 object(s)");
+}

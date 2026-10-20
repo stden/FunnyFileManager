@@ -55,6 +55,19 @@ pub(super) fn process(app: &mut App, key: KeyEvent) -> bool {
     true
 }
 
+pub(super) fn paste(app: &mut App, text: &str) {
+    let line = crate::popup::text_field::one_line(text);
+    if matches!(
+        state(app).map(|s| &s.recall),
+        Some(Recall::Searching { .. })
+    ) {
+        search::edit_query(app, |query| query.push_str(&line));
+        search::search_from(app, crate::history::RingIndex::NEWEST);
+    } else {
+        edit_and_refresh(app, |editor| editor.insert_str(&line));
+    }
+}
+
 // ─── borrow helpers ───────────────────────────────────────────────────────
 
 /// The command-line state, when that overlay is the open one.
@@ -95,14 +108,14 @@ fn edit(app: &mut App, operation: impl FnOnce(&mut LineEditor)) {
     }
 }
 
-/// Move the caret, then re-derive the ghost.
+/// Move the caret, close any open completion menu, then re-derive the ghost.
 ///
-/// A caret move is not an edit, but it still invalidates the suggestion: the
-/// ghost is only offered with the caret at the end of the line, so stepping
-/// left has to withdraw it. The menu is left alone — the text it was ranked
-/// against has not changed.
+/// Moving the caret changes the token before the cursor that completion ranks
+/// and splices against, so an open dropdown must be dismissed before `Enter`
+/// could splice a stale candidate into the new caret position.
 fn move_caret(app: &mut App, motion: impl FnOnce(&mut LineEditor)) {
     edit(app, motion);
+    close_menu(app);
     refresh_ghost(app);
 }
 

@@ -130,3 +130,38 @@ fn process_subfolders_does_not_loop_through_a_link_to_its_own_folder() {
 
     assert_eq!(app.status_text(), "Attributes set on 3 object(s)");
 }
+
+#[cfg(unix)]
+#[test]
+fn process_subfolders_updates_children_before_removing_parent_permissions() {
+    let temp = TempDir::new().expect("temp");
+    let dir = temp.path().join("restricted");
+    let child = dir.join("inside.txt");
+    fs::create_dir_all(&dir).expect("mkdir");
+    fs::write(&child, "x").expect("write");
+    set_mode(&dir, 0o755);
+    set_mode(&child, 0o644);
+    let mut app = app_at(temp.path());
+    app.left_panel.select_named("restricted");
+    open(&mut app);
+    let mut dialog = dialog(&app).clone();
+    for flag in [Flag::OwnerRead, Flag::OwnerExecute] {
+        let index = dialog
+            .flags
+            .iter()
+            .position(|it| it.flag == flag)
+            .expect("flag");
+        dialog.field = AttributesField::Flag(index);
+        while dialog.flags[index].current != crate::models::Check::Clear {
+            dialog.toggle();
+        }
+    }
+    dialog.process_subfolders = true;
+    app.close_overlay();
+
+    apply(&mut app, &dialog);
+
+    assert_eq!(app.status_text(), "Attributes set on 2 object(s)");
+    set_mode(&dir, 0o755);
+    assert_eq!(mode(&child), 0o244);
+}

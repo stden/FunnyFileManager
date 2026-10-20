@@ -61,7 +61,11 @@ pub fn starts_with_ignore_case(haystack: &str, needle: &str) -> bool {
         return true;
     }
     if !haystack.is_ascii() || !needle.is_ascii() {
-        return haystack.to_lowercase().starts_with(&needle.to_lowercase());
+        let mut hay = haystack.chars().flat_map(char::to_lowercase);
+        return needle
+            .chars()
+            .flat_map(char::to_lowercase)
+            .all(|wanted| hay.next() == Some(wanted));
     }
     let (haystack, needle) = (haystack.as_bytes(), needle.as_bytes());
     haystack

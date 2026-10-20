@@ -120,7 +120,7 @@ pub struct ListOptions {
 }
 
 impl ListOptions {
-    fn parse(form: NameForm, modifiers: &str) -> Self {
+    pub(super) fn parse(form: NameForm, modifiers: &str) -> Option<Self> {
         let mut options = Self {
             form,
             quote: QuoteMode::Never,
@@ -136,10 +136,10 @@ impl ListOptions {
                 'A' => options.encoding = ListEncoding::Ansi,
                 'U' => options.encoding = ListEncoding::Utf8,
                 'W' => options.encoding = ListEncoding::Utf16,
-                _ => {}
+                _ => return None,
             }
         }
-        options
+        Some(options)
     }
 }
 

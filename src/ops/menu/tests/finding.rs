@@ -18,8 +18,15 @@ fn search_results_open_files_and_navigate_to_folders() {
     let target = rows(&app)[0].target.clone();
     choose(&mut app, target).unwrap();
     assert_eq!(app.left_panel.path, temp.path().join("folder"));
+    app.right_panel
+        .navigate_to(temp.path().join("folder"))
+        .unwrap();
     execute_tool(&mut app, ToolCommand::FolderHistory).unwrap();
     assert_eq!(rows(&app).len(), 1);
+    assert_eq!(
+        rows(&app)[0].label,
+        temp.path().join("folder").display().to_string()
+    );
     execute_tool(&mut app, ToolCommand::ViewHistory).unwrap();
     assert_eq!(rows(&app).len(), 1);
 }

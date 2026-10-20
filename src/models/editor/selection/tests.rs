@@ -170,7 +170,17 @@ fn select_all_replacement_preserves_trailing_newline() {
     let mut editor = editor("first\r\nsecond\r\n");
     assert!(editor.format.trailing_newline);
     editor.select_all();
+    let copied = editor.selected_text().expect("selected");
+    editor.insert_text(&copied);
+    assert_eq!(editor.content(), "first\r\nsecond\r\n");
+    editor.select_all();
     editor.insert_text("replaced");
     assert!(editor.format.trailing_newline);
     assert_eq!(editor.content(), "replaced\r\n");
+
+    let mut newline_only = self::editor("\n");
+    newline_only.select_all();
+    assert!(newline_only.delete_selection());
+    assert_eq!(newline_only.content(), "");
+    assert_eq!(newline_only.state, EditState::Modified);
 }

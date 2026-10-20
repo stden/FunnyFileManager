@@ -96,7 +96,7 @@ pub(super) fn descendants(rows: &[ProcessRow], root: usize) -> Vec<usize> {
 /// The rows of `rows` that `pid`'s process descends from, nearest first, by
 /// the same links the tree draws. Empty when `pid` is not listed.
 pub(super) fn ancestors(rows: &[ProcessRow], pid: Pid) -> Vec<usize> {
-    let family = Family::of_all(rows);
+    let family = Family::parents_of_all(rows);
     let mut found = Vec::new();
     let mut visited = Visited::new(rows.len());
     let mut at = rows.iter().position(|row| row.sample().key.pid() == pid);

@@ -29,8 +29,12 @@ pub fn analyse_directory(
 
     let truncated = files.len() >= WALK_BUDGET;
     let mut largest = files;
+    let cap = params.largest.unwrap_or(10).min(1_000);
+    if largest.len() > cap && cap > 0 {
+        largest.select_nth_unstable_by_key(cap - 1, |file| std::cmp::Reverse(file.size));
+    }
+    largest.truncate(cap);
     largest.sort_by_key(|file| std::cmp::Reverse(file.size));
-    largest.truncate(params.largest.unwrap_or(10).min(1_000));
 
     let result = json!({
         "path": root.display().to_string(),

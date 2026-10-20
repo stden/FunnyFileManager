@@ -112,6 +112,9 @@ fn runs_of_stars_behave_like_one() {
 #[test]
 fn case_folding_is_not_ascii_only() {
     assert!(Mask::parse("ОТЧЁТ*").matches("отчёт-2026.txt"));
+    assert!(Mask::parse("ΟΔΟΣ.txt").matches("ΟΔΟΣ.txt"));
+    assert!(Mask::parse("οδος.txt").matches("ΟΔΟΣ.txt"));
+    assert!(Mask::parse("ΟΔΟΣ.txt").matches("οδος.txt"));
 }
 
 const SEPARATED: [&str; 4] = ["semi;colon", "comma,name", "with space.txt", "plain.txt"];

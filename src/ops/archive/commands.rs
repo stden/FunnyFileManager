@@ -28,11 +28,11 @@ pub fn run_command(app: &mut App, command: ArchiveCommand) {
         ArchiveCommand::List => list(app, &archive),
         ArchiveCommand::ExtractHere => {
             let here = app.get_active_panel_ref().path.clone();
-            extract_to(app, &here);
+            extract_to(app, &archive, &here);
         }
         ArchiveCommand::ExtractToOtherPanel => {
             let other = app.get_inactive_panel_ref().path.clone();
-            extract_to(app, &other);
+            extract_to(app, &archive, &other);
         }
         ArchiveCommand::AddSelected => add_to(app, &archive),
     }
@@ -63,14 +63,17 @@ fn list(app: &mut App, archive: &Path) {
     }
 }
 
-/// The Shift+F2 dialog, with the destination this row stands for.
-fn extract_to(app: &mut App, destination: &Path) {
-    super::open_extract(app);
-    if let Overlay::ExtractPrompt(prompt) = &mut app.overlay {
-        prompt
-            .destination
-            .set_text(&crate::path_display::label(destination));
-    }
+/// The Shift+F2 dialog, with the archive under the cursor and the destination
+/// this row stands for.
+fn extract_to(app: &mut App, archive: &Path, destination: &Path) {
+    let archives = if super::is_archive(&name_of(archive)) {
+        vec![archive.to_path_buf()]
+    } else {
+        Vec::new()
+    };
+    app.set_overlay(Overlay::ExtractPrompt(Box::new(
+        crate::models::ExtractPrompt::new(archives, destination),
+    )));
 }
 
 /// The Shift+F1 dialog on this archive: the marked files join it. The

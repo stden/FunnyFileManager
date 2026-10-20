@@ -32,7 +32,7 @@ pub(super) fn editor_window(
         top.saturating_add(rows),
         editor.lsp.revision.0,
     );
-    let limit = skip + width;
+    let limit = skip + width + Cells(1);
     editor
         .lines
         .iter()
@@ -92,7 +92,6 @@ fn sanitize_code_run(text: &str) -> Cow<'_, str> {
 /// Colorer's console scheme for Far, in its sixteen colours, rather than every
 /// class it has: Colorer separates a dozen classes, and on one background most
 /// of those separations stop being legible before they stop being accurate.
-/// These seven are the ones a reader actually navigates by.
 pub(super) fn token_style(token: Token) -> Style {
     match token {
         Token::Normal => Style::default().fg(palette::CODE_NORMAL),
@@ -131,28 +130,27 @@ pub(super) fn clip_runs<S: AsRef<str>>(
     width: Cells,
 ) -> Line<'static> {
     let mut spans = Vec::new();
-    let mut to_skip = skip;
-    let mut room = width;
-
+    let (mut to_skip, mut room) = (skip, width);
     for (text, token) in runs {
         if room.is_zero() {
             break;
         }
         let clean = sanitize_code_run(text.as_ref());
-        let text = clean.as_ref();
-        let text = if to_skip.is_zero() {
-            text
-        } else {
-            let (rest, dropped) = skip_cells(text, to_skip);
-            to_skip = to_skip.saturating_sub(dropped);
-            rest
-        };
+        let (text, dropped) = skip_cells(clean.as_ref(), to_skip);
+        to_skip = to_skip.saturating_sub(dropped);
         if text.is_empty() {
             continue;
         }
         let (taken, used) = take_cells(text, room);
-        room = room.saturating_sub(used);
-        spans.push(Span::styled(taken, token_style(token)));
+        let fits_all = taken.len() == text.len();
+        if !taken.is_empty() {
+            spans.push(Span::styled(taken, token_style(token)));
+        }
+        room = if fits_all {
+            room.saturating_sub(used)
+        } else {
+            Cells::ZERO
+        };
     }
     Line::from(spans)
 }
@@ -164,10 +162,6 @@ pub(super) fn clip_runs<S: AsRef<str>>(
 /// takes `u16`, so an offset past 65535 (one-line minified files) would wrap
 /// around and draw text the cursor is not on. Cells, never bytes and never
 /// chars.
-///
-/// Highlighting starts at line 0, not at `top`: a block comment opened above
-/// the window still colours what is inside it, and a highlighter seeded at the
-/// first visible line cannot know that. Only the visible runs are kept.
 pub(super) fn highlighted_window(
     cache: &std::cell::RefCell<HighlightCache>,
     path: &std::path::Path,
@@ -178,8 +172,8 @@ pub(super) fn highlighted_window(
     width: Cells,
 ) -> Vec<Line<'static>> {
     let mut cache = cache.borrow_mut();
-    cache.prepare(path, lines, top.saturating_add(rows));
-    let limit = skip + width;
+    cache.prepare_revision(path, lines, top.saturating_add(rows), 0);
+    let limit = skip + width + Cells(1);
     lines
         .iter()
         .enumerate()

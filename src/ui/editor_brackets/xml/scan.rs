@@ -28,7 +28,9 @@ impl<'a> XmlScanner<'a> {
         cursor_line: usize,
         cursor_col: usize,
     ) -> Option<[TagSpan; 2]> {
-        for (idx, line) in lines.iter().enumerate() {
+        let limit = cursor_line.saturating_add(super::super::MAX_SCAN_LINES + 1);
+        let first = cursor_line.saturating_sub(super::super::MAX_SCAN_LINES);
+        for (idx, line) in lines.iter().enumerate().take(limit).skip(first) {
             if idx > cursor_line && !self.has_cursor_open(lines, cursor_line, cursor_col) {
                 break;
             }
@@ -40,12 +42,10 @@ impl<'a> XmlScanner<'a> {
     }
 
     fn has_cursor_open(&self, lines: &[String], line: usize, col: usize) -> bool {
-        let on_stack = self
-            .stack
+        self.stack
             .iter()
-            .any(|(_, s)| s.matches_cursor(lines, line, col));
-        let in_open = matches!(self.mode, Mode::OpenTag { pending: (_, s), .. } if s.matches_cursor(lines, line, col));
-        on_stack || in_open
+            .any(|(_, s)| s.matches_cursor(lines, line, col))
+            || matches!(self.mode, Mode::OpenTag { pending: (_, s), .. } if s.matches_cursor(lines, line, col))
     }
 
     fn scan_line(
@@ -92,7 +92,12 @@ impl<'a> XmlScanner<'a> {
             let chars = rest.get(..bytes).map_or(1, |s| s.chars().count()).max(1);
             return (bytes.max(1), chars, None);
         }
-        for (prefix, closer) in [("<!--", "-->"), ("<?", "?>"), ("<!", ">")] {
+        for (prefix, closer) in [
+            ("<!--", "-->"),
+            ("<![CDATA[", "]]>"),
+            ("<?", "?>"),
+            ("<!", ">"),
+        ] {
             if rest.starts_with(prefix) {
                 self.mode = Mode::Until(closer);
                 return (prefix.len(), prefix.len(), None);
@@ -109,12 +114,7 @@ impl<'a> XmlScanner<'a> {
         let name_len = ascii_run(after_slash, is_tag_name_char);
         let after_name = after_slash.get(name_len..).unwrap_or_default();
         let ws_len = ascii_run(after_name, |c| c.is_ascii_whitespace());
-        if name_len > 0
-            && after_name
-                .get(ws_len..)
-                .unwrap_or_default()
-                .starts_with('>')
-        {
+        if name_len > 0 && after_name.get(ws_len..).is_some_and(|s| s.starts_with('>')) {
             let name = after_slash.get(..name_len).unwrap_or_default();
             let total = 2 + name_len + ws_len + 1;
             let close_span = TagSpan::new(line_idx, char_pos, char_pos + total);
@@ -130,11 +130,7 @@ impl<'a> XmlScanner<'a> {
             return (1, 1, None);
         }
         let name = after_lt.get(..name_len).unwrap_or_default();
-        if after_lt
-            .get(name_len..)
-            .unwrap_or_default()
-            .starts_with('>')
-        {
+        if after_lt.get(name_len..).is_some_and(|s| s.starts_with('>')) {
             let total = 1 + name_len + 1;
             self.stack
                 .push((name, TagSpan::new(line_idx, char_pos, char_pos + total)));

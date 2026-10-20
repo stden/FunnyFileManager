@@ -15,12 +15,15 @@ pub(super) fn compare(app: &mut App) {
 }
 
 fn mark_different(panel: &mut crate::models::Panel, other: &crate::models::Panel) {
+    let other_entries: std::collections::HashSet<(&str, u64)> = other
+        .entries
+        .iter()
+        .filter(|candidate| !candidate.kind.is_dir())
+        .map(|candidate| (candidate.name.as_str(), candidate.size.bytes()))
+        .collect();
     for entry in &panel.entries {
         if !entry.kind.is_dir()
-            && !other
-                .entries
-                .iter()
-                .any(|candidate| candidate.name == entry.name && candidate.size == entry.size)
+            && !other_entries.contains(&(entry.name.as_str(), entry.size.bytes()))
         {
             panel
                 .marked

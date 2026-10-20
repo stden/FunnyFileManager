@@ -115,19 +115,35 @@ fn match_components(candidate: &[&str], pattern: &[&str]) -> bool {
 /// Wildcard match within a single path component: `*` matches any run of
 /// characters, `?` exactly one. Backtracks on the last `*` seen.
 fn match_segment(text: &str, pattern: &str) -> bool {
-    let text: Vec<char> = text.to_lowercase().chars().collect();
-    let pattern: Vec<char> = pattern.to_lowercase().chars().collect();
+    if text.is_ascii() && pattern.is_ascii() {
+        return match_slice(
+            text.as_bytes(),
+            pattern.as_bytes(),
+            |b| b == b'*',
+            |t, p| p == b'?' || t.eq_ignore_ascii_case(&p),
+        );
+    }
+    let text: Vec<char> = text.chars().flat_map(char::to_lowercase).collect();
+    let pattern: Vec<char> = pattern.chars().flat_map(char::to_lowercase).collect();
+    match_slice(&text, &pattern, |c| c == '*', |t, p| p == '?' || t == p)
+}
 
+fn match_slice<T: Copy>(
+    text: &[T],
+    pattern: &[T],
+    is_star: impl Fn(T) -> bool,
+    matches_one: impl Fn(T, T) -> bool,
+) -> bool {
     let (mut ti, mut pi) = (0usize, 0usize);
     let mut star: Option<usize> = None;
     let mut star_ti = 0usize;
 
     while let Some(&character) = text.get(ti) {
         let current = pattern.get(pi).copied();
-        if current.is_some_and(|wanted| wanted == '?' || wanted == character) {
+        if current.is_some_and(|wanted| matches_one(character, wanted)) {
             ti += 1;
             pi += 1;
-        } else if current == Some('*') {
+        } else if current.is_some_and(&is_star) {
             star = Some(pi);
             star_ti = ti;
             pi += 1;
@@ -140,5 +156,10 @@ fn match_segment(text: &str, pattern: &str) -> bool {
         }
     }
 
-    pattern.iter().skip(pi).all(|c| *c == '*')
+    pattern
+        .get(pi..)
+        .unwrap_or_default()
+        .iter()
+        .copied()
+        .all(is_star)
 }

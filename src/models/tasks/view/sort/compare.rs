@@ -62,6 +62,12 @@ const fn class_rank(class: PriorityClass) -> i32 {
 
 /// `a` against `b`, ignoring case, without allocating.
 fn caseless(a: &str, b: &str) -> Ordering {
+    if a.is_ascii() && b.is_ascii() {
+        return a
+            .bytes()
+            .map(|byte| byte.to_ascii_lowercase())
+            .cmp(b.bytes().map(|byte| byte.to_ascii_lowercase()));
+    }
     a.chars()
         .flat_map(char::to_lowercase)
         .cmp(b.chars().flat_map(char::to_lowercase))

@@ -160,6 +160,20 @@ fn completion_preserves_trailing_newline_flag_and_trailing_empty_lines() {
     assert!(!editor.format.trailing_newline);
     assert_eq!(editor.lines, ["foo", ""]);
     assert_eq!(editor.content(), "foo\n");
+
+    let mut auto_q = query(&editor);
+    auto_q.feature = LspFeature::Completion(CompletionTrigger::AutoWhileTyping);
+    editor.show_lsp_reply(auto_q, Reply::Completions(vec![item.clone()]));
+    assert!(matches!(editor.lsp.popup, Some(Dialog::Completion { .. })));
+    assert!(editor.accepts_lsp_reply(auto_q));
+    let other_item = completion(json!({"label":"foobar"}));
+    editor.show_lsp_reply(auto_q, Reply::Completions(vec![other_item]));
+    assert!(matches!(
+        &editor.lsp.popup,
+        Some(Dialog::Completion { items, .. }) if items[0].label == "foobar"
+    ));
+    editor.show_lsp_reply(auto_q, Reply::Completions(Vec::new()));
+    assert!(editor.lsp.popup.is_none());
 }
 
 mod matcher;

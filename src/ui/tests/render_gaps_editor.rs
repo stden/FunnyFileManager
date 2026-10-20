@@ -158,11 +158,8 @@ fn test_editor_highlights_xml_tag_url_and_uri_tokens() {
 
     let terminal = draw(&mut app, SCREEN_W, SCREEN_H);
     let buf = terminal.backend().buffer();
-    // `url` at columns 1..4 is painted with CODE_TAG
     assert_eq!(buf[(1, 1)].fg, palette::CODE_TAG);
-    // `a.org` at column 19 is painted with CODE_URL
     assert_eq!(buf[(19, 1)].fg, palette::CODE_URL);
-    // `http://b.org` at column 26 is painted with CODE_URI_FG on CODE_URI_BG
     assert_eq!(buf[(26, 1)].fg, palette::CODE_URI_FG);
     assert_eq!(buf[(26, 1)].bg, palette::CODE_URI_BG);
 
@@ -175,4 +172,27 @@ fn test_editor_highlights_xml_tag_url_and_uri_tokens() {
         Cells::new(3),
     );
     assert_eq!(clipped.spans.len(), 1);
+}
+
+#[test]
+fn clip_runs_and_editor_window_preserve_wide_glyph_boundaries() {
+    let right_edge = code::clip_runs(
+        vec![
+            ("abcd中", crate::highlight::Token::Str),
+            (";", crate::highlight::Token::Punctuation),
+        ],
+        Cells::ZERO,
+        Cells::new(5),
+    );
+    let rendered: String = right_edge
+        .spans
+        .iter()
+        .map(|s| s.content.as_ref())
+        .collect();
+    assert_eq!(rendered, "abcd");
+
+    let editor = Editor::from_content("w.rs".into(), PathBuf::from("w.rs"), "中abcd;x");
+    let lines = code::editor_window(&editor, 0, 1, Cells::new(1), Cells::new(5));
+    let window_text: String = lines[0].spans.iter().map(|s| s.content.as_ref()).collect();
+    assert_eq!(window_text, "abcd;");
 }

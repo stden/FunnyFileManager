@@ -155,3 +155,15 @@ fn a_control_key_is_not_typed_into_the_name() {
     };
     assert_eq!(after.name(), before.name());
 }
+
+#[test]
+fn make_folder_with_dot_slash_prefix_selects_created_folder() {
+    let (mut app, _root) = linking(&["notes.txt"]);
+    app.set_overlay(Overlay::NamePrompt(crate::models::NamePrompt::make_folder()));
+    super::super::paste_text(&mut app, "./created_sub");
+    press(&mut app, &[KeyCode::Enter]);
+    assert_eq!(
+        app.left_panel.get_selected_entry().map(|e| e.name.as_str()),
+        Some("created_sub")
+    );
+}

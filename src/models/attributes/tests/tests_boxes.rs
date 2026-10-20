@@ -146,7 +146,10 @@ fn a_mixed_selection_says_so_for_owner_and_group() {
     let mut other = snapshot("b", 0o644, false);
     other.owner = Some("bob".to_owned());
     other.group = None;
-    let dialog = AttributesDialog::from_snapshots(&[snapshot("a", 0o644, false), other]);
+    let dialog = AttributesDialog::from_snapshots(&[snapshot("a", 0o644, false), other.clone()]);
     assert_eq!(dialog.owner, "various");
     assert_eq!(dialog.group, "various");
+    let reversed = AttributesDialog::from_snapshots(&[other, snapshot("a", 0o644, false)]);
+    assert_eq!(reversed.owner, "various");
+    assert_eq!(reversed.group, "various");
 }

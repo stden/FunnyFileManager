@@ -122,21 +122,21 @@ fn apply_path(
     times: RequestedTimes,
     outcome: &mut Outcome,
 ) {
-    outcome.record(path, apply_one(path, dialog, times));
     let is_real_dir = fs::symlink_metadata(path).is_ok_and(|metadata| metadata.is_dir());
-    if !dialog.process_subfolders || !is_real_dir {
-        return;
-    }
-    let children = match fs::read_dir(path) {
-        Ok(children) => children,
-        Err(error) => return outcome.record(path, Err(error)),
-    };
-    for child in children.flatten() {
-        if child.file_type().is_ok_and(|kind| kind.is_symlink()) {
-            continue;
+    if dialog.process_subfolders && is_real_dir {
+        let children = match fs::read_dir(path) {
+            Ok(children) => children,
+            Err(error) => {
+                return outcome.record(path, apply_one(path, dialog, times).and(Err(error)));
+            }
+        };
+        for child in children.flatten() {
+            if !child.file_type().is_ok_and(|kind| kind.is_symlink()) {
+                apply_path(&child.path(), dialog, times, outcome);
+            }
         }
-        apply_path(&child.path(), dialog, times, outcome);
     }
+    outcome.record(path, apply_one(path, dialog, times));
 }
 
 /// Bits first, then times. The times are written without opening the entry

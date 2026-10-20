@@ -30,11 +30,37 @@ pub(super) fn wheel(app: &mut App, wheel: crate::mouse::Wheel, modifiers: KeyMod
     true
 }
 
-/// A terminal paste is document text, never a sequence of editor shortcuts.
+/// A terminal paste is document text, or search-query text when F7 is open.
 pub fn paste_text(app: &mut App, text: &str) {
-    if let Some(editor) = app.get_editor_mut().filter(|editor| editor.accepts_text()) {
-        editor.notice = None;
-        editor.insert_text(text);
+    let Some(editor) = app.get_editor_mut() else {
+        return;
+    };
+    match editor.modal() {
+        None => {
+            editor.notice = None;
+            editor.insert_text(text);
+        }
+        Some(crate::models::EditorModal::Lsp)
+            if matches!(
+                editor.lsp.popup,
+                Some(crate::models::lsp::Dialog::Completion { .. })
+            ) =>
+        {
+            editor.notice = None;
+            editor.lsp.completions = None;
+            editor.insert_text(text);
+        }
+        Some(crate::models::EditorModal::Search(_)) => {
+            if let Some(prompt) = editor
+                .search
+                .prompt
+                .as_mut()
+                .filter(|p| p.field == crate::search::SearchField::Query)
+            {
+                prompt.query.push_str(&super::text_field::one_line(text));
+            }
+        }
+        _ => {}
     }
 }
 

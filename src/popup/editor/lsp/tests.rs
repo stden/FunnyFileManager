@@ -185,10 +185,12 @@ fn page_navigation_empty_backspace_and_non_identifier_dismissal() {
     assert!(!process(&mut app, KeyCode::Char('(')));
     assert!(app.get_editor().unwrap().lsp.popup.is_none());
 
-    app.get_editor_mut().unwrap().lines = vec!["h".into()];
-    app.get_editor_mut().unwrap().cursor_col = 1;
-    completion(&mut app);
-    assert!(process(&mut app, KeyCode::Backspace));
-    assert!(app.get_editor().unwrap().lsp.popup.is_none());
-    assert!(app.get_editor().unwrap().lsp.completions.is_none());
+    for (line, col) in [("h", 1), ("hel.", 4)] {
+        app.get_editor_mut().unwrap().lines = vec![line.into()];
+        app.get_editor_mut().unwrap().cursor_col = col;
+        completion(&mut app);
+        assert!(process(&mut app, KeyCode::Backspace));
+        assert!(app.get_editor().unwrap().lsp.popup.is_none());
+        assert!(app.get_editor().unwrap().lsp.completions.is_none());
+    }
 }

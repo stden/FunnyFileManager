@@ -46,11 +46,10 @@ fn identifier_stem(candidate: &str) -> &str {
     let end = trimmed
         .find(|ch: char| !super::is_identifier_char(ch))
         .unwrap_or(trimmed.len());
-    if end == 0 {
-        trimmed
-    } else {
-        trimmed.get(..end).unwrap_or(trimmed)
-    }
+    (end > 0)
+        .then(|| trimmed.get(..end))
+        .flatten()
+        .unwrap_or(trimmed)
 }
 
 fn starts_with_ignore_case(text: &str, prefix: &str) -> bool {
@@ -141,6 +140,7 @@ impl super::Editor {
         self.lsp.completions = Some(Box::new(super::CompletionPool(items.clone())));
         let filtered = filter_and_rank(&items, &self.completion_prefix());
         if filtered.is_empty() && trigger == super::CompletionTrigger::AutoWhileTyping {
+            self.lsp.popup = None;
             return;
         }
         let shown = if filtered.is_empty() { items } else { filtered };
@@ -173,17 +173,17 @@ impl super::Editor {
             edit.range.end = position;
         }
         let items = filter_and_rank(&pool.0, &prefix);
-        if !items.is_empty() {
-            let query = crate::lsp::types::Query {
+        self.lsp.popup = (!items.is_empty()).then(|| super::Dialog::Completion {
+            query: crate::lsp::types::Query {
                 stamp: self.lsp_stamp(),
                 position,
                 feature: old_query.feature,
-            };
-            self.lsp.popup = Some(super::Dialog::Completion {
-                query,
-                items,
-                selected: 0,
-            });
+            },
+            items,
+            selected: 0,
+        });
+        if self.lsp.popup.is_none() {
+            self.lsp.completions = None;
         }
     }
 

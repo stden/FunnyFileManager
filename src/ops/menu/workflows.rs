@@ -26,14 +26,13 @@ pub(super) fn filter(app: &mut App, text: &str) -> io::Result<()> {
 }
 
 pub(super) fn folder_history(app: &mut App) {
+    app.record_folder_visits();
     let rows = app
-        .get_active_panel_ref()
-        .navigation_history
-        .iter()
-        .rev()
+        .folder_history
+        .newest_first()
         .map(|path| MenuChoice {
             label: path.display().to_string(),
-            target: ChoiceTarget::Directory(path.clone()),
+            target: ChoiceTarget::Directory(path.to_path_buf()),
         })
         .collect();
     super::choices(app, "Folders history", rows);

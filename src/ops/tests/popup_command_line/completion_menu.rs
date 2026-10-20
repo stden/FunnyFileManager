@@ -151,3 +151,24 @@ fn test_up_at_the_first_candidate_wraps_to_the_last() {
     };
     assert_eq!(state.menu.as_ref().expect("menu").selected(), last);
 }
+
+#[test]
+fn test_moving_caret_closes_the_menu_so_enter_does_not_splice_elsewhere() {
+    let mut app = App::new().expect("test setup");
+    app.set_overlay(Overlay::CommandLine("m".into()));
+    process_popup_input(&mut app, key_event(KeyCode::Tab));
+    assert!(
+        matches!(&app.overlay, Overlay::CommandLine(state) if state.menu.is_some()),
+        "menu opens on ambiguous prefix"
+    );
+
+    process_popup_input(&mut app, key_event(KeyCode::Left));
+
+    let Overlay::CommandLine(state) = &app.overlay else {
+        panic!("command line should still be open");
+    };
+    assert!(
+        state.menu.is_none(),
+        "moving the caret must close the completion menu"
+    );
+}

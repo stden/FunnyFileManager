@@ -82,32 +82,48 @@ pub fn name_is_taken(path: &Path) -> bool {
 /// If "test.txt" already exists, returns "`test_1.txt`", "`test_2.txt`", etc.
 pub fn unique_destination(base: &Path, file_name: &std::ffi::OsStr) -> io::Result<PathBuf> {
     const MAX_UNIQUE_ATTEMPTS: u32 = 9999;
-
-    let mut dest = base.join(file_name);
-    let stem = Path::new(file_name)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("");
-    let extension = Path::new(file_name).extension().and_then(|e| e.to_str());
-    let mut counter: u32 = 1;
-    while name_is_taken(&dest) && counter <= MAX_UNIQUE_ATTEMPTS {
-        let new_name = match extension {
-            Some(ext) if !ext.is_empty() => format!("{stem}_{counter}.{ext}"),
-            _ => format!("{stem}_{counter}"),
-        };
-        dest = base.join(new_name);
-        counter += 1;
-    }
-    if name_is_taken(&dest) {
-        return Err(io::Error::new(
+    probe_unique_destination(base, file_name, MAX_UNIQUE_ATTEMPTS).ok_or_else(|| {
+        io::Error::new(
             io::ErrorKind::AlreadyExists,
             format!(
                 "could not find unique name for {} after {MAX_UNIQUE_ATTEMPTS} attempts",
                 file_name.display()
             ),
-        ));
+        )
+    })
+}
+
+fn probe_unique_destination(base: &Path, file_name: &std::ffi::OsStr, max: u32) -> Option<PathBuf> {
+    let dest = base.join(file_name);
+    if !name_is_taken(&dest) {
+        return Some(dest);
     }
-    Ok(dest)
+    let stem = Path::new(file_name)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("");
+    let ext = Path::new(file_name).extension().and_then(|e| e.to_str());
+    let candidate = |n: u32| match ext.filter(|e| !e.is_empty()) {
+        Some(ext) => format!("{stem}_{n}.{ext}"),
+        None => format!("{stem}_{n}"),
+    };
+    if let Some(p) = (1..=4)
+        .map(|n| base.join(candidate(n)))
+        .find(|p| !name_is_taken(p))
+    {
+        return Some(p);
+    }
+    let set: Option<std::collections::HashSet<_>> = fs::read_dir(base)
+        .ok()
+        .map(|entries| entries.flatten().map(|e| e.file_name()).collect());
+    (5..=max)
+        .map(candidate)
+        .filter(|n| {
+            !set.as_ref()
+                .is_some_and(|s| s.contains(std::ffi::OsStr::new(n)))
+        })
+        .map(|n| base.join(n))
+        .find(|p| !name_is_taken(p))
 }
 
 /// Make a symbolic link at `link` pointing at `target`.

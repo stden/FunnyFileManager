@@ -65,11 +65,13 @@ fn reloading_rejects_nul_bytes_and_preserves_indent_and_last_search() {
     let path = dir.path().join("sample.txt");
     fs::write(&path, b"a\x00b").expect("write binary");
     let mut app = editor_app("initial", path.clone());
-    {
+    let original_id = {
         let editor = app.get_editor_mut().expect("editor");
         editor.format.indent = Indent::Tabs;
+        editor.lsp.state = ServerState::Ready;
         editor.search.last = crate::search::Needle::new("needle").map(crate::search::Search::new);
-    }
+        editor.lsp.id
+    };
     crate::ops::reload_editor_encoding(&mut app, crate::encoding::TextEncoding::Windows1251);
     let editor = app.get_editor().expect("editor");
     assert_eq!(editor.lines, ["initial"]);
@@ -83,6 +85,9 @@ fn reloading_rejects_nul_bytes_and_preserves_indent_and_last_search() {
     let editor = app.get_editor().expect("editor");
     assert_eq!(editor.lines, ["reloaded text"]);
     assert_eq!(editor.format.indent, Indent::Tabs);
+    assert_eq!(editor.lsp.id, original_id);
+    assert_eq!(editor.lsp.state, ServerState::Ready);
+    assert_eq!(editor.lsp.revision.0, 1);
     assert_eq!(
         editor.search.last.as_ref().map(|s| s.needle.as_str()),
         Some("needle")

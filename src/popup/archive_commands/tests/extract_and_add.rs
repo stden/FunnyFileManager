@@ -6,8 +6,8 @@ use super::*;
 fn extract_here_opens_the_extract_prompt_on_this_folder() {
     let home = TempDir::new().expect("home");
     let other = TempDir::new().expect("other");
-    tar_archive(home.path(), "sample.tar", "cf");
-    let mut app = app_open_on(&home, &other, "sample.tar");
+    let archive = tar_archive(home.path(), "sample.tar", "cf");
+    let mut app = app_with_extra_marked(&home, &other, "sample.tar");
 
     move_to(&mut app, ArchiveCommand::ExtractHere);
     press(&mut app, KeyCode::Enter);
@@ -15,6 +15,7 @@ fn extract_here_opens_the_extract_prompt_on_this_folder() {
     let Overlay::ExtractPrompt(prompt) = &app.overlay else {
         panic!("expected the extract prompt");
     };
+    assert_eq!(prompt.archives, [archive]);
     assert_eq!(prompt.destination.text(), home.path().display().to_string());
 }
 
@@ -72,20 +73,16 @@ fn add_selected_opens_the_add_prompt_named_after_this_archive() {
 
     press(&mut app, KeyCode::Enter);
     assert!(!app.overlay.is_active());
+    assert!(app.left_panel.marked.is_empty());
     assert!(
         matches!(&app.status, Status::AddedToArchive { archive: a, kept: 0, .. } if *a == archive),
         "{:?}",
         app.status
     );
     let lines = list_archive(&archive).expect("listing");
-    assert!(
-        lines.iter().any(|line| line.contains("inside.txt")),
-        "{lines:?}"
-    );
-    assert!(
-        lines.iter().any(|line| line.contains("extra.txt")),
-        "{lines:?}"
-    );
+    for member in ["inside.txt", "extra.txt"] {
+        assert!(lines.iter().any(|line| line.contains(member)), "{lines:?}");
+    }
 }
 
 /// With nothing marked there is nothing to add, and a compressed tar cannot

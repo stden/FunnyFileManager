@@ -111,7 +111,7 @@ impl Editor {
     pub(crate) fn accepts_lsp_reply(&self, query: Query) -> bool {
         self.lsp_stamp() == query.stamp
             && self.lsp_position() == Some(query.position)
-            && self.accepts_text()
+            && (self.accepts_text() || matches!(self.lsp.popup, Some(Dialog::Completion { .. })))
     }
 
     pub(crate) fn show_lsp_reply(&mut self, query: Query, reply: Reply) -> Option<Definition> {
@@ -125,6 +125,10 @@ impl Editor {
         match reply {
             Reply::Completions(items) if !items.is_empty() => {
                 self.open_completion_popup(query, items, trigger);
+            }
+            Reply::Completions(_) if trigger == CompletionTrigger::AutoWhileTyping => {
+                self.lsp.completions = None;
+                self.lsp.popup = None;
             }
             Reply::Hover(text) if !text.is_empty() => {
                 self.lsp.popup = Some(Dialog::Hover { text, scroll: 0 });

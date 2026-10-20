@@ -113,6 +113,7 @@ fn reload_editor(editor: &mut Editor, encoding: crate::encoding::TextEncoding) -
         ));
     }
     let mut reloaded = Editor::from_content(editor.title.clone(), editor.path.clone(), &content);
+    preserve_lsp_session(&mut reloaded, editor);
     reloaded.disk = Some(Fingerprint::of(&bytes));
     reloaded.tab_size = editor.tab_size;
     reloaded.search.last.clone_from(&editor.search.last);
@@ -130,6 +131,14 @@ fn reload_editor(editor: &mut Editor, encoding: crate::encoding::TextEncoding) -
     *editor = reloaded;
     Ok(())
 }
+
+fn preserve_lsp_session(reloaded: &mut Editor, previous: &Editor) {
+    reloaded.lsp.id = previous.lsp.id;
+    reloaded.lsp.state = previous.lsp.state.clone();
+    reloaded.lsp.saved = previous.lsp.saved;
+    reloaded.lsp.revision.0 = previous.lsp.revision.0.saturating_add(1);
+}
+
 pub fn reload_editor_encoding(
     app: &mut crate::models::App,
     encoding: crate::encoding::TextEncoding,

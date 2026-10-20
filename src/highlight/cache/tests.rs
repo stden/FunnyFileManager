@@ -101,11 +101,15 @@ fn cache_reconciles_line_growth_and_scanner_continuations() {
     let root = tempfile::TempDir::new().expect("directory");
     let mut cache = HighlightCache::default();
     let rust = root.path().join("grow.rs");
-    let mut lines = vec!["let a = 1;".to_owned()];
-    cache.prepare_revision(&rust, &lines, 1, 1);
+    let mut lines = vec!["let a = 1;".to_owned(), "let b = 2;".to_owned()];
+    cache.prepare_revision(&rust, &lines, 2, 1);
     lines.push("let tail = 1;".to_owned());
-    cache.prepare_revision(&rust, &lines, 2, 2);
-    assert!(cache.runs(1, &lines[1]).contains(&("let", Token::Keyword)));
+    cache.prepare_revision(&rust, &lines, 3, 2);
+    assert!(cache.runs(2, &lines[2]).contains(&("let", Token::Keyword)));
+    lines.insert(2, "fn offscreen() {}".to_owned());
+    cache.prepare_revision(&rust, &lines, 1, 3);
+    cache.prepare_revision(&rust, &lines, 4, 3);
+    assert!(cache.runs(2, &lines[2]).contains(&("fn", Token::Keyword)));
 
     for (name, first, second) in [
         ("doc.md", "```", "inside"),
@@ -118,4 +122,40 @@ fn cache_reconciles_line_growth_and_scanner_continuations() {
         buf[0].push(' ');
         cache.prepare(&path, &buf, 2);
     }
+}
+
+#[test]
+fn single_line_insert_and_delete_in_large_file_converge_in_constant_passes() {
+    let root = tempfile::TempDir::new().expect("directory");
+    let rust = root.path().join("insert_delete.rs");
+    let mut lines: Vec<String> = (0..1_000).map(|i| format!("let v{i} = {i};")).collect();
+    let mut cache = HighlightCache::default();
+
+    cache.prepare_revision(&rust, &lines, 1_000, 1);
+    let before_insert = crate::highlight::LINE_PASSES.get();
+    lines.insert(500, "fn inserted() -> u32 { 1 }".to_owned());
+    cache.prepare_revision(&rust, &lines, 1_001, 2);
+    assert_eq!(
+        crate::highlight::LINE_PASSES.get() - before_insert,
+        1,
+        "inserting one line with unchanged continuation state lexes only the inserted line"
+    );
+    assert!(cache
+        .runs(500, &lines[500])
+        .contains(&("fn", Token::Keyword)));
+    assert!(cache
+        .runs(1_000, &lines[1_000])
+        .contains(&("let", Token::Keyword)));
+
+    let before_delete = crate::highlight::LINE_PASSES.get();
+    lines.remove(500);
+    cache.prepare_revision(&rust, &lines, 1_000, 3);
+    assert_eq!(
+        crate::highlight::LINE_PASSES.get() - before_delete,
+        0,
+        "deleting a line whose continuation state matches its predecessor re-lexes zero lines"
+    );
+    assert!(cache
+        .runs(999, &lines[999])
+        .contains(&("let", Token::Keyword)));
 }

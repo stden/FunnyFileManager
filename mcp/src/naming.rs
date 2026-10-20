@@ -30,7 +30,7 @@ pub fn unique_destination(base: &Path, file_name: &str) -> Result<PathBuf, Strin
     // The counter suffixes below are derived from this one validated component,
     // so `{stem}_{n}[.{ext}]` can never grow a separator or a `..` of its own.
     let mut dest = join_child(base, file_name)?;
-    if !dest.exists() {
+    if dest.symlink_metadata().is_err() {
         return Ok(dest);
     }
 
@@ -44,7 +44,7 @@ pub fn unique_destination(base: &Path, file_name: &str) -> Result<PathBuf, Strin
             _ => format!("{stem}_{counter}"),
         };
         dest = base.join(new_name);
-        if !dest.exists() {
+        if dest.symlink_metadata().is_err() {
             return Ok(dest);
         }
     }

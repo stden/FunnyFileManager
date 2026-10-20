@@ -11,6 +11,7 @@ pub struct HighlightCache(Option<Box<Document>>);
 #[derive(Debug)]
 struct Document {
     path: PathBuf,
+    #[cfg(test)]
     fingerprint: u64,
     revision: Option<u64>,
     line_count: usize,
@@ -41,6 +42,7 @@ fn hash_of<T: Hash + ?Sized>(value: &T) -> u64 {
 }
 
 impl HighlightCache {
+    #[cfg(test)]
     pub(crate) fn prepare(&mut self, path: &Path, lines: &[String], end: usize) {
         let end = end.min(lines.len());
         let fingerprint = hash_of(lines);

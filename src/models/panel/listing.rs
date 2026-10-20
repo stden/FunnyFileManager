@@ -2,7 +2,10 @@
 //! sorting it, trimming stale marks, recording the move, and putting the
 //! cursor back where it belongs.
 
-use std::{collections::HashSet, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 
 use super::sort::sort_entries;
 use super::{Cursor, DirectoryListing, Panel};
@@ -22,6 +25,7 @@ impl Panel {
         entries.append(&mut listing.entries);
         self.entries = entries;
         self.metadata = listing.metadata;
+        *self.short_names.borrow_mut() = None;
         self.forget_unlisted_marks();
         self.select_after_reload(&previous);
     }
@@ -49,12 +53,13 @@ impl Panel {
 
     /// Commit navigation only after the target directory has been loaded.
     pub(crate) fn apply_navigation(&mut self, path: PathBuf, listing: DirectoryListing) {
+        self.kind = super::PanelKind::Files;
         self.pending_visit = Some(path.clone());
-        if self.navigation_history.last() != Some(&self.path) {
-            self.navigation_history.push(self.path.clone());
+        if self.navigation_history.back() != Some(&self.path) {
+            self.navigation_history.push_back(self.path.clone());
         }
         if self.navigation_history.len() > 100 {
-            self.navigation_history.remove(0);
+            self.navigation_history.pop_front();
         }
         self.path = path;
         // Marks are names in the folder being left. A namesake in the new one
@@ -127,13 +132,16 @@ impl Panel {
     }
 
     pub(crate) fn set_directory_sizes(&mut self, measured: &[(String, crate::models::FileSize)]) {
-        for (name, size) in measured {
-            if let Some(entry) = self
-                .entries
-                .iter_mut()
-                .find(|entry| entry.kind.is_dir() && entry.name == *name)
+        let by_name: HashMap<&str, crate::models::FileSize> = measured
+            .iter()
+            .map(|(name, size)| (name.as_str(), *size))
+            .collect();
+        for entry in &mut self.entries {
+            if let Some(&size) = by_name
+                .get(entry.name.as_str())
+                .filter(|_| entry.kind.is_dir())
             {
-                entry.set_measured_size(*size);
+                entry.set_measured_size(size);
             }
         }
         self.resort_if_by_size();
@@ -148,6 +156,7 @@ impl Panel {
         if let Some(rest) = self.entries.get_mut(start..) {
             sort_entries(rest, self.sort_mode, self.sort_order);
         }
+        *self.short_names.borrow_mut() = None;
         self.select_after_reload(&previous);
     }
 }

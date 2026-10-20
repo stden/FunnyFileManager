@@ -87,7 +87,7 @@ fn parse_list(text: &str) -> Option<(usize, Token<'_>)> {
     let (options, rest) = tail.split_once('!')?;
     Some((
         text.len() - rest.len(),
-        Token::List(ListOptions::parse(form, options)),
+        Token::List(ListOptions::parse(form, options)?),
     ))
 }
 

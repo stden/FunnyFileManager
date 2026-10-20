@@ -17,16 +17,16 @@ pub(in crate::ui) fn diagnostics(
     top: usize,
     skip: Cells,
 ) {
+    let bottom = top
+        .saturating_add(usize::from(area.height))
+        .min(editor.lines.len());
     for diagnostic in &editor.lsp.diagnostics {
-        for (row, line) in editor
-            .lines
-            .iter()
-            .enumerate()
-            .skip(top)
-            .take(usize::from(area.height))
-        {
+        for row in visible_rows(diagnostic, top, bottom) {
+            let Some(text) = editor.lines.get(row) else {
+                continue;
+            };
             let line = EditorLine {
-                text: line,
+                text,
                 tab: editor.tab_size,
             };
             if let Some(columns) = diagnostic_columns(diagnostic, row, line, skip, area.width) {
@@ -40,6 +40,22 @@ pub(in crate::ui) fn diagnostics(
             }
         }
     }
+}
+
+fn visible_rows(diagnostic: &Diagnostic, top: usize, bottom: usize) -> std::ops::Range<usize> {
+    if top >= bottom || diagnostic.range.start > diagnostic.range.end {
+        return 0..0;
+    }
+    let Ok(start) = usize::try_from(diagnostic.range.start.line) else {
+        return 0..0;
+    };
+    let Ok(end) = usize::try_from(diagnostic.range.end.line) else {
+        return 0..0;
+    };
+    if end < top || start >= bottom {
+        return 0..0;
+    }
+    start.max(top)..end.saturating_add(1).min(bottom)
 }
 
 pub(super) fn diagnostic_columns(

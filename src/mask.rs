@@ -22,8 +22,41 @@
 /// A parsed mask: what it takes, and what it takes back.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mask {
-    include: Vec<String>,
-    exclude: Vec<String>,
+    include: Vec<Pattern>,
+    exclude: Vec<Pattern>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Pattern {
+    raw: String,
+    chars: Vec<char>,
+}
+
+impl Pattern {
+    fn new(raw: String) -> Self {
+        let chars = fold_chars(&raw);
+        Self { raw, chars }
+    }
+
+    fn matches(&self, name: &str, lower_chars: &mut Option<Vec<char>>) -> bool {
+        if name.is_ascii() && self.raw.is_ascii() {
+            return glob_slice(
+                self.raw.as_bytes(),
+                name.as_bytes(),
+                |b| b == b'*',
+                |p, n| p == b'?' || p == n.to_ascii_lowercase(),
+            );
+        }
+        let chars = lower_chars.get_or_insert_with(|| fold_chars(name));
+        glob_slice(&self.chars, chars, |c| c == '*', |p, n| p == '?' || p == n)
+    }
+}
+
+fn fold_chars(text: &str) -> Vec<char> {
+    text.chars()
+        .flat_map(char::to_lowercase)
+        .map(|ch| if ch == 'ς' { 'σ' } else { ch })
+        .collect()
 }
 
 impl Mask {
@@ -53,12 +86,19 @@ impl Mask {
         if self.is_empty() {
             return false;
         }
-        let name = name.to_lowercase();
-        let any = |patterns: &[String]| patterns.iter().any(|p| glob(p, &name));
-        if any(&self.exclude) {
+        let mut lower_chars = None;
+        if self
+            .exclude
+            .iter()
+            .any(|p| p.matches(name, &mut lower_chars))
+        {
             return false;
         }
-        self.include.is_empty() || any(&self.include)
+        self.include.is_empty()
+            || self
+                .include
+                .iter()
+                .any(|p| p.matches(name, &mut lower_chars))
     }
 
     /// Whether this mask would let anything through at all. An empty line
@@ -74,7 +114,7 @@ impl Mask {
 ///
 /// Only separators outside quotes split. Each part is trimmed before its
 /// quotes are removed, so the blanks inside them stay part of the name.
-fn patterns(half: &str) -> Vec<String> {
+fn patterns(half: &str) -> Vec<Pattern> {
     // Separators are one byte at character boundaries, so every `get` succeeds.
     let mut parts = Vec::new();
     let mut start = 0;
@@ -87,7 +127,7 @@ fn patterns(half: &str) -> Vec<String> {
         .into_iter()
         .map(|part| part.trim().replace('"', ""))
         .filter(|part| !part.is_empty())
-        .map(|part| part.to_lowercase())
+        .map(|part| Pattern::new(part.to_lowercase()))
         .collect()
 }
 
@@ -104,33 +144,30 @@ fn unquoted(text: &str) -> impl Iterator<Item = (usize, char)> + '_ {
     })
 }
 
-/// Match one lowercase pattern against one lowercase name.
-///
-/// Iterative with one backtrack point rather than recursive: a pattern like
-/// `*a*a*a*a*b` against a long name costs exponential time recursively, and a
-/// file manager must not freeze because someone typed a silly mask.
-fn glob(pattern: &str, name: &str) -> bool {
-    let pattern: Vec<char> = pattern.chars().collect();
-    let name: Vec<char> = name.chars().collect();
+/// Match one pattern slice against one candidate slice with iterative
+/// single-star backtracking.
+fn glob_slice<T: Copy>(
+    pattern: &[T],
+    name: &[T],
+    is_star: impl Fn(T) -> bool,
+    matches_one: impl Fn(T, T) -> bool,
+) -> bool {
     let (mut at_pattern, mut at_name) = (0, 0);
-    // Where the last `*` was, and how much of the name it had swallowed —
-    // the state a failed match rewinds to.
     let mut star: Option<usize> = None;
     let mut swallowed = 0;
 
-    while at_name < name.len() {
-        match pattern.get(at_pattern) {
-            Some('*') => {
+    while let Some(&current) = name.get(at_name) {
+        match pattern.get(at_pattern).copied() {
+            Some(ch) if is_star(ch) => {
                 star = Some(at_pattern);
                 swallowed = at_name;
                 at_pattern += 1;
             }
-            Some(ch) if *ch == '?' || name.get(at_name) == Some(ch) => {
+            Some(ch) if matches_one(ch, current) => {
                 at_pattern += 1;
                 at_name += 1;
             }
             _ => match star {
-                // Give the `*` one more character and try again from there.
                 Some(at) => {
                     at_pattern = at + 1;
                     swallowed += 1;
@@ -140,8 +177,12 @@ fn glob(pattern: &str, name: &str) -> bool {
             },
         }
     }
-    // Whatever is left of the pattern must be able to match nothing.
-    pattern.iter().skip(at_pattern).all(|ch| *ch == '*')
+    pattern
+        .get(at_pattern..)
+        .unwrap_or_default()
+        .iter()
+        .copied()
+        .all(is_star)
 }
 
 #[cfg(test)]
