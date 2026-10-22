@@ -128,7 +128,7 @@ jobs:
 
       # The spell check in ./ffm.py lint; typos.toml holds the project words.
       - name: Install typos
-        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: ${{ env.TOOL_TYPOS }}
 
@@ -177,7 +177,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install coverage + test tools (prebuilt)
-        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: ${{ env.TOOL_LLVM_COV }},${{ env.TOOL_NEXTEST }}
 
@@ -329,7 +329,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install coverage tool (prebuilt)
-        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: ${{ env.TOOL_LLVM_COV }}
 
@@ -434,7 +434,7 @@ jobs:
         run: rustup toolchain install --no-self-update
 
       - name: Install cargo-deny (prebuilt)
-        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: ${{ env.TOOL_CARGO_DENY }}
 
@@ -517,7 +517,7 @@ jobs:
           save-if: ${{ matrix.shard == 0 }}
 
       - name: Install mutation + test tools (prebuilt)
-        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: ${{ env.TOOL_MUTANTS }},${{ env.TOOL_NEXTEST }}
 
