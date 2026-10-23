@@ -82,7 +82,7 @@ with exactly its codes, and must accept test code that uses the allowances.
 
 ## ⚙️ Important Environment Details
 
-- `rust-toolchain.toml` pins the exact Rust release (1.98.1) with rustfmt and
+- `rust-toolchain.toml` pins the exact Rust release (1.99.1) with rustfmt and
   Clippy for all packages; rustup installs it on first use, and every CI job
   installs the same file's release with `rustup toolchain install`. Bump it on
   purpose, in its own commit: a new stable brings new Clippy lints, and the
