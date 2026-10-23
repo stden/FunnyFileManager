@@ -19,7 +19,7 @@ fn round_trip_password_only() {
     assert_eq!(list.len(), 1);
     assert_eq!(list[0].title, "GitHub");
     assert_eq!(list[0].username, "alice");
-    assert!(list[0].group_path.is_empty());
+    assert_eq!(list[0].group_path.len(), 0);
 
     let details = read_entry(&path, "pw", None, &[], "GitHub").expect("read");
     assert_eq!(details.password, "s3cr3t!");

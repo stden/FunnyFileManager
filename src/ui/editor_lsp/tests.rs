@@ -58,7 +58,7 @@ fn completion_and_definition_lists_include_selection_details_and_locations() {
     assert!(text.contains("> item [3]") && text.contains("signature") && text.contains("docs"));
     check_definition_list(&editor);
     assert_eq!(marker(0, 1), " ");
-    assert!(status(&editor).is_empty());
+    assert_eq!(status(&editor).len(), 0);
 }
 
 fn check_definition_list(editor: &Editor) {

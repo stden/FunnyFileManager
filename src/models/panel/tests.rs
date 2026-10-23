@@ -42,7 +42,7 @@ fn applying_a_snapshot_sorts_entries_and_replaces_metadata_together() {
         parent: None,
         metadata: PanelMetadata::default(),
     });
-    assert!(panel.entries.is_empty());
+    assert_eq!(panel.entries.len(), 0);
     assert!(!panel.is_hidden("z.txt"));
     assert!(!panel.is_dirty_repo("a.txt"));
     assert_eq!(panel.available_space(), None);

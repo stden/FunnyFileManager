@@ -24,9 +24,10 @@ fn probe_second_delete_by_id_is_entry_not_found() {
     let id = list[0].id;
 
     delete_entry_by_id(&path, "pw", None, id).expect("first delete");
-    assert!(list_entries(&path, "pw", None)
-        .expect("list again")
-        .is_empty());
+    assert_eq!(
+        list_entries(&path, "pw", None).expect("list again").len(),
+        0
+    );
 
     let second = delete_entry_by_id(&path, "pw", None, id);
     assert!(

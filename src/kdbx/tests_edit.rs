@@ -83,7 +83,7 @@ fn lock_while_editing_drops_and_zeroizes_the_form() {
     let form = vault
         .form()
         .expect("zeroize wipes in place; only lock drops");
-    assert!(form.password().expose().is_empty());
+    assert_eq!(form.password().expose().len(), 0);
     // SAFETY: the form — and so the draft's allocation — is still alive;
     // `zeroize` only reset the length after overwriting the bytes.
     let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };

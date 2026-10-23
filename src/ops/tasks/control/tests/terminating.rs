@@ -10,7 +10,7 @@ fn f8_then_terminate_signals_the_cursor_process_once() {
         panic!("the confirmation is open");
     };
     assert_eq!(confirm.offer(), KillOffer::TerminateOrKill);
-    assert!(tasks.host.controls().is_empty(), "opening sends nothing");
+    assert_eq!(tasks.host.controls().len(), 0, "opening sends nothing");
     press(&mut tasks.app, ConfirmButton::Terminate);
     assert_eq!(
         tasks.host.controls(),
@@ -33,7 +33,7 @@ fn kill_sends_sigkill_and_cancel_sends_nothing() {
     let mut tasks = firefox();
     confirm_terminate(tasks.list());
     press(&mut tasks.app, ConfirmButton::Cancel);
-    assert!(tasks.host.controls().is_empty());
+    assert_eq!(tasks.host.controls().len(), 0);
     assert_eq!(tasks.list().modal(), &Modal::Browse);
     assert_eq!(tasks.list().notice(), None);
     confirm_terminate(tasks.list());
@@ -56,7 +56,7 @@ fn a_button_the_confirmation_lacks_does_nothing() {
     let confirm = crate::models::KillConfirm::new(targets, KillOffer::Send(Signal::Hangup));
     tasks.list().set_modal(Modal::Confirm(confirm));
     press(&mut tasks.app, ConfirmButton::Kill);
-    assert!(tasks.host.controls().is_empty());
+    assert_eq!(tasks.host.controls().len(), 0);
     assert!(
         matches!(tasks.list().modal(), Modal::Confirm(_)),
         "still open"
@@ -74,7 +74,7 @@ fn a_press_with_no_confirmation_open_does_nothing() {
     press(&mut tasks.app, ConfirmButton::Terminate);
     tasks.app.close_overlay();
     press(&mut tasks.app, ConfirmButton::Terminate);
-    assert!(tasks.host.controls().is_empty());
+    assert_eq!(tasks.host.controls().len(), 0);
 }
 
 #[test]

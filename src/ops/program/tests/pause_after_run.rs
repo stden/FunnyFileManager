@@ -32,7 +32,7 @@ fn a_launch_failure_returns_to_the_panels_at_once() {
         Err(io::Error::other("exec format error"))
     })
     .expect("terminal restored");
-    assert!(ops.prompts.is_empty());
+    assert_eq!(ops.prompts.len(), 0);
     assert_eq!(
         transcript(&app).last().map(String::as_str),
         Some(app.status_text().as_str())
@@ -51,5 +51,5 @@ fn without_a_pause_the_panels_return_as_soon_as_the_program_ends() {
         Ok(ExitStatus::default())
     })
     .expect("terminal restored");
-    assert!(ops.prompts.is_empty(), "{:?}", ops.prompts);
+    assert_eq!(ops.prompts.len(), 0, "{:?}", ops.prompts);
 }

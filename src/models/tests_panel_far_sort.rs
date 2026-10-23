@@ -127,7 +127,7 @@ fn every_mode_has_a_word_a_letter_and_a_label() {
                 .find(|word| SortMode::parse(word) == Some(mode))
         });
         assert!(word.is_some(), "{mode:?} is missing from the usage line");
-        assert!(!mode.label().is_empty());
+        assert_ne!(mode.label().len(), 0);
         assert!(mode.letter().is_ascii_lowercase());
     }
     assert_eq!(SortMode::parse("extension"), Some(SortMode::Extension));

@@ -18,7 +18,7 @@ fn test_panel_clear_marks_empties_set() -> io::Result<()> {
     assert_eq!(panel.marked.len(), 2);
 
     panel.clear_marks();
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
 
     Ok(())
 }
@@ -38,7 +38,7 @@ fn test_toggle_mark_dotdot_returns_false() -> io::Result<()> {
     panel.select(Some(0));
     assert_eq!(panel.entries[0].name, "..");
     assert!(!panel.toggle_mark_selected());
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
 
     Ok(())
 }
@@ -77,7 +77,7 @@ fn test_action_entry_names_dotdot_no_marks_returns_empty() -> io::Result<()> {
     let mut panel = Panel::new(sub)?;
     panel.select(Some(0)); // ".."
     let names = panel.action_entry_names();
-    assert!(names.is_empty());
+    assert_eq!(names.len(), 0);
 
     Ok(())
 }

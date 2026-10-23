@@ -79,7 +79,7 @@ fn target_directory(package: &Path) -> String {
 fn packages_share_dependency_artifacts() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let target = target_directory(root);
-    assert!(!target.is_empty());
+    assert_ne!(target, "");
     assert_eq!(target, target_directory(&root.join("mcp")));
     assert_eq!(target, target_directory(&root.join("colorer-sys")));
 }

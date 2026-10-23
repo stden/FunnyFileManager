@@ -31,6 +31,8 @@ pub use mcp_install::{file_identity, ClaudeBehaviour, ClaudeEmulator, FakeMachin
 pub(crate) mod disk_cleanup;
 #[cfg(test)]
 mod events;
+#[cfg(all(test, unix))]
+pub(crate) mod filesystem;
 #[cfg(test)]
 pub(crate) mod lsp_machine;
 #[cfg(test)]

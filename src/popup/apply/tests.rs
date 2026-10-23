@@ -81,7 +81,7 @@ fn open_sets_the_variant_and_esc_closes_it() {
 
     process_popup_input(&mut app, key(KeyCode::Esc));
     assert!(!app.overlay.is_active());
-    assert!(app.console.is_empty(), "nothing ran");
+    assert_eq!(app.console.len(), 0, "nothing ran");
 }
 
 #[test]
@@ -157,7 +157,7 @@ fn f10_closes_and_esc_honours_the_dialog_setting() {
     assert!(app.overlay.is_active(), "Esc is swallowed");
     process_popup_input(&mut app, key(KeyCode::F(10)));
     assert!(!app.overlay.is_active());
-    assert!(app.console.is_empty(), "nothing ran");
+    assert_eq!(app.console.len(), 0, "nothing ran");
 }
 
 /// Enter on Cancel — and Enter on an empty field — close without running.
@@ -177,5 +177,5 @@ fn enter_on_cancel_or_on_nothing_runs_nothing() {
     type_command(&mut app, "   ");
     process_popup_input(&mut app, key(KeyCode::Enter));
     assert!(!app.overlay.is_active());
-    assert!(app.console.is_empty(), "a blank command is not echoed");
+    assert_eq!(app.console.len(), 0, "a blank command is not echoed");
 }

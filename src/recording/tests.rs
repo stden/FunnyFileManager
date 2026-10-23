@@ -37,7 +37,7 @@ fn recorded_keys_replay_a_real_directory_creation_through_the_event_loop() {
     )
     .expect("replay application");
     assert!(root.path().join("x").is_dir());
-    assert!(replay.events.is_empty());
+    assert_eq!(replay.events.len(), 0);
 }
 
 fn header(root: &Path) -> Header {

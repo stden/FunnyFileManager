@@ -39,7 +39,7 @@ fn empty_selection_and_busy_state_never_queue_an_unsafe_operation() {
         assert!(
             matches!(&dialog(&app).activity, WslActivity::Failed(message) if message.contains("No WSL distribution selected"))
         );
-        assert!(app.wsl_requests.pending().is_empty());
+        assert_eq!(app.wsl_requests.pending().len(), 0);
     }
     refresh(&mut app);
     let id = pending_id(&app);

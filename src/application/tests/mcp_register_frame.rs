@@ -42,5 +42,5 @@ fn nothing_waiting_draws_nothing() {
     );
     let mut terminal = Terminal::new(WritableTestBackend::new(80, 24)).unwrap();
     run_after_frame(&mut terminal, &mut app).unwrap();
-    assert!(buffer_text(&terminal).trim().is_empty());
+    assert_eq!(buffer_text(&terminal).trim().len(), 0);
 }

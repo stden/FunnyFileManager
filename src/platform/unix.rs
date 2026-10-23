@@ -56,6 +56,7 @@ pub fn check_write_access(path: &Path) -> io::Result<()> {
 
 /// The size of a memory page in bytes: 4 KiB on x86-64, 16 or 64 KiB on some
 /// arm64 kernels, so it is asked, never assumed.
+#[cfg(any(target_os = "linux", test))]
 #[must_use]
 pub fn page_size() -> u64 {
     // No target Rust supports has a `usize` wider than 64 bits. Were one to
@@ -64,6 +65,7 @@ pub fn page_size() -> u64 {
 }
 
 /// Clock ticks per second (`USER_HZ`), the unit of the CPU times in `/proc`.
+#[cfg(any(target_os = "linux", test))]
 #[must_use]
 pub fn clock_ticks_per_second() -> u64 {
     rustix::param::clock_ticks_per_second()

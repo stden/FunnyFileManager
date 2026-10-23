@@ -15,7 +15,7 @@ fn a_full_writer_retries_messages_in_order_without_losing_them() {
     assert_eq!(receiver.try_recv().unwrap(), json!(2));
     flush_messages(&mut messages, |message| sender.try_send(message)).unwrap();
     assert_eq!(receiver.try_recv().unwrap(), json!(3));
-    assert!(messages.is_empty());
+    assert_eq!(messages.len(), 0);
     drop(receiver);
     messages.push(json!(4));
     assert!(flush_messages(&mut messages, |message| sender.try_send(message)).is_err());

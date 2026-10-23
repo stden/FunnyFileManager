@@ -35,15 +35,16 @@ fn a_probe_finds_a_program_only_on_its_own_path() {
 #[test]
 fn the_default_probe_knows_nothing() {
     let probe = Probe::default();
-    assert!(probe.programs().is_empty());
+    assert_eq!(probe.programs().len(), 0);
     assert_eq!(probe.cache(), None);
     assert_eq!(
         probe.program(&["sh"], "missing"),
         Err(InstallError::Missing("missing"))
     );
     probe.warm();
-    assert!(
-        probe.programs().is_empty(),
+    assert_eq!(
+        probe.programs().len(),
+        0,
         "warming a listed probe scans nothing"
     );
 }

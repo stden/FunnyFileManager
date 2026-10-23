@@ -13,8 +13,9 @@ fn cd_completion_of_an_unlistable_directory_part_offers_nothing() {
     fs::create_dir(tmp.path().join("notes_dir")).expect("dir");
     fs::write(tmp.path().join("notes_dir").join("inner.txt"), b"x").expect("inner file");
 
-    assert!(
-        builtin_path_complete(PathSyntax::HOST, "notes.txt/", "i", tmp.path()).is_empty(),
+    assert_eq!(
+        builtin_path_complete(PathSyntax::HOST, "notes.txt/", "i", tmp.path()).len(),
+        0,
         "a regular file must not be scanned as a directory"
     );
     assert!(
@@ -37,8 +38,9 @@ fn quoted_cd_token_completes_through_the_merged_fish_engine() {
     let tmp = empty_cwd();
     fs::create_dir(tmp.path().join("alpha")).expect("dir");
 
-    assert!(
-        builtin_path_complete(PathSyntax::HOST, "", "\"al", tmp.path()).is_empty(),
+    assert_eq!(
+        builtin_path_complete(PathSyntax::HOST, "", "\"al", tmp.path()).len(),
+        0,
         "the quote must not match any filename"
     );
 

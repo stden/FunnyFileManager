@@ -54,7 +54,7 @@ fn every_menu_dialog_draws_its_frame() {
             .draw(|f| render_overlays(f, &mut app))
             .expect("draw");
         let screen = buffer_text(&terminal);
-        assert!(!screen.trim().is_empty(), "{screen}");
+        assert_ne!(screen.trim().len(), 0, "{screen}");
         assert!(app.dialog_mouse.area.is_some(), "the frame was tracked");
     }
 }

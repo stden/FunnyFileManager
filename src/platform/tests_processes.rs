@@ -7,14 +7,11 @@
 
 use std::os::unix::process::ExitStatusExt;
 
-use crate::models::{Pid, Signal};
-use crate::platform::signal_process;
-use crate::test_support::sleeper::Sleeper;
 #[cfg(target_os = "linux")]
-use crate::{
-    models::{NiceStep, Niceness},
-    platform::set_niceness,
-};
+use crate::models::NiceStep;
+use crate::models::{Niceness, Pid, Signal};
+use crate::platform::{set_niceness, signal_process};
+use crate::test_support::sleeper::Sleeper;
 
 /// A PID no process can hold: above Linux's `PID_MAX_LIMIT` (4 194 304) and
 /// the BSDs' and macOS's 99 999. A call to it answers `ESRCH` with no race,
@@ -127,7 +124,6 @@ fn lowering_nice_follows_the_kernels_rule() {
     }
 }
 
-#[cfg(target_os = "linux")]
 #[test]
 fn set_niceness_on_a_pid_no_process_holds_is_esrch() {
     let error = set_niceness(absent_pid(), Niceness::MAX).expect_err("no such process");

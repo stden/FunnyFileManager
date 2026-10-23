@@ -84,5 +84,5 @@ fn enter_on_a_plain_file_does_not_try_to_run_it() {
     press(&mut app, &mut terminal, KeyCode::Enter);
 
     assert_eq!(app.get_active_panel_ref().path, before);
-    assert!(console_text(&app).is_empty(), "nothing was run");
+    assert_eq!(console_text(&app).len(), 0, "nothing was run");
 }

@@ -115,7 +115,7 @@ fn a_filter_matching_nothing_leaves_nothing_selected() {
         .expect("unlocked")
         .set_filter("zzz-no-such-entry", now);
 
-    assert!(session.vault().expect("unlocked").matches().is_empty());
+    assert_eq!(session.vault().expect("unlocked").matches().len(), 0);
     assert_eq!(session.vault().expect("unlocked").selected(), 0);
     assert!(selected_title(&session).is_none());
     assert!(matches!(

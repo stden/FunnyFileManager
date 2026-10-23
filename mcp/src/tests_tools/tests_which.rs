@@ -18,7 +18,7 @@ fn which_finds_an_executable_that_is_there() {
     );
     assert_eq!(json["found"], true, "{name} should be on PATH");
     assert!(json["path"].is_string());
-    assert!(!json["all"].as_array().expect("all").is_empty());
+    assert_ne!(json["all"].as_array().expect("all").len(), 0);
 }
 
 #[test]

@@ -71,5 +71,5 @@ fn a_registration_without_claude_is_announced_plainly() {
     );
     run_pending(&mut app);
     assert!(matches!(app.overlay, Overlay::Viewer(_)));
-    assert!(machine.claude().calls().is_empty());
+    assert_eq!(machine.claude().calls().len(), 0);
 }

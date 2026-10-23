@@ -17,7 +17,7 @@ fn every_panel_mode_has_a_distinct_control_digit_binding() -> io::Result<()> {
         let digit = char::from(b'0' + u8::try_from((index + 1) % 10).unwrap());
         let key = KeyEvent::new(KeyCode::Char(digit), KeyModifiers::CONTROL);
         assert_eq!(action::resolve(&keys, key), action::Action::PanelView(mode));
-        assert!(!mode.label().is_empty());
+        assert_ne!(mode.label(), "");
     }
     Ok(())
 }

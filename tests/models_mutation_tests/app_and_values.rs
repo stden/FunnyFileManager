@@ -72,8 +72,8 @@ fn test_viewer_mutations() {
 
     // Test default
     let default_viewer = Viewer::default();
-    assert!(default_viewer.title().is_empty());
-    assert!(default_viewer.lines.is_empty());
+    assert_eq!(default_viewer.title(), "");
+    assert_eq!(default_viewer.lines.len(), 0);
     assert_eq!(default_viewer.scroll, ScrollTop::TOP);
 }
 

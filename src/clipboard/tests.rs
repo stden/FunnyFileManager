@@ -64,8 +64,9 @@ fn native_success_reports_native_route_and_skips_osc52() {
 
     assert_eq!(route, CopyRoute::Native);
     assert_eq!(backend.native_calls, [SECRET]);
-    assert!(
-        backend.osc52_calls.is_empty(),
+    assert_eq!(
+        backend.osc52_calls.len(),
+        0,
         "OSC 52 must not be emitted once the native clipboard accepted the value: {:?}",
         backend.osc52_calls
     );
@@ -111,8 +112,9 @@ fn clear_empties_the_native_clipboard_when_it_is_available() {
     clear(&mut backend).expect("clear should succeed on the native route");
 
     assert_eq!(backend.native_calls, [""], "clear writes the empty value");
-    assert!(
-        backend.osc52_calls.is_empty(),
+    assert_eq!(
+        backend.osc52_calls.len(),
+        0,
         "no OSC 52 needed once native cleared"
     );
 }

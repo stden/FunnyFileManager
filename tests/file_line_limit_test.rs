@@ -68,8 +68,9 @@ fn no_source_exceeds_line_limit() {
         .collect();
     offenders.sort();
 
-    assert!(
-        offenders.is_empty(),
+    assert_eq!(
+        offenders.len(),
+        0,
         "files exceed the {MAX_LINES}-line limit — split them into modules:\n{}",
         offenders.join("\n")
     );
@@ -87,8 +88,7 @@ fn every_exemption_is_still_needed() {
         })
         .map(|(name, _)| *name)
         .collect();
-    assert!(
-        stale.is_empty(),
+    assert_eq!(stale.len(), 0,
         "exempt files that no longer exceed the limit (or no longer exist) — drop them from EXEMPT: {stale:?}"
     );
 }
@@ -115,8 +115,9 @@ fn no_handler_is_defined_twice() {
         }
     }
 
-    assert!(
-        offenders.is_empty(),
+    assert_eq!(
+        offenders.len(),
+        0,
         "each handler must be defined exactly once under src/ — a second copy is dead code \
          that no lint can see:\n{}",
         offenders.join("\n")

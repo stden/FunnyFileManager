@@ -44,7 +44,7 @@ fn a_click_on_a_row_puts_the_cursor_there() {
     assert_eq!(cursor_pid(&mut tasks), 30);
     click(&mut term, &mut tasks, 20, 6);
     assert_eq!(cursor_pid(&mut tasks), 20);
-    assert!(tasks.host.controls().is_empty());
+    assert_eq!(tasks.host.controls().len(), 0);
 }
 
 #[test]
@@ -96,8 +96,9 @@ fn a_key_bar_click_presses_its_key() {
     tasks.press(KeyCode::Esc);
     click(&mut term, &mut tasks, 50, 23);
     assert!(matches!(tasks.list().modal(), Modal::Confirm(_)), "8Kill");
-    assert!(
-        tasks.host.controls().is_empty(),
+    assert_eq!(
+        tasks.host.controls().len(),
+        0,
         "only the confirmation opened"
     );
     tasks.press(KeyCode::Esc);
@@ -143,6 +144,6 @@ fn double_click_everywhere(width: u16, height: u16) -> Vec<Control> {
 fn no_click_on_the_list_sends_a_signal_even_twice_in_one_place() {
     for (width, height) in [(80, 24), (40, 10), (24, 8)] {
         let sent = double_click_everywhere(width, height);
-        assert!(sent.is_empty(), "{width}x{height}: {sent:?}");
+        assert_eq!(sent.len(), 0, "{width}x{height}: {sent:?}");
     }
 }

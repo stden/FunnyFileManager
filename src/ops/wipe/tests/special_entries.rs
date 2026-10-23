@@ -14,7 +14,7 @@ fn a_symlink_is_unlinked_and_its_target_is_untouched() {
 
     wipe_path(&link).expect("wipe");
 
-    assert!(witness.at(Stage::Overwritten).is_empty(), "never followed");
+    assert_eq!(witness.at(Stage::Overwritten).len(), 0, "never followed");
     assert!(fs::symlink_metadata(&link).is_err(), "the link is gone");
     assert_eq!(fs::read(&target).expect("read"), b"keep me");
 }
@@ -88,7 +88,7 @@ fn a_hard_linked_file_is_only_unlinked_and_its_other_name_keeps_the_data() {
 
     assert!(!wiped.exists(), "this name is gone");
     assert_eq!(fs::read(&other).expect("read"), b"important data");
-    assert!(witness.at(Stage::Overwritten).is_empty(), "never zeroed");
+    assert_eq!(witness.at(Stage::Overwritten).len(), 0, "never zeroed");
 }
 
 /// A folder holding a hard link to a file outside it: the folder goes, the

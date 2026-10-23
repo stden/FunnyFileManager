@@ -42,7 +42,7 @@ fn an_unknown_kind_leaves_the_label_bare() {
     })
     .expect("a disk row has columns");
     assert_eq!(cols.label, "X:");
-    assert!(cols.total.is_empty());
+    assert_eq!(cols.total.len(), 0);
 }
 
 #[test]

@@ -60,5 +60,8 @@ fn a_selection_scrolled_off_the_left_edge_never_paints_the_prompt() {
 #[test]
 fn an_unselected_line_keeps_the_background_style() {
     let line = LineEditor::new("plain");
-    assert!(selected_columns(&line, Rect::new(3, 1, 8, 1), 2, 7).is_empty());
+    assert_eq!(
+        selected_columns(&line, Rect::new(3, 1, 8, 1), 2, 7).len(),
+        0
+    );
 }

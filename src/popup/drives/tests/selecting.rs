@@ -88,7 +88,7 @@ fn selecting_a_local_drive_moves_the_panel_and_reports_the_new_path() {
         app.right_panel.entries.iter().any(|e| e.name == "sub"),
         "the destination listing was loaded"
     );
-    assert!(app.right_panel.marked.is_empty(), "marks were dropped");
+    assert_eq!(app.right_panel.marked.len(), 0, "marks were dropped");
     assert!(
         app.right_panel.selected().is_some(),
         "a non-empty panel keeps a selection"

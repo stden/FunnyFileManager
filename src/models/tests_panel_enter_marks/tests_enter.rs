@@ -76,7 +76,7 @@ fn test_enter_subdir_clears_marks() -> io::Result<()> {
     }
 
     panel.enter()?;
-    assert!(panel.marked.is_empty(), "marks should be cleared");
+    assert_eq!(panel.marked.len(), 0, "marks should be cleared");
     assert!(panel.path.ends_with("sub"));
 
     Ok(())

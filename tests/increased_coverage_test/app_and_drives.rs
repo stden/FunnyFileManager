@@ -40,10 +40,10 @@ fn test_app_panel_accessors_and_switching() -> io::Result<()> {
 #[test]
 fn test_app_get_drives_and_all_drives_are_non_empty() {
     let drives = App::get_drives();
-    assert!(!drives.is_empty());
+    assert_ne!(drives.len(), 0);
 
     let all = App::get_all_drives();
-    assert!(!all.is_empty());
+    assert_ne!(all.len(), 0);
     assert!(matches!(all[0], DriveEntry::Local(_)));
 }
 

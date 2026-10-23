@@ -17,7 +17,7 @@ fn then_windows_diagnostic(world: &mut FfmWorld, title: String) -> StepResult {
         assert_eq!(app.status, Status::OpenedView(title.clone()));
         let viewer = app.get_viewer().context("Windows diagnostic report")?;
         assert_eq!(viewer.title(), title);
-        assert!(!viewer.lines.is_empty(), "report must include its result");
+        assert_ne!(viewer.lines.len(), 0, "report must include its result");
     }
     #[cfg(not(windows))]
     {
@@ -50,7 +50,7 @@ fn unknown_diagnostic(world: &mut FfmWorld, title: &str) {
 
 #[then("the status message should not be empty")]
 fn then_status_not_empty(world: &mut FfmWorld) -> StepResult {
-    assert!(!world.app()?.status_text().is_empty());
+    assert_ne!(world.app()?.status_text(), "");
     Ok(())
 }
 

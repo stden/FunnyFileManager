@@ -45,7 +45,7 @@ fn obsolete_document_and_version_diagnostics_are_ignored() {
         &mut app,
         Envelope(stamp.id, Event::Diagnostics(stamp, diagnostics))
     ));
-    assert!(app.get_editor().unwrap().lsp.diagnostics.is_empty());
+    assert_eq!(app.get_editor().unwrap().lsp.diagnostics.len(), 0);
     assert!(!apply_event(
         &mut app,
         Envelope(

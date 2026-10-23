@@ -109,7 +109,7 @@ fn a_row_for_the_files_is_refused_over_the_sessions_list() {
         "NetBox: this command works on files; press Enter on `..` to return to them"
     );
     assert!(!app.is_overlay_active());
-    assert!(app.left_panel.marked.is_empty(), "nothing was compared");
+    assert_eq!(app.left_panel.marked.len(), 0, "nothing was compared");
 }
 
 #[test]

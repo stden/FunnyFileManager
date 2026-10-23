@@ -91,7 +91,7 @@ fn enter_announces_the_registration_and_the_loop_runs_it() {
             "Registering ffm-mcp: waiting for claude (up to 30 s a call)…".to_owned()
         )
     );
-    assert!(machine.claude().calls().is_empty(), "nothing ran yet");
+    assert_eq!(machine.claude().calls().len(), 0, "nothing ran yet");
     crate::ops::mcp_install::run_pending(&mut app);
     let Overlay::Viewer(viewer) = &app.overlay else {
         panic!("the report opens");
@@ -106,7 +106,7 @@ fn enter_on_cancel_cancels() {
     dialog_mut(&mut app).field = McpInstallField::Cancel;
     press(&mut app, KeyCode::Enter);
     assert!(matches!(app.overlay, Overlay::None));
-    assert!(machine.files().unwrap().is_empty());
+    assert_eq!(machine.files().unwrap().len(), 0);
 }
 
 #[test]
@@ -142,7 +142,7 @@ fn esc_and_f10_close_without_changes() {
         let (machine, mut app) = open();
         press(&mut app, code);
         assert!(matches!(app.overlay, Overlay::None));
-        assert!(machine.files().unwrap().is_empty());
+        assert_eq!(machine.files().unwrap().len(), 0);
     }
 }
 

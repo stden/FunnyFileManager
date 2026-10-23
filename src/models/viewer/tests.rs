@@ -92,7 +92,7 @@ fn a_report_is_named_by_its_title_and_keeps_its_lines_verbatim() {
         viewer.source,
         ViewSource::Report("MCP Server Status".to_owned())
     );
-    assert!(viewer.lines.is_empty(), "a report says <no data> itself");
+    assert_eq!(viewer.lines.len(), 0, "a report says <no data> itself");
     assert_eq!(viewer.scroll, ScrollTop::TOP);
 }
 

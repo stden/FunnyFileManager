@@ -14,7 +14,7 @@ fn the_system_host_reads_path_and_the_running_executable() {
         .unwrap_or_default();
     assert_eq!(host.search_path, expected);
     assert!(host.exe_dir.is_some());
-    assert!(!host.program_suffixes.is_empty());
+    assert_ne!(host.program_suffixes.len(), 0);
     let named = env_vars();
     assert!(host.env.keys().all(|var| named.contains(var)));
 }

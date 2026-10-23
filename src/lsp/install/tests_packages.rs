@@ -182,5 +182,5 @@ fn a_cache_folder_that_cannot_be_made_is_named() {
     .expect_err("the cache's place is under a file");
     assert!(matches!(error, InstallError::Cache(_)), "{error:?}");
     assert!(error.to_string().contains("LSP cache folder"), "{error}");
-    assert!(packages.calls.borrow().is_empty(), "nothing ran");
+    assert_eq!(packages.calls.borrow().len(), 0, "nothing ran");
 }

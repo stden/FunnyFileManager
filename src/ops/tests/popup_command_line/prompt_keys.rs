@@ -35,7 +35,7 @@ fn test_process_popup_input_command_line() -> io::Result<()> {
     assert!(process_popup_input(&mut app, key_event(KeyCode::Enter)));
     // "unknown" is run as a shell command; stderr produces an error message
     // that is captured as "Err: ..." in status_message.
-    assert!(!app.status_text().is_empty());
+    assert_ne!(app.status_text().len(), 0);
 
     app.set_overlay(Overlay::CommandLine("quit".into()));
     assert!(process_popup_input(&mut app, key_event(KeyCode::Enter)));

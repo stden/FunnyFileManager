@@ -89,7 +89,7 @@ fn a_frame_is_never_drawn_before_the_interval_has_passed() {
     entering(Path::new("a"));
     removed(Path::new("a"));
     drop(run);
-    assert!(recorder.frames().is_empty());
+    assert_eq!(recorder.frames().len(), 0);
     assert!(!take_painted());
 }
 
@@ -113,7 +113,7 @@ fn an_uninstalled_painter_draws_nothing_more() {
     let run = begin(Operation::Copy, &[]);
     entering(Path::new("x"));
     drop(run);
-    assert!(recorder.frames().is_empty());
+    assert_eq!(recorder.frames().len(), 0);
 }
 
 #[test]

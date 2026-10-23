@@ -104,7 +104,7 @@ fn the_cli_is_never_used_for_the_current_folder() {
         &fixture.desired.command,
     );
     assert_eq!(registration.outcome, Outcome::Added);
-    assert!(fixture.machine.claude().calls().is_empty());
+    assert_eq!(fixture.machine.claude().calls().len(), 0);
     assert!(fixture.machine.folder().join(".mcp.json").is_file());
 }
 

@@ -16,7 +16,7 @@ fn test_open_mcp_status_sets_viewer() -> io::Result<()> {
     let viewer = app.get_viewer().unwrap();
     assert_eq!(viewer.title(), "MCP Server Status");
     assert_eq!(viewer.scroll, ScrollTop::TOP);
-    assert!(!viewer.lines.is_empty());
+    assert_ne!(viewer.lines.len(), 0);
 
     // Check key content
     let all_text = viewer.lines.join("\n");

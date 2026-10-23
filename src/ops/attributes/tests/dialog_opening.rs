@@ -24,8 +24,8 @@ fn open_reads_the_entry_under_the_cursor() {
         .find(|e| e.name == "a.txt")
         .and_then(|e| e.owner.clone());
     assert_eq!(dialog.owner, expected_owner.unwrap_or_default());
-    assert!(!dialog.group.is_empty(), "the group resolves on Unix");
-    assert!(!dialog.modified.current.is_empty(), "its own time");
+    assert_ne!(dialog.group.len(), 0, "the group resolves on Unix");
+    assert_ne!(dialog.modified.current.len(), 0, "its own time");
     let group_write = dialog
         .flags
         .iter()
@@ -99,6 +99,6 @@ fn open_on_the_parent_row_edits_the_folder_itself() {
     assert_eq!(dialog.targets, vec![temp.path().to_path_buf()]);
     assert!(dialog.has_directories);
     if cfg!(unix) {
-        assert!(!dialog.owner.is_empty(), "the folder's owner is looked up");
+        assert_ne!(dialog.owner.len(), 0, "the folder's owner is looked up");
     }
 }

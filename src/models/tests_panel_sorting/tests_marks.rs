@@ -20,7 +20,7 @@ fn test_panel_marking_and_action_names() -> io::Result<()> {
     assert_eq!(action_names, vec!["alpha.txt"]);
 
     assert!(panel.toggle_mark_selected());
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
     assert_eq!(panel.action_entry_names(), vec!["alpha.txt"]);
 
     select_named(&mut panel, "beta.txt");
@@ -36,7 +36,7 @@ fn test_panel_marking_and_action_names() -> io::Result<()> {
 
     select_named(&mut panel, "..");
     assert!(!panel.toggle_mark_selected());
-    assert!(panel.action_entry_names().is_empty());
+    assert_eq!(panel.action_entry_names().len(), 0);
     assert!(panel.selected_path().is_none());
 
     Ok(())
@@ -55,7 +55,7 @@ fn test_panel_marking_operations_edge_cases() -> io::Result<()> {
     panel.select(Some(1));
     panel.toggle_mark_selected();
     panel.toggle_mark_selected();
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
 
     for i in 1..=5 {
         panel.select(Some(i));
@@ -64,11 +64,11 @@ fn test_panel_marking_operations_edge_cases() -> io::Result<()> {
     assert_eq!(panel.marked.len(), 5);
 
     panel.clear_marks();
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
 
     panel.select(Some(0));
     panel.toggle_mark_selected();
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
 
     Ok(())
 }
@@ -83,7 +83,7 @@ fn test_toggle_mark_selected_no_selection() -> io::Result<()> {
 
     // Should return false when no selection
     assert!(!panel.toggle_mark_selected());
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
 
     Ok(())
 }

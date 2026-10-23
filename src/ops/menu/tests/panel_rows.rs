@@ -35,7 +35,7 @@ fn filter_preserves_directories_and_can_be_cleared() {
     let before = app.left_panel.entries.clone();
     app.left_panel.path.push("missing");
     assert!(submit(&mut app, MenuPrompt::Filter, "*.none").is_err());
-    assert!(app.left_panel.options.filter.is_empty());
+    assert_eq!(app.left_panel.options.filter.len(), 0);
     assert_eq!(app.left_panel.entries.len(), before.len());
 }
 

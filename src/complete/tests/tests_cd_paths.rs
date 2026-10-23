@@ -91,7 +91,10 @@ fn a_bare_drive_completes_to_its_root_only_when_it_can_be_listed() {
         path_complete(PathSyntax::Windows, "C:", tmp.path()),
         vec!["C:\\".to_owned()]
     );
-    assert!(path_complete(PathSyntax::Windows, "Q:", tmp.path()).is_empty());
+    assert_eq!(
+        path_complete(PathSyntax::Windows, "Q:", tmp.path()).len(),
+        0
+    );
     // Under Posix `C:` is a name like any other: it matches that directory
     // by prefix and gets a slash, whatever else fish merges in.
     let posix = path_complete(PathSyntax::Posix, "C:", tmp.path());

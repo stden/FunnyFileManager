@@ -149,7 +149,7 @@ fn detail_views_draw_their_column_lines_below_the_last_entry() {
     ] {
         app.left_panel.view = view;
         let header = column_lines(&mut app, 2);
-        assert!(!header.is_empty(), "{view:?} has columns");
+        assert_ne!(header.len(), 0, "{view:?} has columns");
         // Three entries fill rows 3 to 5; row 12 is well below them.
         assert_eq!(column_lines(&mut app, 12), header, "{view:?}");
     }

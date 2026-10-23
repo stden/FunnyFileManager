@@ -54,7 +54,7 @@ fn test_pwd_sets_status() {
     let temp = TempDir::new().expect("tempdir");
     let mut app = make_app(&temp);
     execute_command(&mut app, "pwd").expect("pwd");
-    assert!(!app.status_text().is_empty());
+    assert_ne!(app.status_text().len(), 0);
 }
 
 // ─── sort ─────────────────────────────────────────────────────────────
@@ -121,11 +121,11 @@ fn test_mark_all_and_unmark() {
     app.left_panel.load_entries().expect("load");
 
     execute_command(&mut app, "mark all").expect("mark");
-    assert!(!app.get_active_panel().marked.is_empty());
+    assert_ne!(app.get_active_panel().marked.len(), 0);
     assert!(app.status_text().contains("Marked"));
 
     execute_command(&mut app, "unmark").expect("unmark");
-    assert!(app.get_active_panel().marked.is_empty());
+    assert_eq!(app.get_active_panel().marked.len(), 0);
     assert_eq!(app.status_text(), "Unmarked all");
 }
 

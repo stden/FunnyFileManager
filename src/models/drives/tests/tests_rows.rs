@@ -7,13 +7,13 @@ use super::*;
 #[test]
 fn the_rows_include_the_machines_own_filesystems() {
     let rows = rows();
-    assert!(!rows.is_empty(), "a machine always has one filesystem");
+    assert_ne!(rows.len(), 0, "a machine always has one filesystem");
     let disks: Vec<_> = rows.iter().filter(|row| row.is_disk()).collect();
-    assert!(!disks.is_empty(), "the first section is never empty");
+    assert_ne!(disks.len(), 0, "the first section is never empty");
     let RowKind::Disk { space, label, .. } = &disks[0].kind else {
         panic!("filtered to disks");
     };
-    assert!(!label.is_empty());
+    assert_ne!(label.len(), 0);
     assert!(
         space.is_some_and(|space| space.total > 0),
         "a mounted filesystem reports its size"

@@ -91,7 +91,7 @@ fn test_list_objects_skips_slash_name() -> io::Result<()> {
     "#;
     let client = build_test_client(vec![replay_event(xml)]);
     let objects = client.list_objects("mybucket", "data")?;
-    assert!(objects.is_empty());
+    assert_eq!(objects.len(), 0);
     Ok(())
 }
 

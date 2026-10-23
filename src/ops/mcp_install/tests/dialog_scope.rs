@@ -9,9 +9,9 @@ fn a_new_app_looks_at_no_machine_at_all() {
         Panel::new(std::env::temp_dir()).unwrap(),
     );
     assert_eq!(app.live.mcp_host.home, None);
-    assert!(app.live.mcp_host.search_path.is_empty());
+    assert_eq!(app.live.mcp_host.search_path.len(), 0);
     assert_eq!(app.live.mcp_host.exe_dir, None);
-    assert!(app.live.mcp_host.env.is_empty());
+    assert_eq!(app.live.mcp_host.env.len(), 0);
 }
 
 #[test]

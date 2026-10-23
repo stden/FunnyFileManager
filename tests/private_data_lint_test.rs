@@ -58,8 +58,9 @@ fn tracked_files_carry_no_private_data() {
         .iter()
         .map(|f| format!("{}:{}: {} ({})", f.path.display(), f.line, f.rule, f.hint))
         .collect();
-    assert!(
-        findings.is_empty(),
+    assert_eq!(
+        findings.len(),
+        0,
         "private data must not be published — fix or allow-list:\n{}",
         report.join("\n")
     );

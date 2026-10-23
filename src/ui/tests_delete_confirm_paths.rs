@@ -168,8 +168,9 @@ fn test_delete_confirm_drops_a_translucent_shadow() {
         })
         .collect();
 
-    assert!(
-        !shadowed.is_empty(),
+    assert_ne!(
+        shadowed.len(),
+        0,
         "the dialog must darken the panel behind it"
     );
     assert!(

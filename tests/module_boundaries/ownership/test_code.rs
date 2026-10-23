@@ -85,5 +85,5 @@ fn feature_selection_rule_reports_duplicates_and_feature_checks() {
         "src/bootstrap.rs",
         "/// Unlike the `feature = \"test-helpers\"` seams, this is the real entry.\npub fn run() {}\n",
     );
-    assert!(feature_selection_violations(&documented, "run").is_empty());
+    assert_eq!(feature_selection_violations(&documented, "run").len(), 0);
 }

@@ -94,7 +94,7 @@ fn an_empty_or_comment_only_file_holds_no_settings() {
             stored.parse::<Counter>().expect("empty"),
             Counter::default()
         );
-        assert!(stored.document.is_empty());
+        assert_eq!(stored.document.len(), 0);
     }
 }
 

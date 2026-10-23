@@ -59,7 +59,7 @@ fn commands_follow_panel_order_and_processed_marks_can_be_restored() {
         .collect();
     assert_eq!(output, ["b.txt b.txt a.txt", "a.txt a.txt"]);
     let panel = app.get_active_panel();
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
     panel.restore_marks();
     assert_eq!(panel.marked, original);
 }

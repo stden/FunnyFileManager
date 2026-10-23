@@ -43,10 +43,7 @@ fn test_download_no_part_file_after_success() -> io::Result<()> {
         .map(|e| e.expect("dir entry").path())
         .filter(|p| p != &download_path)
         .collect();
-    assert!(
-        leftovers.is_empty(),
-        "temp files left behind: {leftovers:?}"
-    );
+    assert_eq!(leftovers.len(), 0, "temp files left behind: {leftovers:?}");
     assert_eq!(fs::read_to_string(&download_path)?, "content");
     Ok(())
 }
@@ -97,10 +94,7 @@ fn test_download_to_a_part_destination_leaves_no_staging_file() -> io::Result<()
         .map(|entry| entry.expect("dir entry").path())
         .filter(|path| path != &download_path)
         .collect();
-    assert!(
-        leftovers.is_empty(),
-        "temp files left behind: {leftovers:?}"
-    );
+    assert_eq!(leftovers.len(), 0, "temp files left behind: {leftovers:?}");
     Ok(())
 }
 

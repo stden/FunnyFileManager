@@ -97,7 +97,7 @@ fn test_execute_command_unknown_returns_error() -> io::Result<()> {
     let result = execute_command(&mut app, "frobnicator");
     assert!(result.is_ok());
     // The status_message should capture the shell's error output.
-    assert!(!app.status_text().is_empty());
+    assert_ne!(app.status_text().len(), 0);
 
     Ok(())
 }

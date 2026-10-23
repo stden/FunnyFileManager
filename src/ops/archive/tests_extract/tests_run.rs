@@ -49,7 +49,7 @@ fn run_unpacks_every_marked_archive_reports_and_clears_the_marks() {
             destination: right,
         }
     );
-    assert!(app.get_active_panel().marked.is_empty(), "marks are spent");
+    assert_eq!(app.get_active_panel().marked.len(), 0, "marks are spent");
     assert!(
         console_text(&app).contains("tar -xf"),
         "{}",

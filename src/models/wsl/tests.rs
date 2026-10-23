@@ -57,7 +57,7 @@ fn empty_selection_stays_empty_through_every_navigation() {
     dialog.move_down();
     dialog.first();
     dialog.last();
-    assert!(dialog.distributions().is_empty());
+    assert_eq!(dialog.distributions().len(), 0);
     assert_eq!(dialog.selected(), None);
     assert_eq!(dialog.selected_distribution(), None);
     assert_eq!(dialog.activity, WslActivity::Ready);
@@ -102,13 +102,13 @@ fn taking_requests_drains_them_and_cloning_does_not_replay_effects() {
     assert_ne!(first, second);
     assert_eq!(requests.pending().len(), 2);
     let mut cloned = requests.clone();
-    assert!(cloned.pending().is_empty());
+    assert_eq!(cloned.pending().len(), 0);
     assert_ne!(cloned.enqueue(WslOperation::Refresh), second);
     let drained = requests.take();
     assert_eq!(drained[0].id, first);
     assert_eq!(drained[0].operation, WslOperation::Refresh);
     assert_eq!(drained[1].id, second);
     assert_eq!(drained[1].operation, WslOperation::Update);
-    assert!(requests.pending().is_empty());
-    assert!(requests.take().is_empty());
+    assert_eq!(requests.pending().len(), 0);
+    assert_eq!(requests.take().len(), 0);
 }

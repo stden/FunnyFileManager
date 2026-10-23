@@ -41,7 +41,7 @@ fn credentials_define_order_and_config_merges_regions_into_duplicates() {
 #[test]
 fn missing_or_unreadable_files_keep_listing_best_effort() {
     let directory = TempDir::new().unwrap();
-    assert!(read_profiles(directory.path()).is_empty());
+    assert_eq!(read_profiles(directory.path()).len(), 0);
     fs::write(directory.path().join("credentials"), " [default] \n").unwrap();
     fs::create_dir(directory.path().join("config")).unwrap();
     assert_eq!(
@@ -50,5 +50,5 @@ fn missing_or_unreadable_files_keep_listing_best_effort() {
     );
     fs::remove_file(directory.path().join("credentials")).unwrap();
     fs::create_dir(directory.path().join("credentials")).unwrap();
-    assert!(read_profiles(directory.path()).is_empty());
+    assert_eq!(read_profiles(directory.path()).len(), 0);
 }

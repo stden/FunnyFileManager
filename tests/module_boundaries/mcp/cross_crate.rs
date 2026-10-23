@@ -32,5 +32,8 @@ fn cross_dependency_rule_reads_both_lockfiles() {
             "mcp/Cargo.lock resolves `funny-file-manager`: the server must not link the TUI",
         ]
     );
-    assert!(cross_dependencies("name = \"ffm-mcp-client\"\n", "").is_empty());
+    assert_eq!(
+        cross_dependencies("name = \"ffm-mcp-client\"\n", "").len(),
+        0
+    );
 }

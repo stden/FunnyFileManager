@@ -8,7 +8,7 @@ fn test_unique_destination_not_default() -> io::Result<()> {
     let temp_dir = TempDir::new()?;
     let result = unique_destination(temp_dir.path(), OsStr::new("test.txt"))?;
 
-    assert!(!result.as_os_str().is_empty());
+    assert_ne!(result.as_os_str().len(), 0);
     assert_ne!(result, PathBuf::default());
     assert_ne!(result, PathBuf::new());
     assert!(result.starts_with(temp_dir.path()));

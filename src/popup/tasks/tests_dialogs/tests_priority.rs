@@ -46,7 +46,7 @@ fn the_priority_forms_cancel_and_escape_set_nothing() {
         for code in &keys {
             press(&mut tasks, *code);
         }
-        assert!(tasks.host.controls().is_empty(), "{keys:?}");
+        assert_eq!(tasks.host.controls().len(), 0, "{keys:?}");
         assert_eq!(tasks.list().modal(), &Modal::Browse, "{keys:?}");
     }
 }

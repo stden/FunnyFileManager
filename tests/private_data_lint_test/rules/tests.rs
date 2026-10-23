@@ -12,7 +12,7 @@ fn findings(text: &str) -> Vec<&'static str> {
 
 #[test]
 fn credential_prefixes_inside_words_are_not_secrets() {
-    assert!(findings("risk-prioritization-rationale.md").is_empty());
+    assert_eq!(findings("risk-prioritization-rationale.md").len(), 0);
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn standalone_credentials_are_still_rejected() {
 
 #[test]
 fn github_shared_ssh_login_is_not_a_personal_email() {
-    assert!(findings("git@github.com:example/project.git").is_empty());
+    assert_eq!(findings("git@github.com:example/project.git").len(), 0);
 }
 
 #[test]
@@ -44,7 +44,7 @@ fn personal_contacts_on_the_same_host_are_still_rejected() {
 
 #[test]
 fn linuxbrew_standard_installation_is_a_shared_path() {
-    assert!(findings("/home/linuxbrew/.linuxbrew/bin").is_empty());
+    assert_eq!(findings("/home/linuxbrew/.linuxbrew/bin").len(), 0);
 }
 
 #[test]

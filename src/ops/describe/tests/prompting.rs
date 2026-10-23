@@ -34,7 +34,7 @@ fn open_offers_the_existing_description_of_the_entry_under_the_cursor() {
     open(&mut app);
     assert_eq!(prompt(&app).name(), "a.txt");
     assert_eq!(prompt(&app).text(), "Old");
-    assert!(prompt(&app).pending().is_empty());
+    assert_eq!(prompt(&app).pending().len(), 0);
 }
 
 #[test]
@@ -127,7 +127,7 @@ fn marked_entries_are_described_one_after_another() {
     }
     accept(&mut app);
     assert!(!app.overlay.is_active(), "the last one closes the dialog");
-    assert!(marked(&app).is_empty(), "nothing is left marked");
+    assert_eq!(marked(&app).len(), 0, "nothing is left marked");
     assert_eq!(
         description_file(temp.path()),
         "a.txt Old\n\"b c.txt\" Spaced\n",

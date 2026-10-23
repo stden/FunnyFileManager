@@ -59,7 +59,7 @@ fn native_code_pages_preserve_ascii_and_allow_empty_lists() {
             encode("a.txt\r\n", encoding).expect("native encoding"),
             b"a.txt\r\n"
         );
-        assert!(encode("", encoding).expect("empty").is_empty());
+        assert_eq!(encode("", encoding).expect("empty").len(), 0);
     }
 }
 

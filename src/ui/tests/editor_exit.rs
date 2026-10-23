@@ -43,7 +43,7 @@ pub(super) fn dialog_area(terminal: &Terminal<TestBackend>) -> Rect {
         .flat_map(|y| (0..SCREEN_W).map(move |x| (x, y)))
         .filter(|&(x, y)| buf[(x, y)].bg == WARNING_BG)
         .collect();
-    assert!(!red.is_empty(), "no dialog on screen");
+    assert_ne!(red.len(), 0, "no dialog on screen");
 
     let left = red.iter().map(|&(x, _)| x).min().unwrap();
     let right = red.iter().map(|&(x, _)| x).max().unwrap();

@@ -20,8 +20,8 @@ fn shown(log: &ConsoleLog, height: usize) -> Vec<&str> {
 fn a_new_log_is_empty() {
     let log = ConsoleLog::default();
     assert!(log.is_empty());
-    assert_eq!(log.len(), 0);
-    assert!(shown(&log, 10).is_empty());
+    assert!(log.is_empty());
+    assert_eq!(shown(&log, 10).len(), 0);
 }
 
 #[test]

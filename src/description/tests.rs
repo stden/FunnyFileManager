@@ -26,7 +26,7 @@ fn parses_bare_and_quoted_names() {
 fn read_uses_the_first_existing_file_and_tolerates_none() -> io::Result<()> {
     let temp = TempDir::new()?;
     let names = default_names();
-    assert!(read(temp.path(), &names).is_empty());
+    assert_eq!(read(temp.path(), &names).len(), 0);
     fs::write(temp.path().join("Files.bbs"), "a.txt from bbs\n")?;
     assert_eq!(read(temp.path(), &names)["a.txt"], "from bbs");
     fs::write(temp.path().join("Descript.ion"), "a.txt from ion\n")?;

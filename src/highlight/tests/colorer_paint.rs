@@ -81,7 +81,7 @@ fn paint_handles_multibyte_lines_without_splitting_a_character() {
 #[cfg(feature = "colorer")]
 #[test]
 fn paint_handles_an_empty_line() {
-    assert!(paint("", &[]).is_empty());
+    assert_eq!(paint("", &[]).len(), 0);
 }
 
 /// Documents, rather than forces, a genuinely unreachable path in this build.

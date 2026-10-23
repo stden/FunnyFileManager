@@ -56,7 +56,7 @@ fn a_copied_secret_is_wiped_when_its_countdown_expires() {
     let just_before = copied_at + crate::CLIPBOARD_CLEAR.saturating_sub(Duration::from_millis(1));
 
     maintain_secrets(&mut app, just_before);
-    assert!(writes.0.borrow().is_empty(), "wiped before its time");
+    assert_eq!(writes.0.borrow().len(), 0, "wiped before its time");
     assert!(app.clipboard.is_armed());
 
     assert!(!maintain_secrets(&mut app, due), "no vault was locked");

@@ -91,6 +91,6 @@ fn marked_entries_go_together_and_the_marks_with_them() {
 
     assert!(!dir.path().join("a.txt").exists());
     assert!(!dir.path().join("b.txt").exists());
-    assert!(app.get_active_panel().marked.is_empty());
+    assert_eq!(app.get_active_panel().marked.len(), 0);
     assert_eq!(app.status.to_string(), "Wiped 2 item(s)");
 }

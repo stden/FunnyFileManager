@@ -35,8 +35,9 @@ fn the_send_button_sends_the_signal_chosen_in_the_menu() {
     tasks.press(KeyCode::Down);
     tasks.press(KeyCode::Down);
     tasks.press(KeyCode::Enter);
-    assert!(
-        tasks.host.controls().is_empty(),
+    assert_eq!(
+        tasks.host.controls().len(),
+        0,
         "the menu only opens the confirmation"
     );
     click_text(&mut term, &mut tasks.app, "{ Send }");

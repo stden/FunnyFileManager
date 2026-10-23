@@ -22,14 +22,14 @@ fn test_panel_marking_mutations() -> io::Result<()> {
     // Test toggle_mark with no selection
     panel.select(None);
     panel.toggle_mark_selected();
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
 
     // Test clear_marks
     panel.marked.insert(FileName::from("file1.txt"));
     panel.marked.insert(FileName::from("file2.txt"));
     assert_eq!(panel.marked.len(), 2);
     panel.clear_marks();
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
 
     Ok(())
 }
@@ -63,12 +63,12 @@ fn test_panel_action_entry_names_mutations() -> io::Result<()> {
     // Test with no selection and no marks
     panel.select(None);
     let names = panel.action_entry_names();
-    assert!(names.is_empty());
+    assert_eq!(names.len(), 0);
 
     // Test parent directory ".."
     select_entry(&mut panel, "..");
     let names = panel.action_entry_names();
-    assert!(names.is_empty(), "Parent directory should not be included");
+    assert_eq!(names.len(), 0, "Parent directory should not be included");
 
     Ok(())
 }

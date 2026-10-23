@@ -132,12 +132,12 @@ fn every_flag_is_drawn_once_with_a_bit_and_a_label() {
     for group in Flag::GROUPS {
         for flag in group.flags {
             assert_ne!(flag.bit(), 0);
-            assert!(!flag.label().is_empty());
+            assert_ne!(flag.label().len(), 0);
             assert!(!seen.contains(flag), "{flag:?} drawn twice");
             seen.push(*flag);
         }
     }
-    assert!(!seen.is_empty());
+    assert_ne!(seen.len(), 0);
 }
 
 /// Owner and group read "various" when the selection disagrees.

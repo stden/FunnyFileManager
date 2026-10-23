@@ -50,8 +50,9 @@ fn typing_edits_only_the_focused_time_field() {
         snapshot("a", 0o644, false),
         snapshot("b", 0o644, false),
     ]);
-    assert!(
-        dialog.modified.current.is_empty(),
+    assert_eq!(
+        dialog.modified.current.len(),
+        0,
         "several files: leave the time alone"
     );
     dialog.field = AttributesField::Flag(0);
@@ -65,7 +66,7 @@ fn typing_edits_only_the_focused_time_field() {
     assert_eq!(dialog.accessed.current, "2026-01-02 03:04:05");
     dialog.backspace();
     assert_eq!(dialog.accessed.current, "2026-01-02 03:04:0");
-    assert!(dialog.modified.current.is_empty());
+    assert_eq!(dialog.modified.current.len(), 0);
 }
 
 /// A click on the button row names the button before Enter.

@@ -31,6 +31,6 @@ fn open_on_a_plain_file_says_so_and_offers_no_extract() {
     let Overlay::ExtractPrompt(prompt) = &app.overlay else {
         panic!("dialog opens");
     };
-    assert!(prompt.archives.is_empty());
+    assert_eq!(prompt.archives.len(), 0);
     assert!(!prompt.can_extract());
 }

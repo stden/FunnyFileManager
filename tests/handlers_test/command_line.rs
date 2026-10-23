@@ -44,8 +44,9 @@ fn test_command_line_unknown_command() -> io::Result<()> {
     process_popup_input(&mut app, key_event(KeyCode::Enter));
     // Unknown commands are run as shell commands; the status will reflect
     // the shell's error output (e.g. "not found") or exit code.
-    assert!(
-        !app.status_text().is_empty(),
+    assert_ne!(
+        app.status_text().len(),
+        0,
         "status_message should contain shell output for unknown command"
     );
 
@@ -63,7 +64,7 @@ fn test_command_line_sort_extension() -> io::Result<()> {
     app.set_overlay(Overlay::CommandLine("sort extension".into()));
 
     process_popup_input(&mut app, key_event(KeyCode::Enter));
-    assert!(!app.status_text().is_empty());
+    assert_ne!(app.status_text(), "");
 
     Ok(())
 }
@@ -97,7 +98,7 @@ fn test_command_line_sort_invalid() -> io::Result<()> {
     app.set_overlay(Overlay::CommandLine("sort nope".into()));
 
     process_popup_input(&mut app, key_event(KeyCode::Enter));
-    assert!(!app.status_text().is_empty());
+    assert_ne!(app.status_text(), "");
 
     Ok(())
 }
@@ -113,7 +114,7 @@ fn test_command_line_mark_all() -> io::Result<()> {
     app.set_overlay(Overlay::CommandLine("mark all".into()));
 
     process_popup_input(&mut app, key_event(KeyCode::Enter));
-    assert!(!app.left_panel.marked.is_empty());
+    assert_ne!(app.left_panel.marked.len(), 0);
     assert!(app.status_text().contains("Marked"));
 
     Ok(())
@@ -130,7 +131,7 @@ fn test_command_line_unmark() -> io::Result<()> {
     app.set_overlay(Overlay::CommandLine("unmark".into()));
 
     process_popup_input(&mut app, key_event(KeyCode::Enter));
-    assert!(app.left_panel.marked.is_empty());
+    assert_eq!(app.left_panel.marked.len(), 0);
     assert!(app.status_text().contains("Unmarked"));
 
     Ok(())

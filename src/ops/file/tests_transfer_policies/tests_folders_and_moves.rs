@@ -147,7 +147,7 @@ fn the_marks_are_cleared_once_the_transfer_is_done() {
 
     copy_with(&mut app, &settings(to.path()));
 
-    assert!(app.get_active_panel().marked.is_empty());
+    assert_eq!(app.get_active_panel().marked.len(), 0);
 }
 
 #[test]

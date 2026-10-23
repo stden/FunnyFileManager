@@ -31,7 +31,7 @@ fn test_unique_destination_mutation_killer() -> io::Result<()> {
 
     // Test that kills "replace with Default::default()" mutation
     let result = unique_destination(temp_dir.path(), OsStr::new("test.txt"))?;
-    assert!(!result.as_os_str().is_empty());
+    assert_ne!(result.as_os_str().len(), 0);
     assert!(result.starts_with(temp_dir.path()));
 
     // Test match guard mutations for extension handling

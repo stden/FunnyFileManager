@@ -48,7 +48,7 @@ fn navigation_selects_distributions_without_queuing_work() {
     assert_eq!(dialog(&app).selected(), Some(1));
     key(&mut app, KeyCode::Home);
     assert_eq!(dialog(&app).selected(), Some(0));
-    assert!(app.wsl_requests.pending().is_empty());
+    assert_eq!(app.wsl_requests.pending().len(), 0);
 }
 
 #[test]
@@ -82,7 +82,7 @@ fn busy_dialog_consumes_new_operations_but_allows_navigation_and_close() {
     for code in [KeyCode::Enter, KeyCode::F(2), KeyCode::F(5), KeyCode::F(6)] {
         key(&mut app, code);
     }
-    assert!(app.wsl_requests.pending().is_empty());
+    assert_eq!(app.wsl_requests.pending().len(), 0);
     key(&mut app, KeyCode::Down);
     assert_eq!(dialog(&app).selected(), Some(1));
     assert!(matches!(
@@ -107,7 +107,7 @@ fn unsupported_keys_never_reach_the_files_behind_the_dialog() {
     key(&mut app, KeyCode::F(8));
     assert_eq!(std::fs::read_to_string(file).expect("file remains"), "kept");
     assert_eq!(dialog(&app).selected(), Some(0));
-    assert!(app.wsl_requests.pending().is_empty());
+    assert_eq!(app.wsl_requests.pending().len(), 0);
     app.set_overlay(Overlay::Help);
     assert!(!process(&mut app, KeyCode::Esc, KeyModifiers::NONE));
     assert!(matches!(app.overlay, Overlay::Help));
@@ -121,7 +121,7 @@ fn a_key_held_with_a_modifier_stays_in_the_dialog_and_does_nothing() {
     for text in ["Ctrl+Down", "Shift+End", "Shift+Enter", "Alt+F5", "Alt+Esc"] {
         press(&mut app, text);
         assert_eq!(dialog(&app).selected(), Some(0), "{text}");
-        assert!(app.wsl_requests.pending().is_empty(), "{text}");
+        assert_eq!(app.wsl_requests.pending().len(), 0, "{text}");
     }
 }
 
@@ -136,7 +136,7 @@ fn the_dialog_reads_the_keys_the_app_holds() {
     press(&mut app, "Down");
     press(&mut app, "F2");
     assert_eq!(dialog(&app).selected(), Some(0));
-    assert!(app.wsl_requests.pending().is_empty());
+    assert_eq!(app.wsl_requests.pending().len(), 0);
     press(&mut app, "j");
     press(&mut app, "Ctrl+R");
     assert_eq!(dialog(&app).selected(), Some(1));

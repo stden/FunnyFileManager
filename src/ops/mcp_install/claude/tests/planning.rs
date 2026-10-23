@@ -46,7 +46,7 @@ fn a_registered_entry_runs_nothing() {
     let fixture = fixture();
     fixture.write_entry(fixture.desired.command.as_str());
     assert_eq!(fixture.register().outcome, Outcome::Unchanged);
-    assert!(fixture.machine.claude().calls().is_empty());
+    assert_eq!(fixture.machine.claude().calls().len(), 0);
 }
 
 #[test]
@@ -58,7 +58,7 @@ fn a_config_that_does_not_parse_is_never_handed_to_the_cli() {
         registration.outcome,
         Outcome::Failed(Failure::Blocked(Blocker::Unparsable(_)))
     ));
-    assert!(fixture.machine.claude().calls().is_empty());
+    assert_eq!(fixture.machine.claude().calls().len(), 0);
 }
 
 #[test]

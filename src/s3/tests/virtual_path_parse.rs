@@ -55,7 +55,7 @@ fn test_virtual_path_parse_edge_cases() {
         } => {
             assert_eq!(profile, "default");
             assert_eq!(bucket, None);
-            assert!(prefix.is_empty());
+            assert_eq!(prefix.len(), 0);
         }
         _ => panic!("Expected S3 path"),
     }
@@ -75,7 +75,7 @@ fn test_virtual_path_parse_bucket_only_no_slash() {
         } => {
             assert_eq!(profile, "default");
             assert_eq!(bucket, Some("my-bucket".to_owned()));
-            assert!(prefix.is_empty());
+            assert_eq!(prefix.len(), 0);
         }
         _ => panic!("Expected S3 path"),
     }
@@ -92,7 +92,7 @@ fn test_virtual_path_parse_profile_at_bucket_no_prefix() {
         } => {
             assert_eq!(profile, "prod");
             assert_eq!(bucket, Some("my-bucket".to_owned()));
-            assert!(prefix.is_empty());
+            assert_eq!(prefix.len(), 0);
         }
         _ => panic!("Expected S3 path"),
     }
@@ -109,7 +109,7 @@ fn test_virtual_path_parse_profile_without_bucket() {
         } => {
             assert_eq!(profile, "staging");
             assert_eq!(bucket, None);
-            assert!(prefix.is_empty());
+            assert_eq!(prefix.len(), 0);
         }
         _ => panic!("Expected S3 path"),
     }
@@ -127,7 +127,7 @@ fn test_virtual_path_parse_s3_triple_slash_details() {
         } => {
             assert_eq!(profile, "default");
             assert_eq!(bucket, None);
-            assert!(prefix.is_empty());
+            assert_eq!(prefix.len(), 0);
         }
         _ => panic!("Expected S3 path"),
     }

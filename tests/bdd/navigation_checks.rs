@@ -137,13 +137,13 @@ fn then_left_differs(world: &mut FfmWorld) -> StepResult {
 // Editor
 #[then("the left panel should have entries")]
 fn then_left_has_entries(world: &mut FfmWorld) -> StepResult {
-    assert!(!world.app()?.left_panel.entries.is_empty());
+    assert_ne!(world.app()?.left_panel.entries.len(), 0);
     Ok(())
 }
 
 #[then("the right panel should have entries")]
 fn then_right_has_entries(world: &mut FfmWorld) -> StepResult {
-    assert!(!world.app()?.right_panel.entries.is_empty());
+    assert_ne!(world.app()?.right_panel.entries.len(), 0);
     Ok(())
 }
 

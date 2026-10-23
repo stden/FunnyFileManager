@@ -152,8 +152,9 @@ fn noop_terminal_ops_touch_neither_the_backend_nor_the_bytes() {
         (pushed, popped),
         (KeyboardProtocol::Legacy, KeyboardProtocol::Legacy)
     );
-    assert!(
-        terminal.backend().calls.is_empty(),
+    assert_eq!(
+        terminal.backend().calls.len(),
+        0,
         "the no-op ops reached the backend: {:?}",
         terminal.backend().calls
     );

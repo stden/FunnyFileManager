@@ -80,7 +80,7 @@ fn move_rename_that_cannot_copy_keeps_the_source() {
         }))
         .expect_err("a file cannot replace a populated directory");
 
-    assert!(!error.message.is_empty(), "the failure has to be described");
+    assert_ne!(error.message.len(), 0, "the failure has to be described");
     assert_eq!(
         fs::read_to_string(root.join("doc.txt")).expect("the source is still readable"),
         "content",

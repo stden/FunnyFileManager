@@ -11,7 +11,7 @@ fn ffm_itself_and_init_get_a_notice_and_no_call() {
         assert_eq!(tasks.list().notice(), Some(Notice::Refused(refusal)));
         open_signal_menu(tasks.list());
         assert_eq!(tasks.list().modal(), &Modal::Browse);
-        assert!(tasks.host.controls().is_empty());
+        assert_eq!(tasks.host.controls().len(), 0);
     }
 }
 
@@ -92,7 +92,7 @@ fn a_list_without_a_host_controls_nothing() {
     };
     assert_eq!(failures[0].error(), ControlError::Unsupported);
     step_nice(&mut tasks.app, NiceStep::Raise);
-    assert!(tasks.host.controls().is_empty());
+    assert_eq!(tasks.host.controls().len(), 0);
 }
 
 /// Windows has no signals to choose from, so F9 asks what F8 asks.

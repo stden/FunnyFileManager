@@ -71,7 +71,7 @@ fn an_unreadable_directory_does_not_stop_the_scan() {
 
 #[test]
 fn an_unset_path_yields_no_candidates() {
-    assert!(scan(None).is_empty());
+    assert_eq!(scan(None).len(), 0);
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn the_scan_is_sorted_and_therefore_deterministic() {
 #[test]
 fn an_empty_prefix_offers_nothing() {
     // Tab at an empty prompt must show the built-in verbs, not all of $PATH.
-    assert!(matching("").is_empty());
+    assert_eq!(matching("").len(), 0);
 }
 
 #[test]
@@ -188,6 +188,6 @@ fn matching_in_applies_the_same_prefix_rule_to_any_list() {
         Vec::<String>::new(),
         "prefix, not fuzzy"
     );
-    assert!(matching_in(&names, "").is_empty());
+    assert_eq!(matching_in(&names, "").len(), 0);
     assert_eq!(matching("py"), matching_in(executables(), "py"));
 }

@@ -60,7 +60,7 @@ fn a_new_server_needs_a_free_language_and_is_written_whole() {
     assert_eq!(editor.selected().map(LanguageId::as_str), Some("zig"));
     let zig = &editor.draft().0["zig"];
     assert_eq!(zig.command, "zls");
-    assert!(zig.extensions.is_empty());
+    assert_eq!(zig.extensions.len(), 0);
     assert_eq!(zig.root_markers, [".git"]);
     assert_eq!(zig.install, None);
 }

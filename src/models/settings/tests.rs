@@ -18,7 +18,7 @@ fn settings_validate_before_replacing_the_previous_value() {
 fn saved_values_follow_the_last_load_or_save() {
     let mut settings = Settings::default();
     settings.set(SettingsPage::Editor, "8").unwrap();
-    assert!(settings.saved_values().is_empty());
+    assert_eq!(settings.saved_values().len(), 0);
     settings.mark_saved();
     settings.set(SettingsPage::Panel, "off").unwrap();
     assert_eq!(

@@ -22,7 +22,7 @@ fn a_missing_file_is_created_with_its_folders() {
     let path = fixture.machine.config(ClientId::Kiro, Scope::AllProjects);
     assert_eq!(registration.outcome, Outcome::Added);
     assert_eq!(registration.config, Some(path.clone()));
-    assert!(registration.ran.is_empty());
+    assert_eq!(registration.ran.len(), 0);
     let text = fs::read_to_string(&path).unwrap();
     assert_eq!(
         json_command(&text).as_deref(),
@@ -116,7 +116,7 @@ fn the_home_folder_as_current_folder_writes_nothing() {
             Some(fixture.machine.config(client, Scope::AllProjects))
         );
     }
-    assert!(fixture.machine.files().unwrap().is_empty());
+    assert_eq!(fixture.machine.files().unwrap().len(), 0);
 }
 
 /// Review finding: a save by the client between the last read and the

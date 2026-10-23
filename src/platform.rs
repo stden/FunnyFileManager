@@ -20,11 +20,11 @@ pub use registry_text::{RegistryString, RegistryStringKind};
 pub use unix::ProcessHandle;
 #[cfg(unix)]
 pub use unix::{check_write_access, effective_uid, is_root, kill_process_group, real_uid};
-#[cfg(unix)]
+#[cfg(all(unix, any(target_os = "linux", test)))]
 pub use unix::{clock_ticks_per_second, page_size};
 #[cfg(unix)]
 pub use unix::{hang_up_process_group, has_exited};
-#[cfg(unix)]
+#[cfg(all(unix, any(target_os = "linux", test)))]
 pub use unix::{set_niceness, signal_process};
 #[cfg(windows)]
 pub use windows::{accept, client_process_id, create_pipe, open_pipe, server_process_id};

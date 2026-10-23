@@ -9,12 +9,12 @@ fn test_panel_new() -> io::Result<()> {
     let mut panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
 
     assert_eq!(panel.path, temp_dir.path());
-    assert!(!panel.entries.is_empty());
+    assert_ne!(panel.entries.len(), 0);
     assert_eq!(panel.selected(), Some(0));
 
     panel.entries.clear();
     panel.select(None);
-    assert!(panel.entries.is_empty());
+    assert_eq!(panel.entries.len(), 0);
     assert_eq!(panel.selected(), None);
 
     Ok(())

@@ -59,7 +59,7 @@ fn yes_to_the_delete_question_deletes_and_a_missing_session_is_reported() {
     let mut app = app_in(dir.path());
     app.sessions.upsert(session("a.test", None));
     confirm_question(&mut app, QuestionPurpose::DeleteSession(name("a.test")));
-    assert!(app.sessions.is_empty());
+    assert_eq!(app.sessions.len(), 0);
     confirm_question(&mut app, QuestionPurpose::DeleteSession(name("a.test")));
     assert_eq!(app.status_text(), "Error: NetBox: no session named a.test");
 }

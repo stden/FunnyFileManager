@@ -11,7 +11,7 @@ fn then_status(world: &mut FfmWorld, t: String) -> StepResult {
 
 #[then("сообщение статуса не должно быть пустым")]
 fn then_status_not_empty(world: &mut FfmWorld) -> StepResult {
-    assert!(!world.app()?.status_text().is_empty());
+    assert_ne!(world.app()?.status_text(), "");
     Ok(())
 }
 

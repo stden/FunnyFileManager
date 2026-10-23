@@ -20,7 +20,7 @@ fn test_sort_mode_full_cycle_returns_to_start() {
 #[test]
 fn test_sort_mode_labels_are_nonempty() {
     for mode in [SortMode::Name, SortMode::Extension, SortMode::Size] {
-        assert!(!mode.label().is_empty());
+        assert_ne!(mode.label(), "");
     }
 }
 
@@ -60,8 +60,8 @@ fn test_drive_entry_display_s3_profile_empty_name() {
 #[test]
 fn test_viewer_default_has_empty_state() {
     let viewer = Viewer::default();
-    assert!(viewer.title().is_empty());
-    assert!(viewer.lines.is_empty());
+    assert_eq!(viewer.title(), "");
+    assert_eq!(viewer.lines.len(), 0);
     assert_eq!(viewer.scroll, ScrollTop::TOP);
 }
 
@@ -126,5 +126,5 @@ fn test_format_size_exact_boundaries() {
 fn test_format_size_zero() {
     let result = FileSize::from_bytes(0).to_string();
     assert_eq!(result, "0 B");
-    assert!(!result.is_empty());
+    assert_ne!(result, "");
 }

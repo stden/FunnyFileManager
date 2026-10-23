@@ -16,7 +16,7 @@ fn test_handle_edit_impl_no_selection() -> io::Result<()> {
     });
 
     assert!(result.is_ok());
-    assert!(app.status_text().is_empty());
+    assert_eq!(app.status_text().len(), 0);
     Ok(())
 }
 
@@ -63,7 +63,7 @@ fn test_handle_edit_impl_selected_path_none() -> io::Result<()> {
     });
 
     assert!(result.is_ok());
-    assert!(app.status_text().is_empty());
+    assert_eq!(app.status_text().len(), 0);
     Ok(())
 }
 

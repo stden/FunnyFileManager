@@ -88,7 +88,7 @@ fn handle_copy_continues_past_a_failing_item() -> io::Result<()> {
         "status was {:?}",
         app.status_text()
     );
-    assert!(app.left_panel.marked.is_empty(), "marks must be cleared");
+    assert_eq!(app.left_panel.marked.len(), 0, "marks must be cleared");
     assert!(
         app.right_panel.entries.iter().any(|e| e.name == "b.txt"),
         "panels must be refreshed even when an item failed"
@@ -123,7 +123,7 @@ fn handle_move_continues_past_a_failing_item() -> io::Result<()> {
         "status was {:?}",
         app.status_text()
     );
-    assert!(app.left_panel.marked.is_empty(), "marks must be cleared");
+    assert_eq!(app.left_panel.marked.len(), 0, "marks must be cleared");
     Ok(())
 }
 

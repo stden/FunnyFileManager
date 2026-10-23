@@ -32,7 +32,7 @@ fn assert_untouched(root: &Path) {
         "inner"
     );
     let copies: Vec<_> = fs::read_dir(root.join("out")).unwrap().collect();
-    assert!(copies.is_empty(), "nothing is copied: {copies:?}");
+    assert_eq!(copies.len(), 0, "nothing is copied: {copies:?}");
 }
 
 fn move_one(server: &FfmServer, source: &str, destination: &str) -> Result<(), String> {

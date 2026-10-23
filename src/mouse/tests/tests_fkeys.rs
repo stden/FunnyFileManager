@@ -61,6 +61,6 @@ fn a_bar_too_narrow_for_twelve_keys_still_answers_consistently() {
 /// the key count would panic here, and a release build aborts on a panic.
 #[test]
 fn a_bar_of_no_keys_has_no_cells_and_hits_nothing() {
-    assert!(fkey_widths(80, 0).is_empty());
+    assert_eq!(fkey_widths(80, 0).len(), 0);
     assert_eq!(fkey_at(80, 0, 0), None);
 }

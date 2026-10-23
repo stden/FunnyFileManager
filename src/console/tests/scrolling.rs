@@ -67,15 +67,15 @@ fn scrolling_an_empty_log_is_harmless() {
     log.scroll_down(5);
     log.scroll_to_top();
     assert_eq!(log.scroll().lines(), 0);
-    assert!(shown(&log, 10).is_empty());
+    assert_eq!(shown(&log, 10).len(), 0);
 }
 
 #[test]
 fn visible_survives_absurd_arguments() {
     let mut log = ConsoleLog::default();
-    assert!(log.visible(0).is_empty());
+    assert_eq!(log.visible(0).len(), 0);
     log.record_output("a\nb\nc");
-    assert!(log.visible(0).is_empty());
+    assert_eq!(log.visible(0).len(), 0);
     log.scroll_up(usize::MAX);
     assert_eq!(shown(&log, usize::MAX), ["a"]);
     log.scroll_down(usize::MAX);

@@ -44,7 +44,7 @@ fn test_list_buckets_empty() -> io::Result<()> {
     "#;
     let client = build_test_client(vec![replay_event(xml)]);
     let buckets = client.list_buckets()?;
-    assert!(buckets.is_empty());
+    assert_eq!(buckets.len(), 0);
     Ok(())
 }
 

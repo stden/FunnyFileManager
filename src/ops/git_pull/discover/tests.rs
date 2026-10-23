@@ -55,8 +55,5 @@ fn directory_links_cannot_escape_the_current_folder_or_create_a_cycle() {
     fs::create_dir(&root).expect("workspace");
     std::os::unix::fs::symlink(temp.path().join("outside"), root.join("external")).expect("link");
     std::os::unix::fs::symlink(&root, root.join("cycle")).expect("cycle");
-    assert!(scan(&root, &|| false)
-        .expect("scan")
-        .repositories
-        .is_empty());
+    assert_eq!(scan(&root, &|| false).expect("scan").repositories.len(), 0);
 }

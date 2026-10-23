@@ -78,7 +78,7 @@ fn a_pre_signal_sample_is_followed_by_an_explicit_read_while_held() {
         .apply_sample(Ok(one_core(vec![at_nice(0)])), now);
     assert_eq!(tasks.list().take_request(now), Some(Request::Explicit));
     tasks.list().apply_sample(Ok(one_core(Vec::new())), now);
-    assert!(tasks.list().rows().is_empty());
+    assert_eq!(tasks.list().rows().len(), 0);
     assert_eq!(tasks.list().refresh().schedule(), Schedule::Held);
 }
 

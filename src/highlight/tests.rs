@@ -113,7 +113,7 @@ fn multibyte_text_is_never_cut_mid_character() {
 #[test]
 fn an_empty_line_is_handled() {
     let mut highlighter = Highlighter::new(&PathBuf::from("a.rs"));
-    assert!(highlighter.line("").is_empty());
+    assert_eq!(highlighter.line("").len(), 0);
     #[cfg(feature = "colorer")]
     {
         assert_eq!(regions::utf16_to_char_idx("a🦀b", 0), 0);

@@ -29,6 +29,9 @@ fn make_sparse(path: &Path, chunks: &[(u64, &[u8])]) -> bool {
         file.seek(SeekFrom::Start(*offset)).expect("test setup");
         file.write_all(bytes).expect("test setup");
     }
+    // Observe persisted allocation: delayed writes may fill the holes.
+    file.sync_all().expect("persist sparse fixture");
+    drop(file);
     allocated(path) < SPARSE_SIZE / 2
 }
 

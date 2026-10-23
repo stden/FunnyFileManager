@@ -19,7 +19,7 @@ fn test_virtual_path_parse_profile_at_empty_bucket() {
         } => {
             assert_eq!(profile, "myprofile");
             assert_eq!(bucket, None);
-            assert!(prefix.is_empty());
+            assert_eq!(prefix, "");
         }
         VirtualPath::Local(_) => panic!("Expected S3 path"),
     }
@@ -58,7 +58,7 @@ fn test_virtual_path_parse_bare_s3_no_trailing_slash() {
         } => {
             assert_eq!(profile, "default");
             assert_eq!(bucket, None);
-            assert!(prefix.is_empty());
+            assert_eq!(prefix, "");
         }
         VirtualPath::Local(_) => panic!("Expected S3 path"),
     }

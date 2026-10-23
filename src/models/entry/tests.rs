@@ -32,7 +32,7 @@ fn display_uses_the_platform_renderer() {
 fn a_refused_timestamp_is_unknown_and_sorts_first() {
     let refused = Modified::from_result(Err(std::io::Error::other("no ctime")));
     assert_eq!(refused, Modified::UNKNOWN);
-    assert!(refused.date().is_empty());
+    assert_eq!(refused.date().len(), 0);
     let known = Modified::new(std::time::UNIX_EPOCH);
     assert!(refused < known);
 }
