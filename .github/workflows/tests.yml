@@ -118,7 +118,7 @@ jobs:
       # keeps its crates in the registry. `mcp -> ../target` would not do:
       # rust-cache cleans each listed target with that workspace's crate list,
       # and a second pass over target/ would delete the root's dependencies.
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: lint
           workspaces: |
@@ -128,7 +128,7 @@ jobs:
 
       # The spell check in ./ffm.py lint; typos.toml holds the project words.
       - name: Install typos
-        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
         with:
           tool: ${{ env.TOOL_TYPOS }}
 
@@ -171,13 +171,13 @@ jobs:
           rustup toolchain install --no-self-update
           rustup component add llvm-tools
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: coverage
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install coverage + test tools (prebuilt)
-        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
         with:
           tool: ${{ env.TOOL_LLVM_COV }},${{ env.TOOL_NEXTEST }}
 
@@ -230,7 +230,7 @@ jobs:
       - name: Install Rust (rust-toolchain.toml)
         run: rustup toolchain install --no-self-update
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: bdd
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -271,7 +271,7 @@ jobs:
           name: cargo-lock
       - name: Install Rust (rust-toolchain.toml)
         run: rustup toolchain install --no-self-update
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: windows
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -322,14 +322,14 @@ jobs:
           rustup toolchain install --no-self-update
           rustup component add llvm-tools
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: mcp
           workspaces: "mcp -> ../target"
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install coverage tool (prebuilt)
-        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
         with:
           tool: ${{ env.TOOL_LLVM_COV }}
 
@@ -373,7 +373,7 @@ jobs:
           name: cargo-lock
       - name: Install Rust (rust-toolchain.toml)
         run: rustup toolchain install --no-self-update
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: colorer
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -434,7 +434,7 @@ jobs:
         run: rustup toolchain install --no-self-update
 
       - name: Install cargo-deny (prebuilt)
-        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
         with:
           tool: ${{ env.TOOL_CARGO_DENY }}
 
@@ -507,7 +507,7 @@ jobs:
       # saves it, one target dir per crate. The job runs on pull requests
       # only, so the cache is scoped to the pull request and warms its later
       # pushes; the first push builds every dependency.
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: mutants
           workspaces: |
@@ -517,7 +517,7 @@ jobs:
           save-if: ${{ matrix.shard == 0 }}
 
       - name: Install mutation + test tools (prebuilt)
-        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
         with:
           tool: ${{ env.TOOL_MUTANTS }},${{ env.TOOL_NEXTEST }}
 
