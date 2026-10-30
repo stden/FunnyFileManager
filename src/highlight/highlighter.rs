@@ -172,7 +172,7 @@ impl Highlighter {
         if trimmed.starts_with('>') {
             return vec![(line, Token::Comment)];
         }
-        if trimmed.starts_with("- ") || trimmed.starts_with("* ") || trimmed.starts_with("| ") {
+        if trimmed.starts_with("- ") || trimmed.starts_with("* ") {
             // The indent and the one-byte marker, then the item's text.
             if let Some((bullet, text)) = line.split_at_checked(line.len() - trimmed.len() + 1) {
                 return vec![(bullet, Token::Meta), (text, Token::Normal)];

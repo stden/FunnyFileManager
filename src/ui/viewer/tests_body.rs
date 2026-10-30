@@ -138,3 +138,18 @@ fn nothing_of_the_panels_survives_underneath() {
         assert_eq!(buf[(40, y)].bg, palette::BACKGROUND, "row {y}");
     }
 }
+
+#[test]
+fn a_markdown_table_pipe_is_normal_not_meta() {
+    let mut app = app_with(file_viewer(
+        "/tmp/x/table.md",
+        b"| Col1 | Col2 |\n|------|------|",
+    ));
+    let terminal = draw(&mut app, 80, 24);
+    let buf = terminal.backend().buffer();
+    assert_eq!(
+        buf[(0, 1)].fg,
+        palette::CODE_NORMAL,
+        "leading `|` of a table row must be Token::Normal, not Token::Meta"
+    );
+}
