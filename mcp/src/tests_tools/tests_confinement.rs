@@ -2,7 +2,6 @@
 //! is a directory.
 
 use super::*;
-use crate::tools::listing::SortDirectoryParams;
 
 #[cfg(unix)]
 #[test]
