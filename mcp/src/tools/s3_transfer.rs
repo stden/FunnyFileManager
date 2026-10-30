@@ -40,12 +40,12 @@ struct S3DeleteParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-struct S3CopyParams {
-    profile: String,
-    source_bucket: String,
-    source_key: String,
-    dest_bucket: String,
-    dest_key: String,
+pub struct S3CopyParams {
+    pub profile: String,
+    pub source_bucket: String,
+    pub source_key: String,
+    pub dest_bucket: String,
+    pub dest_key: String,
 }
 
 #[tool_router(router = s3_transfer_tools, vis = "pub(super)")]

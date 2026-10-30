@@ -151,3 +151,29 @@ fn test_list_aws_profiles_preserves_section_order_after_default() {
         .collect();
     assert_eq!(profile_names, vec!["default", "work", "personal"]);
 }
+
+#[test]
+fn test_list_aws_profiles_merges_config_regions_and_skips_other_sections() {
+    let temp_dir = TempDir::new().expect("temp dir");
+    let aws_dir = temp_dir.path().join(".aws");
+    fs::create_dir(&aws_dir).expect("mkdir");
+    let creds = "[work]\naws_access_key_id = 1\n[ops]\nregion = us-west-1\n";
+    let config = "[default]\nregion = eu-central-1\nregional_endpoints = regional\n\
+                  [profile work]\nregion = ap-northeast-1\n\
+                  [sso-session corp]\nregion = sa-east-1\n";
+    fs::write(aws_dir.join("credentials"), creds).expect("credentials");
+    fs::write(aws_dir.join("config"), config).expect("config");
+    let _env = AwsHomeEnvGuard::set(temp_dir.path());
+
+    let profiles = list_aws_profiles();
+    let region_of = |name: &str| {
+        profiles
+            .iter()
+            .find(|p| p.name == name)
+            .and_then(|p| p.region.as_deref())
+    };
+    assert_eq!(region_of("default"), Some("eu-central-1"));
+    assert_eq!(region_of("work"), Some("ap-northeast-1"));
+    assert_eq!(region_of("ops"), Some("us-west-1"));
+    assert!(!profiles.iter().any(|p| p.name == "corp"));
+}

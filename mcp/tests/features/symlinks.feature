@@ -125,3 +125,15 @@ Feature: Symlink handling via MCP tools
     And the file "key.txt" has mode "600"
     When I clear the readonly flag on "key.txt"
     Then the result should contain "100600"
+
+  Scenario: Listing does not classify an out-of-root directory link as a dir
+    Given a symlink "escape_dir" pointing outside the root at "."
+    And a file "aaa.txt" with content "local"
+    When I list the temporary directory
+    Then "aaa.txt" should appear before "escape_dir" in entries
+
+  Scenario: Sorting does not classify an out-of-root directory link as a dir
+    Given a symlink "escape_dir" pointing outside the root at "."
+    And a file "aaa.txt" with content "local"
+    When I sort the temporary directory by "name"
+    Then "aaa.txt" should appear before "escape_dir" in entries

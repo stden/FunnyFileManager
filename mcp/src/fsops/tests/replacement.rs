@@ -173,3 +173,19 @@ fn write_replaced_rejects_a_path_without_a_file_name() {
         "no temp file may be created outside the target directory"
     );
 }
+
+#[cfg(not(unix))]
+#[test]
+fn write_replaced_refuses_a_readonly_target_and_leaves_no_temp_file() {
+    let dir = TempDir::new().expect("temp dir");
+    let file = dir.path().join("locked.txt");
+    fs::write(&file, "keep").expect("write");
+    crate::fsops::apply_readonly(&file, true).expect("set readonly");
+
+    let err = write_replaced(&file, "overwrite").expect_err("readonly must fail");
+    crate::fsops::apply_readonly(&file, false).expect("clear readonly for cleanup");
+
+    assert_eq!(err.kind(), std::io::ErrorKind::PermissionDenied);
+    assert_eq!(fs::read_to_string(&file).expect("read"), "keep");
+    assert_eq!(entry_names(dir.path()), vec!["locked.txt".to_owned()]);
+}

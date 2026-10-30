@@ -36,3 +36,25 @@ Feature: Bookmarks via MCP tools
   Scenario: Removing an unknown bookmark fails
     When I remove the bookmark "never_set"
     Then the operation should fail with "bookmark not found"
+
+  Scenario: Overwriting an out-of-root bookmark entry is rejected
+    Given a file ".ffm/bookmarks.json" with content '{"escape": "/etc"}'
+    When I bookmark the temporary directory as "escape"
+    Then the operation should fail with "outside the allowed root"
+
+  Scenario: Looking up an out-of-root bookmark entry is rejected
+    Given a file ".ffm/bookmarks.json" with content '{"escape": "/etc"}'
+    When I look up the bookmark "escape"
+    Then the operation should fail with "outside the allowed root"
+
+  Scenario: Removing an out-of-root bookmark entry is rejected
+    Given a file ".ffm/bookmarks.json" with content '{"escape": "/etc"}'
+    When I remove the bookmark "escape"
+    Then the operation should fail with "outside the allowed root"
+
+  Scenario: Listing hides bookmarks that point outside the allowed root
+    Given a subdirectory "keep"
+    And a file ".ffm/bookmarks.json" with content '{"keep": "keep", "escape": "/etc"}'
+    When I list bookmarks
+    Then the result field "count" should be 1
+    And the "bookmarks" entries should be named "keep"

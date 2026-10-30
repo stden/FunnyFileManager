@@ -53,3 +53,22 @@ fn rewrite_file_refuses_what_is_not_a_regular_file_without_waiting() -> io::Resu
     }
     Ok(())
 }
+
+#[test]
+fn rewrite_file_refuses_hard_link_or_symlink_to_open_source_without_truncating() -> io::Result<()> {
+    let dir = TempDir::new()?;
+    let source = dir.path().join("source.txt");
+    fs::write(&source, b"precious payload")?;
+    let hard = dir.path().join("hard.txt");
+    fs::hard_link(&source, &hard)?;
+    let sym = dir.path().join("sym.txt");
+    std::os::unix::fs::symlink(&source, &sym)?;
+
+    let input = open_regular_file(&source)?;
+    for alias in [&hard, &sym] {
+        let err = rewrite_file(&input, alias, CopyRules::PLAIN).expect_err("same inode");
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+        assert_eq!(fs::read(&source)?, b"precious payload");
+    }
+    Ok(())
+}

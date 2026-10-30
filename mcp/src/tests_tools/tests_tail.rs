@@ -112,3 +112,30 @@ fn tail_file_of_a_file_with_no_newlines_returns_the_whole_line() {
     assert_eq!(json["lines_returned"], 1);
     assert_eq!(json["content"].as_str().map(str::len), Some(100));
 }
+
+#[test]
+fn tail_file_never_splits_a_multibyte_utf8_character_at_the_cap_boundary() {
+    let dir = TempDir::new().expect("temp dir");
+    let (server, root) = server_at(&dir);
+    let mut raw = "🦀".as_bytes().to_vec();
+    raw.extend(std::iter::repeat_n(b'a', 10 * 1024 * 1024 - 8));
+    raw.extend_from_slice(b"\nlast\n");
+    let path = root.join("utf8_cap.log");
+    fs::write(&path, &raw).expect("write log");
+
+    let json = tool_json(
+        &server
+            .tail_file(Parameters(TailParams {
+                path: path.display().to_string(),
+                lines: Some(5),
+            }))
+            .expect("tail"),
+    );
+    let content = json["content"].as_str().expect("string content");
+    assert_eq!(json["lines_returned"], 2);
+    assert!(
+        !content.contains('\u{FFFD}'),
+        "split UTF-8 codepoint leaked"
+    );
+    assert!(content.starts_with('a') && content.ends_with("\nlast"));
+}

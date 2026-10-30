@@ -85,6 +85,8 @@ fn plant_link_out_of_root(root: &Path, link_name: &str, secret: &str) -> TempDir
 
 mod tests_analysis;
 mod tests_compare;
+#[cfg(unix)]
+mod tests_confinement;
 mod tests_duplicates;
 mod tests_file_names;
 mod tests_largest;

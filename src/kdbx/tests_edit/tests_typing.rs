@@ -94,3 +94,25 @@ fn zz_probe_backspace_on_empty_notes_drops_the_undo() {
     assert!(!form.is_dirty(), "an empty-field backspace is not an edit");
     assert!(!form.undo(), "the discarded undo leaves nothing to restore");
 }
+
+#[test]
+fn notes_edits_undo_and_zeroize_with_the_vault() {
+    let (_dir, mut session, now) = unlocked_sample();
+    focus(&mut session, "Jenkins", now);
+    session.begin_edit(now).expect("begin edit");
+    {
+        let form = open_form_mut(&mut session);
+        form.focus_next();
+        form.focus_next();
+        form.focus_next();
+        assert_eq!(form.focus(), EditField::Notes);
+    }
+    session.type_char('A', now);
+    session.type_char('B', now);
+    assert_eq!(open_form(&session).notes(), "AB");
+    assert!(open_form_mut(&mut session).undo());
+    assert_eq!(open_form(&session).notes(), "A");
+
+    session.vault_mut().expect("unlocked").zeroize();
+    assert_eq!(open_form(&session).notes(), "");
+}

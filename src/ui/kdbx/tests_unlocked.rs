@@ -91,7 +91,7 @@ fn the_full_ui_dispatches_the_kdbx_overlay() {
         KdbxSession::new(PathBuf::from("vault.kdbx")),
     )));
 
-    let backend = TestBackend::new(80, 24);
+    let backend = TestBackend::new(240, 24);
     let mut terminal = Terminal::new(backend).expect("terminal");
     terminal.draw(|f| crate::ui::ui(f, &mut app)).expect("draw");
     let buf = terminal.backend().buffer();

@@ -79,3 +79,47 @@ fn test_copy_object_cross_bucket() -> io::Result<()> {
     )?;
     Ok(())
 }
+
+#[test]
+fn test_copy_object_rejects_invalid_source_before_network() {
+    let client = build_test_client(vec![]);
+    let invalid_cases = [
+        ("", "key"),
+        ("bucket", ""),
+        ("bucket/../../other", "key"),
+        ("bucket%2fother", "key"),
+        ("bucket", "key%2e%2e"),
+        ("bucket", "key?versionId=2"),
+        ("bucket", "key#frag"),
+        ("bucket", "key\ninjected"),
+    ];
+    for (src_bucket, src_key) in invalid_cases {
+        let err = client
+            .copy_object(src_bucket, src_key, "dest-bucket", "out.txt")
+            .expect_err("invalid copy source must fail locally");
+        assert_eq!(
+            err.kind(),
+            io::ErrorKind::InvalidInput,
+            "{src_bucket}/{src_key}"
+        );
+    }
+}
+
+#[test]
+fn test_upload_object_rejects_directory_and_symlink() -> io::Result<()> {
+    let dir = TempDir::new()?;
+    let client = build_test_client(vec![]);
+    assert!(client.upload_object("bucket", "key", dir.path()).is_err());
+
+    let target = dir.path().join("real.txt");
+    fs::write(&target, "secret")?;
+    let link = dir.path().join("alias.txt");
+    #[cfg(unix)]
+    let linked = std::os::unix::fs::symlink(&target, &link).is_ok();
+    #[cfg(windows)]
+    let linked = std::os::windows::fs::symlink_file(&target, &link).is_ok();
+    if linked {
+        assert!(client.upload_object("bucket", "key", &link).is_err());
+    }
+    Ok(())
+}
