@@ -110,6 +110,29 @@ fn inspect_dirty_repos_defers_uncached_repos_until_probed_and_reuses_cache() {
     verify_invalidation_and_clean_cache(parent.path(), &uncached, &uncached_name, &entries);
 }
 
+#[test]
+fn load_dirty_repos_flags_known_repos_and_queues_uncached_ones() {
+    let parent = TempDir::new().expect("temp parent");
+    create_merge_repo(&parent.path().join("merge-repo"));
+    let uncached = parent.path().join("uncached-repo");
+    if !git_init(&uncached) {
+        return;
+    }
+    let entries = [dir_row("merge-repo"), dir_row("uncached-repo")];
+    let mut metadata = PanelMetadata::default();
+
+    load_dirty_repos(parent.path(), &entries, &mut metadata);
+
+    assert_eq!(
+        metadata.dirty_repos,
+        BTreeSet::from([FileName::from("merge-repo")])
+    );
+    assert_eq!(
+        metadata.dirty_probe,
+        DirtyProbe::Pending(vec![FileName::from("uncached-repo")])
+    );
+}
+
 fn verify_invalidation_and_clean_cache(
     parent: &Path,
     uncached: &Path,

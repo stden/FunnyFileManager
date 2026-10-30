@@ -10,7 +10,7 @@ use super::{DirEntry, FileName, Panel, PanelMetadata};
 
 /// Uncached child Git repositories waiting for background `git status` checks.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub(crate) enum DirtyProbe {
+pub enum DirtyProbe {
     #[default]
     Complete,
     Pending(Vec<FileName>),
