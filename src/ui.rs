@@ -4,7 +4,7 @@ use ratatui::{
     layout::Rect,
     style::{Color, Style},
     text::Line,
-    widgets::{Block, BorderType, Borders, Padding},
+    widgets::{Block, BorderType, Borders, Clear, Padding},
     Frame,
 };
 
@@ -160,6 +160,7 @@ pub fn ui(f: &mut Frame<'_>, app: &mut App) {
     let area = f.area();
     app.dialog_mouse.screen = area;
     if !matches!(app.overlay, Overlay::Viewer(_) | Overlay::Editor(_)) {
+        f.render_widget(Clear, area);
         console::render_backdrop(f, area);
         if app.view == ViewMode::Console {
             console::render_view(f, app, area);
