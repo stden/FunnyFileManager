@@ -135,9 +135,6 @@ fn read_parent(path: &Path, metadata: &mut PanelMetadata) -> Option<DirEntry> {
 }
 
 /// The closest folder at or above `path` that still exists.
-///
-/// Where a panel goes when its own folder has been deleted under it, as Far's
-/// does: walking up one level is not enough when the parent went too.
 pub fn nearest_existing(path: &Path) -> Option<&Path> {
     path.ancestors().find(|folder| folder.is_dir())
 }
@@ -158,26 +155,27 @@ fn entry_kind(metadata: &fs::Metadata, target: Option<&fs::Metadata>) -> EntryKi
     }
 }
 
-/// Unix executable mode bits and Windows runnable extensions are distinct rules.
+/// Unix execute bits, script extensions (`*.cmd`, `*.sh`, `*.py`), and Windows
+/// runnable extensions mark files executable in panels.
 #[cfg(unix)]
-fn is_executable(_name: &str, metadata: &fs::Metadata) -> bool {
+fn is_executable(name: &str, metadata: &fs::Metadata) -> bool {
     use std::os::unix::fs::PermissionsExt;
-
-    metadata.is_file() && metadata.permissions().mode() & 0o111 != 0
+    const SCRIPTS: [&str; 3] = ["cmd", "sh", "py"];
+    metadata.is_file()
+        && (metadata.permissions().mode() & 0o111 != 0 || has_extension(name, &SCRIPTS))
 }
 
 #[cfg(not(unix))]
-fn is_executable(name: &str, _metadata: &fs::Metadata) -> bool {
-    const RUNNABLE: [&str; 6] = ["exe", "com", "bat", "cmd", "ps1", "msi"];
+fn is_executable(name: &str, metadata: &fs::Metadata) -> bool {
+    const RUNNABLE: [&str; 8] = ["exe", "com", "bat", "cmd", "ps1", "msi", "sh", "py"];
+    metadata.is_file() && has_extension(name, &RUNNABLE)
+}
 
-    Path::new(name)
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| {
-            RUNNABLE
-                .iter()
-                .any(|candidate| ext.eq_ignore_ascii_case(candidate))
-        })
+fn has_extension(name: &str, exts: &[&str]) -> bool {
+    let Some(ext) = Path::new(name).extension().and_then(|e| e.to_str()) else {
+        return false;
+    };
+    exts.iter().any(|c| ext.eq_ignore_ascii_case(c))
 }
 
 /// Windows stores a hidden attribute; a Unix leading dot is just a name.

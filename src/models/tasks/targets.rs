@@ -10,7 +10,7 @@
 mod freeze;
 mod refusals;
 
-use super::{Niceness, Owner, ProcessKey, Table, TaskList};
+use super::{Niceness, Owner, PriorityChange, ProcessKey, Table, TaskList};
 
 pub use refusals::ControlRefusal;
 pub(super) use refusals::{first_refusal, refusal};
@@ -120,6 +120,15 @@ impl FrozenTargets {
 }
 
 impl TaskList {
+    /// A priority change of `key` was accepted: the table shows it until the
+    /// next sample, and the next step starts from it rather than a stale read.
+    pub fn record_priority(&mut self, key: ProcessKey, change: PriorityChange) {
+        if let Table::Ready { snapshot, .. } = &mut self.table {
+            snapshot.record_priority(key, change);
+        }
+        self.rebuild();
+    }
+
     /// A renice of `key` to `nice` was accepted: the table shows it until the
     /// next sample, and the next nice step starts from it rather than from a
     /// stale reading.

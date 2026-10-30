@@ -1,7 +1,7 @@
 //! Purpose: Verify edits survive installation, failures allow retry, and close cancels installation.
 
 use super::super::*;
-use crate::config::{InstallCommand, InstallRecipe, ServerSettings};
+use crate::config::{InstallCommand, InstallRecipe};
 use crate::lsp::{manager::Command, types::Snapshot};
 use std::{
     collections::BTreeMap,
@@ -91,7 +91,7 @@ fn installer_failure_is_reported_and_leaves_a_closed_session() {
     assert!(matches!(host.session, Session::Closed));
 }
 
-fn pump(
+pub(super) fn pump(
     host: &mut Host,
     events: &SyncSender<Envelope>,
     received: &Receiver<Envelope>,

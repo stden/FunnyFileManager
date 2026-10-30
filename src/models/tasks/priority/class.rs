@@ -61,4 +61,15 @@ impl SettableClass {
         };
         Self::ASCENDING.get(next).copied()
     }
+
+    #[must_use]
+    pub const fn as_class(self) -> PriorityClass {
+        match self {
+            Self::Idle => PriorityClass::Idle,
+            Self::BelowNormal => PriorityClass::BelowNormal,
+            Self::Normal => PriorityClass::Normal,
+            Self::AboveNormal => PriorityClass::AboveNormal,
+            Self::High => PriorityClass::High,
+        }
+    }
 }

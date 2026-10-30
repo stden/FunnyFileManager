@@ -8,7 +8,7 @@
 
 use ratatui::layout::{Position, Rect};
 
-use crate::models::{Modal, SortKey, TaskList};
+use crate::models::{Modal, SortKey, TaskList, TaskTab};
 use crate::mouse::fkey_at;
 
 use super::super::fkey_bar::FKEY_COUNT;
@@ -49,7 +49,7 @@ fn browse_click(screen: Rect, list: &TaskList, at: Position) -> Option<TaskClick
         let x = at.x.saturating_sub(screen.x);
         return fkey_at(screen.width, FKEY_COUNT, x).map(TaskClick::Key);
     }
-    if titles.contains(at) {
+    if list.tab() == TaskTab::Processes && titles.contains(at) {
         let x = usize::from(at.x.saturating_sub(titles.x));
         let clicked = layout.columns.at(x)?;
         return Some(TaskClick::Title(clicked.sort_key(list.command_view())));

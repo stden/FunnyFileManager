@@ -8,6 +8,7 @@
 use std::borrow::Cow;
 use std::time::Duration;
 
+use crate::models::tasks::{BytesPerSec, NetMeter};
 use crate::models::{
     CpuMeter, CpuUsage, Load, LoadAverage, MemoryBytes, Owner, Percent, Priority, TaskCounts,
 };
@@ -148,6 +149,26 @@ pub(super) fn cpu_meter(meter: CpuMeter) -> String {
         CpuMeter::Pending => UNKNOWN.to_owned(),
         CpuMeter::Measured(bar) => format!("{}%", percent(bar.busy())),
     }
+}
+
+/// A network meter's caption: `↓1.4M ↑250K`, or `-` until two samples measure it.
+pub(super) fn net_meter(meter: NetMeter) -> String {
+    match meter {
+        NetMeter::Pending => UNKNOWN.to_owned(),
+        NetMeter::Measured { rx, tx, .. } => {
+            let down = abbreviate_bytes(rx.bytes_per_sec()).replace(' ', "");
+            let up = abbreviate_bytes(tx.bytes_per_sec()).replace(' ', "");
+            format!("↓{down} ↑{up}")
+        }
+    }
+}
+
+/// A byte-per-second rate cell (`1.4 M/s`), or `-` before two samples measure it.
+pub(super) fn rate(bps: Option<BytesPerSec>) -> String {
+    bps.map_or_else(
+        || UNKNOWN.to_owned(),
+        |r| format!("{}/s", abbreviate_bytes(r.bytes_per_sec())),
+    )
 }
 
 /// The PRI and NI cells: the kernel's priority (`RT` for realtime) and the

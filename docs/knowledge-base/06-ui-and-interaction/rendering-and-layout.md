@@ -180,7 +180,15 @@ lives in memory only — unlike `history`, nothing here reaches disk.
 
 ## ⚡ Performance Considerations
 
-- Rendering is done every frame in the event loop.
+- Unchanged screens are not redrawn during idle polling.
+- Queued file-panel navigation and wheel events share a frame: at most 64
+  events or 8 ms of input processing before rendering. Reading ahead never
+  waits; commands, resize events and errors remain queued until after the
+  current frame. Every cursor movement still runs through normal dispatch.
+- `application/frame.rs` surrounds each ratatui diff with synchronized-update
+  markers, so supporting terminals present the complete frame together. The
+  end marker is sent even if drawing fails. Other terminals retain normal
+  ratatui diff rendering.
 - No heavy computation should happen inside render functions.
 - Text is built as `Vec<Line>` / `Vec<Span>` for efficient ratatui rendering.
 

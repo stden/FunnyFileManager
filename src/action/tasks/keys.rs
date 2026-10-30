@@ -98,13 +98,13 @@ const fn function_key(number: u8) -> TaskCommand {
         9 => TaskCommand::SignalMenu,
         10 => TaskCommand::Close,
         11 => TaskCommand::ToggleHold,
+        12 => TaskCommand::ToggleTab,
         _ => TaskCommand::Ignore,
     }
 }
 
 /// Ctrl+F-key: the panel's direct sort keys, each on the process column
-/// that answers the same question. Extension (Ctrl+F4), modification time
-/// (Ctrl+F5) and access time (Ctrl+F9) have no process analogue.
+/// that answers the same question.
 const fn control_function_key(number: u8) -> TaskCommand {
     match number {
         3 => TaskCommand::SortBy(SortKey::Name),
@@ -133,6 +133,7 @@ const fn named(key: KeyEvent) -> TaskCommand {
         KeyCode::Right => TaskCommand::Pan(Pan::Right(PanStep::Cell)),
         KeyCode::Insert => TaskCommand::ToggleMark,
         KeyCode::Enter => TaskCommand::Info,
+        KeyCode::Tab if without(CONTROL + ALT + SHIFT) => TaskCommand::ToggleTab,
         KeyCode::Delete if without(CONTROL + ALT + SHIFT) => TaskCommand::Terminate,
         KeyCode::Esc => TaskCommand::Close,
         _ => TaskCommand::Ignore,

@@ -44,8 +44,44 @@ impl Read for Stderr {
 #[test]
 fn stderr_is_drained_through_interruptions_and_stops_after_failure() {
     let mut stderr = Stderr { reads: 0 };
-    drain_stderr(&mut stderr);
+    assert_eq!(drain_stderr(&mut stderr), None);
     assert_eq!(stderr.reads, 3);
+}
+
+#[test]
+fn toolchain_hint_is_consumed_once_and_handles_a_panicked_stderr_task() {
+    let root = tempfile::TempDir::new().unwrap();
+    let settings = ServerSettings {
+        command: "python".into(),
+        args: vec!["-c".into(), "pass".into()],
+        ..ServerSettings::default()
+    };
+    let mut process = Process::start(&settings, root.path()).unwrap();
+    process.child.wait().unwrap();
+    assert_eq!(process.stderr_task.take().unwrap().join().unwrap(), None);
+    process.stderr_task = Some(thread::spawn(|| Some("missing component")));
+    assert_eq!(process.take_toolchain_hint(), Some("missing component"));
+    assert_eq!(process.take_toolchain_hint(), None);
+    assert!(process.terminated);
+    process.stderr_task = Some(thread::spawn(|| panic!("injected stderr failure")));
+    assert_eq!(process.take_toolchain_hint(), None);
+}
+
+#[test]
+fn rustup_proxy_stderr_yields_actionable_hint_while_random_stderr_does_not() {
+    let rust_analyzer =
+        b"error: 'rust-analyzer.exe' is not installed for the toolchain '1.99.1-x86_64-pc-windows-msvc'\r\n";
+    assert_eq!(
+        drain_stderr(&mut &rust_analyzer[..]),
+        Some("LSP unavailable: run 'rustup component add rust-analyzer' (Ctrl+Alt+R retries)")
+    );
+    let unknown_bin =
+        b"error: Unknown binary 'clippy-driver' in official toolchain 'stable-x86_64-unknown-linux-gnu'.\n";
+    assert_eq!(
+        drain_stderr(&mut &unknown_bin[..]),
+        Some("LSP unavailable: missing rustup toolchain component (Ctrl+Alt+R retries)")
+    );
+    assert_eq!(drain_stderr(&mut &b"ordinary crash output\n"[..]), None);
 }
 
 #[test]

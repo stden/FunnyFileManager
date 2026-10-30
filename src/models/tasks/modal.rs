@@ -26,6 +26,8 @@ pub enum Modal {
     Browse,
     Help(ScrollTop),
     Info(ProcessKey),
+    /// Network adapter & diagnostics details dialog (`F3` / `Enter` on Network tab).
+    NetInfo,
     Filter(TextBar),
     Search(SearchBar),
     PidJump(PidQuery),

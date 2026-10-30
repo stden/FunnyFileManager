@@ -6,10 +6,11 @@ use std::ops::Range;
 
 use ratatui::layout::Rect;
 
-use crate::models::{Cursor, HeaderShape, TaskList, Viewport};
+use crate::models::{Cursor, HeaderShape, TaskList, TaskTab, Viewport};
 use crate::scroll::visible_window;
 
 use super::super::{far_block, Cells};
+use super::network::adapter_body_rows;
 use super::table::Columns;
 
 /// Screens narrower than this show only the key bar.
@@ -93,9 +94,7 @@ pub(super) fn layout(screen: Rect, list: &TaskList) -> TaskLayout {
     let shape = list.header_shape(Viewport::new(screen.height));
     let rows = frame_rows(frame, shape);
     let columns = Columns::for_list(list, Cells::columns(rows.titles.width));
-    let cursor = list.cursor().map(Cursor::index);
-    let shown = usize::from(rows.body.height);
-    let window = visible_window(list.view().len(), shown, list.offset(), cursor);
+    let window = body_window(list, rows.body.height);
     TaskLayout {
         frame,
         shape,
@@ -103,6 +102,30 @@ pub(super) fn layout(screen: Rect, list: &TaskList) -> TaskLayout {
         bottom,
         columns,
         window,
+    }
+}
+
+fn body_window(list: &TaskList, body_height: u16) -> Range<usize> {
+    match list.tab() {
+        TaskTab::Processes => {
+            let cursor = list.cursor().map(Cursor::index);
+            visible_window(
+                list.view().len(),
+                usize::from(body_height),
+                list.offset(),
+                cursor,
+            )
+        }
+        TaskTab::Network => {
+            let probes = list.net_diagnostics().rows().len();
+            let shown = adapter_body_rows(body_height, probes);
+            visible_window(
+                list.visible_adapters().len(),
+                shown,
+                list.net_offset(),
+                list.net_cursor(),
+            )
+        }
     }
 }
 

@@ -2,20 +2,9 @@
 //!
 //! The root crate denies `unsafe_code`, so each unsafe item there opts in with
 //! an item-level `#[allow(unsafe_code)]`; colorer-sys *is* the FFI crate and
-//! allows it throughout; the MCP server forbids it. The compiler checks each
-//! item. This test checks *where* they are: every unsafe block, fn, impl,
-//! trait, extern block, `allow(unsafe_code)` and macro that mentions either
-//! must sit in a file on [`BOUNDARIES`], and no boundary may live in state,
-//! rendering, key handling or parsing ([`FORBIDDEN_LAYERS`]).
-//!
-//! # Fixing a failure
-//!
-//! Prefer a safe API — std, `rustix`, or a wrapper in `src/platform`. When raw
-//! FFI is genuinely needed, keep it in the narrowest item, open the comment
-//! above every block with `// SAFETY` followed by a colon (spelled out here, or
-//! Clippy reads this doc as a safety comment on the first import), and add the
-//! file to [`BOUNDARIES`] with its reason. Growing that list is a reviewed
-//! decision, not a formality.
+//! allows it throughout; the MCP server forbids it. Every unsafe site must sit
+//! in a file on [`BOUNDARIES`], and no boundary may live in state, rendering,
+//! key handling or parsing ([`FORBIDDEN_LAYERS`]).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -80,12 +69,32 @@ const BOUNDARIES: &[(&str, &str)] = &[
         "Win32 token elevation and running a program as administrator",
     ),
     (
+        "src/platform/windows/network.rs",
+        "Win32 NDIS interface counters and unprivileged ICMP echo probes",
+    ),
+    (
+        "src/platform/windows/network_addrs.rs",
+        "Win32 GetAdaptersAddresses IPv4, gateway and DNS discovery",
+    ),
+    (
         "src/platform/windows/pipe.rs",
         "Win32 named pipe to the administrator helper",
     ),
     (
+        "src/platform/windows/process_control.rs",
+        "Win32 process owner SID lookup, verified terminate and priority",
+    ),
+    (
+        "src/platform/windows/processes.rs",
+        "Win32 Toolhelp32 process enumeration and per-process counters",
+    ),
+    (
         "src/platform/windows/registry/key.rs",
         "Win32 registry key handles and string values",
+    ),
+    (
+        "src/platform/windows/system_info.rs",
+        "Win32 system CPU times, memory/pagefile status and uptime",
     ),
     ("src/recording/tty.rs", "poll(2) on the terminal descriptor"),
     (
@@ -162,8 +171,6 @@ fn the_mcp_server_has_no_unsafe_code() {
     assert_eq!(sites.len(), 0, "the MCP server forbids unsafe: {sites:?}");
 }
 
-/// A boundary that no longer holds unsafe code must leave the list, so the
-/// list stays the set of files a reviewer actually has to read.
 #[test]
 fn every_boundary_still_holds_unsafe_code() {
     let scanned = scan(ROOTS);

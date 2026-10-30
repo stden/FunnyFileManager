@@ -1,12 +1,12 @@
-//! The cursor bar over a marked entry. Far keeps the mark's yellow on the bar,
-//! so the entry under the cursor still says whether it is marked — before,
-//! Insert on the last row changed nothing on screen at all.
+//! The cursor bar over a marked entry, and whole-row green highlighting on
+//! executable entries in table views.
 
 use std::path::PathBuf;
+use std::time::{Duration, UNIX_EPOCH};
 
 use ratatui::{backend::TestBackend, buffer::Buffer, Terminal};
 
-use crate::models::FileName;
+use crate::models::{FileName, FileSize, Modified};
 
 use super::*;
 use crate::models::{DirEntry, PanelView};
@@ -91,4 +91,38 @@ fn the_cursor_bar_text_is_yellow_only_over_a_marked_row() {
     assert_eq!(unmarked.bg, Some(palette::CURSOR_BG));
     assert_eq!(marked.fg, Some(palette::MARKED));
     assert_eq!(unmarked.fg, Some(palette::CURSOR_FG));
+}
+
+#[test]
+fn an_executable_row_paints_name_extension_size_date_and_time_green() {
+    let entries = vec![
+        DirEntry {
+            name: "README.md".to_owned(),
+            size: FileSize::from_bytes(9959),
+            modified: Modified::new(UNIX_EPOCH + Duration::from_secs(1_700_000_000)),
+            ..DirEntry::default()
+        },
+        DirEntry {
+            name: "hosts.py".to_owned(),
+            executable: true,
+            size: FileSize::from_bytes(24_786),
+            modified: Modified::new(UNIX_EPOCH + Duration::from_secs(1_700_000_000)),
+            ..DirEntry::default()
+        },
+    ];
+    let mut panel = Panel::from_entries(PathBuf::from("/listing"), entries);
+    panel.view = PanelView::Full;
+    panel.select(Some(0));
+    let buffer = draw(&mut panel);
+    let y = FIRST_BODY_ROW + 1;
+    let row: String = (0..60).map(|x| buffer[(x, y)].symbol()).collect();
+    for token in ["hosts", "py", "24786"] {
+        let before = row.split_once(token).expect("token on executable row").0;
+        let x = u16::try_from(before.chars().count()).expect("x fits u16");
+        assert_eq!(buffer[(x, y)].fg, palette::EXECUTABLE, "{token}: {row}");
+    }
+    let sep_x = (1..59)
+        .find(|&x| buffer[(x, y)].symbol() == "│")
+        .expect("column separator");
+    assert_eq!(buffer[(sep_x, y)].fg, palette::FRAME);
 }

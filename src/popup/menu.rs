@@ -3,11 +3,22 @@
 use crate::models::{App, Overlay};
 use crossterm::event::{KeyCode, KeyModifiers};
 
+#[cfg(test)]
+mod tests;
+
 pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> bool {
     let Overlay::Menu(menu) = &mut app.overlay else {
         return false;
     };
     let mut menu = *menu;
+    if modifiers == KeyModifiers::ALT || modifiers == (KeyModifiers::ALT | KeyModifiers::SHIFT) {
+        if let KeyCode::Char(ch) = code {
+            if let Some(heading) = crate::menu::Menu::heading_for_hotkey(ch) {
+                app.set_menu(crate::menu::Menu::open(heading));
+            }
+        }
+        return true;
+    }
     match code {
         // F9 both opens and closes the bar. Far's does, and a key that
         // only opens leaves the user hunting for the one that shuts it.

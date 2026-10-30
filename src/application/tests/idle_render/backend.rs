@@ -13,6 +13,8 @@ use crate::WritableTestBackend;
 struct State {
     backend: WritableTestBackend,
     draws: usize,
+    writes: Vec<u8>,
+    draw_failure: Option<io::ErrorKind>,
 }
 
 #[derive(Clone)]
@@ -23,11 +25,21 @@ impl CountingBackend {
         Self(Rc::new(RefCell::new(State {
             backend: WritableTestBackend::new(80, 20),
             draws: 0,
+            writes: Vec::new(),
+            draw_failure: None,
         })))
     }
 
     pub(in crate::application::tests) fn draws(&self) -> usize {
         self.0.borrow().draws
+    }
+
+    pub(in crate::application::tests) fn writes(&self) -> Vec<u8> {
+        self.0.borrow().writes.clone()
+    }
+
+    pub(in crate::application::tests) fn fail_next_draw(&self) {
+        self.0.borrow_mut().draw_failure = Some(io::ErrorKind::BrokenPipe);
     }
 
     pub(in crate::application::tests) fn resize(&self, size: Size) {
@@ -48,6 +60,7 @@ impl CountingBackend {
 
 impl Write for CountingBackend {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0.borrow_mut().writes.extend_from_slice(bytes);
         self.0.borrow_mut().backend.write(bytes)
     }
 
@@ -64,6 +77,9 @@ impl Backend for CountingBackend {
         I: Iterator<Item = (u16, u16, &'a Cell)>,
     {
         let mut state = self.0.borrow_mut();
+        if let Some(kind) = state.draw_failure.take() {
+            return Err(io::Error::new(kind, "draw failed"));
+        }
         state.backend.draw(content)?;
         state.draws += 1;
         Ok(())

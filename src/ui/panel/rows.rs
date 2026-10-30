@@ -47,11 +47,11 @@ fn entry_cell(
     let hidden = panel.is_hidden(&entry.name);
     let displayed = displayed_entry(short_names, entry);
     let name_style = entry_style(panel, entry, mark);
-    // The data columns are plain white — reading down them for meaning would
-    // find none — except where the row as a whole is making a statement: a
-    // marked row is yellow throughout and a hidden one is dimmed throughout,
-    // and a bright date beside a recessed name would break both.
-    let data_style = Style::default().fg(if mark == Mark::Marked || hidden {
+    // Marked, hidden and executable rows paint their whole row — name,
+    // extension, size, date and time — in the entry's colour, as Far's file
+    // highlighting does while keeping the `│` rules cyan.
+    let whole_row = mark == Mark::Marked || hidden || (entry.executable && !entry.kind.is_dir());
+    let data_style = Style::default().fg(if whole_row {
         entry_colour(panel, entry, mark)
     } else {
         palette::DATA
@@ -76,14 +76,6 @@ pub(super) fn render_entries(
     is_active: bool,
 ) {
     // Only the rows that will be drawn are built.
-    //
-    // Formatting every entry costs a name, a size, a date and a time per
-    // entry, of which forty are used. It is linear in the directory rather
-    // than in the screen, and at a hundred thousand files that was a tenth of
-    // a second per keystroke — the panel redraws on every one.
-    //
-    // The window counts entries, not rows: Far scrolls a multi-column view one
-    // entry at a time, reflowing the listing through its stripes.
     let rows = usize::from(body.height);
     let window = visible_window(
         panel.entries.len(),

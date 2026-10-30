@@ -38,16 +38,22 @@ pub fn set_nice(app: &mut App) {
 }
 
 /// `]` and `[`: one step for the marked processes, or else the cursor's, at
-/// once — except `[` when FFM is not root, which asks first, because only
-/// root can raise the priority again.
+/// once — except `[` on Unix nice when FFM is not root, which asks first,
+/// because only root can raise a Unix nice priority back again.
 pub fn step_nice(app: &mut App, step: NiceStep) {
     let host = app.task_host.host();
     let Some(list) = app.task_list_mut() else {
         return;
     };
     let plan = list.plan_step(step);
+    let irreversible_unix_lower = plan
+        .changes()
+        .iter()
+        .any(|c| matches!(c.change(), PriorityChange::Nice(_)));
     match (step, list.privilege()) {
-        (NiceStep::Lower, Privilege::User) if plan.refusal().is_none() => {
+        (NiceStep::Lower, Privilege::User)
+            if plan.refusal().is_none() && irreversible_unix_lower =>
+        {
             list.set_modal(Modal::Renice(NiceConfirm::new(plan)));
         }
         (NiceStep::Lower | NiceStep::Raise, _) => renice(host.as_deref(), list, &plan),
@@ -71,8 +77,8 @@ pub fn answer_renice(app: &mut App, button: ReniceButton) {
     }
 }
 
-/// Applies `plan`, or says why it changes nothing. Every accepted nice value
-/// is recorded, so the next step starts from what the kernel took.
+/// Applies `plan`, or says why it changes nothing. Every accepted change is
+/// recorded, so the next step starts from what the kernel took.
 fn renice(host: Option<&dyn ProcessHost>, list: &mut TaskList, plan: &NicePlan) {
     if let Some(refusal) = plan.refusal() {
         list.set_notice(Notice::Refused(refusal));
@@ -82,11 +88,7 @@ fn renice(host: Option<&dyn ProcessHost>, list: &mut TaskList, plan: &NicePlan) 
     for planned in plan.changes() {
         let key = planned.target().key();
         match ask(host, |host| host.set_priority(key, planned.change())) {
-            Ok(()) => {
-                if let PriorityChange::Nice(nice) = planned.change() {
-                    list.record_nice(key, nice);
-                }
-            }
+            Ok(()) => list.record_priority(key, planned.change()),
             Err(error) => {
                 let attempt = Attempt::Renice(planned.direction());
                 failures.push(Failure::new(planned.target().clone(), attempt, error));

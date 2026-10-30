@@ -1,6 +1,6 @@
-//! Purpose: The task list's header — the CPU, Mem and Swp bars, the per-core
-//! bars and the Tasks/Load/Uptime line — as spans, htop's meters drawn in
-//! Far's colours.
+//! Purpose: The task list's header — the CPU, Mem, Swp and Net bars, the
+//! per-core bars and the Tasks/Load/Uptime/Net line — as spans, htop's meters
+//! drawn in Far's colours.
 //!
 //! A bar is its label, `[`, the coloured segments and the caption flush
 //! right, then `]`. Each segment ends at its running total's share of the
@@ -13,11 +13,12 @@ use std::num::NonZeroUsize;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 
+use crate::models::tasks::NetHealth;
 use crate::models::{Meters, BARS_PER_ROW};
 
 use super::super::{palette, Cells};
 use super::format;
-use bar::{core_bar, cpu_bar, memory_bar, swap_bar, unknown_bar, Bar};
+use bar::{core_bar, cpu_bar, memory_bar, net_bar, swap_bar, unknown_bar, Bar};
 
 /// Blank cells between two bars on one row.
 const GAP: &str = " ";
@@ -27,15 +28,19 @@ const MIN_CORE_LABEL: Cells = Cells::new(2);
 /// Blank cells between two fields of the Tasks/Load/Uptime line.
 const FIELD_GAP: &str = "  ";
 
-/// The first summary row: CPU, Mem and Swp in thirds.
+/// The first summary row: CPU, Mem and Swp in thirds (or fourths when Net is
+/// measured).
 pub(super) fn summary(meters: &Meters, width: Cells) -> Line<'static> {
-    let bars = [
+    let mut bars = vec![
         cpu_bar("CPU", meters.cpu()),
         meters
             .memory()
             .map_or_else(|| unknown_bar("Mem"), memory_bar),
         meters.swap().map_or_else(|| unknown_bar("Swp"), swap_bar),
     ];
+    if let Some(net) = meters.network() {
+        bars.push(net_bar(net));
+    }
     row(&bars, bars.len(), width, None)
 }
 
@@ -65,11 +70,25 @@ pub(super) fn cores(
 
 /// The second summary row: `Tasks`, `Load average` and `Uptime`, two blanks
 /// apart; fields that do not fit are dropped from the right.
+#[cfg(test)]
 pub(super) fn tasks(meters: &Meters, width: Cells) -> Line<'static> {
+    tasks_with_net(meters, None, width)
+}
+
+/// The second summary row with an optional `Net:` probe health badge.
+pub(super) fn tasks_with_net(
+    meters: &Meters,
+    net: Option<NetHealth>,
+    width: Cells,
+) -> Line<'static> {
+    let net_field = net
+        .filter(|h| *h != NetHealth::Testing)
+        .map(|h| format!("Net: {}", h.label()));
     let fields = [
         Some(format::tasks(meters.tasks())),
         meters.load().map(format::load),
         meters.uptime().map(format::uptime),
+        net_field,
     ];
     let mut text = String::new();
     for field in fields.into_iter().flatten() {

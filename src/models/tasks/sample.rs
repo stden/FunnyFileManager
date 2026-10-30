@@ -10,7 +10,8 @@ mod process;
 use std::time::Duration;
 
 use super::{
-    ControlError, LoadAverage, MemoryBytes, PriorityChange, ProcessKey, SampleError, Signal,
+    ControlError, LoadAverage, MemoryBytes, NetworkSample, PriorityChange, ProbeOutcome,
+    ProbeTarget, ProcessKey, SampleError, Signal,
 };
 
 pub use process::{MemoryUsage, Owner, ProcessKind, ProcessSample, ProcessState, StateLetter};
@@ -24,6 +25,7 @@ pub struct Sample {
     pub processes: Vec<ProcessSample>,
     /// Processes skipped because their files could not be read or parsed.
     pub unreadable: u32,
+    pub network: NetworkSample,
 }
 
 /// The system-wide counters of one sample. Everything but the CPU times is
@@ -98,9 +100,19 @@ pub trait ProcessHost: Send + Sync {
     /// Changes the priority of the process `key` names, if it is still that
     /// process.
     fn set_priority(&self, key: ProcessKey, change: PriorityChange) -> Result<(), ControlError>;
+    /// Optional latency and DNS prober run on a dedicated background worker.
+    fn net_prober(&self) -> Option<Box<dyn NetProber>> {
+        None
+    }
 }
 
 /// Reads samples, one at a time, on the sampling worker.
 pub trait ProcessReader: Send {
     fn sample(&mut self) -> Result<Sample, SampleError>;
+}
+
+/// Runs latency and DNS probes on a dedicated background worker so network
+/// timeouts never delay process sampling or UI input.
+pub trait NetProber: Send {
+    fn probe(&mut self, targets: &[ProbeTarget]) -> Vec<(ProbeTarget, ProbeOutcome)>;
 }

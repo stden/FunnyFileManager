@@ -85,3 +85,13 @@ fn quoted_paths_and_shell_operators_reach_the_shell_unchanged() {
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "copied");
 }
+
+#[test]
+fn shell_command_pauses_performance_timing_while_child_runs() {
+    let temp = TempDir::new().expect("tempdir");
+    let before = crate::performance::paused_total();
+    let output = run_shell_command("python -c \"import time; time.sleep(0.05)\"", temp.path())
+        .expect("python sleep");
+    assert!(output.status.success());
+    assert!(crate::performance::paused_total().saturating_sub(before) >= Duration::from_millis(30));
+}

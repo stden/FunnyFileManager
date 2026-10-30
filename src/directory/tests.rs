@@ -32,6 +32,32 @@ fn reading_captures_entries_parent_and_capacity_together() -> io::Result<()> {
 }
 
 #[test]
+fn cmd_sh_and_py_scripts_are_marked_executable_while_directories_are_not() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    for script in ["build.cmd", "RUN.SH", "tool.Py"] {
+        fs::write(temp.path().join(script), b"echo ok\n")?;
+    }
+    fs::write(temp.path().join("readme.md"), b"# doc\n")?;
+    fs::create_dir(temp.path().join("folder.py"))?;
+
+    let listing = read(temp.path(), &[])?;
+    let flag = |name: &str| {
+        listing
+            .entries
+            .iter()
+            .find(|entry| entry.name == name)
+            .expect("entry listed")
+            .executable
+    };
+    assert!(flag("build.cmd"));
+    assert!(flag("RUN.SH"));
+    assert!(flag("tool.Py"));
+    assert!(!flag("readme.md"));
+    assert!(!flag("folder.py"));
+    Ok(())
+}
+
+#[test]
 fn an_unreadable_directory_returns_an_error() -> io::Result<()> {
     let temp = TempDir::new()?;
     let missing = temp.path().join("missing");

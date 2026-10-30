@@ -3,6 +3,7 @@
 
 use std::time::Duration;
 
+use crate::models::tasks::NetworkSample;
 use crate::models::{
     CoreSample, CpuCounters, KernelPriority, Niceness, Owner, Pid, Priority, ProcessKey,
     ProcessKind, ProcessSample, ProcessState, Sample, Start, StartTime, SystemSample,
@@ -73,6 +74,7 @@ pub const fn sample(system: SystemSample, processes: Vec<ProcessSample>) -> Samp
         system,
         processes,
         unreadable: 0,
+        network: NetworkSample::empty(),
     }
 }
 

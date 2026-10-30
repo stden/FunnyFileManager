@@ -46,6 +46,7 @@ fn parse_one_key(token: &str) -> KeyEvent {
         "Ins" => KeyCode::Insert,
         "Del" => KeyCode::Delete,
         "Enter" => KeyCode::Enter,
+        "Tab" => KeyCode::Tab,
         "Esc" => KeyCode::Esc,
         _ => function_or_character(name, token),
     };

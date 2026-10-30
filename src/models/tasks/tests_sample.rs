@@ -3,7 +3,9 @@
 
 use std::time::Duration;
 
-use super::{CpuCounters, ProcessReader, ProcessState, Sample, SampleError, SystemSample};
+use super::{
+    CpuCounters, NetworkSample, ProcessReader, ProcessState, Sample, SampleError, SystemSample,
+};
 
 #[test]
 fn each_kernel_state_letter_names_its_state_and_reads_back() {
@@ -71,6 +73,7 @@ impl ProcessReader for CountingReader {
             },
             processes: Vec::new(),
             unreadable: 0,
+            network: NetworkSample::empty(),
         })
     }
 }

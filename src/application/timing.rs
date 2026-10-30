@@ -2,14 +2,15 @@
 
 use crate::{
     models::{App, Overlay},
-    performance::Performance,
+    performance::{paused_total, Performance},
 };
 use crossterm::event::{Event, KeyCode, KeyEvent};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub(super) struct Pending {
     action: String,
     started: Instant,
+    paused_at_start: Duration,
 }
 
 impl Pending {
@@ -17,19 +18,23 @@ impl Pending {
         Self {
             action: label(app, event),
             started,
+            paused_at_start: paused_total(),
         }
     }
 
     pub(super) fn finish(self, stats: &mut Performance, rendering: Instant, finished: Instant) {
+        let paused = paused_total().saturating_sub(self.paused_at_start);
         stats.record(
             &self.action,
-            rendering.saturating_duration_since(self.started),
+            rendering
+                .saturating_duration_since(self.started)
+                .saturating_sub(paused),
             finished.saturating_duration_since(rendering),
         );
     }
 }
 
-fn label(app: &App, event: &Event) -> String {
+pub(super) fn label(app: &App, event: &Event) -> String {
     match event {
         Event::Key(key) => key_label(app, *key),
         Event::Mouse(mouse) => format!("{}/Mouse({:?})", context(&app.overlay), mouse.kind),

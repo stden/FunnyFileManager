@@ -1,7 +1,7 @@
 //! Purpose: the `task_list` rows beyond the cursor and the marks: what the
 //! list shows, its order, and what is done to the processes.
 
-use crate::action::chord::NamedKey::{Del, Enter, Esc};
+use crate::action::chord::NamedKey::{Del, Enter, Esc, Tab};
 use crate::action::tasks::TaskCommand;
 use crate::keymap::chords::{ch, ctrl, f, named};
 use crate::keymap::Origin::{Far, FarSame, Ffm, Htop};
@@ -41,6 +41,8 @@ pub(super) const SHOWING: Group<TaskCommand> = Group {
         .note(Htop("K"), "Show or hide kernel threads"),
         row("toggle_hold", TaskCommand::ToggleHold, &[f(11), ch('Z')])
             .note(Htop("Z"), "Hold or resume the refresh"),
+        row("toggle_tab", TaskCommand::ToggleTab, &[named(Tab), f(12)])
+            .note(Ffm, "Processes or network view"),
         row(
             "refresh_now",
             TaskCommand::RefreshNow,

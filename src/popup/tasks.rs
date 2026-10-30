@@ -45,7 +45,7 @@ fn route(app: &mut App, key: KeyEvent) {
         Modal::PidJump(_) => bars::pid_jump(app, key),
         Modal::Menu(_) => menus::process(app, key),
         Modal::Help(_) => dialogs::help(app, key),
-        Modal::Info(_) | Modal::Error { .. } => dialogs::dismiss(app, key),
+        Modal::Info(_) | Modal::NetInfo | Modal::Error { .. } => dialogs::dismiss(app, key),
         Modal::Mask(_) => with_clipboard(app, |app, clipboard| dialogs::mask(app, key, clipboard)),
         Modal::Confirm(_) => dialogs::confirm(app, key),
         Modal::Priority(_) => {

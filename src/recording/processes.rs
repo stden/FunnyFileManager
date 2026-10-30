@@ -10,7 +10,8 @@ use std::sync::Arc;
 
 use super::Input;
 use crate::models::{
-    ControlError, PriorityChange, ProcessHost, ProcessKey, ProcessReader, SampleError, Signal,
+    ControlError, NetProber, PriorityChange, ProcessHost, ProcessKey, ProcessReader, SampleError,
+    Signal,
 };
 
 impl Input {
@@ -37,6 +38,10 @@ impl ProcessHost for ReadOnlyHost {
 
     fn set_priority(&self, _key: ProcessKey, _change: PriorityChange) -> Result<(), ControlError> {
         Err(ControlError::ReadOnly)
+    }
+
+    fn net_prober(&self) -> Option<Box<dyn NetProber>> {
+        self.0.net_prober()
     }
 }
 

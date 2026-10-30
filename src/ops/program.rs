@@ -63,20 +63,23 @@ fn pause_prompt(status: ExitStatus) -> String {
     format!("[{status}] Press any key to return to FFM")
 }
 
+fn runner_command(program: &str, flags: &[&str], path: &Path) -> Command {
+    let mut command = Command::new(program);
+    command.args(flags).arg(path);
+    command
+}
+
 #[cfg(windows)]
 fn program_command(path: &Path) -> Command {
-    let extension = path
-        .extension()
-        .and_then(|value| value.to_str())
-        .unwrap_or("");
-    if extension.eq_ignore_ascii_case("ps1") {
-        let mut command = Command::new("powershell.exe");
-        command.args(["-NoProfile", "-File"]).arg(path);
-        command
-    } else if extension.eq_ignore_ascii_case("msi") {
-        let mut command = Command::new("msiexec.exe");
-        command.arg("/i").arg(path);
-        command
+    let ext = path.extension().and_then(|v| v.to_str()).unwrap_or("");
+    if ext.eq_ignore_ascii_case("ps1") {
+        runner_command("powershell.exe", &["-NoProfile", "-File"], path)
+    } else if ext.eq_ignore_ascii_case("msi") {
+        runner_command("msiexec.exe", &["/i"], path)
+    } else if ext.eq_ignore_ascii_case("py") {
+        runner_command("python", &[], path)
+    } else if ext.eq_ignore_ascii_case("sh") {
+        runner_command("sh", &[], path)
     } else {
         Command::new(path)
     }
@@ -84,7 +87,21 @@ fn program_command(path: &Path) -> Command {
 
 #[cfg(not(windows))]
 fn program_command(path: &Path) -> Command {
-    Command::new(path)
+    use std::os::unix::fs::PermissionsExt;
+
+    if std::fs::metadata(path).is_ok_and(|meta| meta.permissions().mode() & 0o111 != 0) {
+        return Command::new(path);
+    }
+    let ext = path.extension().and_then(|v| v.to_str()).unwrap_or("");
+    if ext.eq_ignore_ascii_case("py") {
+        runner_command("python3", &[], path)
+    } else if ext.eq_ignore_ascii_case("sh") {
+        runner_command("sh", &[], path)
+    } else if ext.eq_ignore_ascii_case("cmd") {
+        runner_command("cmd.exe", &["/c"], path)
+    } else {
+        Command::new(path)
+    }
 }
 
 #[cfg(test)]

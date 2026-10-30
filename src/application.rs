@@ -14,10 +14,12 @@ use crate::models::App;
 
 mod dispatch;
 mod event;
+mod frame;
 mod git_jobs;
 mod input;
 mod loop_state;
 mod lsp_jobs;
+mod navigation_batch;
 mod task_jobs;
 mod timing;
 mod wsl_jobs;

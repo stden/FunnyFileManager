@@ -120,6 +120,8 @@ pub(super) const BINDINGS: &[(KeyCode, KeyModifiers, TaskCommand)] = &[
     (KeyCode::Char('k'), NONE, TaskCommand::SignalMenu),
     (KeyCode::F(11), NONE, TaskCommand::ToggleHold),
     (KeyCode::Char('Z'), NONE, TaskCommand::ToggleHold),
+    (KeyCode::Tab, NONE, TaskCommand::ToggleTab),
+    (KeyCode::F(12), NONE, TaskCommand::ToggleTab),
     (KeyCode::Char('r'), CTRL, TaskCommand::RefreshNow),
     (KeyCode::Char('l'), CTRL, TaskCommand::RefreshNow),
     (KeyCode::Esc, NONE, TaskCommand::Close),

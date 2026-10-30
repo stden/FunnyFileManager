@@ -28,11 +28,11 @@ pub enum TaskCommand {
     /// Gray `+` and `-`: the Select or Deselect dialog, a Far mask over
     /// process names.
     MarkByMask(MaskPurpose),
-    /// Enter, F3: the Process information dialog.
+    /// Enter, F3: the Process or Network information dialog.
     Info,
     /// F1, `h`, `?`.
     Help,
-    /// F2: the command line or the name in the last column.
+    /// F2: the command line or the name in the last column (Active/All on Network).
     ToggleCommandView,
     /// F4, `\`: the filter bar.
     Filter,
@@ -64,6 +64,8 @@ pub enum TaskCommand {
     SignalMenu,
     /// F11, `Z`: hold or resume the refresh.
     ToggleHold,
+    /// Tab, F12: switch between the Processes and Network views.
+    ToggleTab,
     /// Ctrl+R, Ctrl+L: one sample now.
     RefreshNow,
     /// Esc, F10, `q`, Ctrl+C, Ctrl+W: close the list. Never quits ffm.

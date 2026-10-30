@@ -481,4 +481,9 @@ windows-sys = { version = "0.61.2", features = [
     # ...and a named pipe to that administrator for the rest of the session.
     "Win32_System_Pipes",
     "Win32_System_IO",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_ProcessStatus",
+    "Win32_NetworkManagement_IpHelper",
+    "Win32_NetworkManagement_Ndis",
+    "Win32_Networking_WinSock",
 ] }

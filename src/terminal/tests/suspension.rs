@@ -100,8 +100,14 @@ fn a_paused_resume_waits_for_a_key_before_the_panels_return() {
     let mut terminal = terminal();
     let mut ops = RecordingOps::new(None);
     let calls = Rc::clone(&ops.calls);
+    let before = crate::performance::paused_total();
     let suspension = TerminalSuspension::suspend(&mut terminal, &mut ops).expect("suspend");
+    std::thread::sleep(std::time::Duration::from_millis(20));
     suspension.resume_after_key("press a key").expect("resume");
+    assert!(
+        crate::performance::paused_total().saturating_sub(before)
+            >= std::time::Duration::from_millis(15)
+    );
 
     assert_eq!(
         *calls.borrow(),

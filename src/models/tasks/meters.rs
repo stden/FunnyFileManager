@@ -1,5 +1,5 @@
 //! Purpose: The header meters of one snapshot, derived from two samples'
-//! counters: CPU bars, memory and swap bars, and the task counts.
+//! counters: CPU bars, memory, swap and network bars, and the task counts.
 //!
 //! Integer maths only. Every bar's segments are built so that they never add
 //! up to more than the whole bar, whatever the counters say: a source can
@@ -10,7 +10,7 @@ mod memory;
 
 use std::time::Duration;
 
-use super::{LoadAverage, ProcessKind, ProcessSample, SystemSample};
+use super::{LoadAverage, NetMeter, ProcessKind, ProcessSample, SystemSample};
 
 pub(super) use cpu::{total_time, SystemCounters};
 pub use cpu::{CoreGroup, CpuBar, CpuMeter, CpuMeters};
@@ -23,6 +23,7 @@ pub struct Meters {
     cores: CpuMeters,
     memory: Option<MemoryMeter>,
     swap: Option<SwapMeter>,
+    network: Option<NetMeter>,
     tasks: TaskCounts,
     load: Option<LoadAverage>,
     uptime: Option<Duration>,
@@ -34,6 +35,7 @@ impl Meters {
     pub(super) fn derive(
         previous: Option<&SystemCounters>,
         system: &SystemSample,
+        network: Option<NetMeter>,
         tasks: TaskCounts,
     ) -> Self {
         Self {
@@ -41,6 +43,7 @@ impl Meters {
             cores: CpuMeters::per_core(previous, system),
             memory: system.memory.as_ref().map(MemoryMeter::from_sample),
             swap: system.swap.as_ref().map(SwapMeter::from_sample),
+            network,
             tasks,
             load: system.load,
             uptime: system.uptime,
@@ -66,6 +69,11 @@ impl Meters {
     #[must_use]
     pub const fn swap(&self) -> Option<SwapMeter> {
         self.swap
+    }
+
+    #[must_use]
+    pub const fn network(&self) -> Option<NetMeter> {
+        self.network
     }
 
     #[must_use]

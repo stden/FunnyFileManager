@@ -98,3 +98,17 @@ fn the_action_count_saturates_instead_of_wrapping_to_zero() {
     assert!((rows[0].mean_ms - 8.0 / f64::from(u32::MAX)).abs() < 1e-12);
     Performance::default().save_session().unwrap();
 }
+
+#[test]
+fn nested_pause_guards_accumulate_external_wait_once() {
+    let before = paused_total();
+    {
+        let _outer = pause();
+        let _inner = pause();
+        std::thread::sleep(Duration::from_millis(25));
+        assert!(paused_total().saturating_sub(before) >= Duration::from_millis(15));
+    }
+    let elapsed = paused_total().saturating_sub(before);
+    assert!(elapsed >= Duration::from_millis(20));
+    assert!(elapsed < Duration::from_millis(250));
+}

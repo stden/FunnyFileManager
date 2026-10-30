@@ -79,6 +79,7 @@ impl TaskList {
     /// `Ctrl+R`: request one sample, accepting a usable read already in flight.
     pub fn refresh_now(&mut self) {
         self.refresh.refresh_now();
+        self.network.diagnostics.request_now();
     }
 
     /// A process control finished: request a sample begun after its effects.
@@ -87,6 +88,8 @@ impl TaskList {
     }
 
     fn adopt(&mut self, sample: Sample) {
+        let gateway = sample.network.gateway;
+        let dns_servers = sample.network.dns_servers.clone();
         let (snapshot, baselines) = Snapshot::derive(&self.baselines, sample);
         self.baselines = baselines;
         self.selection.prune(snapshot.rows());
@@ -94,6 +97,10 @@ impl TaskList {
             snapshot: Box::new(snapshot),
             health: Health::Fresh,
         };
+        self.network
+            .diagnostics
+            .sync_endpoints(gateway, &dns_servers);
+        self.clamp_net_cursor();
         self.rebuild();
     }
 

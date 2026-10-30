@@ -580,7 +580,7 @@ Ctrl+F11	bound	SortBy(User)
 Ctrl+Shift+F11	fallback	Ignore
 Ctrl+Alt+F11	fallback	Ignore
 Ctrl+Alt+Shift+F11	fallback	Ignore
-F12	fallback	Ignore
+F12	bound	ToggleTab
 Shift+F12	fallback	Ignore
 Alt+F12	fallback	Ignore
 Alt+Shift+F12	fallback	Ignore
@@ -700,7 +700,7 @@ Ctrl+Esc	lenient	Close
 Ctrl+Shift+Esc	lenient	Close
 Ctrl+Alt+Esc	lenient	Close
 Ctrl+Alt+Shift+Esc	lenient	Close
-Tab	fallback	Ignore
+Tab	bound	ToggleTab
 Shift+Tab	fallback	Ignore
 Alt+Tab	fallback	Ignore
 Alt+Shift+Tab	fallback	Ignore

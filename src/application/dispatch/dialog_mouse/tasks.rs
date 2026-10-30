@@ -2,10 +2,6 @@
 //! the cursor, a column title sorts by it, a key-bar cell presses its key, a
 //! menu line is chosen, and a dialog's button presses the key that button
 //! stands for.
-//!
-//! Every answer is a key or a transition the keyboard already has, so no
-//! click can do what a key could not: the most a click on the list can do
-//! is press F8 or F9, and both only open a confirmation.
 
 use std::io::Write;
 
@@ -13,12 +9,11 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{backend::Backend, layout::Rect, Terminal};
 
 use super::super::dispatch_key;
+use crate::models::tasks::TaskTab;
 use crate::models::{App, ConfirmButton, FormFocus, Modal, Overlay, ReniceButton, TaskList};
 use crate::ui::{task_click_at, TaskClick};
 
 /// A click on the task list's table, title row, key bar or open menu.
-/// `false` when it lands on none of them — on a dialog, whose buttons take
-/// the generic path, or on nothing at all.
 pub(super) fn click_task_list<B: Backend + Write>(
     terminal: &mut Terminal<B>,
     app: &mut App,
@@ -54,7 +49,11 @@ fn apply<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut App, click: T
         TaskClick::Row(index) => {
             if let Some(list) = app.task_list_mut() {
                 let page = list.page_for(viewport);
-                list.select_index(index, page);
+                if list.tab() == TaskTab::Network {
+                    list.select_net_index(index, page);
+                } else {
+                    list.select_index(index, page);
+                }
             }
         }
         TaskClick::Title(key) => {
@@ -66,11 +65,6 @@ fn apply<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut App, click: T
 }
 
 /// The key the `index`-th button of the dialog open on `list` stands for.
-///
-/// A confirmation's buttons are their letters, so a click presses exactly
-/// the button it names whatever the keyboard focused; the form and the `[`
-/// confirmation focus the clicked button and press Enter, as the mask
-/// dialog does.
 pub(super) fn tasks_button_key(list: &mut TaskList, index: usize) -> Option<KeyEvent> {
     let code = match list.modal_mut() {
         Modal::Confirm(confirm) => confirm_key(*confirm.buttons().get(index)?),
@@ -89,7 +83,7 @@ pub(super) fn tasks_button_key(list: &mut TaskList, index: usize) -> Option<KeyE
             prompt.focus_cancel(index != 0);
             KeyCode::Enter
         }
-        Modal::Info(_) | Modal::Error { .. } => KeyCode::Esc,
+        Modal::Info(_) | Modal::NetInfo | Modal::Error { .. } => KeyCode::Esc,
         Modal::Browse
         | Modal::Help(_)
         | Modal::Filter(_)
@@ -100,8 +94,6 @@ pub(super) fn tasks_button_key(list: &mut TaskList, index: usize) -> Option<KeyE
     Some(code.into())
 }
 
-/// The key that presses `button` of the kill confirmation: its letter, or
-/// Esc for Cancel.
 const fn confirm_key(button: ConfirmButton) -> KeyCode {
     match button {
         ConfirmButton::Terminate => KeyCode::Char('t'),
@@ -111,7 +103,6 @@ const fn confirm_key(button: ConfirmButton) -> KeyCode {
     }
 }
 
-/// The `index`-th of a dialog's two buttons.
 fn button_at<T: Copy>(index: usize, buttons: [T; 2]) -> Option<T> {
     buttons.get(index).copied()
 }

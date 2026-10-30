@@ -17,7 +17,7 @@ fn the_key_labels_name_what_each_toggle_switches_to() {
         names,
         [
             "Help", "Name", "Info", "Filter", "Tree", "Sort", "Nice", "Kill", "Signal", "Quit",
-            "Hold", ""
+            "Hold", "Net"
         ]
     );
     let list = app.list();

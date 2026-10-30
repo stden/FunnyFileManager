@@ -8,6 +8,7 @@ use tempfile::TempDir;
 use super::*;
 use crate::models::{EditState, Editor, ExitChoice, Overlay, Panel};
 
+mod navigation;
 mod unbatched;
 
 struct Queue(VecDeque<io::Result<Event>>);

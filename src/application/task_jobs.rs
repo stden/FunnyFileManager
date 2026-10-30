@@ -1,5 +1,6 @@
 //! Purpose: The task list's sampling worker: one thread per opening, asked
-//! for one sample at a time, watched for lateness, and never joined.
+//! for one sample at a time, watched for lateness, and never joined — plus
+//! the companion non-blocking network probe runner.
 //!
 //! A `/proc/<pid>/cmdline` read can block behind its process's mmap lock,
 //! so samples are read off the UI thread. Every loop pass asks the model
@@ -13,13 +14,11 @@
 //! `App` and `Overlay` stay free of threads and channels; the model decides
 //! what is due and how a result changes the table, this module only moves
 //! requests and results between the two.
-//!
-//! TODO(DRY): third worker — generalise with `WslJobs`. This is the second
-//! request/response worker, so under the Rule of Three it stays separate.
 
 mod lateness;
 mod lifecycle;
 mod logged;
+mod net_probe;
 mod worker;
 
 use std::mem;
@@ -31,16 +30,18 @@ use super::Redraw;
 use crate::models::{App, Overlay, SampleError, TaskList};
 use crate::performance::Performance;
 use logged::Logged;
+use net_probe::NetProbeRunner;
 use worker::{Flight, Worker};
 
 /// The performance statistics row of a sample's round trip.
 const SAMPLE_ACTION: &str = "Background/Tasks/Sample";
 
-/// The controller `LoopState` owns: the sampling thread, if any, and the
-/// errors already logged.
+/// The controller `LoopState` owns: the sampling thread, the network prober,
+/// and the errors already logged.
 #[derive(Default)]
 pub(super) struct TaskJobs {
     sampler: Sampler,
+    prober: NetProbeRunner,
     logged: Logged,
 }
 
@@ -103,7 +104,8 @@ impl TaskJobs {
         let late = self.watch(list, now);
         let started = self.start(list, task_host);
         let sent = self.request(list, now);
-        arrived.or(late).or(started).or(sent)
+        let probed = self.prober.pump(list, task_host, performance, now);
+        arrived.or(late).or(started).or(sent).or(probed)
     }
 
     /// Applies the answer that arrived, if one did. A worker that is gone
@@ -145,8 +147,6 @@ impl TaskJobs {
             return Redraw::Unchanged;
         }
         match worker.requests.try_send(()) {
-            // One request is in flight at a time, so the slot is free; were
-            // it not, the request queued there is this one.
             Ok(()) | Err(TrySendError::Full(())) => {
                 worker.flight = Flight::Since(now);
                 Redraw::Unchanged
@@ -163,5 +163,7 @@ impl TaskJobs {
 mod tests;
 #[cfg(test)]
 mod tests_failures;
+#[cfg(test)]
+mod tests_net_probe;
 #[cfg(test)]
 mod tests_stall;

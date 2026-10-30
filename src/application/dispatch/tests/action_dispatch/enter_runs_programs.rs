@@ -1,4 +1,4 @@
-//! Purpose: Enter on an executable runs it; a plain file is left alone.
+//! Purpose: Enter runs programs and opens documents through their OS association.
 
 use super::*;
 
@@ -76,7 +76,7 @@ fn enter_on_an_executable_runs_it_rather_than_doing_nothing() {
 /// …and Enter on an ordinary file still enters nothing, so the branch above
 /// cannot be reached by anything that merely looks like a program.
 #[test]
-fn enter_on_a_plain_file_does_not_try_to_run_it() {
+fn enter_on_a_plain_file_opens_its_system_association() {
     let (mut app, mut terminal, _dir) = app_and_terminal(&["notes.txt"]);
     select_named(&mut app.left_panel, "notes.txt");
     let before = app.get_active_panel_ref().path.clone();
@@ -85,4 +85,8 @@ fn enter_on_a_plain_file_does_not_try_to_run_it() {
 
     assert_eq!(app.get_active_panel_ref().path, before);
     assert_eq!(console_text(&app).len(), 0, "nothing was run");
+    assert_eq!(
+        ops::system_open::take_opened(),
+        Some(before.join("notes.txt"))
+    );
 }

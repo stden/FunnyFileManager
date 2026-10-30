@@ -78,6 +78,24 @@ fn windows_scripts_and_installers_have_explicit_runners() {
             vec!["-NoProfile", "-File"],
         ),
         ("package name.MSI", "msiexec.exe", vec!["/i"]),
+        ("build tool.PY", "python", Vec::new()),
+        ("deploy script.SH", "sh", Vec::new()),
+    ] {
+        let command = program_command(Path::new(file));
+        assert_eq!(command.get_program(), runner);
+        let mut expected: Vec<&std::ffi::OsStr> = flags.iter().map(std::ffi::OsStr::new).collect();
+        expected.push(std::ffi::OsStr::new(file));
+        assert_eq!(command.get_args().collect::<Vec<_>>(), expected);
+    }
+}
+
+#[cfg(not(windows))]
+#[test]
+fn unix_scripts_without_execute_bit_use_explicit_interpreters() {
+    for (file, runner, flags) in [
+        ("build tool.PY", "python3", Vec::new()),
+        ("deploy script.SH", "sh", Vec::new()),
+        ("win script.CMD", "cmd.exe", vec!["/c"]),
     ] {
         let command = program_command(Path::new(file));
         assert_eq!(command.get_program(), runner);

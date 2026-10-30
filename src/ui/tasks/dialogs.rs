@@ -1,13 +1,14 @@
 //! Purpose: What the task list opens over its table — the kill confirmation,
-//! the Priority form, the confirmation `[` asks for, process information,
-//! the Error dialog, the Select/Deselect mask, its menus — and the help
-//! page drawn in the table's place.
+//! the Priority form, the confirmation `[` asks for, process/network
+//! information, the Error dialog, the Select/Deselect mask, its menus — and
+//! the help page drawn in the table's place.
 //!
 //! Every line naming a process is drawn as plain text: a process names
 //! itself, so an `&` in its name is shown, never taken for a hotkey mark.
 
 mod confirm;
 mod info;
+mod net_info;
 
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -42,6 +43,7 @@ pub(super) fn render(f: &mut Frame<'_>, tracker: &mut DialogMouse, list: &TaskLi
             tracker.clear();
         }
         Modal::Info(key) => info::info(f, tracker, list, *key),
+        Modal::NetInfo => net_info::net_info(f, tracker, list),
         Modal::Error { done, failures } => error(f, tracker, *done, failures),
         Modal::Mask(prompt) => render_mask_prompt(f, tracker, prompt),
         Modal::Confirm(confirm) => kill(f, tracker, confirm),

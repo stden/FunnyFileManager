@@ -60,7 +60,7 @@ fn initialization_times_out_without_waiting_for_a_silent_process() {
     let (sender, _receiver) = mpsc::sync_channel(8);
     assert_eq!(
         connection.pump(&sender),
-        Err("LSP initialization timed out")
+        Err(PumpError::Disconnected("LSP initialization timed out"))
     );
     let started = Instant::now();
     drop(connection);

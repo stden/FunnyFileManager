@@ -28,6 +28,7 @@ where
     /// into a signal for FFM's process group. A field, so it is lowered only
     /// after `Drop` has put raw mode back.
     interrupts: InterruptShield,
+    _perf_pause: crate::performance::PauseGuard,
 }
 
 impl<'a, B, O> TerminalSuspension<'a, B, O>
@@ -45,6 +46,7 @@ where
             keyboard_popped: KeyboardProtocol::Legacy,
             clear_pending: false,
             interrupts: InterruptShield::raise()?,
+            _perf_pause: crate::performance::pause(),
         };
 
         // The program that runs next reads keys its own way.

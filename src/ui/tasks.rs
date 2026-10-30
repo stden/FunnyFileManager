@@ -1,6 +1,6 @@
 //! Purpose: Draws the task list (`Ctrl+W`) full screen, as the F3 viewer and
-//! the F4 editor are: the meters, the process table, the info row, the
-//! footer and the key bar, with whatever is open on the list drawn over
+//! the F4 editor are: the meters, the process or network table, the info row,
+//! the footer and the key bar, with whatever is open on the list drawn over
 //! them — and says what a click on that screen lands on ([`click`]).
 //!
 //! One [`layout`] places every part, from the header shape paging uses, so
@@ -13,6 +13,7 @@ mod dialogs;
 mod format;
 mod menus;
 mod meters;
+mod network;
 mod placement;
 mod table;
 
@@ -21,7 +22,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Clear, Paragraph};
 use ratatui::Frame;
 
-use crate::models::{Cursor, Table, TaskList};
+use crate::models::{Cursor, Table, TaskList, TaskTab};
 use crate::mouse::DialogMouse;
 
 use super::{far_block, palette, Cells, FAR_BLUE};
@@ -79,12 +80,17 @@ fn render_meters(f: &mut Frame<'_>, list: &TaskList, layout: &TaskLayout) {
             width,
         ));
     }
-    lines.push(meters::tasks(meters, width));
+    let net_health = Some(list.net_diagnostics().overall_health());
+    lines.push(meters::tasks_with_net(meters, net_health, width));
     f.render_widget(Paragraph::new(lines), layout.rows.meters);
 }
 
 fn render_table(f: &mut Frame<'_>, list: &TaskList, layout: &TaskLayout) {
     if layout.frame.is_empty() {
+        return;
+    }
+    if list.tab() == TaskTab::Network {
+        network::render(f, list, layout);
         return;
     }
     let edge = Style::default().fg(palette::FRAME).bg(FAR_BLUE);
@@ -145,6 +151,8 @@ mod tests_menus;
 mod tests_meters;
 #[cfg(test)]
 mod tests_meters_lines;
+#[cfg(test)]
+mod tests_network_ui;
 #[cfg(test)]
 mod tests_screen;
 #[cfg(test)]

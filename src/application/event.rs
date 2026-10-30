@@ -74,6 +74,19 @@ pub(super) fn handle_event<B: Backend + Write>(
     event: Event,
     panel_clicks: &mut crate::mouse::PanelClicks,
 ) -> io::Result<super::Redraw> {
+    let interaction =
+        crate::diagnostics::Interaction::start(super::timing::label(app, &event), app);
+    let result = dispatch_event(terminal, app, event, panel_clicks);
+    interaction.finish(app, &result);
+    result
+}
+
+fn dispatch_event<B: Backend + Write>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+    event: Event,
+    panel_clicks: &mut crate::mouse::PanelClicks,
+) -> io::Result<super::Redraw> {
     match event {
         Event::Paste(text) => {
             panel_clicks.reset();

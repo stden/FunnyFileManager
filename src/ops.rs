@@ -42,6 +42,7 @@ mod shell;
 pub mod shortcuts;
 pub mod sortmenu;
 mod stub;
+pub(crate) mod system_open;
 pub mod tasks;
 pub mod tree;
 pub mod usermenu;

@@ -1,6 +1,12 @@
 use super::*;
 
 #[test]
+fn file_association_rejects_nul_paths_before_calling_the_shell() {
+    let error = open_associated(Path::new("invalid\0document.txt")).unwrap_err();
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+}
+
+#[test]
 fn shell_execute_info_suppresses_blocking_shell_error_dialogs() {
     let verb = [0u16];
     let file = [0u16];

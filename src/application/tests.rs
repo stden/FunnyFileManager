@@ -24,5 +24,6 @@ mod replay_resize;
 mod restore_selection;
 mod run_lifecycle;
 mod selection_groups;
+mod smooth_scroll;
 mod task_refresh;
 mod typeahead;

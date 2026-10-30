@@ -7,11 +7,11 @@ use std::time::Instant;
 use ratatui::{backend::Backend, Terminal};
 
 use super::event::{discard_typeahead, handle_event, next_event, UNANSWERED};
+pub(super) use super::frame::draw_frame;
 use super::input::{BufferedInput, EventSource};
 use super::{git_jobs, lsp_jobs, task_jobs, timing, wsl_jobs, Redraw};
 use crate::diagnostics::log_action;
-use crate::models::{App, Viewport};
-use crate::ui::ui;
+use crate::models::App;
 
 pub(super) struct LoopState {
     clicks: crate::mouse::PanelClicks,
@@ -56,10 +56,14 @@ impl LoopState {
                 continue;
             };
             let started = Instant::now();
+            let navigation = super::navigation_batch::accepts(app, &event);
             let pending = timing::Pending::start(app, &event, started);
             if handle_event(terminal, app, event, &mut self.clicks)? == Redraw::Needed {
                 self.pending = Some(pending);
                 self.redraw = Redraw::Needed;
+            }
+            if navigation {
+                super::navigation_batch::drain(terminal, app, read, &mut self.clicks, started)?;
             }
             crate::ops::git_pull::run_pending(app);
             repaint_after_progress(terminal)?;
@@ -160,21 +164,5 @@ pub(super) fn repaint_after_progress<B: Backend + Write>(
         .map_err(|error| io::Error::other(error.to_string()))?;
     terminal.current_buffer_mut().reset();
     terminal.swap_buffers();
-    Ok(())
-}
-
-pub(super) fn draw_frame<B: Backend + Write>(
-    terminal: &mut Terminal<B>,
-    app: &mut App,
-) -> io::Result<()> {
-    // ratatui 0.30 made `Backend::Error` an associated type (io::Error for
-    // crossterm, Infallible for TestBackend). Convert via Display so this stays
-    // generic over B without leaking a `From` bound onto every caller.
-    terminal
-        .draw(|f| {
-            app.set_viewport(Viewport::new(f.area().height));
-            ui(f, app);
-        })
-        .map_err(|e| io::Error::other(e.to_string()))?;
     Ok(())
 }

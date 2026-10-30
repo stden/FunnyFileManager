@@ -23,7 +23,6 @@ use windows_sys::Win32::UI::WindowsAndMessaging::SW_HIDE;
 use super::nul_terminated;
 
 /// Open a document using the registered Windows handler, without waiting for it.
-#[cfg(not(test))]
 #[allow(unsafe_code, reason = "std has no Windows file association API")]
 pub fn open_associated(path: &Path) -> io::Result<()> {
     let verb = nul_terminated(OsStr::new("open"))?;

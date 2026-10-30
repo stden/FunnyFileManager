@@ -24,7 +24,7 @@ pub enum Command {
 pub struct Envelope(pub DocumentId, pub Event);
 
 pub struct Manager {
-    commands: SyncSender<Command>,
+    commands: Option<SyncSender<Command>>,
     events: Option<Receiver<Envelope>>,
     stop: Arc<AtomicBool>,
     task: Option<JoinHandle<()>>,
@@ -56,7 +56,7 @@ impl Manager {
             .name("ffm-lsp".into())
             .spawn(move || super::worker::run(&receiver, &sender, &shutdown))?;
         Ok(Self {
-            commands,
+            commands: Some(commands),
             events: Some(events),
             stop,
             task: Some(task),
@@ -64,14 +64,13 @@ impl Manager {
     }
 
     pub fn send(&self, command: Command) -> Result<(), SendError> {
-        self.commands
-            .try_send(command)
-            .map_err(|error| match error {
-                mpsc::TrySendError::Full(command) => SendError::Full(Box::new(command)),
-                mpsc::TrySendError::Disconnected(command) => {
-                    SendError::Disconnected(Box::new(command))
-                }
-            })
+        let Some(commands) = &self.commands else {
+            return Err(SendError::Disconnected(Box::new(command)));
+        };
+        commands.try_send(command).map_err(|error| match error {
+            mpsc::TrySendError::Full(command) => SendError::Full(Box::new(command)),
+            mpsc::TrySendError::Disconnected(command) => SendError::Disconnected(Box::new(command)),
+        })
     }
 
     pub fn poll(&self) -> Option<Envelope> {
@@ -82,6 +81,7 @@ impl Manager {
 impl Drop for Manager {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
+        self.commands.take(); // Wake an idle worker blocked on `commands.recv()`.
         self.events.take(); // Release a worker sending to a full UI mailbox before joining.
         if self.task.take().is_some_and(|task| task.join().is_err()) {
             crate::diagnostics::log_error("LSP worker panicked");

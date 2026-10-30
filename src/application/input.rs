@@ -92,6 +92,22 @@ impl<S: EventSource> BufferedInput<S> {
         self.source.discard_queued()
     }
 
+    /// Take queued navigation without waiting. Keep the next command or error
+    /// for the normal reader so the current selection is presented first.
+    pub(super) fn next_navigation(&mut self, app: &App) -> Option<Event> {
+        let next = self
+            .pending
+            .take()
+            .map_or_else(|| self.source.try_read().transpose(), Some);
+        match next {
+            Some(Ok(event)) if super::navigation_batch::accepts(app, &event) => Some(event),
+            other => {
+                self.pending = other;
+                None
+            }
+        }
+    }
+
     fn coalesce(&mut self, keys: &EditorKeys, event: Event) -> Event {
         let Some(first) = text_character(keys, &event) else {
             return event;

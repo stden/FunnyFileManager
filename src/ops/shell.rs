@@ -74,6 +74,7 @@ fn run_until(
     timeout: Duration,
     mut cancel_requested: impl FnMut() -> bool,
 ) -> Result<Output, ShellError> {
+    let _perf_pause = crate::performance::pause();
     let mut child = spawn_shell(command, current_dir)
         .map_err(|error| ShellError::launching_in(current_dir, error))?;
     // Drain both pipes on their own threads: a child that fills the pipe buffer

@@ -33,7 +33,7 @@ const SKETCH: [&str; 24] = [
     "╟─────┴────────┴───┴───┴──────┴──────┴─┴─────┴─────┴─────────┴─────────────────╢",
     "║4242 firefox: /usr/lib/firefox/firefox -contentproc -childID 12 -isForBrowser}║",
     "╚═════════════════════════ 4 of 5 processes, 2 marked ═════════════════════════╝",
-    "1Help  2Name  3Info  4Filter5Tree  6Sort  7Nice  8Kill  9Sign…10Quit11Hold12    ",
+    "1Help  2Name  3Info  4Filter5Tree  6Sort  7Nice  8Kill  9Sign…10Quit11Hold12Net ",
 ];
 
 #[test]
@@ -59,7 +59,7 @@ fn a_40_by_10_screen_drops_the_meters_and_the_narrow_columns() {
             "╟─────┴──────┴─┴─────┴─────────────────╢",
             "║4242 firefox: /usr/lib/firefox/firefo}║",
             "╚═════ 4 of 5 processes, 2 marked ═════╝",
-            "1He…2Na…3In…4Fi…5T…6S…7N…8K…9S…10…11…12 ",
+            "1He…2Na…3In…4Fi…5T…6S…7N…8K…9S…10…11…12…",
         ]
     );
 }

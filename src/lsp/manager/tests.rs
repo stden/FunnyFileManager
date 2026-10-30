@@ -6,7 +6,7 @@ use super::*;
 fn full_and_disconnected_mailboxes_return_the_unsent_command() {
     let (commands, receiver) = mpsc::sync_channel(1);
     let manager = Manager {
-        commands,
+        commands: Some(commands),
         events: None,
         stop: Arc::new(AtomicBool::new(false)),
         task: None,
@@ -21,4 +21,13 @@ fn full_and_disconnected_mailboxes_return_the_unsent_command() {
     assert!(matches!(disconnected, SendError::Disconnected(_)));
     assert!(matches!(*disconnected, Command::Close));
     assert!(manager.poll().is_none());
+}
+
+#[test]
+fn dropping_an_idle_manager_wakes_the_blocked_worker_immediately() {
+    let manager = Manager::start().unwrap();
+    thread::sleep(std::time::Duration::from_millis(20));
+    let started = std::time::Instant::now();
+    drop(manager);
+    assert!(started.elapsed() < std::time::Duration::from_millis(250));
 }

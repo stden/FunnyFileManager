@@ -8,6 +8,7 @@
 use crossterm::event::KeyEvent;
 
 use crate::action::tasks::{resolve, Pan, TaskCommand};
+use crate::models::tasks::TaskTab;
 use crate::models::{App, ControlRefusal, MaskPrompt, MaskPurpose, Modal, Notice, TaskList};
 use crate::ops::tasks::control;
 use crate::scroll::ScrollTop;
@@ -17,7 +18,14 @@ use super::{bars, menus};
 pub(super) fn process(app: &mut App, key: KeyEvent) {
     match resolve(key) {
         TaskCommand::Close => app.close_overlay(),
-        TaskCommand::Nice(step) => control::step_nice(app, step),
+        TaskCommand::Nice(step) => {
+            if app
+                .task_list_mut()
+                .is_some_and(|list| list.tab() == TaskTab::Processes)
+            {
+                control::step_nice(app, step);
+            }
+        }
         command => {
             let viewport = app.viewport;
             if let Some(list) = app.task_list_mut() {
@@ -30,6 +38,13 @@ pub(super) fn process(app: &mut App, key: KeyEvent) {
 
 /// `command` on a list whose table shows `page` rows.
 pub(super) fn apply(list: &mut TaskList, command: TaskCommand, page: usize) {
+    match list.tab() {
+        TaskTab::Processes => apply_processes(list, command, page),
+        TaskTab::Network => apply_network(list, command, page),
+    }
+}
+
+fn apply_processes(list: &mut TaskList, command: TaskCommand, page: usize) {
     match command {
         TaskCommand::Move(motion) => list.move_cursor(motion, page),
         TaskCommand::Pan(Pan::Left(step)) => list.pan_left(step.cells()),
@@ -55,8 +70,22 @@ pub(super) fn apply(list: &mut TaskList, command: TaskCommand, page: usize) {
         TaskCommand::Terminate => control::confirm_terminate(list),
         TaskCommand::SignalMenu => control::open_signal_menu(list),
         TaskCommand::ToggleHold => list.toggle_hold(),
+        TaskCommand::ToggleTab => list.toggle_tab(),
         TaskCommand::RefreshNow => list.refresh_now(),
         TaskCommand::Nice(_) | TaskCommand::Close | TaskCommand::Ignore => {}
+    }
+}
+
+fn apply_network(list: &mut TaskList, command: TaskCommand, page: usize) {
+    match command {
+        TaskCommand::Move(motion) => list.move_net_cursor(motion, page),
+        TaskCommand::Info => list.set_modal(Modal::NetInfo),
+        TaskCommand::Help => list.set_modal(Modal::Help(ScrollTop::TOP)),
+        TaskCommand::ToggleCommandView => list.toggle_adapter_filter(),
+        TaskCommand::ToggleHold => list.toggle_hold(),
+        TaskCommand::ToggleTab => list.toggle_tab(),
+        TaskCommand::RefreshNow => list.refresh_now(),
+        _ => {}
     }
 }
 

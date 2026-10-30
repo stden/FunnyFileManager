@@ -22,6 +22,7 @@ impl TaskJobs {
     /// thread ends at its next receive; one with a request in flight is
     /// abandoned.
     pub(super) fn retire(&mut self) {
+        self.prober.retire();
         self.sampler = match mem::take(&mut self.sampler) {
             Sampler::Running(Worker {
                 handle,

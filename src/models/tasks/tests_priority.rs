@@ -91,6 +91,9 @@ fn every_reported_class_but_realtime_is_settable() {
     ];
     for (class, settable) in cases {
         assert_eq!(class.settable(), settable, "{class:?}");
+        if let Some(s) = settable {
+            assert_eq!(s.as_class(), class);
+        }
     }
 }
 

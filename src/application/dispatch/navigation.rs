@@ -113,6 +113,12 @@ fn open_panel_entry<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut Ap
         .is_some_and(|entry| entry.executable && !entry.kind.is_dir());
     if executable {
         report(app, |app| ops::program::launch(terminal, app));
+    } else if app
+        .get_active_panel()
+        .get_selected_entry()
+        .is_some_and(|entry| !entry.kind.is_dir())
+    {
+        report(app, ops::system_open::selected);
     } else {
         report(app, |app| app.get_active_panel().enter());
     }

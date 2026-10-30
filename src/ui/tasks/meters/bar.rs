@@ -1,12 +1,13 @@
 //! Purpose: One meter bar of the task list's header — its label, coloured
-//! segments and caption — built from a CPU, memory or swap reading and laid
-//! out in cells, each segment ending at its running total's share.
+//! segments and caption — built from a CPU, memory, swap or network reading
+//! and laid out in cells, each segment ending at its running total's share.
 
 use std::num::NonZeroU128;
 
 use ratatui::style::{Color, Style};
 use ratatui::text::Span;
 
+use crate::models::tasks::NetMeter;
 use crate::models::{CoreGroup, CpuMeter, MemoryBytes, MemoryMeter, Percent, SwapMeter};
 
 use super::super::super::panel::right_cells;
@@ -78,6 +79,27 @@ pub(super) fn swap_bar(swap: SwapMeter) -> Bar {
         ],
         whole: bytes(swap.total()),
         caption: format::used_of(swap.used(), swap.total()),
+    }
+}
+
+pub(super) fn net_bar(net: NetMeter) -> Bar {
+    let (segments, whole) = match net {
+        NetMeter::Pending => (Vec::new(), 0),
+        NetMeter::Measured {
+            rx, tx, ceiling, ..
+        } => (
+            vec![
+                (u128::from(rx.bytes_per_sec()), palette::METER_USER),
+                (u128::from(tx.bytes_per_sec()), palette::METER_KERNEL),
+            ],
+            u128::from(ceiling.bytes_per_sec()),
+        ),
+    };
+    Bar {
+        label: "Net".to_owned(),
+        segments,
+        whole,
+        caption: format::net_meter(net),
     }
 }
 

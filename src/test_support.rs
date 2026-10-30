@@ -38,7 +38,7 @@ pub(crate) mod lsp_machine;
 #[cfg(test)]
 pub(crate) mod netbox;
 #[cfg(test)]
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 pub(crate) mod sleeper;
 #[cfg(test)]
 pub(crate) mod task_list;

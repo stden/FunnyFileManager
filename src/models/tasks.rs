@@ -1,11 +1,8 @@
-//! Purpose: The task list (`Ctrl+W`): a live, htop-style view of every
-//! process — the table as last sampled, what is shown and how, the cursor and
-//! the marks, when the next sample is due, and what is open on top.
+//! Purpose: The task list (`Ctrl+W`): a live view of processes and network
+//! adapters, cursor/marks, sampling schedule, and modals.
 //!
 //! State only: the worker that samples lives in `application`, the effects
 //! of kill and renice in `ops`, the keys in `popup`, the drawing in `ui`.
-//! Every transition is a method here, so no caller can leave the view out
-//! of step with the table, the cursor off its process, or two dialogs open.
 //!
 //! No `Debug`: the rows hold command lines, which may hold secrets.
 
@@ -16,6 +13,7 @@ mod host;
 mod identity;
 mod meters;
 mod modal;
+mod network;
 mod notice;
 mod priority;
 mod renice;
@@ -44,6 +42,11 @@ pub use modal::{
     ConfirmButton, FormFocus, Found, KillConfirm, MenuCursor, Modal, NiceConfirm, PidQuery,
     PriorityForm, ReniceButton, SearchBar, TaskMenu, TextBar,
 };
+pub use network::{
+    AdapterFilter, AdapterKind, AdapterRow, AdapterSample, BytesPerSec, InterfaceState, Ipv4,
+    NetDiagnostics, NetHealth, NetMeter, NetworkSample, ProbeOutcome, ProbeRow, ProbeTarget,
+    TaskTab, PROBE_INTERVAL,
+};
 pub use notice::{Attempt, Failure, Notice, Severity};
 pub use priority::{
     KernelPriority, NiceOutOfRange, NiceStep, Niceness, Priority, PriorityChange, PriorityClass,
@@ -51,7 +54,7 @@ pub use priority::{
 };
 pub use renice::{NicePlan, PlannedChange, Renice};
 pub use sample::{
-    CoreSample, CpuCounters, MemorySample, MemoryUsage, Owner, ProcessHost, ProcessKind,
+    CoreSample, CpuCounters, MemorySample, MemoryUsage, NetProber, Owner, ProcessHost, ProcessKind,
     ProcessReader, ProcessSample, ProcessState, Sample, StateLetter, SwapSample, SystemSample,
 };
 pub use schedule::{
@@ -70,42 +73,35 @@ pub use view::{
     UserScope, ViewOptions, ViewRow,
 };
 
+use network::NetworkView;
 use selection::Selection;
 
 /// One opening of the task list.
 #[derive(Clone)]
 pub struct TaskList {
     session: TaskSession,
-    /// FFM's own process, refused as a signal target; unknown to the default
-    /// list, which has no host to signal through.
     own: Option<Pid>,
-    /// Whether FFM runs as root, which decides whether `[` asks first.
     privilege: Privilege,
     table: Table,
     baselines: Baselines,
     options: ViewOptions,
     command_view: CommandView,
-    /// The shown rows of the table, in order; rebuilt with every change.
     view: Vec<ViewRow>,
     selection: Selection,
     command_scroll: ScrollLeft,
     refresh: Refresh,
+    network: NetworkView,
     modal: Modal,
     notice: Option<Notice>,
 }
 
 impl Default for TaskList {
-    /// A list of session 0, which the host slot never mints, knowing no own
-    /// process and assuming no root: what a placeholder or a test without a
-    /// host holds.
     fn default() -> Self {
         Self::opened(TaskSession::new(0), None, Privilege::default())
     }
 }
 
 impl TaskList {
-    /// The list for `session`, run by the process `own` with `privilege`: no
-    /// table yet, a sample due at once.
     #[must_use]
     pub fn new(session: TaskSession, own: Pid, privilege: Privilege) -> Self {
         Self::opened(session, Some(own), privilege)
@@ -124,13 +120,12 @@ impl TaskList {
             selection: Selection::default(),
             command_scroll: ScrollLeft::LEFT,
             refresh: Refresh::default(),
+            network: NetworkView::default(),
             modal: Modal::Browse,
             notice: None,
         }
     }
 
-    /// Rebuilds the shown rows from the table and the options, and finds the
-    /// cursor's process in them.
     fn rebuild(&mut self) {
         self.view = build_view(self.rows(), &self.options);
         self.selection.follow(&self.view);
@@ -151,6 +146,10 @@ mod tests_list;
 mod tests_meters;
 #[cfg(test)]
 mod tests_modal;
+#[cfg(test)]
+mod tests_network;
+#[cfg(test)]
+mod tests_network_probes;
 #[cfg(test)]
 mod tests_notice;
 #[cfg(test)]

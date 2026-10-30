@@ -12,9 +12,8 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
-        mpsc::{Receiver, SyncSender, TrySendError},
+        mpsc::{Receiver, RecvTimeoutError, SyncSender},
     },
-    thread,
     time::{Duration, Instant},
 };
 
@@ -24,6 +23,14 @@ const SHUTDOWN_TIMEOUT: Duration = Duration::from_millis(750);
 
 mod lifecycle;
 mod shutdown;
+#[cfg(test)]
+use shutdown::flush_messages;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum PumpError {
+    Disconnected(&'static str),
+    MissingComponent(&'static str),
+}
 
 struct Connection {
     language: String,
@@ -42,11 +49,33 @@ pub(super) fn run(commands: &Receiver<Command>, events: &SyncSender<Envelope>, s
     let mut host = lifecycle::Host::default();
     host.cache = super::install::cache_dir();
     while !stop.load(Ordering::Acquire) {
+        if !wait_or_dispatch(&mut host, commands, events) {
+            break;
+        }
         while let Ok(command) = commands.try_recv() {
             host.command(command, events);
         }
         host.pump(events);
-        thread::sleep(TICK);
+    }
+}
+
+fn wait_or_dispatch(
+    host: &mut lifecycle::Host,
+    commands: &Receiver<Command>,
+    events: &SyncSender<Envelope>,
+) -> bool {
+    if host.is_active() {
+        match commands.recv_timeout(TICK) {
+            Ok(command) => host.command(command, events),
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => return false,
+        }
+        true
+    } else {
+        commands.recv().is_ok_and(|command| {
+            host.command(command, events);
+            true
+        })
     }
 }
 
@@ -91,27 +120,42 @@ impl Connection {
         }
     }
 
-    fn pump(&mut self, events: &SyncSender<Envelope>) -> Result<(), &'static str> {
+    fn pump(&mut self, events: &SyncSender<Envelope>) -> Result<(), PumpError> {
         for _ in 0..32 {
             match self.process.poll() {
-                Some(Signal::Message(message)) => self.client.receive(message)?,
-                Some(Signal::Closed | Signal::Failed) => return Err("LSP disconnected"),
+                Some(Signal::Message(message)) => {
+                    self.client
+                        .receive(message)
+                        .map_err(PumpError::Disconnected)?;
+                }
+                Some(Signal::Closed | Signal::Failed) => return Err(self.closed_error()),
                 None => break,
             }
         }
         if self.client.is_ready() {
             if let Some(snapshot) = self.pending.take() {
-                self.client.synchronize(snapshot)?;
+                self.client
+                    .synchronize(snapshot)
+                    .map_err(PumpError::Disconnected)?;
             }
             self.query(events);
         } else if self.started.elapsed() > INITIALIZE_TIMEOUT {
-            return Err("LSP initialization timed out");
+            return Err(PumpError::Disconnected("LSP initialization timed out"));
         }
-        self.flush()?;
+        self.flush().map_err(PumpError::Disconnected)?;
         for event in self.client.events.drain(..) {
             report(events, self.owner, event);
         }
         Ok(())
+    }
+
+    fn closed_error(&mut self) -> PumpError {
+        if !self.client.is_ready() {
+            if let Some(hint) = self.process.take_toolchain_hint() {
+                return PumpError::MissingComponent(hint);
+            }
+        }
+        PumpError::Disconnected("LSP disconnected")
     }
 
     fn query(&mut self, events: &SyncSender<Envelope>) {
@@ -126,34 +170,6 @@ impl Connection {
             }
         }
     }
-
-    fn flush(&mut self) -> Result<(), &'static str> {
-        flush_messages(&mut self.client.rpc.outbox, |message| {
-            self.process.send(message)
-        })
-    }
-}
-
-fn flush_messages(
-    outbox: &mut Vec<serde_json::Value>,
-    mut send: impl FnMut(serde_json::Value) -> Result<(), TrySendError<serde_json::Value>>,
-) -> Result<(), &'static str> {
-    if outbox.len() > 1024 {
-        return Err("LSP writer backlog exceeded its limit");
-    }
-    let mut messages = std::mem::take(outbox).into_iter();
-    while let Some(message) = messages.next() {
-        match send(message) {
-            Ok(()) => {}
-            Err(TrySendError::Full(message)) => {
-                outbox.push(message);
-                outbox.extend(messages);
-                break;
-            }
-            Err(TrySendError::Disconnected(_)) => return Err("LSP writer unavailable"),
-        }
-    }
-    Ok(())
 }
 
 #[cfg(test)]
