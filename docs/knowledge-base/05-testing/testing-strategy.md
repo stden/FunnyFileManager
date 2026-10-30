@@ -35,6 +35,14 @@ flowchart TB
   in Cargo configuration or cfg gates.
 - **BDD scenarios** under `tests/features/` and `tests/features_ru/` run through
   the Cucumber harnesses. They describe user-observable behavior.
+  `tests/behavior_features/` runs from the library test
+  `application::tests::bdd::recent_features_bdd`, including ordinary
+  `cargo test` runs. Its Gherkin scenarios exercise queued event-loop input,
+  rendered panels and task dialogs, fixture process/network workers, local
+  stdio language servers, OS-opening requests and action statistics. Run it
+  alone with `cargo test --lib recent_features_bdd`. Missing steps, parse
+  errors and undiscovered features fail the test; fixtures never control
+  live processes or contact external diagnostic endpoints.
 - **Architecture tests** check canonical operation ownership, compatibility
   signatures, the thin crate facade, separate test bodies, rendering
   dependencies, recursive `action/` and `popup/` dependencies, and the 200-line hard limit

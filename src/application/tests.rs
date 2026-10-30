@@ -9,6 +9,7 @@ use crate::{models, WritableTestBackend};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use std::path::PathBuf;
 
+mod bdd;
 mod command_line_help;
 mod event_loop_misc;
 mod event_sequences;

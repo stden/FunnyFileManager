@@ -75,7 +75,6 @@ const UNEXERCISED: &[&str] = &[
     "open_password",
     "origin_id",
     "panel_areas",
-    "panel_mut",
     "pop_char",
     "pop_filter_char",
     "push_filter_char",
