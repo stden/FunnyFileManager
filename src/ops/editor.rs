@@ -1,0 +1,160 @@
+//! Persist the built-in editor buffer while preserving file identity and format.
+
+use std::{fs, io, path::Path};
+
+use crate::file_write::DanglingLink;
+use crate::models::{EditState, Editor, Fingerprint};
+
+mod clipboard;
+pub use clipboard::{copy_editor_selection, insert_editor_file_name, paste_into_editor};
+
+impl Editor {
+    /// Write the buffer back to the file behind `self.path`, clearing the
+    /// modified flag.
+    ///
+    /// Writes a sibling temp file and renames it over the target. `fs::write`
+    /// truncates the original before the first new byte lands, so a full disk or
+    /// a crash mid-write would leave nothing but an empty file behind.
+    pub fn save(&mut self) -> io::Result<()> {
+        let target =
+            crate::file_write::real_target(&self.path).map_err(DanglingLink::into_io_error)?;
+        crate::file_write::ensure_writable(&target)?;
+        let content = self.format.encoding.encode(&self.content())?;
+        write_file(&target, &content)?;
+        self.mark_saved(&content);
+        Ok(())
+    }
+
+    /// Whether another program has written the file since the editor last
+    /// read or saved it — the question a save has to ask before it replaces
+    /// that write.
+    ///
+    /// Read through the same bounded loader as F4, so a FIFO or a huge file
+    /// put in its place cannot hang the save; either one, like a file that is
+    /// gone, has changed. A file that cannot be read cannot be compared, and
+    /// the write that follows reports its own error.
+    #[must_use]
+    pub fn changed_on_disk(&self) -> bool {
+        let Some(read) = self.disk else {
+            return false;
+        };
+        match crate::fileload::read_for_text_ui(&self.path) {
+            Ok(crate::fileload::Loaded::Bytes(bytes)) => Fingerprint::of(&bytes) != read,
+            Ok(_) => true,
+            Err(err) => err.kind() == io::ErrorKind::NotFound,
+        }
+    }
+
+    fn mark_saved(&mut self, written: &[u8]) {
+        self.state = EditState::Clean;
+        self.disk = Some(Fingerprint::of(written));
+        self.lsp.saved = self.lsp.saved.saturating_add(1);
+    }
+}
+
+/// Put `content` in `target`: atomically, through a temp file renamed over
+/// it, unless replacing the file would lose something (see
+/// [`rewrite_in_place`]) or its directory cannot hold a temp file.
+fn write_file(target: &Path, content: &[u8]) -> io::Result<()> {
+    if rewrite_in_place(target) {
+        // See `rewrite_in_place`: atomicity is the lesser thing to lose.
+        return fs::write(target, content);
+    }
+    match crate::file_write::temp_beside(target) {
+        Ok(temp) => crate::file_write::persist_over(temp, target, content),
+        // A directory the user may not add to can still hold a file they may
+        // write — `ensure_writable` has just said so. Write through it, as vim
+        // and nano do, rather than refuse a save the user is entitled to.
+        Err(err) if err.kind() == io::ErrorKind::PermissionDenied && target.exists() => {
+            fs::write(target, content)
+        }
+        Err(err) => Err(err),
+    }
+}
+
+/// Whether the save writes through the file rather than replacing it; see
+/// [`crate::file_write::replacing_changes_identity`], the rule an overwriting
+/// F5 follows too.
+fn rewrite_in_place(path: &Path) -> bool {
+    crate::file_write::replacing_changes_identity(path)
+}
+
+#[cfg(test)]
+mod tests;
+
+pub fn change_editor_encoding(
+    app: &mut crate::models::App,
+    encoding: crate::encoding::TextEncoding,
+) {
+    let Some(editor) = app.get_editor_mut() else {
+        return;
+    };
+    let previous = editor.format.encoding;
+    editor.format.encoding = encoding;
+    if encoding != previous {
+        editor.state = EditState::Modified;
+    }
+    editor.notice = Some(format!(
+        "Encoding: {} (F8 changes encoding)",
+        encoding.label()
+    ));
+}
+
+fn reload_editor(editor: &mut Editor, encoding: crate::encoding::TextEncoding) -> io::Result<()> {
+    let crate::fileload::Loaded::Bytes(bytes) = crate::fileload::read_for_text_ui(&editor.path)?
+    else {
+        return Err(io::Error::other("Cannot reload this file as text"));
+    };
+    let content = encoding.decode(&bytes)?;
+    if content.contains('\0') {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "binary file (it contains NUL bytes)",
+        ));
+    }
+    let mut reloaded = Editor::from_content(editor.title.clone(), editor.path.clone(), &content);
+    preserve_lsp_session(&mut reloaded, editor);
+    reloaded.disk = Some(Fingerprint::of(&bytes));
+    reloaded.tab_size = editor.tab_size;
+    reloaded.search.last.clone_from(&editor.search.last);
+    if editor.format.indent == crate::models::Indent::Tabs {
+        reloaded.format.indent = crate::models::Indent::Tabs;
+    }
+    reloaded.cursor_line = editor
+        .cursor_line
+        .min(reloaded.lines.len().saturating_sub(1));
+    let line_chars = reloaded
+        .lines
+        .get(reloaded.cursor_line)
+        .map_or(0, |line| line.chars().count());
+    reloaded.cursor_col = editor.cursor_col.min(line_chars);
+    *editor = reloaded;
+    Ok(())
+}
+
+fn preserve_lsp_session(reloaded: &mut Editor, previous: &Editor) {
+    reloaded.lsp.id = previous.lsp.id;
+    reloaded.lsp.state = previous.lsp.state.clone();
+    reloaded.lsp.saved = previous.lsp.saved;
+    reloaded.lsp.revision.0 = previous.lsp.revision.0.saturating_add(1);
+}
+
+pub fn reload_editor_encoding(
+    app: &mut crate::models::App,
+    encoding: crate::encoding::TextEncoding,
+) {
+    let Some(editor) = app.get_editor_mut() else {
+        return;
+    };
+    if editor.state.is_modified() {
+        editor.notice = Some("Save or discard changes before reloading the file".to_owned());
+        return;
+    }
+    match reload_editor(editor, encoding) {
+        Ok(()) => {
+            editor.format.encoding = encoding;
+            editor.notice = Some(format!("Reloaded as {}", encoding.label()));
+        }
+        Err(error) => editor.notice = Some(error.to_string()),
+    }
+}
