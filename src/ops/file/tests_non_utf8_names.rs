@@ -10,6 +10,7 @@ use std::os::unix::ffi::OsStrExt;
 use super::tests_transfer_policies::app_between;
 use super::*;
 
+use crate::test_support::filesystem::non_unicode_name;
 use tempfile::TempDir;
 
 fn latin1_name() -> &'static OsStr {
@@ -35,7 +36,10 @@ fn row_of(app: &App, wanted: impl Fn(&crate::models::DirEntry) -> bool) -> usize
 fn f8_deletes_a_file_whose_name_is_not_utf8() {
     let dir = TempDir::new().expect("test setup");
     let other = TempDir::new().expect("test setup");
-    fs::write(dir.path().join(latin1_name()), b"latin-1").expect("test setup");
+    if !non_unicode_name(fs::write(dir.path().join(latin1_name()), b"latin-1")).expect("test setup")
+    {
+        return;
+    }
     let mut app = app_between(dir.path(), other.path());
 
     let row = row_of(&app, |entry| entry.name.starts_with("caf"));
@@ -48,7 +52,10 @@ fn f8_deletes_a_file_whose_name_is_not_utf8() {
 fn f8_on_an_undecodable_name_leaves_the_file_shown_the_same_way() {
     let dir = TempDir::new().expect("test setup");
     let other = TempDir::new().expect("test setup");
-    fs::write(dir.path().join(latin1_name()), b"latin-1").expect("test setup");
+    if !non_unicode_name(fs::write(dir.path().join(latin1_name()), b"latin-1")).expect("test setup")
+    {
+        return;
+    }
     let lookalike = dir.path().join("caf\u{FFFD}.txt");
     fs::write(&lookalike, b"the other file").expect("test setup");
     let mut app = app_between(dir.path(), other.path());
@@ -66,7 +73,10 @@ fn f8_on_an_undecodable_name_leaves_the_file_shown_the_same_way() {
 fn a_mark_reaches_every_row_it_shows_on() {
     let dir = TempDir::new().expect("test setup");
     let other = TempDir::new().expect("test setup");
-    fs::write(dir.path().join(latin1_name()), b"latin-1").expect("test setup");
+    if !non_unicode_name(fs::write(dir.path().join(latin1_name()), b"latin-1")).expect("test setup")
+    {
+        return;
+    }
     fs::write(dir.path().join("caf\u{FFFD}.txt"), b"lookalike").expect("test setup");
     let mut app = app_between(dir.path(), other.path());
     app.left_panel

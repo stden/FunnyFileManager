@@ -6,7 +6,7 @@ use super::*;
 fn test_format_size_not_empty() {
     // Kill: replace format_size -> String with String::new()
     let result = FileSize::from_bytes(12345).to_string();
-    assert!(!result.is_empty());
+    assert_ne!(result, "");
 }
 
 #[test]

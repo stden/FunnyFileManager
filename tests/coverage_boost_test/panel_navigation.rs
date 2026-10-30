@@ -53,7 +53,7 @@ fn test_panel_toggle_mark_on_parent_returns_false() -> io::Result<()> {
     let mut panel = Panel::new(temp.path().to_path_buf())?;
     panel.select(Some(0)); // ".."
     assert!(!panel.toggle_mark_selected());
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
     Ok(())
 }
 

@@ -3,7 +3,7 @@
 //! Provides S3 bucket browsing as virtual drives.
 
 use aws_config::meta::region::RegionProviderChain;
-use aws_config::profile::ProfileFileCredentialsProvider;
+use aws_config::profile::{ProfileFileCredentialsProvider, ProfileFileRegionProvider};
 use aws_config::BehaviorVersion;
 use aws_sdk_s3::Client;
 use std::io;
@@ -93,13 +93,20 @@ impl S3Client {
 mod tests;
 
 async fn configured_client(profile_name: &str) -> Client {
-    let region_provider = RegionProviderChain::default_provider().or_else("us-east-1");
+    let region_provider = RegionProviderChain::first_try(
+        ProfileFileRegionProvider::builder()
+            .profile_name(profile_name)
+            .build(),
+    )
+    .or_default_provider()
+    .or_else("us-east-1");
 
     let credentials_provider = ProfileFileCredentialsProvider::builder()
         .profile_name(profile_name)
         .build();
 
     let config = aws_config::defaults(BehaviorVersion::latest())
+        .profile_name(profile_name)
         .credentials_provider(credentials_provider)
         .region(region_provider)
         .load()

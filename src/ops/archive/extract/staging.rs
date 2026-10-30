@@ -20,12 +20,31 @@ fn plain_tree(staging: &Path) -> io::Result<()> {
     plain_below(staging, Path::new(""))
 }
 
+#[cfg(unix)]
+fn ensure_owner_rwx(dir: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    if let Ok(meta) = fs::symlink_metadata(dir) {
+        if meta.is_dir() {
+            let mode = meta.permissions().mode() & 0o7777;
+            if mode & 0o700 != 0o700 {
+                drop(fs::set_permissions(
+                    dir,
+                    fs::Permissions::from_mode(mode | 0o700),
+                ));
+            }
+        }
+    }
+}
+
 #[expect(
     clippy::filetype_is_file,
     reason = "exactly regular files and folders may be extracted; anything else is refused"
 )]
 fn plain_below(staging: &Path, relative: &Path) -> io::Result<()> {
-    for entry in fs::read_dir(staging.join(relative))? {
+    let dir = staging.join(relative);
+    #[cfg(unix)]
+    ensure_owner_rwx(&dir);
+    for entry in fs::read_dir(&dir)? {
         let entry = entry?;
         let relative = relative.join(entry.file_name());
         let kind = entry.file_type()?;

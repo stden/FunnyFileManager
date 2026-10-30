@@ -13,10 +13,17 @@ use crate::models::{App, ApplyPrompt, Overlay};
 use crate::status::Status;
 use crate::utils::refresh_panels;
 
-use super::shell::run_shell_command;
+use super::shell::{run_shell_command, ShellError};
 
 mod context;
 mod lists;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum StepOutcome {
+    Succeeded,
+    Failed,
+    Cancelled,
+}
 
 /// Ctrl+G: open the Apply command dialog.
 pub fn open(app: &mut App) {
@@ -62,18 +69,27 @@ fn run_batch(
 ) -> io::Result<usize> {
     let mut context = context::capture(app, names.first().map_or("", String::as_str));
     let mut failed = 0;
-    for name in names {
+    for (idx, name) in names.iter().enumerate() {
         context::select(&mut context, app, name);
-        failed += usize::from(!run_entry(app, template, &context, cwd, list_dir)?);
+        let outcome = run_entry_step(app, template, &context, cwd, list_dir)?;
+        if outcome == StepOutcome::Cancelled {
+            failed += names.len() - idx;
+            break;
+        }
         context
             .panel_mut(context.active)
             .selected
             .retain(|entry| entry.long != *name);
-        app.get_active_panel().marked.remove(name.as_str());
+        if outcome == StepOutcome::Succeeded {
+            app.get_active_panel().marked.remove(name.as_str());
+        } else {
+            failed += 1;
+        }
     }
     Ok(failed)
 }
 
+#[cfg(test)]
 fn run_entry(
     app: &mut App,
     template: &str,
@@ -81,11 +97,26 @@ fn run_entry(
     cwd: &Path,
     list_dir: &Path,
 ) -> io::Result<bool> {
+    run_entry_step(app, template, context, cwd, list_dir)
+        .map(|outcome| outcome == StepOutcome::Succeeded)
+}
+
+fn run_entry_step(
+    app: &mut App,
+    template: &str,
+    context: &Context,
+    cwd: &Path,
+    list_dir: &Path,
+) -> io::Result<StepOutcome> {
     let mut lists = lists::Lists::new(list_dir);
     let command = expand(template, context, |panel, options| {
         lists.write(panel, options)
     })?;
-    let success = command.is_empty() || run_one(app, cwd, &command);
+    let outcome = if command.is_empty() {
+        StepOutcome::Succeeded
+    } else {
+        run_one(app, cwd, &command)
+    };
     if Tokens::new(template).any(|token| token == Token::Symbol(Symbol::PreserveName)) {
         let entry = &context.panel(context.active).entry;
         if let Err(error) = context::restore_long_name(cwd, entry) {
@@ -93,14 +124,14 @@ fn run_entry(
                 "cannot restore long name '{}': {error}",
                 entry.long
             ));
-            return Ok(false);
+            return Ok(StepOutcome::Failed);
         }
     }
-    Ok(success)
+    Ok(outcome)
 }
 
-/// One run, echoed and recorded like a `:` command. True when it succeeded.
-fn run_one(app: &mut App, cwd: &Path, command: &str) -> bool {
+/// One run, echoed and recorded like a `:` command.
+fn run_one(app: &mut App, cwd: &Path, command: &str) -> StepOutcome {
     app.console.record_command(cwd, command);
     match run_shell_command(command, cwd) {
         Ok(output) => {
@@ -108,22 +139,24 @@ fn run_one(app: &mut App, cwd: &Path, command: &str) -> bool {
                 .record_output(&String::from_utf8_lossy(&output.stdout));
             app.console
                 .record_error(&String::from_utf8_lossy(&output.stderr));
-            output.status.success()
+            if output.status.success() {
+                StepOutcome::Succeeded
+            } else {
+                StepOutcome::Failed
+            }
         }
         Err(error) => {
-            // A shell that would not start is still part of the transcript:
-            // the echoed line with nothing under it would read as a quiet success.
+            let cancelled = matches!(error, ShellError::Cancelled);
             app.console.record_error(&error.report(command));
-            false
+            if cancelled {
+                StepOutcome::Cancelled
+            } else {
+                StepOutcome::Failed
+            }
         }
     }
 }
 
-/// The one line the status bar shows for the whole batch.
-///
-/// A count rather than the last output line: with several runs the last line
-/// says nothing about the others, and "2 of 5 failed" is the question the user
-/// has after a bulk command.
 fn summary(total: usize, failed: usize) -> Status {
     if failed == 0 {
         return Status::CommandOutput(format!("Apply command: {total} run"));

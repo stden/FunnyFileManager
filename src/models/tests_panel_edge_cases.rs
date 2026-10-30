@@ -105,8 +105,9 @@ fn test_app_swap_panels_exchanges_paths() -> io::Result<()> {
 #[test]
 fn test_get_all_drives_returns_at_least_one_drive() {
     let drives = App::get_all_drives();
-    assert!(
-        !drives.is_empty(),
+    assert_ne!(
+        drives.len(),
+        0,
         "get_all_drives should return at least one entry"
     );
 

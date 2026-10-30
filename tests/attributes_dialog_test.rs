@@ -102,7 +102,7 @@ fn ctrl_a_sets_one_bit_on_every_marked_file_and_keeps_the_rest() {
     assert!(!app.overlay.is_active());
     assert_eq!(mode(&a), 0o744);
     assert_eq!(mode(&b), 0o700);
-    assert!(app.left_panel.marked.is_empty(), "the marks were consumed");
+    assert_eq!(app.left_panel.marked.len(), 0, "the marks were consumed");
     assert!(
         app.status_text().contains("2 object"),
         "{}",

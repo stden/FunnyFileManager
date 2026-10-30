@@ -103,7 +103,7 @@ pub use overlay::{
     LinkType, MaskPrompt, MaskPurpose, NameField, NamePrompt, NamePurpose, OperationFailed,
     Overlay,
 };
-pub(crate) use panel::{DirectoryListing, PanelMetadata};
+pub(crate) use panel::{DirectoryListing, DirtyProbe, PanelMetadata};
 pub use panel::{Panel, PanelDetails, PanelOptions, PanelView};
 pub use panelview::{PanelKind, PanelsShown, SortMode};
 pub use plugin_commands::{PluginCommand, PluginCommands};

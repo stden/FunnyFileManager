@@ -10,8 +10,8 @@ fn an_empty_directory_measures_zero() {
     assert_eq!(stats.total.bytes(), 0);
     assert_eq!(stats.files, 0);
     assert_eq!(stats.directories, 0);
-    assert!(stats.children.is_empty());
-    assert!(stats.by_kind.is_empty());
+    assert_eq!(stats.children.len(), 0);
+    assert_eq!(stats.by_kind.len(), 0);
     assert!(stats.coverage.is_complete());
 }
 
@@ -62,14 +62,7 @@ fn files_at_the_top_level_count_toward_the_total() {
 fn sockets_and_fifos_count_as_files_without_bytes() {
     let dir = tree(&[("image.img", 900), ("sub/inner.bin", 100)]);
     let _top = std::os::unix::net::UnixListener::bind(dir.path().join("socket")).expect("socket");
-    rustix::fs::mknodat(
-        rustix::fs::CWD,
-        dir.path().join("sub/pipe"),
-        rustix::fs::FileType::Fifo,
-        rustix::fs::Mode::from_raw_mode(0o600),
-        0,
-    )
-    .expect("fifo");
+    crate::test_support::make_fifo(&dir.path().join("sub/pipe")).expect("fifo");
 
     let stats = analyse(dir.path());
 

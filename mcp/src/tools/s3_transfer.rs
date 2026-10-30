@@ -163,8 +163,10 @@ fn valid_copy_source(bucket: &str, key: &str) -> bool {
         && !key.is_empty()
         && !bucket
             .chars()
-            .chain(key.chars())
-            .any(|c| c.is_control() || matches!(c, '?' | '#'))
+            .any(|c| c.is_control() || matches!(c, '?' | '#' | '/' | '%'))
+        && !key
+            .chars()
+            .any(|c| c.is_control() || matches!(c, '?' | '#' | '%'))
 }
 
 fn transfer_result(

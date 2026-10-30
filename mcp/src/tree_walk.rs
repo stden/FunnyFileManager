@@ -19,12 +19,20 @@ pub fn directory_size(path: &Path) -> u64 {
     }
 
     let mut bytes = 0_u64;
+    let mut visited = 0usize;
     let mut pending: Vec<PathBuf> = vec![path.to_path_buf()];
     while let Some(directory) = pending.pop() {
+        if visited >= TREE_WALK_BUDGET {
+            break;
+        }
         let Ok(entries) = fs::read_dir(directory) else {
             continue;
         };
         for entry in entries.flatten() {
+            if visited >= TREE_WALK_BUDGET {
+                break;
+            }
+            visited += 1;
             bytes += entry_size(&entry, &mut pending);
         }
     }

@@ -18,7 +18,11 @@ pub fn sort_directory(
         ));
     }
 
-    let mut entries = directory_entries(&path)?;
+    let mut entries = directory_entries(&path, |entry_path| {
+        server
+            .safe_path(&entry_path.to_string_lossy())
+            .is_ok_and(|target| target.is_dir())
+    })?;
 
     entries.sort_by(|a, b| compare_entries(a, b, &params.sort));
 
@@ -89,14 +93,19 @@ fn compare_names(a: &serde_json::Value, b: &serde_json::Value) -> std::cmp::Orde
         .cmp(b["name"].as_str().unwrap_or(""))
 }
 
-fn directory_entries(path: &Path) -> Result<Vec<serde_json::Value>, McpError> {
+fn directory_entries(
+    path: &Path,
+    is_confined_dir: impl Fn(&Path) -> bool,
+) -> Result<Vec<serde_json::Value>, McpError> {
     let mut entries = Vec::new();
     for entry in fs::read_dir(path).map_err(|e| McpError::internal_error(e.to_string(), None))? {
         let entry = entry.map_err(|e| McpError::internal_error(e.to_string(), None))?;
         let meta = entry
             .metadata()
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-        let is_dir = meta.is_dir() || (meta.file_type().is_symlink() && entry.path().is_dir());
+        let entry_path = entry.path();
+        let is_dir =
+            meta.is_dir() || (meta.file_type().is_symlink() && is_confined_dir(&entry_path));
         let name = entry.file_name().to_string_lossy().to_string();
         let ext = Path::new(&name)
             .extension()

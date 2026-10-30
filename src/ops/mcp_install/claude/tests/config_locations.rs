@@ -26,7 +26,7 @@ fn a_home_folder_that_is_gone_stops_before_the_cli() {
         fixture.register().outcome,
         Outcome::Failed(Failure::Blocked(Blocker::NoHomeFolder))
     );
-    assert!(fixture.machine.claude().calls().is_empty());
+    assert_eq!(fixture.machine.claude().calls().len(), 0);
 }
 
 /// Review finding: under `CLAUDE_CONFIG_DIR` the CLI writes another file
@@ -73,5 +73,5 @@ fn a_user_config_that_cannot_be_read_is_never_handed_to_the_cli() {
             "not a regular file".to_owned()
         )))
     );
-    assert!(fixture.machine.claude().calls().is_empty());
+    assert_eq!(fixture.machine.claude().calls().len(), 0);
 }

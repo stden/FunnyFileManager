@@ -105,7 +105,7 @@ fn test_panel_empty_directory_operations() -> io::Result<()> {
     assert_eq!(panel.selected(), Some(0));
 
     panel.toggle_mark_selected();
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
 
     Ok(())
 }

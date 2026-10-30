@@ -14,6 +14,7 @@ use crate::models::App;
 
 mod dispatch;
 mod event;
+mod git_jobs;
 mod input;
 mod loop_state;
 mod lsp_jobs;

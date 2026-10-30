@@ -88,7 +88,7 @@ fn no_chord_is_bound_twice_whatever_the_file_says() {
         let chords: Vec<KeyChord> = layered.bindings.chords().map(|(key, _)| key).collect();
         assert_eq!(repeated(chords), [], "{entries:?}");
         for way_out in ["close", "hide"] {
-            assert!(!keys_of(&layered, way_out).is_empty(), "{entries:?}");
+            assert_ne!(keys_of(&layered, way_out).len(), 0, "{entries:?}");
         }
     }
 }

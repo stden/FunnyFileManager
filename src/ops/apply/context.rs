@@ -74,7 +74,13 @@ fn panel(panel: &Panel, current: Option<&str>) -> PanelContext {
 
 fn sanitize_description(description: Option<&str>) -> String {
     let mut text = description.unwrap_or_default().to_owned();
-    text.retain(|c| !matches!(c, '\n' | '\r' | '\0'));
+    text.retain(|c| {
+        !c.is_control()
+            && !matches!(
+                c,
+                ';' | '&' | '|' | '$' | '`' | '"' | '\'' | '\\' | '<' | '>' | '(' | ')' | '%'
+            )
+    });
     text
 }
 

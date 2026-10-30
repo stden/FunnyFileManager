@@ -120,6 +120,6 @@ fn path_paste_edits_only_the_open_entry_without_changing_its_snapshot() {
         panic!("the entry is being edited")
     };
     assert_eq!(input.text(), "new/path");
-    assert!(editor.snapshot.value.is_empty());
-    assert!(editor.entries.is_empty());
+    assert_eq!(editor.snapshot.value.len(), 0);
+    assert_eq!(editor.entries.len(), 0);
 }

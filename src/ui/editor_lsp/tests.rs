@@ -31,6 +31,18 @@ fn hover_is_rendered_as_readable_text_in_a_bounded_popup() {
 }
 
 #[test]
+fn hover_and_completion_docs_sanitize_control_characters() {
+    let (_, hover_text, _) = contents(&Dialog::Hover {
+        text: "safe\x1b]52;c;ZXY=\x07\nline2\x00".into(),
+        scroll: 0,
+    });
+    assert!(!hover_text.contains('\x1b'));
+    assert!(!hover_text.contains('\x07'));
+    assert!(!hover_text.contains('\0'));
+    assert!(hover_text.contains("safe") && hover_text.contains("line2"));
+}
+
+#[test]
 fn completion_and_definition_lists_include_selection_details_and_locations() {
     use crate::lsp::{
         features::{self, Reply},
@@ -58,7 +70,7 @@ fn completion_and_definition_lists_include_selection_details_and_locations() {
     assert!(text.contains("> item [3]") && text.contains("signature") && text.contains("docs"));
     check_definition_list(&editor);
     assert_eq!(marker(0, 1), " ");
-    assert!(status(&editor).is_empty());
+    assert_eq!(status(&editor).len(), 0);
 }
 
 fn check_definition_list(editor: &Editor) {

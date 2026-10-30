@@ -20,9 +20,10 @@ fn subfolders_are_the_directories_only_in_case_blind_name_order() {
         names(&subfolders(root.path())),
         vec!["alpha", "Beta", "gamma"]
     );
-    assert!(subfolders(&root.path().join("gamma")).is_empty());
-    assert!(
-        subfolders(&root.path().join("missing")).is_empty(),
+    assert_eq!(subfolders(&root.path().join("gamma")).len(), 0);
+    assert_eq!(
+        subfolders(&root.path().join("missing")).len(),
+        0,
         "an unreadable folder lists as empty rather than failing the tree"
     );
 }

@@ -1,5 +1,8 @@
 //! Purpose: Validate and pretty-print XML documents with two-space indentation.
 
+const MAX_XML_DEPTH: usize = 256;
+const MAX_XML_NODES: u32 = 100_000;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Piece<'a> {
     Decl(&'a str),
@@ -12,9 +15,37 @@ enum Piece<'a> {
 }
 
 pub(super) fn format_xml(source: &str) -> Result<String, String> {
-    roxmltree::Document::parse(source).map_err(|err| format!("Invalid XML: {err}"))?;
     let pieces = tokenize(source);
+    if exceeds_max_depth(&pieces, MAX_XML_DEPTH) {
+        return Err(format!(
+            "Invalid XML: nesting depth exceeds {MAX_XML_DEPTH}"
+        ));
+    }
+    let options = roxmltree::ParsingOptions {
+        allow_dtd: true,
+        nodes_limit: MAX_XML_NODES,
+        entity_resolver: None,
+    };
+    roxmltree::Document::parse_with_options(source, options)
+        .map_err(|err| format!("Invalid XML: {err}"))?;
     Ok(render_pieces(&pieces))
+}
+
+fn exceeds_max_depth(pieces: &[Piece<'_>], limit: usize) -> bool {
+    let mut depth = 0_usize;
+    for piece in pieces {
+        match piece {
+            Piece::Open(_) | Piece::SelfClose(_) if depth >= limit => return true,
+            Piece::Open(_) => depth += 1,
+            Piece::Close(_) => depth = depth.saturating_sub(1),
+            Piece::SelfClose(_)
+            | Piece::Decl(_)
+            | Piece::Comment(_)
+            | Piece::Cdata(_)
+            | Piece::Text(_) => {}
+        }
+    }
+    false
 }
 
 fn tokenize(source: &str) -> Vec<Piece<'_>> {
@@ -53,11 +84,14 @@ fn markup_end(rest: &str) -> usize {
 
 fn tag_end(rest: &str) -> usize {
     let mut quote: Option<char> = None;
+    let mut brackets = 0_usize;
     for (idx, ch) in rest.char_indices() {
         match quote {
             Some(q) if ch == q => quote = None,
             None if ch == '"' || ch == '\'' => quote = Some(ch),
-            None if ch == '>' => return idx + 1,
+            None if ch == '[' => brackets += 1,
+            None if ch == ']' => brackets = brackets.saturating_sub(1),
+            None if ch == '>' && brackets == 0 => return idx + 1,
             Some(_) | None => {}
         }
     }

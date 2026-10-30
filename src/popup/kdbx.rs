@@ -116,13 +116,19 @@ fn touch_session(app: &mut App, edit: impl FnOnce(&mut crate::kdbx::KdbxSession)
     }
 }
 
-/// `Ctrl+L`: overwrite every remembered key and close the overlay.
+/// `Ctrl+L`: overwrite every remembered key, clear any armed clipboard secret, and close the overlay.
 fn lock_and_close(app: &mut App) {
     // Explicit rather than relying on the overlay being dropped: `lock()` is
     // what zeroizes the master key, and it must happen on the gesture the user
     // made, not whenever the enum field is next overwritten.
     touch_session(app, crate::kdbx::KdbxSession::lock);
     app.vault_cache = crate::kdbx::cache::SessionCache::default();
+    if app.clipboard.is_armed() {
+        app.clipboard.disarm();
+        if let Some(backend) = app.clipboard.backend_mut() {
+            drop(crate::clipboard::clear(backend));
+        }
+    }
     app.close_overlay();
     app.set_status(Status::VaultLocked);
 }

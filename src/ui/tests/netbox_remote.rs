@@ -97,5 +97,5 @@ fn a_panel_of_another_kind_is_not_drawn_by_the_netbox_renderers() {
             super::remote::render(f, &mut app.left_panel, area, true, None);
         })
         .expect("draw");
-    assert!(buffer_text(&terminal).trim().is_empty());
+    assert_eq!(buffer_text(&terminal).trim().len(), 0);
 }

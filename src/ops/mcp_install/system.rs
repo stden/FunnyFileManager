@@ -5,7 +5,7 @@
 //! Only the production entry point calls [`system_host`], and only for live
 //! input: tests and replayed recordings keep the inert default host.
 
-use std::{env, path::Path, process::Command, sync::Arc};
+use std::{env, io, path::Path, process::Command, sync::Arc};
 
 use crate::mcp_clients::{env_vars, Captured, CliCall, Exit, Host, Runner};
 
@@ -77,9 +77,8 @@ pub fn parse_pathext(pathext: Option<&str>) -> Vec<String> {
 pub struct SystemRunner;
 
 impl Runner for SystemRunner {
-    fn run(&self, call: &CliCall) -> std::io::Result<Captured> {
-        let mut command = Command::new(&call.program);
-        command.args(&call.args).current_dir(&call.cwd);
+    fn run(&self, call: &CliCall) -> io::Result<Captured> {
+        let mut command = build_command(call)?;
         let output = crate::ops::menu::process::capture_with_timeout(
             &mut command,
             call.timeout,
@@ -95,6 +94,72 @@ impl Runner for SystemRunner {
             stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
         })
     }
+}
+
+fn build_command(call: &CliCall) -> io::Result<Command> {
+    let mut command = Command::new(&call.program);
+    command.current_dir(&call.cwd);
+    if is_batch_file(&call.program) && call.args.iter().any(|arg| arg.contains('"')) {
+        for arg in &call.args {
+            if arg.chars().any(|c| {
+                c.is_control() || matches!(c, '&' | '|' | '<' | '>' | '(' | ')' | '^' | '%' | '!')
+            }) {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "batch argument contains cmd.exe metacharacters",
+                ));
+            }
+            let quoted = quote_c_arg(arg);
+            #[cfg(windows)]
+            {
+                use std::os::windows::process::CommandExt;
+                command.raw_arg(&quoted);
+            }
+            #[cfg(not(windows))]
+            command.arg(&quoted);
+        }
+        return Ok(command);
+    }
+    command.args(&call.args);
+    Ok(command)
+}
+
+fn is_batch_file(program: &Path) -> bool {
+    program
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("cmd") || ext.eq_ignore_ascii_case("bat"))
+}
+
+fn quote_c_arg(arg: &str) -> String {
+    if !arg.is_empty() && !arg.contains([' ', '\t', '"']) {
+        return arg.to_owned();
+    }
+    let mut out = String::with_capacity(arg.len() + 2);
+    out.push('"');
+    let mut backslashes = 0usize;
+    for ch in arg.chars() {
+        if ch == '\\' {
+            backslashes += 1;
+        } else if ch == '"' {
+            for _ in 0..=backslashes * 2 {
+                out.push('\\');
+            }
+            out.push('"');
+            backslashes = 0;
+        } else {
+            for _ in 0..backslashes {
+                out.push('\\');
+            }
+            out.push(ch);
+            backslashes = 0;
+        }
+    }
+    for _ in 0..backslashes * 2 {
+        out.push('\\');
+    }
+    out.push('"');
+    out
 }
 
 #[cfg(test)]

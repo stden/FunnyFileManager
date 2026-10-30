@@ -53,7 +53,7 @@ fn test_swap_panels_preserves_marks() {
 
     // After swap, marks should move with the panel content
     assert!(app.right_panel.marked.contains("a.txt"));
-    assert!(app.left_panel.marked.is_empty());
+    assert_eq!(app.left_panel.marked.len(), 0);
     assert_eq!(app.left_panel.path, right);
     assert_eq!(app.right_panel.path, left);
 }
@@ -72,7 +72,7 @@ fn test_drive_entry_display() {
 #[test]
 fn test_get_drives_returns_root() {
     let drives = App::get_drives();
-    assert!(!drives.is_empty());
+    assert_ne!(drives.len(), 0);
     #[cfg(not(windows))]
     assert!(drives.contains(&PathBuf::from("/")));
 }
@@ -80,7 +80,7 @@ fn test_get_drives_returns_root() {
 #[test]
 fn test_get_all_drives_includes_local() {
     let all = App::get_all_drives();
-    assert!(!all.is_empty());
+    assert_ne!(all.len(), 0);
     // At least one local drive
     assert!(all.iter().any(|d| matches!(d, DriveEntry::Local(_))));
 }

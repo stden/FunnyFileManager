@@ -131,7 +131,7 @@ fn run(backend: Arc<dyn WslBackend>, script: Vec<Step>) -> io::Result<()> {
         || read_step(&mut steps, &screen, &mut deadline),
         backend,
     )?;
-    assert!(steps.is_empty(), "session must consume the complete script");
+    assert_eq!(steps.len(), 0, "session must consume the complete script");
     Ok(())
 }
 

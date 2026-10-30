@@ -28,7 +28,7 @@ fn entries_are_one_thing_or_the_other() {
             match entry {
                 Entry::Separator => assert!(!entry.is_selectable()),
                 Entry::Item { label, .. } => {
-                    assert!(!label.is_empty(), "{heading:?} has an unnamed item");
+                    assert_ne!(label.len(), 0, "{heading:?} has an unnamed item");
                     assert_eq!(entry.is_selectable(), entry.action().is_some());
                 }
             }

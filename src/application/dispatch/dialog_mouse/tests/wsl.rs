@@ -104,7 +104,7 @@ fn wsl_overlay_consumes_clicks_on_the_visible_panel_behind_it() {
         app.left_panel.get_selected_entry().expect("selection").name,
         "kept.txt"
     );
-    assert!(app.wsl_requests.pending().is_empty());
+    assert_eq!(app.wsl_requests.pending().len(), 0);
     assert!(dir.path().join("kept.txt").exists());
 }
 

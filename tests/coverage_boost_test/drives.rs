@@ -5,7 +5,7 @@ use super::*;
 #[test]
 fn test_app_get_drives() {
     let drives = App::get_drives();
-    assert!(!drives.is_empty());
+    assert_ne!(drives.len(), 0);
     #[cfg(not(windows))]
     assert_eq!(drives, vec![PathBuf::from("/")]);
 }
@@ -13,7 +13,7 @@ fn test_app_get_drives() {
 #[test]
 fn test_app_get_all_drives_includes_local() {
     let drives = App::get_all_drives();
-    assert!(!drives.is_empty());
+    assert_ne!(drives.len(), 0);
 }
 
 #[test]

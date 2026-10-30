@@ -21,6 +21,7 @@ use super::super::{run_app_with_event_reader, run_app_with_wsl_backend};
 pub(super) mod backend;
 mod background;
 mod clock;
+mod git_dirty;
 use backend::CountingBackend;
 
 const WAIT_LIMIT: Duration = Duration::from_secs(5);

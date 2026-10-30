@@ -49,6 +49,8 @@ impl FfmServer {
             let source = self.safe_path_nofollow_entry(src_path)?;
             let name = entry_name(&source);
             let target = join_child(&dest, &name)?;
+            ensure_not_self_copy(&source, &target)?;
+            fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
             copy_entry(&source, &target, Purpose::Copy).map_err(|e| e.to_string())?;
             Ok(name)
         };
@@ -58,6 +60,9 @@ impl FfmServer {
                 Ok(name) => copied.push(name),
                 Err(error) => errors.push(json!({"path": src_path, "error": error})),
             }
+        }
+        if params.paths.is_empty() {
+            fs::create_dir_all(&dest).map_err(|e| McpError::internal_error(e.to_string(), None))?;
         }
 
         let result = json!({
@@ -83,22 +88,18 @@ impl FfmServer {
         let mut moved = Vec::new();
         let mut errors = Vec::new();
 
-        // Exactly the pair `move_rename` uses. `sanitize_path` would resolve a
-        // link to its target, and `rename` would then move the real file out
-        // from under the link — or the fallback would delete the target tree.
-
         for src_path in &params.paths {
             match move_batch_entry(self, &dest, src_path) {
                 Ok((name, Moved::Whole)) => moved.push(name),
-                // Moved whole, and part of the source stayed: both are true,
-                // and the caller acts on each — keep the copy, deal with
-                // what stayed.
                 Ok((name, Moved::Leaving(left))) => {
                     moved.push(name);
                     errors.push(json!({"path": src_path, "error": left.to_string()}));
                 }
                 Err(error) => errors.push(json!({"path": src_path, "error": error})),
             }
+        }
+        if params.paths.is_empty() {
+            fs::create_dir_all(&dest).map_err(|e| McpError::internal_error(e.to_string(), None))?;
         }
 
         let result = json!({
@@ -121,10 +122,6 @@ impl FfmServer {
         let mut deleted = Vec::new();
         let mut errors = Vec::new();
 
-        // Exactly the pair `delete` uses: deleting a link must not destroy what
-        // it points at. `sanitize_path` hands back the target, and an
-        // `is_dir()` branch follows the link a second time, so a link to a
-        // directory used to be answered with `remove_dir_all` on the target.
         let delete_one = |src_path: &str| -> Result<String, String> {
             let path = self.safe_path_nofollow_entry(src_path)?;
             if path == self.root {
@@ -151,8 +148,8 @@ impl FfmServer {
     }
 }
 
-/// Validate write access, resolve the required `destination` field through
-/// the server root, and ensure the directory exists.
+/// Validate write access and resolve the required `destination` field through
+/// the server root.
 fn prepare_batch_dest(server: &FfmServer, params: &BatchParams) -> Result<PathBuf, McpError> {
     let dest = server.safe_path_create(
         params
@@ -161,7 +158,6 @@ fn prepare_batch_dest(server: &FfmServer, params: &BatchParams) -> Result<PathBu
             .ok_or_else(|| McpError::invalid_params("destination is required", None))?,
     )?;
     server.require_readwrite()?;
-    fs::create_dir_all(&dest).map_err(|e| McpError::internal_error(e.to_string(), None))?;
     Ok(dest)
 }
 
@@ -178,6 +174,18 @@ fn move_batch_entry(
     }
     let name = entry_name(&source);
     let target = join_child(dest, &name)?;
+    ensure_not_self_copy(&source, &target)?;
+    fs::create_dir_all(dest).map_err(|e| e.to_string())?;
     let moved = fsops::move_entry(&source, &target).map_err(|e| e.to_string())?;
     Ok((name, moved))
+}
+
+fn ensure_not_self_copy(source: &Path, target: &Path) -> Result<(), String> {
+    if target.starts_with(source) && fs::symlink_metadata(source).is_ok_and(|m| m.is_dir()) {
+        return Err(format!(
+            "cannot copy a directory into itself: {}",
+            source.display()
+        ));
+    }
+    Ok(())
 }

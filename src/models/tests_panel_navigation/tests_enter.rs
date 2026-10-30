@@ -59,7 +59,7 @@ fn test_panel_enter_clears_marks() -> io::Result<()> {
     panel.select(Some(dir_index));
     panel.enter().expect("test setup");
 
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
 
     Ok(())
 }

@@ -18,7 +18,7 @@ fn claude_ran(world: &mut FfmWorld, args: String) -> StepResult {
 #[then("the claude CLI was not run")]
 fn claude_not_run(world: &mut FfmWorld) -> StepResult {
     let calls = scenario(world)?.machine.claude().calls();
-    assert!(calls.is_empty(), "{calls:?}");
+    assert_eq!(calls.len(), 0, "{calls:?}");
     Ok(())
 }
 

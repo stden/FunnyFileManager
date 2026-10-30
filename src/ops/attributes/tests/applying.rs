@@ -30,8 +30,9 @@ fn apply_changes_only_the_moved_bits_on_every_target() {
     assert_eq!(mode(&a), 0o744);
     assert_eq!(mode(&b), 0o700);
     assert!(app.status_text().contains('2'), "{}", app.status_text());
-    assert!(
-        app.left_panel.marked.is_empty(),
+    assert_eq!(
+        app.left_panel.marked.len(),
+        0,
         "the operation consumed the marks"
     );
 }

@@ -40,9 +40,7 @@ pub enum QuoteMode {
 
 impl QuoteMode {
     pub(crate) fn apply(self, text: &str) -> String {
-        let needs_quotes =
-            self == Self::Always || (self == Self::Spaces && text.chars().any(shell_metachar));
-        if needs_quotes {
+        if self == Self::Always || (self == Self::Spaces && needs_shell_quotes(text)) {
             format!("\"{}\"", escape_shell(text))
         } else {
             text.to_owned()
@@ -50,19 +48,44 @@ impl QuoteMode {
     }
 
     pub(crate) fn apply_list(self, text: &str) -> String {
+        let clean = text.replace(['\n', '\r', '\0'], "");
         if self == Self::Always {
-            format!("\"{}\"", text.replace('"', "\\\""))
+            format!("\"{}\"", clean.replace('"', "\\\""))
         } else {
-            text.to_owned()
+            clean
         }
     }
+}
+
+#[cfg(windows)]
+fn needs_shell_quotes(text: &str) -> bool {
+    text.chars().any(shell_metachar)
+}
+
+#[cfg(not(windows))]
+fn needs_shell_quotes(text: &str) -> bool {
+    text.starts_with(['~', '#']) || text.chars().any(shell_metachar)
 }
 
 #[cfg(windows)]
 const fn shell_metachar(c: char) -> bool {
     matches!(
         c,
-        ' ' | '\t' | ';' | '&' | '|' | '"' | '\'' | '(' | ')' | '<' | '>' | '^' | '\n' | '\r'
+        ' ' | '\t'
+            | ';'
+            | '&'
+            | '|'
+            | '"'
+            | '\''
+            | '('
+            | ')'
+            | '<'
+            | '>'
+            | '^'
+            | '%'
+            | '!'
+            | '\n'
+            | '\r'
     )
 }
 
@@ -83,6 +106,10 @@ const fn shell_metachar(c: char) -> bool {
             | ')'
             | '<'
             | '>'
+            | '*'
+            | '?'
+            | '['
+            | ']'
             | '\n'
             | '\r'
     )

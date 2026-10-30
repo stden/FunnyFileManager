@@ -31,10 +31,6 @@ fn rejects_symlink_pointing_out_of_root() {
     assert_eq!(resolved, link);
 }
 
-/// Regression: `sanitize_path_create` used to confine a purely lexical path
-/// whenever the parent did not exist, so an intermediate symlink out of the
-/// root was never followed and `starts_with(root)` passed trivially. The caller
-/// then ran `create_dir_all` + `fs::write` on the far side of the link.
 #[cfg(unix)]
 #[test]
 fn create_rejects_a_new_path_below_a_symlink_out_of_root() {
@@ -44,8 +40,6 @@ fn create_rejects_a_new_path_below_a_symlink_out_of_root() {
     let outside_root = root_of(&outside);
     std::os::unix::fs::symlink(&outside_root, root.join("data")).expect("symlink");
 
-    // Both entry points must refuse it — the read side already did, the create
-    // side is the one that leaked.
     let read_error =
         sanitize_path(&root, "data/x.txt").expect_err("reads through the link must be refused");
     assert!(
@@ -62,9 +56,6 @@ fn create_rejects_a_new_path_below_a_symlink_out_of_root() {
     );
 }
 
-/// Regression: a *dangling* final symlink is invisible to `path.exists()`, so
-/// the old code returned `<root>/link` — a path that passes `confine` while
-/// `fs::write` on it follows the link to a target the guard never saw.
 #[cfg(unix)]
 #[test]
 fn create_refuses_to_write_through_a_dangling_symlink() {
@@ -79,8 +70,6 @@ fn create_refuses_to_write_through_a_dangling_symlink() {
         .expect_err("a dangling link must not be written through");
     assert!(error.contains("dangling symlink"), "got: {error}");
 
-    // `symlink_metadata`, never `exists()`: `exists()` follows the link and
-    // would make both assertions vacuous.
     assert!(
         fs::symlink_metadata(&link)
             .expect("the link itself is still there")
@@ -94,10 +83,6 @@ fn create_refuses_to_write_through_a_dangling_symlink() {
     );
 }
 
-/// Regression: the lexical branch compared an *unresolved* path against the
-/// *canonical* root, so a root reached through a symlink (`/home -> /mnt/home`,
-/// macOS `/var/folders`) rejected every path whose parents did not exist yet —
-/// while the same path with existing parents was accepted.
 #[cfg(unix)]
 #[test]
 fn create_accepts_new_parents_when_the_root_is_reached_through_a_symlink() {
@@ -140,4 +125,28 @@ fn nofollow_rejects_escape_through_the_parent() {
     let error = sanitize_path_nofollow(&root, &link.join("file.txt").display().to_string())
         .expect_err("the parent must be confined too");
     assert!(error.contains("outside the allowed root"), "got: {error}");
+}
+
+#[cfg(unix)]
+#[test]
+fn create_resolves_in_root_symlinks_before_folding_parent_dir_components() {
+    let dir = TempDir::new().expect("temp dir");
+    let root = root_of(&dir);
+    fs::create_dir_all(root.join("a/b/c")).expect("mkdir a/b/c");
+    std::os::unix::fs::symlink(&root, root.join("a/b/c/up")).expect("symlink up -> root");
+
+    // `a/b/c/up` resolves to `root`, so `../../../missing_outside` escapes `root`
+    // even when the target does not exist on disk yet.
+    let err = sanitize_path_create(&root, "a/b/c/up/../../../missing_outside")
+        .expect_err("symlink to root followed by '..' must not fold lexically");
+    assert!(err.contains("outside the allowed root"), "got: {err}");
+
+    // And an in-root symlink to a deeper directory resolves `..` relative to the
+    // link's target directory, not the link's parent directory.
+    fs::create_dir_all(root.join("other/deep")).expect("mkdir other/deep");
+    fs::create_dir_all(root.join("sub")).expect("mkdir sub");
+    std::os::unix::fs::symlink(root.join("other/deep"), root.join("sub/link"))
+        .expect("symlink sub/link -> other/deep");
+    let resolved = sanitize_path_create(&root, "sub/link/../fresh.txt").expect("inside root");
+    assert_eq!(resolved, root.join("other/fresh.txt"));
 }

@@ -30,12 +30,6 @@ pub fn remove_entry(path: &Path, recursive: bool) -> io::Result<()> {
     let meta = fs::symlink_metadata(path)?;
 
     if meta.is_symlink() {
-        // Windows needs `remove_dir` for a link that points at a directory, and
-        // that call has to be decided from the metadata already in hand:
-        // `path.is_dir()` follows the link — the exact behaviour this function
-        // exists to avoid — and re-stats, racing the check two lines up. A
-        // dangling directory link has no target to follow and would become
-        // undeletable.
         #[cfg(windows)]
         if std::os::windows::fs::FileTypeExt::is_symlink_dir(&meta.file_type()) {
             return fs::remove_dir(path);
@@ -61,6 +55,23 @@ pub fn remove_entry(path: &Path, recursive: bool) -> io::Result<()> {
 /// through a rename makes the replacement all-or-nothing and lets the caller
 /// report the failure instead of silently claiming success.
 pub fn write_replaced(path: &Path, content: impl AsRef<[u8]>) -> io::Result<()> {
+    let meta = ensure_replaceable_regular_file(path)?;
+
+    // A relative path like "f.txt" has an empty parent, which is the cwd.
+    let parent = path
+        .parent()
+        .filter(|dir| !dir.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let mut temp = NamedTempFile::new_in(parent)?;
+
+    // Carry the replaced file's mode over *before* the content lands, so a 0600
+    // file's replacement never briefly exists at the process umask.
+    temp.as_file().set_permissions(meta.permissions())?;
+    temp.write_all(content.as_ref())?;
+    temp.persist(path).map(|_| ()).map_err(|e| e.error)
+}
+
+fn ensure_replaceable_regular_file(path: &Path) -> io::Result<fs::Metadata> {
     if path.file_name().is_none() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -83,27 +94,16 @@ pub fn write_replaced(path: &Path, content: impl AsRef<[u8]>) -> io::Result<()> 
         ));
     }
 
-    // A relative path like "f.txt" has an empty parent, which is the cwd.
-    let parent = match path.parent() {
-        Some(dir) if !dir.as_os_str().is_empty() => dir,
-        _ => Path::new("."),
-    };
-
-    // The temp file must be unguessable and freshly created. A fixed sibling
-    // name (".<file>.ffm-tmp") written with `fs::write` is neither: anyone who
-    // can drop that name into the directory as a symlink gets our content —
-    // and, via `set_permissions`, the replaced file's mode — applied to
-    // whatever it points at, and then the link renamed over the real file.
-    // `NamedTempFile` opens O_EXCL with a random name, so the handle can only
-    // be a regular file this process just created. Its `Drop` also unlinks the
-    // temp on every failure path below.
-    let mut temp = NamedTempFile::new_in(parent)?;
-
-    // Carry the replaced file's mode over *before* the content lands, so a 0600
-    // file's replacement never briefly exists at the process umask.
-    temp.as_file().set_permissions(meta.permissions())?;
-    temp.write_all(content.as_ref())?;
-    temp.persist(path).map(|_| ()).map_err(|e| e.error)
+    // On Windows a read-only destination refuses `MoveFileExW` and a read-only
+    // temp file refuses cleanup on drop; refuse up front before creating a temp.
+    #[cfg(not(unix))]
+    if meta.permissions().readonly() {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            format!("file is marked read-only: {}", path.display()),
+        ));
+    }
+    Ok(meta)
 }
 
 /// Set or clear the read-only flag without widening access.

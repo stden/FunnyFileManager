@@ -34,10 +34,7 @@ fn escape_and_the_cancel_button_leave_the_selection_alone() {
         }
         app.set_overlay(Overlay::MaskPrompt(prompt));
         process_popup_input(&mut app, cancel_with);
-        assert!(
-            marked(&mut app).is_empty(),
-            "cancelled with {cancel_with:?}"
-        );
+        assert_eq!(marked(&mut app).len(), 0, "cancelled with {cancel_with:?}");
     }
 }
 

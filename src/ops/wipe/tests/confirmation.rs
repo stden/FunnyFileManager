@@ -71,7 +71,7 @@ fn run_wipes_every_confirmed_entry_clears_marks_and_reports() {
     assert!(!dir.path().join("one.txt").exists());
     assert!(!dir.path().join("two.txt").exists());
     assert!(dir.path().join("keep.txt").exists());
-    assert!(app.get_active_panel().marked.is_empty());
+    assert_eq!(app.get_active_panel().marked.len(), 0);
     assert_eq!(status_text(&app), "Wiped 2 item(s)");
     let listed: Vec<&str> = app
         .get_active_panel_ref()

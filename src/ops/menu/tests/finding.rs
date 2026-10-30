@@ -101,7 +101,7 @@ fn a_text_search_reads_files_over_ten_megabytes() {
 fn search_says_when_the_time_limit_stops_it() {
     let (_temp, mut app) = fixture();
     search::find_within(&mut app, "*", false, "alpha", std::time::Duration::ZERO);
-    assert!(rows(&app).is_empty());
+    assert_eq!(rows(&app).len(), 0);
     assert_eq!(
         app.status.to_string(),
         "Search stopped at the time limit. The list is incomplete."
@@ -131,7 +131,7 @@ fn a_search_shows_its_progress_while_it_walks() {
     find_files(&mut app, "*.txt", "");
 
     let frames = recorder.0.borrow().clone();
-    assert!(!frames.is_empty(), "the search drew nothing");
+    assert_ne!(frames.len(), 0, "the search drew nothing");
     assert!(frames
         .iter()
         .all(|frame| frame.operation == crate::progress::Operation::Find));

@@ -87,7 +87,7 @@ fn when_create_nested_folder_path_through_f7(world: &mut FfmWorld, path: String)
         .split('/')
         .filter(|component| !component.is_empty())
         .collect::<Vec<_>>();
-    assert!(!components.is_empty(), "nested folder path cannot be empty");
+    assert_ne!(components.len(), 0, "nested folder path cannot be empty");
 
     let mut events = Vec::new();
     for (index, component) in components.iter().enumerate() {

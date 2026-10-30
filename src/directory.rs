@@ -44,7 +44,7 @@ pub fn read(path: &Path, description_names: &[String]) -> io::Result<DirectoryLi
         }
         entries.push(row);
     }
-    metadata.dirty_repos = crate::git::dirty_repos(path, &entries);
+    crate::git::load_dirty_repos(path, &entries, &mut metadata);
     let parent = read_parent(path, &mut metadata);
     metadata.available_space = crate::diskfree::available_bytes(path).map(FileSize::from_bytes);
     Ok(DirectoryListing {

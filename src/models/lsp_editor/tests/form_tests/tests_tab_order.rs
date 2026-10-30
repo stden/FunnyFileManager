@@ -68,7 +68,7 @@ fn a_new_servers_form_starts_on_its_language() {
 #[test]
 fn every_control_has_its_help_and_the_text_ones_complete() {
     for field in FormField::ORDER {
-        assert!(!field.help().is_empty());
+        assert_ne!(field.help().len(), 0);
         assert_eq!(
             field.completed().is_some(),
             field.is_text() && field != FormField::Language

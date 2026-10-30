@@ -15,7 +15,7 @@ mod report;
 #[cfg(windows)]
 pub(crate) use console::console_directory;
 #[cfg(windows)]
-pub(crate) use process_tree::process_tree_job;
+pub(crate) use process_tree::{disarm_kill_on_close, process_tree_job};
 #[cfg(any(test, windows))]
 use report::{open_report_with, PERFORMANCE_TITLE, SYSTEM_MESSAGES_TITLE};
 #[cfg(windows)]

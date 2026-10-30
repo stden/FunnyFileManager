@@ -68,12 +68,27 @@ fn remember_job(child: &Child) {
         ACTIVE_JOBS.with(|jobs| {
             let mut jobs = jobs.borrow_mut();
             jobs.retain(|(existing_id, _)| *existing_id != id);
-            if jobs.len() >= 8 {
-                jobs.remove(0);
-            }
             jobs.push((id, job));
         });
     }
+}
+
+/// Disarm kill-on-close when a shell exits normally so any backgrounded child
+/// survives after its job handle is released.
+pub(super) fn detach_shell_tree(child: &Child) {
+    #[cfg(windows)]
+    {
+        let id = child.id();
+        ACTIVE_JOBS.with(|jobs| {
+            let mut jobs = jobs.borrow_mut();
+            for (_, handle) in jobs.iter().filter(|(existing_id, _)| *existing_id == id) {
+                drop(crate::windows::disarm_kill_on_close(handle));
+            }
+            jobs.retain(|(existing_id, _)| *existing_id != id);
+        });
+    }
+    #[cfg(not(windows))]
+    let _ = child;
 }
 
 /// How long a command has to act on SIGHUP before its group gets SIGKILL.

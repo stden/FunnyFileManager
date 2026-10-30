@@ -79,8 +79,9 @@ fn write_replaced_refuses_a_target_that_does_not_exist() {
     let dir = TempDir::new().expect("temp dir");
 
     write_replaced(&dir.path().join("ghost.txt"), "new").expect_err("there is nothing to replace");
-    assert!(
-        entry_names(dir.path()).is_empty(),
+    assert_eq!(
+        entry_names(dir.path()).len(),
+        0,
         "a refused replacement must not create anything"
     );
 }

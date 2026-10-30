@@ -103,5 +103,17 @@ fn read_tail_bytes(file: &mut fs::File, size: u64, wanted: usize) -> io::Result<
     for chunk in chunks.into_iter().rev() {
         buffer.extend_from_slice(&chunk);
     }
+    trim_leading_continuation(&mut buffer, position > 0);
     Ok(buffer)
+}
+
+fn trim_leading_continuation(buffer: &mut Vec<u8>, mid_file: bool) {
+    if mid_file {
+        let skip = buffer
+            .iter()
+            .take(3)
+            .take_while(|&&b| (b & 0b1100_0000) == 0b1000_0000)
+            .count();
+        buffer.drain(..skip);
+    }
 }

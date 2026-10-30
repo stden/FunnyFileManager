@@ -13,11 +13,13 @@ use super::{
 };
 
 mod cursor;
+mod dirty;
 mod listing;
 mod marks;
 mod search;
 mod sort;
 pub mod view;
+pub(crate) use dirty::DirtyProbe;
 pub use view::{PanelDetails, PanelOptions, PanelView};
 
 /// Filesystem facts captured with a directory listing.
@@ -28,6 +30,7 @@ pub use view::{PanelDetails, PanelOptions, PanelView};
 pub struct PanelMetadata {
     pub(crate) hidden_names: BTreeSet<FileName>,
     pub(crate) dirty_repos: BTreeSet<FileName>,
+    pub(crate) dirty_probe: DirtyProbe,
     pub(crate) available_space: Option<FileSize>,
 }
 
@@ -169,3 +172,5 @@ pub struct Cursor {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_dirty;

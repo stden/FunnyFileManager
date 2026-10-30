@@ -38,7 +38,7 @@ fn formats_compact_xml_with_declarations_comments_and_leaf_elements() {
     let mut editor = Editor::from_content(
         "pom.xml".to_owned(),
         PathBuf::from("pom.xml"),
-        r#"<?xml version="1.0" encoding="UTF-8"?><project><groupId>com.example</groupId><!-- comment --><empty attr="a > b"/></project>"#,
+        r#"<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE project [<!ELEMENT project (groupId,empty)>]><project><groupId>com.example</groupId><!-- comment --><empty attr="a > b"/></project>"#,
     );
 
     editor.format_document();
@@ -49,6 +49,7 @@ fn formats_compact_xml_with_declarations_comments_and_leaf_elements() {
         editor.lines,
         vec![
             r#"<?xml version="1.0" encoding="UTF-8"?>"#,
+            "<!DOCTYPE project [<!ELEMENT project (groupId,empty)>]>",
             "<project>",
             "  <groupId>com.example</groupId>",
             "  <!-- comment -->",
@@ -56,6 +57,23 @@ fn formats_compact_xml_with_declarations_comments_and_leaf_elements() {
             "</project>",
         ]
     );
+}
+
+#[test]
+fn deeply_nested_xml_is_rejected_before_stack_overflow() {
+    let open = "<a>".repeat(300);
+    let close = "</a>".repeat(300);
+    let mut editor = Editor::from_content(
+        "deep.xml".to_owned(),
+        PathBuf::from("deep.xml"),
+        &format!("{open}{close}"),
+    );
+    editor.format_document();
+    assert_eq!(editor.state, EditState::Clean);
+    assert!(editor
+        .notice
+        .as_deref()
+        .is_some_and(|msg| msg.contains("nesting depth exceeds")));
 }
 
 #[test]

@@ -149,8 +149,9 @@ fn test_ui_console_mode_renders_cleanly() {
     );
     for y in 1..24 {
         let row = row_text(&terminal, y);
-        assert!(
-            row.trim().is_empty(),
+        assert_eq!(
+            row.trim().len(),
+            0,
             "Row {y} should be blank in console mode, got: '{row}'"
         );
     }

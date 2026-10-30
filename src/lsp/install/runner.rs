@@ -51,6 +51,8 @@ impl ChildTree {
     fn finish(&mut self) -> Result<(), InstallError> {
         // Only `finish` takes the child, and it runs once per tree.
         let mut child = self.child.take().ok_or(InstallError::Worker)?;
+        #[cfg(windows)]
+        self.job.take();
         crate::lsp::process::terminate(&mut child);
         if child.wait()?.success() {
             Ok(())

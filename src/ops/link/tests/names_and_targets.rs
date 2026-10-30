@@ -93,7 +93,7 @@ fn a_failure_is_reported_not_swallowed() {
         "not a success: {}",
         status_text(&app)
     );
-    assert!(!status_text(&app).is_empty());
+    assert_ne!(status_text(&app).len(), 0);
 }
 
 #[test]

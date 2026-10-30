@@ -88,6 +88,7 @@ impl std::fmt::Debug for EntryDetails {
 impl Drop for EntryDetails {
     fn drop(&mut self) {
         crate::kdbx::secret::zeroize_string(&mut self.password);
+        crate::kdbx::secret::zeroize_string(&mut self.notes);
     }
 }
 

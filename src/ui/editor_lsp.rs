@@ -2,7 +2,10 @@
 
 mod underline;
 
-use crate::models::{lsp::Dialog, Editor, ServerState};
+use crate::{
+    models::{lsp::Dialog, Editor, ServerState},
+    ui::printable_name,
+};
 use ratatui::{
     layout::Rect,
     style::{Color, Style},
@@ -31,19 +34,13 @@ pub(super) fn status(editor: &Editor) -> String {
                 editor.lsp.diagnostics.len()
             )
         },
-        |diagnostic| {
-            format!(
-                " | {}: {}",
-                diagnostic.label(),
-                crate::ui::printable_name(&diagnostic.message)
-            )
-        },
+        |d| format!(" | {}: {}", d.label(), printable_name(&d.message)),
     )
 }
 
 pub(super) fn label(editor: &Editor, marker: &str) -> String {
     let raw = crate::path_display::label(&editor.path);
-    let path = crate::ui::printable_name(&raw);
+    let path = printable_name(&raw);
     let status = status(editor);
     if status.is_empty() {
         format!(" {path}{marker}")
@@ -106,29 +103,38 @@ fn completion_area(screen: Rect, caret: (u16, u16), width: u16, height: u16) -> 
     Rect::new(x, y, width, height)
 }
 
+fn sanitize_lines(text: &str) -> String {
+    text.split('\n')
+        .map(printable_name)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn contents(dialog: &Dialog) -> (&'static str, String, u16) {
     match dialog {
         Dialog::Trust { root, allow } => (
             " Language-server workspace trust ",
             format!("The language server can execute this project's build scripts and macros.\nMissing servers with an install recipe are downloaded automatically.\n\n{}\n\n{} Keep LSP disabled\n{} Trust for this FFM session\n\nUp/Down selects; Enter confirms; Esc cancels.",
-                crate::ui::printable_name(&crate::path_display::label(root)), marker(usize::from(*allow), 0), marker(usize::from(*allow), 1)),
+                printable_name(&crate::path_display::label(root)), marker(usize::from(*allow), 0), marker(usize::from(*allow), 1)),
             0,
         ),
-        Dialog::Hover { text, scroll } => (" Hover — ↑↓ scroll, Esc close ", text.clone(), *scroll),
+        Dialog::Hover { text, scroll } => (
+            " Hover — ↑↓ scroll, Esc close ",
+            sanitize_lines(text),
+            *scroll,
+        ),
         Dialog::Completion {
             items, selected, ..
-        } => {
-            let text = completions(items, *selected);
-            (
-                " Completion — ↑↓ select, Enter insert, Tab replace, Esc close ",
-                text,
-                0,
-            )
-        }
-        Dialog::Definitions { items, selected } => {
-            let text = definitions(items, *selected);
-            (" Definitions — ↑↓ select, Enter open, Esc close ", text, 0)
-        }
+        } => (
+            " Completion — ↑↓ select, Enter insert, Tab replace, Esc close ",
+            completions(items, *selected),
+            0,
+        ),
+        Dialog::Definitions { items, selected } => (
+            " Definitions — ↑↓ select, Enter open, Esc close ",
+            definitions(items, *selected),
+            0,
+        ),
     }
 }
 
@@ -143,15 +149,15 @@ fn completions(items: &[crate::lsp::features::Completion], selected: usize) -> S
         text = format!(
             "{text}{} {} [{}]\n",
             marker(index, selected),
-            crate::ui::printable_name(&item.label),
+            printable_name(&item.label),
             item.kind.map_or(String::new(), |kind| kind.to_string())
         );
     }
     if let Some(item) = items.get(selected) {
         text = format!(
             "{text}\n{}\n{}",
-            crate::ui::printable_name(&item.detail),
-            item.documentation
+            printable_name(&item.detail),
+            sanitize_lines(&item.documentation)
         );
     }
     text
@@ -168,7 +174,7 @@ fn definitions(items: &[crate::lsp::features::Definition], selected: usize) -> S
         text = format!(
             "{text}{} {}:{}:{}\n",
             marker(index, selected),
-            crate::ui::printable_name(&crate::path_display::label(&item.path)),
+            printable_name(&crate::path_display::label(&item.path)),
             item.range.start.line + 1,
             item.range.start.character + 1
         );

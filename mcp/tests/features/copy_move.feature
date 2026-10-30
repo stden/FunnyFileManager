@@ -37,3 +37,13 @@ Feature: Copy and move operations via MCP tools
   Scenario: Move non-existent source fails
     When I try to move "missing.txt" to "dest.txt"
     Then the operation should fail with "source not found"
+
+  Scenario: Copy directory into itself fails
+    Given a subdirectory "project"
+    When I try to copy "project" to "project/nested"
+    Then the operation should fail with "cannot copy a directory into itself"
+
+  Scenario: Move directory into itself fails
+    Given a subdirectory "project"
+    When I try to move "project" to "project/nested"
+    Then the operation should fail with "cannot copy a directory into itself"

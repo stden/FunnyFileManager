@@ -45,9 +45,9 @@ fn assert_sort_mark_and_help(app: &mut App) {
 
     assert!(execute_command(app, "mark").is_err());
     execute_command(app, "mark all").expect("test setup");
-    assert!(!app.get_active_panel().marked.is_empty());
+    assert_ne!(app.get_active_panel().marked.len(), 0);
     execute_command(app, "unmark").expect("test setup");
-    assert!(app.get_active_panel().marked.is_empty());
+    assert_eq!(app.get_active_panel().marked.len(), 0);
     assert!(execute_command(app, "mark nope").is_err());
 
     execute_command(app, "help").expect("test setup");

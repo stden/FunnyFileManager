@@ -146,7 +146,7 @@ fn every_denial_explains_itself() {
         Denial::OtherOwner,
         Denial::Rights,
     ] {
-        assert!(!denial.explanation().is_empty());
+        assert_ne!(denial.explanation().len(), 0);
     }
     assert!(Denial::FolderLocked(PathBuf::from("/locked"))
         .explanation()

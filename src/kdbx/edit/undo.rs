@@ -14,6 +14,14 @@ pub(super) struct EditUndo {
     dirty: bool,
 }
 
+impl Drop for EditUndo {
+    fn drop(&mut self) {
+        if let EditValue::Text(ref mut text) = self.value {
+            crate::kdbx::secret::zeroize_string(text);
+        }
+    }
+}
+
 impl EntryForm {
     /// Undo the most recent text mutation in this form.
     pub fn undo(&mut self) -> bool {
@@ -22,13 +30,15 @@ impl EntryForm {
         };
         self.focus = undo.field;
         match undo.value {
-            EditValue::Text(value) => {
+            EditValue::Text(ref value) => {
                 let Some(text) = self.focused_text_mut() else {
                     return false;
                 };
-                *text = value;
+                text.clone_from(value);
             }
-            EditValue::Password(value) => self.password = value,
+            EditValue::Password(ref value) => {
+                self.password = MasterKey::new(value.expose().to_owned());
+            }
         }
         self.error = None;
         self.dirty = undo.dirty;

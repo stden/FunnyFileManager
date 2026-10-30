@@ -28,6 +28,7 @@ mod steps;
 mod witness;
 
 pub use steps::wipe_path;
+pub(crate) use steps::{clear_readonly, remove_symlink};
 pub use witness::Stage;
 
 /// `Alt+Del`: ask before wiping, the way F8 asks before deleting.

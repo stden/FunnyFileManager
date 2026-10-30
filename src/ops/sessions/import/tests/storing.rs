@@ -12,10 +12,7 @@ fn an_import_that_cannot_be_saved_is_not_taken_in() {
         Err(SessionError::Store(_))
     ));
     assert!(app.sessions.is_empty());
-    assert!(
-        transcript(&app).is_empty(),
-        "nothing is reported as imported"
-    );
+    assert_eq!(transcript(&app).len(), 0, "nothing is reported as imported");
 }
 
 fn large_export() -> String {
@@ -60,7 +57,7 @@ fn an_import_exceeding_the_store_limit_preserves_committed_sessions() {
         SessionStore::load_from(dir.path().join(FILE_NAME)),
         previous
     );
-    assert!(transcript(&app).is_empty(), "no successful import report");
+    assert_eq!(transcript(&app).len(), 0, "no successful import report");
 }
 
 #[test]
@@ -87,6 +84,6 @@ fn an_import_without_passwords_says_nothing_about_them() {
     )
     .expect("write");
     run(&mut app, Some(dir.path().join("plain.netbox"))).expect("imported");
-    assert!(transcript(&app).is_empty(), "{:?}", transcript(&app));
+    assert_eq!(transcript(&app).len(), 0, "{:?}", transcript(&app));
     assert_eq!(app.status_text(), "NetBox: 1 imported, 0 skipped");
 }

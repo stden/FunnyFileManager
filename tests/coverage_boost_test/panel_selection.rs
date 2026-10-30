@@ -49,7 +49,7 @@ fn test_panel_action_entry_names_on_parent() -> io::Result<()> {
     let mut panel = Panel::new(temp.path().to_path_buf())?;
     panel.select(Some(0)); // ".."
     let names = panel.action_entry_names();
-    assert!(names.is_empty());
+    assert_eq!(names.len(), 0);
     Ok(())
 }
 

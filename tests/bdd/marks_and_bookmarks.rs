@@ -77,13 +77,13 @@ fn then_bookmark(world: &mut FfmWorld, slot: usize, sub: String) -> StepResult {
 
 #[then("the active panel should have marks")]
 fn then_has_marks(world: &mut FfmWorld) -> StepResult {
-    assert!(!world.app()?.get_active_panel().marked.is_empty());
+    assert_ne!(world.app()?.get_active_panel().marked.len(), 0);
     Ok(())
 }
 
 #[then("the active panel should have no marks")]
 fn then_no_marks(world: &mut FfmWorld) -> StepResult {
-    assert!(world.app()?.get_active_panel().marked.is_empty());
+    assert_eq!(world.app()?.get_active_panel().marked.len(), 0);
     Ok(())
 }
 
@@ -114,6 +114,6 @@ fn then_not_marked_app(world: &mut FfmWorld, n: String) -> StepResult {
 
 #[then("the panel should have no marks")]
 fn then_panel_no_marks(world: &mut FfmWorld) -> StepResult {
-    assert!(world.panel()?.marked.is_empty());
+    assert_eq!(world.panel()?.marked.len(), 0);
     Ok(())
 }

@@ -140,19 +140,19 @@ fn then_not_marked(world: &mut FfmWorld, n: String) -> StepResult {
 
 #[then("панель не должна иметь пометок")]
 fn then_panel_no_marks(world: &mut FfmWorld) -> StepResult {
-    assert!(world.panel()?.marked.is_empty());
+    assert_eq!(world.panel()?.marked.len(), 0);
     Ok(())
 }
 
 #[then("активная панель должна иметь пометки")]
 fn then_has_marks(world: &mut FfmWorld) -> StepResult {
-    assert!(!world.app()?.get_active_panel().marked.is_empty());
+    assert_ne!(world.app()?.get_active_panel().marked.len(), 0);
     Ok(())
 }
 
 #[then("активная панель не должна иметь пометок")]
 fn then_no_marks(world: &mut FfmWorld) -> StepResult {
-    assert!(world.app()?.get_active_panel().marked.is_empty());
+    assert_eq!(world.app()?.get_active_panel().marked.len(), 0);
     Ok(())
 }
 

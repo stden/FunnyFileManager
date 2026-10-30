@@ -106,11 +106,21 @@ fn quote_mode_escapes_appropriately_for_platform_and_list_files() {
         QuoteMode::Always.apply_list(r"C:\dir\$var`1.txt"),
         r#""C:\dir\$var`1.txt""#
     );
+    assert_eq!(QuoteMode::Never.apply_list("a\nb\r\0c.txt"), "abc.txt");
     #[cfg(windows)]
-    assert_eq!(
-        QuoteMode::Always.apply(r"C:\dir\$var`1.txt"),
-        r#""C:\dir\$var`1.txt""#
-    );
+    {
+        assert_eq!(
+            QuoteMode::Always.apply(r"C:\dir\$var`1.txt"),
+            r#""C:\dir\$var`1.txt""#
+        );
+        assert_eq!(QuoteMode::Spaces.apply("100%done.txt"), "\"100%done.txt\"");
+    }
     #[cfg(not(windows))]
-    assert_eq!(QuoteMode::Spaces.apply(r"back\slash"), r#""back\\slash""#);
+    {
+        assert_eq!(QuoteMode::Spaces.apply(r"back\slash"), r#""back\\slash""#);
+        assert_eq!(QuoteMode::Spaces.apply("#notes.txt"), "\"#notes.txt\"");
+        assert_eq!(QuoteMode::Spaces.apply("~notes.txt"), "\"~notes.txt\"");
+        assert_eq!(QuoteMode::Spaces.apply("LONGNA~1.RS"), "LONGNA~1.RS");
+        assert_eq!(QuoteMode::Spaces.apply("*.txt"), "\"*.txt\"");
+    }
 }

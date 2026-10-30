@@ -28,7 +28,7 @@ fn test_handle_edit_test_mode_no_selection() -> io::Result<()> {
     let result = handle_edit_test_mode(&mut app, TestEditorBehavior::Success);
 
     assert!(result.is_ok());
-    assert!(app.status_text().is_empty());
+    assert_eq!(app.status_text().len(), 0);
     Ok(())
 }
 

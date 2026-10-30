@@ -17,7 +17,7 @@ fn parse_fish_completions_keeps_values_drops_descriptions_and_blanks() {
         parse_fish_completions(raw),
         vec!["alpha/".to_owned(), "beta/".to_owned(), "gamma/".to_owned()],
     );
-    assert!(parse_fish_completions("").is_empty());
+    assert_eq!(parse_fish_completions("").len(), 0);
     // A value with interior spaces (a path with spaces) survives whole; only
     // the tab boundary splits.
     assert_eq!(

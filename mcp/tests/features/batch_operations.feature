@@ -61,3 +61,21 @@ Feature: Batch operations via MCP tools
     Then the result field "total_deleted" should be 1
     And the result field "total_errors" should be 1
     And the file "a.txt" should not exist
+
+  Scenario: Batch copy rejects copying a directory into itself
+    Given a subdirectory "pkg"
+    And a file "good.txt" with content "ok"
+    When I batch copy "pkg, good.txt" into "pkg/nested"
+    Then the result field "total_copied" should be 1
+    And the result field "total_errors" should be 1
+    And the result list "copied" should be "good.txt"
+    And the file "pkg/nested/good.txt" should exist
+
+  Scenario: Batch move rejects moving a directory into itself
+    Given a subdirectory "pkg"
+    And a file "good.txt" with content "ok"
+    When I batch move "pkg, good.txt" into "pkg/nested"
+    Then the result field "total_moved" should be 1
+    And the result field "total_errors" should be 1
+    And the result list "moved" should be "good.txt"
+    And the file "pkg/nested/good.txt" should exist

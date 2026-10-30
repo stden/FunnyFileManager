@@ -60,7 +60,7 @@ fn test_format_size_edge_cases() {
 #[test]
 fn test_format_size_mutation_killer() {
     // Test that kills mutations that replace function with String::new() or "xyzzy"
-    assert!(!FileSize::from_bytes(1000).to_string().is_empty());
+    assert_ne!(FileSize::from_bytes(1000).to_string().len(), 0);
     assert!(!FileSize::from_bytes(1000).to_string().contains("xyzzy"));
 
     // Test exact KB constant (1024, not 1024 + 0 or 1024 / 1)

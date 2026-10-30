@@ -44,7 +44,7 @@ fn register_in_the_current_folder_roots_every_entry_there() {
             "{text}"
         );
     }
-    assert!(machine.claude().calls().is_empty());
+    assert_eq!(machine.claude().calls().len(), 0);
 }
 
 #[test]
@@ -94,7 +94,7 @@ fn register_without_the_dialog_does_nothing() {
     let (machine, mut app) = machine_app();
     register(&mut app);
     assert!(matches!(app.overlay, Overlay::None));
-    assert!(machine.files().unwrap().is_empty());
+    assert_eq!(machine.files().unwrap().len(), 0);
 }
 
 #[test]

@@ -86,7 +86,7 @@ fn zeroize_overwrites_the_secret_in_place_rather_than_just_shortening_it() {
 
     key.zeroize();
 
-    assert!(key.expose().is_empty());
+    assert_eq!(key.expose().len(), 0);
     // SAFETY: `key` is still alive and zeroizing only resets the length, so the
     // allocation is the same one, still at least `len` bytes long, and every
     // byte in it was written by `zeroize`.
@@ -109,7 +109,7 @@ fn revealed_zeroize_overwrites_the_secret_in_place() {
 
     revealed.zeroize();
 
-    assert!(revealed.expose().is_empty());
+    assert_eq!(revealed.expose().len(), 0);
     // SAFETY: as above — same allocation, still owned by a live `Revealed`.
     let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
     assert!(
@@ -159,7 +159,7 @@ fn zeroizing_a_vault_wipes_the_master_key_and_the_revealed_password() {
     vault.zeroize();
 
     assert!(vault.revealed().is_none());
-    assert!(vault.master().expose().is_empty());
+    assert_eq!(vault.master().expose().len(), 0);
     // SAFETY: `vault` — and therefore the master key's allocation — is still
     // alive; `zeroize` only reset the length after overwriting the bytes.
     let bytes = unsafe { std::slice::from_raw_parts(key_ptr, key_len) };
@@ -182,7 +182,7 @@ fn zeroize_string_empties_the_secret_and_keeps_its_buffer() {
     let mut secret = String::from("correct horse battery staple");
     let capacity = secret.capacity();
     super::secret::zeroize_string(&mut secret);
-    assert!(secret.is_empty());
+    assert_eq!(secret.len(), 0);
     assert_eq!(
         secret.capacity(),
         capacity,

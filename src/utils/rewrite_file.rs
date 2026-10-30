@@ -10,18 +10,6 @@ use super::{CopyRules, FileMode};
 
 /// Replace the contents of the existing regular file `dst` with `input`'s,
 /// writing through it the way `cp` does.
-///
-/// Nothing a rename would change changes: the inode, so every other name of
-/// the file sees the new contents; the owner; and the mode, unless the rules
-/// restate the source's. The times follow the rules.
-///
-/// The old contents go only once everything that can be refused has been:
-/// `dst` must open for writing, and a time or mode the rules ask for is first
-/// tried out by restating what the file already has, since the kernel lets
-/// only the owner set either. What is left is a write that fails half-way —
-/// a full disk, an I/O error — or a process killed mid-write, which leave the
-/// file cut short: the price of keeping its identity, the one `cp`, and this
-/// program's own editor for a file it may not replace, pay too.
 pub fn rewrite_file(input: &fs::File, dst: &Path, rules: CopyRules) -> io::Result<()> {
     let mut output = open_for_writing(dst)?;
     let existing = output.metadata()?;
@@ -29,6 +17,12 @@ pub fn rewrite_file(input: &fs::File, dst: &Path, rules: CopyRules) -> io::Resul
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "not a regular file",
+        ));
+    }
+    if same_open_file(input, &existing) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "cannot copy or move onto itself",
         ));
     }
     if rules.times == Times::Source {
@@ -39,6 +33,19 @@ pub fn rewrite_file(input: &fs::File, dst: &Path, rules: CopyRules) -> io::Resul
     }
     output.set_len(0)?;
     write_contents(input, &mut output, rules)
+}
+
+#[cfg(unix)]
+fn same_open_file(input: &fs::File, existing: &fs::Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    input
+        .metadata()
+        .is_ok_and(|src| src.dev() == existing.dev() && src.ino() == existing.ino())
+}
+
+#[cfg(not(unix))]
+const fn same_open_file(_input: &fs::File, _existing: &fs::Metadata) -> bool {
+    false
 }
 
 /// Open `dst` for writing, never waiting: something swapped in for the file

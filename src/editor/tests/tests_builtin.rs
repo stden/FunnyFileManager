@@ -31,7 +31,7 @@ fn test_handle_edit_builtin_no_selection() -> io::Result<()> {
     handle_edit_builtin(&mut app)?;
 
     assert!(app.get_editor().is_none());
-    assert!(app.status_text().is_empty());
+    assert_eq!(app.status_text().len(), 0);
     Ok(())
 }
 

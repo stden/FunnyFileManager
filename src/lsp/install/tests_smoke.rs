@@ -149,9 +149,9 @@ fn verify_features(manager: &Manager, snapshot: &Snapshot, column: u32) {
         assert!(manager.send(Command::Query(query)).is_ok());
         let reply = wait(manager, |event| matches!(event, Event::Reply(_, _)));
         match reply {
-            Event::Reply(_, Ok(Reply::Hover(text))) => assert!(!text.is_empty()),
-            Event::Reply(_, Ok(Reply::Definitions(items))) => assert!(!items.is_empty()),
-            Event::Reply(_, Ok(Reply::Completions(items))) => assert!(!items.is_empty()),
+            Event::Reply(_, Ok(Reply::Hover(text))) => assert_ne!(text.len(), 0),
+            Event::Reply(_, Ok(Reply::Definitions(items))) => assert_ne!(items.len(), 0),
+            Event::Reply(_, Ok(Reply::Completions(items))) => assert_ne!(items.len(), 0),
             other => panic!("unexpected response: {other:?}"),
         }
         eprintln!("{feature:?}: {:?}", started.elapsed());

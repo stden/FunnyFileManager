@@ -1,23 +1,16 @@
-//! Fast, cached, parallel dirty-status probing for Git repository folders.
+//! Fast, cached, non-blocking dirty-status inspection and background probing.
 
 use std::collections::{BTreeSet, HashMap};
 use std::fs;
-use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 
 use super::repo_git_dir;
-use crate::models::{DirEntry, FileName};
+use crate::models::{DirEntry, DirtyProbe, FileName, PanelMetadata};
 
-/// State files inside `.git` that mark an unfinished operation.
-const IN_PROGRESS: [&str; 4] = [
-    "MERGE_HEAD",
-    "REBASE_HEAD",
-    "CHERRY_PICK_HEAD",
-    "REVERT_HEAD",
-];
+mod probe;
+use probe::{query_dirty, IN_PROGRESS};
 
 /// How long an unchanged repository stamp reuses its last `git status` result.
 const REPO_CACHE_TTL: Duration = Duration::from_secs(300);
@@ -35,13 +28,6 @@ struct CachedRepo {
     stamp: RepoStamp,
     checked_at: Instant,
     dirty: bool,
-}
-
-struct RepoProbe<'a> {
-    name: &'a str,
-    repo_path: PathBuf,
-    git_dir: PathBuf,
-    stamp: RepoStamp,
 }
 
 fn repo_cache() -> &'static Mutex<HashMap<PathBuf, CachedRepo>> {
@@ -73,11 +59,22 @@ pub fn is_dirty_repo(directory: &Path) -> bool {
     repo_git_dir(directory).is_some_and(|git_dir| query_dirty(directory, &git_dir))
 }
 
-/// Check all direct child directories of `parent` in parallel, reusing cached results.
+/// Populate `metadata` from fast filesystem stamps and cached results, queuing
+/// uncached child repositories for background `git status` probing.
+pub(crate) fn load_dirty_repos(parent: &Path, entries: &[DirEntry], metadata: &mut PanelMetadata) {
+    let (dirty_repos, pending) = inspect_dirty_repos(parent, entries);
+    metadata.dirty_repos = dirty_repos;
+    metadata.dirty_probe = DirtyProbe::from_pending(pending);
+}
+
+/// Classify direct child repositories of `parent` without spawning `git`.
 #[must_use]
-pub fn dirty_repos(parent: &Path, entries: &[DirEntry]) -> BTreeSet<FileName> {
+pub(super) fn inspect_dirty_repos(
+    parent: &Path,
+    entries: &[DirEntry],
+) -> (BTreeSet<FileName>, Vec<FileName>) {
     let mut dirty_names = BTreeSet::new();
-    let mut misses = Vec::new();
+    let mut pending = Vec::new();
     let now = Instant::now();
     for entry in entries.iter().filter(|e| e.kind.is_dir()) {
         let repo_path = parent.join(&entry.name);
@@ -85,75 +82,56 @@ pub fn dirty_repos(parent: &Path, entries: &[DirEntry]) -> BTreeSet<FileName> {
             continue;
         };
         let stamp = RepoStamp::capture(&repo_path, &git_dir);
-        if let Some(dirty) = lookup_cached(&repo_path, stamp, now) {
-            if dirty {
-                dirty_names.insert(FileName::new(entry.name.clone()));
+        let name = FileName::new(entry.name.clone());
+        match fast_or_cached(&repo_path, stamp, now) {
+            Some(true) => {
+                dirty_names.insert(name);
             }
-        } else {
-            misses.push(RepoProbe {
-                name: &entry.name,
-                repo_path,
-                git_dir,
-                stamp,
-            });
+            Some(false) => {}
+            None => pending.push(name),
         }
     }
-    probe_misses(misses, now, &mut dirty_names);
-    dirty_names
+    (dirty_names, pending)
 }
 
-fn lookup_cached(repo_path: &Path, stamp: RepoStamp, now: Instant) -> Option<bool> {
+/// Probe a single child repository on a background worker and cache the answer.
+#[must_use]
+pub(crate) fn probe_child_repo(parent: &Path, name: &FileName) -> bool {
+    let repo_path = parent.join(name.as_str());
+    let Some(git_dir) = repo_git_dir(&repo_path) else {
+        return false;
+    };
+    let now = Instant::now();
+    let stamp = RepoStamp::capture(&repo_path, &git_dir);
+    if let Some(dirty) = fast_or_cached(&repo_path, stamp, now) {
+        return dirty;
+    }
+    let dirty = query_dirty(&repo_path, &git_dir);
+    store_cached(repo_path, stamp, now, dirty);
+    dirty
+}
+
+fn fast_or_cached(repo_path: &Path, stamp: RepoStamp, now: Instant) -> Option<bool> {
+    if stamp.in_progress != 0 {
+        store_cached(repo_path.to_path_buf(), stamp, now, true);
+        return Some(true);
+    }
     let cached = repo_cache().lock().ok()?.get(repo_path).copied()?;
     (cached.stamp == stamp && now.saturating_duration_since(cached.checked_at) < REPO_CACHE_TTL)
         .then_some(cached.dirty)
 }
 
-type ProbeResult = (String, PathBuf, RepoStamp, bool);
-
-fn probe_misses(misses: Vec<RepoProbe<'_>>, now: Instant, dirty_names: &mut BTreeSet<FileName>) {
-    if misses.is_empty() {
-        return;
+fn store_cached(repo_path: PathBuf, stamp: RepoStamp, checked_at: Instant, dirty: bool) {
+    if let Ok(mut guard) = repo_cache().lock() {
+        guard.insert(
+            repo_path,
+            CachedRepo {
+                stamp,
+                checked_at,
+                dirty,
+            },
+        );
     }
-    let results = run_parallel_probes(misses);
-    let Ok(mut guard) = repo_cache().lock() else {
-        return;
-    };
-    for (name, repo_path, stamp, dirty) in results {
-        let cached = CachedRepo {
-            stamp,
-            checked_at: now,
-            dirty,
-        };
-        guard.insert(repo_path, cached);
-        if dirty {
-            dirty_names.insert(FileName::new(name));
-        }
-    }
-}
-
-fn run_parallel_probes(misses: Vec<RepoProbe<'_>>) -> Vec<ProbeResult> {
-    let workers = misses.len().min(6);
-    let queue = Mutex::new(misses.into_iter());
-    std::thread::scope(|scope| {
-        let mut handles = Vec::with_capacity(workers);
-        for _ in 0..workers {
-            handles.push(scope.spawn(|| drain_probes(&queue)));
-        }
-        handles
-            .into_iter()
-            .filter_map(|h| h.join().ok())
-            .flatten()
-            .collect()
-    })
-}
-
-fn drain_probes(queue: &Mutex<std::vec::IntoIter<RepoProbe<'_>>>) -> Vec<ProbeResult> {
-    let mut local = Vec::new();
-    while let Some(p) = queue.lock().ok().and_then(|mut q| q.next()) {
-        let dirty = query_dirty(&p.repo_path, &p.git_dir);
-        local.push((p.name.to_owned(), p.repo_path, p.stamp, dirty));
-    }
-    local
 }
 
 /// Drop cached dirty status for the repository containing `path`.
@@ -166,35 +144,5 @@ pub fn invalidate_repo_cache_for(path: &Path) {
     }
 }
 
-fn query_dirty(directory: &Path, git_dir: &Path) -> bool {
-    if IN_PROGRESS.iter().any(|name| git_dir.join(name).exists()) {
-        return true;
-    }
-    let mut command = Command::new("git");
-    command
-        .args(["--no-optional-locks", "-C"])
-        .arg(directory)
-        .args(["status", "--porcelain", "-unormal", "--no-renames"])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        command.creation_flags(0x0800_0000);
-    }
-    let Ok(mut child) = command.spawn() else {
-        return false;
-    };
-    let mut buf = [0_u8; 1];
-    let dirty = child
-        .stdout
-        .take()
-        .and_then(|mut out| out.read(&mut buf).ok())
-        .is_some_and(|n| n > 0);
-    if dirty {
-        drop(child.kill());
-    }
-    drop(child.wait());
-    dirty
-}
+#[cfg(test)]
+mod tests;

@@ -32,7 +32,7 @@ fn read_text_refuses_what_it_must_not_open_or_hold() {
     for (error, text) in texts {
         assert_eq!(error.to_string(), text);
     }
-    assert!(!missing.to_string().is_empty());
+    assert_ne!(missing.to_string().len(), 0);
 }
 
 /// A FIFO is never opened: opening one with no writer blocks for ever.

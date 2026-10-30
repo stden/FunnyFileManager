@@ -60,7 +60,7 @@ fn test_execute_command_unmark() -> io::Result<()> {
     app.left_panel.marked.insert(FileName::from("a.txt"));
 
     execute_command(&mut app, "unmark").expect("test setup");
-    assert!(app.left_panel.marked.is_empty());
+    assert_eq!(app.left_panel.marked.len(), 0);
     assert!(app.status_text().contains("Unmarked"));
 
     Ok(())
@@ -105,7 +105,7 @@ fn test_execute_command_mark_all_direct() -> io::Result<()> {
     execute_command(&mut app, "mark all").expect("mark all");
 
     let marked = &app.get_active_panel().marked;
-    assert!(!marked.is_empty(), "mark all should mark entries");
+    assert_ne!(marked.len(), 0, "mark all should mark entries");
     assert!(marked.contains("file1.txt"));
     assert!(marked.contains("file2.txt"));
     // ".." should never be marked
@@ -122,12 +122,13 @@ fn test_execute_command_unmark_direct() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
     app.left_panel = Panel::new(temp_dir.path().to_path_buf()).expect("test setup");
     app.left_panel.marked.insert(FileName::from("file.txt"));
-    assert!(!app.left_panel.marked.is_empty());
+    assert_ne!(app.left_panel.marked.len(), 0);
 
     execute_command(&mut app, "unmark").expect("unmark");
 
-    assert!(
-        app.get_active_panel().marked.is_empty(),
+    assert_eq!(
+        app.get_active_panel().marked.len(),
+        0,
         "unmark should clear all marks"
     );
     assert!(app.status_text().contains("Unmarked"));

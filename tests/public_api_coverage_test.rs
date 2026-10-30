@@ -111,8 +111,9 @@ fn every_public_function_is_exercised_by_a_test() {
         .collect();
     offenders.sort();
 
-    assert!(
-        offenders.is_empty(),
+    assert_eq!(
+        offenders.len(),
+        0,
         "these public functions are not named by any test — write one, or add \
          the name to UNEXERCISED with a reason:\n{}",
         offenders.join("\n")
@@ -136,8 +137,9 @@ fn the_baseline_has_no_stale_entries() {
         .collect();
     stale.sort_unstable();
 
-    assert!(
-        stale.is_empty(),
+    assert_eq!(
+        stale.len(),
+        0,
         "UNEXERCISED is out of date — these are now tested, or no longer exist. \
          Delete them from the list:\n{}",
         stale.join("\n")

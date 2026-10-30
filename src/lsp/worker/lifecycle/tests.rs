@@ -54,7 +54,10 @@ fn normalization_preserves_non_unicode_filename_bytes() {
     use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
     let root = TempDir::new().unwrap();
     let path = root.path().join(OsStr::from_bytes(b"source-\xff.rs"));
-    std::fs::write(&path, "source").unwrap();
+    if !crate::test_support::filesystem::non_unicode_name(std::fs::write(&path, "source")).unwrap()
+    {
+        return;
+    }
     assert_eq!(document_path(&path).unwrap(), path.canonicalize().unwrap());
 }
 

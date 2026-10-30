@@ -1,6 +1,7 @@
 //! Purpose: the fish engine — spawn `complete --do-complete` for a `cd` line, bounded by a timeout, and parse what it prints.
 
-use std::io::Read;
+use std::fs::File;
+use std::io::{Read, Seek};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -9,6 +10,9 @@ use std::time::{Duration, Instant};
 /// Shell commands use a longer cap; Tab must stay snappy and fall back to the
 /// built-in scan when fish is slow or stuck.
 const FISH_COMPLETE_TIMEOUT: Duration = Duration::from_millis(1500);
+
+/// Maximum completion bytes read back from fish stdout spool.
+const MAX_FISH_OUTPUT: u64 = 1024 * 1024;
 
 // Test override for the completion shell, following the crate's cfg-gated
 // injection-point convention: the poll loop's slow path only shows itself
@@ -35,6 +39,8 @@ fn fish_program() -> PathBuf {
 /// line as `value\tdescription`; we keep the value (the full token replacement).
 pub(super) fn fish_path_complete(token: &str, cwd: &Path) -> Option<Vec<String>> {
     let line = format!("cd {token}");
+    let stdout = tempfile::tempfile().ok()?;
+    let stdout_writer = stdout.try_clone().ok()?;
     // Pass the line via an env var so fish does the quoting, not us.
     let mut command = Command::new(fish_program());
     command
@@ -42,13 +48,13 @@ pub(super) fn fish_path_complete(token: &str, cwd: &Path) -> Option<Vec<String>>
         .env("FFM_COMPLETE_LINE", &line)
         .args(["-c", "complete --do-complete=\"$FFM_COMPLETE_LINE\""])
         .stdin(Stdio::null())
-        .stdout(Stdio::piped())
+        .stdout(stdout_writer)
         .stderr(Stdio::null());
     #[cfg(any(test, tarpaulin))]
     keep_out_of_the_home(&mut command);
     let mut child = command.spawn().ok()?;
 
-    wait_for_fish(&mut child)
+    wait_for_fish(&mut child, stdout)
 }
 
 /// fish creates `fish/` in its configuration and data homes on every run
@@ -64,7 +70,7 @@ fn keep_out_of_the_home(command: &mut Command) {
         .env("XDG_DATA_HOME", NOWHERE);
 }
 
-fn wait_for_fish(child: &mut std::process::Child) -> Option<Vec<String>> {
+fn wait_for_fish(child: &mut std::process::Child, mut stdout_file: File) -> Option<Vec<String>> {
     let deadline = Instant::now() + FISH_COMPLETE_TIMEOUT;
     loop {
         match child.try_wait() {
@@ -72,12 +78,9 @@ fn wait_for_fish(child: &mut std::process::Child) -> Option<Vec<String>> {
                 if !status.success() {
                     return None;
                 }
+                stdout_file.rewind().ok()?;
                 let mut stdout = Vec::new();
-                let read = child
-                    .stdout
-                    .take()
-                    .map(|mut pipe| pipe.read_to_end(&mut stdout));
-                if let Some(Err(error)) = read {
+                if let Err(error) = stdout_file.take(MAX_FISH_OUTPUT).read_to_end(&mut stdout) {
                     // Parse whatever arrived before the failure, as before.
                     crate::diagnostics::log_error(&format!("fish completion output: {error}"));
                 }

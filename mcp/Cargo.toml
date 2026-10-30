@@ -48,7 +48,7 @@ serde_norway = "0.9.42"
 # schemars is re-exported through rmcp (see `use rmcp::schemars`); pin to the
 # same major rmcp uses (1.x) so the tool-schema derives share one version.
 schemars = "1.2.2"
-tokio = { version = "1.53.1", features = ["full"] }
+tokio = { version = "1.53.3", features = ["full"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 sha2 = "0.11.0"
@@ -58,9 +58,9 @@ tempfile = "3.27.0"
 # Match the TUI's modern HTTPS client; the SDK's legacy `rustls` default adds
 # a second TLS stack that neither application uses.
 aws-sdk-s3 = { version = "1.145.0", default-features = false, features = [
-    "sigv4a",
-    "http-1x",
-    "default-https-client",
+    # sigv4a omitted (pulls in unpatched crypto-bigint 0.5.5)
+    # sigv4a omitted (pulls in unpatched crypto-bigint 0.5.5)
+    "http-1x", "default-https-client",
     "rt-tokio",
 ] }
 aws-config = { version = "1.12.0", features = ["behavior-version-latest"] }

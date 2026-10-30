@@ -49,6 +49,7 @@ impl FfmServer {
         let source = self.safe_path_nofollow(&params.source)?;
         let dest = self.safe_path_create(&params.destination)?;
         require_source(&source)?;
+        reject_self_transfer(&source, &dest)?;
         make_parent(&dest)?;
         fsops::copy_entry(&source, &dest, Purpose::Copy).map_err(|e| transfer_error(&e))?;
 
@@ -79,6 +80,7 @@ impl FfmServer {
         }
         let dest = self.safe_path_create(&params.destination)?;
         require_source(&source)?;
+        reject_self_transfer(&source, &dest)?;
         make_parent(&dest)?;
 
         let (moved, to) = (source.display().to_string(), dest.display().to_string());
@@ -140,6 +142,16 @@ fn require_source(source: &Path) -> Result<(), McpError> {
     if fs::symlink_metadata(source).is_err() {
         return Err(McpError::invalid_params(
             format!("source not found: {}", source.display()),
+            None,
+        ));
+    }
+    Ok(())
+}
+
+fn reject_self_transfer(source: &Path, dest: &Path) -> Result<(), McpError> {
+    if dest.starts_with(source) && fs::symlink_metadata(source).is_ok_and(|m| m.is_dir()) {
+        return Err(McpError::invalid_params(
+            format!("cannot copy a directory into itself: {}", source.display()),
             None,
         ));
     }

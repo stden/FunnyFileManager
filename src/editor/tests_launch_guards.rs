@@ -81,7 +81,7 @@ fn external_editor_is_not_launched_when_the_terminal_cannot_be_suspended() {
     .expect_err("a failed suspend must be reported");
 
     assert_eq!(error.to_string(), "disable_mouse");
-    assert!(app.status_text().is_empty());
+    assert_eq!(app.status_text().len(), 0);
 }
 
 /// `EDITOR="code -w -n"` must reach the launcher as a program plus two

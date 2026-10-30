@@ -103,7 +103,7 @@ fn shift_arrows_copy_and_paste_round_trip_unicode_without_panel_side_effects() {
     assert_eq!(editor.state, EditState::Modified);
     assert_eq!(clipboard.0.borrow().reads, 1);
     assert_eq!(app.left_panel.selected(), panel_selection);
-    assert!(app.left_panel.marked.is_empty());
+    assert_eq!(app.left_panel.marked.len(), 0);
 }
 
 #[test]

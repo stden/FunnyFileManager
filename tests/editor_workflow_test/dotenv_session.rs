@@ -60,7 +60,7 @@ fn text_ui_failed_paste_keeps_the_visible_selection_and_saved_file() -> io::Resu
     run(&directory, &clipboard, steps)?;
     assert_eq!(fs::read_to_string(file)?, ORIGINAL);
     assert_eq!(clipboard.0.borrow().reads, 1);
-    assert!(clipboard.0.borrow().copied.is_empty());
+    assert_eq!(clipboard.0.borrow().copied.len(), 0);
     Ok(())
 }
 

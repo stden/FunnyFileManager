@@ -146,7 +146,7 @@ fn test_execute_command_unknown_command() -> io::Result<()> {
     let result = execute_command(&mut app, "unknowncommand arg1 arg2");
     assert!(result.is_ok());
     // The status_message should reflect the shell error output
-    assert!(!app.status_text().is_empty());
+    assert_ne!(app.status_text().len(), 0);
 
     Ok(())
 }

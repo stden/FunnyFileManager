@@ -37,7 +37,7 @@ fn remeasuring_a_removed_cache_clears_its_size_and_selection() {
     assert!(!dialog.candidates[0].exists());
     assert!(!dialog.candidates[0].is_checked());
     assert_eq!(dialog.candidates[0].size(), None);
-    assert!(dialog.selected_paths().is_empty());
+    assert_eq!(dialog.selected_paths().len(), 0);
 }
 
 #[test]

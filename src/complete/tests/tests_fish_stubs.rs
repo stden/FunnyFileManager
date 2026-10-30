@@ -96,16 +96,6 @@ fn fish_poll_loop_waits_for_a_slow_completer() {
     fs::set_permissions(&stub, fs::Permissions::from_mode(0o755)).expect("chmod");
 
     FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = Some(stub));
-    // Retry while the freshly-written stub is still ETXTBSY.
-    //
-    // `fs::write` closes its own handle, but a sibling test thread that forks
-    // while it is open hands a copy of that write descriptor to its child, and
-    // `exec` of the file then fails with "text file busy" until the child
-    // exits. This suite forks constantly (every `ops::shell` test), and a
-    // standalone probe measured the race at ~20% of attempts against eight
-    // spawning threads — which is what made this test fail about one run in
-    // five. `fish_path_complete` swallows the spawn error on purpose (a fish
-    // that will not start is not a completion), so the retry belongs here.
     let candidates = (0..20).find_map(|_| {
         let result = fish_path_complete("al", temp.path());
         if result.is_none() {
@@ -118,6 +108,29 @@ fn fish_poll_loop_waits_for_a_slow_completer() {
     // The stub sleeps past several 20ms polls before answering, so the loop's
     // wait branch runs; the answer must still arrive intact afterwards.
     assert_eq!(candidates, Some(vec!["alpha".to_owned()]));
+}
+
+/// Large completion output (>128 KiB, exceeding OS pipe buffers) must not
+/// deadlock `wait_for_fish` before `try_wait` sees the process exit.
+#[cfg(unix)]
+#[test]
+fn fish_completer_handles_output_larger_than_pipe_buffer() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = TempDir::new().expect("temp dir");
+    let payload = temp.path().join("payload.txt");
+    let line = "alpha_long_directory_entry_name/\tDirectory\n";
+    fs::write(&payload, line.repeat(4000)).expect("write payload");
+    let stub = temp.path().join("large-fish.sh");
+    fs::write(&stub, format!("#!/bin/sh\ncat '{}'\n", payload.display())).expect("write stub");
+    fs::set_permissions(&stub, fs::Permissions::from_mode(0o755)).expect("chmod");
+    wait_until_executable(&stub);
+
+    FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = Some(stub));
+    let candidates = fish_path_complete("al", temp.path());
+    FISH_PROGRAM_FOR_TESTS.with(|slot| *slot.borrow_mut() = None);
+
+    assert_eq!(candidates.as_ref().map(Vec::len), Some(4000));
 }
 
 /// fish creates `fish/` in its configuration and data homes on every run

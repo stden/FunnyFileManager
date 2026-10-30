@@ -84,7 +84,7 @@ fn invalid_prefix_is_consumed_and_an_incomplete_character_is_retained() {
     bytes.push(0x96);
     decode_complete(&mut bytes, &mut out);
     assert_eq!(out, "a\u{FFFD}bж");
-    assert!(bytes.is_empty());
+    assert_eq!(bytes.len(), 0);
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn an_invalid_sequence_before_ascii_is_replaced_immediately() {
     let mut out = String::new();
     decode_complete(&mut bytes, &mut out);
     assert_eq!(out, "\u{FFFD}(");
-    assert!(bytes.is_empty());
+    assert_eq!(bytes.len(), 0);
 }
 
 #[test]

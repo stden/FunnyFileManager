@@ -162,7 +162,11 @@ impl Run {
 
     /// Stdout on success; the tool's first complaint as the error otherwise.
     pub(super) fn text(&self) -> io::Result<String> {
-        let output = self.execute(Path::new("."))?;
+        let cwd = std::env::current_dir()
+            .ok()
+            .filter(|dir| dir.is_dir())
+            .unwrap_or_else(std::env::temp_dir);
+        let output = self.execute(&cwd)?;
         if !output.status.success() {
             return Err(io::Error::other(complaint(&output)));
         }

@@ -32,7 +32,7 @@ fn yes_by_letter_or_by_enter_acts_and_closes() {
         let mut app = asking_to_delete(&dir);
         assert!(process_popup_input(&mut app, key(yes)));
         assert!(!app.is_overlay_active(), "{yes:?}");
-        assert!(app.sessions.is_empty(), "{yes:?}");
+        assert_eq!(app.sessions.len(), 0, "{yes:?}");
     }
 }
 

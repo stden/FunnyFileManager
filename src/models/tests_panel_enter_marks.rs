@@ -73,10 +73,7 @@ fn test_panel_new_nonexistent_path() {
 #[test]
 fn test_get_drives_returns_valid_paths() {
     let drives = App::get_drives();
-    assert!(
-        !drives.is_empty(),
-        "get_drives must return at least one drive"
-    );
+    assert_ne!(drives.len(), 0, "get_drives must return at least one drive");
     for drive in &drives {
         assert!(drive.exists(), "drive path must exist: {}", drive.display());
         assert!(

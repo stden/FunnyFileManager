@@ -50,8 +50,9 @@ fn a_single_file_offers_its_original_times() {
         offered,
         Some(SystemTime::UNIX_EPOCH + Duration::from_hours(24))
     );
-    assert!(
-        dialog.accessed.current.is_empty(),
+    assert_eq!(
+        dialog.accessed.current.len(),
+        0,
         "unknown at open: left empty"
     );
 }

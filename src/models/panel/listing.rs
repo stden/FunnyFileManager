@@ -19,6 +19,9 @@ impl Panel {
         // hides dotfiles when the panel is asked to.
         self.filter.apply(&mut listing.entries);
         self.filter_listing(&mut listing);
+        listing
+            .metadata
+            .prepare_dirty_probe(&listing.entries, &self.metadata.dirty_repos);
         sort_entries(&mut listing.entries, self.sort_mode, self.sort_order);
         let mut entries = Vec::with_capacity(listing.entries.len() + 1);
         entries.extend(listing.parent);
@@ -60,6 +63,9 @@ impl Panel {
         }
         if self.navigation_history.len() > 100 {
             self.navigation_history.pop_front();
+        }
+        if self.path != path {
+            self.metadata.dirty_repos.clear();
         }
         self.path = path;
         // Marks are names in the folder being left. A namesake in the new one

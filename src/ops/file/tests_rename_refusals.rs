@@ -33,7 +33,7 @@ fn assert_untouched(from: &Path, to: &Path, app: &App) {
     assert_eq!(fs::read(from.join("note.txt")).unwrap(), b"note");
     assert_eq!(fs::read(from.join("dir/inner.txt")).unwrap(), b"inner");
     let copies: Vec<_> = fs::read_dir(to).unwrap().collect();
-    assert!(copies.is_empty(), "nothing is copied: {copies:?}");
+    assert_eq!(copies.len(), 0, "nothing is copied: {copies:?}");
     // The move stops at the first entry it cannot move and says so; the
     // second is not started.
     let status = app.status.to_string();

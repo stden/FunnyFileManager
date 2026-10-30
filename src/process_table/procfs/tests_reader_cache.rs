@@ -70,7 +70,7 @@ fn a_process_missing_from_a_sample_is_read_again_when_it_returns() {
     let mut reader = fake.reader();
     sample(&mut reader);
     fake.remove("42/stat");
-    assert!(pids(&sample(&mut reader)).is_empty());
+    assert_eq!(pids(&sample(&mut reader)).len(), 0);
     fake.add(&Process {
         command: "/usr/bin/changed\0",
         ..Process::new(42, "bob")

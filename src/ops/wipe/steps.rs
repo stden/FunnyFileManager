@@ -37,41 +37,29 @@ impl Removal {
 
 /// Wipe one entry: a link is unlinked, a directory is emptied and then loses
 /// its name like a file does, a file goes through all four steps.
-///
-/// Only a regular file is opened for its zeros. A pipe, socket or device
-/// has no bytes of its own on this disk, and opening one to write blocks
-/// until a reader comes (a pipe), fails (a socket) or writes to the device
-/// itself — so those lose only their name. So does a file with other hard
-/// links: its bytes are theirs too, and zeroing them through this name
-/// would empty every other one.
-///
-/// Returns how many files were only unlinked for that last reason, so the
-/// summary can say their data is still on the disk.
 pub fn wipe_path(path: &Path) -> io::Result<usize> {
     let metadata = fs::symlink_metadata(path)?;
     if metadata.is_symlink() {
         return remove_symlink(path, metadata.file_type()).map(|()| 0);
     }
     if metadata.is_dir() {
-        let shared = wipe_children(path)?;
         clear_readonly(path);
+        let shared = wipe_children(path)?;
         rename_then_remove(path, Removal::Dir)?;
         return Ok(shared);
     }
-    #[cfg(unix)]
     let shared = metadata.is_file() && crate::directory::link_count(&metadata) > 1;
-    #[cfg(windows)]
-    let shared = metadata.is_file() && crate::ops::panel_details::windows::has_multiple_links(path);
-    clear_readonly(path);
     if metadata.is_file() && !shared {
+        clear_readonly(path);
         zero_fill(path)?;
+    } else if cfg!(windows) {
+        clear_readonly(path);
     }
     rename_then_remove(path, Removal::File)?;
     Ok(usize::from(shared))
 }
 
-fn remove_symlink(path: &Path, file_type: fs::FileType) -> io::Result<()> {
-    clear_readonly(path);
+pub fn remove_symlink(path: &Path, file_type: fs::FileType) -> io::Result<()> {
     #[cfg(windows)]
     if std::os::windows::fs::FileTypeExt::is_symlink_dir(&file_type) {
         return fs::remove_dir(path).or_else(|_| fs::remove_file(path));
@@ -80,12 +68,34 @@ fn remove_symlink(path: &Path, file_type: fs::FileType) -> io::Result<()> {
     fs::remove_file(path)
 }
 
+#[cfg(unix)]
+pub fn clear_readonly(path: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    if let Ok(meta) = fs::symlink_metadata(path) {
+        if meta.is_symlink() {
+            return;
+        }
+        let mode = meta.permissions().mode();
+        let needed = if meta.is_dir() { 0o700 } else { 0o600 };
+        if mode & needed != needed {
+            drop(fs::set_permissions(
+                path,
+                fs::Permissions::from_mode(mode | needed),
+            ));
+        }
+    }
+}
+
+#[cfg(not(unix))]
 #[expect(
     clippy::permissions_set_readonly_false,
-    reason = "clears the read-only attribute before zero-filling and removing a wiped entry"
+    reason = "clears the Windows read-only attribute before zero-filling and removing a wiped entry"
 )]
-fn clear_readonly(path: &Path) {
+pub fn clear_readonly(path: &Path) {
     if let Ok(meta) = fs::symlink_metadata(path) {
+        if meta.is_symlink() {
+            return;
+        }
         let mut perms = meta.permissions();
         if perms.readonly() {
             perms.set_readonly(false);

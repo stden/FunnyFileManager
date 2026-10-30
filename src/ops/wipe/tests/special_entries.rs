@@ -14,7 +14,7 @@ fn a_symlink_is_unlinked_and_its_target_is_untouched() {
 
     wipe_path(&link).expect("wipe");
 
-    assert!(witness.at(Stage::Overwritten).is_empty(), "never followed");
+    assert_eq!(witness.at(Stage::Overwritten).len(), 0, "never followed");
     assert!(fs::symlink_metadata(&link).is_err(), "the link is gone");
     assert_eq!(fs::read(&target).expect("read"), b"keep me");
 }
@@ -73,22 +73,46 @@ fn a_socket_is_unlinked_without_being_opened() {
 }
 
 /// A hard link shares its bytes with every other name of the file: zeroing
-/// them through one name empties them all. Only this name goes.
+/// them through one name empties them all. Only this name goes, and a
+/// read-only surviving hard link keeps its mode without becoming world-writable.
 #[cfg(unix)]
 #[test]
 fn a_hard_linked_file_is_only_unlinked_and_its_other_name_keeps_the_data() {
+    use std::os::unix::fs::PermissionsExt;
+
     let dir = TempDir::new().expect("temp dir");
     let wiped = dir.path().join("hl-a");
     let other = dir.path().join("hl-b");
     fs::write(&wiped, b"important data").expect("write");
     fs::hard_link(&wiped, &other).expect("hard link");
+    fs::set_permissions(&wiped, fs::Permissions::from_mode(0o400)).expect("chmod 0400");
     let witness = Witness::install();
 
     wipe_path(&wiped).expect("wipe");
 
     assert!(!wiped.exists(), "this name is gone");
     assert_eq!(fs::read(&other).expect("read"), b"important data");
-    assert!(witness.at(Stage::Overwritten).is_empty(), "never zeroed");
+    assert_eq!(
+        fs::metadata(&other).expect("meta").permissions().mode() & 0o777,
+        0o400,
+        "surviving hard link must keep its 0400 permissions"
+    );
+    assert_eq!(witness.at(Stage::Overwritten).len(), 0, "never zeroed");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_readonly_directory_is_unlocked_before_wiping_its_children() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = TempDir::new().expect("temp dir");
+    let ro_dir = dir.path().join("ro");
+    fs::create_dir(&ro_dir).expect("mkdir");
+    fs::write(ro_dir.join("inside.txt"), b"secret").expect("write");
+    fs::set_permissions(&ro_dir, fs::Permissions::from_mode(0o500)).expect("chmod 0500");
+
+    wipe_path(&ro_dir).expect("wipe readonly directory");
+    assert!(!ro_dir.exists());
 }
 
 /// A folder holding a hard link to a file outside it: the folder goes, the
@@ -109,8 +133,6 @@ fn a_directory_wipe_leaves_the_data_of_files_linked_from_outside() {
     assert_eq!(fs::read(&outside).expect("read"), b"forty lines");
 }
 
-/// The status bar says which files were only unlinked, so a user who meant
-/// to destroy the data knows it is still there under another name.
 #[cfg(unix)]
 #[test]
 fn run_says_when_a_hard_linked_file_was_only_unlinked() {
@@ -133,4 +155,18 @@ fn a_missing_entry_is_an_error() {
     let dir = TempDir::new().expect("temp dir");
     let error = wipe_path(&dir.path().join("absent")).expect_err("must fail");
     assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+}
+
+#[test]
+fn clear_readonly_and_remove_symlink_handle_readonly_and_missing_paths() {
+    let dir = TempDir::new().expect("temp dir");
+    let file = dir.path().join("ro.txt");
+    fs::write(&file, b"x").expect("write");
+    let mut perms = fs::metadata(&file).expect("meta").permissions();
+    perms.set_readonly(true);
+    fs::set_permissions(&file, perms).expect("set readonly");
+    super::super::clear_readonly(&file);
+    let meta = fs::metadata(&file).expect("meta");
+    assert!(!meta.permissions().readonly());
+    assert!(super::super::remove_symlink(&dir.path().join("absent"), meta.file_type()).is_err());
 }

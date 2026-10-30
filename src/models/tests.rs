@@ -86,13 +86,13 @@ fn test_app_swap_panels() -> io::Result<()> {
 #[test]
 fn test_get_drives() {
     let drives = App::get_drives();
-    assert!(!drives.is_empty());
+    assert_ne!(drives.len(), 0);
 }
 
 #[test]
 fn test_get_all_drives() {
     let drives = App::get_all_drives();
-    assert!(!drives.is_empty());
+    assert_ne!(drives.len(), 0);
 }
 
 #[test]
@@ -125,7 +125,7 @@ fn test_dir_entry_clone() {
 fn test_viewer_default() {
     let viewer = Viewer::default();
     assert_eq!(viewer.title(), "");
-    assert!(viewer.lines.is_empty());
+    assert_eq!(viewer.lines.len(), 0);
     assert_eq!(viewer.scroll, ScrollTop::TOP);
 }
 

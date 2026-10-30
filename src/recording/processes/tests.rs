@@ -39,7 +39,7 @@ fn a_replay_samples_through_the_host_but_never_signals_or_renices() {
         host.set_priority(key, PriorityChange::Nice(Niceness::MAX)),
         Err(ControlError::ReadOnly)
     );
-    assert!(fixture.controls().is_empty(), "nothing reached the host");
+    assert_eq!(fixture.controls().len(), 0, "nothing reached the host");
     let sample = host.reader().expect("a reader").sample().expect("a sample");
     assert_eq!(sample.processes.len(), 1);
     assert_eq!(fixture.readers_opened(), 1);

@@ -133,6 +133,6 @@ fn then_valid_selection(world: &mut FfmWorld) -> StepResult {
 
 #[then("неактивная панель не должна быть пустой")]
 fn then_inactive_not_empty(world: &mut FfmWorld) -> StepResult {
-    assert!(!world.app()?.get_inactive_panel().entries.is_empty());
+    assert_ne!(world.app()?.get_inactive_panel().entries.len(), 0);
     Ok(())
 }

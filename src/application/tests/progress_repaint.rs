@@ -39,8 +39,9 @@ fn a_painted_dialog_clears_the_screen_for_a_full_frame() {
 
     repaint_after_progress(&mut terminal).unwrap();
 
-    assert!(
-        buffer_text(&terminal).trim().is_empty(),
+    assert_eq!(
+        buffer_text(&terminal).trim().len(),
+        0,
         "the screen was cleared"
     );
 }
@@ -49,7 +50,7 @@ fn a_painted_dialog_clears_the_screen_for_a_full_frame() {
 fn without_a_dialog_the_frame_stays() {
     let (_directory, _app, mut terminal) = drawn();
     repaint_after_progress(&mut terminal).unwrap();
-    assert!(!buffer_text(&terminal).trim().is_empty());
+    assert_ne!(buffer_text(&terminal).trim().len(), 0);
 }
 
 /// A host that never answers `CSI 6 n`. `Terminal::clear` asks that and waits.
@@ -139,8 +140,8 @@ fn a_repaint_after_progress_does_not_ask_where_the_cursor_is() {
     drop(run);
 
     repaint_after_progress(&mut terminal).unwrap();
-    assert!(terminal.backend().text().trim().is_empty());
+    assert_eq!(terminal.backend().text().trim().len(), 0);
 
     draw_frame(&mut terminal, &mut app).unwrap();
-    assert!(!terminal.backend().text().trim().is_empty());
+    assert_ne!(terminal.backend().text().trim().len(), 0);
 }

@@ -107,7 +107,7 @@ fn a_mistake_keeps_the_dialog_open_with_the_reason() {
     press(&mut app, &[KeyCode::Enter]);
     assert!(app.is_overlay_active());
     assert_eq!(app.status_text(), "Error: NetBox: Host: must not be empty");
-    assert!(app.sessions.is_empty());
+    assert_eq!(app.sessions.len(), 0);
 }
 
 #[test]
@@ -130,7 +130,7 @@ fn esc_f10_and_enter_on_cancel_close_without_storing() {
         assert_eq!(dialog(&app).field(), SessionField::Name);
         press(&mut app, &closing);
         assert!(!app.is_overlay_active(), "{closing:?}");
-        assert!(app.sessions.is_empty(), "{closing:?}");
+        assert_eq!(app.sessions.len(), 0, "{closing:?}");
     }
 }
 

@@ -140,8 +140,9 @@ fn unsafe_code_stays_inside_the_reviewed_boundaries() {
         .iter()
         .flat_map(|(path, sites)| violations(path, sites))
         .collect();
-    assert!(
-        offenders.is_empty(),
+    assert_eq!(
+        offenders.len(),
+        0,
         "unsafe code outside the reviewed boundaries — use a safe API or \
          src/platform, or review the file into BOUNDARIES:\n{}",
         offenders.join("\n")
@@ -158,7 +159,7 @@ fn the_mcp_server_has_no_unsafe_code() {
                 .map(move |site| format!("{path}:{}", site.line))
         })
         .collect();
-    assert!(sites.is_empty(), "the MCP server forbids unsafe: {sites:?}");
+    assert_eq!(sites.len(), 0, "the MCP server forbids unsafe: {sites:?}");
 }
 
 /// A boundary that no longer holds unsafe code must leave the list, so the
@@ -175,7 +176,7 @@ fn every_boundary_still_holds_unsafe_code() {
                 .any(|(path, sites)| path == boundary && !sites.is_empty())
         })
         .collect();
-    assert!(stale.is_empty(), "delete these from BOUNDARIES: {stale:?}");
+    assert_eq!(stale.len(), 0, "delete these from BOUNDARIES: {stale:?}");
 }
 
 #[test]

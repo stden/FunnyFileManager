@@ -21,7 +21,7 @@ fn f9_down_to_sighup_then_enter_and_enter_sends_sighup() {
         panic!("the confirmation is open");
     };
     assert_eq!(confirm.offer(), KillOffer::Send(Signal::Hangup));
-    assert!(tasks.host.controls().is_empty(), "the menu sends nothing");
+    assert_eq!(tasks.host.controls().len(), 0, "the menu sends nothing");
     press(&mut tasks, KeyCode::Enter);
     assert_eq!(
         tasks.host.controls(),
@@ -55,7 +55,7 @@ fn a_ctrl_chord_in_the_confirmation_presses_no_button() {
             crossterm::event::KeyModifiers::CONTROL,
         );
     }
-    assert!(tasks.host.controls().is_empty());
+    assert_eq!(tasks.host.controls().len(), 0);
     assert!(
         matches!(tasks.list().modal(), Modal::Confirm(_)),
         "still open"

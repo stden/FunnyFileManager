@@ -41,15 +41,22 @@ pub async fn make_s3_client(profile: &str) -> Result<aws_sdk_s3::Client, McpErro
         return Err(McpError::invalid_params("invalid AWS profile name", None));
     }
 
+    let region_provider = aws_config::meta::region::RegionProviderChain::first_try(
+        aws_config::profile::ProfileFileRegionProvider::builder()
+            .profile_name(profile)
+            .build(),
+    )
+    .or_default_provider()
+    .or_else("us-east-1");
+
     let config = aws_config::defaults(BehaviorVersion::latest())
+        .profile_name(profile)
         .credentials_provider(
             aws_config::profile::ProfileFileCredentialsProvider::builder()
                 .profile_name(profile)
                 .build(),
         )
-        .region(
-            aws_config::meta::region::RegionProviderChain::default_provider().or_else("us-east-1"),
-        )
+        .region(region_provider)
         .load()
         .await;
 

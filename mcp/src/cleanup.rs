@@ -2,6 +2,7 @@
 
 use super::{
     format_size, globmatch, json_response, walkable_type, DeleteByPatternParams, FfmServer,
+    WALK_BUDGET,
 };
 use ffm_mcp::tree_walk::directory_size;
 use rmcp::{model::CallToolResult, ErrorData as McpError};
@@ -45,6 +46,7 @@ pub fn delete_by_pattern(
 struct DeleteRun {
     deleted: Vec<serde_json::Value>,
     errors: Vec<serde_json::Value>,
+    visited: usize,
 }
 
 #[derive(Clone, Copy)]
@@ -87,32 +89,49 @@ fn delete_pattern_recursive(
     params: &DeleteByPatternParams,
     run: &mut DeleteRun,
 ) -> u64 {
+    if run.visited >= WALK_BUDGET {
+        return 0;
+    }
     let Ok(entries) = fs::read_dir(dir) else {
         return 0;
     };
     let mut claimed = 0;
     for entry in entries.flatten() {
-        // Links remain excluded before size calculation or recursive deletion.
-        let Some(file_type) = walkable_type(&entry) else {
-            continue;
-        };
-        let path = entry.path();
-        let name = entry.file_name().to_string_lossy().to_string();
-        if file_type.is_dir() {
-            let child_claimed = if params.recursive {
-                delete_pattern_recursive(&path, params, run)
-            } else {
-                0
-            };
-            claimed += child_claimed;
-            if params.include_dirs && globmatch::matches(&name, &params.pattern) {
-                claimed += delete_match(&path, DeleteKind::Directory, child_claimed, params, run);
-            }
-        } else if globmatch::matches(&name, &params.pattern) {
-            claimed += delete_match(&path, DeleteKind::File, 0, params, run);
+        if run.visited >= WALK_BUDGET {
+            break;
         }
+        claimed += delete_pattern_entry(&entry, params, run);
     }
     claimed
+}
+
+fn delete_pattern_entry(
+    entry: &fs::DirEntry,
+    params: &DeleteByPatternParams,
+    run: &mut DeleteRun,
+) -> u64 {
+    // Links remain excluded before size calculation or recursive deletion.
+    let Some(file_type) = walkable_type(entry) else {
+        return 0;
+    };
+    run.visited += 1;
+    let path = entry.path();
+    let matched = globmatch::matches(&entry.file_name().to_string_lossy(), &params.pattern);
+    if file_type.is_dir() {
+        let mut claimed = if params.recursive {
+            delete_pattern_recursive(&path, params, run)
+        } else {
+            0
+        };
+        if params.include_dirs && matched {
+            claimed += delete_match(&path, DeleteKind::Directory, claimed, params, run);
+        }
+        claimed
+    } else if matched {
+        delete_match(&path, DeleteKind::File, 0, params, run)
+    } else {
+        0
+    }
 }
 
 /// Report the entry at the same point in the post-order traversal for preview or deletion.

@@ -26,7 +26,7 @@ fn parses_bare_and_quoted_names() {
 fn read_uses_the_first_existing_file_and_tolerates_none() -> io::Result<()> {
     let temp = TempDir::new()?;
     let names = default_names();
-    assert!(read(temp.path(), &names).is_empty());
+    assert_eq!(read(temp.path(), &names).len(), 0);
     fs::write(temp.path().join("Files.bbs"), "a.txt from bbs\n")?;
     assert_eq!(read(temp.path(), &names)["a.txt"], "from bbs");
     fs::write(temp.path().join("Descript.ion"), "a.txt from ion\n")?;
@@ -63,6 +63,24 @@ fn set_description_creates_the_first_name_when_none_exists() -> io::Result<()> {
     assert!(temp.path().join("Descript.ion").is_file());
     let error = set_description(temp.path(), &[], "a.txt", "x").expect_err("no names");
     assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn set_description_refuses_dangling_symlink_instead_of_writing_target() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let outside = TempDir::new()?;
+    let victim = outside.path().join("victim.txt");
+    std::os::unix::fs::symlink(&victim, temp.path().join("Descript.ion"))?;
+
+    let err = set_description(temp.path(), &default_names(), "a.txt", "note")
+        .expect_err("dangling symlink must be refused");
+    assert_eq!(err.kind(), io::ErrorKind::NotFound);
+    assert!(
+        !victim.exists(),
+        "must not create file at dangling symlink target"
+    );
     Ok(())
 }
 

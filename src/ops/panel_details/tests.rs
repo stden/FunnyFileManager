@@ -139,9 +139,14 @@ fn the_owners_view_falls_back_to_numbers_for_unknown_ids() -> io::Result<()> {
 fn has_multiple_links_counts_hard_links() -> io::Result<()> {
     let dir = TempDir::new()?;
     let file = dir.path().join("one.txt");
+    let two = dir.path().join("two.txt");
+    let other = dir.path().join("other.txt");
     fs::write(&file, "x")?;
+    fs::write(&other, "y")?;
     assert!(!windows::has_multiple_links(&file));
-    fs::hard_link(&file, dir.path().join("two.txt"))?;
+    assert!(!windows::are_same_hard_link(&file, &other));
+    fs::hard_link(&file, &two)?;
     assert!(windows::has_multiple_links(&file));
+    assert!(windows::are_same_hard_link(&file, &two));
     Ok(())
 }

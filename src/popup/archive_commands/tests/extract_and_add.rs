@@ -73,7 +73,7 @@ fn add_selected_opens_the_add_prompt_named_after_this_archive() {
 
     press(&mut app, KeyCode::Enter);
     assert!(!app.overlay.is_active());
-    assert!(app.left_panel.marked.is_empty());
+    assert_eq!(app.left_panel.marked.len(), 0);
     assert!(
         matches!(&app.status, Status::AddedToArchive { archive: a, kept: 0, .. } if *a == archive),
         "{:?}",

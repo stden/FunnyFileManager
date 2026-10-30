@@ -39,7 +39,7 @@ fn the_task_list_row_opens_the_live_viewer() {
 fn the_devices_row_lists_the_mounted_devices() {
     let (_temp, mut app) = fixture();
     execute_result(&mut app, MenuCommand::Devices).unwrap();
-    assert!(!rows(&app).is_empty());
+    assert_ne!(rows(&app).len(), 0);
 }
 
 #[test]

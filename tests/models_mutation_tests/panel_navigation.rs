@@ -104,7 +104,7 @@ fn test_panel_enter_mutations() -> io::Result<()> {
     select_entry(&mut panel, "subdir");
     panel.enter()?;
     assert!(panel.path.ends_with("subdir"), "Should enter subdirectory");
-    assert!(panel.marked.is_empty(), "Marks should be cleared");
+    assert_eq!(panel.marked.len(), 0, "Marks should be cleared");
 
     // Test entering parent directory
     select_entry(&mut panel, "..");

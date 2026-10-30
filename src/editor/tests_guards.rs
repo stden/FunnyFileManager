@@ -90,7 +90,7 @@ fn builtin_editor_ignores_an_entry_without_a_path() -> io::Result<()> {
     handle_edit_builtin(&mut app)?;
 
     assert!(app.get_editor().is_none());
-    assert!(app.status_text().is_empty());
+    assert_eq!(app.status_text().len(), 0);
     Ok(())
 }
 
@@ -134,6 +134,6 @@ fn test_mode_editor_ignores_an_entry_without_a_path() -> io::Result<()> {
 
     handle_edit_test_mode(&mut app, TestEditorBehavior::Success)?;
 
-    assert!(app.status_text().is_empty());
+    assert_eq!(app.status_text().len(), 0);
     Ok(())
 }

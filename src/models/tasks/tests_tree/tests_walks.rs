@@ -23,7 +23,7 @@ fn descendants_include_the_root_and_survive_a_cycle() {
     assert_eq!(found.first(), Some(&2), "the root comes first");
     found.sort_unstable();
     assert_eq!(found, [1, 2, 3]);
-    assert!(descendants(rows, 99).is_empty());
+    assert_eq!(descendants(rows, 99).len(), 0);
 }
 
 #[test]
@@ -48,5 +48,5 @@ fn ancestors_run_nearest_first_and_stop_at_a_cycle() {
     };
     assert_eq!(pids_of(ancestors(rows, pid(3))), [2, 1]);
     assert_eq!(pids_of(ancestors(rows, pid(8))), [9]);
-    assert!(ancestors(rows, pid(77)).is_empty());
+    assert_eq!(ancestors(rows, pid(77)).len(), 0);
 }

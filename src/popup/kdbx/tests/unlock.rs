@@ -80,3 +80,18 @@ fn ctrl_c_still_quits_but_locks_on_the_way_out() {
         "the session must be locked and dropped at the quit gesture"
     );
 }
+
+#[test]
+fn ctrl_l_locks_and_wipes_an_armed_clipboard_secret() {
+    let (_dir, mut app) = app_with_unlocked_vault();
+    let recorder = RecordingClipboard::default();
+    app.clipboard.install(Box::new(recorder.clone()));
+    focus(&mut app, "GitHub");
+
+    process_popup_input(&mut app, key(KeyCode::Enter));
+    assert!(app.clipboard.is_armed());
+
+    process_popup_input(&mut app, ctrl('l'));
+    assert!(!app.clipboard.is_armed());
+    assert_eq!(recorder.0.borrow().as_slice(), [password_for("GitHub"), ""]);
+}

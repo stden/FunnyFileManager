@@ -73,7 +73,7 @@ fn the_last_name_is_a_temporary_one_and_the_file_is_empty_by_then() {
         "{:?}",
         renamed[0].path
     );
-    assert!(renamed[0].bytes.is_empty(), "truncated before the rename");
+    assert_eq!(renamed[0].bytes.len(), 0, "truncated before the rename");
 }
 
 #[test]

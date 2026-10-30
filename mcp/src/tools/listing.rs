@@ -46,7 +46,12 @@ impl FfmServer {
             let meta = entry
                 .metadata()
                 .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-            let is_dir = meta.is_dir() || (meta.file_type().is_symlink() && entry.path().is_dir());
+            let entry_path = entry.path();
+            let is_dir = meta.is_dir()
+                || (meta.file_type().is_symlink()
+                    && self
+                        .safe_path(&entry_path.to_string_lossy())
+                        .is_ok_and(|target| target.is_dir()));
             let name = entry.file_name().to_string_lossy().to_string();
             entries.push(json!({
                 "name": name,

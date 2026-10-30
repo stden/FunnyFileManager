@@ -2,7 +2,6 @@
 
 use super::S3Client;
 use std::io;
-use std::io::Write as _;
 use std::path::Path;
 
 const MAX_S3_OBJECT_BYTES: u64 = 100 * 1024 * 1024;
@@ -10,7 +9,9 @@ const MAX_S3_OBJECT_BYTES: u64 = 100 * 1024 * 1024;
 impl S3Client {
     /// Download an object to a local path
     pub fn download_object(&self, bucket: &str, key: &str, local_path: &Path) -> io::Result<()> {
-        crate::file_write::ensure_writable(local_path)?;
+        let target = crate::file_write::real_target(local_path)
+            .map_err(crate::file_write::DanglingLink::into_io_error)?;
+        crate::file_write::ensure_writable(&target)?;
         self.runtime.block_on(async {
             let resp = self
                 .client
@@ -94,10 +95,10 @@ impl S3Client {
             || source_key.is_empty()
             || source_bucket
                 .chars()
-                .any(|c| matches!(c, '?' | '#' | '/') || c.is_control())
+                .any(|c| matches!(c, '?' | '#' | '/' | '%') || c.is_control())
             || source_key
                 .chars()
-                .any(|c| matches!(c, '?' | '#') || c.is_control())
+                .any(|c| matches!(c, '?' | '#' | '%') || c.is_control())
         {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -122,20 +123,9 @@ impl S3Client {
 }
 
 fn persist_download(local_path: &Path, bytes: &[u8]) -> io::Result<()> {
-    crate::file_write::ensure_writable(local_path)?;
-    // Stage in a *unique* temp file in the destination's own directory,
-    // so the final rename stays atomic. `with_extension("part")` used to
-    // replace the extension instead of appending: downloading
-    // `report.txt` next to an unrelated `report.part` overwrote it, and
-    // a destination that itself ends in `.part` staged onto itself.
-    // A dropped NamedTempFile deletes itself, so a failed write leaves
-    // nothing behind and never touches `local_path`.
-    let dir = local_path
-        .parent()
-        .filter(|p| !p.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    let mut temp = tempfile::NamedTempFile::new_in(dir)?;
-    temp.write_all(bytes)?;
-    temp.persist(local_path).map_err(|e| e.error)?;
-    Ok(())
+    let target = crate::file_write::real_target(local_path)
+        .map_err(crate::file_write::DanglingLink::into_io_error)?;
+    crate::file_write::ensure_writable(&target)?;
+    let temp = crate::file_write::temp_beside(&target)?;
+    crate::file_write::persist_over(temp, &target, bytes)
 }

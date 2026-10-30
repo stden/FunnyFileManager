@@ -4,10 +4,6 @@
 //! path resolves to itself, so `/etc/passwd` would sail through. Every path
 //! that reaches the filesystem therefore has to pass [`confine`] against the
 //! root resolved once at startup.
-//!
-//! And `confine` is only ever handed a path the filesystem itself resolved: a
-//! lexically-normalized path satisfies `starts_with(root)` without any symlink
-//! on it having been followed, which would make the guard vacuous.
 
 use std::path::{Component, Path, PathBuf};
 
@@ -34,23 +30,15 @@ pub fn sanitize_path(root: &Path, raw: &str) -> Result<PathBuf, String> {
 }
 
 /// Like [`sanitize_path`], but tolerates a parent that does not exist yet.
-///
-/// Still refuses a final component that is a dangling symlink: creating "it"
-/// would write through the link to whatever it names.
 pub fn sanitize_path_create(root: &Path, raw: &str) -> Result<PathBuf, String> {
     sanitize_path_inner(root, raw, true)
 }
 
 /// Resolve a path without following a final symlink: only the parent is
 /// canonicalized, the last component is kept verbatim.
-///
-/// Operations that act on the link itself (delete, stat, readlink) must not
-/// resolve it — canonicalizing would hand them the target instead, and a
-/// dangling link would not resolve at all.
 pub fn sanitize_path_nofollow(root: &Path, raw: &str) -> Result<PathBuf, String> {
     let path = absolute_candidate(root, raw)?;
-    let Some(file_name) = path.file_name() else {
-        // No final component (e.g. the root itself) — nothing to preserve.
+    let Some(file_name) = path.file_name().filter(|n| *n != "." && *n != "..") else {
         return confine(root, canonicalize(&path)?);
     };
     let parent = path.parent().unwrap_or(root);
@@ -59,68 +47,43 @@ pub fn sanitize_path_nofollow(root: &Path, raw: &str) -> Result<PathBuf, String>
 
 fn sanitize_path_inner(root: &Path, raw: &str, allow_new_parents: bool) -> Result<PathBuf, String> {
     let path = absolute_candidate(root, raw)?;
-    // A create/write destination must end in an actual entry name. Check the
-    // caller's lexical path before `exists()`: on Windows, `missing/..` can be
-    // reported as the existing parent and would otherwise bypass the later
-    // missing-path validation entirely.
-    if allow_new_parents
-        && matches!(
-            Path::new(raw).components().next_back(),
-            None | Some(Component::CurDir | Component::ParentDir)
-        )
-    {
+    if allow_new_parents && ends_with_dot_component(raw) {
         return Err(format!("invalid path: {raw}"));
     }
-
-    // A path that resolves end to end is judged on its canonical form, so every
-    // symlink along it has already been followed before `confine` sees it.
     if path.exists() {
         return confine(root, canonicalize(&path)?);
     }
-
-    // `exists()` follows links, so anything that still has metadata here is a
-    // *dangling* symlink. Handing its literal path back would let the caller's
-    // `fs::write` follow it to a target `confine` never inspected — the link may
-    // name any file on the machine. Operations that legitimately act on the link
-    // itself go through `sanitize_path_nofollow` instead.
     if path.symlink_metadata().is_ok() {
         return Err(format!(
             "refusing to resolve '{}': it is a dangling symlink to an unchecked target",
             path.display()
         ));
     }
-
-    // Nothing is there yet, so the last component still has to be a name —
-    // otherwise there is no entry to create.
-    if path.file_name().is_none() {
+    if path.file_name().is_none() || ends_with_dot_component(raw) {
         return Err(format!("invalid path: {raw}"));
     }
-    let parent = path.parent().unwrap_or(root);
+    let normalized = resolve_dot_dot(&path)?;
+    let parent = normalized.parent().unwrap_or(root);
     if !allow_new_parents && !parent.exists() {
         return Err(format!(
             "parent directory does not exist: {}",
             parent.display()
         ));
     }
-    resolve_under_existing_ancestor(root, &normalize_lexically(&path))
+    resolve_under_existing_ancestor(root, &normalized)
+}
+
+fn ends_with_dot_component(raw: &str) -> bool {
+    let trimmed = raw.trim_end_matches(['/', '\\']);
+    let last = trimmed.rsplit(['/', '\\']).next().unwrap_or(trimmed);
+    trimmed.is_empty() || matches!(last, "." | "..")
 }
 
 /// Confine the deepest ancestor of `path` that exists on disk, then re-attach
 /// the components below it.
-///
-/// WHY: `confine` can only judge a path the filesystem has already resolved.
-/// Handing it a purely lexical path is no check at all — `starts_with(root)`
-/// passes while no symlink on the path was ever followed, so `root/link/new/f`
-/// sails through even when `link` points at `/var/log`. Canonicalizing the
-/// deepest *existing* ancestor forces every link on the way down through the
-/// guard; the components below it do not exist, so nothing there can redirect
-/// anywhere. Never confine an unresolved path.
 fn resolve_under_existing_ancestor(root: &Path, path: &Path) -> Result<PathBuf, String> {
     let mut tail = Vec::new();
     let mut ancestor = path;
-    // `symlink_metadata`, not `exists`: a dangling link must stop the walk so
-    // `canonicalize` below fails on it, rather than being stepped over as if
-    // that component were simply absent.
     while ancestor.symlink_metadata().is_err() {
         let (Some(name), Some(parent)) = (ancestor.file_name(), ancestor.parent()) else {
             return Err(format!(
@@ -145,9 +108,20 @@ fn absolute_candidate(root: &Path, raw: &str) -> Result<PathBuf, String> {
     if raw.contains('\0') {
         return Err("path contains null byte".to_owned());
     }
-    let path = Path::new(raw);
+    #[cfg(windows)]
+    let cleaned = raw
+        .strip_prefix(r"\\?\UNC\")
+        .map(|unc| format!(r"\\{unc}"))
+        .or_else(|| raw.strip_prefix(r"\\?\").map(str::to_owned))
+        .unwrap_or_else(|| raw.replace('/', "\\"));
+    #[cfg(not(windows))]
+    let cleaned = raw;
+
+    let path = Path::new(&cleaned);
     if path.is_absolute() {
         Ok(path.to_path_buf())
+    } else if matches!(path.components().next(), Some(Component::Prefix(_))) {
+        Err(format!("invalid relative path: {raw}"))
     } else {
         Ok(root.join(path))
     }
@@ -170,17 +144,48 @@ fn confine(root: &Path, resolved: PathBuf) -> Result<PathBuf, String> {
     ))
 }
 
-/// Fold `.` and `..` away textually — for paths that do not exist yet.
-fn normalize_lexically(path: &Path) -> PathBuf {
+/// Fold `.` and `..`, resolving any existing symlink before stepping into `..`.
+fn resolve_dot_dot(path: &Path) -> Result<PathBuf, String> {
     let mut out = PathBuf::new();
     for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                out.pop();
+        if is_cur_dir(&component) {
+            continue;
+        }
+        if is_parent_dir(&component) {
+            if out.symlink_metadata().is_ok() {
+                out = canonicalize(&out)?;
             }
-            other => out.push(other),
+            out.pop();
+        } else {
+            out.push(component);
+        }
+    }
+    Ok(out)
+}
+
+/// Fold `.` and `..` away textually — for paths that do not exist yet.
+#[cfg(test)]
+pub fn normalize_lexically(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        if is_cur_dir(&component) {
+            continue;
+        }
+        if is_parent_dir(&component) {
+            out.pop();
+        } else {
+            out.push(component);
         }
     }
     out
+}
+
+fn is_cur_dir(component: &Component<'_>) -> bool {
+    matches!(component, Component::CurDir)
+        || matches!(component, Component::Normal(part) if *part == ".")
+}
+
+fn is_parent_dir(component: &Component<'_>) -> bool {
+    matches!(component, Component::ParentDir)
+        || matches!(component, Component::Normal(part) if *part == "..")
 }

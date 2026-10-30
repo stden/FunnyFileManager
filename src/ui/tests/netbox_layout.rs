@@ -67,7 +67,7 @@ fn the_sessions_panel_puts_each_part_on_its_row() {
     assert!(rows[2].starts_with("║.. "), "{rows:?}");
     assert!(rows[3].starts_with("║a.test "), "{rows:?}");
     assert!(rows[4].starts_with("║b.test "), "{rows:?}");
-    assert!(rows[5].trim_matches(['║', ' ']).is_empty(), "{rows:?}");
+    assert_eq!(rows[5].trim_matches(['║', ' ']).len(), 0, "{rows:?}");
     assert!(rows[8].starts_with("║2 sessions "), "{rows:?}");
     assert!(
         rows[9].starts_with('╚') && rows[9].ends_with('╝'),

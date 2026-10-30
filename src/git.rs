@@ -67,8 +67,10 @@ fn read_branch(directory: &Path) -> Option<String> {
 }
 
 mod dirty;
+#[cfg(test)]
+use dirty::inspect_dirty_repos;
 pub use dirty::is_dirty_repo;
-pub(crate) use dirty::{dirty_repos, invalidate_repo_cache_for};
+pub(crate) use dirty::{invalidate_repo_cache_for, load_dirty_repos, probe_child_repo};
 
 /// The `.git` directory governing `directory`, walking up from it.
 ///

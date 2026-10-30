@@ -64,8 +64,9 @@ fn selected_bytes_count_only_what_was_measured() {
 fn a_fresh_dialog_offers_candidates_with_nothing_selected() {
     let dialog = DiskCleanupDialog::new();
 
-    assert!(
-        !dialog.candidates.is_empty(),
+    assert_ne!(
+        dialog.candidates.len(),
+        0,
         "the checklist is built from the well-known cache locations"
     );
     assert_eq!(dialog.field, CleanupField::Item(0));

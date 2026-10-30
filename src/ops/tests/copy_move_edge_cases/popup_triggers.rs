@@ -137,7 +137,7 @@ fn test_execute_command_pwd_quit_exit() -> io::Result<()> {
     let mut app = App::new().expect("test setup");
 
     execute_command(&mut app, "pwd").expect("test setup");
-    assert!(!app.status_text().is_empty());
+    assert_ne!(app.status_text().len(), 0);
 
     execute_command(&mut app, "quit").expect("test setup");
     assert!(!app.lifecycle.is_running());

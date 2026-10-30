@@ -8,13 +8,14 @@ use ratatui::{backend::Backend, Terminal};
 
 use super::event::{discard_typeahead, handle_event, next_event, UNANSWERED};
 use super::input::{BufferedInput, EventSource};
-use super::{lsp_jobs, task_jobs, timing, wsl_jobs, Redraw};
+use super::{git_jobs, lsp_jobs, task_jobs, timing, wsl_jobs, Redraw};
 use crate::diagnostics::log_action;
 use crate::models::{App, Viewport};
 use crate::ui::ui;
 
 pub(super) struct LoopState {
     clicks: crate::mouse::PanelClicks,
+    git: git_jobs::GitDirtyJobs,
     jobs: wsl_jobs::WslJobs,
     tasks: task_jobs::TaskJobs,
     lsp: lsp_jobs::EditorLspController,
@@ -28,6 +29,7 @@ impl LoopState {
     pub(super) fn new(backend: Arc<dyn crate::wsl::WslBackend>) -> Self {
         Self {
             clicks: crate::mouse::PanelClicks::default(),
+            git: git_jobs::GitDirtyJobs::default(),
             jobs: wsl_jobs::WslJobs::new(backend),
             tasks: task_jobs::TaskJobs::default(),
             lsp: lsp_jobs::EditorLspController::default(),
@@ -99,6 +101,9 @@ impl LoopState {
     /// Collect what background work finished, asking for a frame when it
     /// changed what is on screen.
     fn pump_background(&mut self, app: &mut App) {
+        if self.git.pump(app) == Redraw::Needed {
+            self.redraw = Redraw::Needed;
+        }
         if self.jobs.pump(app) == Redraw::Needed {
             self.redraw = Redraw::Needed;
         }

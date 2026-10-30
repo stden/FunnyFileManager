@@ -21,8 +21,9 @@ fn test_navigate_to_clears_marks() -> io::Result<()> {
     panel.navigate_to(other.clone())?;
 
     assert_eq!(panel.path, other);
-    assert!(
-        panel.marked.is_empty(),
+    assert_eq!(
+        panel.marked.len(),
+        0,
         "a name-keyed mark must not re-bind to a same-named file elsewhere"
     );
     assert!(panel.selected().is_some());

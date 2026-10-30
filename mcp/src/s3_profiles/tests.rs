@@ -17,7 +17,8 @@ fn credentials_define_order_and_config_merges_regions_into_duplicates() {
     .unwrap();
     fs::write(
         directory.path().join("config"),
-        "[profile work]\nregion = eu-west-1\n[default]\nregion=us-east-1\n\
+        "[profile work]\nregion = eu-west-1\nregional_endpoints = legacy\n[default]\nregion=us-east-1\n\
+         [sso-session work]\nsso_region = ap-southeast-2\nregion = ap-southeast-2\n\
          [profile config-only]\nregion = ap-south-1\n\
          [profile work]\nregion = eu-north-1\n",
     )
@@ -39,9 +40,24 @@ fn credentials_define_order_and_config_merges_regions_into_duplicates() {
 }
 
 #[test]
+fn regional_endpoints_and_sso_session_do_not_clobber_profile_region() {
+    let directory = TempDir::new().unwrap();
+    fs::write(directory.path().join("credentials"), "[work]\n").unwrap();
+    fs::write(
+        directory.path().join("config"),
+        "[profile work]\nregion = eu-west-1\nregional_endpoints = legacy\n[sso-session work]\nregion = us-west-2\n",
+    )
+    .unwrap();
+    assert_eq!(
+        read_profiles(directory.path()),
+        vec![json!({ "name": "work", "region": "eu-west-1" })]
+    );
+}
+
+#[test]
 fn missing_or_unreadable_files_keep_listing_best_effort() {
     let directory = TempDir::new().unwrap();
-    assert!(read_profiles(directory.path()).is_empty());
+    assert_eq!(read_profiles(directory.path()).len(), 0);
     fs::write(directory.path().join("credentials"), " [default] \n").unwrap();
     fs::create_dir(directory.path().join("config")).unwrap();
     assert_eq!(
@@ -50,5 +66,5 @@ fn missing_or_unreadable_files_keep_listing_best_effort() {
     );
     fs::remove_file(directory.path().join("credentials")).unwrap();
     fs::create_dir(directory.path().join("credentials")).unwrap();
-    assert!(read_profiles(directory.path()).is_empty());
+    assert_eq!(read_profiles(directory.path()).len(), 0);
 }

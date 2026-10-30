@@ -43,10 +43,7 @@ fn test_download_no_part_file_after_success() -> io::Result<()> {
         .map(|e| e.expect("dir entry").path())
         .filter(|p| p != &download_path)
         .collect();
-    assert!(
-        leftovers.is_empty(),
-        "temp files left behind: {leftovers:?}"
-    );
+    assert_eq!(leftovers.len(), 0, "temp files left behind: {leftovers:?}");
     assert_eq!(fs::read_to_string(&download_path)?, "content");
     Ok(())
 }
@@ -71,19 +68,6 @@ fn test_download_leaves_unrelated_part_file_alone() -> io::Result<()> {
 
 /// A destination that itself ends in `.part` downloads normally and leaves no
 /// staging file behind.
-///
-/// HONEST SCOPE — this is deliberately weaker than its name once suggested. The
-/// old `with_extension("part")` staging path *equalled* such a destination, so
-/// the write stopped being atomic and the error cleanup would have deleted the
-/// destination; but on the success path `with_extension("part")` is a no-op here
-/// and `rename(x, x)` succeeds, so no assertion about the final content can tell
-/// the two implementations apart. Observing the non-atomic window needs a write
-/// fault *after* a successful GET, which the static replay harness cannot
-/// inject. What is pinned instead: the payload lands, and the directory holds
-/// nothing but the destination — a staging file named after the destination
-/// would show up as a leftover here, and the sibling
-/// `test_download_leaves_unrelated_part_file_alone` pins the collision half of
-/// the same bug with a test that genuinely goes red when the fix is reverted.
 #[test]
 fn test_download_to_a_part_destination_leaves_no_staging_file() -> io::Result<()> {
     let temp_dir = TempDir::new().expect("temp dir");
@@ -97,10 +81,7 @@ fn test_download_to_a_part_destination_leaves_no_staging_file() -> io::Result<()
         .map(|entry| entry.expect("dir entry").path())
         .filter(|path| path != &download_path)
         .collect();
-    assert!(
-        leftovers.is_empty(),
-        "temp files left behind: {leftovers:?}"
-    );
+    assert_eq!(leftovers.len(), 0, "temp files left behind: {leftovers:?}");
     Ok(())
 }
 
@@ -139,5 +120,23 @@ fn test_download_object_binary_data() -> io::Result<()> {
     client.download_object("bucket", "binary.bin", &download_path)?;
     let written = fs::read(&download_path)?;
     assert_eq!(written, binary_data);
+    Ok(())
+}
+
+#[test]
+fn test_download_rejects_dangling_symlink() -> io::Result<()> {
+    let dir = TempDir::new()?;
+    let target = dir.path().join("missing-target.txt");
+    let link = dir.path().join("link.txt");
+    #[cfg(unix)]
+    let created = std::os::unix::fs::symlink(&target, &link).is_ok();
+    #[cfg(windows)]
+    let created = std::os::windows::fs::symlink_file(&target, &link).is_ok();
+    if !created {
+        return Ok(());
+    }
+    let client = build_test_client(vec![get_event("bucket", "key", "payload")]);
+    assert!(client.download_object("bucket", "key", &link).is_err());
+    assert!(!target.exists());
     Ok(())
 }

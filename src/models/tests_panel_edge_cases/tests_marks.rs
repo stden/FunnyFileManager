@@ -15,7 +15,7 @@ fn test_action_entry_names_parent_directory() -> io::Result<()> {
     let names = panel.action_entry_names();
 
     // Should be empty when parent directory is selected and no marks
-    assert!(names.is_empty());
+    assert_eq!(names.len(), 0);
 
     Ok(())
 }
@@ -32,7 +32,7 @@ fn test_panel_action_entry_names_with_special_cases() -> io::Result<()> {
     panel.load_entries().expect("test setup");
 
     let names = panel.action_entry_names();
-    assert!(names.is_empty());
+    assert_eq!(names.len(), 0);
 
     panel.select(Some(1));
     let names = panel.action_entry_names();
@@ -69,8 +69,9 @@ fn test_action_entry_names_no_marks_dotdot_selected_returns_empty() -> io::Resul
     panel.select(Some(dotdot_index));
 
     let names = panel.action_entry_names();
-    assert!(
-        names.is_empty(),
+    assert_eq!(
+        names.len(),
+        0,
         "action_entry_names should return empty when '..' is selected and no marks set"
     );
 

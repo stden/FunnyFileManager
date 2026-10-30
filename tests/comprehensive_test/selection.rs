@@ -65,7 +65,7 @@ fn test_action_entry_names_dotdot_returns_empty() {
     let mut panel = Panel::new(temp.path().to_path_buf()).unwrap();
     panel.select(Some(0)); // ".."
     let names = panel.action_entry_names();
-    assert!(names.is_empty());
+    assert_eq!(names.len(), 0);
 }
 
 // ==================== ensure_selection ====================

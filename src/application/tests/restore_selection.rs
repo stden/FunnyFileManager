@@ -66,7 +66,7 @@ fn restoring_after_entering_a_folder_brings_back_nothing_of_the_folder_left() ->
 
     app.get_active_panel().restore_marks();
 
-    assert!(marked(&mut app).is_empty(), "got {:?}", marked(&mut app));
+    assert_eq!(marked(&mut app).len(), 0, "got {:?}", marked(&mut app));
     assert!(app.get_active_panel().select_named("parent"));
     assert_eq!(offered_by_f8(&mut app)?, vec![inner.join("parent")]);
     Ok(())
@@ -90,7 +90,7 @@ fn a_selection_is_not_restored_onto_a_namesake_in_another_folder() -> io::Result
 
     app.get_active_panel().restore_marks();
 
-    assert!(marked(&mut app).is_empty(), "got {:?}", marked(&mut app));
+    assert_eq!(marked(&mut app).len(), 0, "got {:?}", marked(&mut app));
     Ok(())
 }
 
@@ -111,7 +111,7 @@ fn deleted_entries_are_not_restored_and_f8_does_not_offer_them_again() -> io::Re
 
     app.get_active_panel().restore_marks();
 
-    assert!(marked(&mut app).is_empty(), "got {:?}", marked(&mut app));
+    assert_eq!(marked(&mut app).len(), 0, "got {:?}", marked(&mut app));
     assert!(app.get_active_panel().select_named("c.txt"));
     assert_eq!(offered_by_f8(&mut app)?, vec![temp.path().join("c.txt")]);
     Ok(())

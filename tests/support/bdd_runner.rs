@@ -58,7 +58,7 @@ fn rethrow(panic: Box<dyn std::any::Any + Send>) {
 /// Runs the branches a green suite never takes: a missing value, a thread
 /// that could not start, and a panicked runner.
 pub fn cover_error_paths() {
-    assert!(step_error(Ok(())).is_empty());
+    assert_eq!(step_error(Ok(())), "");
     assert_eq!(step_error(Err("marker".to_owned())), "marker");
     let missing = None::<u8>.context("missing");
     assert!(matches!(missing, Err(message) if message == "missing"));

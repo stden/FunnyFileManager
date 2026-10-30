@@ -56,8 +56,9 @@ fn test_classify_failure_empty_stderr_not_stderr_content() {
     // Kill: using stderr when it's empty instead of generic message
     let result = classify_command_output(false, "out", "");
     let err = result.unwrap_err();
-    assert!(
-        !err.to_string().is_empty(),
+    assert_ne!(
+        err.to_string().len(),
+        0,
         "error message should not be empty"
     );
     assert!(err.to_string().contains("failure status"));

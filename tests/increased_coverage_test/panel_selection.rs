@@ -40,7 +40,7 @@ fn test_panel_selected_path_for_parent_entry_is_none() -> io::Result<()> {
     panel.select(Some(parent_index));
 
     assert_eq!(panel.selected_path(), None);
-    assert!(panel.action_entry_names().is_empty());
+    assert_eq!(panel.action_entry_names().len(), 0);
 
     Ok(())
 }
@@ -57,7 +57,7 @@ fn test_panel_ensure_selection_and_clear_marks() -> io::Result<()> {
 
     panel.marked.insert(FileName::from("file.txt"));
     panel.clear_marks();
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
 
     Ok(())
 }
@@ -77,7 +77,7 @@ fn test_panel_toggle_mark_selected_ignores_parent_entry() -> io::Result<()> {
     panel.select(Some(parent_index));
 
     assert!(!panel.toggle_mark_selected());
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
 
     Ok(())
 }

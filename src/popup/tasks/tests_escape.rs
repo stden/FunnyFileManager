@@ -54,7 +54,7 @@ fn every_modal_closes_with_esc_and_leaves_the_list_open() {
         assert_eq!(tasks.list().modal(), &Modal::Browse, "{name}");
         assert!(tasks.app.overlay.is_active(), "{name}");
     }
-    assert!(tasks.host.controls().is_empty(), "Esc sends nothing");
+    assert_eq!(tasks.host.controls().len(), 0, "Esc sends nothing");
 }
 
 #[test]
@@ -88,7 +88,7 @@ fn the_renice_confirmation_moves_its_focus_with_tab_and_the_arrows() {
         assert_eq!(confirm.focused(), ReniceButton::Cancel, "{key:?}");
         press(&mut tasks, KeyCode::Char('x'));
         press(&mut tasks, KeyCode::Enter);
-        assert!(tasks.host.controls().is_empty(), "{key:?}");
+        assert_eq!(tasks.host.controls().len(), 0, "{key:?}");
     }
 }
 

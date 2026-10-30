@@ -16,6 +16,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::fileload::{read_regular, Loaded, MAX_SMALL_FILE_BYTES};
+
 /// Far's own default list, in the order it is searched.
 pub const DEFAULT_NAMES: [&str; 2] = ["Descript.ion", "Files.bbs"];
 
@@ -56,22 +58,23 @@ fn search_rank(names: &[String], file: &str) -> Option<(usize, bool)> {
 
 /// The text of the description file at `path`, empty when there is none.
 ///
-/// Anything but a regular file is refused before it is opened: opening a
-/// FIFO blocks until something writes to it, and a listing runs on the
-/// event loop.
+/// Anything but a bounded regular file is refused before it is read: opening a
+/// FIFO blocks until something writes to it, and an unbounded file could exhaust
+/// memory during directory listing.
 fn text_of(path: &Path) -> io::Result<String> {
-    let metadata = match fs::metadata(path) {
-        Ok(metadata) => metadata,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(String::new()),
-        Err(error) => return Err(error),
-    };
-    if !metadata.is_file() {
-        return Err(io::Error::new(
+    match read_regular(path, MAX_SMALL_FILE_BYTES) {
+        Ok(Loaded::Bytes(bytes)) => Ok(String::from_utf8_lossy(&bytes).into_owned()),
+        Ok(Loaded::NotRegular) => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "the description file is not a regular file",
-        ));
+        )),
+        Ok(Loaded::TooLarge(size)) => Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("the description file is too large ({size} bytes)"),
+        )),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(String::new()),
+        Err(error) => Err(error),
     }
-    Ok(String::from_utf8_lossy(&fs::read(path)?).into_owned())
 }
 
 /// Every description `dir` carries, keyed by file name; empty when none of
@@ -138,7 +141,10 @@ pub fn set_description(dir: &Path, names: &[String], name: &str, text: &str) -> 
         ));
     };
     let path = existing_file(dir, names).unwrap_or_else(|| dir.join(first));
-    let existing = text_of(&path)?;
+    let target = crate::file_write::real_target(&path)
+        .map_err(crate::file_write::DanglingLink::into_io_error)?;
+    crate::file_write::ensure_writable(&target)?;
+    let existing = text_of(&target)?;
     let mut lines: Vec<String> = existing
         .lines()
         .filter(|line| {
@@ -153,7 +159,8 @@ pub fn set_description(dir: &Path, names: &[String], name: &str, text: &str) -> 
     if !content.is_empty() {
         content.push('\n');
     }
-    fs::write(path, content)
+    let temp = crate::file_write::temp_beside(&target)?;
+    crate::file_write::persist_over(temp, &target, content.as_bytes())
 }
 
 #[cfg(test)]

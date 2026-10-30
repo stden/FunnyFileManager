@@ -62,5 +62,5 @@ fn popup_test_sources_and_comments_do_not_trigger_dependency_guard() {
             "// crate::handlers is forbidden\n/* crate::handlers */\nconst NOTE: &str = \"crate::handlers\";\nuse crate::ops::handle_copy;\n",
         ),
     ];
-    assert!(compatibility_dependencies(&sources).is_empty());
+    assert_eq!(compatibility_dependencies(&sources).len(), 0);
 }

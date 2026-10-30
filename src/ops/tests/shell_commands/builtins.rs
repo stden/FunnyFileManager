@@ -170,7 +170,7 @@ fn test_execute_command_unmark_clears() -> io::Result<()> {
     app.left_panel.marked.insert(FileName::from("file.txt"));
 
     execute_command(&mut app, "unmark")?;
-    assert!(app.left_panel.marked.is_empty());
+    assert_eq!(app.left_panel.marked.len(), 0);
     Ok(())
 }
 

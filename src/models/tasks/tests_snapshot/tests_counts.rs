@@ -10,5 +10,5 @@ fn the_unreadable_count_and_the_cores_pass_through() {
     let (snapshot, _) = Snapshot::derive(&Baselines::default(), sample);
     assert_eq!(snapshot.unreadable(), 3);
     assert_eq!(snapshot.cores(), CORES);
-    assert!(snapshot.rows().is_empty());
+    assert_eq!(snapshot.rows().len(), 0);
 }

@@ -77,6 +77,22 @@ fn rejects_parent_escape_for_new_files() {
         .expect_err("create must not escape the root either");
 }
 
+#[cfg(windows)]
+#[test]
+fn rejects_windows_verbatim_parent_escape_and_drive_relative_paths() {
+    let dir = TempDir::new().expect("temp dir");
+    let root = root_of(&dir);
+
+    let verbatim_escape = format!(r"{}\missing\..\..\outside.txt", root.display());
+    sanitize_path_create(&root, &verbatim_escape)
+        .expect_err("verbatim path with '..' must not escape the root");
+
+    sanitize_path_create(&root, "C:evil.txt")
+        .expect_err("drive-relative path must not replace the verbatim root");
+    sanitize_path_create(&root, r"\evil.txt")
+        .expect_err("root-relative path without drive must be rejected");
+}
+
 #[test]
 fn accepts_new_file_inside_root() {
     let dir = TempDir::new().expect("temp dir");

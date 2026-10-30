@@ -34,6 +34,24 @@ fn a_hard_linked_file_is_written_through_so_every_name_sees_it() {
     assert_eq!(fs::metadata(&dest).unwrap().nlink(), 2);
 }
 
+#[test]
+fn overwriting_a_hard_link_through_a_symlink_to_same_inode_preserves_contents() {
+    let (root, _source, dest, mut prompt) = overwrite();
+    let hard = root.path().join("hard");
+    fs::hard_link(&dest, &hard).unwrap();
+    let link = root.path().join("link");
+    std::os::unix::fs::symlink(&dest, &link).unwrap();
+    prompt.symlink_contents = true;
+
+    assert!(entry(&link, &hard, &prompt).is_err());
+    assert_eq!(
+        fs::read(&dest).unwrap(),
+        b"old",
+        "must not truncate same inode to 0 bytes"
+    );
+    assert_eq!(fs::read(&hard).unwrap(), b"old");
+}
+
 /// Root hands the file to someone else; other users cannot, and skip.
 #[test]
 fn another_users_writable_file_keeps_its_owner_and_mode() {

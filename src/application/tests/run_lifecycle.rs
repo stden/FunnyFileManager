@@ -115,8 +115,9 @@ fn event_loop_exits_before_drawing_when_the_app_already_quit() -> io::Result<()>
         panic!("a quitting app must not read another event")
     })?;
 
-    assert!(
-        buffer_text(&terminal).trim().is_empty(),
+    assert_eq!(
+        buffer_text(&terminal).trim().len(),
+        0,
         "the loop painted a frame it should never have entered"
     );
     Ok(())

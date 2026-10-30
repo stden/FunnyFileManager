@@ -126,7 +126,7 @@ fn refresh_relists_the_expanded_folders_and_drops_what_disappeared() {
 #[test]
 fn an_empty_default_tree_has_no_rows_and_no_selection() {
     let mut tree = FolderTree::default();
-    assert!(tree.rows().is_empty());
+    assert_eq!(tree.rows().len(), 0);
     assert_eq!(tree.selected(), None);
     tree.down();
     tree.last();

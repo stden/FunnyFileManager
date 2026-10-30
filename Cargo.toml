@@ -48,12 +48,12 @@ aws-config = { version = "1.12.0", optional = true }
 # TLS path (`default-https-client` -> rustls 0.23 + aws-lc, webpki 0.103) is
 # what actually serves requests; the remaining features mirror the defaults.
 aws-sdk-s3 = { version = "1.148.0", default-features = false, features = [
-    "sigv4a",
-    "http-1x",
-    "default-https-client",
+    # sigv4a omitted (pulls in unpatched crypto-bigint 0.5.5)
+    # sigv4a omitted (pulls in unpatched crypto-bigint 0.5.5)
+    "http-1x", "default-https-client",
     "rt-tokio",
 ], optional = true }
-tokio = { version = "1.53.1", features = ["full"], optional = true }
+tokio = { version = "1.53.3", features = ["full"], optional = true }
 
 # NetBox stored sessions: the `.netbox` import is WinSCP's XML. A DOM over a
 # small, size-bounded file is simpler than a streaming parser; its default

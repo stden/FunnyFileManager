@@ -32,6 +32,21 @@ fn a_shell_that_will_not_start_is_recorded_as_an_error() {
 }
 
 #[test]
+fn a_failed_command_keeps_its_entry_marked() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut app = app_at(&dir);
+    app.get_active_panel()
+        .marked
+        .insert(crate::models::FileName::new("a.txt"));
+    run(&mut app, "exit 1");
+    assert_eq!(status_text(&app), "Apply command: 1 of 1 failed");
+    assert!(
+        app.get_active_panel().marked.contains("a.txt"),
+        "failed command must not unmark the entry"
+    );
+}
+
+#[test]
 fn commands_follow_panel_order_and_processed_marks_can_be_restored() {
     let dir = TempDir::new().expect("tempdir");
     let mut app = app_at(&dir);
@@ -59,7 +74,7 @@ fn commands_follow_panel_order_and_processed_marks_can_be_restored() {
         .collect();
     assert_eq!(output, ["b.txt b.txt a.txt", "a.txt a.txt"]);
     let panel = app.get_active_panel();
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
     panel.restore_marks();
     assert_eq!(panel.marked, original);
 }

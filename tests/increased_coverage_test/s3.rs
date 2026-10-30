@@ -27,7 +27,7 @@ fn test_virtual_path_parse_and_display_variants() {
 #[test]
 fn test_list_aws_profiles_always_contains_default() {
     let profiles = list_aws_profiles();
-    assert!(!profiles.is_empty());
+    assert_ne!(profiles.len(), 0);
     assert_eq!(profiles[0].name, "default");
     assert!(profiles.iter().any(|profile| profile.name == "default"));
 }

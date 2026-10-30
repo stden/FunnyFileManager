@@ -15,7 +15,7 @@ fn a_key_the_name_or_mask_dialog_has_no_use_for_changes_nothing() {
     let Overlay::NamePrompt(prompt) = &app.overlay else {
         panic!("still open");
     };
-    assert!(prompt.name().is_empty(), "and nothing was typed");
+    assert_eq!(prompt.name().len(), 0, "and nothing was typed");
 
     app.set_overlay(Overlay::MaskPrompt(MaskPrompt::new(
         MaskPurpose::Select,

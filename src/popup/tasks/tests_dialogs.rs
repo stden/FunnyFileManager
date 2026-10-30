@@ -72,7 +72,7 @@ fn the_confirmation_cancels_on_esc_f10_c_and_its_cancel_button() {
         for code in &keys {
             press(&mut tasks, *code);
         }
-        assert!(tasks.host.controls().is_empty(), "{keys:?}");
+        assert_eq!(tasks.host.controls().len(), 0, "{keys:?}");
         assert_eq!(tasks.list().modal(), &Modal::Browse, "{keys:?}");
     }
 }
@@ -101,7 +101,7 @@ fn a_refused_target_is_a_notice_and_no_dialog() {
         tasks.list().notice(),
         Some(Notice::Refused(ControlRefusal::OwnProcess))
     );
-    assert!(tasks.host.controls().is_empty());
+    assert_eq!(tasks.host.controls().len(), 0);
 }
 
 #[test]

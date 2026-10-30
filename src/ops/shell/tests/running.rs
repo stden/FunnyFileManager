@@ -58,7 +58,7 @@ fn test_run_shell_command_uses_current_dir() {
     let output = run_shell_command(cmd, temp.path()).expect("run");
     let stdout = String::from_utf8_lossy(&output.stdout);
     // On Windows, canonicalized paths may differ slightly, so just check non-empty
-    assert!(!stdout.trim().is_empty());
+    assert_ne!(stdout.trim().len(), 0);
 }
 
 #[test]

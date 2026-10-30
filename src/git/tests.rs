@@ -185,7 +185,13 @@ fn dirty_repos_caches_and_invalidates_child_repositories() {
         ..DirEntry::default()
     }];
     let expected = std::collections::BTreeSet::from([FileName::from("repo-a")]);
-    assert_eq!(dirty_repos(parent.path(), &entries), expected);
-    assert_eq!(dirty_repos(parent.path(), &entries), expected);
+    assert_eq!(
+        inspect_dirty_repos(parent.path(), &entries),
+        (expected.clone(), Vec::new())
+    );
+    assert_eq!(
+        inspect_dirty_repos(parent.path(), &entries),
+        (expected, Vec::new())
+    );
     invalidate_repo_cache_for(&child);
 }

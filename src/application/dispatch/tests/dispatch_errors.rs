@@ -158,8 +158,9 @@ fn test_go_root_clears_marks() -> io::Result<()> {
         app.left_panel.path,
         PathBuf::from(if cfg!(windows) { "C:\\" } else { "/" })
     );
-    assert!(
-        app.left_panel.marked.is_empty(),
+    assert_eq!(
+        app.left_panel.marked.len(),
+        0,
         "marks must not survive the jump to root: {:?}",
         app.left_panel.marked
     );

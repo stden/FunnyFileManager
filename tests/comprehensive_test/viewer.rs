@@ -7,8 +7,8 @@ use super::*;
 #[test]
 fn test_viewer_default() {
     let v = Viewer::default();
-    assert!(v.title().is_empty());
-    assert!(v.lines.is_empty());
+    assert_eq!(v.title(), "");
+    assert_eq!(v.lines.len(), 0);
     assert_eq!(v.scroll, ScrollTop::TOP);
 }
 

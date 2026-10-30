@@ -59,7 +59,7 @@ fn export_includes_nested_groups() {
     save_atomic(&db, &path, key).expect("save");
 
     let exported = export(&path, "pw", None).expect("export");
-    assert!(exported.root.entries.is_empty());
+    assert_eq!(exported.root.entries.len(), 0);
     assert_eq!(exported.root.groups.len(), 1);
     assert_eq!(exported.root.groups[0].name, "Work");
     assert_eq!(exported.root.groups[0].entries.len(), 1);

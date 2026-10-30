@@ -80,10 +80,7 @@ fn enter_on_a_folder_that_vanished_reports_and_keeps_the_old_listing() {
         "a file panel again all the same"
     );
     assert_eq!(app.left_panel.path, root.path());
-    assert!(
-        !app.status.to_string().is_empty(),
-        "the failure is reported"
-    );
+    assert_ne!(app.status.to_string().len(), 0, "the failure is reported");
 }
 
 #[test]

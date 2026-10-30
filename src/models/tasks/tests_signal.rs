@@ -18,7 +18,7 @@ fn every_posix_signal_is_offered_sigterm_first() {
 #[cfg(not(unix))]
 #[test]
 fn no_signal_is_offered_off_unix() {
-    assert!(Signal::OFFERED.is_empty());
+    assert_eq!(Signal::OFFERED.len(), 0);
 }
 
 #[test]

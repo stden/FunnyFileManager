@@ -49,5 +49,5 @@ fn abort_hook_rule_reads_code_order_not_comments() {
         "src/bootstrap.rs",
         "use crate::terminal::TerminalSession;\nuse std::panic;\n\nfn run_session() {\n    panic::set_hook(Box::new(|_| {}));\n    let session = TerminalSession::enter();\n}\n",
     );
-    assert!(abort_hook_violations(&imported).is_empty());
+    assert_eq!(abort_hook_violations(&imported).len(), 0);
 }

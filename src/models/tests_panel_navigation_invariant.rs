@@ -72,7 +72,7 @@ fn no_production_code_assigns_a_panel_path_directly() {
     let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
     let mut files = Vec::new();
     collect_rs_files(&src, &mut files);
-    assert!(!files.is_empty(), "no .rs files found under src/");
+    assert_ne!(files.len(), 0, "no .rs files found under src/");
 
     let mut offenders: Vec<String> = files
         .iter()
@@ -98,8 +98,9 @@ fn no_production_code_assigns_a_panel_path_directly() {
         .collect();
     offenders.sort();
 
-    assert!(
-        offenders.is_empty(),
+    assert_eq!(
+        offenders.len(),
+        0,
         "panels must change directory through Panel::navigate_to, which drops \
          the name-keyed marks and rolls back a failed listing:\n{}",
         offenders.join("\n")

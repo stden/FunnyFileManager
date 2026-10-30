@@ -78,7 +78,7 @@ fn test_panel_single_entry() {
     let temp = TempDir::new().unwrap();
     // Only ".." entry since path has parent
     let mut panel = Panel::new(temp.path().to_path_buf()).unwrap();
-    assert!(!panel.entries.is_empty());
+    assert_ne!(panel.entries.len(), 0);
     panel.select(Some(0));
     panel.next();
     // With one entry, wraps back to 0
@@ -137,7 +137,7 @@ fn test_toggle_mark_dotdot_returns_false() {
     panel.select(Some(0)); // ".."
     let result = panel.toggle_mark_selected();
     assert!(!result, "marking '..' should return false");
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
 }
 
 #[test]
@@ -165,11 +165,11 @@ fn test_marks_cleared_on_enter_directory() {
         .unwrap();
     panel.select(Some(file_idx));
     panel.toggle_mark_selected();
-    assert!(!panel.marked.is_empty());
+    assert_ne!(panel.marked.len(), 0);
 
     // Enter subdirectory
     let sub_idx = panel.entries.iter().position(|e| e.name == "sub").unwrap();
     panel.select(Some(sub_idx));
     panel.enter().unwrap();
-    assert!(panel.marked.is_empty(), "marks should clear on dir change");
+    assert_eq!(panel.marked.len(), 0, "marks should clear on dir change");
 }

@@ -28,7 +28,7 @@ fn every_settings_page_has_a_plain_title() {
     ];
     for page in pages {
         let title = page.title();
-        assert!(!title.is_empty(), "{page:?}");
+        assert_ne!(title.len(), 0, "{page:?}");
         assert!(!title.contains('&'), "{title}");
     }
 }

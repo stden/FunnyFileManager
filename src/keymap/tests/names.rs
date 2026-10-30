@@ -64,10 +64,10 @@ fn every_row_says_what_it_does_and_every_group_has_a_title() {
     for screen in screens() {
         for row in &screen.rows {
             let action = format!("{}.{}", screen.context, row.name);
-            assert!(!row.summary.trim().is_empty(), "{action} has no summary");
+            assert_ne!(row.summary.trim().len(), 0, "{action} has no summary");
             assert_eq!(row.summary.trim(), row.summary, "{action}");
             assert!(!row.summary.ends_with('.'), "{action}: a summary is a line");
-            assert!(!row.group.trim().is_empty(), "{action} is in no group");
+            assert_ne!(row.group.trim().len(), 0, "{action} is in no group");
         }
     }
 }
@@ -79,14 +79,16 @@ fn an_origin_that_names_a_key_names_one() {
             let action = format!("{}.{}", screen.context, row.name);
             match row.origin {
                 Origin::Far(key) | Origin::Htop(key) | Origin::Bash(key) => {
-                    assert!(!key.trim().is_empty(), "{action}");
+                    assert_ne!(key.trim().len(), 0, "{action}");
                 }
-                Origin::FarSame => assert!(
-                    !row.defaults.is_empty(),
+                Origin::FarSame => assert_ne!(
+                    row.defaults.len(),
+                    0,
                     "{action}: Far's key is the default, and there is none"
                 ),
-                Origin::FarNoKey => assert!(
-                    row.defaults.is_empty(),
+                Origin::FarNoKey => assert_eq!(
+                    row.defaults.len(),
+                    0,
                     "{action}: Far gives it no key, and it has one"
                 ),
                 Origin::Ffm => {}

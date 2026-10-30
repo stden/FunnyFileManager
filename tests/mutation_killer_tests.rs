@@ -16,7 +16,7 @@ use tempfile::TempDir;
 fn test_format_size_mutations() {
     // Kill "replace format_size -> String with String::new()"
     let result = FileSize::from_bytes(1000).to_string();
-    assert!(!result.is_empty());
+    assert_ne!(result, "");
 
     // Kill "replace format_size -> String with 'xyzzy'.into()"
     assert!(!FileSize::from_bytes(1000).to_string().contains("xyzzy"));
@@ -74,7 +74,7 @@ fn test_unique_destination_mutations() -> io::Result<()> {
 
     // Kill "replace unique_destination -> PathBuf with Default::default()"
     let result = unique_destination(temp_dir.path(), OsStr::new("test.txt"))?;
-    assert!(!result.as_os_str().is_empty());
+    assert_ne!(result.as_os_str().len(), 0);
     assert_ne!(result, PathBuf::default());
 
     // Kill mutations in match guard for extension handling. Only the file

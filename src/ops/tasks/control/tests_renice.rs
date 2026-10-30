@@ -50,13 +50,10 @@ fn a_lower_asks_a_user_first_and_renices_only_when_confirmed() {
     let mut tasks = TaskApp::open(vec![at_nice(4242, "firefox", 5)], Privilege::User);
     step_nice(&mut tasks.app, NiceStep::Lower);
     assert!(matches!(tasks.list().modal(), Modal::Renice(_)));
-    assert!(
-        tasks.host.controls().is_empty(),
-        "nothing before the answer"
-    );
+    assert_eq!(tasks.host.controls().len(), 0, "nothing before the answer");
     answer_renice(&mut tasks.app, ReniceButton::Cancel);
     assert_eq!(tasks.list().modal(), &Modal::Browse);
-    assert!(tasks.host.controls().is_empty());
+    assert_eq!(tasks.host.controls().len(), 0);
     step_nice(&mut tasks.app, NiceStep::Lower);
     answer_renice(&mut tasks.app, ReniceButton::Renice);
     assert_eq!(
@@ -93,7 +90,7 @@ fn a_step_past_a_bound_is_a_notice_and_no_call_even_for_a_user() {
         tasks.list().notice(),
         Some(Notice::Refused(ControlRefusal::AtLimit(nice(19))))
     );
-    assert!(tasks.host.controls().is_empty());
+    assert_eq!(tasks.host.controls().len(), 0);
 }
 
 #[test]
@@ -176,5 +173,5 @@ fn the_priority_form_for_nothing_is_a_notice() {
     );
     set_nice(&mut tasks.app);
     answer_renice(&mut tasks.app, ReniceButton::Renice);
-    assert!(tasks.host.controls().is_empty());
+    assert_eq!(tasks.host.controls().len(), 0);
 }

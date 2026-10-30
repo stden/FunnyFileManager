@@ -43,7 +43,10 @@ impl FfmServer {
         let path = self.safe_dir(path_str)?;
 
         let mut bookmarks = load_bookmarks();
-        if !bookmarks.contains_key(&params.name) && bookmarks.len() >= 1000 {
+        if let Some(existing) = bookmarks.get(&params.name) {
+            let existing_str = existing.as_str().unwrap_or("");
+            self.safe_path_create(existing_str)?;
+        } else if bookmarks.len() >= 1000 {
             return Err(McpError::invalid_params(
                 "maximum of 1000 bookmarks reached",
                 None,

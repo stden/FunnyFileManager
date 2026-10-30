@@ -79,6 +79,6 @@ fn test_cmd_mark_all_empty() -> io::Result<()> {
     app.set_overlay(Overlay::CommandLine("mark all".into()));
     process_popup_input(&mut app, key_event(KeyCode::Enter));
 
-    assert!(app.left_panel.marked.is_empty());
+    assert_eq!(app.left_panel.marked.len(), 0);
     Ok(())
 }

@@ -56,7 +56,7 @@ fn a_step_moves_each_target_from_its_own_value_and_stops_at_the_bounds() {
 #[test]
 fn a_step_of_the_cursor_alone_at_its_bound_says_why_nothing_changes() {
     let plan = listing(vec![at_nice(3, "top", 19)]).plan_step(NiceStep::Lower);
-    assert!(plan.changes().is_empty());
+    assert_eq!(plan.changes().len(), 0);
     assert_eq!(plan.refusal(), Some(ControlRefusal::AtLimit(Niceness::MAX)));
     let nothing = listing(Vec::new()).plan_step(NiceStep::Raise);
     assert_eq!(nothing.refusal(), Some(ControlRefusal::NoTarget));

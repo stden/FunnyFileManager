@@ -130,8 +130,11 @@ pub fn copy_link(src: &Path, dst: &Path, rules: CopyRules) -> io::Result<()> {
     }
     let kept = fs::symlink_metadata(src).and_then(|source| keep_times(dst, &source));
     if kept.is_err() {
-        // Best effort: the times' error is the one worth reporting.
-        drop(fs::remove_file(dst));
+        // Best effort: the times' error is the one worth reporting. On Windows a
+        // directory symlink requires `remove_dir` rather than `remove_file`.
+        if fs::remove_file(dst).is_err() {
+            drop(fs::remove_dir(dst));
+        }
     } else {
         crate::progress::file_copied();
     }

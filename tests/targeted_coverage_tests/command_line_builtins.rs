@@ -58,13 +58,13 @@ fn test_command_line_mark_all_and_unmark() -> io::Result<()> {
     // Mark all
     app.set_overlay(Overlay::CommandLine("mark all".into()));
     process_popup_input(&mut app, key(KeyCode::Enter));
-    assert!(!app.left_panel.marked.is_empty());
+    assert_ne!(app.left_panel.marked.len(), 0);
     assert!(app.status_text().contains("Marked"));
 
     // Unmark
     app.set_overlay(Overlay::CommandLine("unmark".into()));
     process_popup_input(&mut app, key(KeyCode::Enter));
-    assert!(app.left_panel.marked.is_empty());
+    assert_eq!(app.left_panel.marked.len(), 0);
     assert!(app.status_text().contains("Unmarked"));
 
     Ok(())

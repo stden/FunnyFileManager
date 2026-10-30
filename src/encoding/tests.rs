@@ -48,7 +48,7 @@ fn all_codecs_round_trip_representable_text() {
         };
         let bytes = encoding.encode(text).expect("encode");
         assert_eq!(encoding.decode(&bytes).expect("decode"), text);
-        assert!(!encoding.label().is_empty());
+        assert_ne!(encoding.label().len(), 0);
     }
 }
 

@@ -37,7 +37,7 @@ fn a_short_token_offers_only_the_known_commands() {
             LspSettings::catalog(),
             &programs,
         );
-        assert!(!rows.is_empty(), "{typed:?}");
+        assert_ne!(rows.len(), 0, "{typed:?}");
         assert!(
             rows.iter()
                 .all(|row| row.hint.as_deref() == Some("catalog")),

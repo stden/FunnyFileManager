@@ -45,7 +45,7 @@ fn test_marked_files_all_removed() {
     fs::remove_file(&file).unwrap();
     panel.load_entries().unwrap();
 
-    assert!(panel.marked.is_empty(), "all marks should be cleared");
+    assert_eq!(panel.marked.len(), 0, "all marks should be cleared");
 }
 
 // ---------------------------------------------------------------------------
@@ -132,5 +132,5 @@ fn test_panel_clear_marks() {
     assert_eq!(panel.marked.len(), 2);
 
     panel.clear_marks();
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
 }

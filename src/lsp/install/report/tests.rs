@@ -37,7 +37,7 @@ fn an_absolute_command_is_configured_with_its_own_arguments() {
         resolve(&missing, None, root.path(), &packages),
         Availability::NotInstalled(NotInstalled::AutoInstallOff)
     );
-    assert!(packages.calls.borrow().is_empty());
+    assert_eq!(packages.calls.borrow().len(), 0);
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn relative_commands_are_resolved_from_the_project_root() {
             args: vec!["--stdio".into()],
         })
     );
-    assert!(packages.calls.borrow().is_empty());
+    assert_eq!(packages.calls.borrow().len(), 0);
 }
 
 #[test]
@@ -143,7 +143,7 @@ fn java_inventory_uses_the_current_runtime_and_canonical_workspace_without_execu
             .path()
             .join(super::super::launch::executable("java"))
     );
-    assert!(moved.calls.borrow().is_empty());
+    assert_eq!(moved.calls.borrow().len(), 0);
 }
 
 #[path = "tests_availability.rs"]

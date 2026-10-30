@@ -71,7 +71,7 @@ fn the_arrows_leave_the_text_field_alone() {
 fn every_access_right_has_a_label_and_an_index() {
     for (index, right) in AccessRights::ALL.into_iter().enumerate() {
         assert_eq!(right.index(), index);
-        assert!(!AccessRights::LABELS[index].is_empty());
+        assert_ne!(AccessRights::LABELS[index].len(), 0);
     }
 }
 

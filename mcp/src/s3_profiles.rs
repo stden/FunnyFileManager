@@ -46,13 +46,19 @@ fn read_names(directory: &Path) -> Vec<String> {
 }
 
 fn merge_regions(profiles: &mut [Value], config: &str) {
-    let mut current_profile = "";
+    let mut current_profile: Option<&str> = None;
     for line in config.lines().map(str::trim) {
         if let Some(name) = section_name(line) {
-            current_profile = name.strip_prefix("profile ").unwrap_or(name);
-        } else if let Some(region) = line.strip_prefix("region") {
-            let region = region.trim_start_matches(['=', ' ']).trim();
-            set_region(profiles, current_profile, region);
+            current_profile = if name == "default" {
+                Some("default")
+            } else {
+                name.strip_prefix("profile ").map(str::trim)
+            };
+        } else if let (Some(profile), Some((key, value))) = (current_profile, line.split_once('='))
+        {
+            if key.trim() == "region" {
+                set_region(profiles, profile, value.trim());
+            }
         }
     }
 }

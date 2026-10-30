@@ -164,7 +164,12 @@ pub(super) fn are_hard_links(source: &Path, dest: &Path) -> bool {
     source.dev() == dest.dev() && source.ino() == dest.ino()
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+pub(super) fn are_hard_links(source: &Path, dest: &Path) -> bool {
+    crate::ops::panel_details::windows::are_same_hard_link(source, dest)
+}
+
+#[cfg(not(any(unix, windows)))]
 pub(super) const fn are_hard_links(_source: &Path, _dest: &Path) -> bool {
     false
 }

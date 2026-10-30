@@ -40,6 +40,7 @@ fn hidden_colour_and_free_space_come_from_the_supplied_snapshot() -> io::Result<
             hidden_names: BTreeSet::from([FileName::from("secret.txt")]),
             dirty_repos: BTreeSet::new(),
             available_space: Some(FileSize::from_bytes(1_048_576)),
+            ..PanelMetadata::default()
         },
     });
 
@@ -69,6 +70,7 @@ fn dirty_git_repository_folder_uses_dirty_repo_colour_while_clean_stays_white() 
             hidden_names: BTreeSet::new(),
             dirty_repos: BTreeSet::from([FileName::from("dirty-repo")]),
             available_space: None,
+            ..PanelMetadata::default()
         },
     });
     for view in [

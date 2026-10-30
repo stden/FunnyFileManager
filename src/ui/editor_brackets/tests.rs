@@ -89,19 +89,19 @@ fn a_pair_spanning_lines_is_found_in_both_directions() {
 
 #[test]
 fn nothing_is_highlighted_without_a_bracket_at_or_before_the_caret() {
-    assert!(highlighted(&editor("abc(d)", 0, 1), 0, 0).is_empty());
-    assert!(highlighted(&editor("abc", 0, 0), 0, 0).is_empty());
+    assert_eq!(highlighted(&editor("abc(d)", 0, 1), 0, 0).len(), 0);
+    assert_eq!(highlighted(&editor("abc", 0, 0), 0, 0).len(), 0);
 }
 
 #[test]
 fn an_unmatched_bracket_highlights_nothing() {
-    assert!(highlighted(&editor("a(b", 0, 1), 0, 0).is_empty());
-    assert!(highlighted(&editor("a)b", 0, 1), 0, 0).is_empty());
+    assert_eq!(highlighted(&editor("a(b", 0, 1), 0, 0).len(), 0);
+    assert_eq!(highlighted(&editor("a)b", 0, 1), 0, 0).len(), 0);
 }
 
 #[test]
 fn a_caret_on_a_line_past_the_end_highlights_nothing() {
-    assert!(highlighted(&editor("()", 5, 0), 0, 0).is_empty());
+    assert_eq!(highlighted(&editor("()", 5, 0), 0, 0).len(), 0);
 }
 
 #[test]
@@ -118,7 +118,7 @@ fn horizontal_scroll_shifts_the_highlight_and_drops_what_falls_off() {
     let text = "(abcdefghijklmnop)";
     // Two columns scrolled off: the '(' is gone, the ')' at 17 is past the
     // twelve visible cells.
-    assert!(highlighted(&editor(text, 0, 0), 0, 2).is_empty());
+    assert_eq!(highlighted(&editor(text, 0, 0), 0, 2).len(), 0);
     // Eight scrolled off: the ')' lands on cell 17 - 8 = 9.
     assert_eq!(highlighted(&editor(text, 0, 17), 0, 8), [(9, 0)]);
 }

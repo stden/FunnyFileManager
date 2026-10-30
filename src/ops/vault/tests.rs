@@ -149,8 +149,9 @@ fn enter_prefers_vault_over_executable_flag() {
         app.kdbx_session().is_some(),
         "the vault browser must open, not the program"
     );
-    assert!(
-        app.console.visible(usize::MAX).is_empty(),
+    assert_eq!(
+        app.console.visible(usize::MAX).len(),
+        0,
         "nothing may have been executed"
     );
 }

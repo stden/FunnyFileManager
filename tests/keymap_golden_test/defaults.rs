@@ -83,7 +83,7 @@ fn every_context_of_the_tables_is_held_to_its_defaults() {
 fn every_key_an_old_resolver_binds_is_a_default_with_the_same_command() {
     for (context, defaults) in contexts() {
         let bound = recorded(context, &["bound"]).expect("the golden table");
-        assert!(!bound.is_empty(), "{context} binds nothing");
+        assert_ne!(bound.len(), 0, "{context} binds nothing");
         for (chord, result) in bound {
             if context == "tree_panel" && result == TREE_REFUSAL {
                 assert_eq!(defaults.get(&chord), None, "tree_panel: {chord}");

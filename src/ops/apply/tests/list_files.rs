@@ -27,7 +27,7 @@ fn a_list_that_cannot_be_written_is_reported_and_nothing_runs() {
         "{}",
         status_text(&app)
     );
-    assert!(app.console.is_empty(), "nothing was echoed or run");
+    assert_eq!(app.console.len(), 0, "nothing was echoed or run");
     assert!(!dir.path().join("copy").exists());
 }
 

@@ -16,7 +16,7 @@ mod spawn;
 pub(super) use error::ShellError;
 use pipes::drain;
 pub(super) use pipes::{collect_until, drain_echoing};
-use spawn::{kill_shell_tree, spawn_shell};
+use spawn::{detach_shell_tree, kill_shell_tree, spawn_shell};
 
 /// Start an interactive shell without waiting for it or sharing the TUI's I/O.
 pub(super) fn spawn_console(command: &ShellCommand, current_dir: &Path) -> io::Result<()> {
@@ -84,6 +84,7 @@ fn run_until(
     let deadline = Instant::now() + timeout;
     let status = loop {
         if let Some(status) = child.try_wait().map_err(ShellError::Launch)? {
+            detach_shell_tree(&child);
             break status;
         }
         if let Some(reason) = stop_reason(deadline, timeout, &mut cancel_requested) {

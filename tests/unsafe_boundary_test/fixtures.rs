@@ -17,7 +17,7 @@ fn an_allowlisted_boundary_passes() {
     let source = "#[allow(unsafe_code)]\nfn drives() -> u32 {\n    unsafe { mask() }\n}\n";
     let sites = sites_in("fixture", source);
     assert_eq!(sites.len(), 2, "{sites:?}");
-    assert!(violations("src/platform/windows.rs", &sites).is_empty());
+    assert_eq!(violations("src/platform/windows.rs", &sites).len(), 0);
 }
 
 #[test]
@@ -32,8 +32,8 @@ fn an_allow_outside_the_allowlist_fails() {
 #[test]
 fn a_file_without_unsafe_passes_anywhere() {
     let sites = sites_in("fixture", "fn safe() -> u8 { 1 }\n");
-    assert!(violations("src/models/fixture.rs", &sites).is_empty());
-    assert!(violations("mcp/src/main.rs", &sites).is_empty());
+    assert_eq!(violations("src/models/fixture.rs", &sites).len(), 0);
+    assert_eq!(violations("mcp/src/main.rs", &sites).len(), 0);
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn lookalikes_are_not_findings() {
     ];
     for source in cases {
         let sites = sites_in("fixture", source);
-        assert!(sites.is_empty(), "{source:?} reported {sites:?}");
+        assert_eq!(sites.len(), 0, "{source:?} reported {sites:?}");
     }
 }
 

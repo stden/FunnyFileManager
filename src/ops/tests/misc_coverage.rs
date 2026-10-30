@@ -27,7 +27,7 @@ fn test_get_source_paths_nothing() -> io::Result<()> {
     app.left_panel.select(None);
 
     let paths = get_source_paths(&app);
-    assert!(paths.is_empty());
+    assert_eq!(paths.len(), 0);
     Ok(())
 }
 

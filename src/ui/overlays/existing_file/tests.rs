@@ -92,7 +92,7 @@ fn a_folder_reads_as_a_folder_and_an_unknown_time_as_a_question_mark() {
         PathBuf::from("s"),
         Vec::new(),
     );
-    assert!(drawn(&empty).trim().is_empty());
+    assert_eq!(drawn(&empty).trim().len(), 0);
 }
 
 #[test]

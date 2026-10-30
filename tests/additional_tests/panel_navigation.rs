@@ -63,7 +63,7 @@ fn test_toggle_mark_dotdot_is_noop() {
 
     let result = panel.toggle_mark_selected();
     assert!(!result, "marking '..' should return false");
-    assert!(panel.marked.is_empty());
+    assert_eq!(panel.marked.len(), 0);
 }
 
 #[test]

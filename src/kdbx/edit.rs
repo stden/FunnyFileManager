@@ -162,6 +162,7 @@ impl EntryForm {
     /// Overwrite the draft secret now rather than waiting for `Drop`.
     pub(super) fn zeroize(&mut self) {
         self.password.zeroize();
+        crate::kdbx::secret::zeroize_string(&mut self.notes);
     }
 
     /// The focused field's text, or `None` when the password has the cursor —
@@ -174,5 +175,11 @@ impl EntryForm {
             EditField::Notes => Some(&mut self.notes),
             EditField::Password => None,
         }
+    }
+}
+
+impl Drop for EntryForm {
+    fn drop(&mut self) {
+        crate::kdbx::secret::zeroize_string(&mut self.notes);
     }
 }

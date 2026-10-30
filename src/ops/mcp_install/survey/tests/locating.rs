@@ -72,7 +72,9 @@ fn a_server_whose_path_is_not_unicode_is_named_but_not_found() {
     let odd = machine
         .home()
         .join(OsString::from_vec(b"bin-\xff".to_vec()));
-    fs::create_dir(&odd).unwrap();
+    if !crate::test_support::filesystem::non_unicode_name(fs::create_dir(&odd)).unwrap() {
+        return;
+    }
     crate::test_support::write_executable(&odd.join("ffm-mcp"), b"x").unwrap();
     let mut host = machine.host();
     host.exe_dir = Some(odd.clone());

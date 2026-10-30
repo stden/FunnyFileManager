@@ -13,7 +13,7 @@ fn a_file_name_looks_up_by_str_without_allocating() {
     assert!(marks.contains("readme.md"));
     assert!(!marks.contains("other.md"));
     assert!(marks.remove("readme.md"));
-    assert!(marks.is_empty());
+    assert_eq!(marks.len(), 0);
 }
 
 #[test]
