@@ -18,6 +18,7 @@ use crate::WritableTestBackend;
 
 mod apply;
 mod buttons;
+mod editor_body;
 mod editor_dialogs;
 mod lsp_editor;
 mod menu_bar;

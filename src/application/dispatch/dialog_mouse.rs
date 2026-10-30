@@ -23,6 +23,7 @@ use crate::mouse::{DialogTarget, Wheel};
 use crate::popup;
 
 mod button_keys;
+mod editor;
 mod menus;
 mod rows;
 mod tasks;
@@ -134,6 +135,9 @@ fn click_special_dialog<B: Backend + Write>(
     column: u16,
     row: u16,
 ) -> bool {
+    if editor::click_editor_body(terminal, app, column, row) {
+        return true;
+    }
     if click_sort_menu(terminal, app, column, row)
         || click_choice_menu(terminal, app, column, row)
         || click_plugin_commands(terminal, app, column, row)
