@@ -109,7 +109,7 @@ fn test_viewer_overlay_erases_the_panels_behind_it() {
 ///
 /// Root cause: ratatui alternates between two render buffers.  Frame 1 writes
 /// RESIDUE symbols into buffer A.  Frame 2 (first panel frame) uses buffer B
-/// (clean).  Frame 3 (second panel frame) reuses buffer A; render_backdrop
+/// (clean).  Frame 3 (second panel frame) reuses buffer A; `render_backdrop`
 /// calls `set_style()` which sets the background colour but does NOT clear the
 /// symbol, so RESIDUE symbols survive unless `Clear` is rendered first.
 #[test]
@@ -144,9 +144,7 @@ fn test_panel_has_no_editor_residue_after_two_panel_frames() {
     terminal.draw(|f| ui(f, &mut app)).unwrap();
 
     let buf = terminal.backend().buffer();
-    let row: String = (0..buf.area.width)
-        .map(|x| buf[(x, 10)].symbol())
-        .collect();
+    let row: String = (0..buf.area.width).map(|x| buf[(x, 10)].symbol()).collect();
     assert!(
         !row.contains("RESIDUE"),
         "editor residue visible on panel after two panel frames: {row:?}"

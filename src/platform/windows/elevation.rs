@@ -22,6 +22,28 @@ use windows_sys::Win32::UI::WindowsAndMessaging::SW_HIDE;
 
 use super::nul_terminated;
 
+/// Open a document using the registered Windows handler, without waiting for it.
+#[cfg(not(test))]
+#[allow(unsafe_code, reason = "std has no Windows file association API")]
+pub fn open_associated(path: &Path) -> io::Result<()> {
+    let verb = nul_terminated(OsStr::new("open"))?;
+    let file = nul_terminated(path.as_os_str())?;
+    let mut info = SHELLEXECUTEINFOW {
+        cbSize: u32::try_from(size_of::<SHELLEXECUTEINFOW>()).unwrap_or(0),
+        fMask: SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI,
+        lpVerb: verb.as_ptr(),
+        lpFile: file.as_ptr(),
+        nShow: windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL,
+        ..SHELLEXECUTEINFOW::default()
+    };
+    // SAFETY: both strings are NUL-terminated and live through this call;
+    // info is sized correctly, and no process handle is requested.
+    if unsafe { ShellExecuteExW(&raw mut info) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
 const ELEVATION_LAUNCH_MASK: u32 = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
 
 /// Whether this process runs with an administrator's full rights. `false`

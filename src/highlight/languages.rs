@@ -7,7 +7,9 @@ use super::shells::{BATCH, POWERSHELL, SHELL};
 use super::{LineMode, Syntax};
 
 mod kotlin;
+mod typst;
 use kotlin::KOTLIN;
+use typst::TYPST;
 
 const RUST: Syntax = Syntax {
     mode: LineMode::Tokens,
@@ -116,26 +118,6 @@ const C_LIKE: Syntax = Syntax {
     types: &[
         "bool", "char", "double", "float", "int", "long", "short", "signed", "unsigned", "size_t",
         "string", "number", "boolean", "any", "object",
-    ],
-    meta_prefix: Some('#'),
-    section_headers: false,
-    variable_prefix: None,
-    word_hyphens: false,
-    switch_prefix: None,
-};
-
-const TYPST: Syntax = Syntax {
-    mode: LineMode::Tokens,
-    line_comments: &["//"],
-    block_comments: &[("/*", "*/")],
-    quotes: &['"'],
-    keywords: &[
-        "and", "as", "auto", "break", "continue", "else", "false", "for", "if", "import",
-        "include", "in", "let", "none", "not", "or", "return", "set", "show", "true", "while",
-    ],
-    types: &[
-        "align", "array", "bool", "color", "content", "dict", "direction", "float", "fraction",
-        "int", "length", "ratio", "relative", "str",
     ],
     meta_prefix: Some('#'),
     section_headers: false,

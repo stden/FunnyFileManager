@@ -27,6 +27,8 @@ pub(super) struct Process {
     outgoing: Option<SyncSender<Value>>,
     incoming: Option<Receiver<Signal>>,
     threads: Vec<JoinHandle<()>>,
+    stderr_task: Option<JoinHandle<Option<&'static str>>>,
+    terminated: bool,
     #[cfg(windows)]
     job: Option<std::os::windows::io::OwnedHandle>,
 }
@@ -47,6 +49,8 @@ impl Process {
             outgoing: None,
             incoming: None,
             threads: Vec::new(),
+            stderr_task: None,
+            terminated: false,
             #[cfg(windows)]
             job: None,
         };
@@ -100,7 +104,7 @@ impl Process {
                 .name("ffm-lsp-write".into())
                 .spawn(move || writer(output, &messages, &errors))?,
         );
-        self.threads.push(
+        self.stderr_task = Some(
             thread::Builder::new()
                 .name("ffm-lsp-stderr".into())
                 .spawn(move || drain_stderr(stderr))?,
@@ -126,17 +130,42 @@ impl Process {
     pub fn exited(&mut self) -> bool {
         exited(&mut self.child)
     }
+
+    pub fn take_toolchain_hint(&mut self) -> Option<&'static str> {
+        self.terminate_once();
+        if let Ok(hint) = self.stderr_task.take()?.join() {
+            hint
+        } else {
+            crate::diagnostics::log_error("LSP I/O task panicked");
+            None
+        }
+    }
+
+    fn terminate_once(&mut self) {
+        if self.terminated {
+            return;
+        }
+        self.terminated = true;
+        #[cfg(windows)]
+        {
+            self.job.take();
+        }
+        terminate(&mut self.child);
+    }
 }
 
 impl Drop for Process {
     fn drop(&mut self) {
         self.outgoing.take();
         self.incoming.take(); // Unblock a reader waiting on a full event channel.
-        #[cfg(windows)]
+        self.terminate_once();
+        if self
+            .stderr_task
+            .take()
+            .is_some_and(|task| task.join().is_err())
         {
-            self.job.take();
+            crate::diagnostics::log_error("LSP I/O task panicked");
         }
-        terminate(&mut self.child);
         for task in self.threads.drain(..) {
             if task.join().is_err() {
                 crate::diagnostics::log_error("LSP I/O task panicked");

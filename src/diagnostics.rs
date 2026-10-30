@@ -12,6 +12,9 @@ use crossterm::event::KeyCode;
 
 use crate::action::Action;
 
+mod interaction;
+pub use interaction::Interaction;
+
 /// Whether a run with no `FFM_LOG` logs: the file manager itself does (see
 /// [`log_by_default`]); a test or a tool built on the library does not.
 static ON_BY_DEFAULT: AtomicBool = AtomicBool::new(false);

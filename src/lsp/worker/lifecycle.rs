@@ -32,9 +32,14 @@ pub(super) struct Host {
     pub(super) idle: Vec<Connection>,
     trusted: Vec<PathBuf>,
     pub(super) cache: Option<PathBuf>,
+    pub(super) missing: Vec<(String, ServerSettings, &'static str)>,
 }
 
 impl Host {
+    pub(super) const fn is_active(&self) -> bool {
+        matches!(self.session, Session::Preparing(_) | Session::Running(_)) || !self.idle.is_empty()
+    }
+
     pub fn command(&mut self, command: Command, events: &SyncSender<Envelope>) {
         match command {
             Command::Open(language, settings, snapshot) => {
@@ -93,45 +98,37 @@ impl Host {
     }
 
     fn start(&mut self, start: Start, events: &SyncSender<Envelope>) {
+        if let Some(message) = self.cached_missing(&start.language, &start.configured) {
+            report(
+                events,
+                start.snapshot.stamp.id,
+                Event::InstallationFailed(message),
+            );
+            return;
+        }
         if let Some(mut connection) = self.take_idle(&start) {
             connection.reopen(start.snapshot, events);
             self.session = Session::Running(Box::new(connection));
             return;
         }
-        let owner = start.snapshot.stamp.id;
-        report(events, owner, Event::State(ServerState::Starting));
-        match Connection::start(
-            start.language.clone(),
-            &start.settings,
-            start.snapshot.clone(),
-            &start.workspace,
-        ) {
-            Ok(mut connection) => {
-                connection.root = start.root;
-                connection.configured = start.configured;
-                self.session = Session::Running(Box::new(connection));
-                report(events, owner, Event::State(ServerState::Initializing));
-            }
-            Err(error)
-                if error.kind() == std::io::ErrorKind::NotFound
-                    && start.settings.install.is_some() =>
-            {
-                self.install(start, events);
-            }
-            Err(error) => failed(events, owner, &error),
-        }
+        self.launch(start, events);
     }
 
     pub fn pump(&mut self, events: &SyncSender<Envelope>) {
         self.installation(events);
         self.idle.retain_mut(|conn| conn.pump(events).is_ok());
-        if let Session::Running(active) = &mut self.session {
-            if let Err(message) = active.pump(events) {
-                crate::diagnostics::log_error(message);
-                report(events, active.owner, Event::State(ServerState::Failed));
-                self.session = Session::Closed;
-            }
-        }
+        let pump_result = if let Session::Running(active) = &mut self.session {
+            active.pump(events).err()
+        } else {
+            return;
+        };
+        let Some(failure) = pump_result else {
+            return;
+        };
+        let Session::Running(active) = std::mem::take(&mut self.session) else {
+            return;
+        };
+        self.fail_running(&active, failure, events);
     }
 }
 
@@ -169,7 +166,7 @@ fn document_path(path: &Path) -> std::io::Result<PathBuf> {
     }
 }
 
-fn failed(events: &SyncSender<Envelope>, owner: DocumentId, error: &std::io::Error) {
+pub(super) fn failed(events: &SyncSender<Envelope>, owner: DocumentId, error: &std::io::Error) {
     crate::diagnostics::log_error(&format!("LSP start failed: {:?}", error.kind()));
     let state = if error.kind() == std::io::ErrorKind::NotFound {
         ServerState::Unavailable

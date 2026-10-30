@@ -9,6 +9,12 @@ use serde_json::Value;
 use super::Signal;
 use crate::lsp::transport;
 
+const STDERR_SNIFF_LIMIT: usize = 512;
+const RUSTUP_RUST_ANALYZER_HINT: &str =
+    "LSP unavailable: run 'rustup component add rust-analyzer' (Ctrl+Alt+R retries)";
+const RUSTUP_COMPONENT_HINT: &str =
+    "LSP unavailable: missing rustup toolchain component (Ctrl+Alt+R retries)";
+
 pub(super) fn reader(input: impl Read, events: &SyncSender<Signal>) {
     let mut input = BufReader::new(input);
     loop {
@@ -38,19 +44,82 @@ pub(super) fn writer(
     }
 }
 
-pub(super) fn drain_stderr(mut stderr: impl Read) {
+#[derive(Default)]
+struct StderrCapture {
+    prefix: Vec<u8>,
+    deferred_bytes: usize,
+    streamed: bool,
+}
+
+impl StderrCapture {
+    fn push(&mut self, chunk: &[u8]) {
+        if self.prefix.len() < STDERR_SNIFF_LIMIT {
+            let room = STDERR_SNIFF_LIMIT - self.prefix.len();
+            let count = room.min(chunk.len());
+            self.prefix
+                .extend_from_slice(chunk.get(..count).unwrap_or(&[]));
+        }
+        if !self.streamed && self.deferred_bytes + chunk.len() <= STDERR_SNIFF_LIMIT {
+            self.deferred_bytes += chunk.len();
+            return;
+        }
+        if !self.streamed && self.deferred_bytes > 0 {
+            log_redacted(self.deferred_bytes);
+            self.deferred_bytes = 0;
+        }
+        self.streamed = true;
+        log_redacted(chunk.len());
+    }
+
+    fn finish(self, failed: bool) -> Option<&'static str> {
+        if failed {
+            if self.deferred_bytes > 0 {
+                log_redacted(self.deferred_bytes);
+            }
+            crate::diagnostics::log_error("LSP stderr read failed");
+            return None;
+        }
+        if !self.streamed {
+            if let Some(hint) = toolchain_hint(&self.prefix) {
+                return Some(hint);
+            }
+            if self.deferred_bytes > 0 {
+                log_redacted(self.deferred_bytes);
+            }
+        }
+        None
+    }
+}
+
+fn log_redacted(bytes: usize) {
+    crate::diagnostics::log_error(&format!(
+        "LSP stderr received ({bytes} bytes; content redacted)"
+    ));
+}
+
+fn toolchain_hint(bytes: &[u8]) -> Option<&'static str> {
+    let text = String::from_utf8_lossy(bytes);
+    let missing = text.contains("is not installed for the toolchain")
+        || (text.contains("Unknown binary '") && text.contains("in official toolchain"));
+    if !missing {
+        return None;
+    }
+    if text.contains("rust-analyzer") {
+        Some(RUSTUP_RUST_ANALYZER_HINT)
+    } else {
+        Some(RUSTUP_COMPONENT_HINT)
+    }
+}
+
+pub(super) fn drain_stderr(mut stderr: impl Read) -> Option<&'static str> {
     let mut buffer = [0; 1024];
+    let mut capture = StderrCapture::default();
     loop {
         match stderr.read(&mut buffer) {
-            Ok(0) => return,
-            Ok(bytes) => crate::diagnostics::log_error(&format!(
-                "LSP stderr received ({bytes} bytes; content redacted)"
-            )),
+            Ok(0) => return capture.finish(false),
+            Ok(bytes) => capture.push(buffer.get(..bytes).unwrap_or(&[])),
             Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
-            Err(_) => {
-                crate::diagnostics::log_error("LSP stderr read failed");
-                return;
-            }
+            Err(_) => return capture.finish(true),
         }
     }
 }

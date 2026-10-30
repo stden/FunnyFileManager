@@ -1,7 +1,66 @@
 //! Payload-free action timings, ranked by the time a user spent waiting.
 
 use serde::Serialize;
-use std::{collections::BTreeMap, io, path::Path, time::Duration};
+use std::{
+    cell::RefCell,
+    collections::BTreeMap,
+    io,
+    path::Path,
+    time::{Duration, Instant},
+};
+
+#[derive(Default)]
+struct PauseState {
+    depth: usize,
+    since: Option<Instant>,
+    total: Duration,
+}
+
+thread_local! {
+    static PAUSED: RefCell<PauseState> = const { RefCell::new(PauseState {
+        depth: 0,
+        since: None,
+        total: Duration::ZERO,
+    }) };
+}
+
+/// Excludes external program execution and post-run key prompt wait from UI latency.
+#[must_use = "latency resumes as soon as this guard is dropped"]
+pub(crate) struct PauseGuard(());
+
+pub(crate) fn pause() -> PauseGuard {
+    PAUSED.with(|cell| {
+        let mut state = cell.borrow_mut();
+        if state.depth == 0 {
+            state.since = Some(Instant::now());
+        }
+        state.depth = state.depth.saturating_add(1);
+    });
+    PauseGuard(())
+}
+
+pub(crate) fn paused_total() -> Duration {
+    PAUSED.with(|cell| {
+        let state = cell.borrow();
+        state
+            .total
+            .saturating_add(state.since.map_or(Duration::ZERO, |since| since.elapsed()))
+    })
+}
+
+impl Drop for PauseGuard {
+    fn drop(&mut self) {
+        PAUSED.with(|cell| {
+            let mut state = cell.borrow_mut();
+            state.depth = state.depth.saturating_sub(1);
+            if state.depth == 0 {
+                state.total = state
+                    .total
+                    .saturating_add(state.since.take().map_or(Duration::ZERO, |s| s.elapsed()));
+            }
+        });
+    }
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct Performance {

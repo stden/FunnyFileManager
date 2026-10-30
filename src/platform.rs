@@ -13,6 +13,8 @@ mod registry_text;
 mod unix;
 #[cfg(windows)]
 mod windows;
+#[cfg(any(windows, test))]
+pub mod windows_parse;
 
 #[cfg(any(windows, test))]
 pub use registry_text::{RegistryString, RegistryStringKind};
@@ -26,11 +28,20 @@ pub use unix::{clock_ticks_per_second, page_size};
 pub use unix::{hang_up_process_group, has_exited};
 #[cfg(all(unix, any(target_os = "linux", test)))]
 pub use unix::{set_niceness, signal_process};
+#[cfg(all(windows, test))]
+use windows::now_filetime_ticks;
+#[cfg(all(windows, not(test)))]
+pub use windows::open_associated;
 #[cfg(windows)]
 pub use windows::{accept, client_process_id, create_pipe, open_pipe, server_process_id};
 #[cfg(windows)]
 pub use windows::{
     broadcast_environment_change, read_registry_string, update_registry_string, RegistryHive,
+};
+#[cfg(windows)]
+pub use windows::{
+    icmp_ping, list_processes, read_net_endpoints, read_network_adapters, read_system_sample,
+    set_process_priority, terminate_process, WinOwnerCache,
 };
 #[cfg(windows)]
 pub use windows::{is_elevated, launch_as_administrator, ElevatedProcess};
@@ -61,3 +72,8 @@ mod tests_registry;
 #[cfg(test)]
 #[cfg(windows)]
 mod tests_windows;
+#[cfg(test)]
+mod tests_windows_parse;
+#[cfg(test)]
+#[cfg(windows)]
+mod tests_windows_tasks;

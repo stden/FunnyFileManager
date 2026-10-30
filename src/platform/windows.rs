@@ -1,8 +1,7 @@
 //! Purpose: The raw Win32 calls behind the Windows platform wrappers: the
-//! mounted-drive mask, a file's attribute bits and the broadcast that tells
-//! running programs the environment changed; registry string values live in
-//! `registry`, running as an administrator in `elevation`, and the pipe to
-//! that administrator in `pipe`.
+//! mounted-drive mask, a file's attribute bits, the environment broadcast,
+//! registry string values, UAC elevation, named pipes, and live process/network
+//! sampling and control.
 
 use std::ffi::OsStr;
 use std::io;
@@ -15,12 +14,28 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 mod elevation;
+mod network;
+mod network_addrs;
 mod pipe;
+mod process_build;
+mod process_control;
+mod processes;
 mod registry;
+mod system_info;
 
+#[cfg(not(test))]
+pub use elevation::open_associated;
 pub use elevation::{is_elevated, launch_as_administrator, ElevatedProcess};
+pub use network::{icmp_ping, read_network_adapters};
+pub use network_addrs::read_net_endpoints;
 pub use pipe::{accept, client_process_id, create_pipe, open_pipe, server_process_id};
+pub use process_build::WinOwnerCache;
+pub use process_control::{set_process_priority, terminate_process};
+pub use processes::list_processes;
 pub use registry::{read_registry_string, update_registry_string, RegistryHive};
+#[cfg(test)]
+pub use system_info::now_filetime_ticks;
+pub use system_info::read_system_sample;
 
 /// The drive letters Windows has mounted, as `GetLogicalDrives`' bitmask:
 /// bit 0 is `A:`, bit 25 is `Z:`. Zero means the call failed.
@@ -36,11 +51,6 @@ pub fn logical_drives() -> u32 {
 }
 
 /// Replace `path`'s attribute bits (`FILE_ATTRIBUTE_HIDDEN`, `…_READONLY`, …).
-///
-/// # Errors
-///
-/// `InvalidInput` for a path with an interior NUL — Win32 would silently act
-/// on the part before it — and otherwise the OS error of the failed call.
 #[allow(
     unsafe_code,
     reason = "std sets only the read-only bit; hidden, system and archive need Win32"
@@ -56,11 +66,6 @@ pub fn set_file_attributes(path: &Path, attributes: u32) -> io::Result<()> {
 }
 
 /// `text` as the NUL-terminated UTF-16 a Win32 call reads.
-///
-/// # Errors
-///
-/// `InvalidInput` for text with an interior NUL: Win32 would silently act on
-/// the part before it.
 fn nul_terminated(text: &OsStr) -> io::Result<Vec<u16>> {
     let mut wide: Vec<u16> = text.encode_wide().collect();
     if wide.contains(&0) {
@@ -78,18 +83,12 @@ const BROADCAST_TIMEOUT_MS: u32 = 1000;
 
 /// Tell every top-level window that the environment changed, as `setx` and
 /// the System Properties dialog do, so Explorer starts new programs with it.
-/// A window that hangs is skipped; one that is slow gets a second.
-///
-/// # Errors
-///
-/// The OS error when the broadcast fails or times out.
 #[allow(
     unsafe_code,
     reason = "std cannot send a window message; WM_SETTINGCHANGE is how Windows announces a new environment"
 )]
 pub fn broadcast_environment_change() -> io::Result<()> {
     let environment = nul_terminated(OsStr::new("Environment"))?;
-    // The message carries the section's name as a pointer in its LPARAM.
     let section = isize::try_from(environment.as_ptr().expose_provenance())
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
     let mut answer: usize = 0;

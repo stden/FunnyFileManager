@@ -6,8 +6,6 @@ use crate::{
     models::{ChoiceTarget, MenuChoice, MenuDialog, MenuPrompt},
     packages::{Elevation, Manager, UpdatePlan},
 };
-use std::time::Duration;
-
 mod submitted;
 
 fn app(temp: &tempfile::TempDir) -> App {
@@ -29,6 +27,36 @@ fn timing_records_processing_and_rendering_without_input_idle_time() {
     assert!(report.contains("10.000"));
     assert!(report.contains("2.000"));
     assert!(!report.contains("600000"));
+}
+
+#[test]
+fn paused_external_wait_is_excluded_even_after_an_unrendered_pending() {
+    let temp = tempfile::TempDir::new().expect("tempdir");
+    let mut app = app(&temp);
+    let abandoned = Pending::start(&app, &Event::FocusGained, Instant::now());
+    {
+        let _pause = crate::performance::pause();
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    drop(abandoned);
+
+    let started = Instant::now();
+    let pending = Pending::start(&app, &Event::Resize(80, 24), started);
+    {
+        let _pause = crate::performance::pause();
+        std::thread::sleep(Duration::from_millis(40));
+    }
+    let rendering = Instant::now();
+    pending.finish(
+        &mut app.performance,
+        rendering,
+        rendering + Duration::from_millis(2),
+    );
+    let report = app.performance.report().join("\n");
+    assert!(
+        !report.contains("40."),
+        "paused wait must not inflate UI latency: {report}"
+    );
 }
 
 #[test]
