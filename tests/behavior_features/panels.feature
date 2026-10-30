@@ -9,7 +9,7 @@ Feature: Responsive panels preserve every queued action
     And I process the queued input
     Then the left panel cursor selects "file127.txt"
     And the right panel cursor selects "file000.txt"
-    And queued navigation shares frames and yields during long bursts
+    And queued navigation yields frames within its processing budget
     And the terminal presents complete synchronized frames
 
   Scenario: Wheel bursts target the panel under the pointer
@@ -17,7 +17,7 @@ Feature: Responsive panels preserve every queued action
     And I process the queued input
     Then the left panel cursor selects ".."
     And the right panel cursor selects "file063.txt"
-    And queued navigation shares frames and yields during long bursts
+    And queued navigation yields frames within its processing budget
 
   Scenario: A queued destructive command acts on the final selected document
     When I queue 80 presses of "Down"
@@ -36,7 +36,7 @@ Feature: Responsive panels preserve every queued action
     And I process the queued input
     Then the left panel cursor selects "file063.txt"
     And the rendered screen contains "Delete"
-    And queued navigation shares frames and yields during long bursts
+    And queued navigation yields frames within its processing budget
 
   Scenario: Resize and viewer commands keep their place in the queue
     When I queue 64 presses of "Down"

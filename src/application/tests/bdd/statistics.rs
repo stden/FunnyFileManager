@@ -32,7 +32,7 @@ fn external_wait(world: &mut BehaviorWorld) {
     });
 }
 
-fn saved(case: &Case) -> serde_json::Value {
+pub(super) fn saved(case: &Case) -> serde_json::Value {
     let file = case.root.path().join("statistics.json");
     case.app.performance.save_to(&file).unwrap();
     serde_json::from_str(&std::fs::read_to_string(file).unwrap()).unwrap()

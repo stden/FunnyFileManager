@@ -72,16 +72,42 @@ fn process(world: &mut BehaviorWorld) {
     world.case().batch();
 }
 
-#[then("queued navigation shares frames and yields during long bursts")]
+#[then("queued navigation yields frames within its processing budget")]
 fn frames(world: &mut BehaviorWorld) {
     let case = world.case();
     assert!(
-        case.batch_frames < case.batch_events,
-        "one redraw per event regressed"
-    );
-    assert!(
         case.batch_frames >= case.batch_events.div_ceil(64),
         "a long burst must yield frames"
+    );
+    assert!(case.batch_frames <= case.batch_events + 1);
+    if case.batch_frames > case.batch_events {
+        assert_budget_spent(case);
+    }
+}
+
+fn assert_budget_spent(case: &Case) {
+    let report = super::statistics::saved(case);
+    let row = report["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| {
+            matches!(
+                row["action"].as_str(),
+                Some("Navigate(NavDown)" | "Panels/Mouse(ScrollDown)")
+            )
+        })
+        .expect("navigation must be measured");
+    let count = u32::try_from(row["count"].as_u64().unwrap()).unwrap();
+    let events = u32::try_from(case.batch_events).unwrap();
+    let boundaries = events.saturating_sub(count).saturating_add(1);
+    let budgeted_keys = count.saturating_sub(boundaries);
+    let processing_ms = row["total_ms"].as_f64().unwrap() - row["render_ms"].as_f64().unwrap();
+    // Burst tails have no following movement to combine. Every other key
+    // must have spent the budget to justify a per-key repaint under load.
+    assert!(
+        processing_ms + 0.001 >= f64::from(budgeted_keys) * 8.0,
+        "fast queued navigation must share frames: {report}"
     );
 }
 
