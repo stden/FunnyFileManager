@@ -144,3 +144,25 @@ fn a_kotlin_script_is_kotlin() {
     let out = runs("build.gradle.kts", r#"val kotlinVersion = "2.1.0""#);
     assert_eq!(token_of(&out, "val"), Token::Keyword);
 }
+
+/// Typst: `#`-prefixed lines are directives; keywords, types and strings work
+/// in code lines; block and line comments survive.
+#[test]
+fn typst_hash_directives_keywords_types_and_strings_are_recognised() {
+    // A line that starts with `#` is a code injection — coloured as a whole.
+    assert_eq!(runs("main.typ", "#let x = 1")[0].1, Token::Meta);
+    assert_eq!(runs("doc.typ", "#set text(size: 12pt)")[0].1, Token::Meta);
+
+    // Keywords and types in plain code-mode lines (e.g. inside `{ }` blocks).
+    let out = runs("main.typ", r#"let name: str = "Alice" // greeting"#);
+    assert_eq!(token_of(&out, "let"), Token::Keyword);
+    assert_eq!(token_of(&out, "str"), Token::Type);
+    assert_eq!(token_of(&out, r#""Alice""#), Token::Str);
+    assert_eq!(token_of(&out, "// greeting"), Token::Comment);
+
+    // Boolean and `none` literals are keywords; `and` is a keyword operator.
+    let out = runs("main.typ", "let ok = true and none");
+    assert_eq!(token_of(&out, "true"), Token::Keyword);
+    assert_eq!(token_of(&out, "and"), Token::Keyword);
+    assert_eq!(token_of(&out, "none"), Token::Keyword);
+}
