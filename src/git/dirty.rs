@@ -61,7 +61,7 @@ pub fn is_dirty_repo(directory: &Path) -> bool {
 
 /// Populate `metadata` from fast filesystem stamps and cached results, queuing
 /// uncached child repositories for background `git status` probing.
-pub(crate) fn load_dirty_repos(parent: &Path, entries: &[DirEntry], metadata: &mut PanelMetadata) {
+pub fn load_dirty_repos(parent: &Path, entries: &[DirEntry], metadata: &mut PanelMetadata) {
     let (dirty_repos, pending) = inspect_dirty_repos(parent, entries);
     metadata.dirty_repos = dirty_repos;
     metadata.dirty_probe = DirtyProbe::from_pending(pending);
@@ -96,7 +96,7 @@ pub(super) fn inspect_dirty_repos(
 
 /// Probe a single child repository on a background worker and cache the answer.
 #[must_use]
-pub(crate) fn probe_child_repo(parent: &Path, name: &FileName) -> bool {
+pub fn probe_child_repo(parent: &Path, name: &FileName) -> bool {
     let repo_path = parent.join(name.as_str());
     let Some(git_dir) = repo_git_dir(&repo_path) else {
         return false;

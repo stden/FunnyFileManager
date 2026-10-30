@@ -19,7 +19,7 @@ mod marks;
 mod search;
 mod sort;
 pub mod view;
-pub(crate) use dirty::DirtyProbe;
+pub use dirty::DirtyProbe;
 pub use view::{PanelDetails, PanelOptions, PanelView};
 
 /// Filesystem facts captured with a directory listing.
