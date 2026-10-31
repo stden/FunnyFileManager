@@ -50,8 +50,8 @@ fn populated() -> App {
             ..DirEntry::default()
         },
     ];
-    app.left_panel.entries.clone_from(&entries);
-    app.right_panel.entries = entries;
+    (*app.left_panel.entries).clone_from(&entries);
+    *app.right_panel.entries = entries;
     app.left_panel.select(Some(1));
     app.right_panel.select(Some(0));
     app

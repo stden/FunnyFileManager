@@ -8,6 +8,7 @@
 use super::Panel;
 use crate::casefold::folded_name;
 use crate::models::DirEntry;
+use std::sync::Arc;
 
 #[cfg(test)]
 thread_local! {
@@ -16,7 +17,7 @@ thread_local! {
 
 #[derive(Debug, Clone)]
 pub(super) struct NameIndex {
-    key: (usize, usize),
+    key: Arc<()>,
     rows: Vec<(String, usize)>,
 }
 
@@ -38,20 +39,20 @@ pub(super) fn select_prefixed(panel: &mut Panel, prefix: &str, next: bool) -> bo
 }
 
 fn ensure(panel: &Panel) {
-    let key = (panel.entries.as_ptr().addr(), panel.entries.len());
+    let key = panel.entries.revision();
     let fresh = panel
         .name_index
         .borrow()
         .as_ref()
-        .is_some_and(|index| index.key == key);
+        .is_some_and(|index| Arc::ptr_eq(&index.key, key));
     if fresh {
         return;
     }
-    *panel.name_index.borrow_mut() = Some(NameIndex::build(&panel.entries, key));
+    *panel.name_index.borrow_mut() = Some(NameIndex::build(&panel.entries, Arc::clone(key)));
 }
 
 impl NameIndex {
-    fn build(entries: &[DirEntry], key: (usize, usize)) -> Self {
+    fn build(entries: &[DirEntry], key: Arc<()>) -> Self {
         #[cfg(test)]
         INDEX_BUILDS.set(INDEX_BUILDS.get() + 1);
         let mut rows = Vec::new();

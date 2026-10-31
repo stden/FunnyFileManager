@@ -104,7 +104,7 @@ pub use overlay::{
     Overlay,
 };
 pub(crate) use panel::{DirectoryListing, DirtyProbe, PanelMetadata};
-pub use panel::{Panel, PanelDetails, PanelOptions, PanelView};
+pub use panel::{Panel, PanelCollection, PanelDetails, PanelOptions, PanelView};
 pub use panelview::{PanelKind, PanelsShown, SortMode};
 pub use plugin_commands::{PluginCommand, PluginCommands};
 pub use prompts::{InputPrompt, InputPurpose, Question, QuestionPurpose};

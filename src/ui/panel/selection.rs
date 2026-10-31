@@ -35,7 +35,13 @@ pub(super) fn render(f: &mut Frame<'_>, panel: &Panel, row: Rect) {
 /// rather than summed. The exact byte count, grouped as Far prints it, gives
 /// way to the short form where the row is too narrow for it.
 fn selection_summary(panel: &Panel, width: Cells) -> Option<String> {
-    let (folders, files, bytes) = panel.marked_totals()?;
+    if panel.marked.is_empty() {
+        return None;
+    }
+    let (folders, files, bytes) = panel.marked_totals();
+    if folders == 0 && files == 0 {
+        return None;
+    }
     let mut counts = counted(files, "file");
     if folders > 0 {
         counts = format!("{counts}, {}", counted(folders, "folder"));

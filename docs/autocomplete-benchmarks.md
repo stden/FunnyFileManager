@@ -41,3 +41,24 @@ The measured ranking cost grows roughly with the candidate count. On this host,
 the common `c` prefix costs much more than a subcommand because it also searches
 cached executable names. Compare isolated ranking and full directory completion
 before deciding whether matcher work or filesystem access needs optimization.
+
+## Prefix lookup and source merging
+
+`execs::matching_in` requires sorted names, as returned by the PATH scan.
+It finds the first possible match with `partition_point`, then visits only
+the matching range: O(L log n + kL), for n names, k results and string length L.
+The `autocomplete/path_prefix_range` benchmark compares that implementation
+with the previous full scan on the same synthetic names, including a miss and
+a prefix with ten matches at 1,000, 10,000 and 100,000 names.
+
+Directory/fish and built-in/PATH candidate merging preserve first-seen order
+in a vector and use a hash set for membership: expected O(nL), rather than
+repeated vector membership scans with worst-case O(n²L). Ranking still sorts
+the merged candidates separately; this change does not truncate the results.
+
+Panel frame comparison on Windows, 2026-10-31, `release-fast`, 120×40,
+10 Criterion samples with 0.2 s warm-up and 0.5 s measurement: the 100,000-entry
+case changed from 1.31 ms to 0.36 ms after totals caching. The 10,000-entry case
+changed from 0.41 ms to 0.32 ms. These short local runs demonstrate scaling,
+not a guaranteed latency; small cases showed noise and a roughly 6% regression
+at 1,000 entries. Reproduce with `ui_bench` filtered to `frame_by_entries`.

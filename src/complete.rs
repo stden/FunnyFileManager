@@ -13,6 +13,7 @@ mod candidates;
 pub mod execs;
 mod fish;
 pub mod matcher;
+mod merge;
 mod paths;
 pub mod servers;
 pub mod shellwords;

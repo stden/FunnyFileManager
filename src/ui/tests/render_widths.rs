@@ -93,7 +93,7 @@ fn test_panel_shows_full_size_column_at_80_columns() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let (mut app, _temp) = blank_app();
-    app.left_panel.entries = vec![
+    *app.left_panel.entries = vec![
         DirEntry {
             name: "docs".to_owned(),
             kind: EntryKind::Directory,
@@ -131,7 +131,7 @@ fn test_panel_truncates_long_name_and_keeps_size_visible() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let (mut app, _temp) = blank_app();
-    app.left_panel.entries = vec![DirEntry {
+    *app.left_panel.entries = vec![DirEntry {
         name: "очень-длинное-имя-файла-которое-не-помещается.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(4096),
@@ -159,7 +159,7 @@ fn test_narrow_terminal_still_renders_file_names() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let (mut app, _temp) = blank_app();
-    app.left_panel.entries = vec![DirEntry {
+    *app.left_panel.entries = vec![DirEntry {
         name: "notes.md".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(4096),

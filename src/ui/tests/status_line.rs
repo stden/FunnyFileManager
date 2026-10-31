@@ -43,7 +43,7 @@ fn test_render_status_right_panel_active_with_file() {
 fn test_render_status_with_extreme_values() {
     let mut app = App::new().unwrap();
 
-    app.left_panel.entries = vec![
+    *app.left_panel.entries = vec![
         DirEntry {
             name: "..".to_owned(),
             kind: EntryKind::Directory,

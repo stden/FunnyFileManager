@@ -18,6 +18,28 @@ fn builds() -> usize {
 }
 
 #[test]
+fn reuse_rejects_changed_options_without_changing_the_existing_view() {
+    let list = listing(vec![process(1, "one"), process(2, "two")]);
+    let mut view = list.view.clone();
+    assert!(view::try_reuse(
+        &mut view,
+        list.table.rows(),
+        &list.options,
+        &list.view_stamp,
+    ));
+    let before = view.clone();
+    let mut options = list.options.clone();
+    options.arrangement = Arrangement::Tree;
+    assert!(!view::try_reuse(
+        &mut view,
+        list.table.rows(),
+        &options,
+        &list.view_stamp,
+    ));
+    assert_eq!(view, before);
+}
+
+#[test]
 fn an_unchanged_order_reuses_the_view_and_a_cpu_change_sorts_again() {
     let mut list = listing(vec![
         process(1, "one"),
@@ -72,7 +94,7 @@ fn a_tree_with_the_same_parents_is_kept_and_a_new_parent_is_rebuilt() {
             vec![process(1, "parent"), process(2, "child")],
         ),
     );
-    let unparented: Vec<_> = list.view().iter().map(|row| row.line()).collect();
-    assert_ne!(unparented, lines);
+    let parentless: Vec<_> = list.view().iter().map(|row| row.line()).collect();
+    assert_ne!(parentless, lines);
     assert!(builds() > before);
 }

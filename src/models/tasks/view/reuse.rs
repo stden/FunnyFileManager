@@ -11,12 +11,12 @@ use super::{Arrangement, ViewOptions, ViewRow};
 /// What the current view was built from. A later sample may reuse the view
 /// when these still describe it.
 #[derive(Clone, Debug, Default)]
-pub struct ViewStamp {
+pub(in crate::models::tasks) struct ViewStamp {
     options: ViewOptions,
     parents: Vec<Option<Pid>>,
 }
 
-pub fn try_reuse(
+pub(in crate::models::tasks) fn try_reuse(
     view: &mut [ViewRow],
     rows: &[ProcessRow],
     options: &ViewOptions,
@@ -36,7 +36,11 @@ pub fn try_reuse(
     true
 }
 
-pub fn stamp(view: &[ViewRow], rows: &[ProcessRow], options: &ViewOptions) -> ViewStamp {
+pub(in crate::models::tasks) fn stamp(
+    view: &[ViewRow],
+    rows: &[ProcessRow],
+    options: &ViewOptions,
+) -> ViewStamp {
     let parents = if options.arrangement == Arrangement::Tree {
         view.iter()
             .map(|slot| rows.get(slot.row()).and_then(|row| row.sample().parent))

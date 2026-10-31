@@ -72,7 +72,7 @@ fn cell_bg(terminal: &Terminal<TestBackend>, x: u16, y: u16) -> Color {
 fn test_app() -> App {
     let mut app = App::new().unwrap();
     // Replace entries with known data so tests are deterministic
-    app.left_panel.entries = vec![
+    *app.left_panel.entries = vec![
         entry("..", EntryKind::Directory, 0),
         entry("docs", EntryKind::Directory, 0),
         entry("readme.md", EntryKind::File, 4096),
@@ -80,7 +80,7 @@ fn test_app() -> App {
     ];
     app.left_panel.select(Some(0));
 
-    app.right_panel.entries = vec![
+    *app.right_panel.entries = vec![
         entry("..", EntryKind::Directory, 0),
         entry("src", EntryKind::Directory, 0),
     ];

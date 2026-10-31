@@ -20,7 +20,7 @@ use crate::quicksearch::QuickSearch;
 #[test]
 fn test_render_status_with_directory_selection() {
     let mut app = App::new().unwrap();
-    app.left_panel.entries = vec![DirEntry {
+    *app.left_panel.entries = vec![DirEntry {
         name: "subdir".to_owned(),
         kind: EntryKind::Directory,
         size: FileSize::from_bytes(0),
@@ -50,7 +50,7 @@ fn test_render_status_dotdot_selected() {
     let mut app = App::new().unwrap();
     // ".." entry produces None from get_selected_entry in status (selected_path).
     // But get_selected_entry itself returns the ".." entry.
-    app.left_panel.entries = vec![DirEntry {
+    *app.left_panel.entries = vec![DirEntry {
         name: "..".to_owned(),
         kind: EntryKind::Directory,
         size: FileSize::from_bytes(0),

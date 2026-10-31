@@ -26,7 +26,7 @@ impl Panel {
         let mut entries = Vec::with_capacity(listing.entries.len() + 1);
         entries.extend(listing.parent);
         entries.append(&mut listing.entries);
-        self.entries = entries;
+        self.entries = entries.into();
         self.metadata = listing.metadata;
         self.clear_listing_cache();
         self.forget_unlisted_marks();

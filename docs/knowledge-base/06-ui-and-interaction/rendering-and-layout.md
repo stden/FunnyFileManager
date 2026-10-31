@@ -74,6 +74,15 @@ Inside the frame, top to bottom:
 The bottom border carries the panel totals and the filesystem's free space;
 `src/diskfree.rs` wraps the platform call std has no equivalent for.
 
+Listing and selection totals are cached by `models/panel/totals.rs`. Unchanged
+frames read both totals in O(1); after an entry edit the file totals take O(n)
+to rebuild, and selected totals take O(n log(m+1)) for m marked names.
+`PanelCollection` invalidates the cache before mutable access, including edits
+through `iter_mut` and indexing. Whole replacements use `entries.into()` or
+assign through `*panel.entries`; reads and ordinary collection methods retain
+their usual syntax. Clones and restored selections carry distinct observed
+revisions as soon as their contents change.
+
 ### 📊 Columns
 
 | Column | Width | Contents |

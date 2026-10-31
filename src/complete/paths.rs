@@ -22,7 +22,7 @@ pub(super) fn path_complete(syntax: PathSyntax, token: &str, cwd: &Path) -> Vec<
         return if listable { vec![root] } else { Vec::new() };
     }
     let (dir_part, leaf) = syntax.split_token(token);
-    let mut pool: Vec<String> = builtin_path_complete(syntax, dir_part, leaf, cwd)
+    let pool: Vec<String> = builtin_path_complete(syntax, dir_part, leaf, cwd)
         .into_iter()
         .map(|l| format!("{dir_part}{l}"))
         .collect();
@@ -31,14 +31,10 @@ pub(super) fn path_complete(syntax: PathSyntax, token: &str, cwd: &Path) -> Vec<
     if token.contains(char::is_whitespace) {
         return rank_by_leaf(syntax, leaf, pool);
     }
-    if let Some(fish) = fish_path_complete(token, cwd) {
-        // Candidate lists are one directory's entries — linear dedup is fine.
-        for candidate in fish {
-            if !pool.contains(&candidate) {
-                pool.push(candidate);
-            }
-        }
-    }
+    let pool = match fish_path_complete(token, cwd) {
+        Some(fish) => super::merge::append_unique(pool, fish),
+        None => pool,
+    };
     rank_by_leaf(syntax, leaf, pool)
 }
 

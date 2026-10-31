@@ -25,7 +25,7 @@ fn sparse_file(dir: &Path, name: &str, len: u64) -> io::Result<()> {
 /// The parent entry has no path of its own. `is_dir: false` is what gets it
 /// past the directory guard, so `selected_path()` is the guard under test.
 fn select_parent_entry(app: &mut crate::models::App) {
-    app.left_panel.entries = vec![DirEntry {
+    *app.left_panel.entries = vec![DirEntry {
         name: "..".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(0),
@@ -101,7 +101,7 @@ fn builtin_editor_ignores_an_entry_without_a_path() -> io::Result<()> {
 fn builtin_editor_reports_a_file_that_vanished_after_the_listing() -> io::Result<()> {
     let temp_dir = TempDir::new().expect("temp dir");
     let mut app = build_app(&temp_dir);
-    app.left_panel.entries = vec![DirEntry {
+    *app.left_panel.entries = vec![DirEntry {
         name: "ghost.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(0),

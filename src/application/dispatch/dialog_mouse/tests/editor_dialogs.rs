@@ -31,10 +31,10 @@ fn editor_search_buttons_select_the_named_direction() {
     let dir = TempDir::new().expect("temp");
     let mut app = app_at(&dir);
     let editor = Editor {
-        search: crate::search::SearchState {
+        search: Box::new(crate::search::SearchState {
             prompt: Some(SearchPrompt::default()),
             ..Default::default()
-        },
+        }),
         ..Default::default()
     };
     app.set_overlay(Overlay::Editor(editor));
@@ -72,10 +72,10 @@ fn editor_search_rows_focus_query_and_toggle_checkboxes() {
     let dir = TempDir::new().expect("temp");
     let mut app = app_at(&dir);
     app.set_overlay(Overlay::Editor(Editor {
-        search: crate::search::SearchState {
+        search: Box::new(crate::search::SearchState {
             prompt: Some(SearchPrompt::default()),
             ..Default::default()
-        },
+        }),
         ..Default::default()
     }));
 
@@ -100,10 +100,10 @@ fn editor_not_found_and_exit_dialogs_map_their_buttons() {
     let dir = TempDir::new().expect("temp");
     let mut app = app_at(&dir);
     let editor = Editor {
-        search: crate::search::SearchState {
+        search: Box::new(crate::search::SearchState {
             not_found: Some("needle".into()),
             ..Default::default()
-        },
+        }),
         ..Default::default()
     };
     app.set_overlay(Overlay::Editor(editor));

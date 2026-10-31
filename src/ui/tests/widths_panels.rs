@@ -20,7 +20,7 @@ fn test_panel_keeps_size_visible_beside_a_double_width_name() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let (mut app, _temp) = blank_app();
-    app.left_panel.entries = vec![DirEntry {
+    *app.left_panel.entries = vec![DirEntry {
         // 10 chars / 20 cells against a 25-cell name column.
         name: "文档档案资料备份目录".to_owned(),
         kind: EntryKind::File,
@@ -48,7 +48,7 @@ fn test_panel_does_not_clip_size_after_a_short_double_width_name() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let (mut app, _temp) = blank_app();
-    app.left_panel.entries = vec![DirEntry {
+    *app.left_panel.entries = vec![DirEntry {
         name: "文档.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(4096),
@@ -74,7 +74,7 @@ fn test_status_message_reaches_the_active_panels_info_row() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let (mut app, _temp) = blank_app();
-    app.left_panel.entries = vec![DirEntry {
+    *app.left_panel.entries = vec![DirEntry {
         name: "secret.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(4096),
@@ -110,7 +110,7 @@ fn test_only_the_active_panel_gives_its_info_row_to_the_message() {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let (mut app, _temp) = blank_app();
-    app.right_panel.entries = vec![DirEntry {
+    *app.right_panel.entries = vec![DirEntry {
         name: "untouched.txt".to_owned(),
         kind: EntryKind::File,
         size: FileSize::from_bytes(1),

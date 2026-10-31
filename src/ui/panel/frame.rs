@@ -16,13 +16,7 @@ use crate::models::Panel;
 /// what "381 K" is the size of, so including them in the denominator would
 /// make the two halves of `(10/30)` measure different things.
 fn panel_totals(panel: &Panel) -> String {
-    let (count, bytes) = panel
-        .entries
-        .iter()
-        .filter(|entry| !entry.kind.is_dir())
-        .fold((0usize, 0u64), |(count, bytes), entry| {
-            (count + 1, bytes.saturating_add(entry.size.bytes()))
-        });
+    let (count, bytes) = panel.file_totals();
     format!(
         " {} ({count}/{}) ",
         abbreviate_bytes(bytes),

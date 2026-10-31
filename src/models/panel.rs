@@ -12,14 +12,16 @@ use super::{
     DirEntry, FileName, FileSize, PanelFilter, PanelKind, ShortNames, SortMode, SortOrder,
 };
 
+mod collection;
 mod cursor;
 mod dirty;
 mod listing;
-mod mark_totals;
 mod marks;
 mod search;
 mod search_index;
 mod sort;
+mod totals;
+pub use collection::PanelCollection;
 pub mod view;
 pub use dirty::DirtyProbe;
 pub use view::{PanelDetails, PanelOptions, PanelView};
@@ -48,18 +50,18 @@ pub struct DirectoryListing {
 #[derive(Debug, Clone)]
 pub struct Panel {
     pub path: PathBuf,
-    pub entries: Vec<DirEntry>,
+    pub entries: PanelCollection<Vec<DirEntry>>,
     /// Private: the highlighted row and the entry list share an invariant —
     /// the index must name a row that exists. It was enforced by hand at every
     /// call site, including a written-out `filter(|i| *i < entries.len())`.
     /// [`Panel::select`] does it once instead.
     state: ListState,
-    pub marked: BTreeSet<FileName>,
+    pub marked: PanelCollection<BTreeSet<FileName>>,
     /// What was marked before the last change to `marked`, so Ctrl+M can put
     /// it back. Far calls it "restore selection", and it is what saves a user
     /// who has just typed the wrong mask over a careful hand-made selection.
     /// Like `marked`, it only ever names entries of the current listing.
-    previous_marks: BTreeSet<FileName>,
+    previous_marks: PanelCollection<BTreeSet<FileName>>,
     pub sort_mode: SortMode,
     /// `-` on the sort menu: whether the chosen order runs direct or backwards.
     pub sort_order: SortOrder,
@@ -88,8 +90,7 @@ pub struct Panel {
     short_names: RefCell<Option<((usize, usize), ShortNames)>>,
     /// Folded-name index for quick search. Rebuilt when the listing moves.
     name_index: RefCell<Option<search_index::NameIndex>>,
-    /// Marked-byte totals for the divider, reused while marks and sizes hold.
-    mark_cache: RefCell<Option<mark_totals::MarkCache>>,
+    totals: totals::PanelTotals,
 }
 
 impl Panel {
@@ -137,10 +138,10 @@ impl Panel {
         let panel_path = path.clone();
         let mut panel = Self {
             path,
-            entries,
+            entries: entries.into(),
             state: ListState::default(),
-            marked: BTreeSet::new(),
-            previous_marks: BTreeSet::new(),
+            marked: PanelCollection::default(),
+            previous_marks: PanelCollection::default(),
             sort_mode: SortMode::default(),
             sort_order: SortOrder::Direct,
             view: PanelView::default(),
@@ -155,7 +156,7 @@ impl Panel {
             metadata: PanelMetadata::default(),
             short_names: RefCell::new(None),
             name_index: RefCell::new(None),
-            mark_cache: RefCell::new(None),
+            totals: totals::PanelTotals::default(),
         };
         panel.select(panel.entries.first().map(|_| 0));
         panel

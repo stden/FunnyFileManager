@@ -98,12 +98,7 @@ fn command_candidates(syntax: PathSyntax, token: &str, cwd: &Path) -> Vec<Candid
     // Ambiguous among the verbs, or matching none of them: `$PATH` joins in,
     // always *after* the verbs, so a built-in can never be outranked by a
     // program that merely happens to have a shorter name.
-    let mut pool = verbs;
-    for executable in execs::matching(&literal) {
-        if !pool.contains(&executable) {
-            pool.push(executable);
-        }
-    }
+    let pool = super::merge::append_unique(verbs, execs::matching(&literal));
     plain_candidates(pool, CandidateKind::Word)
 }
 

@@ -130,15 +130,19 @@ pub fn matching(prefix: &str) -> Vec<String> {
 }
 
 /// The names in `names` starting with `prefix`, or nothing for an empty
-/// prefix: [`matching`]'s one prefix rule, over any list of program names.
+/// prefix: [`matching`]'s one prefix rule, over sorted names, as returned by
+/// [`scan`] and [`executables`]. Only the matching range is visited.
 #[must_use]
 pub fn matching_in(names: &[String], prefix: &str) -> Vec<String> {
     if prefix.is_empty() {
         return Vec::new();
     }
+    let start = names.partition_point(|name| name.as_str() < prefix);
     names
+        .get(start..)
+        .unwrap_or_default()
         .iter()
-        .filter(|name| name.starts_with(prefix))
+        .take_while(|name| name.starts_with(prefix))
         .cloned()
         .collect()
 }
@@ -151,3 +155,5 @@ pub fn join_paths<'a>(dirs: impl IntoIterator<Item = &'a Path>) -> Option<OsStri
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_ranges;

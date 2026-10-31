@@ -119,8 +119,8 @@ fn gateway_flags_and_resolv_conf_drop_unusable_addresses() {
     assert_eq!(parse_default_gateway("h\neth0 00000000 ZZZZ 0003\n"), None);
     assert_eq!(parse_default_gateway("h\nshort\n"), None);
     let dns = parse_resolv_conf(
-        "nameserver 0.0.0.0\nnameserver 1.1.1.1\nnameserver 1.1.1.1\n\
-         nameserver nope\n# nameserver 9.9.9.9\nnameserver 8.8.8.8 # note\n",
+        "nameserver 0.0.0.0\nnameserver 192.0.2.1\nnameserver 192.0.2.1\n\
+         nameserver nope\n# nameserver 192.0.2.9\nnameserver 192.0.2.8 # note\n",
     );
-    assert_eq!(dns, vec![Ipv4::new(1, 1, 1, 1), Ipv4::new(8, 8, 8, 8)]);
+    assert_eq!(dns, vec![Ipv4::new(192, 0, 2, 1), Ipv4::new(192, 0, 2, 8)]);
 }

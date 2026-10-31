@@ -46,7 +46,7 @@ pub struct Editor {
     /// that was not read from a file, whose saves do not ask.
     pub disk: Option<Fingerprint>,
     /// F7's search: the dialog while it is open, and what Shift+F7 repeats.
-    pub search: crate::search::SearchState,
+    pub search: Box<crate::search::SearchState>,
     /// Stream selection anchored independently from the moving caret.
     pub selection: EditorSelection,
     /// Transient feedback for editor operations such as clipboard access.

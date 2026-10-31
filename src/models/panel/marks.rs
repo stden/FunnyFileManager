@@ -85,7 +85,7 @@ impl Panel {
             .filter(|name| !self.marked.contains(*name))
             .map(|name| FileName::new(name.to_owned()))
             .collect();
-        self.marked = inverted;
+        self.marked = inverted.into();
     }
 
     /// Ctrl+M: put back the selection as it was before the last change.
