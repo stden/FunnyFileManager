@@ -17,6 +17,7 @@ mod editor_exit;
 mod editor_exit_layout;
 mod editor_title;
 mod ghost_text;
+mod highlight_hint;
 mod info_row_failures;
 mod info_row_fit;
 mod info_row_messages;

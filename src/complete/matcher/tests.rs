@@ -88,6 +88,18 @@ fn test_rank_drops_non_matching_candidates() {
 }
 
 #[test]
+fn ascii_fold_does_not_match_dotted_capital_i() {
+    assert_eq!(score("i", "İstanbul"), None);
+}
+
+#[test]
+fn a_unicode_word_still_scores_as_a_prefix() {
+    let scored = score("str", "straße").expect("prefix");
+    assert_eq!(scored.tier, Tier::Prefix);
+    assert_eq!(scored.points, 28);
+}
+
+#[test]
 fn test_rank_is_deterministic_for_equally_scored_candidates() {
     // All three are prefix matches of equal length, so the lexicographic
     // tiebreak decides — ranking must never vary between runs.

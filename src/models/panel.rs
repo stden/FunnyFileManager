@@ -15,8 +15,10 @@ use super::{
 mod cursor;
 mod dirty;
 mod listing;
+mod mark_totals;
 mod marks;
 mod search;
+mod search_index;
 mod sort;
 pub mod view;
 pub use dirty::DirtyProbe;
@@ -84,6 +86,10 @@ pub struct Panel {
     metadata: PanelMetadata,
     /// Cached 8.3 short-name table for the current listing order.
     short_names: RefCell<Option<((usize, usize), ShortNames)>>,
+    /// Folded-name index for quick search. Rebuilt when the listing moves.
+    name_index: RefCell<Option<search_index::NameIndex>>,
+    /// Marked-byte totals for the divider, reused while marks and sizes hold.
+    mark_cache: RefCell<Option<mark_totals::MarkCache>>,
 }
 
 impl Panel {
@@ -148,6 +154,8 @@ impl Panel {
             navigation_history: VecDeque::new(),
             metadata: PanelMetadata::default(),
             short_names: RefCell::new(None),
+            name_index: RefCell::new(None),
+            mark_cache: RefCell::new(None),
         };
         panel.select(panel.entries.first().map(|_| 0));
         panel
@@ -173,4 +181,10 @@ pub struct Cursor {
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_cursor_motion;
+#[cfg(test)]
 mod tests_dirty;
+#[cfg(test)]
+mod tests_search_order;
+#[cfg(test)]
+mod tests_sort_order;

@@ -7,6 +7,7 @@
 
 mod filter;
 mod list;
+mod reuse;
 mod sort;
 mod toggles;
 
@@ -14,6 +15,7 @@ use super::tree::{self, TreeLine};
 use super::{ProcessKey, ProcessRow, ProcessSample};
 
 pub use filter::{FilterTerms, UserScope};
+pub(super) use reuse::{stamp, try_reuse, ViewStamp};
 pub use sort::{Sort, SortDirection, SortKey};
 pub use toggles::{Arrangement, CommandView, KernelThreads};
 
@@ -67,11 +69,27 @@ impl ViewRow {
     pub const fn line(self) -> TreeLine {
         self.line
     }
+
+    /// The same row, aimed at a new snapshot index.
+    pub(super) const fn retarget(self, row: usize) -> Self {
+        Self {
+            row,
+            key: self.key,
+            line: self.line,
+        }
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(crate) static VIEW_BUILDS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 /// The rows of `rows` that `options` shows, in the order it shows them.
 #[must_use]
 pub fn build_view(rows: &[ProcessRow], options: &ViewOptions) -> Vec<ViewRow> {
+    #[cfg(test)]
+    VIEW_BUILDS.set(VIEW_BUILDS.get() + 1);
     let mut shown: Vec<(usize, &ProcessRow)> = rows
         .iter()
         .enumerate()

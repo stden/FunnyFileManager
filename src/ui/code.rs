@@ -26,11 +26,12 @@ pub(super) fn editor_window(
     width: Cells,
 ) -> Vec<Line<'static>> {
     let mut cache = editor.highlights.borrow_mut();
-    cache.prepare_revision(
+    cache.prepare_hinted(
         &editor.path,
         &editor.lines,
         top.saturating_add(rows),
         editor.lsp.revision.0,
+        editor.take_dirty_span(),
     );
     let limit = skip + width + Cells(1);
     editor

@@ -61,9 +61,7 @@ fn starts_with_ignore_case(text: &str, prefix: &str) -> bool {
 }
 
 fn find_ignore_case(text: &str, needle: &str) -> Option<usize> {
-    let text_lower: String = text.chars().flat_map(char::to_lowercase).collect();
-    let needle_lower: String = needle.chars().flat_map(char::to_lowercase).collect();
-    text_lower.find(&needle_lower)
+    crate::casefold::find_ignore_case(text, needle)
 }
 
 fn camel_humps(stem: &str, prefix: &str) -> Option<usize> {

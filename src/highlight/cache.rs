@@ -36,6 +36,8 @@ impl PartialEq for HighlightCache {
 impl Eq for HighlightCache {}
 
 fn hash_of<T: Hash + ?Sized>(value: &T) -> u64 {
+    #[cfg(test)]
+    crate::highlight::HASH_PASSES.set(crate::highlight::HASH_PASSES.get() + 1);
     let mut hasher = DefaultHasher::new();
     value.hash(&mut hasher);
     hasher.finish()
@@ -54,7 +56,7 @@ impl HighlightCache {
             if let Some(initial) = doc.initial {
                 doc.fingerprint = fingerprint;
                 doc.revision = None;
-                doc.reconcile(lines, end, initial);
+                doc.reconcile(lines, end, initial, None);
                 return;
             }
         }
@@ -70,6 +72,20 @@ impl HighlightCache {
         end: usize,
         revision: u64,
     ) {
+        self.prepare_hinted(path, lines, end, revision, None);
+    }
+
+    /// `dirty` is `(first changed line, first unchanged line)` when the editor
+    /// knows it. `None` hashes from line 0, which stays correct if `lines`
+    /// was edited directly.
+    pub(crate) fn prepare_hinted(
+        &mut self,
+        path: &Path,
+        lines: &[String],
+        end: usize,
+        revision: u64,
+        dirty: Option<(usize, usize)>,
+    ) {
         let end = end.min(lines.len());
         if let Some(doc) = self.0.as_mut().filter(|doc| doc.path == path) {
             if doc.revision == Some(revision) && doc.line_count == lines.len() {
@@ -78,7 +94,7 @@ impl HighlightCache {
             }
             if let Some(initial) = doc.initial {
                 doc.revision = Some(revision);
-                doc.reconcile(lines, end, initial);
+                doc.reconcile(lines, end, initial, dirty);
                 return;
             }
         }
@@ -107,3 +123,5 @@ impl HighlightCache {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_hint;

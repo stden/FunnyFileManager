@@ -265,6 +265,14 @@ harness = false
 name = "panel_bench"
 harness = false
 
+[[bench]]
+name = "panel_scroll"
+harness = false
+
+[[bench]]
+name = "typst_highlight"
+harness = false
+
 # Needs a real vault to open, so it only builds where the vault does.
 [[bench]]
 name = "kdbx_bench"

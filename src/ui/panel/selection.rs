@@ -13,7 +13,7 @@ use ratatui::{
 };
 
 use super::{abbreviate_bytes, group_digits, head_cells, palette, Cells, FAR_BLUE};
-use crate::models::{FileSize, Panel};
+use crate::models::Panel;
 
 /// Far's selection summary, centred on the divider in the marked entries'
 /// colour while anything is marked. The rule it covers is what Far covers:
@@ -35,13 +35,7 @@ pub(super) fn render(f: &mut Frame<'_>, panel: &Panel, row: Rect) {
 /// rather than summed. The exact byte count, grouped as Far prints it, gives
 /// way to the short form where the row is too narrow for it.
 fn selection_summary(panel: &Panel, width: Cells) -> Option<String> {
-    if panel.marked.is_empty() {
-        return None;
-    }
-    let (folders, files, bytes) = marked_totals(panel);
-    if folders == 0 && files == 0 {
-        return None;
-    }
+    let (folders, files, bytes) = panel.marked_totals()?;
     let mut counts = counted(files, "file");
     if folders > 0 {
         counts = format!("{counts}, {}", counted(folders, "folder"));
@@ -54,21 +48,6 @@ fn selection_summary(panel: &Panel, width: Cells) -> Option<String> {
         &format!(" {} in {counts} ", abbreviate_bytes(bytes)),
         width,
     ))
-}
-
-fn marked_totals(panel: &Panel) -> (usize, usize, u64) {
-    panel
-        .entries
-        .iter()
-        .filter(|entry| panel.marked.contains(entry.name.as_str()))
-        .fold((0usize, 0usize, 0u64), |(folders, files, bytes), entry| {
-            if entry.kind.is_dir() {
-                let added = entry.directory_size.measured().map_or(0, FileSize::bytes);
-                (folders + 1, files, bytes.saturating_add(added))
-            } else {
-                (folders, files + 1, bytes.saturating_add(entry.size.bytes()))
-            }
-        })
 }
 
 /// `count` of `noun`, in the singular for one.

@@ -4,6 +4,8 @@ use std::path::Path;
 
 use super::{hash_of, Continuation, Document, Highlighter, Token};
 
+mod step;
+
 fn lex_line(engine: &mut Highlighter, line: &str) -> Vec<(usize, usize, Token)> {
     let mut start = 0;
     engine
@@ -41,21 +43,22 @@ impl Document {
         }
     }
 
-    pub(super) fn reconcile(&mut self, lines: &[String], end: usize, initial: Continuation) {
+    pub(super) fn reconcile(
+        &mut self,
+        lines: &[String],
+        end: usize,
+        initial: Continuation,
+        dirty: Option<(usize, usize)>,
+    ) {
         if lines.len() != self.line_count {
-            self.shift_line_count(lines, initial);
+            self.shift_line_count(lines, initial, dirty.map(|(from, _)| from));
         }
-        self.reconcile_in_place(lines, end, initial);
+        self.reconcile_in_place(lines, end, initial, dirty);
         self.extend(lines, end);
     }
 
-    fn shift_line_count(&mut self, lines: &[String], initial: Continuation) {
-        let prefix = self
-            .states
-            .iter()
-            .zip(lines.iter())
-            .take_while(|(&(old_hash, _), line)| old_hash == hash_of(line))
-            .count();
+    fn shift_line_count(&mut self, lines: &[String], initial: Continuation, hint: Option<usize>) {
+        let prefix = self.unchanged_prefix(lines, hint);
         if prefix < self.states.len() {
             if lines.len() > self.line_count {
                 self.splice_inserted_lines(lines, prefix, initial);
@@ -66,6 +69,19 @@ impl Document {
         self.spans.truncate(lines.len());
         self.states.truncate(lines.len());
         self.line_count = lines.len();
+    }
+
+    /// Lines `0..skip` are known unchanged, so only the tail is hashed.
+    fn unchanged_prefix(&self, lines: &[String], hint: Option<usize>) -> usize {
+        let skip = hint.unwrap_or(0).min(self.states.len());
+        let matched = self
+            .states
+            .iter()
+            .skip(skip)
+            .zip(lines.iter().skip(skip))
+            .take_while(|(&(old_hash, _), line)| old_hash == hash_of(line))
+            .count();
+        skip + matched
     }
 
     fn splice_inserted_lines(&mut self, lines: &[String], prefix: usize, initial: Continuation) {
@@ -98,39 +114,9 @@ impl Document {
             slot.0 = !hash_of(line);
         }
     }
+}
 
-    fn reconcile_in_place(&mut self, lines: &[String], end: usize, initial: Continuation) {
-        let limit = self.spans.len().min(lines.len());
-        let mut incoming = initial;
-        let mut old_incoming = initial;
-        for (idx, ((line, state_slot), span_slot)) in lines
-            .iter()
-            .zip(self.states.iter_mut())
-            .zip(self.spans.iter_mut())
-            .take(limit)
-            .enumerate()
-        {
-            let line_hash = hash_of(line);
-            let (old_hash, old_after) = *state_slot;
-            if incoming == old_incoming && line_hash == old_hash {
-                incoming = old_after;
-                old_incoming = old_after;
-                continue;
-            }
-            if idx >= end {
-                self.spans.truncate(idx);
-                self.states.truncate(idx);
-                return;
-            }
-            self.engine.resume(incoming);
-            *span_slot = lex_line(&mut self.engine, line);
-            let new_after = self.engine.continuation().unwrap_or(incoming);
-            *state_slot = (line_hash, new_after);
-            incoming = new_after;
-            old_incoming = old_after;
-        }
-    }
-
+impl Document {
     fn state_before(&self, idx: usize) -> Option<Continuation> {
         let init = self.initial?;
         idx.checked_sub(1)

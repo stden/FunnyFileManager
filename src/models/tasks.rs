@@ -93,6 +93,7 @@ pub struct TaskList {
     network: NetworkView,
     modal: Modal,
     notice: Option<Notice>,
+    view_stamp: view::ViewStamp,
 }
 
 impl Default for TaskList {
@@ -123,12 +124,27 @@ impl TaskList {
             network: NetworkView::default(),
             modal: Modal::Browse,
             notice: None,
+            view_stamp: view::ViewStamp::default(),
         }
     }
 
     fn rebuild(&mut self) {
-        self.view = build_view(self.rows(), &self.options);
-        self.selection.follow(&self.view);
+        let Self {
+            view,
+            table,
+            options,
+            view_stamp,
+            selection,
+            ..
+        } = self;
+        let rows = table.rows();
+        if view::try_reuse(view, rows, options, view_stamp) {
+            selection.follow(view);
+            return;
+        }
+        *view = build_view(rows, options);
+        *view_stamp = view::stamp(view, rows, options);
+        selection.follow(view);
     }
 }
 
@@ -178,3 +194,5 @@ mod tests_units;
 mod tests_view;
 #[cfg(test)]
 mod tests_view_priority;
+#[cfg(test)]
+mod tests_view_reuse;

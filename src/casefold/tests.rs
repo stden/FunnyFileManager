@@ -5,7 +5,7 @@
 //! replaced. The second form is the one that catches a "clever" fast path that
 //! is merely close.
 
-use super::{contains_ignore_case, starts_with_ignore_case};
+use super::{contains_ignore_case, find_ignore_case, folded_name, starts_with_ignore_case};
 
 /// What the old expression computed, kept here as the oracle.
 fn slow_contains(haystack: &str, needle: &str) -> bool {
@@ -14,6 +14,10 @@ fn slow_contains(haystack: &str, needle: &str) -> bool {
 
 fn slow_starts_with(haystack: &str, needle: &str) -> bool {
     haystack.to_lowercase().starts_with(&needle.to_lowercase())
+}
+
+fn slow_find(haystack: &str, needle: &str) -> Option<usize> {
+    haystack.to_lowercase().find(&needle.to_lowercase())
 }
 
 /// Inputs worth disagreeing on: empty strings, a needle longer than the
@@ -38,8 +42,11 @@ const CASES: &[(&str, &str)] = &[
     ("ПАПКА", "папка"),
     ("папка", "ПАП"),
     ("İstanbul", "i"),
+    ("İstanbul", "stan"),
     ("naïve", "NAÏ"),
     ("ascii", "Ï"),
+    ("Hello", "ell"),
+    ("Hello", "ELL"),
 ];
 
 #[test]
@@ -91,4 +98,35 @@ fn case_is_ignored_in_both_operands() {
 fn starts_with_is_anchored() {
     assert!(contains_ignore_case("Document.txt", "txt"));
     assert!(!starts_with_ignore_case("Document.txt", "txt"));
+}
+
+/// The index stays in the folded string. `İ` expands, so it is not the byte
+/// offset of the same letters in the original haystack.
+#[test]
+fn find_agrees_with_the_allocating_expression() {
+    for (haystack, needle) in CASES {
+        assert_eq!(
+            find_ignore_case(haystack, needle),
+            slow_find(haystack, needle),
+            "find_ignore_case({haystack:?}, {needle:?})"
+        );
+    }
+    assert_eq!(find_ignore_case("Hello", "ell"), Some(1));
+    assert_eq!(find_ignore_case("", ""), Some(0));
+    let expanded = find_ignore_case("İstanbul", "stan");
+    assert_eq!(expanded, slow_find("İstanbul", "stan"));
+    assert_ne!(expanded, "İstanbul".find("stan"));
+}
+
+/// Prefix search binary-searches folded names, so the fold must agree with
+/// `starts_with_ignore_case` on every case that function already locks.
+#[test]
+fn folded_names_agree_with_starts_with_ignore_case() {
+    for (haystack, needle) in CASES {
+        assert_eq!(
+            folded_name(haystack).starts_with(&folded_name(needle)),
+            starts_with_ignore_case(haystack, needle),
+            "folded prefix {haystack:?} / {needle:?}"
+        );
+    }
 }

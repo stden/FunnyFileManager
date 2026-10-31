@@ -28,7 +28,7 @@ impl Panel {
         entries.append(&mut listing.entries);
         self.entries = entries;
         self.metadata = listing.metadata;
-        *self.short_names.borrow_mut() = None;
+        self.clear_listing_cache();
         self.forget_unlisted_marks();
         self.select_after_reload(&previous);
     }
@@ -162,7 +162,14 @@ impl Panel {
         if let Some(rest) = self.entries.get_mut(start..) {
             sort_entries(rest, self.sort_mode, self.sort_order);
         }
-        *self.short_names.borrow_mut() = None;
+        self.clear_listing_cache();
         self.select_after_reload(&previous);
+    }
+
+    /// Drop caches keyed by the listing's address. An in-place reorder keeps
+    /// that address, so the sort that did it has to drop them itself.
+    fn clear_listing_cache(&self) {
+        *self.short_names.borrow_mut() = None;
+        *self.name_index.borrow_mut() = None;
     }
 }

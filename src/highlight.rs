@@ -30,6 +30,7 @@ use tokenizer::{run_length, tokenize};
 thread_local! {
     pub(crate) static FILE_PASSES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     pub(crate) static LINE_PASSES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    pub(crate) static HASH_PASSES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 #[cfg(feature = "colorer")]

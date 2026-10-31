@@ -51,6 +51,38 @@ pub fn contains_ignore_case(haystack: &str, needle: &str) -> bool {
             .any(|window| window.eq_ignore_ascii_case(needle))
 }
 
+/// Lowercase form shared by ordering and prefix search.
+///
+/// ASCII takes `to_ascii_lowercase`, which matches `to_lowercase` on ASCII.
+/// Any other scalar uses `to_lowercase`, so expansions such as `İ` stay intact.
+#[must_use]
+pub(crate) fn folded_name(name: &str) -> String {
+    if name.is_ascii() {
+        name.to_ascii_lowercase()
+    } else {
+        name.to_lowercase()
+    }
+}
+
+/// Byte index of `needle` in `haystack`, ignoring case.
+///
+/// The index is the one `haystack.to_lowercase().find(&needle.to_lowercase())`
+/// returns, including when lowercase expands a character. ASCII finds it with
+/// `eq_ignore_ascii_case` and does not build those strings.
+#[must_use]
+pub(crate) fn find_ignore_case(haystack: &str, needle: &str) -> Option<usize> {
+    if needle.is_empty() {
+        return Some(0);
+    }
+    if !haystack.is_ascii() || !needle.is_ascii() {
+        return haystack.to_lowercase().find(&needle.to_lowercase());
+    }
+    let (haystack, needle) = (haystack.as_bytes(), needle.as_bytes());
+    haystack
+        .windows(needle.len())
+        .position(|window| window.eq_ignore_ascii_case(needle))
+}
+
 /// Whether `haystack` begins with `needle`, ignoring case.
 ///
 /// Equivalent to `haystack.to_lowercase().starts_with(needle)` for a lowercase

@@ -41,10 +41,12 @@ impl Editor {
     fn apply_formatted(&mut self, formatted: &str) {
         let new_lines: Vec<String> = formatted.split('\n').map(str::to_owned).collect();
         if new_lines != self.lines {
+            let until = new_lines.len().max(1);
             self.lines = new_lines;
             self.cursor_line = self.cursor_line.min(self.lines.len().saturating_sub(1));
             self.clamp_col();
             self.selection = EditorSelection::None;
+            self.note_dirty(0, until);
             self.mark_modified();
         }
     }

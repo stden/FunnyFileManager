@@ -30,6 +30,7 @@ impl Editor {
         self.lines.drain(first + 1..=last);
         self.cursor_line = first;
         self.cursor_col = range.start.column.chars();
+        self.note_dirty(first, first + 1);
         self.mark_modified();
         true
     }
@@ -45,6 +46,7 @@ impl Editor {
         self.cursor_col = 0;
         self.selection = EditorSelection::None;
         if changed {
+            self.note_dirty(0, 1);
             self.mark_modified();
         }
         changed
@@ -56,6 +58,7 @@ impl Editor {
             return;
         }
         let normalized = self.prepare_insert(text);
+        let line_at = self.cursor_line;
         let at = self.byte_col(self.cursor_col);
         let Some(line) = self.line_mut() else {
             return;
@@ -67,6 +70,7 @@ impl Editor {
             self.cursor_col += first.chars().count();
         }
         let rest: Vec<_> = parts.map(str::to_owned).collect();
+        let added = rest.len();
         if let Some(last) = rest.last() {
             let after = self.cursor_line + 1;
             self.cursor_line += rest.len();
@@ -76,6 +80,7 @@ impl Editor {
         if let Some(line) = self.line_mut() {
             line.push_str(&suffix);
         }
+        self.note_dirty(line_at, line_at + added + 1);
         self.mark_modified();
     }
 

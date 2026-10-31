@@ -28,11 +28,23 @@ const PLAIN_MATCH: i32 = 1;
 /// Deducted per candidate character skipped over.
 const GAP_PENALTY: i32 = 1;
 
+/// One subsequence walk: the points, the char index of the last hit, and how
+/// many query characters matched. A hit on `0..matched` is a prefix.
+struct Hit {
+    points: i32,
+    last: usize,
+    matched: usize,
+}
+
 /// Score `candidate` against `query`, or `None` when it does not match.
 ///
 /// Matching is subsequence-based: every query character must appear in
 /// `candidate`, in order. **Smartcase** — an all-lowercase query matches
 /// case-insensitively; any uppercase character makes the query case-sensitive.
+///
+/// The walk is one pass and allocates nothing. Smartcase folds each character
+/// as it is read, with `to_ascii_lowercase`, which is what the previous
+/// lowered copies compared.
 #[must_use]
 pub fn score(query: &str, candidate: &str) -> Option<Score> {
     if query.is_empty() {
@@ -41,77 +53,83 @@ pub fn score(query: &str, candidate: &str) -> Option<Score> {
             points: 0,
         });
     }
-
     let case_sensitive = query.chars().any(char::is_uppercase);
-    let normalize = |c: char| {
-        if case_sensitive {
-            c
-        } else {
-            c.to_ascii_lowercase()
-        }
-    };
-
-    let haystack: Vec<char> = candidate.chars().map(normalize).collect();
-    let needle: Vec<char> = query.chars().map(normalize).collect();
-
-    let points = subsequence_points(&haystack, &needle)?;
-
-    let tier = if is_prefix(&needle_of(query, case_sensitive), candidate, case_sensitive) {
+    let hit = walk(candidate, query, case_sensitive)?;
+    let tier = if hit.last + 1 == hit.matched {
         Tier::Prefix
     } else {
         Tier::Fuzzy
     };
-
-    Some(Score { tier, points })
+    Some(Score {
+        tier,
+        points: hit.points,
+    })
 }
 
-fn subsequence_points(haystack: &[char], needle: &[char]) -> Option<i32> {
+fn walk(candidate: &str, query: &str, case_sensitive: bool) -> Option<Hit> {
+    let mut wanted = query.chars().map(|ch| fold(ch, case_sensitive));
+    let mut need = wanted.next()?;
     let mut points = 0;
-    let mut haystack_index = 0;
-    let mut previous_match: Option<usize> = None;
-
-    for &wanted in needle {
-        let found = haystack
-            .get(haystack_index..)?
-            .iter()
-            .position(|&c| c == wanted)
-            .map(|offset| haystack_index + offset)?;
-
-        points += if previous_match == Some(found.wrapping_sub(1)) {
-            CONSECUTIVE_BONUS
-        } else if found == 0
-            || haystack
-                .get(found - 1)
-                .is_some_and(|c| WORD_BOUNDARIES.contains(c))
-        {
-            BOUNDARY_BONUS
-        } else {
-            PLAIN_MATCH
-        };
-        points -= GAP_PENALTY * i32::try_from(found - haystack_index).unwrap_or(0);
-
-        previous_match = Some(found);
-        haystack_index = found + 1;
+    let mut previous = None;
+    let mut from = 0;
+    let mut matched = 0;
+    let mut before = None;
+    for (index, ch) in candidate.chars().enumerate() {
+        let ch = fold(ch, case_sensitive);
+        if ch == need {
+            let hit = record(
+                &mut points,
+                &mut previous,
+                &mut from,
+                &mut matched,
+                index,
+                before,
+            );
+            need = match wanted.next() {
+                Some(next) => next,
+                None => return Some(hit),
+            };
+        }
+        before = Some(ch);
     }
-
-    Some(points)
+    None
 }
 
-/// The query as compared — lowercased unless the query is case-sensitive.
-fn needle_of(query: &str, case_sensitive: bool) -> String {
-    if case_sensitive {
-        query.to_owned()
-    } else {
-        query.to_ascii_lowercase()
+fn record(
+    points: &mut i32,
+    previous: &mut Option<usize>,
+    from: &mut usize,
+    matched: &mut usize,
+    index: usize,
+    before: Option<char>,
+) -> Hit {
+    *points += bonus(*previous, index, before);
+    *points -= GAP_PENALTY * i32::try_from(index - *from).unwrap_or(0);
+    *previous = Some(index);
+    *from = index + 1;
+    *matched += 1;
+    Hit {
+        points: *points,
+        last: index,
+        matched: *matched,
     }
 }
 
-/// Whether `candidate` starts with `needle` under the active case rule.
-fn is_prefix(needle: &str, candidate: &str, case_sensitive: bool) -> bool {
+fn fold(ch: char, case_sensitive: bool) -> char {
     if case_sensitive {
-        candidate.starts_with(needle)
+        ch
     } else {
-        candidate.to_ascii_lowercase().starts_with(needle)
+        ch.to_ascii_lowercase()
+    }
+}
+
+fn bonus(previous: Option<usize>, index: usize, before: Option<char>) -> i32 {
+    if previous == Some(index.wrapping_sub(1)) {
+        CONSECUTIVE_BONUS
+    } else if index == 0 || before.is_some_and(|ch| WORD_BOUNDARIES.contains(&ch)) {
+        BOUNDARY_BONUS
+    } else {
+        PLAIN_MATCH
     }
 }
 

@@ -128,6 +128,8 @@ mod tests_control_refusals;
 #[cfg(test)]
 mod tests_net;
 #[cfg(test)]
+mod tests_net_parse;
+#[cfg(test)]
 mod tests_parse;
 #[cfg(test)]
 mod tests_parse_meminfo;

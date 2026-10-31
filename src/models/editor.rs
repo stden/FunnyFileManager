@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+mod dirty;
 mod disk;
 mod edit_state;
 mod editing;
@@ -17,6 +18,8 @@ pub use lsp::{CompletionTrigger, EditorLspState, LspFeature, ServerState};
 pub use selection::{EditorMotion, EditorSelection, SelectionMode};
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_dirty;
 
 /// Built-in text editor, opened with F4 (Far Manager style).
 ///
@@ -52,6 +55,8 @@ pub struct Editor {
     pub encoding_choice: Option<crate::encoding::TextEncoding>,
     /// Lexical cache; it checks source equality because callers can edit `lines` directly.
     pub highlights: std::cell::RefCell<crate::highlight::cache::HighlightCache>,
+    /// Lines edited since the last paint. Stays empty when `lines` is written directly.
+    pub(crate) dirty_span: std::cell::Cell<Option<(usize, usize)>>,
 }
 
 /// A caret's position within a line, counted in **characters**.

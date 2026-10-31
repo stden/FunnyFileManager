@@ -76,6 +76,7 @@ impl Editor {
             text
         };
         self.lines = content.split('\n').map(str::to_owned).collect();
+        self.note_dirty(0, self.lines.len().max(1));
     }
 
     /// The line index and character column `position` names in the buffer.
