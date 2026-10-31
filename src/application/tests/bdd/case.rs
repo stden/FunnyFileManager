@@ -83,6 +83,18 @@ impl Case {
         }
     }
 
+    /// Inserts `text` at the current cursor position by sending a paste event.
+    pub fn type_text(&mut self, text: &str) {
+        crate::application::event::handle_event(
+            &mut self.terminal,
+            &mut self.app,
+            Event::Paste(text.to_owned()),
+            &mut self.clicks,
+        )
+        .unwrap();
+        self.paint();
+    }
+
     pub fn batch(&mut self) {
         let before = self.screen.draws();
         self.batch_events = self.queued.len();
