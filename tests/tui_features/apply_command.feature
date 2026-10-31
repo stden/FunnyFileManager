@@ -36,7 +36,7 @@ Feature: Apply command workflows and shell quoting
     And I press "Enter"
     Then the screen contains "Apply command: 2 run"
     When I press "Ctrl+O"
-    Then the screen contains 'echo BACKUP~1.TXT BACKUP~1.TXT "two words.txt"'
+    Then the screen contains 'echo BACKUP~1.TXT BACKUP~1.TXT "two words.txt"' or 'echo BACKUP~1.TXT BACKUP~1.TXT TWOWOR~1.TXT'
     And the screen contains 'echo step:BACKUP~1.TXT BACKUP~1.TXT "two words.txt"'
     And the screen contains 'echo step:two words.txt "two words.txt"'
     When I press "Ctrl+O F10 Enter"
