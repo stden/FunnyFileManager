@@ -206,7 +206,8 @@ cargo bench --bench utils_bench    # Run Criterion benchmarks for basic helpers/
 ```
 
 Additional repository guidance lives in [docs/best-practices.md](docs/best-practices.md), including testing conventions
-and helper-gated test commands.
+and helper-gated test commands. The [Rust best practices tutorial](docs/tutorials/rust-best-practices.md)
+explains the principles with examples and links to FFM code.
 
 ## 🧪 Testing
 

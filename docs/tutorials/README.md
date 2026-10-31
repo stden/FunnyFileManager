@@ -1,4 +1,4 @@
-﻿<!-- Purpose: Index of the filesystem, AWS, and S3 tutorials. -->
+<!-- Purpose: Index of user and developer tutorials. -->
 
 # FFM tutorials
 
@@ -20,3 +20,8 @@ the library and the MCP server can list, copy, upload, download, and delete
 objects. The panels do not browse a bucket yet. Choosing an S3 row in the
 drive menu leaves the panel on its local directory and says so in the status
 line.
+
+## For developers
+
+The [Rust best practices tutorial](rust-best-practices.md) covers Rust design,
+testing, and verification using examples from FFM.
