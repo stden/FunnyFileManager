@@ -52,6 +52,7 @@ mod progress;
 mod prompts;
 mod quickview;
 mod remote;
+mod remote_dialog;
 mod screens;
 mod session_edit;
 mod sessions;

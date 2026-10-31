@@ -60,6 +60,7 @@ fn the_list_keys_move_and_enter_opens_a_directory() {
     assert_eq!(remote(&app).cursor(), 2);
     assert!(process(&mut app, bare(KeyCode::Up)));
     assert!(process(&mut app, bare(KeyCode::Enter)));
+    crate::test_support::finish_remote(&mut app);
     assert_eq!(remote(&app).path().as_str(), "/etc");
 }
 
@@ -72,8 +73,9 @@ fn a_file_key_is_refused_and_a_program_key_passes() {
         assert!(!app.is_overlay_active(), "{refused:?}");
     }
     assert_eq!(
-        app.status_text(),
-        "NetBox: this key works on local files; Enter on `..` at the host's root leaves it"
+        remote(&app).cursor(),
+        0,
+        "parent is not a file operation target"
     );
     assert!(!process(&mut app, bare(KeyCode::Tab)));
     assert!(!process(
@@ -86,17 +88,23 @@ fn a_file_key_is_refused_and_a_program_key_passes() {
 /// five session commands are handed back, and their keys are refused for the
 /// files they would reach — Shift+F4 would make a file beneath the panel.
 #[test]
-fn a_host_hands_the_five_session_commands_back_to_be_refused() {
+fn remote_file_commands_are_handled_without_reaching_hidden_local_files() {
     let dir = TempDir::new().expect("temp dir");
     for (code, modifiers, command) in SESSION_KEYS {
         let key = KeyEvent::new(code, modifiers);
         let mut app = app_on_host(dir.path(), &FILES, None);
         let resolved = resolve(&app.keymap.netbox_panel, key);
         assert_eq!(resolved, Some(command), "{key:?}");
-        assert!(!apply(&mut app, command), "{command:?}");
+        assert_eq!(
+            apply(&mut app, command),
+            command != NetboxCommand::NewSession,
+            "{command:?}"
+        );
         assert_ne!(app.status_text(), NOT_FILES, "{command:?}");
         assert!(process(&mut app, key), "{key:?}");
-        assert_eq!(app.status_text(), NOT_FILES, "{key:?}");
+        if command == NetboxCommand::NewSession {
+            assert_eq!(app.status_text(), NOT_FILES, "{key:?}");
+        }
         assert!(!app.is_overlay_active(), "{key:?}");
     }
 }
@@ -113,7 +121,10 @@ fn the_panel_obeys_the_keys_of_the_apps_keymap() {
 
     assert!(process(&mut app, chord("Ctrl+F3").to_event()));
     assert_eq!(remote(&app).cursor(), 2);
-    assert!(!process(&mut app, bare(KeyCode::Tab)), "the panels' Tab");
+    assert!(
+        process(&mut app, bare(KeyCode::Tab)),
+        "remapped remote view command"
+    );
     assert!(!app.is_overlay_active());
 }
 

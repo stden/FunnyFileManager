@@ -10,6 +10,8 @@ mod format;
 pub mod lsp;
 mod movement;
 mod pretty;
+mod remote;
+pub use remote::RemoteDocument;
 mod selection;
 pub use disk::{AfterSave, Fingerprint, OverwritePrompt};
 pub use edit_state::{EditState, EditorModal, ExitChoice};
@@ -57,6 +59,7 @@ pub struct Editor {
     pub highlights: std::cell::RefCell<crate::highlight::cache::HighlightCache>,
     /// Lines edited since the last paint. Stays empty when `lines` is written directly.
     pub(crate) dirty_span: std::cell::Cell<Option<(usize, usize)>>,
+    pub(crate) remote: Option<Box<RemoteDocument>>,
 }
 
 /// A caret's position within a line, counted in **characters**.

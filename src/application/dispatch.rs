@@ -128,7 +128,7 @@ fn panel_kind_answers(app: &mut App, action: Action) -> bool {
         return false;
     }
     match app.get_active_panel_ref().kind {
-        PanelKind::Files => false,
+        PanelKind::Files => crate::ops::remote::actions::handle(app, action),
         PanelKind::Tree(_) => {
             TreeCommand::from_action(action).is_some_and(|command| popup::tree::apply(app, command))
         }
@@ -147,7 +147,9 @@ fn panel_kind_consumes(app: &mut App, key: KeyEvent) -> bool {
         return false;
     }
     match app.get_active_panel_ref().kind {
-        PanelKind::Files => false,
+        PanelKind::Files => {
+            crate::ops::remote::actions::handle(app, resolve(&app.keymap.panels, key))
+        }
         PanelKind::Tree(_) => popup::tree::process(app, key),
         PanelKind::QuickView(_) => popup::quickview::process(app, key),
         PanelKind::Sessions(_) => popup::sessions::process(app, key),

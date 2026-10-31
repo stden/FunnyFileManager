@@ -100,16 +100,13 @@ fn over_a_quick_view_a_cursor_move_scrolls_the_preview() {
 /// Over a host the Files rows reach for the local files hidden beneath the
 /// panel and are refused; a program's row still runs.
 #[test]
-fn over_a_host_a_files_row_is_refused_and_a_programs_row_runs() {
+fn over_a_host_view_on_parent_is_safe_and_a_programs_row_runs() {
     let dir = TempDir::new().expect("temp dir");
     let mut app = app_on_host(dir.path(), &[("/etc/hostname", 5)], None);
     let mut terminal = terminal();
     dispatch_action(&mut terminal, &mut app, Action::View);
     assert!(!app.overlay.is_active());
-    assert_eq!(
-        app.status_text(),
-        "NetBox: this command works on files; press Enter on `..` to return to them"
-    );
+    assert!(app.left_panel.kind.is_netbox());
     dispatch_action(&mut terminal, &mut app, Action::Tool(ToolCommand::History));
     assert!(matches!(app.overlay, Overlay::MenuDialog(_)));
 }

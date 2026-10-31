@@ -16,13 +16,19 @@ fn session(protocol: Protocol) -> Session {
 }
 
 #[test]
-fn connecting_says_this_build_has_no_transport_for_the_protocol() {
-    for protocol in Protocol::ALL {
+fn unsupported_protocols_remain_explicit_and_supported_ones_require_credentials() {
+    for protocol in [Protocol::Scp, Protocol::Ftps] {
         let error = connect(&session(protocol))
             .map(drop)
             .expect_err("no transport");
         assert_eq!(error, RemoteError::NoTransport(protocol));
         assert!(error.to_string().contains(protocol.label()), "{error}");
+    }
+    for protocol in [Protocol::Sftp, Protocol::Ftp] {
+        let error = connect(&session(protocol))
+            .map(drop)
+            .expect_err("credentials required");
+        assert_eq!(error, RemoteError::AuthenticationRequired);
     }
     assert_eq!(
         RemoteError::NoTransport(Protocol::Sftp).to_string(),

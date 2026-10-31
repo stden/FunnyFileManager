@@ -1,17 +1,23 @@
 //! Purpose: The remote filesystem a stored session opens, as one trait, and
 //! the shared handle a remote panel holds it by.
 //!
-//! The remote panel is written against [`RemoteFs`], so a fake in a test and
-//! a network transport are the same thing to it. This build has no network
-//! transport: [`connect`] says so for every session, and the panel is reached
-//! through [`crate::ops::remote::open_with`] with the in-memory
-//! [`fake::FakeRemoteFs`] in tests. Listings are the panel's own [`DirEntry`],
-//! so a remote directory is drawn by the same rules as a local one.
+//! Native SFTP and FTP adapters share the same interface as isolated test hosts.
+//! Listings use the panel domain types. Credentials are transient; SSH host
+//! identity is checked before authentication.
 
 use std::fmt;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use crate::models::{DirEntry, Protocol, RemotePath, Session};
+use crate::models::{Protocol, RemotePath, Session};
+
+mod connection;
+mod filesystem;
+mod ftp;
+mod metadata;
+mod sftp;
+pub use connection::{connect_with, Credentials};
+pub use filesystem::RemoteFs;
+pub use metadata::{RemoteMetadata, UnixMode, WriteMode};
 
 #[cfg(any(test, feature = "test-helpers"))]
 pub mod fake;
@@ -23,6 +29,13 @@ pub enum RemoteError {
     NoTransport(Protocol),
     NotFound(RemotePath),
     NotADirectory(RemotePath),
+    AlreadyExists(RemotePath),
+    Unsupported(&'static str),
+    InvalidInput(&'static str),
+    Failed(&'static str),
+    AuthenticationRequired,
+    HostKey(String),
+    Conflict,
 }
 
 impl fmt::Display for RemoteError {
@@ -35,16 +48,28 @@ impl fmt::Display for RemoteError {
             ),
             Self::NotFound(path) => write!(f, "no such remote directory: {path}"),
             Self::NotADirectory(path) => write!(f, "not a directory: {path}"),
+            Self::AlreadyExists(path) => write!(f, "remote destination already exists: {path}"),
+            Self::Unsupported(operation) => write!(f, "remote server does not support {operation}"),
+            Self::InvalidInput(message) | Self::Failed(message) => f.write_str(message),
+            Self::AuthenticationRequired => f.write_str("enter the remote username and password"),
+            Self::HostKey(fingerprint) => write!(f, "SSH host key is not trusted: {fingerprint}"),
+            Self::Conflict => f.write_str("the remote file changed since it was opened"),
         }
     }
 }
 
 impl std::error::Error for RemoteError {}
 
-/// What the remote panel needs from a host.
-pub trait RemoteFs: Send {
-    /// The entries of the directory `dir`, without `.` and `..`.
-    fn list(&mut self, dir: &RemotePath) -> Result<Vec<DirEntry>, RemoteError>;
+impl From<std::io::Error> for RemoteError {
+    fn from(error: std::io::Error) -> Self {
+        use std::io::ErrorKind;
+        Self::Failed(match error.kind() {
+            ErrorKind::PermissionDenied => "remote operation: permission denied",
+            ErrorKind::TimedOut | ErrorKind::WouldBlock => "remote operation timed out",
+            ErrorKind::UnexpectedEof | ErrorKind::ConnectionReset => "remote connection closed",
+            _ => "remote file transfer failed",
+        })
+    }
 }
 
 /// An open connection, shared by every copy of the panel that holds it.
@@ -88,8 +113,15 @@ impl Eq for RemoteLink {}
 /// the answer is always [`RemoteError::NoTransport`]; the stored session is
 /// unaffected.
 pub fn connect(session: &Session) -> Result<Box<dyn RemoteFs>, RemoteError> {
-    Err(RemoteError::NoTransport(session.protocol))
+    if matches!(session.protocol, Protocol::Sftp | Protocol::Ftp)
+        && matches!(session.auth, crate::models::Auth::Password)
+    {
+        return Err(RemoteError::AuthenticationRequired);
+    }
+    connect_with(session, &Credentials::default())
 }
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_operations;

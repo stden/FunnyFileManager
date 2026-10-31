@@ -38,6 +38,10 @@ pub(crate) mod lsp_machine;
 #[cfg(test)]
 pub(crate) mod netbox;
 #[cfg(test)]
+mod remote;
+#[cfg(test)]
+pub(crate) use remote::finish_remote;
+#[cfg(test)]
 #[cfg(any(unix, windows))]
 pub(crate) mod sleeper;
 #[cfg(test)]

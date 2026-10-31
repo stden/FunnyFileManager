@@ -19,6 +19,7 @@ pub(super) struct LoopState {
     jobs: wsl_jobs::WslJobs,
     tasks: task_jobs::TaskJobs,
     lsp: lsp_jobs::EditorLspController,
+    remote: super::remote_jobs::RemoteJobs,
     redraw: Redraw,
     pending: Option<timing::Pending>,
     /// The clock as the last frame showed it.
@@ -33,6 +34,7 @@ impl LoopState {
             jobs: wsl_jobs::WslJobs::new(backend),
             tasks: task_jobs::TaskJobs::default(),
             lsp: lsp_jobs::EditorLspController::default(),
+            remote: super::remote_jobs::RemoteJobs::default(),
             redraw: Redraw::Needed,
             pending: None,
             shown_time: String::new(),
@@ -105,6 +107,9 @@ impl LoopState {
     /// Collect what background work finished, asking for a frame when it
     /// changed what is on screen.
     fn pump_background(&mut self, app: &mut App) {
+        if self.remote.pump(app) == Redraw::Needed {
+            self.redraw = Redraw::Needed;
+        }
         if self.git.pump(app) == Redraw::Needed {
             self.redraw = Redraw::Needed;
         }

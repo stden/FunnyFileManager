@@ -61,10 +61,7 @@ fn render_rows(f: &mut Frame<'_>, remote: &mut RemotePanel, body: Rect, is_activ
         .enumerate()
         .map(|(offset, entry)| {
             let chosen = is_active && window.start + offset == remote.cursor();
-            Line::from(Span::styled(
-                pad_cells(&printable_name(&entry.name), width),
-                row_style(entry, chosen),
-            ))
+            row(entry, chosen, remote.marked(&entry.name), width)
         })
         .collect();
     f.render_widget(Paragraph::new(lines), body);
@@ -81,4 +78,22 @@ fn row_style(entry: &DirEntry, chosen: bool) -> Style {
     } else {
         Style::default().fg(palette::FILE)
     }
+}
+
+fn row(entry: &DirEntry, chosen: bool, marked: bool, width: Cells) -> Line<'static> {
+    Line::from(Span::styled(
+        pad_cells(
+            &format!(
+                "{}{}",
+                if marked { "* " } else { "" },
+                printable_name(&entry.name)
+            ),
+            width,
+        ),
+        if marked && !chosen {
+            Style::default().fg(palette::MARKED)
+        } else {
+            row_style(entry, chosen)
+        },
+    ))
 }

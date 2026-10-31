@@ -2,8 +2,8 @@
 //! listing a directory into the panel, entering one, and leaving.
 //!
 //! Everything goes through the [`RemoteFs`] the panel carries, so the same
-//! code runs over the fake in tests and over a transport once this build has
-//! one. Every failure reaches the status bar; none reaches the event loop.
+//! code runs over isolated test hosts and native SFTP/FTP transports.
+//! Network work runs in the background; failures reach the status bar.
 
 use crate::models::{
     remote_panel::Shown, App, PanelKind, RemotePanel, RemotePath, Session, SessionName,
@@ -11,15 +11,61 @@ use crate::models::{
 use crate::remote::{RemoteError, RemoteFs, RemoteLink};
 use crate::status::Status;
 
+pub(crate) mod actions;
+pub(crate) mod completion;
+mod context;
+pub(crate) mod dialogs;
+pub(crate) mod editor;
+pub(crate) mod jobs;
+mod read;
+mod transfer;
+
 /// Enter on a session: open its host in the active panel.
 pub fn connect(app: &mut App, name: &SessionName) {
     let Some(session) = app.sessions.find(name).cloned() else {
         fail(app, &format!("no session named {name}"));
         return;
     };
-    let opened = crate::remote::connect(&session).and_then(|fs| open_with(app, &session, fs));
-    if let Err(error) = opened {
-        fail(app, &format!("{name}: {error}"));
+    let login = crate::models::remote_dialog::RemoteLogin::new(session);
+    app.set_overlay(crate::models::Overlay::Remote(Box::new(
+        crate::models::RemoteOverlay(crate::models::remote_dialog::RemoteDialog::Login(login)),
+    )));
+}
+
+pub(crate) fn enqueue(
+    app: &mut App,
+    target: crate::models::remote_work::RemoteTarget,
+    task: crate::models::remote_work::RemoteTask,
+) {
+    match app.remote_requests.queue(target, task) {
+        Ok(()) => app.set_status(Status::CommandOutput("Remote operation started".to_owned())),
+        Err(error) => fail(app, &error.to_string()),
+    }
+}
+
+/// Enter queues a directory listing or text download; the UI remains responsive.
+pub fn enter(app: &mut App) {
+    match target(app) {
+        Some(Target::Leave) => leave(app),
+        Some(Target::Directory(path)) => request_list(app, path),
+        Some(Target::File) => {
+            if let Err(error) = actions::open(app, false) {
+                fail(app, &error.to_string());
+            }
+        }
+        None => {}
+    }
+}
+
+pub(crate) fn request_list(app: &mut App, path: RemotePath) {
+    if let Ok(target) = context::operation_target(app) {
+        if let crate::models::remote_work::RemoteTarget::Panel { link, .. } = &target {
+            let task = crate::models::remote_work::RemoteTask::List {
+                link: link.clone(),
+                path,
+            };
+            enqueue(app, target, task);
+        }
     }
 }
 
@@ -45,20 +91,7 @@ enum Target {
     /// `..` at the root: out of the host.
     Leave,
     Directory(RemotePath),
-    File(String),
-}
-
-/// Enter: a directory is listed, `..` climbs or leaves, a file is refused.
-pub fn enter(app: &mut App) {
-    match target(app) {
-        None => {}
-        Some(Target::Leave) => leave(app),
-        Some(Target::Directory(path)) => list_into(app, path),
-        Some(Target::File(name)) => fail(
-            app,
-            &format!("{name}: opening a file on a host is not part of this build"),
-        ),
-    }
+    File,
 }
 
 fn target(app: &App) -> Option<Target> {
@@ -75,24 +108,15 @@ fn target(app: &App) -> Option<Target> {
     }
     let entry = panel.selected()?;
     if !entry.kind.is_dir() {
-        return Some(Target::File(entry.name.clone()));
+        return Some(Target::File);
     }
     panel.path().join(&entry.name).map(Target::Directory)
 }
 
 /// Show the directory `path` in the active remote panel.
 pub fn list_into(app: &mut App, path: RemotePath) {
-    let PanelKind::Remote(panel) = &mut app.get_active_panel().kind else {
-        return;
-    };
-    let listed = panel.link().lock().list(&path);
-    match listed {
-        Ok(listing) => {
-            let shown = panel.show(path, listing);
-            let title = format!("NetBox: {}", panel.title());
-            announce(app, shown, title);
-        }
-        Err(error) => fail(app, &error.to_string()),
+    if matches!(app.get_active_panel_ref().kind, PanelKind::Remote(_)) {
+        request_list(app, path);
     }
 }
 

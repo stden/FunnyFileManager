@@ -25,6 +25,7 @@ pub fn process(app: &mut App, key: KeyEvent) -> bool {
         return false;
     }
     resolve(&app.keymap.netbox_panel, key).is_some_and(|command| apply(app, command))
+        || ops::remote::actions::handle(app, crate::action::resolve(&app.keymap.panels, key))
         || refuse_entry_key(app, key, NOT_FILES)
 }
 
@@ -33,6 +34,7 @@ pub fn process(app: &mut App, key: KeyEvent) -> bool {
 /// would meet.
 pub fn answer(app: &mut App, action: Action) -> bool {
     NetboxCommand::from_action(action).is_some_and(|command| apply(app, command))
+        || ops::remote::actions::handle(app, action)
         || refuse_entry(app, action, HIDDEN_ENTRIES)
 }
 
@@ -41,19 +43,27 @@ pub fn answer(app: &mut App, action: Action) -> bool {
 /// the files hidden beneath the panel, so they are handed back to be refused.
 pub fn apply(app: &mut App, command: NetboxCommand) -> bool {
     let page = crate::ui::panel_page_size(app.viewport.rows());
-    let PanelKind::Remote(panel) = &mut app.get_active_panel().kind else {
-        return false;
-    };
     match command {
-        NetboxCommand::Move(motion) => panel.move_cursor(motion.with_page(page)),
+        NetboxCommand::Move(motion) => {
+            let PanelKind::Remote(panel) = &mut app.get_active_panel().kind else {
+                return false;
+            };
+            panel.move_cursor(motion.with_page(page));
+        }
         NetboxCommand::Row(RowCommand::Open) => ops::remote::enter(app),
-        NetboxCommand::NewSession
-        | NetboxCommand::Row(
-            RowCommand::ViewSession
-            | RowCommand::EditSession
-            | RowCommand::CopySession
-            | RowCommand::DeleteSession,
-        ) => return false,
+        NetboxCommand::Row(RowCommand::ViewSession) => {
+            return ops::remote::actions::handle(app, Action::View)
+        }
+        NetboxCommand::Row(RowCommand::EditSession) => {
+            return ops::remote::actions::handle(app, Action::Edit)
+        }
+        NetboxCommand::Row(RowCommand::CopySession) => {
+            return ops::remote::actions::handle(app, Action::Copy)
+        }
+        NetboxCommand::Row(RowCommand::DeleteSession) => {
+            return ops::remote::actions::handle(app, Action::DeleteConfirm)
+        }
+        NetboxCommand::NewSession => return false,
     }
     true
 }

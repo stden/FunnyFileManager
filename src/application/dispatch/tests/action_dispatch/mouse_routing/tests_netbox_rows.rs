@@ -39,9 +39,8 @@ fn a_click_on_a_session_moves_the_lists_cursor_and_not_the_files() {
 
     click_at(&mut terminal, &mut app, (column, second), &mut clicks);
     assert!(
-        app.status_text().contains("this build cannot connect"),
-        "a double click is Enter on the session: {}",
-        app.status_text()
+        matches!(app.overlay, Overlay::Remote(_)),
+        "double click opens login"
     );
 }
 
@@ -81,6 +80,7 @@ fn a_double_click_on_a_remote_directory_enters_it() {
     let mut clicks = crate::mouse::PanelClicks::default();
     click_at(&mut terminal, &mut app, (column, etc), &mut clicks);
     click_at(&mut terminal, &mut app, (column, etc), &mut clicks);
+    crate::test_support::finish_remote(&mut app);
     let PanelKind::Remote(panel) = &app.left_panel.kind else {
         panic!("still on the host");
     };

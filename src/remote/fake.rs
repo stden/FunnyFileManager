@@ -10,6 +10,8 @@ use crate::models::{DirEntry, EntryKind, FileSize, RemotePath};
 
 use super::{RemoteError, RemoteFs};
 
+mod filesystem;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Node {
     Dir,
@@ -20,6 +22,8 @@ enum Node {
 #[derive(Debug, Clone, Default)]
 pub struct FakeRemoteFs {
     nodes: BTreeMap<RemotePath, Node>,
+    contents: BTreeMap<RemotePath, Vec<u8>>,
+    modes: BTreeMap<RemotePath, super::UnixMode>,
 }
 
 impl FakeRemoteFs {
@@ -50,22 +54,6 @@ impl FakeRemoteFs {
             return Some(&Node::Dir);
         }
         self.nodes.get(path)
-    }
-}
-
-impl RemoteFs for FakeRemoteFs {
-    fn list(&mut self, dir: &RemotePath) -> Result<Vec<DirEntry>, RemoteError> {
-        match self.node(dir) {
-            None => return Err(RemoteError::NotFound(dir.clone())),
-            Some(Node::File(_)) => return Err(RemoteError::NotADirectory(dir.clone())),
-            Some(Node::Dir) => {}
-        }
-        Ok(self
-            .nodes
-            .iter()
-            .filter(|(path, _)| path.parent().as_ref() == Some(dir))
-            .map(|(path, node)| entry(path, node))
-            .collect())
     }
 }
 

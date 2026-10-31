@@ -92,17 +92,12 @@ fn enter_on_the_parent_row_returns_to_the_files() {
 }
 
 #[test]
-fn enter_on_a_session_connects_and_this_build_says_it_cannot() {
+fn enter_on_a_session_opens_transient_credentials() {
     let dir = TempDir::new().expect("temp dir");
     let mut app = app(&dir);
     on_first_session(&mut app);
     assert!(process(&mut app, bare(KeyCode::Enter)));
-    assert!(
-        app.status_text()
-            .starts_with("Error: NetBox: a.test: this build cannot connect"),
-        "{}",
-        app.status_text()
-    );
+    assert!(matches!(app.overlay, Overlay::Remote(_)));
     assert!(app.left_panel.kind.is_netbox(), "the list stays");
 }
 

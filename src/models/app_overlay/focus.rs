@@ -24,8 +24,22 @@ impl App {
             Overlay::MenuDialog(dialog) => menu_line(dialog),
             Overlay::LspEditor(editor) => lsp_line(editor),
             Overlay::PathEditor(editor) => editor.focused_line_mut(),
+            Overlay::Remote(dialog) => remote_line(&mut dialog.0),
             _ => None,
         }
+    }
+}
+
+fn remote_line(dialog: &mut crate::models::remote_dialog::RemoteDialog) -> Option<&mut LineEditor> {
+    use crate::models::remote_dialog::{LoginField, RemoteDialog};
+    match dialog {
+        RemoteDialog::Login(login) if login.field == LoginField::User => Some(&mut login.user),
+        RemoteDialog::Input {
+            input,
+            cancel: false,
+            ..
+        } => Some(input),
+        _ => None,
     }
 }
 

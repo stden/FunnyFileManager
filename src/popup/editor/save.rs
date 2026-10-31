@@ -29,6 +29,9 @@ pub(super) fn save_editor(app: &mut App) {
 /// program has written the file since the editor read it. That write would
 /// be lost without a trace, so the user is asked first.
 pub(super) fn request_save(app: &mut App, then: AfterSave) {
+    if crate::ops::remote::editor::request_save(app, then, false) {
+        return;
+    }
     let Some(editor) = app.get_editor_mut() else {
         return;
     };
@@ -72,6 +75,9 @@ pub(super) fn confirm_overwrite(app: &mut App, code: KeyCode, prompt: OverwriteP
 /// Split out because the borrow of the editor has to end before `app` can be
 /// told about the outcome.
 fn write_buffer(app: &mut App, then: AfterSave) {
+    if crate::ops::remote::editor::request_save(app, then, true) {
+        return;
+    }
     let Some(editor) = app.get_editor_mut() else {
         return;
     };

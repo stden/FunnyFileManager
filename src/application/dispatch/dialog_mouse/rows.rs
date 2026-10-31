@@ -46,6 +46,16 @@ pub(super) fn click_dialog_row(app: &mut App, index: usize) -> Option<KeyEvent> 
     }
 }
 
+fn remote_row(dialog: &mut crate::models::remote_dialog::RemoteDialog, index: usize) {
+    use crate::models::remote_dialog::{LoginField, RemoteDialog};
+    match dialog {
+        RemoteDialog::Login(login) if index == 2 => login.field = LoginField::User,
+        RemoteDialog::Login(login) if index == 4 => login.field = LoginField::Password,
+        RemoteDialog::Input { cancel, .. } if index == 1 => *cancel = false,
+        _ => {}
+    }
+}
+
 /// The Language servers form, like the copy dialog: a field takes the cursor
 /// and Enabled toggles as well. The list, the view and the exit question have
 /// no clickable rows, and neither has an existing server's dimmed language.

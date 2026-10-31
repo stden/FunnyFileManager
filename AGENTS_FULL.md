@@ -61,7 +61,7 @@ See `docs/knowledge-base/03-rust-best-practices/type-system.md` for details and 
 - `src/editor.rs`: Built-in F4 editor opening and external Alt+F4 integration.
 - `src/s3.rs`: AWS S3 integration.
 - `src/sessions.rs`: NetBox stored sessions (`sessions.json`) and the `.netbox` importer under `src/sessions/import/`.
-- `src/remote.rs`: The `RemoteFs` seam a stored session's remote panel is written against; no network transport in this build.
+- `src/remote.rs`: The `RemoteFs` seam a stored session's remote panel is written against; native SFTP and FTP transports behind the remote filesystem interface.
 - `src/keepass.rs`: Optional KeePass backend (`--features keepass`).
 - `mcp/`: Standalone `ffm-mcp` crate; exposes root-confined file and S3 tools over MCP stdio.
 - `src/<owner>/tests.rs` or `src/<owner>/tests/`: Private unit tests, included only under `cfg(test)`.

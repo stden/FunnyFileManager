@@ -46,6 +46,7 @@ fn enter_on(app: &mut App, row: &str) {
         }
     }
     enter(app);
+    crate::test_support::finish_remote(app);
 }
 
 #[test]
@@ -102,16 +103,11 @@ fn enter_walks_down_and_back_up_and_leaves_at_the_root() {
 }
 
 #[test]
-fn enter_on_a_file_says_files_on_a_host_do_not_open() {
+fn enter_on_a_remote_file_opens_the_internal_viewer() {
     let dir = TempDir::new().expect("temp dir");
     let mut app = app_on_host(dir.path(), &FILES, Some("/etc"));
     enter_on(&mut app, "hostname");
-    assert_eq!(
-        app.status,
-        Status::Error(
-            "NetBox: hostname: opening a file on a host is not part of this build".to_owned()
-        )
-    );
+    assert!(matches!(app.overlay, crate::models::Overlay::Viewer(_)));
     assert_eq!(remote(&app).path().as_str(), "/etc", "the panel stays");
 }
 
@@ -120,6 +116,7 @@ fn a_directory_that_went_away_is_reported_and_the_listing_stays() {
     let dir = TempDir::new().expect("temp dir");
     let mut app = app_on_host(dir.path(), &FILES, None);
     list_into(&mut app, RemotePath::parse("/gone").expect("path"));
+    crate::test_support::finish_remote(&mut app);
     assert_eq!(
         app.status,
         Status::Error("NetBox: no such remote directory: /gone".to_owned())
@@ -160,18 +157,12 @@ fn names_that_could_steer_the_panel_are_left_out_and_reported() {
 }
 
 #[test]
-fn connecting_in_this_build_reports_the_missing_transport() {
+fn connecting_asks_for_transient_credentials_without_changing_the_panel() {
     let dir = TempDir::new().expect("temp dir");
     let mut app = app_in(dir.path());
     app.sessions.upsert(session("example.test", Some("demo")));
     connect(&mut app, &name("demo@example.test"));
-    assert_eq!(
-        app.status,
-        Status::Error(format!(
-            "NetBox: demo@example.test: {}",
-            RemoteError::NoTransport(crate::models::Protocol::Sftp)
-        ))
-    );
+    assert!(matches!(app.overlay, crate::models::Overlay::Remote(_)));
     assert_eq!(app.left_panel.kind, PanelKind::Files);
     connect(&mut app, &name("nobody"));
     assert_eq!(

@@ -148,6 +148,8 @@ pub enum Overlay {
     Settings(Box<SettingsDialog>),
     /// F4 / Shift+F4 on the sessions panel: one stored session's fields.
     SessionEdit(Box<SessionEdit>),
+    /// A remote connection or file operation, including transient credentials.
+    Remote(Box<super::RemoteOverlay>),
     /// F11: Far's Plugin commands list.
     PluginCommands(PluginCommands),
     /// One line of text — a path, a name, a password — asked for by a

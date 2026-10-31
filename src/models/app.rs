@@ -102,6 +102,7 @@ pub struct App {
     /// Constructors leave it empty — the list then falls back to the text
     /// report — and the production entry point installs the platform's.
     pub task_host: TaskHostSlot,
+    pub(crate) remote_requests: super::remote_work::RemoteRequests,
 }
 
 impl App {
@@ -167,6 +168,7 @@ impl App {
             vault_cache: crate::kdbx::cache::SessionCache::default(),
             wsl_requests: WslRequests::default(),
             task_host: TaskHostSlot::default(),
+            remote_requests: super::remote_work::RemoteRequests::default(),
         }
     }
 

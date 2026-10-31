@@ -18,6 +18,7 @@ pub(super) fn click_more_row(overlay: &mut Overlay, index: usize) -> Option<KeyE
                 click_editor_search_row(prompt, index);
             }
         }
+        Overlay::Remote(dialog) => super::remote_row(&mut dialog.0, index),
         Overlay::ArchivePrompt(prompt) => click_archive_row(prompt, index),
         Overlay::ExtractPrompt(prompt) if index == 1 => prompt.field = ExtractField::Destination,
         Overlay::ArchiveCommands(menu) if index < ArchiveCommand::ALL.len() => {

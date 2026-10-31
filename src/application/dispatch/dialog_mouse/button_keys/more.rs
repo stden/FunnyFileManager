@@ -10,6 +10,7 @@ use crate::models::{
 
 pub(super) fn more_button_key(overlay: &mut Overlay, index: usize) -> Option<KeyEvent> {
     match overlay {
+        Overlay::Remote(dialog) => Some(super::remote_button_key(&mut dialog.0, index)),
         Overlay::FindFile(dialog) => Some(find_file_button_key(dialog, index)),
         Overlay::SessionEdit(dialog) => Some(session_edit_button_key(dialog, index)),
         Overlay::DiskCleanup(dialog) => Some(disk_cleanup_button_key(dialog, index)),

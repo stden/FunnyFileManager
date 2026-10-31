@@ -16,6 +16,9 @@ impl Editor {
     /// truncates the original before the first new byte lands, so a full disk or
     /// a crash mid-write would leave nothing but an empty file behind.
     pub fn save(&mut self) -> io::Result<()> {
+        if self.remote.is_some() {
+            return super::remote::editor::save_direct(self);
+        }
         let target =
             crate::file_write::real_target(&self.path).map_err(DanglingLink::into_io_error)?;
         crate::file_write::ensure_writable(&target)?;
@@ -117,6 +120,7 @@ fn reload_editor(editor: &mut Editor, encoding: crate::encoding::TextEncoding) -
     reloaded.disk = Some(Fingerprint::of(&bytes));
     reloaded.tab_size = editor.tab_size;
     reloaded.search.last.clone_from(&editor.search.last);
+    reloaded.remote.clone_from(&editor.remote);
     if editor.format.indent == crate::models::Indent::Tabs {
         reloaded.format.indent = crate::models::Indent::Tabs;
     }

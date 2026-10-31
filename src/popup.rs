@@ -8,6 +8,7 @@ mod editor_search;
 mod lsp_editor;
 mod menu_dialog;
 mod path_env;
+mod remote_dialog;
 
 use editor_search::{process_search_prompt, repeat_search};
 
@@ -19,6 +20,7 @@ pub(crate) fn paste_text(app: &mut App, text: &str) {
         Overlay::Editor(_) => editor::paste_text(app, text),
         Overlay::Tasks(_) => tasks::paste(app, text),
         Overlay::CommandLine(_) => command_line::paste(app, text),
+        Overlay::Remote(_) => remote_dialog::paste(app, text),
         _ => paste_plain(app, text),
     }
 }
@@ -117,6 +119,7 @@ fn process_commands_dialog(app: &mut App, code: KeyCode, modifiers: KeyModifiers
         Overlay::SortModes(_) => sortmenu::process(app, code, modifiers),
         Overlay::Settings(_) => settings::process(app, code, modifiers),
         Overlay::SessionEdit(_) => session_edit::process(app, code, modifiers),
+        Overlay::Remote(_) => remote_dialog::process(app, code, modifiers),
         Overlay::PluginCommands(_) => plugin_commands::process(app, code, modifiers),
         Overlay::InputPrompt(_) => input_prompt::process(app, code, modifiers),
         Overlay::Question(_) => question::process(app, code, modifiers),

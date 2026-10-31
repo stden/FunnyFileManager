@@ -62,6 +62,31 @@ pub(super) fn dialog_button_key(app: &mut App, index: usize) -> Option<KeyEvent>
     }
 }
 
+fn remote_button_key(
+    dialog: &mut crate::models::remote_dialog::RemoteDialog,
+    index: usize,
+) -> KeyEvent {
+    use crate::models::remote_dialog::{LoginField, RemoteDialog};
+    match dialog {
+        RemoteDialog::Login(login) => {
+            login.field = if index == 0 {
+                LoginField::Connect
+            } else {
+                LoginField::Cancel
+            }
+        }
+        RemoteDialog::Trust { answer, .. } | RemoteDialog::Delete { answer, .. } => {
+            *answer = if index == 0 {
+                crate::models::Confirm::Yes
+            } else {
+                crate::models::Confirm::No
+            }
+        }
+        RemoteDialog::Input { cancel, .. } => *cancel = index != 0,
+    }
+    plain(KeyCode::Enter)
+}
+
 /// A key with no modifier.
 pub(super) fn plain(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::empty())

@@ -11,6 +11,8 @@
 use super::{remote_path, DirEntry, EntryKind, RemotePath, RowCursor, RowMotion, SessionName};
 use crate::remote::RemoteLink;
 
+mod marks;
+
 /// The first row: up a directory, or out of the host at the root.
 pub const PARENT: &str = "..";
 
@@ -26,6 +28,8 @@ pub struct RemotePanel {
     /// The first row drawn, kept between frames the way the file panel's is.
     pub scroll: usize,
     link: RemoteLink,
+    marks: std::collections::BTreeSet<String>,
+    previous_marks: std::collections::BTreeSet<String>,
 }
 
 /// What a listing turned into rows: how many entries were left out because
@@ -47,6 +51,8 @@ impl RemotePanel {
             cursor: RowCursor::TOP,
             scroll: 0,
             link,
+            marks: std::collections::BTreeSet::new(),
+            previous_marks: std::collections::BTreeSet::new(),
         }
     }
 
@@ -87,6 +93,13 @@ impl RemotePanel {
     /// part — empty, `.`, `..`, or holding `/` — is left out and counted, so
     /// Enter can never walk the panel somewhere it did not show.
     pub fn show(&mut self, path: RemotePath, listing: Vec<DirEntry>) -> Shown {
+        let selected = (path == self.path)
+            .then(|| self.selected().map(|entry| entry.name.clone()))
+            .flatten();
+        if path != self.path {
+            self.marks.clear();
+            self.previous_marks.clear();
+        }
         let total = listing.len();
         self.entries = std::iter::once(parent_row())
             .chain(
@@ -97,6 +110,13 @@ impl RemotePanel {
             .collect();
         self.path = path;
         self.cursor = RowCursor::TOP;
+        if let Some(index) =
+            selected.and_then(|name| self.entries.iter().position(|entry| entry.name == name))
+        {
+            self.cursor = RowCursor::at(index, self.entries.len());
+        }
+        self.marks
+            .retain(|name| self.entries.iter().any(|entry| entry.name == *name));
         self.scroll = 0;
         Shown {
             unusable_names: total.saturating_sub(self.entries.len().saturating_sub(1)),
