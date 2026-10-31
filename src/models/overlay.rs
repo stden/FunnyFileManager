@@ -38,6 +38,7 @@ pub enum Overlay {
     /// No overlay is active (normal dual-panel view)
     #[default]
     None,
+    TokenUsage(Box<super::TokenUsagePanel>),
 
     /// F1 help screen
     Help,

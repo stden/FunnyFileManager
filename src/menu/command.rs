@@ -7,6 +7,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MenuCommand {
     Performance,
+    TokenUsage,
     LanguageServers,
     UpdatePackages,
     GitPullAll,

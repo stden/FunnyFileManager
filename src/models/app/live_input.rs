@@ -22,6 +22,8 @@ pub enum ProgramPause {
 /// test.
 #[derive(Clone, Default)]
 pub struct LiveInput {
+    /// Only live input may read provider API credentials and usage reports.
+    pub(crate) usage: crate::models::token_usage::UsageAccess,
     /// Whether a finished program's output waits for a key before the panels
     /// return.
     pub program_pause: ProgramPause,

@@ -71,6 +71,7 @@ mod bootstrap;
 mod diagnostics;
 mod directory;
 mod recording;
+mod token_usage;
 pub use application::{run_app, run_app_with_event_reader};
 pub use bootstrap::run;
 

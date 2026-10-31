@@ -39,6 +39,7 @@ pub fn render_overlays(f: &mut Frame<'_>, app: &mut App) {
     }
     let noun = single_target_noun(app);
     match &mut app.overlay {
+        Overlay::TokenUsage(panel) => super::viewer::render_viewer(f, &panel.viewer),
         // Nothing to draw on top. The command line is part of the main
         // layout, and the menu hangs from the top row rather than floating in
         // the middle of the screen — both are drawn by whoever owns that row.

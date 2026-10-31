@@ -2,6 +2,8 @@
 
 # ✅ Best Practices
 
+Пошаговое объяснение правил с упражнениями: [учебник Rust для FFM](tutorials/rust/README.md).
+
 ## 🧪 Testing
 
 - Prefer deterministic tests over interactive flows.

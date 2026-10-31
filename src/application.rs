@@ -23,6 +23,7 @@ mod navigation_batch;
 mod remote_jobs;
 mod task_jobs;
 mod timing;
+mod token_usage_jobs;
 mod wsl_jobs;
 pub use dispatch::dispatch_key;
 use input::{BufferedInput, EventSource};
