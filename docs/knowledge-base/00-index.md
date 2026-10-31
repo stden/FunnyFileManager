@@ -22,7 +22,8 @@ This is the structured knowledge base for FunnyFileManager, designed for use by 
 - `02-architecture/module-structure.md` — Detailed breakdown of every module
 
 ### ✅ 03. Rust Best Practices
-- `03-rust-best-practices/type-system.md` — Enums, newtypes, making illegal states unrepresentable (**critical**)
+- `03-rust-best-practices/tutorial.md` — Full tutorial: error handling, ownership, iterators, modules, pattern matching, traits, testing, Clippy (**start here**)
+- `03-rust-best-practices/type-system.md` — Deep dive: enums, newtypes, making illegal states unrepresentable
 
 ### ✅ 04. Development Workflow
 - `04-development-workflow/build-run-test.md` — Commands, environment setup, the coverage gate and CI (jobs, pinned inputs)
@@ -57,7 +58,7 @@ This is the structured knowledge base for FunnyFileManager, designed for use by 
 ## 🧭 Quick Reference for Common Tasks
 
 - **Starting work on the project** → Read `02-architecture/system-architecture.md`, then `02-architecture/module-structure.md`
-- **Rust coding / refactoring** → Read `03-rust-best-practices/type-system.md` first
+- **Rust coding / refactoring** → Read `03-rust-best-practices/tutorial.md`, then `type-system.md`
 - **Writing tests** → Read `05-testing/testing-strategy.md`
 - **Understanding UI behavior** → Read files in `06-ui-and-interaction/`
 
