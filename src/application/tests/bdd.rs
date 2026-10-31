@@ -10,15 +10,18 @@ use cucumber::{writer::Stats as _, World as _};
 mod case;
 mod common;
 mod documents;
+mod editor;
 mod lsp;
 mod lsp_fixture;
 mod network;
 mod network_worker;
 mod panels;
+mod quick_search;
 mod queue;
 mod samples;
 mod statistics;
 mod tasks;
+mod viewer;
 
 use case::Case;
 
