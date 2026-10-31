@@ -7,7 +7,9 @@ use std::fs;
 
 use tempfile::TempDir;
 
-use super::{contains_archive, delete_sources, discard_partial};
+#[cfg(unix)]
+use super::delete_sources;
+use super::{contains_archive, discard_partial};
 use crate::models::{App, Panel};
 
 fn app_on(root: &std::path::Path) -> App {

@@ -2,6 +2,7 @@
 //! tool: a setuid member is refused, an archive name that reads as an option is
 //! given as a path, and an extraction answer with no prompt open does nothing.
 
+#[cfg(unix)]
 use super::tool::safe_archive_arg;
 use super::*;
 use crate::models::Panel;
