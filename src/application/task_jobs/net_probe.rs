@@ -168,3 +168,6 @@ fn serve_probes(
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

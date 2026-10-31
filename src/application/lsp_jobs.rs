@@ -164,4 +164,6 @@ impl EditorLspController {
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_mailbox;
+#[cfg(test)]
 mod tests_session;

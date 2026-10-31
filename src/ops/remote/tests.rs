@@ -12,6 +12,12 @@ use crate::remote::{RemoteError, RemoteFs};
 use crate::status::Status;
 use crate::test_support::netbox::{app_in, app_on_host, name, session};
 
+mod actions;
+mod completion;
+mod failure;
+mod jobs;
+mod save;
+
 const FILES: [(&str, u64); 3] = [
     ("/var/www/index.html", 10),
     ("/var/log/syslog", 20),

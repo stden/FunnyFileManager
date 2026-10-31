@@ -47,6 +47,9 @@ fn rows(editor: &PathEditor, capacity: usize) -> Vec<Line<'_>> {
     lines
 }
 
+#[cfg(test)]
+mod tests_narrow;
+
 fn render_editor(f: &mut Frame<'_>, editor: &PathEditor, area: Rect, row: u16) {
     let Mode::Edit { input, .. } = &editor.mode else {
         return;

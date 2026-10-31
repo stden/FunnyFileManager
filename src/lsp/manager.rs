@@ -91,3 +91,5 @@ impl Drop for Manager {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+pub mod tests_fixture;

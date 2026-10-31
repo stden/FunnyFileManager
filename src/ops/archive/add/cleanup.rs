@@ -93,3 +93,6 @@ fn contains_archive(dir: &Path, archive: &Path) -> bool {
             (Ok(rdir), Ok(rarch)) if rarch.starts_with(&rdir)
         )
 }
+
+#[cfg(test)]
+mod tests;

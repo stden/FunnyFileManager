@@ -180,3 +180,6 @@ fn click_netbox_row<B: Backend + Write>(
         super::dispatch_action(terminal, app, Action::Open);
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -112,3 +112,31 @@ fn task_list_schedules_probes_after_first_sample_and_respects_hold_and_refresh_n
         .take_probe_request(t0 + Duration::from_secs(20))
         .is_some());
 }
+
+#[test]
+fn new_probe_results_evict_old_failures_from_the_bounded_history() {
+    let mut diag = NetDiagnostics::default();
+    let target = ProbeTarget::Gateway(Ipv4::new(192, 168, 1, 1));
+    diag.sync_endpoints(Some(target.ip()), &[]);
+    let now = Instant::now();
+    diag.record_results(&[(target, ProbeOutcome::Timeout)], now);
+    for _ in 0..10 {
+        diag.record_results(&[(target, ProbeOutcome::Ok(Duration::from_millis(1)))], now);
+    }
+    assert_eq!(diag.rows()[0].loss_percent().hundredths(), 0);
+    assert_eq!(diag.rows()[0].health(), NetHealth::Healthy);
+    assert_eq!(NetHealth::Lossy.label(), "LOSS");
+}
+
+#[test]
+fn refresh_requested_during_probe_is_due_when_the_result_arrives() {
+    let mut list = TaskList::default();
+    let now = Instant::now();
+    let mut raw = sample(system(counters(1, 1, 1), &[]), Vec::new());
+    raw.network.gateway = Some(Ipv4::new(192, 168, 1, 1));
+    list.apply_sample(Ok(raw), now);
+    let first = list.take_probe_request(now).expect("first batch");
+    list.refresh_now();
+    list.apply_probe_results(&[(first[0], ProbeOutcome::Timeout)], now);
+    assert!(list.take_probe_request(now).is_some());
+}

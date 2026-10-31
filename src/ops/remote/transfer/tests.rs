@@ -4,6 +4,8 @@ use super::*;
 use crate::models::RemotePath;
 use crate::remote::{fake::FakeRemoteFs, RemoteLink};
 
+mod more;
+
 fn remote() -> FileLocation {
     FileLocation::Remote {
         link: RemoteLink::new(Box::new(FakeRemoteFs::default())),

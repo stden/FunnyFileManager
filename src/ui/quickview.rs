@@ -170,3 +170,5 @@ fn info_row(view: &QuickView, page: usize) -> String {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_edges;

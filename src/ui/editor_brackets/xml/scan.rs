@@ -191,3 +191,6 @@ fn ascii_run(text: &str, keep: impl Fn(char) -> bool) -> usize {
 pub(super) fn is_tag_name_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.' | ':')
 }
+
+#[cfg(test)]
+mod tests_edges;

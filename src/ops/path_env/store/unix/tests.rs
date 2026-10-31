@@ -2,6 +2,21 @@ use super::*;
 use tempfile::TempDir;
 
 #[test]
+fn saving_a_path_with_control_characters_does_not_change_the_profile() {
+    let temp = TempDir::new().expect("tempdir");
+    let path = temp.path().join("profile");
+    fs::write(&path, "export EDITOR=vi\n").expect("fixture");
+    let snapshot = read_at(&path, Format::Profile, "/bin").expect("snapshot");
+    for value in ["/bin\n/opt", "/bin\r/opt", "/bin\0/opt"] {
+        let error = write_expanded_at(&path, Format::Profile, &snapshot, value)
+            .expect_err("control characters must be rejected");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert_eq!(contents(&path).expect("profile"), snapshot.revision);
+        assert!(!path.with_extension("ffm-path.bak").exists());
+    }
+}
+
+#[test]
 fn profile_save_preserves_other_settings_and_refuses_external_changes() {
     let temp = TempDir::new().expect("tempdir");
     let path = temp.path().join("profile");

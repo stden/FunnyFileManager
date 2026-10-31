@@ -121,3 +121,4 @@ fn late_download_never_reopens_a_panel_or_editor_after_leaving() {
 }
 
 mod additional;
+mod mailbox;

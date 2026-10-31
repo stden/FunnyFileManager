@@ -23,6 +23,22 @@
 | `cargo test --manifest-path mcp/Cargo.toml` | Run the MCP package's separate test suite |
 | `./ffm.py coverage` | CI's line-coverage gate: the root suite under `cargo llvm-cov nextest`, failing under 98% of the measured lines (`scripts/coverage.py`; needs `cargo-llvm-cov`, `cargo-nextest` and `rustup component add llvm-tools`) |
 
+The Linux coverage job also enables a real SFTP integration test with
+`FFM_TEST_SFTP_SERVER=1`. It needs `ssh-keygen`, `/usr/sbin/sshd` from
+OpenSSH Server, an unlocked current account, and the OpenSSH privilege
+separation directory `/run/sshd`. The test starts its own sshd on loopback,
+uses disposable keys and a temporary SSH home, then stops it; it never changes
+the system daemon or the user's SSH configuration. Run the same test locally:
+
+```sh
+FFM_TEST_SFTP_SERVER=1 cargo test --lib remote::sftp::tests_integration::real_sftp_round_trip
+FFM_TEST_SFTP_SERVER=1 ./ffm.py coverage
+```
+
+With the variable unset the test returns without starting a server; when
+enabled, missing tools or a server that cannot start fail the test. The CI job
+checks the runner's OpenSSH Server installation and explicitly enables this check.
+
 The shared lint gate checks formatting in the root and MCP packages, then
 runs Clippy with `--all-targets -- -D warnings` for the root's default features,
 all features, and `--no-default-features --features test-helpers`. It also

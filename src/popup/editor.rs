@@ -185,6 +185,10 @@ mod save;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_completion_paste;
+#[cfg(test)]
 mod tests_save;
 #[cfg(test)]
 mod tests_tab;
+#[cfg(test)]
+mod tests_without_editor;

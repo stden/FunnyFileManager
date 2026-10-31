@@ -2,6 +2,10 @@
 use super::*;
 use crate::models::token_usage::{Tokens, UsageTotals};
 use crate::models::Panel;
+
+mod more;
+mod network;
+
 fn app(temp: &tempfile::TempDir) -> App {
     let panel = Panel::from_entries(temp.path().to_path_buf(), Vec::new());
     App::with_panels(panel.clone(), panel)

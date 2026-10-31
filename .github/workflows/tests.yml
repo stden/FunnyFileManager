@@ -155,6 +155,8 @@ jobs:
     env:
       # Every TUI BDD scenario writes its frames here; uploaded below.
       FFM_TUI_ARTIFACT_DIR: target/tui-bdd
+      # Exercise the real SFTP adapter against a private loopback sshd.
+      FFM_TEST_SFTP_SERVER: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -170,6 +172,14 @@ jobs:
         run: |
           rustup toolchain install --no-self-update
           rustup component add llvm-tools
+
+      - name: Check the local SFTP test server
+        run: |
+          test -x /usr/sbin/sshd || { echo '::error::OpenSSH server is required for the SFTP integration test'; exit 1; }
+          command -v ssh-keygen >/dev/null || { echo '::error::ssh-keygen is required for the SFTP integration test'; exit 1; }
+          if [ ! -d /run/sshd ]; then
+            sudo install -d -m 0755 /run/sshd
+          fi
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:

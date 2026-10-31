@@ -194,3 +194,6 @@ fn render_help(f: &mut Frame<'_>) {
     f.render_widget(Clear, area);
     f.render_widget(paragraph, area);
 }
+
+#[cfg(test)]
+mod tests_commands;

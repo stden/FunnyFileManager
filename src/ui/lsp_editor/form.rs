@@ -176,3 +176,6 @@ pub(super) fn render_exit_question(
         ],
     );
 }
+
+#[cfg(test)]
+mod tests_edges;

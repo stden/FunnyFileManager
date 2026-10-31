@@ -114,3 +114,6 @@ fn failure(source: &Path, error: &io::Error) -> Failure {
         denial: super::super::denied::classify(path, error),
     }
 }
+
+#[cfg(test)]
+mod tests;

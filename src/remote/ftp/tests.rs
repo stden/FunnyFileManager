@@ -1,5 +1,6 @@
 //! Purpose: Real FTP adapter against a loopback server; no external hosts or credentials.
 
+mod edge;
 mod server;
 
 use crate::models::{HostName, Port, Protocol, RemotePath, Session};

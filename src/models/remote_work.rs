@@ -152,3 +152,6 @@ pub struct RemoteRefresh {
     pub listing: RemoteListing,
     pub result: Result<Vec<DirEntry>, RemoteError>,
 }
+
+#[cfg(test)]
+mod tests;

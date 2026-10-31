@@ -166,3 +166,6 @@ mod tests;
 
 #[cfg(test)]
 mod tests_git_pull;
+
+#[cfg(test)]
+mod tests_scan_heading;

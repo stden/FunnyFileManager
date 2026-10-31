@@ -153,3 +153,6 @@ fn column(text: &str, width: usize) -> String {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod tests_detail_edges;

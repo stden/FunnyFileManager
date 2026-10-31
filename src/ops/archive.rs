@@ -115,3 +115,7 @@ mod tests_existing;
 
 #[cfg(test)]
 mod tests_extract;
+#[cfg(test)]
+mod tests_guards;
+#[cfg(test)]
+mod tests_tool_failures;

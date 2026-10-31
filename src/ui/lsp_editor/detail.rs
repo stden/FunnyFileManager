@@ -170,3 +170,6 @@ pub(super) fn every_server(editor: &LspEditor, width: Cells) -> Vec<Line<'static
     }
     lines
 }
+
+#[cfg(test)]
+mod tests_conflicts;

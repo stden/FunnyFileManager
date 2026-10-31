@@ -13,6 +13,9 @@ use super::separated;
 
 const MIN_TARGET: Cells = Cells::new(14);
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum ProbeCol {
     Target,

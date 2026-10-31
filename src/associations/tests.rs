@@ -4,6 +4,7 @@ use super::{path, FILE_NAME};
 
 #[test]
 fn the_associations_file_lives_in_the_ffm_config_directory() {
+    let _env = crate::test_support::env_lock();
     let Some(path) = path() else {
         return; // no home in this environment: nothing to locate
     };

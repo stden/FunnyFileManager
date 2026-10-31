@@ -6,6 +6,8 @@ use super::fake::FakeRemoteFs;
 use super::{connect, RemoteError, RemoteLink};
 use crate::models::{HostName, Port, Protocol, RemotePath, Session};
 
+mod contract;
+
 fn session(protocol: Protocol) -> Session {
     Session::new(
         protocol,

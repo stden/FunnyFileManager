@@ -122,3 +122,6 @@ fn fit(pieces: Vec<Piece>, width: usize, style: impl Fn(Style) -> Style) -> Vec<
     fitted.push((" ".repeat(room.get()), Style::default()));
     fitted
 }
+
+#[cfg(test)]
+mod tests_tag;

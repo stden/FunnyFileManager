@@ -163,3 +163,6 @@ fn stamp(at: Modified) -> String {
         format!("{date} {}", at.time())
     }
 }
+
+#[cfg(test)]
+mod tests_widths;

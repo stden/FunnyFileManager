@@ -9,6 +9,11 @@ use std::path::{Path, PathBuf};
 
 mod filesystem;
 mod metadata;
+#[cfg(test)]
+mod tests;
+#[cfg(test)]
+#[cfg(target_os = "linux")]
+mod tests_integration;
 
 pub(super) struct SftpFs {
     sftp: ssh2::Sftp,

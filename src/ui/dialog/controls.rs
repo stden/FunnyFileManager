@@ -189,3 +189,6 @@ pub(in crate::ui) use hotkey::field_caret;
 pub(in crate::ui::dialog) use hotkey::{
     captioned_room, focused_control_style, hotkey_spans, input_room, row_caret, window_field,
 };
+
+#[cfg(test)]
+mod tests_window;

@@ -25,6 +25,7 @@ mod menu_bar;
 mod menu_dialog;
 mod pointer;
 mod pointer_clicks;
+mod remote;
 mod rows;
 mod tasks;
 mod tool_buttons;

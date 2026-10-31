@@ -7,6 +7,8 @@ use crate::models::{DirEntry, EntryKind, RemotePath, RowMotion, SessionName};
 use crate::remote::fake::FakeRemoteFs;
 use crate::remote::RemoteLink;
 
+mod marks;
+
 fn entry(name: &str, kind: EntryKind) -> DirEntry {
     DirEntry {
         name: name.to_owned(),

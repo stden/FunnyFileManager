@@ -52,8 +52,13 @@ fn ping_endpoint(ip: Ipv4, timeout: Duration) -> ProbeOutcome {
 
 #[cfg(not(windows))]
 fn ping_endpoint(ip: Ipv4, timeout: Duration) -> ProbeOutcome {
-    use std::net::{SocketAddr, TcpStream};
-    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::from(ip.octets()), DNS_PORT));
+    let addr = std::net::SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::from(ip.octets()), DNS_PORT));
+    ping_socket(addr, timeout)
+}
+
+#[cfg(not(windows))]
+fn ping_socket(addr: std::net::SocketAddr, timeout: Duration) -> ProbeOutcome {
+    use std::net::TcpStream;
     let start = Instant::now();
     match TcpStream::connect_timeout(&addr, timeout) {
         Ok(_) => ProbeOutcome::Ok(start.elapsed()),
@@ -135,3 +140,6 @@ fn is_matching_dns_reply(buf: &[u8], len: usize, txid: u16) -> bool {
         && hdr.get(1) == Some(&lo)
         && hdr.get(2).is_some_and(|flags| (flags & 0x80) != 0)
 }
+
+#[cfg(test)]
+mod tests;

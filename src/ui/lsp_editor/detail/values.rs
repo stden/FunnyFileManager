@@ -88,3 +88,6 @@ fn recipe_pieces(server: &ServerSettings) -> Vec<Piece> {
         .map(|(text, token)| (text.to_owned(), token_style(token)))
         .collect()
 }
+
+#[cfg(test)]
+mod tests_blank;

@@ -11,6 +11,8 @@ use crate::models::tasks::{
 use crate::test_support::processes::{counters, process, sample, system};
 use crate::test_support::task_list::pid;
 
+mod tests_more;
+
 fn eth0(rx_bytes: u64, tx_bytes: u64) -> AdapterSample {
     AdapterSample {
         name: "eth0".to_owned(),

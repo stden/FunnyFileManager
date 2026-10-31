@@ -3,6 +3,9 @@ use super::*;
 use crate::models::token_usage::Tokens;
 use serde_json::json;
 
+mod collect;
+mod invalid;
+
 #[test]
 fn openai_counts_cached_input_once_and_collects_all_pages() {
     let page = json!({"data":[{"results":[{"input_tokens":100,"output_tokens":20,"input_cached_tokens":40,"num_model_requests":2}]}],"has_more":true,"next_page":"next"});
@@ -28,8 +31,8 @@ fn openrouter_reasoning_tokens_are_already_part_of_output() {
     assert_eq!(page.totals.output.count(), 50);
     assert_eq!(page.totals.cached, None);
 }
-struct Pages(std::vec::IntoIter<serde_json::Value>);
-impl UsageHttp for Pages {
+struct Pages<I>(I);
+impl<I: Iterator<Item = serde_json::Value>> UsageHttp for Pages<I> {
     fn get(
         &mut self,
         _provider: Provider,

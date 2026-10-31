@@ -161,3 +161,5 @@ pub fn fill(temp: &mut tempfile::NamedTempFile, target: &Path, content: &[u8]) -
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_refusals;

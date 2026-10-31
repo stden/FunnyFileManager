@@ -182,3 +182,6 @@ fn sorted_title() -> Style {
         .fg(palette::CURSOR_FG)
         .bg(palette::CURSOR_BG)
 }
+
+#[cfg(test)]
+mod tests_edges;

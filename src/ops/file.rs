@@ -126,6 +126,8 @@ mod tests_exhaustion;
 #[cfg(unix)]
 mod tests_kept_metadata;
 #[cfg(test)]
+mod tests_merge_links;
+#[cfg(test)]
 mod tests_mkdir_errors;
 #[cfg(test)]
 #[cfg(unix)]
@@ -142,6 +144,8 @@ mod tests_non_utf8_names;
 mod tests_overwrite_failures;
 #[cfg(test)]
 mod tests_overwrite_safety;
+#[cfg(test)]
+mod tests_placement_edges;
 #[cfg(test)]
 mod tests_progress;
 #[cfg(test)]

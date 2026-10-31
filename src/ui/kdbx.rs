@@ -136,3 +136,6 @@ fn render_browser(f: &mut Frame<'_>, name: &str, vault: &Vault) {
 mod tests;
 #[cfg(test)]
 mod tests_unlocked;
+
+#[cfg(test)]
+mod tests_list_notice;
