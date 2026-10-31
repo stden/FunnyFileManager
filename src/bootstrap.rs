@@ -80,6 +80,9 @@ fn run_session(
 /// recorded clipboard, the process table read-only, and none of what only
 /// live input gets.
 fn install_hosts(app: &mut App, input: &Input) {
+    if matches!(input, Input::Live(_)) {
+        crate::ops::network_drives::start();
+    }
     app.clipboard
         .install(input.clipboard(Box::new(crate::clipboard::SystemClipboard::with_stdout())));
     // The task list reads and controls processes through this host. A replay
@@ -100,6 +103,7 @@ fn live_input(input: &Input) -> crate::models::LiveInput {
         return crate::models::LiveInput::default();
     }
     crate::models::LiveInput {
+        usage: crate::models::token_usage::UsageAccess::Network,
         program_pause: crate::models::ProgramPause::UntilKey,
         mcp_host: crate::ops::mcp_install::system_host(),
         lsp_probe: crate::lsp::Probe::from_process(),

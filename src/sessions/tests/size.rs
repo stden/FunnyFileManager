@@ -30,7 +30,7 @@ fn store_with_bytes(dir: &TempDir, bytes: u64) -> SessionStore {
 fn files_below_or_at_the_load_limit_save_and_reload_whole() {
     for bytes in [MAX_FILE_BYTES - 1, MAX_FILE_BYTES] {
         let dir = TempDir::new().expect("temp dir");
-        let store = store_with_bytes(&dir, bytes);
+        let mut store = store_with_bytes(&dir, bytes);
         store.save().expect("within the load limit");
         let path = dir.path().join(FILE_NAME);
         assert_eq!(fs::metadata(path).expect("metadata").len(), bytes);
@@ -46,7 +46,7 @@ fn an_oversized_save_preserves_the_previous_file() {
     previous.save().expect("save previous");
     let path = dir.path().join(FILE_NAME);
     let before = fs::read(&path).expect("read previous");
-    let oversized = store_with_bytes(&dir, MAX_FILE_BYTES + 1);
+    let mut oversized = store_with_bytes(&dir, MAX_FILE_BYTES + 1);
 
     let error = oversized
         .save()
@@ -69,7 +69,7 @@ fn an_oversized_save_preserves_the_previous_file() {
 #[test]
 fn an_oversized_first_save_does_not_create_a_file() {
     let dir = TempDir::new().expect("temp dir");
-    let store = store_with_bytes(&dir, MAX_FILE_BYTES + 1);
+    let mut store = store_with_bytes(&dir, MAX_FILE_BYTES + 1);
 
     assert!(matches!(
         store.save(),

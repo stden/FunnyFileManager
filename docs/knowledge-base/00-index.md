@@ -22,6 +22,8 @@ This is the structured knowledge base for FunnyFileManager, designed for use by 
 - `02-architecture/module-structure.md` — Detailed breakdown of every module
 
 ### ✅ 03. Rust Best Practices
+
+- [Учебник Rust на русском](../../tutorials/rust/README.md) — последовательный курс с упражнениями и примерами FFM.
 - `03-rust-best-practices/tutorial.md` — Full tutorial: error handling, ownership, iterators, modules, pattern matching, traits, testing, Clippy (**start here**)
 - `03-rust-best-practices/type-system.md` — Deep dive: enums, newtypes, making illegal states unrepresentable
 - [Rust best practices tutorial](../tutorials/rust-best-practices.md) — Practical Rust examples, FFM architecture, tests, and exercises

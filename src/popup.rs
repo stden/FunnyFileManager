@@ -9,38 +9,12 @@ mod lsp_editor;
 mod menu_dialog;
 mod path_env;
 mod remote_dialog;
+mod token_usage;
 
 use editor_search::{process_search_prompt, repeat_search};
 
-/// A terminal paste: text for the editor's document, for the task list's open
-/// bar, or for the text field that has the cursor in any other dialog — as one
-/// line, over its selection.
-pub(crate) fn paste_text(app: &mut App, text: &str) {
-    match app.overlay {
-        Overlay::Editor(_) => editor::paste_text(app, text),
-        Overlay::Tasks(_) => tasks::paste(app, text),
-        Overlay::CommandLine(_) => command_line::paste(app, text),
-        Overlay::Remote(_) => remote_dialog::paste(app, text),
-        _ => paste_plain(app, text),
-    }
-}
-
-/// One line into the focused editor, or into a dialog whose fields are strings.
-fn paste_plain(app: &mut App, text: &str) {
-    let line = text_field::one_line(text);
-    if let Some(field) = app.focused_text_field() {
-        field.insert_str(&line);
-        if matches!(app.overlay, Overlay::LspEditor(_)) {
-            crate::ops::lsp_editor::refresh_completion(app, crate::ops::lsp_editor::Trigger::Typed);
-        }
-        return;
-    }
-    match &mut app.overlay {
-        Overlay::SessionEdit(dialog) => dialog.insert_text(&line),
-        Overlay::Attributes(dialog) => dialog.insert_text(&line),
-        _ => {}
-    }
-}
+mod paste;
+pub(crate) use paste::paste_text;
 
 /// Handle keyboard input for popup overlays (help, viewer, editor, dialogs).
 ///
@@ -88,6 +62,7 @@ pub fn process_popup_input(app: &mut App, key: KeyEvent) -> bool {
 /// split follows the menu headings.
 fn process_menu_dialog(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> bool {
     match &app.overlay {
+        Overlay::TokenUsage(_) => token_usage::process(app, code, modifiers),
         Overlay::WipeConfirm(_) => wipe::process(app, code, modifiers),
         Overlay::ArchivePrompt(_) => archive_prompt::process(app, code, modifiers),
         Overlay::ExtractPrompt(_) => extract_prompt::process(app, code, modifiers),

@@ -28,4 +28,5 @@ Feature: The viewer displays file contents and responds to navigation
     When I dispatch the keys "F3"
     Then the rendered screen contains "Line 001"
     When I dispatch the keys "PgDn"
-    Then the rendered screen excludes "Line 001"
+    Then the viewer has scrolled past its first line
+    And the rendered screen excludes "Line 001"

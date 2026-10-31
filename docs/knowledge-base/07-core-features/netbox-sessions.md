@@ -35,17 +35,14 @@ imports NetBox's own export. The design and its later steps are in
 
 ## Passwords
 
-No password is ever stored, logged, shown or written to the history. The
-dialog has no password field, `sessions.json` has none, and an import counts
-the saved passwords it found and leaves them out — the transcript says how
-many. A password is to be asked for when connecting.
+Passwords are requested when connecting and kept only in memory, never in
+profiles, logs or history. Imports discard saved passwords. The connection
+dialog masks its password field.
 
 ## What this build does not do
 
-- **Connect.** There is no SFTP/SCP/FTP transport yet: Enter on a session
-  says so, and the session stays stored. The remote panel it will open — its
-  listing, Enter into a directory, `..` out of the host — is built and tested
-  against the in-memory host in `src/remote/fake.rs`.
+- **SCP and FTPS.** Native connections currently support SFTP and FTP.
+  Remote panels support copying, moving, deleting, editing and Linux permissions.
 - **Import from Far's profile database, `pwd.json` or a KeePass vault.**
   Export the sessions from NetBox (*Export sessions*) and import the
   `.netbox` file.
@@ -54,21 +51,16 @@ many. A password is to be asked for when connecting.
 
 ## The files
 
-- The store: `<config dir>/ffm/sessions.json` — `$XDG_CONFIG_HOME` (else
-  `~/.config`) on Unix, `%APPDATA%` on Windows — written atomically, mode
-  `0600`, at most 1 MiB, with the guards of `settings.yaml`: a symbolic link
-  (a dotfiles repository) is written through and stays a link, and a link to
-  nothing, a file with other hard links, another user's file or a read-only
-  one is refused (`cannot write the sessions file: sessions.json belongs to
-  another user; FFM will not replace it`). The histories, the bookmarks and
-  the panel session are written the same way. A file that exists but cannot
-  be read, parsed or checked (a hand edit gone wrong, two sessions with one
-  name, another user's 0600 file) is left exactly as it is: the list starts
-  empty, the status line says why (`sessions.json did not load (Permission
-  denied …), so it is not overwritten; fix or move it first`), and every
-  change is refused until the file is fixed or moved. A save or import whose
-  serialized JSON would exceed 1 MiB is refused before writing, preserving
-  both the previous file and the session's committed entries.
+- The user store: `<config dir>/ffm/ffm.yml`, under `sessions`.
+  On Windows this is `%APPDATA%/ffm/ffm.yml`; on Unix it is
+  `$XDG_CONFIG_HOME/ffm/ffm.yml` or `~/.config/ffm/ffm.yml`.
+  This is a private user file, never a project configuration. Git ignores
+  `ffm.yml` and its lock file. Saving preserves other YAML sections, uses an
+  exclusive lock and an atomic owner-only replacement, and refuses conflicting
+  changes to server profiles. Comments are rewritten with the YAML document.
+  If `ffm.yml` is absent, existing `sessions.json` profiles are read;
+  the next profile save writes YAML and leaves the old JSON untouched.
+  Invalid or duplicate profiles refuse saving until the file is repaired.
 - The import: NetBox's XML, `<NetBox><Sessions><Session name="…">` with
   `HostName`, `PortNumber`, `UserName`, `FSProtocol` (a number or a name),
   `Ftps`, `RemoteDirectory`, `PublicKeyFile` and `Password`, every value

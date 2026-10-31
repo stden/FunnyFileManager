@@ -16,5 +16,7 @@ Feature: Alt-letter quick search jumps the panel cursor to matching entries
   Scenario: Esc exits quick search and keeps the cursor on the matched entry
     When I dispatch the keys "Alt+c"
     Then the left panel cursor selects "cherry.txt"
+    And quick search is active
     When I dispatch the keys "Esc"
     Then the left panel cursor selects "cherry.txt"
+    And quick search is inactive

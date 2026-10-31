@@ -36,3 +36,5 @@ fn imported(host: &str) -> Session {
 fn file_store(dir: &TempDir) -> SessionStore {
     SessionStore::load_from(dir.path().join(FILE_NAME))
 }
+
+mod yaml;

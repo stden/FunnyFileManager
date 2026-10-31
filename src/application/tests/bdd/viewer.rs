@@ -1,6 +1,6 @@
 //! F3 viewer: file content display, title, page-down scrolling, and close.
 
-use super::{BehaviorWorld, Case};
+use super::BehaviorWorld;
 use crate::models::Overlay;
 use cucumber::{given, then};
 
@@ -24,7 +24,7 @@ fn file_with_content(world: &mut BehaviorWorld, name: String, content: String) {
 #[given(expr = "a file named {string} with {int} numbered lines")]
 fn file_with_numbered_lines(world: &mut BehaviorWorld, name: String, count: usize) {
     let content = (1..=count)
-        .map(|i| format!("Line {:03}", i))
+        .map(|i| format!("Line {i:03}"))
         .collect::<Vec<_>>()
         .join("\n");
     file_with_content(world, name, content);
@@ -35,6 +35,22 @@ fn is_viewer(world: &mut BehaviorWorld) {
     let overlay = &world.case().app.overlay;
     assert!(
         matches!(overlay, Overlay::Viewer(_)),
-        "expected Viewer overlay, found {overlay:?}"
+        "expected Viewer overlay"
+    );
+}
+
+#[then("the viewer has scrolled past its first line")]
+fn scrolled(world: &mut BehaviorWorld) {
+    let case = world.case();
+    let Overlay::Viewer(viewer) = &case.app.overlay else {
+        panic!("scrolling must leave the viewer open");
+    };
+    let top = viewer.scroll.lines();
+    assert!(top > 0, "Page Down must advance the viewport");
+    let expected = &viewer.lines[top];
+    let screen = case.screen.text();
+    assert!(
+        screen.contains(expected),
+        "the scrolled viewport must render {expected:?}\n{screen}"
     );
 }

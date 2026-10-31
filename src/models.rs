@@ -159,14 +159,12 @@ pub use wsl::{
     WslRequests,
 };
 
-/// Which panel is currently active: left or right
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum PanelSide {
-    Left,
-    Right,
-}
+mod panel_side;
+pub use panel_side::PanelSide;
 
+pub(crate) mod network_drive;
+pub(crate) mod token_usage;
+pub use token_usage::TokenUsagePanel;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
@@ -193,3 +191,7 @@ mod tests_panel_sorting;
 mod tests_panel_symlinks;
 #[cfg(test)]
 mod tests_settings;
+
+pub use network_drive::{
+    MountPoint, NetworkAddress, NetworkDrive, NetworkDriveError, NetworkProtocol,
+};

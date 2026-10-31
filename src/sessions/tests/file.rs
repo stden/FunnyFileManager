@@ -109,7 +109,7 @@ fn the_production_path_is_under_the_config_directory() {
     let home = TempDir::new().expect("temp dir");
     let _guard = EnvVarGuard::set(CONFIG_HOME, home.path());
     let path = SessionStore::path().expect("a path");
-    assert_eq!(path, home.path().join("ffm").join(FILE_NAME));
+    assert_eq!(path, home.path().join("ffm").join("ffm.yml"));
     assert!(SessionStore::load().is_empty());
     fs::create_dir_all(home.path().join("ffm")).expect("mkdir");
     fs::write(&path, "[]").expect("write");

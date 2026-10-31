@@ -88,9 +88,9 @@ fn every_far_menu_is_present_in_full() {
     );
     assert_eq!(
         rows(Heading::Commands),
-        25 + usize::from(cfg!(windows)),
+        26 + usize::from(cfg!(windows)),
         "Far commands, root navigation, statistics, LSP, package updates, two PATH scopes, \
-         bulk Git pulls, the MCP server installer and Windows WSL",
+         bulk Git pulls, token usage, the MCP server installer and Windows WSL",
     );
     assert_eq!(rows(Heading::Options), 23, "Far's Options menu");
 }

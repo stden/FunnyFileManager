@@ -97,7 +97,7 @@ fn another_users_file_is_refused_and_keeps_its_text_and_owner() {
 fn a_file_that_did_not_load_says_why() {
     let dir = TempDir::new().expect("temp dir");
     fs::create_dir(dir.path().join(FILE_NAME)).expect("a folder in its place");
-    let store = file_store(&dir);
+    let mut store = file_store(&dir);
     let reason = "sessions.json did not load (not a regular file), so it is not overwritten; \
                   fix or move it first";
     assert_eq!(

@@ -1,6 +1,7 @@
 //! F4 editor: open, text input, unmodified-close and save-prompt, no LSP.
 
 use super::BehaviorWorld;
+use crate::models::EditorModal;
 use cucumber::{then, when};
 
 #[then("the editor is open")]
@@ -8,6 +9,19 @@ fn editor_open(world: &mut BehaviorWorld) {
     assert!(
         world.case().app.get_editor().is_some(),
         "expected an Editor overlay to be active"
+    );
+}
+
+#[then("the editor asks whether to save changes")]
+fn confirm_exit(world: &mut BehaviorWorld) {
+    let editor = world
+        .case()
+        .app
+        .get_editor()
+        .expect("the editor stays open");
+    assert!(
+        matches!(editor.modal(), Some(EditorModal::ConfirmExit(_))),
+        "modified Esc must open the save confirmation"
     );
 }
 

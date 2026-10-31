@@ -63,6 +63,7 @@ impl Action {
 pub const fn menu_scope(command: MenuCommand) -> ActionScope {
     match command {
         MenuCommand::Performance
+        | MenuCommand::TokenUsage
         | MenuCommand::LanguageServers
         | MenuCommand::UpdatePackages
         | MenuCommand::McpInstall

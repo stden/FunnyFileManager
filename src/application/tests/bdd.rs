@@ -14,13 +14,16 @@ mod editor;
 mod lsp;
 mod lsp_fixture;
 mod network;
+mod network_drives;
 mod network_worker;
 mod panels;
-mod quick_search;
 mod queue;
+mod quick_search;
 mod samples;
+mod server_profiles;
 mod statistics;
 mod tasks;
+mod token_usage;
 mod viewer;
 
 use case::Case;
@@ -28,6 +31,9 @@ use case::Case;
 #[derive(cucumber::World, Default)]
 struct BehaviorWorld {
     case: Option<Case>,
+    mounts: Option<network_drives::Fixture>,
+    profiles: Option<server_profiles::Fixture>,
+    usage: Option<token_usage::Fixture>,
 }
 
 impl std::fmt::Debug for BehaviorWorld {
@@ -35,7 +41,7 @@ impl std::fmt::Debug for BehaviorWorld {
         formatter
             .debug_struct("BehaviorWorld")
             .field("screen", &self.case.as_ref().map(|case| case.screen.text()))
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

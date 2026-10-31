@@ -47,8 +47,5 @@ fn synchronized(world: &mut BehaviorWorld) {
 #[then("the overlay is closed")]
 fn overlay_closed(world: &mut BehaviorWorld) {
     let overlay = &world.case().app.overlay;
-    assert!(
-        matches!(overlay, Overlay::None),
-        "expected no overlay, found {overlay:?}"
-    );
+    assert!(matches!(overlay, Overlay::None), "expected no overlay");
 }

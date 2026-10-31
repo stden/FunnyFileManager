@@ -38,11 +38,11 @@ impl fmt::Display for StoreError {
 }
 
 impl SessionStore {
-    /// `<config dir>/ffm/sessions.json`; `None` when the environment names no
+    /// `<config dir>/ffm/ffm.yml`; `None` when the environment names no
     /// home at all.
     #[must_use]
     pub fn path() -> Option<PathBuf> {
-        crate::config::dir().map(|dir| dir.join(FILE_NAME))
+        crate::config::dir().map(|dir| dir.join(super::yaml::USER_FILE_NAME))
     }
 
     /// The saved sessions, from [`Self::path`].
@@ -57,6 +57,12 @@ impl SessionStore {
     /// [`Self::damage`].
     #[must_use]
     pub fn load_from(path: PathBuf) -> Self {
+        if path
+            .file_name()
+            .is_some_and(|name| name == super::yaml::USER_FILE_NAME)
+        {
+            return super::yaml::load(&path);
+        }
         match read_sessions(&path) {
             Ok(sessions) => Self {
                 sessions,
@@ -87,18 +93,23 @@ impl SessionStore {
     pub fn damage(&self) -> Option<StoreError> {
         match &self.backing {
             Backing::Damaged(reason) => Some(StoreError::Damaged(reason.clone())),
-            Backing::SessionOnly | Backing::File(_) => None,
+            Backing::SessionOnly | Backing::File(_) | Backing::Yaml { .. } => None,
         }
     }
 
     /// Write the store where it was loaded from: a sibling temp file with
     /// mode `0600` replaces the old one in a single rename. A session-only
     /// store has nowhere to go and succeeds; a damaged one refuses.
-    pub fn save(&self) -> Result<(), StoreError> {
-        let path = match &self.backing {
+    pub fn save(&mut self) -> Result<(), StoreError> {
+        let path = match &mut self.backing {
             Backing::SessionOnly => return Ok(()),
             Backing::Damaged(reason) => return Err(StoreError::Damaged(reason.clone())),
             Backing::File(path) => path,
+            Backing::Yaml { path, loaded } => {
+                super::yaml::save(path, loaded, &self.sessions)?;
+                loaded.clone_from(&self.sessions);
+                return Ok(());
+            }
         };
         let text = serde_json::to_string_pretty(&StoredFile {
             sessions: self.sessions.clone(),

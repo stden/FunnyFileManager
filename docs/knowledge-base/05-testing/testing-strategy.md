@@ -39,10 +39,12 @@ flowchart TB
   `application::tests::bdd::recent_features_bdd`, including ordinary
   `cargo test` runs. Its Gherkin scenarios exercise queued event-loop input,
   rendered panels and task dialogs, fixture process/network workers, local
-  stdio language servers, OS-opening requests and action statistics. Run it
+  stdio language servers, OS-opening requests, action statistics, provider
+  token reports and private connection settings. Run it
   alone with `cargo test --lib recent_features_bdd`. Missing steps, parse
   errors and undiscovered features fail the test; fixtures never control
   live processes or contact external diagnostic endpoints.
+
 - **Architecture tests** check canonical operation ownership, compatibility
   signatures, the thin crate facade, separate test bodies, rendering
   dependencies, recursive `action/` and `popup/` dependencies, and the 200-line hard limit
@@ -65,6 +67,20 @@ dedicated thread with an 8 MiB stack. This avoids overflowing the smaller
 Windows executable entry stack. CI runs these suites on Linux and Windows;
 Windows also runs the complete default-feature test suite and Clippy.
 
+### Recent-feature acceptance scenarios
+
+| Feature file under `tests/behavior_features/` | Observable guarantees |
+|---|---|
+| `token_usage.feature` | F9 opens the report; fixture JSON pages reach the background worker and rendered totals; F5 refreshes; unavailable data is an error; late responses cannot reopen or populate another panel |
+| `network_drives.feature` | Saved mounts preserve server profiles and unrelated YAML; offline discovery retains entries; a changed target does not duplicate a mount; malformed YAML stays byte-for-byte intact |
+| `server_profiles.feature` | JSON profiles migrate without changing the old file; Shift+F4/F4/F8 create, edit and delete across reloads; concurrent saves and malformed or duplicate profiles cannot overwrite existing settings |
+
+These scenarios use temporary `ffm.yml` files and per-scenario fixtures.
+Provider JSON goes through the production aggregation and pagination code;
+the worker accepts an injected callback without selecting a separate runtime
+implementation. No scenario reads real API credentials, enumerates the host's
+network drives or contacts an external provider. A channel gate holds late
+responses until the scenario releases them, rather than relying on sleeps.
 ## Seams and fixtures
 
 | Boundary | Test technique |

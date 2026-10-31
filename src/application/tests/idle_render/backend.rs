@@ -56,6 +56,16 @@ impl CountingBackend {
             .map(Cell::symbol)
             .collect()
     }
+
+    pub(in crate::application::tests) fn rows(&self) -> Vec<String> {
+        let state = self.0.borrow();
+        let buffer = state.backend.buffer();
+        buffer
+            .content
+            .chunks(usize::from(buffer.area.width).max(1))
+            .map(|row| row.iter().map(Cell::symbol).collect())
+            .collect()
+    }
 }
 
 impl Write for CountingBackend {

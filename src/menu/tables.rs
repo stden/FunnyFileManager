@@ -159,4 +159,5 @@ pub(super) const COMMANDS: &[Entry] = &[
         "",
         Action::Menu(MenuCommand::GitPullAll),
     ),
+    Entry::item("Token usage", "", Action::Menu(MenuCommand::TokenUsage)),
 ];

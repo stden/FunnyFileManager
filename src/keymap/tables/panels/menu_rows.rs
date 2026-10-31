@@ -14,6 +14,8 @@ use MenuCommand::Settings;
 pub(super) const KEYLESS: Group<Action> = Group {
     title: "F9 commands without a default key",
     rows: &[
+        row("token_usage", Menu(MenuCommand::TokenUsage), &[])
+            .note(Ffm, "Provider token usage reports"),
         row("compare_folders", Menu(MenuCommand::Compare), &[]).note(FarNoKey, "Compare folders"),
         row("edit_user_menu", Menu(MenuCommand::UserMenu), &[])
             .note(FarNoKey, "Edit the user menu"),

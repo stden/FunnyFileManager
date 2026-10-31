@@ -65,6 +65,7 @@ fn execute_result(app: &mut App, command: MenuCommand) -> io::Result<()> {
         MenuCommand::Devices => workflows::devices(app),
         MenuCommand::Path(scope) => super::path_env::open(app, scope)?,
         MenuCommand::Performance => super::performance::open(app),
+        MenuCommand::TokenUsage => super::token_usage::open(app),
         MenuCommand::UpdatePackages => super::packages::open(app),
         MenuCommand::LanguageServers => super::lsp_editor::open(app),
         MenuCommand::McpInstall => super::mcp_install::open(app),

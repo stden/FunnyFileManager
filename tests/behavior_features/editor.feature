@@ -24,4 +24,5 @@ Feature: The editor opens files, accepts input and closes cleanly
     When I dispatch the keys "F4"
     And I type the text "x"
     And I dispatch the keys "Esc"
-    Then the rendered screen contains "Save"
+    Then the editor asks whether to save changes
+    And the rendered screen contains "File has been modified. Save?"

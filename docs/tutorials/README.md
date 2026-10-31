@@ -1,12 +1,15 @@
 <!-- Purpose: Index of user and developer tutorials. -->
 
-# Filesystems, AWS, and S3
+# FFM tutorials
 
 These pages describe what FunnyFileManager does today. They are not a general
 Amazon Web Services course.
 
 | Page | What it covers |
 |---|---|
+| [Token usage](token-usage.md) | Automatic usage reports for OpenAI, Anthropic and OpenRouter |
+| [Network drives](network-drives.md) | Private ffm.yml mappings discovered on Windows and Linux |
+| [Rust: практический учебник](rust/README.md) | Enums, newtypes, ownership, errors, background work, performance and testing in FFM |
 | [Local filesystems](filesystems.md) | Drives, panel listings, hidden names, links, and copies that ask before overwriting |
 | [AWS profiles](aws.md) | The credentials file, the profile list, and which region the client uses |
 | [S3](s3.md) | Object keys versus folders, the path syntax, library operations, and the MCP tools |
