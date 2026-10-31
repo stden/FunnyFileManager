@@ -74,6 +74,10 @@ pub(super) fn children(location: &FileLocation) -> Result<Vec<String>, RemoteErr
 }
 
 #[cfg(unix)]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "the non-Unix variant returns None, so both share the Option signature"
+)]
 fn local_mode(metadata: &fs::Metadata) -> Option<UnixMode> {
     use std::os::unix::fs::PermissionsExt;
     Some(UnixMode::from_mode(metadata.permissions().mode()))

@@ -21,6 +21,21 @@ fn contains(world: &mut TuiWorld, text: String) {
     assert!(screen.contains(&text), "missing {text:?}\n{screen}");
 }
 
+/// Either of two texts: the 8.3 short name of a long file name exists only on
+/// Windows, so the same command line can be printed in two correct ways.
+#[then(expr = "the screen contains {string} or {string}")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Cucumber dictates step signatures: captured args arrive owned"
+)]
+fn contains_either(world: &mut TuiWorld, first: String, second: String) {
+    let screen = world.ui().text();
+    assert!(
+        screen.contains(&first) || screen.contains(&second),
+        "missing {first:?} and {second:?}\n{screen}"
+    );
+}
+
 /// `first`, and `after` later on the same row: a message that names a file,
 /// rather than the name turning up somewhere else on the screen.
 #[then(expr = "one screen line contains {string} and then {string}")]
