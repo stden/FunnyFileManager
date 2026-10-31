@@ -24,6 +24,13 @@ allow = [
 ]
 confidence-threshold = 0.9
 
+# Mozilla's root certificate data uses a permissive data license. Scope the
+# exception to this crate; see docs/licenses/CDLA-Permissive-2.0.txt for its
+# terms, including the requirement to provide them when sharing the data.
+[[licenses.exceptions]]
+name = "webpki-root-certs"
+allow = ["CDLA-Permissive-2.0"]
+
 [bans]
 # Duplicate versions of the same crate are noise in this tree — the AWS SDK and
 # ratatui each pull their own — so they are a warning rather than a failure.
