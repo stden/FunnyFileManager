@@ -45,6 +45,9 @@ fn painted_with_key(name: &str, content: &str, row: u16, open: KeyCode) -> Vec<(
     fs::write(dir.path().join(name), content).expect("seed");
 
     let mut app = App::new().expect("app");
+    // No language servers: a workspace-trust prompt for one would be drawn over
+    // the row under test, and whether it shows up depends on timing.
+    app.config.lsp.0.clear();
     app.left_panel = Panel::new(dir.path().to_path_buf()).expect("panel");
     app.right_panel = Panel::new(other.path().to_path_buf()).expect("panel");
 

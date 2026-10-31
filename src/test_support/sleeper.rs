@@ -1,7 +1,9 @@
 //! Purpose: The one kind of real process a test may signal or renice: a
 //! short-lived sleeper child it spawned itself, killed and reaped when dropped.
 
-use std::process::{Child, Command, ExitStatus, Stdio};
+#[cfg(windows)]
+use std::process::Stdio;
+use std::process::{Child, Command, ExitStatus};
 #[cfg(target_os = "linux")]
 use std::time::{Duration, Instant};
 
