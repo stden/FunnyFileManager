@@ -49,6 +49,6 @@ fn overlay_closed(world: &mut BehaviorWorld) {
     let overlay = &world.case().app.overlay;
     assert!(
         matches!(overlay, Overlay::None),
-        "expected no overlay, found {overlay:?}"
+        "expected no overlay, but one is open"
     );
 }

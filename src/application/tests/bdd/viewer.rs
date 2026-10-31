@@ -1,6 +1,6 @@
 //! F3 viewer: file content display, title, page-down scrolling, and close.
 
-use super::{BehaviorWorld, Case};
+use super::BehaviorWorld;
 use crate::models::Overlay;
 use cucumber::{given, then};
 
@@ -35,6 +35,6 @@ fn is_viewer(world: &mut BehaviorWorld) {
     let overlay = &world.case().app.overlay;
     assert!(
         matches!(overlay, Overlay::Viewer(_)),
-        "expected Viewer overlay, found {overlay:?}"
+        "expected the Viewer overlay to be open"
     );
 }
