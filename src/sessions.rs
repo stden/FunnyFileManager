@@ -1,5 +1,4 @@
-//! Purpose: The stored sessions file — `NetBox`'s session list as one JSON
-//! file beside the settings — and taking in what an import found.
+//! Purpose: User server profiles in ffm.yml, legacy JSON compatibility, and imports.
 //!
 //! Written the way the history is: atomically, readable by the owner alone.
 //! No password is ever in it; see [`crate::models::Session`].
@@ -20,6 +19,7 @@ use crate::models::{Session, SessionName};
 mod file;
 pub mod import;
 mod read;
+mod yaml;
 
 pub use file::StoreError;
 use import::{ImportReport, Imported, SkipReason, Skipped};
@@ -37,6 +37,10 @@ enum Backing {
     #[default]
     SessionOnly,
     File(PathBuf),
+    Yaml {
+        path: PathBuf,
+        loaded: Vec<Session>,
+    },
     /// The file exists and did not load, for this reason; nothing is
     /// written over it.
     Damaged(String),

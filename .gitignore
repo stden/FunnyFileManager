@@ -25,6 +25,9 @@ __pycache__/
 Thumbs.db
 
 # Runtime logs
+# User connection profiles and their save locks.
+ffm.yml
+ffm.yml.lock
 ffm_actions.log
 ffm_errors.log
 
