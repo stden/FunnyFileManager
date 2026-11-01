@@ -99,3 +99,39 @@ fn apply_dirty_probe_matches_current_directory_and_reports_only_real_changes() {
     assert!(panel.apply_dirty_probe(Path::new("/work"), &repo_a, false));
     assert!(!panel.is_dirty_repo("repo-a"));
 }
+
+#[test]
+fn dirty_answers_share_the_listing_index_and_follow_in_place_changes() {
+    use super::search_index::INDEX_BUILDS;
+
+    let parent = Path::new("/work");
+    let mut panel = Panel::from_entries(
+        parent.to_path_buf(),
+        vec![dir_entry("Repo"), dir_entry("répo"), file_entry("plain")],
+    );
+    INDEX_BUILDS.set(0);
+    assert!(!panel.apply_dirty_probe(Path::new("/elsewhere"), &FileName::from("Repo"), true));
+    assert_eq!(INDEX_BUILDS.get(), 0, "stale answers need no index");
+    assert!(panel.apply_dirty_probe(parent, &FileName::from("Repo"), true));
+    assert!(panel.apply_dirty_probe(parent, &FileName::from("répo"), true));
+    assert!(!panel.apply_dirty_probe(parent, &FileName::from("repo"), true));
+    assert!(!panel.apply_dirty_probe(parent, &FileName::from("plain"), true));
+    assert_eq!(
+        INDEX_BUILDS.get(),
+        1,
+        "a batch must share one listing index"
+    );
+
+    panel.entries[0].name = "renamed".to_owned();
+    assert!(!panel.apply_dirty_probe(parent, &FileName::from("Repo"), false));
+    assert!(panel.apply_dirty_probe(parent, &FileName::from("renamed"), true));
+    assert_eq!(INDEX_BUILDS.get(), 2, "renaming invalidates the index");
+
+    panel.entries[0].kind = EntryKind::File;
+    assert!(!panel.apply_dirty_probe(parent, &FileName::from("renamed"), false));
+    assert_eq!(
+        INDEX_BUILDS.get(),
+        3,
+        "changing the entry kind invalidates it"
+    );
+}

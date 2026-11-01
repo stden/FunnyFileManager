@@ -73,11 +73,7 @@ impl Panel {
         if self.path != parent {
             return false;
         }
-        let listed = self
-            .entries
-            .iter()
-            .any(|entry| entry.kind.is_dir() && entry.name == name.as_str());
-        if !listed {
+        if !super::search_index::contains_directory(self, name.as_str()) {
             return false;
         }
         if dirty {

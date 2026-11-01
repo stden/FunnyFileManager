@@ -38,6 +38,29 @@ pub(super) fn select_prefixed(panel: &mut Panel, prefix: &str, next: bool) -> bo
     false
 }
 
+/// Exact directory membership shares quick search's index across Git replies.
+pub(super) fn contains_directory(panel: &Panel, name: &str) -> bool {
+    ensure(panel);
+    let index = panel.name_index.borrow();
+    let Some(index) = index.as_ref() else {
+        return false;
+    };
+    let folded = folded_name(name);
+    let start = index.rows.partition_point(|(key, _)| key < &folded);
+    index
+        .rows
+        .get(start..)
+        .unwrap_or(&[])
+        .iter()
+        .take_while(|(key, _)| key == &folded)
+        .any(|(_, row)| {
+            panel
+                .entries
+                .get(*row)
+                .is_some_and(|entry| entry.kind.is_dir() && entry.name == name)
+        })
+}
+
 fn ensure(panel: &Panel) {
     let key = panel.entries.revision();
     let fresh = panel

@@ -186,6 +186,8 @@ mod tests_cursor_motion;
 #[cfg(test)]
 mod tests_dirty;
 #[cfg(test)]
+mod tests_dirty_performance;
+#[cfg(test)]
 mod tests_search_order;
 #[cfg(test)]
 mod tests_sort_order;
