@@ -7,6 +7,7 @@ use crossterm::event::KeyCode;
 use super::copy::copy;
 use super::touch_session;
 use crate::action::vault::VaultCommand;
+use crate::kdbx::vault::Page;
 use crate::models::App;
 use crate::status::{Secret, Status};
 
@@ -18,7 +19,6 @@ pub(super) fn vault_dialog_input(
     command: Option<VaultCommand>,
     now: Instant,
 ) -> bool {
-    use crate::kdbx::vault::Page;
     let page = app
         .kdbx_session()
         .and_then(crate::kdbx::KdbxSession::vault)
@@ -44,8 +44,21 @@ fn password_dialog_input(
     if code == KeyCode::Enter {
         copy(app, Secret::Password, now);
     } else if code == KeyCode::Esc || command == Some(VaultCommand::Reveal) {
-        touch_session(app, |session| session.close_vault_dialog(now));
+        apply_command(app, VaultCommand::Reveal, now);
     }
+    true
+}
+
+/// The password dialog's own typed command closes it and hides its revealed value.
+pub(super) fn apply_command(app: &mut App, command: VaultCommand, now: Instant) -> bool {
+    let password_dialog = app
+        .kdbx_session()
+        .and_then(crate::kdbx::KdbxSession::vault)
+        .is_some_and(|vault| vault.form().is_none() && matches!(vault.page, Page::Password(_)));
+    if command != VaultCommand::Reveal || !password_dialog {
+        return false;
+    }
+    touch_session(app, |session| session.close_vault_dialog(now));
     true
 }
 

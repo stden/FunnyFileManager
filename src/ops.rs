@@ -23,6 +23,7 @@ pub mod longnames;
 pub(crate) mod lsp_editor;
 pub(crate) mod mcp_install;
 pub(crate) mod menu;
+pub(crate) mod name_prompt;
 pub mod packages;
 mod panel;
 pub(crate) mod panel_details;

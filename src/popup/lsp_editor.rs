@@ -47,14 +47,31 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
     };
     let command = resolve(&app.keymap.language_servers, KeyEvent::new(code, modifiers));
     match (keys, command) {
-        (Keys::Browse, Some(command)) => browse(app, command),
-        (Keys::View, Some(command)) => view(app, command),
+        (Keys::Browse | Keys::View, Some(command)) => apply(app, command),
         (Keys::Browse | Keys::View, None) => {}
         (Keys::Form, _) => form(app, code, modifiers),
         (Keys::List(focus), _) => list(app, code, modifiers, focus),
         (Keys::Exit(choice), _) => confirm_exit(app, code, choice),
     }
     true
+}
+
+/// Apply a list or view command, without taking input from forms and questions.
+pub fn apply(app: &mut App, command: LspListCommand) {
+    let Some(editor) = editor(app) else {
+        return;
+    };
+    let viewing = match editor.mode() {
+        Mode::Browse => false,
+        Mode::View(_) => true,
+        Mode::Form(_) | Mode::ConfirmExit(_) => return,
+    };
+    editor.clear_notice();
+    if viewing {
+        view(app, command);
+    } else {
+        browse(app, command);
+    }
 }
 
 fn editor(app: &mut App) -> Option<&mut LspEditor> {

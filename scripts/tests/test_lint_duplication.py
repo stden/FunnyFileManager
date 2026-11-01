@@ -2,7 +2,9 @@
 
 from pathlib import Path
 import sys
+from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
@@ -54,6 +56,23 @@ class DuplicationTests(unittest.TestCase):
                      "src/a_tests.rs", "scripts/test_lint.py", "src/test_support/fake.rs"):
             self.assertTrue(lint_duplication.LEFT_OUT.search(name), name)
         self.assertFalse(lint_duplication.LEFT_OUT.search("src/ops/file/transfer.rs"))
+
+    def test_discovery_skips_removed_tracked_sources(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            rust = root / "present.rs"
+            python = root / "present.py"
+            rust.touch()
+            python.touch()
+            with patch.object(lint_duplication, "ROOT", root), \
+                    patch.object(lint_duplication.subprocess, "run") as run:
+                run.return_value.stdout = "present.rs\nremoved.rs\npresent.py\n"
+                self.assertEqual(lint_duplication.tracked_sources(), [rust, python])
+
+    def test_an_explicit_missing_source_still_raises(self):
+        with TemporaryDirectory() as directory:
+            with self.assertRaises(FileNotFoundError):
+                lint_duplication.main([str(Path(directory) / "missing.rs")])
 
     def test_the_repository_has_no_copied_block(self):
         self.assertEqual(lint_duplication.main([]), 0)

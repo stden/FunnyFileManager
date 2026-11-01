@@ -10,6 +10,7 @@ use std::mem::discriminant;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::text_field::with_clipboard;
+use crate::action::tasks::search::{self, TaskSearchCommand};
 use crate::action::tasks::TaskCommand;
 use crate::models::{App, ListMotion, Modal};
 use crate::mouse::Wheel;
@@ -20,7 +21,16 @@ mod dialogs;
 mod menus;
 
 pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> bool {
-    transition(app, |app| route(app, KeyEvent::new(code, modifiers)))
+    let key = KeyEvent::new(code, modifiers);
+    if app
+        .task_list_mut()
+        .is_some_and(|list| matches!(list.modal(), Modal::Search(_)))
+    {
+        if let Some(command) = search::resolve(key) {
+            return invoke_search(app, command);
+        }
+    }
+    transition(app, |app| route(app, key))
 }
 
 /// The same browse command a key runs, without depending on its physical chord.
@@ -32,6 +42,17 @@ pub fn invoke(app: &mut App, command: TaskCommand) -> bool {
         return false;
     }
     transition(app, |app| browse::execute(app, command))
+}
+
+/// Apply a command to the search bar with the same feedback as keyboard input.
+pub fn invoke_search(app: &mut App, command: TaskSearchCommand) -> bool {
+    if !app
+        .task_list_mut()
+        .is_some_and(|list| matches!(list.modal(), Modal::Search(_)))
+    {
+        return false;
+    }
+    transition(app, |app| bars::search_command(app, command))
 }
 
 fn transition(app: &mut App, apply: impl FnOnce(&mut App)) -> bool {
@@ -106,5 +127,7 @@ mod tests_dialogs;
 mod tests_escape;
 #[cfg(test)]
 mod tests_menus;
+#[cfg(test)]
+mod tests_search_commands;
 #[cfg(all(test, unix))]
 mod tests_signal_menu;

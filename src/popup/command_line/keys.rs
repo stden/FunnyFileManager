@@ -12,14 +12,14 @@ use super::{
 use crate::action::command_line::completion::{self, CompletionCommand};
 use crate::action::command_line::{resolve, LineClipboard, LineCommand, LineEdit, LineMotion};
 use crate::lineedit::LineEditor;
-use crate::models::{App, Menu};
+use crate::models::{App, Menu, Recall};
 
 /// The keys of the line being edited, as the keymap binds them. An open
 /// completion list is asked first; a key it does not use edits the line.
 pub(super) fn editing_key(app: &mut App, key: KeyEvent) {
     if menu_open(app) {
         if let Some(command) = completion::resolve(&app.keymap.command_line_completion, key) {
-            completion_menu_key(app, command);
+            apply_completion(app, command);
             return;
         }
     }
@@ -32,7 +32,10 @@ pub(super) fn editing_key(app: &mut App, key: KeyEvent) {
     }
 }
 
-fn apply(app: &mut App, command: LineCommand) {
+pub fn apply(app: &mut App, command: LineCommand) {
+    if state(app).is_none_or(|line| matches!(line.recall, Recall::Searching { .. })) {
+        return;
+    }
     match command {
         LineCommand::HistoryBack => history_step(app, Step::Older),
         LineCommand::HistoryForward => history_step(app, Step::Newer),
@@ -148,7 +151,12 @@ fn paste(app: &mut App) {
     edit_and_refresh(app, |line| line.insert_str(&text));
 }
 
-fn completion_menu_key(app: &mut App, command: CompletionCommand) {
+pub fn apply_completion(app: &mut App, command: CompletionCommand) {
+    if !state(app)
+        .is_some_and(|line| line.menu.is_some() && !matches!(line.recall, Recall::Searching { .. }))
+    {
+        return;
+    }
     match command {
         CompletionCommand::Next => with_menu(app, Menu::next),
         CompletionCommand::Previous => with_menu(app, Menu::previous),

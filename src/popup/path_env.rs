@@ -13,13 +13,14 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_commands;
+#[cfg(test)]
 mod tests_keymap;
 
 pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> bool {
     let Overlay::PathEditor(editor) = &mut app.overlay else {
         return false;
     };
-    let dirty = editor.dirty();
     match &mut editor.mode {
         Mode::Edit { input, .. } => match code {
             KeyCode::Esc => editor.mode = Mode::Browse,
@@ -34,13 +35,29 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
             KeyCode::Esc => editor.mode = Mode::Browse,
             _ => {}
         },
-        Mode::Browse => match resolve(&app.keymap.path_editor, KeyEvent::new(code, modifiers)) {
-            Some(PathCommand::Close) if !dirty => app.close_overlay(),
-            Some(command) => browse(editor, command),
-            None => {}
-        },
+        Mode::Browse => {
+            if let Some(command) = resolve(&app.keymap.path_editor, KeyEvent::new(code, modifiers))
+            {
+                apply(app, command);
+            }
+        }
     }
     true
+}
+
+/// Apply a browse command, leaving entry fields and questions to their own input.
+pub fn apply(app: &mut App, command: PathCommand) {
+    let Overlay::PathEditor(editor) = &mut app.overlay else {
+        return;
+    };
+    if !matches!(editor.mode, Mode::Browse) {
+        return;
+    }
+    if command == PathCommand::Close && !editor.dirty() {
+        app.close_overlay();
+    } else {
+        browse(editor, command);
+    }
 }
 
 fn confirm_save(editor: &mut PathEditor, code: KeyCode) {

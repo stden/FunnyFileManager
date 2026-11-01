@@ -1,4 +1,4 @@
-//! Purpose: Guard every production popup module against compatibility dependencies.
+//! Purpose: Guard popup dependencies and keep name-prompt filesystem effects in ops.
 
 use super::architecture::{forbidden_dependencies, SourceFile};
 
@@ -9,6 +9,70 @@ fn compatibility_dependencies(sources: &[SourceFile]) -> Vec<String> {
         checked,
         &["crate::handlers"],
     ))
+}
+
+fn name_prompt_filesystem_dependencies(sources: &[SourceFile]) -> Vec<String> {
+    let checked = |file: &SourceFile| {
+        !file.is_test()
+            && file.in_module("popup")
+            && file.module.get(1).is_some_and(|name| name == "name_prompt")
+    };
+    super::messages(&forbidden_dependencies(sources, checked, &["std::fs"]))
+}
+
+#[test]
+fn name_prompt_delegates_filesystem_effects_to_ops() {
+    assert_eq!(
+        name_prompt_filesystem_dependencies(&super::tui_sources()),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn name_prompt_filesystem_rename_and_directory_creation_are_rejected() {
+    let sources = [SourceFile::new(
+        "src/popup/name_prompt.rs",
+        "fn apply() {\nstd::fs::rename(\"a\", \"b\");\nstd::fs::create_dir(\"b\");\nstd::fs::create_dir_all(\"b/c\");\n}\n",
+    )];
+    assert_eq!(
+        name_prompt_filesystem_dependencies(&sources),
+        [
+            "src/popup/name_prompt.rs:2: `std::fs::rename` (forbidden: `std::fs`)",
+            "src/popup/name_prompt.rs:3: `std::fs::create_dir` (forbidden: `std::fs`)",
+            "src/popup/name_prompt.rs:4: `std::fs::create_dir_all` (forbidden: `std::fs`)",
+        ]
+    );
+}
+
+#[test]
+fn name_prompt_nested_filesystem_alias_is_rejected() {
+    let sources = [SourceFile::new(
+        "src/popup/name_prompt/nested.rs",
+        "use std::fs as files;\nfn apply() { files::create_dir(\"new\"); }\n",
+    )];
+    assert_eq!(
+        name_prompt_filesystem_dependencies(&sources),
+        [
+            "src/popup/name_prompt/nested.rs:1: `std::fs` (forbidden: `std::fs`)",
+            "src/popup/name_prompt/nested.rs:2: `std::fs::create_dir` (forbidden: `std::fs`)",
+        ]
+    );
+}
+
+#[test]
+fn name_prompt_test_sources_and_comments_allow_filesystem_references() {
+    let sources = [
+        SourceFile::new("src/popup/name_prompt/tests.rs", "use std::fs;\n"),
+        SourceFile::new(
+            "src/popup/name_prompt.rs",
+            "// std::fs is forbidden\nconst NOTE: &str = \"std::fs\";\n#[cfg(test)] fn setup() { std::fs::create_dir(\"test\"); }\n",
+        ),
+        SourceFile::new("src/ops/name_prompt.rs", "use std::fs;\n"),
+    ];
+    assert_eq!(
+        name_prompt_filesystem_dependencies(&sources),
+        Vec::<String>::new()
+    );
 }
 
 #[test]

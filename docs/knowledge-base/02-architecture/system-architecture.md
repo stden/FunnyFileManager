@@ -26,6 +26,8 @@ flowchart LR
     MCP --> S3
     MCP --> ReadVault[Read-only KeePass tools]
     MCP --> Walk[ffm_mcp library: tree walking]
+    MCP -->|opt-in application sessions| Headless[ffm --automation: private pipes and memory terminal]
+    Headless --> Shared[Same application handlers and background workers as the TUI]
 ```
 
 The MCP package includes a library for reusable tree-walking operations and a
@@ -33,6 +35,13 @@ binary for protocol handling. Its path validation and filesystem operations
 are independent of the TUI. Both use `mcp/src/tool_names.rs`: the TUI's status
 viewer includes this import-free file so displayed tool names match the
 server's list. This does not couple their event loops or request handling.
+
+The application-session tools start separate `ffm --automation` processes,
+each with its own `App`, memory terminal and background controllers. Named
+actions call the same typed interpreters as keyboard commands; raw input
+still goes through the ordinary event dispatcher. The root restriction of the
+direct filesystem tools does not apply to these explicitly enabled application
+sessions. See [application sessions](../../tutorials/mcp-application.md).
 
 ## Responsibilities and dependencies
 
@@ -90,6 +99,8 @@ The enforced boundaries are specific:
 - `ops` owns the canonical command, file, shell, viewer, vault-opening,
   editor-saving, and panel-loading operations. `handlers` only re-exports
   compatibility paths; production code calls the canonical owner.
+  Name-prompt acceptance delegates rename and directory creation to
+  `ops::name_prompt`; `popup::name_prompt` owns its input controls.
 - `ui` draws application state. Panel rendering reads cached filesystem
   facts; it never refreshes a directory or queries free space while drawing.
 - `terminal` owns terminal mode transitions: raw mode, the alternate
@@ -117,6 +128,13 @@ The language records the user's intent; the interpreter owns its consequences.
 | Editor buffer          | `EditorCommand`, resolved by `action::editor::resolve(bindings, KeyEvent)` over `App.keymap.editor` | `popup/editor.rs::apply_editor_command` |
 | WSL manager            | `WslCommand`, resolved by `action::wsl::resolve(&app.keymap.wsl_manager, KeyEvent)`                 | `popup/wsl.rs`                          |
 | Submitted command line | `Command`, parsed and validated in `command.rs`                                                     | `ops/dispatch.rs`                       |
+
+Each context's typed interpreter is shared by keyboard and named automation
+actions. `application::automation` validates the active context and dispatches
+the typed `Invocation` directly, without creating key events or changing
+`App.keymap`. Nested editor, command-line and management dialogs keep their
+input priority. Viewer scroll commands also use the quick-view panel's existing
+scroll interpreter when that panel owns the viewer context.
 
 ```mermaid
 flowchart LR

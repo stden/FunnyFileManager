@@ -19,6 +19,7 @@ use crate::kdbx::KdbxSession;
 use crate::models::{App, KdbxOverlay, Overlay, Panel};
 use crate::popup::process_popup_input;
 
+mod commands;
 mod copy;
 mod delete;
 mod edit_form;

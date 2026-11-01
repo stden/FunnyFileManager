@@ -14,7 +14,6 @@ use crate::scroll::WIDE_STEP;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> bool {
-    let page = Viewer::page_for(app.viewport);
     let command = resolve(&app.keymap.viewer, KeyEvent::new(code, modifiers));
     let Overlay::Viewer(viewer) = &mut app.overlay else {
         return false;
@@ -25,12 +24,22 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
     {
         return true;
     }
-    match command {
-        Some(ViewerCommand::Close) => app.close_overlay(),
-        Some(ViewerCommand::Scroll(scroll)) => scroll_body(viewer, scroll, page),
-        None => {}
+    if let Some(command) = command {
+        apply(app, command);
     }
     true
+}
+
+/// Execute a viewer command independently of its input binding.
+pub fn apply(app: &mut App, command: ViewerCommand) {
+    let page = Viewer::page_for(app.viewport);
+    let Overlay::Viewer(viewer) = &mut app.overlay else {
+        return;
+    };
+    match command {
+        ViewerCommand::Close => app.close_overlay(),
+        ViewerCommand::Scroll(scroll) => scroll_body(viewer, scroll, page),
+    }
 }
 
 fn image_key(viewer: &mut Viewer, code: KeyCode) -> bool {

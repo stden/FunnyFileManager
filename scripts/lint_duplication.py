@@ -113,7 +113,8 @@ def tracked_sources():
          *(f"*{suffix}" for suffix in SUFFIXES)],
         cwd=ROOT, capture_output=True, text=True, check=True,
     )
-    return [ROOT / name for name in listed.stdout.split() if not LEFT_OUT.search(name)]
+    return [ROOT / name for name in listed.stdout.split()
+            if not LEFT_OUT.search(name) and (ROOT / name).is_file()]
 
 
 def load(paths):

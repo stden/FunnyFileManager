@@ -2,7 +2,7 @@
 
 use super::{process_search_prompt, repeat_search, EDITOR_PAGE};
 use crate::action::editor::{self as editor_keymap, EditorCommand, EditorNavigation};
-use crate::models::{App, EditorMotion};
+use crate::models::{lsp::Intent, App, EditorMotion};
 use crate::search::SearchPrompt;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use encoding::process_encoding;
@@ -12,10 +12,12 @@ pub(super) use exit::{exit_key, ExitKey};
 /// The wheel over the text: a cursor move, as Up and Down are. `false` while
 /// one of the editor's dialogs is up — it reads the key itself.
 pub(super) fn wheel(app: &mut App, wheel: crate::mouse::Wheel, modifiers: KeyModifiers) -> bool {
-    let Some(editor) = app.get_editor_mut().filter(|editor| editor.accepts_text()) else {
+    if !app
+        .get_editor()
+        .is_some_and(crate::models::Editor::accepts_text)
+    {
         return false;
-    };
-    editor.notice = None;
+    }
     let motion = match wheel {
         crate::mouse::Wheel::Up => EditorNavigation::Up,
         crate::mouse::Wheel::Down => EditorNavigation::Down,
@@ -71,11 +73,6 @@ pub(super) fn process_editor_input(app: &mut App, code: KeyCode, modifiers: KeyM
     if let Some(consumed) = process_editor_dialog(app, code, modifiers) {
         return consumed;
     }
-    let Some(editor) = app.get_editor_mut() else {
-        return false;
-    };
-    editor.notice = None;
-
     let command = editor_keymap::resolve(&app.keymap.editor, KeyEvent::new(code, modifiers));
     apply_editor_command(app, command);
     true
@@ -113,11 +110,11 @@ fn process_editor_dialog(app: &mut App, code: KeyCode, modifiers: KeyModifiers) 
 }
 
 /// Interpret the editor command language after modal input has been handled.
-fn apply_editor_command(app: &mut App, command: EditorCommand) {
-    use crate::models::lsp::Intent;
-    let Some(editor) = app.get_editor_mut() else {
+pub fn apply_editor_command(app: &mut App, command: EditorCommand) {
+    let Some(editor) = app.get_editor_mut().filter(|editor| editor.accepts_text()) else {
         return;
     };
+    editor.notice = None;
     match command {
         EditorCommand::Move { motion, selection } => {
             editor.move_cursor(editor_motion(motion), selection);

@@ -12,6 +12,7 @@ use crate::test_support::lsp_machine::{
     editor, editor_mut, press, press_with, select, type_text, LspMachine,
 };
 
+mod commands;
 mod exit_question;
 mod keymap;
 mod servers;

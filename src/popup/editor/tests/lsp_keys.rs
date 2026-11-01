@@ -4,7 +4,7 @@ use super::*;
 
 #[test]
 fn lsp_shortcuts_record_the_request_for_the_worker_without_editing() {
-    use crate::models::{lsp::Intent, CompletionTrigger, LspFeature};
+    use crate::models::{CompletionTrigger, LspFeature};
     let temp = TempDir::new().expect("temporary directory");
     let mut app = app_with_editor("text", temp.path().join("main.rs"));
     for (code, modifiers, expected) in [

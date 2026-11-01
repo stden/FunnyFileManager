@@ -8,7 +8,7 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::action::tasks::search::{self, TaskSearchCommand};
+use crate::action::tasks::search::TaskSearchCommand;
 use crate::action::tasks::{resolve, TaskCommand};
 use crate::lineedit::LineEditor;
 use crate::models::ClipboardSlot;
@@ -97,16 +97,30 @@ pub(super) fn search(app: &mut App, key: KeyEvent, clipboard: &mut ClipboardSlot
     let Modal::Search(bar) = list.modal_mut() else {
         return;
     };
-    match (search::resolve(key), key.code) {
-        (Some(TaskSearchCommand::FindNext), _) if !bar.line().text().is_empty() => {
-            let query = bar.line().text().to_owned();
-            find(list, &query, SearchFrom::AfterCursor, page);
-        }
-        (_, KeyCode::Enter | KeyCode::Esc) => list.close_modal(),
-        (_, code) => {
+    match key.code {
+        KeyCode::Enter | KeyCode::Esc => list.close_modal(),
+        code => {
             if let Some(query) = edited(bar.line_mut(), code, key.modifiers, clipboard) {
                 find(list, &query, SearchFrom::Cursor, page);
             }
+        }
+    }
+}
+
+/// The search bar's typed command, after its owner has checked the modal context.
+pub(super) fn search_command(app: &mut App, command: TaskSearchCommand) {
+    let viewport = app.viewport;
+    let Some(list) = app.task_list_mut() else {
+        return;
+    };
+    let Modal::Search(bar) = list.modal() else {
+        return;
+    };
+    let query = bar.line().text().to_owned();
+    if !query.is_empty() {
+        let page = list.page_for(viewport);
+        match command {
+            TaskSearchCommand::FindNext => find(list, &query, SearchFrom::AfterCursor, page),
         }
     }
 }

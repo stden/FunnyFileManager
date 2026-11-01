@@ -6,6 +6,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::copy::copy_edit_password;
 use crate::action::vault::VaultCommand;
+use crate::kdbx::{FormMode, Vault};
 use crate::models::App;
 
 /// Whether the entry form took `key`, resolved to `command` by the vault's
@@ -20,7 +21,7 @@ pub(super) fn edit_input(
     let editing = app
         .kdbx_session()
         .and_then(crate::kdbx::KdbxSession::vault)
-        .and_then(crate::kdbx::Vault::form)
+        .and_then(Vault::form)
         .is_some();
     if !editing {
         return false;
@@ -33,20 +34,54 @@ pub(super) fn edit_input(
         copy_edit_password(app, now);
         return true;
     }
+    if command.is_some_and(|command| apply_command(app, command, now)) {
+        return true;
+    }
+    edit_form_input(app, key, now);
+    true
+}
+
+/// Apply the form's typed commands; its exit question keeps its raw-key protocol.
+pub(super) fn apply_command(app: &mut App, command: VaultCommand, now: Instant) -> bool {
     let Some(session) = app.kdbx_session_mut() else {
         return false;
+    };
+    let Some(form) = session.vault().and_then(Vault::form) else {
+        return false;
+    };
+    let editing = form.mode() == FormMode::Editing;
+    session.touch(now);
+    if !editing {
+        return false;
+    }
+    match command {
+        VaultCommand::Save => {
+            session.save_edit(now);
+        }
+        VaultCommand::Undo => {
+            if let Some(form) = session.vault_mut().and_then(Vault::form_mut) {
+                form.undo();
+            }
+        }
+        _ => return false,
+    }
+    true
+}
+
+fn edit_form_input(app: &mut App, key: KeyEvent, now: Instant) {
+    let Some(session) = app.kdbx_session_mut() else {
+        return;
     };
     session.touch(now);
     let confirming = session
         .vault()
-        .and_then(crate::kdbx::Vault::form)
-        .is_some_and(|form| form.mode() == crate::kdbx::FormMode::ConfirmSave);
+        .and_then(Vault::form)
+        .is_some_and(|form| form.mode() == FormMode::ConfirmSave);
     if confirming {
         confirm_edit_input(session, key.code, now);
     } else {
-        edit_key(session, key, command, now);
+        edit_key(session, key, now);
     }
-    true
 }
 
 pub(super) fn confirm_edit_input(
@@ -60,36 +95,25 @@ pub(super) fn confirm_edit_input(
         }
         KeyCode::Char('n' | 'N') => session.cancel_edit(now),
         KeyCode::Esc => {
-            if let Some(form) = session.vault_mut().and_then(crate::kdbx::Vault::form_mut) {
-                form.set_mode(crate::kdbx::FormMode::Editing);
+            if let Some(form) = session.vault_mut().and_then(Vault::form_mut) {
+                form.set_mode(FormMode::Editing);
             }
         }
         _ => {}
     }
 }
 
-fn edit_key(
-    session: &mut crate::kdbx::KdbxSession,
-    key: KeyEvent,
-    command: Option<VaultCommand>,
-    now: Instant,
-) {
-    let Some(form) = session.vault_mut().and_then(crate::kdbx::Vault::form_mut) else {
+fn edit_key(session: &mut crate::kdbx::KdbxSession, key: KeyEvent, now: Instant) {
+    let Some(form) = session.vault_mut().and_then(Vault::form_mut) else {
         return;
     };
-    match (command, key.code) {
-        (Some(VaultCommand::Save), _) => {
-            session.save_edit(now);
-        }
-        (Some(VaultCommand::Undo), _) => {
-            form.undo();
-        }
-        (_, KeyCode::Esc) if form.is_dirty() => form.set_mode(crate::kdbx::FormMode::ConfirmSave),
-        (_, KeyCode::Esc) => session.cancel_edit(now),
-        (_, KeyCode::BackTab) => form.focus_prev(),
-        (_, KeyCode::Tab) => form.focus_next(),
-        (_, KeyCode::Backspace) => form.backspace(),
-        (_, KeyCode::Char(ch))
+    match key.code {
+        KeyCode::Esc if form.is_dirty() => form.set_mode(FormMode::ConfirmSave),
+        KeyCode::Esc => session.cancel_edit(now),
+        KeyCode::BackTab => form.focus_prev(),
+        KeyCode::Tab => form.focus_next(),
+        KeyCode::Backspace => form.backspace(),
+        KeyCode::Char(ch)
             if !key
                 .modifiers
                 .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>

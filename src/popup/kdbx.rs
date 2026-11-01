@@ -47,7 +47,7 @@ pub(super) fn process_kdbx_input(app: &mut App, code: KeyCode, modifiers: KeyMod
     let command = resolve(&app.keymap.vault, key);
     // Locking is answered first, in the form and the dialogs too.
     if command == Some(VaultCommand::Lock) {
-        lock_and_close(app);
+        apply_at(app, VaultCommand::Lock, now);
         return true;
     }
     if edit_input(app, key, command, now) {
@@ -57,16 +57,36 @@ pub(super) fn process_kdbx_input(app: &mut App, code: KeyCode, modifiers: KeyMod
         return true;
     }
     if let Some(command) = command {
-        browse_command(app, command, now);
+        apply_at(app, command, now);
     }
     true
 }
 
-/// Apply a command that arrived without a key — one of the unlock prompt's
-/// buttons — as its key would be: the form and the vault's dialogs, which
-/// read the key itself, are never up while the vault is locked.
+/// Apply the command in its vault mode, preserving forms and dialog precedence.
 pub fn apply(app: &mut App, command: VaultCommand) {
-    browse_command(app, command, Instant::now());
+    apply_at(app, command, Instant::now());
+}
+
+fn apply_at(app: &mut App, command: VaultCommand, now: Instant) {
+    if app.kdbx_session().is_none() {
+        return;
+    }
+    if command == VaultCommand::Lock {
+        lock_and_close(app);
+        return;
+    }
+    if form::apply_command(app, command, now) || dialogs::apply_command(app, command, now) {
+        return;
+    }
+    let Some(session) = app.kdbx_session() else {
+        return;
+    };
+    if session.vault().is_some_and(|vault| {
+        vault.form().is_some() || !matches!(vault.page, crate::kdbx::vault::Page::Browse(_))
+    }) {
+        return;
+    }
+    browse_command(app, command, now);
 }
 
 fn toggle_view(app: &mut App) {

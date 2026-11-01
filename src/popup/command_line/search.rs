@@ -29,7 +29,13 @@ pub(super) fn search_key(app: &mut App, key: KeyEvent) -> bool {
     true
 }
 
-fn apply(app: &mut App, command: LineSearchCommand) {
+pub fn apply(app: &mut App, command: LineSearchCommand) {
+    if !matches!(
+        state(app).map(|line| &line.recall),
+        Some(Recall::Searching { .. })
+    ) {
+        return;
+    }
     match command {
         // Another Ctrl+R steps to the next older match.
         LineSearchCommand::SearchOlder => {

@@ -3,7 +3,7 @@
 use super::*;
 use crate::models::{Candidate, CandidateKind, CommandLine, Menu, Modal, Recall, TaskList};
 
-fn completed_line() -> CommandLine {
+pub(super) fn completed_line() -> CommandLine {
     CommandLine {
         menu: Menu::new(vec![Candidate {
             text: "pwd".into(),
@@ -150,7 +150,7 @@ fn the_typed_task_entry_point_refuses_commands_behind_a_nested_dialog() {
     let mut tasks = TaskList::default();
     tasks.set_modal(Modal::Help(crate::scroll::ScrollTop::TOP));
     fixture.app.overlay = Overlay::Tasks(Box::new(tasks));
-    assert!(!crate::popup::tasks::invoke(
+    assert!(!popup::tasks::invoke(
         &mut fixture.app,
         crate::action::tasks::TaskCommand::Close
     ));

@@ -24,6 +24,8 @@ mod search;
 
 pub(super) use completion::{complete_at_cursor, refresh_ghost, refresh_menu};
 use keys::editing_key;
+pub use keys::{apply, apply_completion};
+pub use search::apply as apply_search;
 use search::search_key;
 
 /// Direction of a history walk.

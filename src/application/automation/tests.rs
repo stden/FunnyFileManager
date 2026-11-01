@@ -12,6 +12,7 @@ use crate::{
 };
 
 mod contexts;
+mod interpreters;
 mod management;
 mod panels;
 
