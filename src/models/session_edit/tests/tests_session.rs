@@ -39,7 +39,9 @@ fn a_session_fills_the_dialog_and_comes_back_unchanged() {
 #[test]
 fn a_saved_session_is_the_users_own_whatever_it_was_imported_from() {
     let mut imported = stored();
-    imported.origin = Origin::NetBoxFile("/srv/x/demo.netbox".into());
+    imported.origin = Origin::NetBoxFile {
+        path: "/srv/x/demo.netbox".into(),
+    };
     let saved = SessionEdit::from_session(&imported)
         .to_session()
         .expect("valid");

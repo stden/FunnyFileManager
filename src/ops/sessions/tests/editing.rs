@@ -129,7 +129,9 @@ fn a_change_that_cannot_be_saved_leaves_the_store_as_it_was() {
 fn a_copy_is_the_users_own_under_its_new_name() {
     let dir = TempDir::new().expect("temp dir");
     let mut imported = session("a.test", Some("u"));
-    imported.origin = Origin::NetBoxFile("/srv/x/demo.netbox".into());
+    imported.origin = Origin::NetBoxFile {
+        path: "/srv/x/demo.netbox".into(),
+    };
     let mut app = app_on_sessions(dir.path(), file_store(dir.path(), vec![imported]));
 
     duplicate(&mut app, &name("u@a.test"), " copy ").expect("copied");

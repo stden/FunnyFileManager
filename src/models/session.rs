@@ -9,15 +9,15 @@
 //! connection needs it and is never written: not to `sessions.json`, not to
 //! a log, not to the history. That is why [`Auth::Password`] carries nothing.
 
-use std::path::PathBuf;
-
 use serde::{Deserialize, Serialize};
 
 use super::RemotePath;
 
 mod fields;
+mod origin;
 
 pub use fields::{Field, HostName, InvalidField, KeyFile, Port, Problem, SessionName, UserName};
+pub use origin::{untag_legacy_origins, Origin};
 
 /// How the remote host is spoken to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -109,26 +109,6 @@ impl AuthKind {
     }
 }
 
-/// Where a session came from, so an import can tell an entry the user made or
-/// changed — which it must keep — from one it wrote itself and may refresh.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub enum Origin {
-    /// Made or last changed in the session dialog.
-    #[default]
-    Manual,
-    /// Read from this `.netbox` file and not changed since.
-    NetBoxFile(PathBuf),
-    /// Made from the Things catalog's machine with this id and not changed since.
-    Things { machine: String },
-}
-
-impl Origin {
-    #[must_use]
-    pub const fn is_manual(&self) -> bool {
-        matches!(self, Self::Manual)
-    }
-}
-
 /// One stored connection. Every field is a checked value, so any
 /// combination of them is a session this program can hold.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -144,7 +124,11 @@ pub struct Session {
     /// The directory the panel opens in; the login directory when `None`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub remote_dir: Option<RemotePath>,
-    #[serde(default)]
+    #[serde(
+        default,
+        skip_serializing_if = "Origin::is_manual",
+        deserialize_with = "origin::read"
+    )]
     pub origin: Origin,
 }
 

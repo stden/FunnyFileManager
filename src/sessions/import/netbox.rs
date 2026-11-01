@@ -127,7 +127,7 @@ fn read_session(entry: Node<'_, '_>, file: &Path) -> Result<Session, SkipReason>
         user,
         auth,
         remote_dir,
-        origin: Origin::NetBoxFile(file.to_owned()),
+        origin: Origin::NetBoxFile { path: file.into() },
     })
 }
 

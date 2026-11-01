@@ -41,7 +41,7 @@ fn the_example_export_becomes_one_session() {
     assert_eq!(session.protocol, Protocol::Sftp);
     assert_eq!(session.remote_dir, RemotePath::parse("/var/www").ok());
     assert_eq!(session.auth, Auth::Password);
-    assert_eq!(session.origin, Origin::NetBoxFile(FILE.into()));
+    assert_eq!(session.origin, Origin::NetBoxFile { path: FILE.into() });
     assert!(
         !format!("{imported:?}").contains("A35C4D"),
         "the password is not carried"
@@ -55,7 +55,10 @@ fn import_reads_the_file_it_is_given() {
     fs::write(&file, EXAMPLE).expect("write");
     let imported = import(&file).expect("imported");
     assert_eq!(imported.sessions.len(), 1);
-    assert_eq!(imported.sessions[0].origin, Origin::NetBoxFile(file));
+    assert_eq!(
+        imported.sessions[0].origin,
+        Origin::NetBoxFile { path: file }
+    );
 }
 
 #[test]

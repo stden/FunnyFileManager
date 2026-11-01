@@ -31,7 +31,9 @@ fn f3_shows_every_setting_of_a_session() {
     let mut by_key = session("a.test", Some("u"));
     by_key.auth = Auth::KeyFile(KeyFile::new("/home/bob/.ssh/id").expect("key"));
     by_key.remote_dir = Some(RemotePath::parse("/var/www").expect("dir"));
-    by_key.origin = Origin::NetBoxFile("/srv/x/demo.netbox".into());
+    by_key.origin = Origin::NetBoxFile {
+        path: "/srv/x/demo.netbox".into(),
+    };
     app.sessions.upsert(by_key);
     let shown = viewed(&mut app, "u@a.test");
     for line in KEY_SESSION_LINES {

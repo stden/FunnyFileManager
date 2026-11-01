@@ -126,16 +126,42 @@ fn a_yaml_tag_anywhere_is_refused_with_its_path() {
         ("top: !x\n", "top: !x"),
     ];
     for (text, place) in cases {
-        write_file(&settings_path(&temp), text);
-        let error = read(&settings_path(&temp)).expect_err("a tag");
-        assert_eq!(
-            error.to_string(),
-            format!(
-                "settings.yaml does not parse: {place} is a YAML tag, which no setting \
-                 uses; put a value that begins with ! in single quotes"
-            )
-        );
+        refused_as_tag(&temp, text, place);
     }
     write_file(&settings_path(&temp), "masks: ['!*.tmp', [a, {b: 1}]]\n");
     assert!(read(&settings_path(&temp)).is_ok(), "a quoted ! is text");
+}
+
+/// The two origin tags an earlier build wrote under `sessions` are read, and
+/// they admit no other tag: `Masks: !*.tmp` beside one is refused as it is on
+/// its own, and a tag in origin position that is not one of the two is refused.
+#[test]
+fn only_the_earlier_origin_tags_are_read() {
+    let temp = TempDir::new().expect("tempdir");
+    let cases = [
+        (
+            "sessions:\n- origin: !Things\n    machine: m\noptions:\n  Masks: !*.tmp\n",
+            "options.Masks: !*.tmp",
+        ),
+        (
+            "sessions:\n- origin: !Elsewhere 1\n",
+            "sessions[0].origin: !Elsewhere",
+        ),
+    ];
+    for (text, place) in cases {
+        refused_as_tag(&temp, text, place);
+    }
+}
+
+/// `text` is refused, and the error names the YAML tag at `place`.
+fn refused_as_tag(temp: &TempDir, text: &str, place: &str) {
+    write_file(&settings_path(temp), text);
+    let error = read(&settings_path(temp)).expect_err("a tag");
+    assert_eq!(
+        error.to_string(),
+        format!(
+            "settings.yaml does not parse: {place} is a YAML tag, which no setting \
+             uses; put a value that begins with ! in single quotes"
+        )
+    );
 }

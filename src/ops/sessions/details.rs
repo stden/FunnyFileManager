@@ -31,7 +31,7 @@ fn details(session: &Session) -> Vec<String> {
         .map_or_else(|| "(login directory)".to_owned(), ToString::to_string);
     let origin = match &session.origin {
         Origin::Manual => "made or changed here".to_owned(),
-        Origin::NetBoxFile(file) => format!("imported from {}", file.display()),
+        Origin::NetBoxFile { path } => format!("imported from {}", path.display()),
         Origin::Things { .. } => "imported from the Things catalog".to_owned(),
     };
     vec![

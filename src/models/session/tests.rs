@@ -64,7 +64,26 @@ fn an_auth_names_its_kind_and_the_kinds_their_labels() {
     assert_eq!(Auth::Agent.kind(), AuthKind::Agent);
     let labels: Vec<&str> = AuthKind::ALL.iter().map(|kind| kind.label()).collect();
     assert_eq!(labels, ["Password", "Key file", "Agent"]);
-    assert!(!Origin::NetBoxFile(PathBuf::from("/srv/x/demo.netbox")).is_manual());
+    let imported = Origin::NetBoxFile {
+        path: PathBuf::from("/srv/x/demo.netbox"),
+    };
+    assert!(!imported.is_manual());
+}
+
+#[test]
+fn an_origin_is_stored_under_its_kind_and_a_manual_one_is_not_stored() {
+    let mut imported = session(Protocol::Sftp, 22, Some("demo"));
+    imported.origin = Origin::Things {
+        machine: "machine-7".to_owned(),
+    };
+    let text = serde_norway::to_string(&imported).expect("serialise");
+    assert!(
+        text.contains("origin:\n  kind: things\n  machine: machine-7\n"),
+        "{text}"
+    );
+    let manual = session(Protocol::Sftp, 22, Some("demo"));
+    let text = serde_norway::to_string(&manual).expect("serialise");
+    assert!(!text.contains("origin"), "{text}");
 }
 
 #[test]
@@ -72,7 +91,9 @@ fn a_session_round_trips_through_json_with_no_password_field() {
     let mut original = session(Protocol::Sftp, 2222, Some("demo"));
     original.auth = Auth::KeyFile(KeyFile::new("/home/bob/.ssh/id").expect("key"));
     original.remote_dir = Some(RemotePath::parse("/var/www").expect("dir"));
-    original.origin = Origin::NetBoxFile(PathBuf::from("/srv/x/demo.netbox"));
+    original.origin = Origin::NetBoxFile {
+        path: PathBuf::from("/srv/x/demo.netbox"),
+    };
 
     let text = serde_json::to_string(&original).expect("serialise");
     assert!(!text.to_lowercase().contains("password"), "{text}");

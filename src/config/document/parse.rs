@@ -1,5 +1,6 @@
 //! Purpose: Parsing a stored settings file — YAML or legacy JSON — into the
-//! one top-level mapping, refusing the YAML tags no setting uses.
+//! one top-level mapping, refusing the YAML tags no setting uses. The
+//! exceptions are the session origins an earlier build wrote as a tag.
 
 use serde::de::DeserializeOwned;
 use serde_norway::{Mapping, Value};
@@ -20,11 +21,14 @@ pub(super) fn parse_document(text: &str, format: Format) -> Result<Mapping, Stri
         Format::Yaml => serde_norway::from_str(text).map_err(|error| error.to_string())?,
         Format::LegacyJson => serde_json::from_str(text).map_err(|error| error.to_string())?,
     };
-    let document = match value {
+    let mut document = match value {
         Value::Mapping(document) => document,
         Value::Null => Mapping::new(),
         _ => return Err("expected a mapping of settings".to_owned()),
     };
+    if format == Format::Yaml {
+        crate::models::session::untag_legacy_origins(&mut document);
+    }
     if let Some(tag) = tag_in_entries(&document) {
         return Err(format!(
             "{tag} is a YAML tag, which no setting uses; \

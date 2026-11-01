@@ -49,7 +49,7 @@ pub(crate) mod remote_work;
 pub use remote_dialog::RemoteOverlay;
 mod row_cursor;
 mod screens;
-mod session;
+pub(crate) mod session;
 mod session_edit;
 pub mod sessions_panel;
 mod settings_dialog;

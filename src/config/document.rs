@@ -12,7 +12,9 @@
 //! same value back, so what a load sees is exactly what survives any save:
 //! read from the text, `Masks: ~` was the text `~` until the other writer's
 //! save turned it into `null`. YAML tags (`!x`) are refused, because no setting
-//! uses one and YAML reads `Masks: !*.tmp` as a tag on an empty value.
+//! uses one and YAML reads `Masks: !*.tmp` as a tag on an empty value. Two
+//! tags are read rather than refused: the session origins an earlier build
+//! wrote (`!NetBoxFile`, `!Things`).
 //!
 //! **Three-way save.** A writer keeps what it loaded, and a save compares, entry
 //! by entry, the writer's settings as loaded, as it holds them now, and as

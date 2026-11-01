@@ -12,6 +12,8 @@ use super::{SessionStore, FILE_NAME, MAX_FILE_BYTES};
 use crate::models::{HostName, Origin, Port, Protocol, Session, UserName};
 
 mod file;
+mod legacy;
+mod origin;
 mod read_text;
 mod safety;
 mod size;
@@ -28,7 +30,9 @@ fn session(host: &str) -> Session {
 
 fn imported(host: &str) -> Session {
     Session {
-        origin: Origin::NetBoxFile(PathBuf::from("/srv/x/demo.netbox")),
+        origin: Origin::NetBoxFile {
+            path: PathBuf::from("/srv/x/demo.netbox"),
+        },
         ..session(host)
     }
 }
