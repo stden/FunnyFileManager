@@ -109,14 +109,14 @@ three parts:
    tree.
 10. **Other keys.**
 
-    | Key | Action |
-    |---|---|
-    | F3 or Enter | Process information |
-    | F2 | Switch the last column between the command line and the name |
-    | F11 or `Z` | Hold or resume the refresh |
-    | Ctrl+R or Ctrl+L | Refresh now |
-    | F1, `h` or `?` | Scrollable key help |
-    | Left and Right | Scroll the Command column |
+    | Key              | Action                                                       |
+    | ---------------- | ------------------------------------------------------------ |
+    | F3 or Enter      | Process information                                          |
+    | F2               | Switch the last column between the command line and the name |
+    | F11 or `Z`       | Hold or resume the refresh                                   |
+    | Ctrl+R or Ctrl+L | Refresh now                                                  |
+    | F1, `h` or `?`   | Scrollable key help                                          |
+    | Left and Right   | Scroll the Command column                                    |
 11. **Mouse.**
     - The wheel scrolls.
     - A click on a row selects it; a click on a column title sorts by it.
@@ -217,19 +217,19 @@ recolour the F3 viewer or the F4 editor.
 
 ### 2.2 Rows, top to bottom
 
-| Row | Content |
-|---|---|
-| Frame top | `far_block` title. See 2.7 for the variants. |
-| Summary row 1 | CPU total, Mem and Swp bars in thirds, with one blank between them. |
-| Per-core rows | Four bars per row. Bar widths share the interior as `fkey_widths` shares the key bar (remainder to the left). |
+| Row           | Content                                                                                                                                             |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frame top     | `far_block` title. See 2.7 for the variants.                                                                                                        |
+| Summary row 1 | CPU total, Mem and Swp bars in thirds, with one blank between them.                                                                                 |
+| Per-core rows | Four bars per row. Bar widths share the interior as `fkey_widths` shares the key bar (remainder to the left).                                       |
 | Summary row 2 | `Tasks: …`, `Load average: …`, `Uptime: …`, separated by two blanks. Fields that do not fit are dropped from the right (at 80 columns Uptime goes). |
-| Rule | `╟─┬─╢`. The column separators join the frame, as in `panel.rs` `column_rule`. |
-| Column titles | Titles centred with `center_cells`. The sort column's title is in cursor colours, followed by `▲` or `▼` when it fits. |
-| Table body | Only the visible window, `crate::scroll::visible_window(len, page, offset, cursor)`, is built. |
-| Closing rule | `╟─┴─╢`. |
-| Info row | The cursor process as `pid name: command line`, clipped with Far's `}`. A notice replaces it until the next key (2.7). |
-| Frame bottom | The centred footer (2.7). |
-| Last row | The key bar, or a text bar while filtering, searching or typing a PID (2.7). |
+| Rule          | `╟─┬─╢`. The column separators join the frame, as in `panel.rs` `column_rule`.                                                                      |
+| Column titles | Titles centred with `center_cells`. The sort column's title is in cursor colours, followed by `▲` or `▼` when it fits.                              |
+| Table body    | Only the visible window, `crate::scroll::visible_window(len, page, offset, cursor)`, is built.                                                      |
+| Closing rule  | `╟─┴─╢`.                                                                                                                                            |
+| Info row      | The cursor process as `pid name: command line`, clipped with Far's `}`. A notice replaces it until the next key (2.7).                              |
+| Frame bottom  | The centred footer (2.7).                                                                                                                           |
+| Last row      | The key bar, or a text bar while filtering, searching or typing a PID (2.7).                                                                        |
 
 ### 2.3 Header shape
 
@@ -262,33 +262,33 @@ arrives. A grouped bar is labelled with its core range (`0-1`). Its value treats
 the group as one CPU: the sum of the members' deltas over the sum of their
 totals, computed by `CpuMeters::grouped(per_bar)` in models.
 
-| Rows × CPUs | per_bar | cpu_rows | chrome | page |
-|---|---|---|---|---|
-| 24 × 8 | 1 | 2 | 11 | 13 |
-| 24 × 32 | 2 | 4 | 13 | 11 |
-| 50 × 32 | 1 | 8 | 17 | 33 |
-| 24 × 1 | – | 0 | 9 | 15 |
-| 18 × 8 | 1 | 2 | 11 | 7 |
-| 14 × 8 | – | 0 | 9 | 5 |
-| 13 × 8 | – | 0 (no meters) | 6 | 7 |
-| 4 × 8 | – | 0 | 6 | 1 (the renderer clips) |
+| Rows × CPUs | per_bar | cpu_rows      | chrome | page                   |
+| ----------- | ------- | ------------- | ------ | ---------------------- |
+| 24 × 8      | 1       | 2             | 11     | 13                     |
+| 24 × 32     | 2       | 4             | 13     | 11                     |
+| 50 × 32     | 1       | 8             | 17     | 33                     |
+| 24 × 1      | –       | 0             | 9      | 15                     |
+| 18 × 8      | 1       | 2             | 11     | 7                      |
+| 14 × 8      | –       | 0             | 9      | 5                      |
+| 13 × 8      | –       | 0 (no meters) | 6      | 7                      |
+| 4 × 8       | –       | 0             | 6      | 1 (the renderer clips) |
 
 ### 2.4 Columns (`ui/tasks/table.rs`)
 
-| Column | Title | Width | Alignment | Sort key | Dropped |
-|---|---|---|---|---|---|
-| PID | `PID` | max(5, digits of the largest PID in the snapshot) | right | Pid | never (the user checks it before a kill) |
-| User | `User` | 8 | left, Far `}` clip (`clip_name`) | User | 7th |
-| PRI | `PRI` | 3 | right, `RT` at −100 | Priority | 2nd |
-| NI | `NI` | 3 | right | Priority | 6th |
-| VIRT | `VIRT` | 6 | right, `abbreviate_bytes` | Virtual | 3rd |
-| RES | `RES` | 6 | right | Resident | 9th |
-| SHR | `SHR` | 6 | right | Shared | 1st |
-| S | `S` | 1 | state letter | State | 8th |
-| CPU% | `CPU%` | 5 | right | Cpu | never |
-| MEM% | `MEM%` | 5 | right | Resident (the same order) | 4th |
-| TIME+ | `TIME+` | 9 | right | CpuTime | 5th |
-| Command | `Command`, or `Name` after F2 | the rest, at least 16 | left, `}` clip, Left/Right scroll | Command or Name | never |
+| Column  | Title                         | Width                                             | Alignment                         | Sort key                  | Dropped                                  |
+| ------- | ----------------------------- | ------------------------------------------------- | --------------------------------- | ------------------------- | ---------------------------------------- |
+| PID     | `PID`                         | max(5, digits of the largest PID in the snapshot) | right                             | Pid                       | never (the user checks it before a kill) |
+| User    | `User`                        | 8                                                 | left, Far `}` clip (`clip_name`)  | User                      | 7th                                      |
+| PRI     | `PRI`                         | 3                                                 | right, `RT` at −100               | Priority                  | 2nd                                      |
+| NI      | `NI`                          | 3                                                 | right                             | Priority                  | 6th                                      |
+| VIRT    | `VIRT`                        | 6                                                 | right, `abbreviate_bytes`         | Virtual                   | 3rd                                      |
+| RES     | `RES`                         | 6                                                 | right                             | Resident                  | 9th                                      |
+| SHR     | `SHR`                         | 6                                                 | right                             | Shared                    | 1st                                      |
+| S       | `S`                           | 1                                                 | state letter                      | State                     | 8th                                      |
+| CPU%    | `CPU%`                        | 5                                                 | right                             | Cpu                       | never                                    |
+| MEM%    | `MEM%`                        | 5                                                 | right                             | Resident (the same order) | 4th                                      |
+| TIME+   | `TIME+`                       | 9                                                 | right                             | CpuTime                   | 5th                                      |
+| Command | `Command`, or `Name` after F2 | the rest, at least 16                             | left, `}` clip, Left/Right scroll | Command or Name           | never                                    |
 
 - Columns are dropped in the order above until Command keeps 16 cells.
 - At 80 columns with a 5-digit PID column only SHR is dropped. Command then gets
@@ -304,17 +304,17 @@ totals, computed by `CpuMeters::grouped(per_bar)` in models.
 
 ### 2.5 Formats (pure functions in `ui/tasks/format.rs`, tested to the character)
 
-| Value | Format |
-|---|---|
-| CPU%, MEM% | Below 100: one decimal (`38.4`, `0.0`). From 100: a whole number (`3200`). `CpuUsage::Pending`: `-`. |
-| TIME+ | Under 1 h: `M:SS.hh` (`1:32.07`, `12:04.55`). Under 100 h: `HhMM:SS` (`12h04:55`). From 100 h: `DdHHh` (`4d05h`). Saturating. |
-| Uptime | `Uptime: 05:52:06`, `Uptime: 1 day, 05:52:06`, `Uptime: 12 days, 05:52:06` |
-| Load | `Load average: 0.52 0.58 0.59` |
-| Tasks | `Tasks: 132, 1204 thr, 180 kthr; 3 running`. The `; N running` part is omitted when unknown. |
-| Bytes | `abbreviate_bytes`, Far style: `381 K`, `22.4 M`, `3.1 G`. Deliberately not htop's `381M`. |
-| Meter text | CPU `34.2%`; Mem `38.2 G/125 G`; Swp `0/2.0 G`. |
-| PRI | The kernel priority. `RT` when it is −100 (SCHED_FIFO or SCHED_RR at rt_priority 99). |
-| S | The kernel's letter (`R S D Z T t X I P`). Any other byte shows as itself when it is printable ASCII, otherwise `?`. |
+| Value      | Format                                                                                                                        |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| CPU%, MEM% | Below 100: one decimal (`38.4`, `0.0`). From 100: a whole number (`3200`). `CpuUsage::Pending`: `-`.                          |
+| TIME+      | Under 1 h: `M:SS.hh` (`1:32.07`, `12:04.55`). Under 100 h: `HhMM:SS` (`12h04:55`). From 100 h: `DdHHh` (`4d05h`). Saturating. |
+| Uptime     | `Uptime: 05:52:06`, `Uptime: 1 day, 05:52:06`, `Uptime: 12 days, 05:52:06`                                                    |
+| Load       | `Load average: 0.52 0.58 0.59`                                                                                                |
+| Tasks      | `Tasks: 132, 1204 thr, 180 kthr; 3 running`. The `; N running` part is omitted when unknown.                                  |
+| Bytes      | `abbreviate_bytes`, Far style: `381 K`, `22.4 M`, `3.1 G`. Deliberately not htop's `381M`.                                    |
+| Meter text | CPU `34.2%`; Mem `38.2 G/125 G`; Swp `0/2.0 G`.                                                                               |
+| PRI        | The kernel priority. `RT` when it is −100 (SCHED_FIFO or SCHED_RR at rt_priority 99).                                         |
+| S          | The kernel's letter (`R S D Z T t X I P`). Any other byte shows as itself when it is printable ASCII, otherwise `?`.          |
 
 ### 2.6 Colours (`ui/palette.rs`; every colour is a named const)
 
@@ -330,27 +330,27 @@ totals, computed by `CpuMeters::grouped(per_bar)` in models.
 The palette gains these constants. Each is named by concept, and each is an
 alias of an existing colour where one fits.
 
-| Constant | Meaning |
-|---|---|
-| `METER_USER` | green: CPU user, memory used |
-| `METER_NICE` | blue: CPU nice, memory buffers |
+| Constant       | Meaning                                |
+| -------------- | -------------------------------------- |
+| `METER_USER`   | green: CPU user, memory used           |
+| `METER_NICE`   | blue: CPU nice, memory buffers         |
 | `METER_KERNEL` | red: CPU system+irq+softirq, swap used |
-| `METER_VIRT` | cyan: steal and guest |
-| `METER_SHARED` | magenta: shared memory |
-| `METER_CACHE` | yellow: page cache, swap cache |
-| `STATE_ALERT` | red: the `D` and `Z` state letters |
+| `METER_VIRT`   | cyan: steal and guest                  |
+| `METER_SHARED` | magenta: shared memory                 |
+| `METER_CACHE`  | yellow: page cache, swap cache         |
+| `STATE_ALERT`  | red: the `D` and `Z` state letters     |
 
 ### 2.7 Title, footer, info row and bottom-row variants
 
 - **Title.** ` Task list `. When one of these conditions applies, a marker is
   added, highest precedence first:
 
-  | Condition | Marker |
-  |---|---|
-  | Stalled | ` · not responding ` |
+  | Condition      | Marker               |
+  | -------------- | -------------------- |
+  | Stalled        | ` · not responding ` |
   | Refresh failed | ` · refresh failed ` |
-  | Overdue | ` · stale ` |
-  | Held | ` · held ` |
+  | Overdue        | ` · stale `          |
+  | Held           | ` · held `           |
 - **Footer.**
   - ` 312 processes ` when every process is shown.
   - Otherwise ` 132 of 312 processes `, plus `, 2 marked`, `, 3 unreadable`,
@@ -361,12 +361,12 @@ alias of an existing colour where one fits.
   refusal or failure.
 - **Bottom row.**
 
-  | State | Content |
-  |---|---|
-  | Browse | The key bar, `render_key_bar(f, area, &labels)` (section 4). Labels: `1Help 2Name 3Info 4Filter 5Tree 6Sort 7Nice 8Kill 9Signal 10Quit 11Hold 12`. `2` reads `Cmd` while names are shown, `5` reads `List` in tree view, and `11` reads `Live` while held. |
-  | Filter bar | ` Enter Done  Esc Clear  Filter: fire|chr`, with the caret placed. |
-  | Search bar | ` F3 Next  Enter Done  Esc Cancel  Search: pyth`. The query is drawn in `PROMPT_FAILED` when no row matches. |
-  | PID jump | ` Enter Done  Esc Cancel  PID: 42` |
+  | State      | Content                                                                                                                                                                                                                                                    |
+  | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | Browse     | The key bar, `render_key_bar(f, area, &labels)` (section 4). Labels: `1Help 2Name 3Info 4Filter 5Tree 6Sort 7Nice 8Kill 9Signal 10Quit 11Hold 12`. `2` reads `Cmd` while names are shown, `5` reads `List` in tree view, and `11` reads `Live` while held. |
+  | Filter bar | ` Enter Done  Esc Clear  Filter: fire\|chr`, with the caret placed.                                                                                                                                                                                        |
+  | Search bar | ` F3 Next  Enter Done  Esc Cancel  Search: pyth`. The query is drawn in `PROMPT_FAILED` when no row matches.                                                                                                                                               |
+  | PID jump   | ` Enter Done  Esc Cancel  PID: 42`                                                                                                                                                                                                                         |
 
   At 80 columns the 9th cell is 6 wide, so `Signal` shows as `Sign…`. That is
   the same clipping Far's own bar has at 80 columns.
@@ -376,17 +376,17 @@ alias of an existing colour where one fits.
 Every nested dialog is drawn over the live view, and the refresh continues
 behind it.
 
-| Dialog | Opened by | Drawn with | Content |
-|---|---|---|---|
-| Terminate | F8, Del | `dialog::render_warning` (red) | `Do you wish to terminate the process?` or `… the 3 processes?`, then the targets through `dialog::preview_lines` (first five, then `… and N more`). It adds `Skipped: FFM itself` when targets were refused, and `FFM runs inside 812 bash; ending it ends this session.` for an ancestor, when the signal ends a process (`…; pausing it freezes this session.` for SIGSTOP and SIGTSTP; nothing for SIGCONT and SIGWINCH, which end nothing). Buttons `{Terminate} [Kill] [Cancel]`, with Terminate focused. |
-| Send signal | F9, `k` | `ui/menu_dialog/choices.rs` (teal menu) | Title `Send signal to 4242 firefox` or `… to 3 processes`. One row per offered signal (`SIGTERM   ask to terminate`), with SIGTERM under the cursor. Enter opens a red confirmation: `Send SIGHUP to …?` `{Send} [Cancel]`. |
-| Sort by | F6, Ctrl+F12, `<`, `>` | choices menu | One row per sort key with its shortcut (`√ CPU%   P`), a tick on the key in force, then `Reverse order   I`. |
-| Show processes of | `u` | choices menu | `All users`, then each owner in the snapshot with a count (`bob (57)`). The scope in force is ticked. |
-| Priority | F7 | `dialog::render_tracked`, `Ground::Prompt` | A Text row with the target(s), Field `Nice:` with the current value, Label `-20 runs first, 19 runs last`. Buttons `{Set} [Cancel]`; Set is disabled while the value is not a `Niceness`. |
-| Select / Deselect | Gray `+`, `-` | the existing `render_mask_prompt` | The Far mask dialog, offering the cursor process's name as the mask. |
-| Process info | F3, Enter | `render_tracked`, labels only | PID, Parent, Name, Command (wrapped, at most 4 rows), User, State, Priority/Nice, Threads, Running for, CPU time, VIRT/RES/SHR. Button `{OK}`. Built from the snapshot, with no extra I/O. |
-| Error | after a failed delivery | `render_warning` | When some targets took it, first the sentence saying so (`Sent SIGTERM to 1 process.`); then one line per failed target, through `preview_lines`. Button `[OK]`. |
-| Help | F1, `h`, `?` | the body area, in `HELP_FG`/`HELP_BG` | The rows of `action::tasks::HELP`, scrollable (`ScrollTop`). |
+| Dialog            | Opened by               | Drawn with                                 | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ----------------- | ----------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Terminate         | F8, Del                 | `dialog::render_warning` (red)             | `Do you wish to terminate the process?` or `… the 3 processes?`, then the targets through `dialog::preview_lines` (first five, then `… and N more`). It adds `Skipped: FFM itself` when targets were refused, and `FFM runs inside 812 bash; ending it ends this session.` for an ancestor, when the signal ends a process (`…; pausing it freezes this session.` for SIGSTOP and SIGTSTP; nothing for SIGCONT and SIGWINCH, which end nothing). Buttons `{Terminate} [Kill] [Cancel]`, with Terminate focused. |
+| Send signal       | F9, `k`                 | `ui/menu_dialog/choices.rs` (teal menu)    | Title `Send signal to 4242 firefox` or `… to 3 processes`. One row per offered signal (`SIGTERM   ask to terminate`), with SIGTERM under the cursor. Enter opens a red confirmation: `Send SIGHUP to …?` `{Send} [Cancel]`.                                                                                                                                                                                                                                                                                     |
+| Sort by           | F6, Ctrl+F12, `<`, `>`  | choices menu                               | One row per sort key with its shortcut (`√ CPU%   P`), a tick on the key in force, then `Reverse order   I`.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Show processes of | `u`                     | choices menu                               | `All users`, then each owner in the snapshot with a count (`bob (57)`). The scope in force is ticked.                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Priority          | F7                      | `dialog::render_tracked`, `Ground::Prompt` | A Text row with the target(s), Field `Nice:` with the current value, Label `-20 runs first, 19 runs last`. Buttons `{Set} [Cancel]`; Set is disabled while the value is not a `Niceness`.                                                                                                                                                                                                                                                                                                                       |
+| Select / Deselect | Gray `+`, `-`           | the existing `render_mask_prompt`          | The Far mask dialog, offering the cursor process's name as the mask.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Process info      | F3, Enter               | `render_tracked`, labels only              | PID, Parent, Name, Command (wrapped, at most 4 rows), User, State, Priority/Nice, Threads, Running for, CPU time, VIRT/RES/SHR. Button `{OK}`. Built from the snapshot, with no extra I/O.                                                                                                                                                                                                                                                                                                                      |
+| Error             | after a failed delivery | `render_warning`                           | When some targets took it, first the sentence saying so (`Sent SIGTERM to 1 process.`); then one line per failed target, through `preview_lines`. Button `[OK]`.                                                                                                                                                                                                                                                                                                                                                |
+| Help              | F1, `h`, `?`            | the body area, in `HELP_FG`/`HELP_BG`      | The rows of `action::tasks::HELP`, scrollable (`ScrollTop`).                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 Tracking rules:
 
@@ -418,36 +418,36 @@ harness send an uppercase letter either way (section 10.9).
 
 ### 3.1 Browse mode (`action::tasks::resolve` → `TaskCommand`)
 
-| Keys | Action | htop | Far / ffm |
-|---|---|---|---|
-| Up, Down, PgUp, PgDn, Home, End, mouse wheel | Move the cursor. A page is `TaskList::page_for(app.viewport)`. The cursor is a process identity, so it stays on its process across refreshes. | same keys; Alt-k/j too | same |
-| Left, Right / Ctrl+Left, Ctrl+Right | Scroll the Command column by 1 or by 20 cells | scroll the list | the F3 viewer's keys |
-| Space, Insert | Toggle the mark on the cursor process and move down | Space tags | Insert marks |
-| `c` | Mark the cursor process and all its descendants in the snapshot | `c` | — |
-| `U` | Unmark all | `U` | — |
-| `*` (without Alt) | Invert the marks of the shown rows | expand/collapse all (tree) | Gray `*` inverts |
-| `+`, `-` (without Alt) | Select / Deselect dialog: a Far mask (`crate::mask::Mask`) over process names | expand/collapse subtree | Gray `+`/`-` select or deselect by mask |
-| Enter, F3 | Process info dialog | F3 search | F3 View |
-| F1, `h`, `?` | Task list help page | same | F1 Help |
-| F2 | Switch the last column between command line and name | F2 Setup | Far Task list F2 switches caption and path |
-| F4, `\` | Filter bar (3.2) | same | — |
-| `/`, Alt+character | Search bar (3.2); Alt+character opens it with that character typed | `/`; Alt-h/j/k/l move | Alt+letter quick search |
-| `0`-`9` | PID jump (3.2) | "Numbers: PID search" | — |
-| F5, `t`, Ctrl+T | Switch list and tree | F5, `t` | Ctrl+T tree |
-| F6, Ctrl+F12, `<`, `>` | Sort by menu | F6, `<`, `>` open the sort selector (man page) | Ctrl+F12 |
-| Ctrl+F3 / F6 / F7 / F8 / F10 / F11 | Sort by Name / Memory / PID / Start time / Command / User. The key already in force reverses the order. | — | panel direct sort by analogy: name, size, unsorted, creation, description, owner |
-| `P`, `M`, `T`, `N` | Sort by CPU% / memory / CPU time / PID. The key already in force reverses. | same | — |
-| `I` | Invert the order | same | — |
-| `u` | Show processes of menu | same | — |
-| `K` | Show / hide kernel threads | same | — |
-| F7 | Priority dialog for the marked processes or the cursor process | Nice − at once | MkFold (no process meaning) |
-| `]`, `[` | Nice −1 (raise priority) / nice +1, marked or cursor. `]` acts at once; `[` acts at once for root and asks first for anyone else, who cannot undo it (resolved question 6) | same | — |
-| F8, Del | Terminate confirmation | F8 Nice + | F8 Delete; Far Task list Del kills |
-| F9, `k` | Send signal menu | same | F9 menu bar (not meaningful inside a modal) |
-| F11, `Z` | Hold / resume the refresh | `Z` | F11 plugins (no process meaning) |
-| Ctrl+R, Ctrl+L | Refresh now (while held: one sample, then held again) | Ctrl-L | Far Task list Ctrl+R |
-| Esc, F10, `q`, Ctrl+C, Ctrl+W | Close the viewer. Never quits ffm. | F10, `q` quit htop | Esc/F10 close; Ctrl+W toggles |
-| any other key | Consumed (`TaskCommand::Ignore`); nothing falls through to the panels | — | — |
+| Keys                                         | Action                                                                                                                                                                     | htop                                           | Far / ffm                                                                        |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| Up, Down, PgUp, PgDn, Home, End, mouse wheel | Move the cursor. A page is `TaskList::page_for(app.viewport)`. The cursor is a process identity, so it stays on its process across refreshes.                              | same keys; Alt-k/j too                         | same                                                                             |
+| Left, Right / Ctrl+Left, Ctrl+Right          | Scroll the Command column by 1 or by 20 cells                                                                                                                              | scroll the list                                | the F3 viewer's keys                                                             |
+| Space, Insert                                | Toggle the mark on the cursor process and move down                                                                                                                        | Space tags                                     | Insert marks                                                                     |
+| `c`                                          | Mark the cursor process and all its descendants in the snapshot                                                                                                            | `c`                                            | —                                                                                |
+| `U`                                          | Unmark all                                                                                                                                                                 | `U`                                            | —                                                                                |
+| `*` (without Alt)                            | Invert the marks of the shown rows                                                                                                                                         | expand/collapse all (tree)                     | Gray `*` inverts                                                                 |
+| `+`, `-` (without Alt)                       | Select / Deselect dialog: a Far mask (`crate::mask::Mask`) over process names                                                                                              | expand/collapse subtree                        | Gray `+`/`-` select or deselect by mask                                          |
+| Enter, F3                                    | Process info dialog                                                                                                                                                        | F3 search                                      | F3 View                                                                          |
+| F1, `h`, `?`                                 | Task list help page                                                                                                                                                        | same                                           | F1 Help                                                                          |
+| F2                                           | Switch the last column between command line and name                                                                                                                       | F2 Setup                                       | Far Task list F2 switches caption and path                                       |
+| F4, `\`                                      | Filter bar (3.2)                                                                                                                                                           | same                                           | —                                                                                |
+| `/`, Alt+character                           | Search bar (3.2); Alt+character opens it with that character typed                                                                                                         | `/`; Alt-h/j/k/l move                          | Alt+letter quick search                                                          |
+| `0`-`9`                                      | PID jump (3.2)                                                                                                                                                             | "Numbers: PID search"                          | —                                                                                |
+| F5, `t`, Ctrl+T                              | Switch list and tree                                                                                                                                                       | F5, `t`                                        | Ctrl+T tree                                                                      |
+| F6, Ctrl+F12, `<`, `>`                       | Sort by menu                                                                                                                                                               | F6, `<`, `>` open the sort selector (man page) | Ctrl+F12                                                                         |
+| Ctrl+F3 / F6 / F7 / F8 / F10 / F11           | Sort by Name / Memory / PID / Start time / Command / User. The key already in force reverses the order.                                                                    | —                                              | panel direct sort by analogy: name, size, unsorted, creation, description, owner |
+| `P`, `M`, `T`, `N`                           | Sort by CPU% / memory / CPU time / PID. The key already in force reverses.                                                                                                 | same                                           | —                                                                                |
+| `I`                                          | Invert the order                                                                                                                                                           | same                                           | —                                                                                |
+| `u`                                          | Show processes of menu                                                                                                                                                     | same                                           | —                                                                                |
+| `K`                                          | Show / hide kernel threads                                                                                                                                                 | same                                           | —                                                                                |
+| F7                                           | Priority dialog for the marked processes or the cursor process                                                                                                             | Nice − at once                                 | MkFold (no process meaning)                                                      |
+| `]`, `[`                                     | Nice −1 (raise priority) / nice +1, marked or cursor. `]` acts at once; `[` acts at once for root and asks first for anyone else, who cannot undo it (resolved question 6) | same                                           | —                                                                                |
+| F8, Del                                      | Terminate confirmation                                                                                                                                                     | F8 Nice +                                      | F8 Delete; Far Task list Del kills                                               |
+| F9, `k`                                      | Send signal menu                                                                                                                                                           | same                                           | F9 menu bar (not meaningful inside a modal)                                      |
+| F11, `Z`                                     | Hold / resume the refresh                                                                                                                                                  | `Z`                                            | F11 plugins (no process meaning)                                                 |
+| Ctrl+R, Ctrl+L                               | Refresh now (while held: one sample, then held again)                                                                                                                      | Ctrl-L                                         | Far Task list Ctrl+R                                                             |
+| Esc, F10, `q`, Ctrl+C, Ctrl+W                | Close the viewer. Never quits ffm.                                                                                                                                         | F10, `q` quit htop                             | Esc/F10 close; Ctrl+W toggles                                                    |
+| any other key                                | Consumed (`TaskCommand::Ignore`); nothing falls through to the panels                                                                                                      | —                                              | —                                                                                |
 
 Ctrl+F4, Ctrl+F5 and Ctrl+F9 are unbound: extension, modification time and
 access time have no process analogue. Ctrl+F3 and Ctrl+F12 never reach ffm on a
@@ -482,15 +482,15 @@ routing).
 
 ### 3.3 Nested dialogs and menus
 
-| Where | Keys |
-|---|---|
-| Menus (Sort by, Send signal, Show processes of) | Up, Down, PgUp, PgDn, Home, End through the shared `popup::menu_dialog::navigate`; Enter chooses; Esc and F10 cancel. In Sort by, `I` chooses Reverse order. |
-| Terminate / Send confirmation | Enter presses the focused button; Tab, Left and Right move focus; `t` Terminate (`s` Send), `k` Kill, with or without Alt but never with Ctrl; Esc, F10 and `c` Cancel. |
-| `[` confirmation | Enter presses the focused button (Renice first); Tab, Shift+Tab, Left and Right move focus; Esc and F10 cancel. |
-| Priority form | Field editing through `menu_dialog::edit`; Up and Down step the value within −20..=19; Tab moves between field and buttons; Enter presses Set (only when valid); Esc cancels. |
-| Select / Deselect | Exactly the panel dialog's keys, through the shared `popup::mask_prompt::mask_key` (4.4). |
-| Info, Error | Enter, Esc, F10 and F3 close. |
-| Help page | Up, Down, PgUp, PgDn, Home, End scroll; Esc, F1, F10, `q`, `h` and `?` close. |
+| Where                                           | Keys                                                                                                                                                                          |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Menus (Sort by, Send signal, Show processes of) | Up, Down, PgUp, PgDn, Home, End through the shared `popup::menu_dialog::navigate`; Enter chooses; Esc and F10 cancel. In Sort by, `I` chooses Reverse order.                  |
+| Terminate / Send confirmation                   | Enter presses the focused button; Tab, Left and Right move focus; `t` Terminate (`s` Send), `k` Kill, with or without Alt but never with Ctrl; Esc, F10 and `c` Cancel.       |
+| `[` confirmation                                | Enter presses the focused button (Renice first); Tab, Shift+Tab, Left and Right move focus; Esc and F10 cancel.                                                               |
+| Priority form                                   | Field editing through `menu_dialog::edit`; Up and Down step the value within −20..=19; Tab moves between field and buttons; Enter presses Set (only when valid); Esc cancels. |
+| Select / Deselect                               | Exactly the panel dialog's keys, through the shared `popup::mask_prompt::mask_key` (4.4).                                                                                     |
+| Info, Error                                     | Enter, Esc, F10 and F3 close.                                                                                                                                                 |
+| Help page                                       | Up, Down, PgUp, PgDn, Home, End scroll; Esc, F1, F10, `q`, `h` and `?` close.                                                                                                 |
 
 ### 3.4 Mouse
 
@@ -499,37 +499,37 @@ from the same `layout()` function the renderer draws with. The
 `click_special_dialog` branch for `Overlay::Tasks` turns each click into the key
 or transition that already does the job.
 
-| Clicked | Effect |
-|---|---|
-| Table row (Browse) | `TaskList::select_index(i, page)` |
-| Column title (Browse) | `TaskList::sort_clicked(SortKey)`: that key, or the reverse when it is already in force |
-| Key-bar cell (Browse) | Dispatches `KeyCode::F(n)`, with `n` from `mouse::fkey_at(width, 12, column)` |
-| Menu line | Moves the menu cursor, then dispatches Enter (the `click_sort_menu` precedent) |
+| Clicked                     | Effect                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------ |
+| Table row (Browse)          | `TaskList::select_index(i, page)`                                                                |
+| Column title (Browse)       | `TaskList::sort_clicked(SortKey)`: that key, or the reverse when it is already in force          |
+| Key-bar cell (Browse)       | Dispatches `KeyCode::F(n)`, with `n` from `mouse::fkey_at(width, 12, column)`                    |
+| Menu line                   | Moves the menu cursor, then dispatches Enter (the `click_sort_menu` precedent)                   |
 | Buttons of a tracked dialog | The generic `DialogMouse::hit` → `dialog_button_key` path, with a new `Overlay::Tasks` arm (4.4) |
-| Wheel | Up/Down keys, through the existing mapping in `dispatch_dialog_mouse` |
+| Wheel                       | Up/Down keys, through the existing mapping in `dispatch_dialog_mouse`                            |
 
 A click never signals anything. The most a click can do is press F8 or F9, and
 both only open a dialog.
 
 ### 3.5 Clashes and how each is settled
 
-| Key | htop | Far / ffm | Decision |
-|---|---|---|---|
-| F3 | incremental search | View | Info (Far); search moves to `/` and Alt+letter |
-| F8 | nice + | Delete | Terminate confirmation (Far); nice + stays on `[` |
-| F7 | nice − | MkFold | Priority dialog (harmless); nice − stays on `]` |
-| F2 | Setup | user menu; Far Task list: caption/path | Name / command line (Far Task list) |
-| F9 | Kill menu | menu bar | Send signal menu (htop) |
-| F10, `q` | quit htop | F10 quits ffm | close the viewer only |
-| Esc | nothing at top level | closes the overlay | closes the viewer, after ending an open bar |
-| Ctrl+C | ends htop | quits ffm | closes the viewer only |
-| Del | — | Far Task list: kills at once | opens the Terminate confirmation |
-| `+ - *` | tree expand/collapse | Gray select/deselect by mask, invert | Far meaning; tree collapse is deferred |
-| Alt+letter | Alt-h/j/k/l move | quick search | search bar prefilled (Far) |
-| `<` `>` | open the Sort by selector (man page) | — | open the Sort by menu, as htop does |
-| Ctrl+L | refresh | Information panel | refresh now (the panel meaning does not apply here) |
-| Shift+F3 | previous match | never arrives on non-kitty terminals | not bound |
-| `F` (follow) | cursor follows the process | — | not bound: the cursor always follows the process |
+| Key          | htop                                 | Far / ffm                              | Decision                                            |
+| ------------ | ------------------------------------ | -------------------------------------- | --------------------------------------------------- |
+| F3           | incremental search                   | View                                   | Info (Far); search moves to `/` and Alt+letter      |
+| F8           | nice +                               | Delete                                 | Terminate confirmation (Far); nice + stays on `[`   |
+| F7           | nice −                               | MkFold                                 | Priority dialog (harmless); nice − stays on `]`     |
+| F2           | Setup                                | user menu; Far Task list: caption/path | Name / command line (Far Task list)                 |
+| F9           | Kill menu                            | menu bar                               | Send signal menu (htop)                             |
+| F10, `q`     | quit htop                            | F10 quits ffm                          | close the viewer only                               |
+| Esc          | nothing at top level                 | closes the overlay                     | closes the viewer, after ending an open bar         |
+| Ctrl+C       | ends htop                            | quits ffm                              | closes the viewer only                              |
+| Del          | —                                    | Far Task list: kills at once           | opens the Terminate confirmation                    |
+| `+ - *`      | tree expand/collapse                 | Gray select/deselect by mask, invert   | Far meaning; tree collapse is deferred              |
+| Alt+letter   | Alt-h/j/k/l move                     | quick search                           | search bar prefilled (Far)                          |
+| `<` `>`      | open the Sort by selector (man page) | —                                      | open the Sort by menu, as htop does                 |
+| Ctrl+L       | refresh                              | Information panel                      | refresh now (the panel meaning does not apply here) |
+| Shift+F3     | previous match                       | never arrives on non-kitty terminals   | not bound                                           |
+| `F` (follow) | cursor follows the process           | —                                      | not bound: the cursor always follows the process    |
 
 ---
 
@@ -593,108 +593,108 @@ click ─▶ dispatch/dialog_mouse ─▶ ui::task_click_at ─▶ key or transi
 Every file starts with a `//! Purpose:` line, stays at 300 lines or fewer, and
 has its tests in sibling `tests*.rs` files.
 
-| File | Responsibility |
-|---|---|
-| `src/models/tasks.rs` (rewritten) | `TaskList`: private fields, `Clone + Default`, **no `Debug`** (it holds command lines, which may contain secrets). Accessors for ui; the entry point of every transition; `page_for(Viewport)`, `header_shape(Viewport)`, `clamp_to(Viewport)`. |
-| `src/models/tasks/identity.rs` | `Pid`, `StartTime`, `Start`, `ProcessKey`, `TaskSession` |
-| `src/models/tasks/units.rs` | `Percent`, `MemoryBytes`, `Load`, `LoadAverage`, `CpuUsage` |
-| `src/models/tasks/priority.rs` | `Niceness`, `NiceStep`, `KernelPriority`, `PriorityClass`, `SettableClass`, `Priority`, `PriorityChange` |
-| `src/models/tasks/signal.rs` | `Signal`, `Signal::OFFERED` (per cfg), `KillOffer` |
-| `src/models/tasks/sample.rs` | Raw sample types, the `ProcessHost` and `ProcessReader` ports, `SampleError`, `SystemPart`, `ControlError` |
-| `src/models/tasks/snapshot.rs` | `Baselines`, `Snapshot::derive(&Baselines, Sample) -> (Snapshot, Baselines)`, `ProcessRow` |
-| `src/models/tasks/meters.rs` | `CpuBar`, `CpuMeter`, `CpuMeters::grouped`, `MemoryMeter`, `SwapMeter`, `TaskCounts` |
-| `src/models/tasks/view.rs` | `SortKey`, `Sort`, `Arrangement`, `CommandView`, `KernelThreads`, `UserScope`, `FilterTerms`, `ViewRow`, `build_view` |
-| `src/models/tasks/tree.rs` | Iterative parent tree: orphans, the start-time rule, a visited set |
-| `src/models/tasks/selection.rs` | Cursor (`ProcessKey` + index), offset, marks (`BTreeSet<ProcessKey>`), moves, search, PID jump, mask marking |
-| `src/models/tasks/schedule.rs` | `Cadence`, `Schedule`, `Request`, `Health`, and the constants `REFRESH_INTERVAL`, `WARM_UP`, `OVERDUE_AFTER`, `STALL_LIMIT` |
-| `src/models/tasks/header.rs` | `HeaderShape::for_screen(cores, Viewport)`, chrome and page rows (2.3) |
-| `src/models/tasks/modal.rs` | `Modal`, `TextBar`, `SearchBar`, `Found`, `PidQuery`, `TaskMenu`, `MenuCursor`, `KillConfirm`, `PriorityForm`, `Notice` |
-| `src/models/tasks/targets.rs` | `Target`, `Relation`, `Refusal`, `Skipped`, `freeze_targets`, `refusal` |
-| `src/models/tasks/host.rs` | `TaskHostSlot` (host plus session counter) |
-| `src/models/tasks/tests_support.rs` | `cfg(test)` builders for samples and snapshots, shared by the models, ui, popup and ops tests |
-| `src/process_table.rs` | Private `mod process_table;` in lib.rs. `SystemHost` (Linux). Same-signature `#[cfg]` `system_host() -> Option<Arc<dyn ProcessHost>>`: `Some` on Linux, `None` elsewhere until phases W and M. |
-| `src/process_table/procfs.rs` | `ProcFs { root, ticks: ClockTicks, page: PageSize, users: Owners, commands: CommandCache }` implements `ProcessReader`. Compiled under `cfg(any(target_os = "linux", test))`, so the Windows CI runs its tests. `ProcFs::system()` is `cfg(target_os = "linux")`. |
-| `src/process_table/procfs/parse.rs` | Pure parsers for stat, statm, status, cmdline, /proc/stat, meminfo, loadavg and uptime |
-| `src/process_table/procfs/control.rs` | Identity-checked signal and renice. The decisions are pure (`classify_open`, `verify_start`, `control_error`) under `cfg(any(target_os = "linux", test))`; the orchestration is `cfg(target_os = "linux")`. |
-| `src/action/tasks.rs` | `TaskCommand`, `ListMotion`, `normalize`, `resolve` (built with `keymap!`, final `_ => Ignore`), and `HELP: &[(&str, &str)]`, the help page rows |
-| `src/popup/tasks/browse.rs` | Interprets `TaskCommand` exhaustively |
-| `src/popup/tasks/bars.rs` | Filter, search and PID bars |
-| `src/popup/tasks/dialogs.rs` | Confirmation, priority, info, error, help and mask keys |
-| `src/popup/tasks/menus.rs` | Sort by, Send signal and Show processes of |
-| `src/ops/tasks/report.rs` | Today's report, moved. Same-signature `#[cfg(windows)]` / `#[cfg(not(windows))]` `report_command() -> Command`, replacing the `if cfg!()` in `workflows.rs:107-114`. |
-| `src/ops/tasks/control.rs` | Freezes targets and opens the confirmation; delivers signals; nice steps and the priority form; outcomes become a `Notice` or `Modal::Error`; afterwards the schedule is set to `Due` |
-| `src/application/task_jobs.rs` | `TaskJobs` controller and the `ffm-tasks` worker (section 7) |
-| `src/application/dispatch/dialog_mouse/tasks.rs` | Click translation (3.4) and `tasks_button_key` |
-| `src/recording/processes.rs` | `Input::process_host(inner) -> Arc<dyn ProcessHost>`: live input returns `inner`; replay wraps it in `ReadOnlyHost`, whose `signal` and `set_priority` return `ControlError::ReadOnly` |
-| `src/ui/tasks.rs` (rewritten) | `render(f, tracker, &TaskList)`, `layout(screen, &TaskList) -> TaskLayout`, `pub(crate) fn task_click_at`, `TaskClick` |
-| `src/ui/tasks/meters.rs` | Pure span builders for bars and summary lines |
-| `src/ui/tasks/table.rs` | `Column`, `Layout::fit`, title line, rows of the visible window |
-| `src/ui/tasks/format.rs` | Pure formatters (2.5) |
-| `src/ui/tasks/chrome.rs` | Title, footer, info row, key labels, bottom bars |
-| `src/ui/tasks/dialogs.rs` | Nested dialogs and the help page |
-| `src/test_support/processes.rs` | `FixtureHost`, `FixtureReader`, `GatedReader` and sample builders, under `cfg(any(test, feature = "test-helpers"))` |
-| `tests/tui_features/tasks.feature`, `tests/tui_bdd/tasks.rs` | BDD scenarios and their steps |
-| `benches/tasks_bench.rs` | Criterion: `Snapshot::derive` and `build_view` over 2000 synthetic processes; `ProcFs::sample` over a 2000-entry fake procfs |
+| File                                                         | Responsibility                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/models/tasks.rs` (rewritten)                            | `TaskList`: private fields, `Clone + Default`, **no `Debug`** (it holds command lines, which may contain secrets). Accessors for ui; the entry point of every transition; `page_for(Viewport)`, `header_shape(Viewport)`, `clamp_to(Viewport)`.                   |
+| `src/models/tasks/identity.rs`                               | `Pid`, `StartTime`, `Start`, `ProcessKey`, `TaskSession`                                                                                                                                                                                                          |
+| `src/models/tasks/units.rs`                                  | `Percent`, `MemoryBytes`, `Load`, `LoadAverage`, `CpuUsage`                                                                                                                                                                                                       |
+| `src/models/tasks/priority.rs`                               | `Niceness`, `NiceStep`, `KernelPriority`, `PriorityClass`, `SettableClass`, `Priority`, `PriorityChange`                                                                                                                                                          |
+| `src/models/tasks/signal.rs`                                 | `Signal`, `Signal::OFFERED` (per cfg), `KillOffer`                                                                                                                                                                                                                |
+| `src/models/tasks/sample.rs`                                 | Raw sample types, the `ProcessHost` and `ProcessReader` ports, `SampleError`, `SystemPart`, `ControlError`                                                                                                                                                        |
+| `src/models/tasks/snapshot.rs`                               | `Baselines`, `Snapshot::derive(&Baselines, Sample) -> (Snapshot, Baselines)`, `ProcessRow`                                                                                                                                                                        |
+| `src/models/tasks/meters.rs`                                 | `CpuBar`, `CpuMeter`, `CpuMeters::grouped`, `MemoryMeter`, `SwapMeter`, `TaskCounts`                                                                                                                                                                              |
+| `src/models/tasks/view.rs`                                   | `SortKey`, `Sort`, `Arrangement`, `CommandView`, `KernelThreads`, `UserScope`, `FilterTerms`, `ViewRow`, `build_view`                                                                                                                                             |
+| `src/models/tasks/tree.rs`                                   | Iterative parent tree: orphans, the start-time rule, a visited set                                                                                                                                                                                                |
+| `src/models/tasks/selection.rs`                              | Cursor (`ProcessKey` + index), offset, marks (`BTreeSet<ProcessKey>`), moves, search, PID jump, mask marking                                                                                                                                                      |
+| `src/models/tasks/schedule.rs`                               | `Cadence`, `Schedule`, `Request`, `Health`, and the constants `REFRESH_INTERVAL`, `WARM_UP`, `OVERDUE_AFTER`, `STALL_LIMIT`                                                                                                                                       |
+| `src/models/tasks/header.rs`                                 | `HeaderShape::for_screen(cores, Viewport)`, chrome and page rows (2.3)                                                                                                                                                                                            |
+| `src/models/tasks/modal.rs`                                  | `Modal`, `TextBar`, `SearchBar`, `Found`, `PidQuery`, `TaskMenu`, `MenuCursor`, `KillConfirm`, `PriorityForm`, `Notice`                                                                                                                                           |
+| `src/models/tasks/targets.rs`                                | `Target`, `Relation`, `Refusal`, `Skipped`, `freeze_targets`, `refusal`                                                                                                                                                                                           |
+| `src/models/tasks/host.rs`                                   | `TaskHostSlot` (host plus session counter)                                                                                                                                                                                                                        |
+| `src/models/tasks/tests_support.rs`                          | `cfg(test)` builders for samples and snapshots, shared by the models, ui, popup and ops tests                                                                                                                                                                     |
+| `src/process_table.rs`                                       | Private `mod process_table;` in lib.rs. `SystemHost` (Linux). Same-signature `#[cfg]` `system_host() -> Option<Arc<dyn ProcessHost>>`: `Some` on Linux, `None` elsewhere until phases W and M.                                                                    |
+| `src/process_table/procfs.rs`                                | `ProcFs { root, ticks: ClockTicks, page: PageSize, users: Owners, commands: CommandCache }` implements `ProcessReader`. Compiled under `cfg(any(target_os = "linux", test))`, so the Windows CI runs its tests. `ProcFs::system()` is `cfg(target_os = "linux")`. |
+| `src/process_table/procfs/parse.rs`                          | Pure parsers for stat, statm, status, cmdline, /proc/stat, meminfo, loadavg and uptime                                                                                                                                                                            |
+| `src/process_table/procfs/control.rs`                        | Identity-checked signal and renice. The decisions are pure (`classify_open`, `verify_start`, `control_error`) under `cfg(any(target_os = "linux", test))`; the orchestration is `cfg(target_os = "linux")`.                                                       |
+| `src/action/tasks.rs`                                        | `TaskCommand`, `ListMotion`, `normalize`, `resolve` (built with `keymap!`, final `_ => Ignore`), and `HELP: &[(&str, &str)]`, the help page rows                                                                                                                  |
+| `src/popup/tasks/browse.rs`                                  | Interprets `TaskCommand` exhaustively                                                                                                                                                                                                                             |
+| `src/popup/tasks/bars.rs`                                    | Filter, search and PID bars                                                                                                                                                                                                                                       |
+| `src/popup/tasks/dialogs.rs`                                 | Confirmation, priority, info, error, help and mask keys                                                                                                                                                                                                           |
+| `src/popup/tasks/menus.rs`                                   | Sort by, Send signal and Show processes of                                                                                                                                                                                                                        |
+| `src/ops/tasks/report.rs`                                    | Today's report, moved. Same-signature `#[cfg(windows)]` / `#[cfg(not(windows))]` `report_command() -> Command`, replacing the `if cfg!()` in `workflows.rs:107-114`.                                                                                              |
+| `src/ops/tasks/control.rs`                                   | Freezes targets and opens the confirmation; delivers signals; nice steps and the priority form; outcomes become a `Notice` or `Modal::Error`; afterwards the schedule is set to `Due`                                                                             |
+| `src/application/task_jobs.rs`                               | `TaskJobs` controller and the `ffm-tasks` worker (section 7)                                                                                                                                                                                                      |
+| `src/application/dispatch/dialog_mouse/tasks.rs`             | Click translation (3.4) and `tasks_button_key`                                                                                                                                                                                                                    |
+| `src/recording/processes.rs`                                 | `Input::process_host(inner) -> Arc<dyn ProcessHost>`: live input returns `inner`; replay wraps it in `ReadOnlyHost`, whose `signal` and `set_priority` return `ControlError::ReadOnly`                                                                            |
+| `src/ui/tasks.rs` (rewritten)                                | `render(f, tracker, &TaskList)`, `layout(screen, &TaskList) -> TaskLayout`, `pub(crate) fn task_click_at`, `TaskClick`                                                                                                                                            |
+| `src/ui/tasks/meters.rs`                                     | Pure span builders for bars and summary lines                                                                                                                                                                                                                     |
+| `src/ui/tasks/table.rs`                                      | `Column`, `Layout::fit`, title line, rows of the visible window                                                                                                                                                                                                   |
+| `src/ui/tasks/format.rs`                                     | Pure formatters (2.5)                                                                                                                                                                                                                                             |
+| `src/ui/tasks/chrome.rs`                                     | Title, footer, info row, key labels, bottom bars                                                                                                                                                                                                                  |
+| `src/ui/tasks/dialogs.rs`                                    | Nested dialogs and the help page                                                                                                                                                                                                                                  |
+| `src/test_support/processes.rs`                              | `FixtureHost`, `FixtureReader`, `GatedReader` and sample builders, under `cfg(any(test, feature = "test-helpers"))`                                                                                                                                               |
+| `tests/tui_features/tasks.feature`, `tests/tui_bdd/tasks.rs` | BDD scenarios and their steps                                                                                                                                                                                                                                     |
+| `benches/tasks_bench.rs`                                     | Criterion: `Snapshot::derive` and `build_view` over 2000 synthetic processes; `ProcFs::sample` over a 2000-entry fake procfs                                                                                                                                      |
 
 ### 4.4 Files to change
 
-| File | Change |
-|---|---|
-| `src/scroll.rs` | Gains `pub fn visible_window(len, rows, offset, selected) -> Range<usize>`, moved from `ui/panel.rs:860`. Its tests move with it. `ui/panel.rs:695`, `ui/panel/modes.rs:35` and `ui/tree.rs:58` import it from here. |
-| `src/ui/fkey_bar.rs` | `render_command_bar(f, area)` becomes `render_key_bar(f, area, labels: &[(&str, &str); FKEY_COUNT])`: the array type admits only the twelve cells the hit test resolves. `ui.rs:217` passes `&FKEY_LABELS`. The widths stay `mouse::fkey_widths`. Update the tests at `ui/tests.rs:373` and `ui/tests_render_widths.rs:874`. |
-| `src/ui/menu_dialog/choices.rs` | `render` and `row_at` become generic over `rows: &[impl AsRef<str>]`. `models::MenuChoice` implements `AsRef<str>` (its label). The module becomes reachable from `ui::tasks`. |
-| `src/popup/menu_dialog.rs` | `navigate` becomes `pub(super)` for the tasks menus. |
-| `src/popup/mask_prompt.rs` | Extract `pub(super) fn mask_key(&mut MaskPrompt, code, modifiers) -> MaskKey { Editing, Accepted(MaskPurpose, Mask), Cancelled }`. The panel handler and the tasks handler both use it. Resolves the file's own TODO. |
-| `src/ui/overlays.rs` | The Tasks arm moves from `render_commands_dialog` (317) to `render_overlays`. `render_mask_prompt` becomes `pub(super)`. `HELP_LINES` gains `"Ctrl+W: Task list (processes; F1 inside lists its keys)"` and merges `:winmsg` and `:winperf` into one line, so the unscrolled box stays at 22 rows. |
-| `src/ui/dialog.rs` | `pub(super) fn preview_lines(items: &[T], name: impl FnMut(&T) -> String, into: &mut Vec<String>)`: only the first five items are named, and the `… and N more` count comes from the same slice, so the two cannot disagree. `DELETE_PREVIEW` moves here from `overlays.rs:186`. Used by Delete, the Terminate confirmation and the Error dialog. |
-| `src/ui/panel.rs` | `center_cells`, `cursor_style`, `cursor_colour`, `separator_style` and `COLUMN_SEPARATOR` become `pub(super)`. They are reused, not copied. `cursor_style` and `cursor_colour` take `Mark { Marked, Unmarked }`, not a `bool`. |
-| `src/ui/palette.rs` | New constants (2.6) |
-| `src/ui.rs` | `mod tasks;` stays. Adds `pub(crate) use tasks::{task_click_at, TaskClick};`. |
-| `src/ui/tests_stub_dialogs.rs` | Remove `Overlay::Tasks` from `every_menu_dialog` (line 38): a full-screen view records no dialog area. |
-| `src/models.rs` | Re-export the tasks types that `ui`, `popup`, `ops`, `application`, `platform`, `process_table` and `test_support` use. |
-| `src/models/app.rs` | `pub task_host: TaskHostSlot`, initialised in `with_panels` (the one place defaults are listed). `Clone` keeps the host: it is immutable and shared, not an `Arc<Mutex>`. |
-| `src/models/app_overlay.rs` | `set_viewport` also clamps an open `TaskList` (`list.clamp_to(viewport)`), as it does for `Viewer`. |
-| `src/models/overlay.rs` | Doc comment of `Tasks` only |
-| `src/directory/owner.rs` | `pub fn name_of_uid(&mut self, uid: u32) -> Option<String>`; `of()` delegates to it. There is no second `getpwuid_r`. The cache tells a failed lookup from a missing entry, and `pub fn forget_failed_lookups(&mut self)` drops the failures so the reader retries them once per sample (6.1.2). |
-| `src/platform.rs`, `src/platform/unix.rs` | See 6.1.4 for the wrapper list. |
-| `Cargo.toml` | Add rustix feature `"param"` to `[target.'cfg(unix)'.dependencies]` (it is `param = []`, so no crate is added and `Cargo.lock` does not change). Add a `[[bench]]` for `tasks_bench`. |
-| `src/lib.rs` | `mod process_table;` |
-| `src/action.rs` | `pub mod tasks;` beside `pub mod wsl;` |
-| `src/action/commands.rs:132` | Doc of `ToolCommand::Tasks`: "the live process viewer" |
-| `src/popup.rs` | `Overlay::Tasks(_) => tasks::process(…)` stays. The paste export becomes `pub(crate) fn paste_text(app, text)`, which routes to the editor (today's `paste_editor_text`) or to an open Task list bar. |
-| `src/popup/tasks.rs` (rewritten) | A router by `Modal`. It clears the notice on every key, resets `dialog_mouse` when the modal kind changes, and always returns `true`. |
-| `src/ops/tasks.rs` (rewritten) | `pub fn open(app) -> io::Result<()>`: with a host installed it opens the viewer with a new `TaskSession` and `Pid::new(std::process::id())`; without one it calls `report::open`. |
-| `src/ops/menu.rs:102` | Take `MenuCommand::Tasks` out of the `workflows` group. The new arm is `MenuCommand::Tasks => super::tasks::open(app)?`. |
-| `src/popup/drives.rs:76` | The `DriveEntry::ProcessList` arm of `select_drive` keeps calling `ops::tasks::open`, which now returns `io::Result<()>`: `Ok` is `Status::Cleared` as today, and a failed report fallback is `Status::Error`, the text `ops::menu::execute` gives the same error. The dialog closes before the row acts, so the viewer stays open. |
-| `src/ops/menu/workflows.rs` | Delete the `Tasks` arm, `fn tasks`, and any import left unused (`std::process::Command`, and others if unused). |
-| `src/application.rs` | `Redraw` moves here from `wsl_jobs.rs`: it now has two owners, WslJobs and TaskJobs (LSP and vault return `bool`). `LoopState` gains `tasks: task_jobs::TaskJobs`. `pump_background` gains `if self.tasks.pump(app) == Redraw::Needed { self.redraw = Redraw::Needed; }`. `handle_event` sends a paste to `popup::paste_text`. |
-| `src/application/wsl_jobs.rs` | `use super::Redraw;` |
-| `src/application/timing.rs` | `context()` gains `Overlay::Tasks(_) => "Tasks"`. |
-| `src/application/dispatch/dialog_mouse.rs` | `click_special_dialog` gains the `Overlay::Tasks` branch. It returns `true` when a Browse or menu click was handled. It returns `false` when a tracked dialog is open, so buttons take the generic path. |
-| `src/application/dispatch/dialog_mouse/button_keys.rs` | `Overlay::Tasks(list) => tasks::tasks_button_key(list, index)`. Confirmation buttons map to `t`/`s`, `k` or Esc. Priority and mask buttons set focus, then Enter. Info and Error map to Esc. |
-| `src/bootstrap.rs` | After the clipboard is installed: `if let Some(host) = crate::process_table::system_host() { app.task_host.install(input.process_host(host)); }` |
-| `tests/module_boundaries/layers.rs` | The new forbidden paths (4.2) |
-| `tests/degenerate_size_test.rs` | `("tasks", Overlay::Tasks(Box::default()))`, plus a populated variant built from `test_support::processes` |
-| `tests/tui_bdd/session.rs`, `tests/tui_bdd/mod.rs` | `parse_key` gains `PageUp`, `PageDown`, `Insert` and an `Alt+` prefix. A bare `F` becomes a character (today it panics in the F-key arm). `Session::tasks(left, right, size)` installs a `FixtureHost` in `create_app`, as `Session::inventory` does. The step `the screen eventually contains "…"` sends `Event::FocusGained`, which `handle_event` ignores but which yields a frame, until the text appears or `DEADLINE` passes. |
-| `tests/far_manager_hotkeys_test.rs` | A Ctrl+W case using the fixture host (the target already requires `test-helpers`) |
+| File                                                   | Change                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/scroll.rs`                                        | Gains `pub fn visible_window(len, rows, offset, selected) -> Range<usize>`, moved from `ui/panel.rs:860`. Its tests move with it. `ui/panel.rs:695`, `ui/panel/modes.rs:35` and `ui/tree.rs:58` import it from here.                                                                                                                                                                                                                |
+| `src/ui/fkey_bar.rs`                                   | `render_command_bar(f, area)` becomes `render_key_bar(f, area, labels: &[(&str, &str); FKEY_COUNT])`: the array type admits only the twelve cells the hit test resolves. `ui.rs:217` passes `&FKEY_LABELS`. The widths stay `mouse::fkey_widths`. Update the tests at `ui/tests.rs:373` and `ui/tests_render_widths.rs:874`.                                                                                                        |
+| `src/ui/menu_dialog/choices.rs`                        | `render` and `row_at` become generic over `rows: &[impl AsRef<str>]`. `models::MenuChoice` implements `AsRef<str>` (its label). The module becomes reachable from `ui::tasks`.                                                                                                                                                                                                                                                      |
+| `src/popup/menu_dialog.rs`                             | `navigate` becomes `pub(super)` for the tasks menus.                                                                                                                                                                                                                                                                                                                                                                                |
+| `src/popup/mask_prompt.rs`                             | Extract `pub(super) fn mask_key(&mut MaskPrompt, code, modifiers) -> MaskKey { Editing, Accepted(MaskPurpose, Mask), Cancelled }`. The panel handler and the tasks handler both use it. Resolves the file's own TODO.                                                                                                                                                                                                               |
+| `src/ui/overlays.rs`                                   | The Tasks arm moves from `render_commands_dialog` (317) to `render_overlays`. `render_mask_prompt` becomes `pub(super)`. `HELP_LINES` gains `"Ctrl+W: Task list (processes; F1 inside lists its keys)"` and merges `:winmsg` and `:winperf` into one line, so the unscrolled box stays at 22 rows.                                                                                                                                  |
+| `src/ui/dialog.rs`                                     | `pub(super) fn preview_lines(items: &[T], name: impl FnMut(&T) -> String, into: &mut Vec<String>)`: only the first five items are named, and the `… and N more` count comes from the same slice, so the two cannot disagree. `DELETE_PREVIEW` moves here from `overlays.rs:186`. Used by Delete, the Terminate confirmation and the Error dialog.                                                                                   |
+| `src/ui/panel.rs`                                      | `center_cells`, `cursor_style`, `cursor_colour`, `separator_style` and `COLUMN_SEPARATOR` become `pub(super)`. They are reused, not copied. `cursor_style` and `cursor_colour` take `Mark { Marked, Unmarked }`, not a `bool`.                                                                                                                                                                                                      |
+| `src/ui/palette.rs`                                    | New constants (2.6)                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `src/ui.rs`                                            | `mod tasks;` stays. Adds `pub(crate) use tasks::{task_click_at, TaskClick};`.                                                                                                                                                                                                                                                                                                                                                       |
+| `src/ui/tests_stub_dialogs.rs`                         | Remove `Overlay::Tasks` from `every_menu_dialog` (line 38): a full-screen view records no dialog area.                                                                                                                                                                                                                                                                                                                              |
+| `src/models.rs`                                        | Re-export the tasks types that `ui`, `popup`, `ops`, `application`, `platform`, `process_table` and `test_support` use.                                                                                                                                                                                                                                                                                                             |
+| `src/models/app.rs`                                    | `pub task_host: TaskHostSlot`, initialised in `with_panels` (the one place defaults are listed). `Clone` keeps the host: it is immutable and shared, not an `Arc<Mutex>`.                                                                                                                                                                                                                                                           |
+| `src/models/app_overlay.rs`                            | `set_viewport` also clamps an open `TaskList` (`list.clamp_to(viewport)`), as it does for `Viewer`.                                                                                                                                                                                                                                                                                                                                 |
+| `src/models/overlay.rs`                                | Doc comment of `Tasks` only                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `src/directory/owner.rs`                               | `pub fn name_of_uid(&mut self, uid: u32) -> Option<String>`; `of()` delegates to it. There is no second `getpwuid_r`. The cache tells a failed lookup from a missing entry, and `pub fn forget_failed_lookups(&mut self)` drops the failures so the reader retries them once per sample (6.1.2).                                                                                                                                    |
+| `src/platform.rs`, `src/platform/unix.rs`              | See 6.1.4 for the wrapper list.                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `Cargo.toml`                                           | Add rustix feature `"param"` to `[target.'cfg(unix)'.dependencies]` (it is `param = []`, so no crate is added and `Cargo.lock` does not change). Add a `[[bench]]` for `tasks_bench`.                                                                                                                                                                                                                                               |
+| `src/lib.rs`                                           | `mod process_table;`                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `src/action.rs`                                        | `pub mod tasks;` beside `pub mod wsl;`                                                                                                                                                                                                                                                                                                                                                                                              |
+| `src/action/commands.rs:132`                           | Doc of `ToolCommand::Tasks`: "the live process viewer"                                                                                                                                                                                                                                                                                                                                                                              |
+| `src/popup.rs`                                         | `Overlay::Tasks(_) => tasks::process(…)` stays. The paste export becomes `pub(crate) fn paste_text(app, text)`, which routes to the editor (today's `paste_editor_text`) or to an open Task list bar.                                                                                                                                                                                                                               |
+| `src/popup/tasks.rs` (rewritten)                       | A router by `Modal`. It clears the notice on every key, resets `dialog_mouse` when the modal kind changes, and always returns `true`.                                                                                                                                                                                                                                                                                               |
+| `src/ops/tasks.rs` (rewritten)                         | `pub fn open(app) -> io::Result<()>`: with a host installed it opens the viewer with a new `TaskSession` and `Pid::new(std::process::id())`; without one it calls `report::open`.                                                                                                                                                                                                                                                   |
+| `src/ops/menu.rs:102`                                  | Take `MenuCommand::Tasks` out of the `workflows` group. The new arm is `MenuCommand::Tasks => super::tasks::open(app)?`.                                                                                                                                                                                                                                                                                                            |
+| `src/popup/drives.rs:76`                               | The `DriveEntry::ProcessList` arm of `select_drive` keeps calling `ops::tasks::open`, which now returns `io::Result<()>`: `Ok` is `Status::Cleared` as today, and a failed report fallback is `Status::Error`, the text `ops::menu::execute` gives the same error. The dialog closes before the row acts, so the viewer stays open.                                                                                                 |
+| `src/ops/menu/workflows.rs`                            | Delete the `Tasks` arm, `fn tasks`, and any import left unused (`std::process::Command`, and others if unused).                                                                                                                                                                                                                                                                                                                     |
+| `src/application.rs`                                   | `Redraw` moves here from `wsl_jobs.rs`: it now has two owners, WslJobs and TaskJobs (LSP and vault return `bool`). `LoopState` gains `tasks: task_jobs::TaskJobs`. `pump_background` gains `if self.tasks.pump(app) == Redraw::Needed { self.redraw = Redraw::Needed; }`. `handle_event` sends a paste to `popup::paste_text`.                                                                                                      |
+| `src/application/wsl_jobs.rs`                          | `use super::Redraw;`                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `src/application/timing.rs`                            | `context()` gains `Overlay::Tasks(_) => "Tasks"`.                                                                                                                                                                                                                                                                                                                                                                                   |
+| `src/application/dispatch/dialog_mouse.rs`             | `click_special_dialog` gains the `Overlay::Tasks` branch. It returns `true` when a Browse or menu click was handled. It returns `false` when a tracked dialog is open, so buttons take the generic path.                                                                                                                                                                                                                            |
+| `src/application/dispatch/dialog_mouse/button_keys.rs` | `Overlay::Tasks(list) => tasks::tasks_button_key(list, index)`. Confirmation buttons map to `t`/`s`, `k` or Esc. Priority and mask buttons set focus, then Enter. Info and Error map to Esc.                                                                                                                                                                                                                                        |
+| `src/bootstrap.rs`                                     | After the clipboard is installed: `if let Some(host) = crate::process_table::system_host() { app.task_host.install(input.process_host(host)); }`                                                                                                                                                                                                                                                                                    |
+| `tests/module_boundaries/layers.rs`                    | The new forbidden paths (4.2)                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `tests/degenerate_size_test.rs`                        | `("tasks", Overlay::Tasks(Box::default()))`, plus a populated variant built from `test_support::processes`                                                                                                                                                                                                                                                                                                                          |
+| `tests/tui_bdd/session.rs`, `tests/tui_bdd/mod.rs`     | `parse_key` gains `PageUp`, `PageDown`, `Insert` and an `Alt+` prefix. A bare `F` becomes a character (today it panics in the F-key arm). `Session::tasks(left, right, size)` installs a `FixtureHost` in `create_app`, as `Session::inventory` does. The step `the screen eventually contains "…"` sends `Event::FocusGained`, which `handle_event` ignores but which yields a frame, until the text appears or `DEADLINE` passes. |
+| `tests/far_manager_hotkeys_test.rs`                    | A Ctrl+W case using the fixture host (the target already requires `test-helpers`)                                                                                                                                                                                                                                                                                                                                                   |
 
 ### 4.5 Reused rather than rewritten (DRY)
 
-| Existing piece | Reused for |
-|---|---|
-| `Cells`, `printable_name`, `head_cells`, `take_cells`, `fit_name`, `clip_name`, `pad_cells`, `right_cells`, `abbreviate_bytes`, `far_block` | Text layout in the table, meters and chrome |
-| `visible_window` (moved to `crate::scroll`), `ScrollTop`, `ScrollLeft` | Scrolling |
-| `mouse::fkey_widths` / `fkey_at` | Key bar drawing and hit testing |
-| `dialog::render_tracked`, `render_warning`, `Button`, `Row` | Nested dialogs |
-| `menu_dialog::choices` render and `row_at` | All three menus |
-| `MaskPrompt`, `MaskPurpose`, `crate::mask::Mask`, `render_mask_prompt` | Gray `+` and `-` |
-| `LineEditor`, `popup::menu_dialog::edit` | Text bars and the priority field |
-| `casefold::contains_ignore_case` | Filter and search |
-| `Owners` (`getpwuid_r`, cached per uid) | The User column |
-| `models::SortOrder` | The sort direction |
-| `Viewport`, and the `Viewer::page_for` / `CHROME_ROWS` precedent | Paging |
-| The `Redraw` enum | The controller's return value |
-| `models::RowCursor` / `RowMotion` (main's list cursor for the sessions, remote and F11 lists) | The table cursor's clamped moves: `ListMotion::with_page` turns a key's move and the page into a `RowMotion`. `ListMotion` stays, because `action::tasks` resolves a key before any page is known. |
+| Existing piece                                                                                                                              | Reused for                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Cells`, `printable_name`, `head_cells`, `take_cells`, `fit_name`, `clip_name`, `pad_cells`, `right_cells`, `abbreviate_bytes`, `far_block` | Text layout in the table, meters and chrome                                                                                                                                                        |
+| `visible_window` (moved to `crate::scroll`), `ScrollTop`, `ScrollLeft`                                                                      | Scrolling                                                                                                                                                                                          |
+| `mouse::fkey_widths` / `fkey_at`                                                                                                            | Key bar drawing and hit testing                                                                                                                                                                    |
+| `dialog::render_tracked`, `render_warning`, `Button`, `Row`                                                                                 | Nested dialogs                                                                                                                                                                                     |
+| `menu_dialog::choices` render and `row_at`                                                                                                  | All three menus                                                                                                                                                                                    |
+| `MaskPrompt`, `MaskPurpose`, `crate::mask::Mask`, `render_mask_prompt`                                                                      | Gray `+` and `-`                                                                                                                                                                                   |
+| `LineEditor`, `popup::menu_dialog::edit`                                                                                                    | Text bars and the priority field                                                                                                                                                                   |
+| `casefold::contains_ignore_case`                                                                                                            | Filter and search                                                                                                                                                                                  |
+| `Owners` (`getpwuid_r`, cached per uid)                                                                                                     | The User column                                                                                                                                                                                    |
+| `models::SortOrder`                                                                                                                         | The sort direction                                                                                                                                                                                 |
+| `Viewport`, and the `Viewer::page_for` / `CHROME_ROWS` precedent                                                                            | Paging                                                                                                                                                                                             |
+| The `Redraw` enum                                                                                                                           | The controller's return value                                                                                                                                                                      |
+| `models::RowCursor` / `RowMotion` (main's list cursor for the sessions, remote and F11 lists)                                               | The table cursor's clamped moves: `ListMotion::with_page` turns a key's move and the page into a `RowMotion`. `ListMotion` stays, because `action::tasks` resolves a key before any page is known. |
 
 The `WslJobs` worker pattern is followed but not merged into a generic type.
 This is the second request/response worker, so under the Rule of Three it stays
@@ -714,35 +714,35 @@ lint set (main `0ab5890`) rejects `as` conversions, indexing, string slicing,
 
 ### 5.1 Identity
 
-| Type | Invariant and API |
-|---|---|
-| `Pid(NonZeroI32)` | **1..=i32::MAX**. `Pid::new(u32) -> Option<Pid>` rejects 0 and anything above `i32::MAX`. `get() -> u32` (through `unsigned_abs`), `raw() -> i32`. `kill(0)`, `kill(-1)` and `kill(-pgid)` are unrepresentable. rustix's `Pid::from_raw` only `debug_assert`s non-negative input (`rustix-1.1.5/src/pid.rs:43`), so this type is the real guard. Only `platform` converts it. |
-| `StartTime(u64)` | An opaque creation stamp in the source's own unit: Linux stat field 22 (ticks since boot), Windows creation FILETIME, ps `lstart` epoch seconds. It derives only `Eq`, `Ord` and `Hash`. |
-| `Start` | `Known(StartTime)` or `Unknown`. `Unknown` occurs only when Windows refuses `GetProcessTimes`. |
-| `ProcessKey { pid: Pid, start: Start }` | `Copy + Eq + Ord + Hash`. **The one identity.** The cursor, marks, frozen targets, CPU baselines and the command cache all use it. A reused PID is a different key. |
-| `TaskSession(u64)` | Minted per open by `TaskHostSlot::next_session()`. A change of session means a fresh worker and empty baselines. |
+| Type                                    | Invariant and API                                                                                                                                                                                                                                                                                                                                                             |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Pid(NonZeroI32)`                       | **1..=i32::MAX**. `Pid::new(u32) -> Option<Pid>` rejects 0 and anything above `i32::MAX`. `get() -> u32` (through `unsigned_abs`), `raw() -> i32`. `kill(0)`, `kill(-1)` and `kill(-pgid)` are unrepresentable. rustix's `Pid::from_raw` only `debug_assert`s non-negative input (`rustix-1.1.5/src/pid.rs:43`), so this type is the real guard. Only `platform` converts it. |
+| `StartTime(u64)`                        | An opaque creation stamp in the source's own unit: Linux stat field 22 (ticks since boot), Windows creation FILETIME, ps `lstart` epoch seconds. It derives only `Eq`, `Ord` and `Hash`.                                                                                                                                                                                      |
+| `Start`                                 | `Known(StartTime)` or `Unknown`. `Unknown` occurs only when Windows refuses `GetProcessTimes`.                                                                                                                                                                                                                                                                                |
+| `ProcessKey { pid: Pid, start: Start }` | `Copy + Eq + Ord + Hash`. **The one identity.** The cursor, marks, frozen targets, CPU baselines and the command cache all use it. A reused PID is a different key.                                                                                                                                                                                                           |
+| `TaskSession(u64)`                      | Minted per open by `TaskHostSlot::next_session()`. A change of session means a fresh worker and empty baselines.                                                                                                                                                                                                                                                              |
 
 ### 5.2 Units
 
-| Type | Invariant and API |
-|---|---|
-| `Percent(u32)` | Hundredths of a percent; `FULL = 10_000`. `ratio(part: u128, whole: u128) -> Option<Percent>` returns `None` when `whole == 0`, rounds half up and saturates. `at_most(ceiling)`. CPU% may exceed `FULL`, up to `cores × FULL`. |
-| `CpuUsage` | `Pending` (the first sample, a new `ProcessKey`, or a zero delta) or `Measured(Percent)`. A first sample is never a fake `0.0`. |
-| `MemoryBytes(u64)` | `from_kib(u64) -> Option` (checked ×1024), `from_pages(u64, page: u64) -> Option` (checked), `bytes()`. Kept apart from `FileSize`, whose Display and semantics are for files. |
-| `Load(u32)` | Hundredths. `LoadAverage { one, five, fifteen }`. |
-| `ClockTicks(NonZeroU64)`, `PageSize(NonZeroU64)` | In `process_table` only. The conversion factors come from `platform`, and zero is rejected as `SampleError::Malformed`. |
+| Type                                             | Invariant and API                                                                                                                                                                                                               |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Percent(u32)`                                   | Hundredths of a percent; `FULL = 10_000`. `ratio(part: u128, whole: u128) -> Option<Percent>` returns `None` when `whole == 0`, rounds half up and saturates. `at_most(ceiling)`. CPU% may exceed `FULL`, up to `cores × FULL`. |
+| `CpuUsage`                                       | `Pending` (the first sample, a new `ProcessKey`, or a zero delta) or `Measured(Percent)`. A first sample is never a fake `0.0`.                                                                                                 |
+| `MemoryBytes(u64)`                               | `from_kib(u64) -> Option` (checked ×1024), `from_pages(u64, page: u64) -> Option` (checked), `bytes()`. Kept apart from `FileSize`, whose Display and semantics are for files.                                                  |
+| `Load(u32)`                                      | Hundredths. `LoadAverage { one, five, fifteen }`.                                                                                                                                                                               |
+| `ClockTicks(NonZeroU64)`, `PageSize(NonZeroU64)` | In `process_table` only. The conversion factors come from `platform`, and zero is rejected as `SampleError::Malformed`.                                                                                                         |
 
 ### 5.3 Priority
 
-| Type | Invariant and API |
-|---|---|
-| `Niceness(i8)` | **−20..=19** through `TryFrom<i32>`. `MIN`, `MAX`, `step(NiceStep) -> Option<Niceness>` (`None` at a bound). |
-| `NiceStep` | `Raise` (nice − 1: `]`, and Up in the form) or `Lower` (nice + 1: `[`) |
-| `KernelPriority(i32)` | Raw stat field 18. `is_realtime()` is true at −100. |
-| `PriorityClass` | `Idle`, `BelowNormal`, `Normal`, `AboveNormal`, `High`, `Realtime`. What Windows **reports**. |
-| `SettableClass` | `Idle`, `BelowNormal`, `Normal`, `AboveNormal`, `High`. What the viewer may **set**: Realtime is unrepresentable. `PriorityClass::settable() -> Option<SettableClass>` returns `None` for Realtime, so renice is refused. `step(NiceStep) -> Option<SettableClass>`. |
-| `Priority` | `Unix { kernel: KernelPriority, nice: Niceness }`, `Windows { class: PriorityClass }` or `Unknown` |
-| `PriorityChange` | `Nice(Niceness)` or `Class(SettableClass)` |
+| Type                  | Invariant and API                                                                                                                                                                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Niceness(i8)`        | **−20..=19** through `TryFrom<i32>`. `MIN`, `MAX`, `step(NiceStep) -> Option<Niceness>` (`None` at a bound).                                                                                                                                                         |
+| `NiceStep`            | `Raise` (nice − 1: `]`, and Up in the form) or `Lower` (nice + 1: `[`)                                                                                                                                                                                               |
+| `KernelPriority(i32)` | Raw stat field 18. `is_realtime()` is true at −100.                                                                                                                                                                                                                  |
+| `PriorityClass`       | `Idle`, `BelowNormal`, `Normal`, `AboveNormal`, `High`, `Realtime`. What Windows **reports**.                                                                                                                                                                        |
+| `SettableClass`       | `Idle`, `BelowNormal`, `Normal`, `AboveNormal`, `High`. What the viewer may **set**: Realtime is unrepresentable. `PriorityClass::settable() -> Option<SettableClass>` returns `None` for Realtime, so renice is refused. `step(NiceStep) -> Option<SettableClass>`. |
+| `Priority`            | `Unix { kernel: KernelPriority, nice: Niceness }`, `Windows { class: PriorityClass }` or `Unknown`                                                                                                                                                                   |
+| `PriorityChange`      | `Nice(Niceness)` or `Class(SettableClass)`                                                                                                                                                                                                                           |
 
 ### 5.4 Signals
 
@@ -826,37 +826,37 @@ pub enum ControlError { Gone, Replaced, PermissionDenied, Critical, Unverifiable
 
 ### 5.7 View state
 
-| Type | Values and rules |
-|---|---|
-| `SortKey` | `Pid`, `User`, `Priority`, `Virtual`, `Resident`, `Shared`, `State`, `Cpu`, `CpuTime`, `Started`, `Name`, `Command`. `natural()` is largest first for Cpu, Resident, Virtual, Shared and CpuTime, and ascending for the rest. |
-| `Sort` | `{ key: SortKey, order: models::SortOrder }`. `Direct` means the key's natural direction. The default is `{ Cpu, Direct }`. **Ties always break by PID ascending**, so the order is deterministic. Choosing a key leaves tree view (htop manual). |
-| `Arrangement` | `Flat` or `Tree` |
-| `CommandView` | `CommandLine` or `Name` |
-| `KernelThreads` | `Shown` or `Hidden` (the default) |
-| `UserScope` | `All` or `Only(Owner)` |
-| `FilterTerms(Vec<String>)` | Split on `|`, trimmed, empty terms dropped, lowercased. It matches when any term is contained in the name or the command. An empty list matches everything. |
-| `ViewRow` | `{ row: usize, line: TreeLine }` |
-| `TreeLine` | `Flat`, or `Node { depth: u16, sibling: Sibling, open: u64 }`. `Sibling` is `Middle` or `Last`. `open` is a bitmask of ancestor levels that still have siblings below; levels deeper than 64 are drawn without guides. |
-| `Cadence` | `Live` or `Held` |
-| `Schedule` | `Due`, `At(Instant)`, `Waiting { since: Instant, request: Request }` or `Held` |
-| `Request` | `Automatic` or `Explicit` |
-| `Health` | `Fresh`, `Overdue`, `Stalled` or `Failed(SampleError)` |
-| `Table` | `Waiting`, `Ready { snapshot, health }` or `Failed(SampleError)`. `Failed` is used only while there is no snapshot. |
-| `Modal` | `Browse`, `Help(ScrollTop)`, `Info(ProcessKey)`, `Filter(TextBar)`, `Search(SearchBar)`, `PidJump(PidQuery)`, `Menu(TaskMenu)`, `Mask(MaskPrompt)`, `Confirm(KillConfirm)`, `Priority(PriorityForm)`, `Renice(NiceConfirm)` (the confirmation `[` asks for), `Error(Vec<Failure>)`. One enum, so two nested dialogs can never be open at once. The whole thing lives inside `TaskList`, so help and confirmations never replace the view and its worker. |
-| `TaskMenu` | `Sort(MenuCursor)`, `Signal { targets: Vec<Target>, skipped: Vec<Skipped>, cursor: MenuCursor }`, `User { owners: Vec<Owner>, cursor: MenuCursor }` |
-| `MenuCursor(usize)` | Always less than its menu's length; the menu's constructor and `navigate` keep it so. |
-| `KillConfirm` | `{ targets: Vec<Target>, skipped: Vec<Skipped>, offer: KillOffer, focus: usize }`, with `focus` less than the button count |
-| `PriorityForm` | `{ targets: Vec<Target>, value: LineEditor, focus: FormFocus }`, with `FormFocus` one of `Field`, `Set`, `Cancel` |
-| `PidQuery(String)` | ASCII digits only, at most 10 |
-| `SearchBar` | `{ line: LineEditor, found: Found }`, with `Found` `Match` or `NoMatch` |
-| `Target` | `{ key: ProcessKey, name: String, owner: Owner, relation: Relation }`, frozen when a dialog opens; the owner is what "belongs to another user (root)" names |
-| `Relation` | `Itself`, `Ancestor` or `Other`. Computed by walking `parent` from the own PID through the snapshot, with a visited set, so an untrusted cycle cannot loop. |
-| `Refusal` | `OwnProcess`, `Init`, `KernelThread`, `Unverifiable`, `AtLimit(Niceness)`, `RealtimeClass`, `ClassAtLimit`, `UnknownPriority`, `NoTarget` (as built: `ControlRefusal`) |
-| `Skipped` | `{ target: Target, refusal: Refusal }` |
-| `Notice` | `Sent { signal, count }`, `Reniced { count, nice }` (the Priority form), `Stepped { step, count }` (`]` and `[`), `Refused(Refusal)`, `Marked { changed, total }`. Each renders as one fixed English sentence (section 9); a failure is a `Failure { target, attempt, error }` line of the Error dialog. |
-| `NicePlan` | A renice planned before any system call: `Renice::Step(NiceStep)` or `Renice::Set(Niceness)`, one `PlannedChange { target, change, direction }` per target, and the targets `Skipped`. `TaskList::plan_step` and `plan_set` build it. |
-| `TaskHostSlot` | `{ host: Option<Arc<dyn ProcessHost>>, sessions: u64 }`, with `install`, `host`, `next_session` |
-| `TaskClick` (in `ui`) | `Row(usize)`, `Title(SortKey)`, `Key(u8)`, `MenuLine(usize)` |
+| Type                       | Values and rules                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SortKey`                  | `Pid`, `User`, `Priority`, `Virtual`, `Resident`, `Shared`, `State`, `Cpu`, `CpuTime`, `Started`, `Name`, `Command`. `natural()` is largest first for Cpu, Resident, Virtual, Shared and CpuTime, and ascending for the rest.                                                                                                                                                                                                                            |
+| `Sort`                     | `{ key: SortKey, order: models::SortOrder }`. `Direct` means the key's natural direction. The default is `{ Cpu, Direct }`. **Ties always break by PID ascending**, so the order is deterministic. Choosing a key leaves tree view (htop manual).                                                                                                                                                                                                        |
+| `Arrangement`              | `Flat` or `Tree`                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `CommandView`              | `CommandLine` or `Name`                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `KernelThreads`            | `Shown` or `Hidden` (the default)                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `UserScope`                | `All` or `Only(Owner)`                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `FilterTerms(Vec<String>)` | Split on `\|`, trimmed, empty terms dropped, lowercased. It matches when any term is contained in the name or the command. An empty list matches everything.                                                                                                                                                                                                                                                                                             |
+| `ViewRow`                  | `{ row: usize, line: TreeLine }`                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `TreeLine`                 | `Flat`, or `Node { depth: u16, sibling: Sibling, open: u64 }`. `Sibling` is `Middle` or `Last`. `open` is a bitmask of ancestor levels that still have siblings below; levels deeper than 64 are drawn without guides.                                                                                                                                                                                                                                   |
+| `Cadence`                  | `Live` or `Held`                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `Schedule`                 | `Due`, `At(Instant)`, `Waiting { since: Instant, request: Request }` or `Held`                                                                                                                                                                                                                                                                                                                                                                           |
+| `Request`                  | `Automatic` or `Explicit`                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `Health`                   | `Fresh`, `Overdue`, `Stalled` or `Failed(SampleError)`                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `Table`                    | `Waiting`, `Ready { snapshot, health }` or `Failed(SampleError)`. `Failed` is used only while there is no snapshot.                                                                                                                                                                                                                                                                                                                                      |
+| `Modal`                    | `Browse`, `Help(ScrollTop)`, `Info(ProcessKey)`, `Filter(TextBar)`, `Search(SearchBar)`, `PidJump(PidQuery)`, `Menu(TaskMenu)`, `Mask(MaskPrompt)`, `Confirm(KillConfirm)`, `Priority(PriorityForm)`, `Renice(NiceConfirm)` (the confirmation `[` asks for), `Error(Vec<Failure>)`. One enum, so two nested dialogs can never be open at once. The whole thing lives inside `TaskList`, so help and confirmations never replace the view and its worker. |
+| `TaskMenu`                 | `Sort(MenuCursor)`, `Signal { targets: Vec<Target>, skipped: Vec<Skipped>, cursor: MenuCursor }`, `User { owners: Vec<Owner>, cursor: MenuCursor }`                                                                                                                                                                                                                                                                                                      |
+| `MenuCursor(usize)`        | Always less than its menu's length; the menu's constructor and `navigate` keep it so.                                                                                                                                                                                                                                                                                                                                                                    |
+| `KillConfirm`              | `{ targets: Vec<Target>, skipped: Vec<Skipped>, offer: KillOffer, focus: usize }`, with `focus` less than the button count                                                                                                                                                                                                                                                                                                                               |
+| `PriorityForm`             | `{ targets: Vec<Target>, value: LineEditor, focus: FormFocus }`, with `FormFocus` one of `Field`, `Set`, `Cancel`                                                                                                                                                                                                                                                                                                                                        |
+| `PidQuery(String)`         | ASCII digits only, at most 10                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `SearchBar`                | `{ line: LineEditor, found: Found }`, with `Found` `Match` or `NoMatch`                                                                                                                                                                                                                                                                                                                                                                                  |
+| `Target`                   | `{ key: ProcessKey, name: String, owner: Owner, relation: Relation }`, frozen when a dialog opens; the owner is what "belongs to another user (root)" names                                                                                                                                                                                                                                                                                              |
+| `Relation`                 | `Itself`, `Ancestor` or `Other`. Computed by walking `parent` from the own PID through the snapshot, with a visited set, so an untrusted cycle cannot loop.                                                                                                                                                                                                                                                                                              |
+| `Refusal`                  | `OwnProcess`, `Init`, `KernelThread`, `Unverifiable`, `AtLimit(Niceness)`, `RealtimeClass`, `ClassAtLimit`, `UnknownPriority`, `NoTarget` (as built: `ControlRefusal`)                                                                                                                                                                                                                                                                                   |
+| `Skipped`                  | `{ target: Target, refusal: Refusal }`                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `Notice`                   | `Sent { signal, count }`, `Reniced { count, nice }` (the Priority form), `Stepped { step, count }` (`]` and `[`), `Refused(Refusal)`, `Marked { changed, total }`. Each renders as one fixed English sentence (section 9); a failure is a `Failure { target, attempt, error }` line of the Error dialog.                                                                                                                                                 |
+| `NicePlan`                 | A renice planned before any system call: `Renice::Step(NiceStep)` or `Renice::Set(Niceness)`, one `PlannedChange { target, change, direction }` per target, and the targets `Skipped`. `TaskList::plan_step` and `plan_set` build it.                                                                                                                                                                                                                    |
+| `TaskHostSlot`             | `{ host: Option<Arc<dyn ProcessHost>>, sessions: u64 }`, with `install`, `host`, `next_session`                                                                                                                                                                                                                                                                                                                                                          |
+| `TaskClick` (in `ui`)      | `Row(usize)`, `Title(SortKey)`, `Key(u8)`, `MenuLine(usize)`                                                                                                                                                                                                                                                                                                                                                                                             |
 
 No bool or string anywhere above carries domain meaning.
 
@@ -870,12 +870,12 @@ No bool or string anywhere above carries domain meaning.
 `File::open(path)?.take(cap).read_to_end(&mut buf)` into one buffer reused across
 a sample, then is decoded lossily. The caps are:
 
-| Files | Cap |
-|---|---|
-| `stat` | 4 KiB |
-| `statm` | 1 KiB |
-| `status` | 16 KiB |
-| `cmdline` | 4 KiB |
+| Files                                                                         | Cap                                                                      |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `stat`                                                                        | 4 KiB                                                                    |
+| `statm`                                                                       | 1 KiB                                                                    |
+| `status`                                                                      | 16 KiB                                                                   |
+| `cmdline`                                                                     | 4 KiB                                                                    |
 | System files (`/proc/stat`, `/proc/meminfo`, `/proc/loadavg`, `/proc/uptime`) | 1 MiB (`procs_running` comes after the long `intr` line in `/proc/stat`) |
 
 `root` is `/proc` in production and a `TempDir` in tests. `ticks` comes from
@@ -940,16 +940,16 @@ The reader lists every entry of `read_dir(root)` whose name parses as a `Pid`.
   - For the tail tokens, proc(5) field *k* is `tail[k − 3]`. At least 21 tokens
     are required.
 
-  | Field | Meaning | Use |
-  |---|---|---|
-  | 3 | state | `ProcessState` |
-  | 4 | ppid | `parent`; 0 means none |
-  | 9 | flags | `PF_KTHREAD = 0x0020_0000` means `KernelThread`. Checked live: kthreadd has 2129984 = 0x208040, with the bit. |
-  | 14, 15 | utime, stime | `cpu_time` |
-  | 18 | priority | `KernelPriority` |
-  | 19 | nice | `Niceness`; out of range is `Malformed` |
-  | 20 | num_threads | `threads` |
-  | 22 | starttime | `StartTime` and `running_for = uptime − starttime / hz` (saturating) |
+  | Field  | Meaning      | Use                                                                                                           |
+  | ------ | ------------ | ------------------------------------------------------------------------------------------------------------- |
+  | 3      | state        | `ProcessState`                                                                                                |
+  | 4      | ppid         | `parent`; 0 means none                                                                                        |
+  | 9      | flags        | `PF_KTHREAD = 0x0020_0000` means `KernelThread`. Checked live: kthreadd has 2129984 = 0x208040, with the bit. |
+  | 14, 15 | utime, stime | `cpu_time`                                                                                                    |
+  | 18     | priority     | `KernelPriority`                                                                                              |
+  | 19     | nice         | `Niceness`; out of range is `Malformed`                                                                       |
+  | 20     | num_threads  | `threads`                                                                                                     |
+  | 22     | starttime    | `StartTime` and `running_for = uptime − starttime / hz` (saturating)                                          |
 - **`statm`**: `size resident shared text lib data dt`, in pages.
   - VIRT = size × page, RES = resident × page, SHR = shared × page, each a
     checked multiply. An overflow makes `memory` `None`.
@@ -982,13 +982,13 @@ The reader lists every entry of `read_dir(root)` whose name parses as a `Pid`.
 
 **Per-process errors.**
 
-| Condition | Result |
-|---|---|
+| Condition                                                                                      | Result                                                      |
+| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | `NotFound`, or raw OS error `ESRCH` (the Linux value 3, a named const) on any per-process file | The process exited during the scan and is skipped silently. |
-| `stat` unreadable for another reason (for example `EACCES` under `hidepid=1`) or malformed | The process is skipped and `unreadable += 1`. |
-| `statm` unreadable | `memory: None` |
-| `status` unreadable | `Owner::Unknown` |
-| `cmdline` unreadable | `[comm]` |
+| `stat` unreadable for another reason (for example `EACCES` under `hidepid=1`) or malformed     | The process is skipped and `unreadable += 1`.               |
+| `statm` unreadable                                                                             | `memory: None`                                              |
+| `status` unreadable                                                                            | `Owner::Unknown`                                            |
+| `cmdline` unreadable                                                                           | `[comm]`                                                    |
 
 **Whole-sample errors.** An unreadable `root` (`Unreadable { ProcessList }`) or
 a missing, unreadable or malformed `/proc/stat` fails the sample.
@@ -1010,21 +1010,21 @@ a clock rate no process can have, and then `system_host()` is `None` too.
 2. Pin the process: `platform::ProcessHandle::open(pid)`, which is `pidfd_open`.
    `classify_open` maps the result:
 
-   | Result | Meaning |
-   |---|---|
-   | `Ok(h)` | `Pinned(h)` |
-   | `ENOSYS` (kernel before 5.3) or `EPERM` (a seccomp filter) | `Unpinned` |
-   | `ESRCH` | `Gone` |
-   | anything else | `Failed(kind)` |
+   | Result                                                     | Meaning        |
+   | ---------------------------------------------------------- | -------------- |
+   | `Ok(h)`                                                    | `Pinned(h)`    |
+   | `ENOSYS` (kernel before 5.3) or `EPERM` (a seccomp filter) | `Unpinned`     |
+   | `ESRCH`                                                    | `Gone`         |
+   | anything else                                              | `Failed(kind)` |
 3. Read `root/<pid>/stat` with the same parser. `verify_start(result, expected)`:
 
-   | Read result | Outcome |
-   |---|---|
-   | `NotFound` / `ESRCH` | `Gone` |
-   | Another read error | `control_error` (below) |
-   | A line that does not parse | `Unverifiable` |
-   | A different `StartTime` | `Replaced` |
-   | Equal | continue |
+   | Read result                | Outcome                 |
+   | -------------------------- | ----------------------- |
+   | `NotFound` / `ESRCH`       | `Gone`                  |
+   | Another read error         | `control_error` (below) |
+   | A line that does not parse | `Unverifiable`          |
+   | A different `StartTime`    | `Replaced`              |
+   | Equal                      | continue                |
 
    A kernel thread, by the flags just re-read, gives `Err(Refused(KernelThread))`
    (`ControlRefusal::signal_to_kind`).
@@ -1037,11 +1037,11 @@ a clock rate no process can have, and then `system_host()` is `None` too.
 
    `control_error(io::Error)` maps the errno:
 
-   | errno | `ControlError` |
-   |---|---|
-   | `ESRCH` | `Gone` |
+   | errno             | `ControlError`     |
+   | ----------------- | ------------------ |
+   | `ESRCH`           | `Gone`             |
    | `EPERM`, `EACCES` | `PermissionDenied` |
-   | anything else | `Failed(kind)` |
+   | anything else     | `Failed(kind)`     |
 
 **Renice**, `ProcessControl::set_priority(key, Nice(n))`: an unknown start is
 `Unverifiable`, `Class(_)` is `Unsupported` on Linux, and FFM itself, init and
@@ -1056,13 +1056,13 @@ compiles and is tested on every CI OS.
 
 #### 6.1.4 Platform wrappers (`src/platform/unix.rs`, safe rustix, not allowlisted)
 
-| Wrapper | cfg | Implementation |
-|---|---|---|
-| `page_size() -> u64` | `unix` | `rustix::param::page_size` |
-| `clock_ticks_per_second() -> u64` | `unix` | `rustix::param::clock_ticks_per_second` |
-| `signal_process(Pid, Signal) -> io::Result<()>` | `unix` | `kill_process` |
-| `set_niceness(Pid, Niceness) -> io::Result<()>` | `unix` | `setpriority_process`, always `Some(pid)`; `None` would mean the caller |
-| `ProcessHandle::open(Pid)`, `ProcessHandle::signal(Signal)` | `target_os = "linux"` | `pidfd_open`, `pidfd_send_signal` |
+| Wrapper                                                     | cfg                   | Implementation                                                          |
+| ----------------------------------------------------------- | --------------------- | ----------------------------------------------------------------------- |
+| `page_size() -> u64`                                        | `unix`                | `rustix::param::page_size`                                              |
+| `clock_ticks_per_second() -> u64`                           | `unix`                | `rustix::param::clock_ticks_per_second`                                 |
+| `signal_process(Pid, Signal) -> io::Result<()>`             | `unix`                | `kill_process`                                                          |
+| `set_niceness(Pid, Niceness) -> io::Result<()>`             | `unix`                | `setpriority_process`, always `Some(pid)`; `None` would mean the caller |
+| `ProcessHandle::open(Pid)`, `ProcessHandle::signal(Signal)` | `target_os = "linux"` | `pidfd_open`, `pidfd_send_signal`                                       |
 
 - One private `fn rustix_pid(Pid) -> io::Result<rustix::process::Pid>` does the
   only conversion.
@@ -1102,14 +1102,14 @@ Swp meter  used = SwapTotal − SwapFree − SwapCached (saturating), cache = Sw
 
 Worked example from this host's `/proc/meminfo`:
 
-| Key | Value |
-|---|---|
-| MemTotal | 131636496 kB |
-| MemFree | 25897000 kB |
-| Buffers | 6258456 kB |
-| Cached | 52449252 kB |
-| SReclaimable | 6932888 kB |
-| Shmem | 225196 kB |
+| Key          | Value        |
+| ------------ | ------------ |
+| MemTotal     | 131636496 kB |
+| MemFree      | 25897000 kB  |
+| Buffers      | 6258456 kB   |
+| Cached       | 52449252 kB  |
+| SReclaimable | 6932888 kB   |
+| Shmem        | 225196 kB    |
 
 Then used = 131636496 − 91537596 = 40098900 kB (38.2 GiB), and cache =
 59156944 kB. For comparison, procps `free`'s used, `Total − MemAvailable`, is
@@ -1146,13 +1146,13 @@ enumeration, times, memory, termination and priority". It follows the
   `KernelThread`.
 - For each process, `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)`, then:
 
-  | Call | Gives |
-  |---|---|
-  | `GetProcessTimes` | creation time as `Start::Known`, kernel + user time as `cpu_time` |
-  | `K32GetProcessMemoryInfo` | `WorkingSetSize` as RES, `PrivateUsage` as VIRT; SHR is `None` |
-  | `GetPriorityClass` | `Priority::Windows` |
-  | `QueryFullProcessImageNameW` | the Command column |
-  | Token user and `LookupAccountSidW` | the owner, cached by SID |
+  | Call                               | Gives                                                             |
+  | ---------------------------------- | ----------------------------------------------------------------- |
+  | `GetProcessTimes`                  | creation time as `Start::Known`, kernel + user time as `cpu_time` |
+  | `K32GetProcessMemoryInfo`          | `WorkingSetSize` as RES, `PrivateUsage` as VIRT; SHR is `None`    |
+  | `GetPriorityClass`                 | `Priority::Windows`                                               |
+  | `QueryFullProcessImageNameW`       | the Command column                                                |
+  | Token user and `LookupAccountSidW` | the owner, cached by SID                                          |
 
   Access denied leaves fields `None` or `Unknown`, and the start as
   `Start::Unknown`, which refuses control as `Unverifiable`.
@@ -1233,12 +1233,12 @@ synthetic `Instant`s.
 
 **Constants.** All four live once, in `models/tasks/schedule.rs`.
 
-| Constant | Value | Why |
-|---|---|---|
-| `REFRESH_INTERVAL` | 1.5 s | htop's default delay of 15 tenths *(knowledge; the manual gives only the 1..100 clamp)* |
-| `WARM_UP` | 500 ms | Delay after a session's first sample. At CLK_TCK 100 that gives 2 % resolution per process. |
-| `OVERDUE_AFTER` | 5 s | A request in flight this long marks the view `Overdue` (title ` · stale `) |
-| `STALL_LIMIT` | 10 s | A request in flight this long is abandoned (`Stalled`, title ` · not responding `) |
+| Constant           | Value  | Why                                                                                         |
+| ------------------ | ------ | ------------------------------------------------------------------------------------------- |
+| `REFRESH_INTERVAL` | 1.5 s  | htop's default delay of 15 tenths *(knowledge; the manual gives only the 1..100 clamp)*     |
+| `WARM_UP`          | 500 ms | Delay after a session's first sample. At CLK_TCK 100 that gives 2 % resolution per process. |
+| `OVERDUE_AFTER`    | 5 s    | A request in flight this long marks the view `Overdue` (title ` · stale `)                  |
+| `STALL_LIMIT`      | 10 s   | A request in flight this long is abandoned (`Stalled`, title ` · not responding `)          |
 
 **`pump_at(app, now)` runs on every loop pass.** The live reader wakes at least
 every 100 ms (`recording.rs:15`); on Windows, and on Unix without a tty, it may not
@@ -1313,19 +1313,19 @@ flight, so a slow sample can never build a queue.
 
 **Schedule transitions** (model, `schedule.rs`):
 
-| Event | From | To |
-|---|---|---|
-| open | — | `Due`, with cadence `Live` |
-| `take_request(now)` | `Due` | `Waiting { now, Explicit }` |
-| `take_request(now)` | `At(t)`, `now >= t` | `Waiting { now, Automatic }` |
-| result applied | `Waiting` | `At(now + WARM_UP)` after the session's first snapshot, then `At(now + REFRESH_INTERVAL)`, when `Live`; `Held` when `Held`. The interval runs from completion, so a slow sample stretches the period instead of queueing reads. |
-| result arrives while `Held` and the request was `Automatic` | `Waiting` | `Held`; the result is discarded, so the screen really holds |
-| F11 / `Z` (Live → Held) | `At(_)` | `Held` (a `Waiting` request stays; its result is discarded if it was `Automatic`. A `Due` one stays too: it was asked for, so it is taken and shown, then `Held`) |
-| F11 / `Z` (Held → Live) | `Held` | `Due` |
-| Ctrl+R / Ctrl+L | anything but `Waiting` | `Due` (even while held: one sample, then `Held`) |
-| Ctrl+R / Ctrl+L | `Waiting { .. }` | `Waiting { request: Explicit }` |
-| delivery or renice finished | any | `Due`, so the result shows at once |
-| stalled | `Waiting` | `Due` (served when a thread may spawn again); `Held` when held and the request was `Automatic`, whose answer would have been discarded |
+| Event                                                       | From                   | To                                                                                                                                                                                                                              |
+| ----------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| open                                                        | —                      | `Due`, with cadence `Live`                                                                                                                                                                                                      |
+| `take_request(now)`                                         | `Due`                  | `Waiting { now, Explicit }`                                                                                                                                                                                                     |
+| `take_request(now)`                                         | `At(t)`, `now >= t`    | `Waiting { now, Automatic }`                                                                                                                                                                                                    |
+| result applied                                              | `Waiting`              | `At(now + WARM_UP)` after the session's first snapshot, then `At(now + REFRESH_INTERVAL)`, when `Live`; `Held` when `Held`. The interval runs from completion, so a slow sample stretches the period instead of queueing reads. |
+| result arrives while `Held` and the request was `Automatic` | `Waiting`              | `Held`; the result is discarded, so the screen really holds                                                                                                                                                                     |
+| F11 / `Z` (Live → Held)                                     | `At(_)`                | `Held` (a `Waiting` request stays; its result is discarded if it was `Automatic`. A `Due` one stays too: it was asked for, so it is taken and shown, then `Held`)                                                               |
+| F11 / `Z` (Held → Live)                                     | `Held`                 | `Due`                                                                                                                                                                                                                           |
+| Ctrl+R / Ctrl+L                                             | anything but `Waiting` | `Due` (even while held: one sample, then `Held`)                                                                                                                                                                                |
+| Ctrl+R / Ctrl+L                                             | `Waiting { .. }`       | `Waiting { request: Explicit }`                                                                                                                                                                                                 |
+| delivery or renice finished                                 | any                    | `Due`, so the result shows at once                                                                                                                                                                                              |
+| stalled                                                     | `Waiting`              | `Due` (served when a thread may spawn again); `Held` when held and the request was `Automatic`, whose answer would have been discarded                                                                                          |
 
 **Applying a sample** (`TaskList::apply_sample`):
 
@@ -1347,20 +1347,20 @@ closed one never.
 
 ## 8. Safety rules for kill and renice
 
-| # | Rule |
-|---|---|
-| S1 | **Targets are identities, frozen when the dialog opens.** F8, Del, F9 and `k` freeze `Vec<Target>`: the marked processes in view order, or else the cursor process. Refreshes continue behind the dialog but can never change what is signalled. The confirmation always names the targets (`preview_lines`). |
-| S2 | **Every signal is confirmed.** It takes a red Warning dialog plus Enter or the button. Terminate (SIGTERM) is the focused default; Kill needs Tab, Right or `k`. The F9 path is menu, then confirmation. A click can only open these dialogs. Far's Del, which kills at once in Far, opens the confirmation instead. The confirmation does not depend on Options > Confirmations (open question 3). |
-| S3 | **Refusals before any syscall** (`targets::refusal`, pure). The `Refusal` values are listed after this table. Refused targets are listed as `Skipped` in the dialog, and the rest still go. With nothing left, only a notice is shown. |
-| S4 | **Renice limits.** `Niceness` cannot leave −20..=19. A step past a bound is `AtLimit` with no syscall. On Windows `SettableClass` cannot express Realtime. Renicing FFM itself is allowed (harmless). `]` acts at once, as in htop; `[` does for root and asks first for anyone else, who cannot raise the priority again (resolved question 6). After a successful renice, `TaskList::record_nice` stores the accepted value, so the next `]` steps from what the kernel accepted, not from a stale snapshot. |
-| S5 | **PID validity.** `Pid` is 1..=i32::MAX, and only `platform` builds a rustix `Pid`, from it. `kill(0)`, `kill(-1)` and group kills cannot be expressed, and nothing calls `kill_process_group` for this feature. |
-| S6 | **PID reuse.** Linux: pidfd first, then the start-time check, then `pidfd_send_signal` (6.1.3). A pidfd opened before the check proves identity: two processes sharing a PID within one clock tick is the only exception. Without a pidfd (kernel before 5.3, seccomp) and for renice, a check-then-act window of microseconds remains; it is documented. Windows (phase W): the handle pins the object. |
-| S7 | **Ancestors.** `Relation::Ancestor` targets (the shell, tmux, sshd, the terminal) may be signalled, but the confirmation adds `FFM runs inside <pid> <name>; ending it ends this session.` If the terminal goes, the session ends through the existing `TerminalLost` path. |
-| S8 | **Replay is read-only.** Replaying a recording that contains F8 Enter would otherwise signal whatever process happens to be under the cursor on the replaying machine. `recording/processes.rs` wraps the host so `signal` and `set_priority` return `ControlError::ReadOnly` during replay. |
-| S9 | **Untrusted text.** comm, cmdline, user names and Windows image paths pass through `printable_name`, which turns control and bidi characters into U+FFFD, before they are measured and drawn. `environ` and `io` are never read. Command lines appear only on screen: logs and error texts use the PID and comm, never argv, which may hold secrets. `TaskList` and `Snapshot` derive no `Debug`. |
-| S10 | **Tests never signal a stranger.** BDD, ops and popup tests use `FixtureHost`, which only records. Real-kernel tests signal only `sleep` children they spawned themselves. |
-| S11 | **Permissions are typed outcomes.** `EPERM` and `EACCES` become `PermissionDenied`. The message distinguishes "belongs to another user" (signal, or nice up) from "raising priority needs root (CAP_SYS_NICE)" (nice down). |
-| S12 | **FFM's own resilience.** The sampler is never joined, and kill and renice do not depend on it. A hung `/proc` read can freeze neither the UI nor quitting, and the user can still kill the process that hangs the reads. |
+| #   | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1  | **Targets are identities, frozen when the dialog opens.** F8, Del, F9 and `k` freeze `Vec<Target>`: the marked processes in view order, or else the cursor process. Refreshes continue behind the dialog but can never change what is signalled. The confirmation always names the targets (`preview_lines`).                                                                                                                                                                                                  |
+| S2  | **Every signal is confirmed.** It takes a red Warning dialog plus Enter or the button. Terminate (SIGTERM) is the focused default; Kill needs Tab, Right or `k`. The F9 path is menu, then confirmation. A click can only open these dialogs. Far's Del, which kills at once in Far, opens the confirmation instead. The confirmation does not depend on Options > Confirmations (open question 3).                                                                                                            |
+| S3  | **Refusals before any syscall** (`targets::refusal`, pure). The `Refusal` values are listed after this table. Refused targets are listed as `Skipped` in the dialog, and the rest still go. With nothing left, only a notice is shown.                                                                                                                                                                                                                                                                         |
+| S4  | **Renice limits.** `Niceness` cannot leave −20..=19. A step past a bound is `AtLimit` with no syscall. On Windows `SettableClass` cannot express Realtime. Renicing FFM itself is allowed (harmless). `]` acts at once, as in htop; `[` does for root and asks first for anyone else, who cannot raise the priority again (resolved question 6). After a successful renice, `TaskList::record_nice` stores the accepted value, so the next `]` steps from what the kernel accepted, not from a stale snapshot. |
+| S5  | **PID validity.** `Pid` is 1..=i32::MAX, and only `platform` builds a rustix `Pid`, from it. `kill(0)`, `kill(-1)` and group kills cannot be expressed, and nothing calls `kill_process_group` for this feature.                                                                                                                                                                                                                                                                                               |
+| S6  | **PID reuse.** Linux: pidfd first, then the start-time check, then `pidfd_send_signal` (6.1.3). A pidfd opened before the check proves identity: two processes sharing a PID within one clock tick is the only exception. Without a pidfd (kernel before 5.3, seccomp) and for renice, a check-then-act window of microseconds remains; it is documented. Windows (phase W): the handle pins the object.                                                                                                       |
+| S7  | **Ancestors.** `Relation::Ancestor` targets (the shell, tmux, sshd, the terminal) may be signalled, but the confirmation adds `FFM runs inside <pid> <name>; ending it ends this session.` If the terminal goes, the session ends through the existing `TerminalLost` path.                                                                                                                                                                                                                                    |
+| S8  | **Replay is read-only.** Replaying a recording that contains F8 Enter would otherwise signal whatever process happens to be under the cursor on the replaying machine. `recording/processes.rs` wraps the host so `signal` and `set_priority` return `ControlError::ReadOnly` during replay.                                                                                                                                                                                                                   |
+| S9  | **Untrusted text.** comm, cmdline, user names and Windows image paths pass through `printable_name`, which turns control and bidi characters into U+FFFD, before they are measured and drawn. `environ` and `io` are never read. Command lines appear only on screen: logs and error texts use the PID and comm, never argv, which may hold secrets. `TaskList` and `Snapshot` derive no `Debug`.                                                                                                              |
+| S10 | **Tests never signal a stranger.** BDD, ops and popup tests use `FixtureHost`, which only records. Real-kernel tests signal only `sleep` children they spawned themselves.                                                                                                                                                                                                                                                                                                                                     |
+| S11 | **Permissions are typed outcomes.** `EPERM` and `EACCES` become `PermissionDenied`. The message distinguishes "belongs to another user" (signal, or nice up) from "raising priority needs root (CAP_SYS_NICE)" (nice down).                                                                                                                                                                                                                                                                                    |
+| S12 | **FFM's own resilience.** The sampler is never joined, and kill and renice do not depend on it. A hung `/proc` read can freeze neither the UI nor quitting, and the user can still kill the process that hangs the reads.                                                                                                                                                                                                                                                                                      |
 
 The `Refusal` values for S3 are:
 
@@ -1377,31 +1377,31 @@ The `Refusal` values for S3 are:
 
 ## 9. Error handling
 
-| Source | Behaviour | Text (fixed English sentence) |
-|---|---|---|
-| A whole sample fails and there is no snapshot yet | `Table::Failed(e)`; the body shows the sentence; the next attempt runs at the normal interval | `The process table cannot be read (/proc: permission denied).` |
-| A whole sample fails and a snapshot exists | The last snapshot stays; `Health::Failed(e)`; title ` · refresh failed `; retried at the normal interval; logged once per session and error kind with `diagnostics::log_error` | — |
-| A process vanished during the scan | Skipped silently | — |
-| A process is unreadable or malformed | Skipped and counted; footer `, 3 unreadable` | — |
-| An optional per-process file | Degrades that field only (6.1.2) | — |
-| Worker spawn fails | `Failed(WorkerUnavailable)`, logged | `The process reader could not start.` |
-| The worker disconnects | `Failed(WorkerStopped)`; no respawn until reopened | `The process reader stopped.` |
-| A request is in flight for 5 s or more | `Overdue`, title ` · stale `, last snapshot kept | — |
-| A request is in flight for 10 s or more | `Stalled`, title ` · not responding `, the thread abandoned (7) | — |
-| The same, before the first snapshot | `Table::Failed(WorkerStalled)`; the body shows the sentence until a sample arrives | `The process reader is not responding.` |
-| `ControlError::Gone` | Error dialog line | `4242 firefox has already exited; nothing was sent.` |
-| `Replaced` | ″ | `PID 4242 now belongs to another process; nothing was sent.` |
-| `PermissionDenied` (signal, or nice up) | ″ | `4242 firefox belongs to another user (root).` |
-| `PermissionDenied` (nice down) | ″ | `Only root can raise a process's priority (CAP_SYS_NICE).` |
-| `Critical` (Windows) | ″ | `4242 is a critical system process; ending it stops Windows.` |
-| `Unverifiable` | ″ | `FFM cannot confirm which process 4242 is; nothing was sent.` |
-| `ReadOnly` | ″ | `This is a replayed session; processes are not signalled.` |
-| `Refused(refusal)` (the host's own refusal, 6.1.3) | ″ | The refusal's sentence, as in the Refusals row |
-| `Unsupported` | ″ | `Not supported on this platform.` |
-| `Failed(kind)` | ″, detail to the log (PID and comm only) | `Could not signal 4242 firefox: <kind>.` |
-| Refusals | Notice, or a `Skipped` line in the dialog | `This is FFM itself; quit with F10.` · `PID 1 (init) is never signalled from here.` · `Kernel threads ignore signals.` · `Nice is already 19.` · `The Realtime class is not changed from here.` · `No process is selected.` |
-| All deliveries succeed | Notice | `Sent SIGTERM to 2 processes.` · `Nice set to 5 for 1 process.` |
-| The report fallback (no host) fails | Today's `ops::menu` error path, unchanged | — |
+| Source                                             | Behaviour                                                                                                                                                                      | Text (fixed English sentence)                                                                                                                                                                                               |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A whole sample fails and there is no snapshot yet  | `Table::Failed(e)`; the body shows the sentence; the next attempt runs at the normal interval                                                                                  | `The process table cannot be read (/proc: permission denied).`                                                                                                                                                              |
+| A whole sample fails and a snapshot exists         | The last snapshot stays; `Health::Failed(e)`; title ` · refresh failed `; retried at the normal interval; logged once per session and error kind with `diagnostics::log_error` | —                                                                                                                                                                                                                           |
+| A process vanished during the scan                 | Skipped silently                                                                                                                                                               | —                                                                                                                                                                                                                           |
+| A process is unreadable or malformed               | Skipped and counted; footer `, 3 unreadable`                                                                                                                                   | —                                                                                                                                                                                                                           |
+| An optional per-process file                       | Degrades that field only (6.1.2)                                                                                                                                               | —                                                                                                                                                                                                                           |
+| Worker spawn fails                                 | `Failed(WorkerUnavailable)`, logged                                                                                                                                            | `The process reader could not start.`                                                                                                                                                                                       |
+| The worker disconnects                             | `Failed(WorkerStopped)`; no respawn until reopened                                                                                                                             | `The process reader stopped.`                                                                                                                                                                                               |
+| A request is in flight for 5 s or more             | `Overdue`, title ` · stale `, last snapshot kept                                                                                                                               | —                                                                                                                                                                                                                           |
+| A request is in flight for 10 s or more            | `Stalled`, title ` · not responding `, the thread abandoned (7)                                                                                                                | —                                                                                                                                                                                                                           |
+| The same, before the first snapshot                | `Table::Failed(WorkerStalled)`; the body shows the sentence until a sample arrives                                                                                             | `The process reader is not responding.`                                                                                                                                                                                     |
+| `ControlError::Gone`                               | Error dialog line                                                                                                                                                              | `4242 firefox has already exited; nothing was sent.`                                                                                                                                                                        |
+| `Replaced`                                         | ″                                                                                                                                                                              | `PID 4242 now belongs to another process; nothing was sent.`                                                                                                                                                                |
+| `PermissionDenied` (signal, or nice up)            | ″                                                                                                                                                                              | `4242 firefox belongs to another user (root).`                                                                                                                                                                              |
+| `PermissionDenied` (nice down)                     | ″                                                                                                                                                                              | `Only root can raise a process's priority (CAP_SYS_NICE).`                                                                                                                                                                  |
+| `Critical` (Windows)                               | ″                                                                                                                                                                              | `4242 is a critical system process; ending it stops Windows.`                                                                                                                                                               |
+| `Unverifiable`                                     | ″                                                                                                                                                                              | `FFM cannot confirm which process 4242 is; nothing was sent.`                                                                                                                                                               |
+| `ReadOnly`                                         | ″                                                                                                                                                                              | `This is a replayed session; processes are not signalled.`                                                                                                                                                                  |
+| `Refused(refusal)` (the host's own refusal, 6.1.3) | ″                                                                                                                                                                              | The refusal's sentence, as in the Refusals row                                                                                                                                                                              |
+| `Unsupported`                                      | ″                                                                                                                                                                              | `Not supported on this platform.`                                                                                                                                                                                           |
+| `Failed(kind)`                                     | ″, detail to the log (PID and comm only)                                                                                                                                       | `Could not signal 4242 firefox: <kind>.`                                                                                                                                                                                    |
+| Refusals                                           | Notice, or a `Skipped` line in the dialog                                                                                                                                      | `This is FFM itself; quit with F10.` · `PID 1 (init) is never signalled from here.` · `Kernel threads ignore signals.` · `Nice is already 19.` · `The Realtime class is not changed from here.` · `No process is selected.` |
+| All deliveries succeed                             | Notice                                                                                                                                                                         | `Sent SIGTERM to 2 processes.` · `Nice set to 5 for 1 process.`                                                                                                                                                             |
+| The report fallback (no host) fails                | Today's `ops::menu` error path, unchanged                                                                                                                                      | —                                                                                                                                                                                                                           |
 
 Callers branch on enum variants, never on message text. The render path never
 panics at any size. The parsers never index or unwrap: they use `split_once`,
@@ -1646,15 +1646,15 @@ therefore use `type "K"` or `press "Shift+K"`.
 
 ### 10.11 Existing tests to change (rewrite, never delete)
 
-| Test | Change |
-|---|---|
-| `ops/menu/tests.rs:320-326` | Splits into a Tasks case (fixture host, `Overlay::Tasks`) and a Devices case |
-| `dispatch/tests/far_menu_families/tests_command_dialogs.rs:57` | Expects `Overlay::Tasks`, with a fixture host installed |
-| `popup/tasks/tests.rs` | Rewritten for the new popup |
-| `popup/drives/tests.rs` (`the_process_list_row_opens_the_task_list_and_the_menu_stays_closed`) | Installs a fixture host, so the row opens `Overlay::Tasks` and never runs `ps`; a second case without a host expects the report |
-| `ui/tests_stub_dialogs.rs:38` | Drops Tasks |
-| `ui/tests.rs:373` | Uses `render_key_bar` |
-| `action/tests_far_menu_keys.rs:101`, `action/tests/fallback_rows.rs:42-45`, `tests/menu_commands_test.rs` | Stay valid unchanged |
+| Test                                                                                                      | Change                                                                                                                          |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `ops/menu/tests.rs:320-326`                                                                               | Splits into a Tasks case (fixture host, `Overlay::Tasks`) and a Devices case                                                    |
+| `dispatch/tests/far_menu_families/tests_command_dialogs.rs:57`                                            | Expects `Overlay::Tasks`, with a fixture host installed                                                                         |
+| `popup/tasks/tests.rs`                                                                                    | Rewritten for the new popup                                                                                                     |
+| `popup/drives/tests.rs` (`the_process_list_row_opens_the_task_list_and_the_menu_stays_closed`)            | Installs a fixture host, so the row opens `Overlay::Tasks` and never runs `ps`; a second case without a host expects the report |
+| `ui/tests_stub_dialogs.rs:38`                                                                             | Drops Tasks                                                                                                                     |
+| `ui/tests.rs:373`                                                                                         | Uses `render_key_bar`                                                                                                           |
+| `action/tests_far_menu_keys.rs:101`, `action/tests/fallback_rows.rs:42-45`, `tests/menu_commands_test.rs` | Stay valid unchanged                                                                                                            |
 
 ### 10.12 Gates
 
@@ -1694,52 +1694,52 @@ In phase W, `cargo mutants --list --in-diff` decides, with evidence, whether the
 
 ## 11. Documentation to update (in the same branch)
 
-| File | Change |
-|---|---|
-| `docs/knowledge-base/06-ui-and-interaction/overlays-and-modals.md` | Lines 15, 51 and 53 (Tasks is no longer a stub), the full-screen overlay list, nested modals inside Tasks |
-| `docs/knowledge-base/06-ui-and-interaction/rendering-and-layout.md` | The Task list layout; `render_key_bar`; the shared header shape |
-| `docs/knowledge-base/06-ui-and-interaction/keyboard-handling.md` | Ctrl+W in the main bindings; Task list modal routing and `normalize` |
-| `docs/knowledge-base/09-far-manager-compatibility/hotkeys-and-parity.md` | A Ctrl+W row; a new "Task list (Ctrl+W)" section with 3.1 and the clash table 3.5; a note that Ctrl+F3 and Shift+F3 never arrive on non-kitty terminals |
-| `docs/knowledge-base/07-core-features/main-menu.md` | Line 90 row; Verification lines 131-135 (the task list now signals processes, after confirmation) |
-| `docs/knowledge-base/02-architecture/system-architecture.md` | Lines 198-222: the Tasks sampler as a second background worker; redraw on a sample; replay is read-only |
-| `docs/knowledge-base/02-architecture/module-structure.md` | Rows 49 and 99; the new modules (`process_table`, `application/task_jobs`, `ui/tasks/*`, `models/tasks/*`); the architecture-checks table (new forbidden paths) |
-| `docs/knowledge-base/05-testing/testing-strategy.md` | Seams table rows: `ProcessHost`/`FixtureHost`, the fake procfs root, `pump_at(now)`, the BDD eventually step |
-| `docs/knowledge-base/03-rust-best-practices/type-system.md` | `Pid`, `StartTime`/`Start`/`ProcessKey`, `Percent`, `MemoryBytes`, `Niceness`, `SettableClass`, `Signal`, `Schedule` |
-| `docs/knowledge-base/08-platform-support/windows-behavior.md` | Windows keeps the tasklist report until phase W |
-| `README.md` | The hotkey guide (lines 54-84) gains Ctrl+W; the "System tools" bullet (line 24) |
-| `src/ui/overlays.rs` | `HELP_LINES` (4.4) |
-| `src/action/commands.rs:132`, and the purpose lines of the rewritten tasks files | Doc comments |
-| `docs/superpowers/specs/2026-09-13-far-menu-complete-design.md` | C13 (line 376): marked superseded by this file |
-| `docs/superpowers/specs/2026-09-22-change-drive-and-netbox-design.md` | Section 3.1, plugin rows: `Process list` opens this viewer, full screen, not a dialog |
-| `docs/knowledge-base/09-far-manager-compatibility/hotkeys-and-parity.md` (Alt+F1/F2 row), `docs/knowledge-base/06-ui-and-interaction/overlays-and-modals.md` (DriveSelection) | The `Process list` row opens the live viewer, as Ctrl+W does |
+| File                                                                                                                                                                          | Change                                                                                                                                                          |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/knowledge-base/06-ui-and-interaction/overlays-and-modals.md`                                                                                                            | Lines 15, 51 and 53 (Tasks is no longer a stub), the full-screen overlay list, nested modals inside Tasks                                                       |
+| `docs/knowledge-base/06-ui-and-interaction/rendering-and-layout.md`                                                                                                           | The Task list layout; `render_key_bar`; the shared header shape                                                                                                 |
+| `docs/knowledge-base/06-ui-and-interaction/keyboard-handling.md`                                                                                                              | Ctrl+W in the main bindings; Task list modal routing and `normalize`                                                                                            |
+| `docs/knowledge-base/09-far-manager-compatibility/hotkeys-and-parity.md`                                                                                                      | A Ctrl+W row; a new "Task list (Ctrl+W)" section with 3.1 and the clash table 3.5; a note that Ctrl+F3 and Shift+F3 never arrive on non-kitty terminals         |
+| `docs/knowledge-base/07-core-features/main-menu.md`                                                                                                                           | Line 90 row; Verification lines 131-135 (the task list now signals processes, after confirmation)                                                               |
+| `docs/knowledge-base/02-architecture/system-architecture.md`                                                                                                                  | Lines 198-222: the Tasks sampler as a second background worker; redraw on a sample; replay is read-only                                                         |
+| `docs/knowledge-base/02-architecture/module-structure.md`                                                                                                                     | Rows 49 and 99; the new modules (`process_table`, `application/task_jobs`, `ui/tasks/*`, `models/tasks/*`); the architecture-checks table (new forbidden paths) |
+| `docs/knowledge-base/05-testing/testing-strategy.md`                                                                                                                          | Seams table rows: `ProcessHost`/`FixtureHost`, the fake procfs root, `pump_at(now)`, the BDD eventually step                                                    |
+| `docs/knowledge-base/03-rust-best-practices/type-system.md`                                                                                                                   | `Pid`, `StartTime`/`Start`/`ProcessKey`, `Percent`, `MemoryBytes`, `Niceness`, `SettableClass`, `Signal`, `Schedule`                                            |
+| `docs/knowledge-base/08-platform-support/windows-behavior.md`                                                                                                                 | Windows keeps the tasklist report until phase W                                                                                                                 |
+| `README.md`                                                                                                                                                                   | The hotkey guide (lines 54-84) gains Ctrl+W; the "System tools" bullet (line 24)                                                                                |
+| `src/ui/overlays.rs`                                                                                                                                                          | `HELP_LINES` (4.4)                                                                                                                                              |
+| `src/action/commands.rs:132`, and the purpose lines of the rewritten tasks files                                                                                              | Doc comments                                                                                                                                                    |
+| `docs/superpowers/specs/2026-09-13-far-menu-complete-design.md`                                                                                                               | C13 (line 376): marked superseded by this file                                                                                                                  |
+| `docs/superpowers/specs/2026-09-22-change-drive-and-netbox-design.md`                                                                                                         | Section 3.1, plugin rows: `Process list` opens this viewer, full screen, not a dialog                                                                           |
+| `docs/knowledge-base/09-far-manager-compatibility/hotkeys-and-parity.md` (Alt+F1/F2 row), `docs/knowledge-base/06-ui-and-interaction/overlays-and-modals.md` (DriveSelection) | The `Process list` row opens the live viewer, as Ctrl+W does                                                                                                    |
 
 ---
 
 ## 12. Decisions and alternatives
 
-| # | Decision | Why | Alternatives rejected |
-|---|---|---|---|
-| D1 | Reuse `Overlay::Tasks(Box<TaskList>)` and the `ops → popup → ui` wiring. Full-screen like the viewer. | One slot already routed from every entry point; AGENTS.md wiring; room for the table | A new overlay variant (a second path to maintain); a centred dialog (too small for htop's table) |
-| D2 | Far-native key resolution: Far wins where it has a process meaning, htop fills the gaps, and every htop key that loses opens a harmless dialog | ffm users keep F3/F8/Del/Ctrl+R/`+ - *`/Alt+letter; htop users keep F4/F5/F6/F9/F10 and most letters; no reflex can kill without a second step | Pure htop parity (F8 = nice +, silently irreversible for non-root; F3 = search); htop only |
-| D3 | Linux reads `/proc` with `std::fs`, adds the rustix `param` feature and no crate | No unsafe, complete fields (state, PF_KTHREAD, priority, nice), fixture-testable, no dependency cost | `sysinfo` 0.38 (no nice or renice, pulls `windows` 0.62, ntapi and objc2-io-kit, poorer Linux detail); `procfs` 0.17 (Linux only, extra dependencies, foreign error types) |
-| D4 | One LoopState-owned worker, request/response, one request in flight, never joined, stall watchdog | A cmdline read can hang; the UI must not; bounded threads and memory; follows `WslJobs` | Sampling in `pump_background` on the UI thread (can block); a free-running timer thread (queues, harder to test); joining on close (can hang quit) |
-| D5 | The reader returns raw counters; models derive CPU%, meters and order | One formula for all platforms; pure and testable in `models` | Deriving in the adapter (duplicated per platform) |
-| D6 | Kill and renice run synchronously on the UI thread in `ops` | They work while sampling is stuck, when they are needed most; immediate feedback | Routing actions through the sampler (blocked behind a hung read) |
-| D7 | Identity = `(Pid, Start)`; pidfd plus start-time re-check | Closes the PID-reuse race on Linux 5.3+; the same key serves cursor, marks, CPU baselines | Kill by PID (can hit a newcomer); a start re-check without a pidfd (a window remains) |
-| D8 | Refuse FFM itself, PID 1 and kernel threads before any syscall | STOP to FFM freezes it; SIGINT to systemd reboots; kernel threads ignore signals | htop's allow-all; refusing only FFM |
-| D9 | Every signal confirmed, independent of Options > Confirmations | Reliability first; a refresh can move rows; Far's Del is too sudden for a live list | htop's single Enter; following the Delete confirmation setting |
-| D10 | The cursor follows its process identity | The highlighted row is always the process the user means (safety); Far keeps the selection after a reload | htop's default of keeping the row index, plus `F` |
-| D11 | Kernel threads hidden by default, `K` shows them, the footer counts them | 180 kthreads on this host bury the useful rows; htop 3 hides them by default *(knowledge)* | Shown by default |
-| D12 | Mem used uses the htop 3.x segments (6.2) | "Like htop"; segments sum to Total − Free by construction | procps `free`'s Total − MemAvailable (one line to switch; open question 4) |
-| D13 | Integer maths; panic-freedom enforced by the manifests' reliability lint set and the robustness corpus; no module-level lint attributes | Release aborts on panic and does not check overflow; `scripts/test_lint_policy.py` keeps the lint policy in the manifests, requires each family at `warn` (the gate's `-D warnings` makes it an error), and no module in `src` sets its own lint levels | `#![deny(clippy::unwrap_used, arithmetic_side_effects, …)]` per module |
-| D14 | The host lives in `App.task_host`, installed by bootstrap; replay wraps it read-only | Keeps `run_loop` and `run_app_with_wsl_backend` signatures unchanged; BDD and integration tests install a fixture as they install a clipboard | A `Backends` struct threaded through `run_loop` (changes public test-helper API) |
-| D15 | Platforms without a native reader keep today's report | No regression on Windows and macOS at any merge | Showing "not available" (regresses today's report) |
-| D16 | The command line is read once per identity and comm; not read for uncached D-state processes | htop's default; cuts cost and the mmap-lock hazard; `execve` changes comm, so a re-read follows | Re-reading every refresh; reading once ever (misses `execve`) |
-| D17 | Menus reuse the generic `menu_dialog::choices`; the mask dialog, `MaskPrompt` and `Mask` are reused for Gray `+`/`-` | Real reuse, no churn to the panel Sort menu | Extracting a new check-menu from `ui/sortmenu.rs` (more churn for the same result) |
-| D18 | Far-style `abbreviate_bytes` for sizes | Consistent with the panels, the drives dialog and the delete dialog | htop's `381M` (a second format) |
-| D19 | `Redraw` moves to `application.rs` | Two owners now (`WslJobs`, `TaskJobs`); it is a loop concept, not a WSL one | Importing `wsl_jobs::Redraw` from `task_jobs` |
-| D20 | Linux first; Windows (W) and macOS (M) as later phases behind the same ports | The user asked for Linux; macOS has no CI; Windows needs reviewed unsafe | Shipping all three at once |
-| D21 | Session-only settings in the first release | KISS; persistence needs a settings page and a save rule | Saving automatically on close (open question 1) |
+| #   | Decision                                                                                                                                       | Why                                                                                                                                                                                                                                                     | Alternatives rejected                                                                                                                                                      |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Reuse `Overlay::Tasks(Box<TaskList>)` and the `ops → popup → ui` wiring. Full-screen like the viewer.                                          | One slot already routed from every entry point; AGENTS.md wiring; room for the table                                                                                                                                                                    | A new overlay variant (a second path to maintain); a centred dialog (too small for htop's table)                                                                           |
+| D2  | Far-native key resolution: Far wins where it has a process meaning, htop fills the gaps, and every htop key that loses opens a harmless dialog | ffm users keep F3/F8/Del/Ctrl+R/`+ - *`/Alt+letter; htop users keep F4/F5/F6/F9/F10 and most letters; no reflex can kill without a second step                                                                                                          | Pure htop parity (F8 = nice +, silently irreversible for non-root; F3 = search); htop only                                                                                 |
+| D3  | Linux reads `/proc` with `std::fs`, adds the rustix `param` feature and no crate                                                               | No unsafe, complete fields (state, PF_KTHREAD, priority, nice), fixture-testable, no dependency cost                                                                                                                                                    | `sysinfo` 0.38 (no nice or renice, pulls `windows` 0.62, ntapi and objc2-io-kit, poorer Linux detail); `procfs` 0.17 (Linux only, extra dependencies, foreign error types) |
+| D4  | One LoopState-owned worker, request/response, one request in flight, never joined, stall watchdog                                              | A cmdline read can hang; the UI must not; bounded threads and memory; follows `WslJobs`                                                                                                                                                                 | Sampling in `pump_background` on the UI thread (can block); a free-running timer thread (queues, harder to test); joining on close (can hang quit)                         |
+| D5  | The reader returns raw counters; models derive CPU%, meters and order                                                                          | One formula for all platforms; pure and testable in `models`                                                                                                                                                                                            | Deriving in the adapter (duplicated per platform)                                                                                                                          |
+| D6  | Kill and renice run synchronously on the UI thread in `ops`                                                                                    | They work while sampling is stuck, when they are needed most; immediate feedback                                                                                                                                                                        | Routing actions through the sampler (blocked behind a hung read)                                                                                                           |
+| D7  | Identity = `(Pid, Start)`; pidfd plus start-time re-check                                                                                      | Closes the PID-reuse race on Linux 5.3+; the same key serves cursor, marks, CPU baselines                                                                                                                                                               | Kill by PID (can hit a newcomer); a start re-check without a pidfd (a window remains)                                                                                      |
+| D8  | Refuse FFM itself, PID 1 and kernel threads before any syscall                                                                                 | STOP to FFM freezes it; SIGINT to systemd reboots; kernel threads ignore signals                                                                                                                                                                        | htop's allow-all; refusing only FFM                                                                                                                                        |
+| D9  | Every signal confirmed, independent of Options > Confirmations                                                                                 | Reliability first; a refresh can move rows; Far's Del is too sudden for a live list                                                                                                                                                                     | htop's single Enter; following the Delete confirmation setting                                                                                                             |
+| D10 | The cursor follows its process identity                                                                                                        | The highlighted row is always the process the user means (safety); Far keeps the selection after a reload                                                                                                                                               | htop's default of keeping the row index, plus `F`                                                                                                                          |
+| D11 | Kernel threads hidden by default, `K` shows them, the footer counts them                                                                       | 180 kthreads on this host bury the useful rows; htop 3 hides them by default *(knowledge)*                                                                                                                                                              | Shown by default                                                                                                                                                           |
+| D12 | Mem used uses the htop 3.x segments (6.2)                                                                                                      | "Like htop"; segments sum to Total − Free by construction                                                                                                                                                                                               | procps `free`'s Total − MemAvailable (one line to switch; open question 4)                                                                                                 |
+| D13 | Integer maths; panic-freedom enforced by the manifests' reliability lint set and the robustness corpus; no module-level lint attributes        | Release aborts on panic and does not check overflow; `scripts/test_lint_policy.py` keeps the lint policy in the manifests, requires each family at `warn` (the gate's `-D warnings` makes it an error), and no module in `src` sets its own lint levels | `#![deny(clippy::unwrap_used, arithmetic_side_effects, …)]` per module                                                                                                     |
+| D14 | The host lives in `App.task_host`, installed by bootstrap; replay wraps it read-only                                                           | Keeps `run_loop` and `run_app_with_wsl_backend` signatures unchanged; BDD and integration tests install a fixture as they install a clipboard                                                                                                           | A `Backends` struct threaded through `run_loop` (changes public test-helper API)                                                                                           |
+| D15 | Platforms without a native reader keep today's report                                                                                          | No regression on Windows and macOS at any merge                                                                                                                                                                                                         | Showing "not available" (regresses today's report)                                                                                                                         |
+| D16 | The command line is read once per identity and comm; not read for uncached D-state processes                                                   | htop's default; cuts cost and the mmap-lock hazard; `execve` changes comm, so a re-read follows                                                                                                                                                         | Re-reading every refresh; reading once ever (misses `execve`)                                                                                                              |
+| D17 | Menus reuse the generic `menu_dialog::choices`; the mask dialog, `MaskPrompt` and `Mask` are reused for Gray `+`/`-`                           | Real reuse, no churn to the panel Sort menu                                                                                                                                                                                                             | Extracting a new check-menu from `ui/sortmenu.rs` (more churn for the same result)                                                                                         |
+| D18 | Far-style `abbreviate_bytes` for sizes                                                                                                         | Consistent with the panels, the drives dialog and the delete dialog                                                                                                                                                                                     | htop's `381M` (a second format)                                                                                                                                            |
+| D19 | `Redraw` moves to `application.rs`                                                                                                             | Two owners now (`WslJobs`, `TaskJobs`); it is a loop concept, not a WSL one                                                                                                                                                                             | Importing `wsl_jobs::Redraw` from `task_jobs`                                                                                                                              |
+| D20 | Linux first; Windows (W) and macOS (M) as later phases behind the same ports                                                                   | The user asked for Linux; macOS has no CI; Windows needs reviewed unsafe                                                                                                                                                                                | Shipping all three at once                                                                                                                                                 |
+| D21 | Session-only settings in the first release                                                                                                     | KISS; persistence needs a settings page and a save rule                                                                                                                                                                                                 | Saving automatically on close (open question 1)                                                                                                                            |
 
 ---
 
@@ -1769,59 +1769,59 @@ In phase W, `cargo mutants --list --in-diff` decides, with evidence, whether the
 Each task leaves `./ffm.py lint` and
 `cargo test --features test-helpers` green.
 
-| ID | Task | Files | Depends on | Tests |
-|---|---|---|---|---|
-| T01 | Move `visible_window` to `crate::scroll` | `src/scroll.rs`, `src/scroll/tests.rs`, `src/ui/panel.rs`, `src/ui/panel/modes.rs`, `src/ui/tree.rs`, `src/ui/panel/tests_window.rs` | — | Existing window tests moved unchanged; panel and tree render tests stay green |
-| T02 | Generalise the key bar | `src/ui/fkey_bar.rs`, `src/ui.rs`, `src/ui/tests.rs`, `src/ui/tests_render_widths.rs` | — | Panel bar byte-identical; the agreement test at `tests_render_widths.rs:874` passes for a 12-label custom set too |
-| T03 | Generic choices menu and shared `navigate` | `src/ui/menu_dialog/choices.rs`, `src/ui/menu_dialog.rs`, `src/models/menu_dialog.rs`, `src/popup/menu_dialog.rs` | — | Existing `ui/menu_dialog/tests.rs` unchanged; a new test renders a `&[&str]` menu and hit-tests it |
-| T04 | Reuse hooks | `src/ui/panel.rs` (visibility), `src/ui/dialog.rs` (`preview_lines`), `src/ui/overlays.rs` (`render_mask_prompt`, `DELETE_PREVIEW`), `src/popup/mask_prompt.rs` (`mask_key`) | — | Delete dialog text unchanged; `preview_lines` for 0, 5 and 6 names; mask prompt tests unchanged plus `mask_key` outcomes |
-| T05 | `Owners::name_of_uid` | `src/directory/owner.rs`, its tests | — | uid 0 is root on Unix; unknown uid is `None`; one lookup per uid (counted); `of()` unchanged |
-| T06 | Move `Redraw`; add layer rules | `src/application.rs`, `src/application/wsl_jobs.rs`, `tests/module_boundaries/layers.rs` | — | Existing loop tests; module-boundary tests with the new rows |
-| T07 | Model value types | `src/models/tasks/{identity,units,priority,signal}.rs`, tests, `src/models.rs` | — | 10.4 units |
-| T08 | Raw sample, ports and errors | `src/models/tasks/sample.rs`, tests | T07 | `ProcessState::from_letter` table; error `Display` sentences |
-| T09 | Platform wrappers and rustix `param` | `Cargo.toml`, `src/platform.rs`, `src/platform/unix.rs`, `src/platform/tests.rs` | T07 | 10.7 real-kernel tests |
-| T10 | Snapshot and meters derivation | `src/models/tasks/{snapshot,meters}.rs`, tests, `tests_support.rs` | T07, T08 | 10.4 derivation |
-| T11 | View: sort, filter, scope, tree | `src/models/tasks/{view,tree}.rs`, tests | T10 | 10.4 view |
-| T12 | `TaskList` state | `src/models/tasks.rs`, `src/models/tasks/{selection,schedule,header,modal,targets,host}.rs`, tests, `src/models/app.rs`, `src/models/app_overlay.rs`, `src/models/overlay.rs` | T01, T10, T11 | 10.4 selection, header, schedule, targets; `set_viewport` clamps Tasks |
-| T13 | procfs parsers and robustness corpus | `src/process_table/procfs/parse.rs`, `tests_parse.rs`, `tests_robustness.rs` | T08 | 10.1, 10.2 |
-| T14 | `ProcFs` reader, command cache, `SystemHost`, `system_host()` | `src/lib.rs`, `src/process_table.rs`, `src/process_table/procfs.rs`, `tests_reader.rs` | T05, T09, T13 | 10.3 |
-| T15 | Linux identity-checked control | `src/process_table/procfs/control.rs`, `tests_control.rs` | T09, T13, T14 | 10.7, including the injected `classify_open` errnos |
-| T16 | Test fixtures | `src/test_support/processes.rs`, `src/test_support.rs` | T08, T12 | Self-tests: canned samples advance, controls are recorded, a terminated key disappears, `GatedReader` blocks until opened |
-| T17 | Controller and loop wiring | `src/application/task_jobs.rs`, `tests.rs`, `src/application.rs`, `src/application/timing.rs`, `src/application/tests/task_refresh.rs` | T06, T12, T16 | 10.8 |
-| T18 | Keymap and help table | `src/action.rs`, `src/action/tasks.rs`, `src/action/tasks/tests.rs` | T07, T11 | 10.5, including help consistency |
-| T19 | Ops, rerouting, bootstrap and replay | `src/ops/tasks.rs`, `src/ops/tasks/{report,control}.rs`, tests, `src/ops/menu.rs`, `src/ops/menu/workflows.rs`, `src/popup/drives.rs`, `src/bootstrap.rs`, `src/recording/processes.rs`, `src/recording.rs`, `src/action/commands.rs` | T12, T14, T15, T16 | 10.6 ops; the replay host returns `ReadOnly`; `report_command` per platform; rewritten `ops/menu/tests.rs:320`, `tests_command_dialogs.rs:57` and the drive row test in `popup/drives/tests.rs` |
-| T20 | Popup: router, browse, bars, dialogs, menus, paste | `src/popup.rs`, `src/popup/tasks.rs`, `src/popup/tasks/{browse,bars,dialogs,menus}.rs`, tests, `src/popup/editor.rs`, `src/application.rs` (paste) | T03, T04, T18, T19 | 10.6 popup; rewritten `popup/tasks/tests.rs` |
-| T21 | Renderer | `src/ui/tasks.rs`, `src/ui/tasks/{meters,table,format,chrome,dialogs}.rs`, tests, `src/ui/palette.rs`, `src/ui/overlays.rs` (arm, `HELP_LINES`), `src/ui.rs`, `src/ui/tests_stub_dialogs.rs`, `tests/degenerate_size_test.rs` | T01, T02, T03, T04, T12 | 10.9 |
-| T22 | Mouse | `src/application/dispatch/dialog_mouse.rs`, `src/application/dispatch/dialog_mouse/{tasks,button_keys}.rs`, tests | T20, T21 | Row, title, key-bar and menu-line clicks become their keys or transitions; confirmation buttons map to `t`/`k`/Esc; a click never signals |
-| T23 | BDD | `tests/tui_bdd/{session,mod,tasks}.rs`, `tests/tui_features/tasks.feature`, `tests/far_manager_hotkeys_test.rs` | T16, T20, T21, T22 | 10.10 on ubuntu and windows; the Ctrl+W hotkey case |
-| T24 | Benchmark (measure first) | `benches/tasks_bench.rs`, `Cargo.toml` | T11, T14 | Numbers recorded in the PR description; no optimisation without a before and after |
-| T25 | Documentation | All files in section 11 | T19, T21 | `./ffm.py lint` (docs and spelling checks); `tests/private_data_lint_test.rs` |
-| T26 | Final gates | — | T01-T25 | Coverage ≥ 98 % with no new ignores; `cargo mutants --in-diff` clean; `cargo deny`; Windows CI green (report fallback plus viewer via fixtures) |
+| ID  | Task                                                          | Files                                                                                                                                                                                                                                 | Depends on              | Tests                                                                                                                                                                                           |
+| --- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T01 | Move `visible_window` to `crate::scroll`                      | `src/scroll.rs`, `src/scroll/tests.rs`, `src/ui/panel.rs`, `src/ui/panel/modes.rs`, `src/ui/tree.rs`, `src/ui/panel/tests_window.rs`                                                                                                  | —                       | Existing window tests moved unchanged; panel and tree render tests stay green                                                                                                                   |
+| T02 | Generalise the key bar                                        | `src/ui/fkey_bar.rs`, `src/ui.rs`, `src/ui/tests.rs`, `src/ui/tests_render_widths.rs`                                                                                                                                                 | —                       | Panel bar byte-identical; the agreement test at `tests_render_widths.rs:874` passes for a 12-label custom set too                                                                               |
+| T03 | Generic choices menu and shared `navigate`                    | `src/ui/menu_dialog/choices.rs`, `src/ui/menu_dialog.rs`, `src/models/menu_dialog.rs`, `src/popup/menu_dialog.rs`                                                                                                                     | —                       | Existing `ui/menu_dialog/tests.rs` unchanged; a new test renders a `&[&str]` menu and hit-tests it                                                                                              |
+| T04 | Reuse hooks                                                   | `src/ui/panel.rs` (visibility), `src/ui/dialog.rs` (`preview_lines`), `src/ui/overlays.rs` (`render_mask_prompt`, `DELETE_PREVIEW`), `src/popup/mask_prompt.rs` (`mask_key`)                                                          | —                       | Delete dialog text unchanged; `preview_lines` for 0, 5 and 6 names; mask prompt tests unchanged plus `mask_key` outcomes                                                                        |
+| T05 | `Owners::name_of_uid`                                         | `src/directory/owner.rs`, its tests                                                                                                                                                                                                   | —                       | uid 0 is root on Unix; unknown uid is `None`; one lookup per uid (counted); `of()` unchanged                                                                                                    |
+| T06 | Move `Redraw`; add layer rules                                | `src/application.rs`, `src/application/wsl_jobs.rs`, `tests/module_boundaries/layers.rs`                                                                                                                                              | —                       | Existing loop tests; module-boundary tests with the new rows                                                                                                                                    |
+| T07 | Model value types                                             | `src/models/tasks/{identity,units,priority,signal}.rs`, tests, `src/models.rs`                                                                                                                                                        | —                       | 10.4 units                                                                                                                                                                                      |
+| T08 | Raw sample, ports and errors                                  | `src/models/tasks/sample.rs`, tests                                                                                                                                                                                                   | T07                     | `ProcessState::from_letter` table; error `Display` sentences                                                                                                                                    |
+| T09 | Platform wrappers and rustix `param`                          | `Cargo.toml`, `src/platform.rs`, `src/platform/unix.rs`, `src/platform/tests.rs`                                                                                                                                                      | T07                     | 10.7 real-kernel tests                                                                                                                                                                          |
+| T10 | Snapshot and meters derivation                                | `src/models/tasks/{snapshot,meters}.rs`, tests, `tests_support.rs`                                                                                                                                                                    | T07, T08                | 10.4 derivation                                                                                                                                                                                 |
+| T11 | View: sort, filter, scope, tree                               | `src/models/tasks/{view,tree}.rs`, tests                                                                                                                                                                                              | T10                     | 10.4 view                                                                                                                                                                                       |
+| T12 | `TaskList` state                                              | `src/models/tasks.rs`, `src/models/tasks/{selection,schedule,header,modal,targets,host}.rs`, tests, `src/models/app.rs`, `src/models/app_overlay.rs`, `src/models/overlay.rs`                                                         | T01, T10, T11           | 10.4 selection, header, schedule, targets; `set_viewport` clamps Tasks                                                                                                                          |
+| T13 | procfs parsers and robustness corpus                          | `src/process_table/procfs/parse.rs`, `tests_parse.rs`, `tests_robustness.rs`                                                                                                                                                          | T08                     | 10.1, 10.2                                                                                                                                                                                      |
+| T14 | `ProcFs` reader, command cache, `SystemHost`, `system_host()` | `src/lib.rs`, `src/process_table.rs`, `src/process_table/procfs.rs`, `tests_reader.rs`                                                                                                                                                | T05, T09, T13           | 10.3                                                                                                                                                                                            |
+| T15 | Linux identity-checked control                                | `src/process_table/procfs/control.rs`, `tests_control.rs`                                                                                                                                                                             | T09, T13, T14           | 10.7, including the injected `classify_open` errnos                                                                                                                                             |
+| T16 | Test fixtures                                                 | `src/test_support/processes.rs`, `src/test_support.rs`                                                                                                                                                                                | T08, T12                | Self-tests: canned samples advance, controls are recorded, a terminated key disappears, `GatedReader` blocks until opened                                                                       |
+| T17 | Controller and loop wiring                                    | `src/application/task_jobs.rs`, `tests.rs`, `src/application.rs`, `src/application/timing.rs`, `src/application/tests/task_refresh.rs`                                                                                                | T06, T12, T16           | 10.8                                                                                                                                                                                            |
+| T18 | Keymap and help table                                         | `src/action.rs`, `src/action/tasks.rs`, `src/action/tasks/tests.rs`                                                                                                                                                                   | T07, T11                | 10.5, including help consistency                                                                                                                                                                |
+| T19 | Ops, rerouting, bootstrap and replay                          | `src/ops/tasks.rs`, `src/ops/tasks/{report,control}.rs`, tests, `src/ops/menu.rs`, `src/ops/menu/workflows.rs`, `src/popup/drives.rs`, `src/bootstrap.rs`, `src/recording/processes.rs`, `src/recording.rs`, `src/action/commands.rs` | T12, T14, T15, T16      | 10.6 ops; the replay host returns `ReadOnly`; `report_command` per platform; rewritten `ops/menu/tests.rs:320`, `tests_command_dialogs.rs:57` and the drive row test in `popup/drives/tests.rs` |
+| T20 | Popup: router, browse, bars, dialogs, menus, paste            | `src/popup.rs`, `src/popup/tasks.rs`, `src/popup/tasks/{browse,bars,dialogs,menus}.rs`, tests, `src/popup/editor.rs`, `src/application.rs` (paste)                                                                                    | T03, T04, T18, T19      | 10.6 popup; rewritten `popup/tasks/tests.rs`                                                                                                                                                    |
+| T21 | Renderer                                                      | `src/ui/tasks.rs`, `src/ui/tasks/{meters,table,format,chrome,dialogs}.rs`, tests, `src/ui/palette.rs`, `src/ui/overlays.rs` (arm, `HELP_LINES`), `src/ui.rs`, `src/ui/tests_stub_dialogs.rs`, `tests/degenerate_size_test.rs`         | T01, T02, T03, T04, T12 | 10.9                                                                                                                                                                                            |
+| T22 | Mouse                                                         | `src/application/dispatch/dialog_mouse.rs`, `src/application/dispatch/dialog_mouse/{tasks,button_keys}.rs`, tests                                                                                                                     | T20, T21                | Row, title, key-bar and menu-line clicks become their keys or transitions; confirmation buttons map to `t`/`k`/Esc; a click never signals                                                       |
+| T23 | BDD                                                           | `tests/tui_bdd/{session,mod,tasks}.rs`, `tests/tui_features/tasks.feature`, `tests/far_manager_hotkeys_test.rs`                                                                                                                       | T16, T20, T21, T22      | 10.10 on ubuntu and windows; the Ctrl+W hotkey case                                                                                                                                             |
+| T24 | Benchmark (measure first)                                     | `benches/tasks_bench.rs`, `Cargo.toml`                                                                                                                                                                                                | T11, T14                | Numbers recorded in the PR description; no optimisation without a before and after                                                                                                              |
+| T25 | Documentation                                                 | All files in section 11                                                                                                                                                                                                               | T19, T21                | `./ffm.py lint` (docs and spelling checks); `tests/private_data_lint_test.rs`                                                                                                                   |
+| T26 | Final gates                                                   | —                                                                                                                                                                                                                                     | T01-T25                 | Coverage ≥ 98 % with no new ignores; `cargo mutants --in-diff` clean; `cargo deny`; Windows CI green (report fallback plus viewer via fixtures)                                                 |
 
 **Later phases** (separate branches, each squash-merged; not in the first
 release):
 
-| Phase | Deliverable |
-|---|---|
+| Phase | Deliverable                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **W** | Windows reader: `src/platform/windows/processes.rs` (a new `BOUNDARIES` entry) and `src/process_table/windows.rs`, with pure conversions under `cfg(any(windows, test))`. Pinned `TerminateProcess` with the `IsProcessCritical` check; `SetPriorityClass` with `SettableClass`; F9 behaves as F8; `system_host()` becomes `Some`; the tasklist branch is removed; `windows-behavior.md`; the mutants decision recorded with evidence. |
-| **M** | `src/process_table/ps.rs` for macOS and BSD. A pure parser with five-token `lstart`, tested on Linux; the runner is `ops::menu::process::capture`; verify-then-act kill and renice; checked by hand on a Mac. When every supported platform has a reader, `ops/tasks/report.rs` is deleted. |
+| **M** | `src/process_table/ps.rs` for macOS and BSD. A pure parser with five-token `lstart`, tested on Linux; the runner is `ops::menu::process::capture`; verify-then-act kill and renice; checked by hand on a Mac. When every supported platform has a reader, `ops/tasks/report.rs` is deleted.                                                                                                                                            |
 
 ---
 
 ## 15. Risks
 
-| Risk | Mitigation |
-|---|---|
-| A cmdline read hangs on a process with a stuck mmap lock | Worker thread, no D-state reads while uncached, overdue and stall states, kills still work. One abandoned thread may remain. |
-| The Windows idle loop may spin (`tty::wait` returns zero, inferred from code) | Per-pass cost is a `match` plus `try_recv`. The loop itself is not fixed here. |
-| A check-then-act window without a pidfd (old kernels, seccomp), for renice, and on macOS | Documented. The worst case for renice is one nice step on a newcomer. |
-| Header height depends on the CPU count and the terminal height | One `HeaderShape` in models, with agreement tests on page, layout and clicks. |
-| BDD has no idle ticks | The FocusGained eventually step, bounded by the 10 s `DEADLINE`; assertions on content, never on timing. |
-| htop facts from knowledge (1.5 s default, Mem formula, kernel threads hidden by default) | Each is one constant or function, pinned by tests, and listed as a decision or an open question. |
-| cargo-mutants runs only on Linux, and `cfg(windows)` code is not compiled there | Keep FFI thin; logic in `cfg(any(windows, test))` pure functions; decide exclusions in phase W with evidence. |
-| `overlays.rs` is at 840 lines and `panel.rs` at 888 (after T01 and T04) | The design only moves one arm and raises visibility. `visible_window` leaves `panel.rs`. All new code is in new files. |
-| Linux `setpriority` renices only the thread-group leader | Stated on the help page and in the parity doc, as `renice(1)` behaves. |
-| htop users expect F3, F7 and F8 to search and renice | Each lands on a harmless dialog. The help page and the parity doc list the differences. |
+| Risk                                                                                     | Mitigation                                                                                                                   |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| A cmdline read hangs on a process with a stuck mmap lock                                 | Worker thread, no D-state reads while uncached, overdue and stall states, kills still work. One abandoned thread may remain. |
+| The Windows idle loop may spin (`tty::wait` returns zero, inferred from code)            | Per-pass cost is a `match` plus `try_recv`. The loop itself is not fixed here.                                               |
+| A check-then-act window without a pidfd (old kernels, seccomp), for renice, and on macOS | Documented. The worst case for renice is one nice step on a newcomer.                                                        |
+| Header height depends on the CPU count and the terminal height                           | One `HeaderShape` in models, with agreement tests on page, layout and clicks.                                                |
+| BDD has no idle ticks                                                                    | The FocusGained eventually step, bounded by the 10 s `DEADLINE`; assertions on content, never on timing.                     |
+| htop facts from knowledge (1.5 s default, Mem formula, kernel threads hidden by default) | Each is one constant or function, pinned by tests, and listed as a decision or an open question.                             |
+| cargo-mutants runs only on Linux, and `cfg(windows)` code is not compiled there          | Keep FFI thin; logic in `cfg(any(windows, test))` pure functions; decide exclusions in phase W with evidence.                |
+| `overlays.rs` is at 840 lines and `panel.rs` at 888 (after T01 and T04)                  | The design only moves one arm and raises visibility. `visible_window` leaves `panel.rs`. All new code is in new files.       |
+| Linux `setpriority` renices only the thread-group leader                                 | Stated on the help page and in the parity doc, as `renice(1)` behaves.                                                       |
+| htop users expect F3, F7 and F8 to search and renice                                     | Each lands on a harmless dialog. The help page and the parity doc list the differences.                                      |
 
 ---
 
@@ -1896,16 +1896,16 @@ shares no commit with main. Its 30 commits (the spec, T01-T13 and the M1/M2
 fixes) were replayed onto main `0125c57` as `feat/process-viewer-2`. What main
 changed, and where this file follows it:
 
-| Main's change | Effect on this design |
-|---|---|
-| NetBox (`9f0370c`): the Change drive dialog's `Process list` row, `DriveEntry::ProcessList`, calling `ops::tasks::open` | The row is an entry point of this viewer, not a deferred item: 1.2, 1.3, 1.4, 4.1, 4.4, 10.6, 10.11, 11 and T19 |
-| NetBox: `ui/remote.rs` and `ui/sessions.rs` import `visible_window` | T01 points them at `crate::scroll` too |
-| NetBox: `models::RowCursor` and `RowMotion` | The table cursor moves with them (4.5) instead of its own clamp |
-| Settings in `settings.yaml` (`e2a4230`) | Open question 1, 1.5 and the resolved answer name `settings.yaml`; nothing is saved in the first release either way |
-| Python scripts (`e91ced6`): `./ffm.py` replaces `./ffm.sh`, `scripts/lint.py` | 10.12 and 14 |
-| `typos` in the lint gate (`cb4dfcc`) | 10.12; `typos.toml` accepts htop's `thr` |
+| Main's change                                                                                                                                                                                                                                                                                                         | Effect on this design                                                                                                                                                                                                    |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| NetBox (`9f0370c`): the Change drive dialog's `Process list` row, `DriveEntry::ProcessList`, calling `ops::tasks::open`                                                                                                                                                                                               | The row is an entry point of this viewer, not a deferred item: 1.2, 1.3, 1.4, 4.1, 4.4, 10.6, 10.11, 11 and T19                                                                                                          |
+| NetBox: `ui/remote.rs` and `ui/sessions.rs` import `visible_window`                                                                                                                                                                                                                                                   | T01 points them at `crate::scroll` too                                                                                                                                                                                   |
+| NetBox: `models::RowCursor` and `RowMotion`                                                                                                                                                                                                                                                                           | The table cursor moves with them (4.5) instead of its own clamp                                                                                                                                                          |
+| Settings in `settings.yaml` (`e2a4230`)                                                                                                                                                                                                                                                                               | Open question 1, 1.5 and the resolved answer name `settings.yaml`; nothing is saved in the first release either way                                                                                                      |
+| Python scripts (`e91ced6`): `./ffm.py` replaces `./ffm.sh`, `scripts/lint.py`                                                                                                                                                                                                                                         | 10.12 and 14                                                                                                                                                                                                             |
+| `typos` in the lint gate (`cb4dfcc`)                                                                                                                                                                                                                                                                                  | 10.12; `typos.toml` accepts htop's `thr`                                                                                                                                                                                 |
 | The reliability lint set (`0ab5890`): no `unwrap`, `expect`, `panic!`, indexing, string slicing, `as` casts or printing in production code; `redundant_imports`, `unused_qualifications`, `elided_lifetimes_in_paths`, `let_underscore_drop`, `map_err_ignore`, `allow_attributes_without_reason`, `mod_module_files` | 5, 9, 10.12, D13 and A.7. The replayed code was brought up to it: the task list models reach rows through `get()` and a visited set, and the new files keep the `<name>.rs` layout (`application.rs`, `test_support.rs`) |
-| `ops::menu::process::capture` kills the whole process tree on timeout (`0125c57`) | The phase M runner inherits it (6.4); the report fallback is unchanged |
+| `ops::menu::process::capture` kills the whole process tree on timeout (`0125c57`)                                                                                                                                                                                                                                     | The phase M runner inherits it (6.4); the report fallback is unchanged                                                                                                                                                   |
 
 ## 17. Milestone M4 as built (T14-T17, 2026-09-24)
 
@@ -1913,15 +1913,15 @@ The reader, the identity-checked control, the fixtures and the controller
 landed. Where they differ from sections 4-10 as first written, those
 sections now say what was built; in short:
 
-| Where | As built | Why |
-|---|---|---|
-| 6.1 reader | `/proc` is listed before the system files are read; an entry the listing fails on fails the sample (`Unreadable { ProcessList }`); rows are de-duplicated by sorting on `ProcessKey` | A missing root reports the process list (10.3); a list cut short would look complete |
-| 4.3 files | `procfs/files.rs` (caps, buffer), `task_jobs/{worker,logged}.rs`, `test_support/processes/gate.rs`, `test_support/sleeper.rs` | Every file stays under 300 lines; the sleep child is shared by the platform and control tests |
-| 5.5, 6.1.3, 9 | `ControlError::Refused(ControlRefusal)`; the host refuses FFM and init before any system call and kernel threads after the re-read; `ControlRefusal::signal_to_pid` and `signal_to_kind` are the one rule both layers use | No caller of `ProcessHost::signal` can reach them, whatever it checked first |
-| 6.1.3 | `ProcessControl { root, own, ticks }` holds what signal and renice share; `verify_start` reads another read error through `control_error` and an unparsable line as `Unverifiable` | Fewer parameters; every re-read outcome has a variant |
-| 7 | `TaskJobs { sampler: Sampler, logged }`, `Sampler { Idle, Running, Abandoned }`, `Worker.flight`; a reader that cannot open shows its own error; a spawn failure loses the worker for the session; a list reopened behind a stuck read becomes `Failed(WorkerStalled)` at the stall limit; every sample error and stall is logged once per session and kind | Illegal states unrepresentable; honest errors; no list that looks as if it were starting for ever |
-| 7 table | A held list's stalled `Automatic` request goes back to `Held` | Its answer would have been discarded; asking again would change a held screen |
-| 10.x fixtures | `FixtureHost::new(samples)`, `FixtureHost::gated() -> (FixtureHost, Gate)`, `Control`, `fail(key, error)`, `readers_opened()`; the sample builders live in `test_support::processes` and the models' `tests_support` re-exports them; `Niceness::NORMAL` | One fixture set for tests inside and outside the crate |
+| Where         | As built                                                                                                                                                                                                                                                                                                                                                    | Why                                                                                               |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 6.1 reader    | `/proc` is listed before the system files are read; an entry the listing fails on fails the sample (`Unreadable { ProcessList }`); rows are de-duplicated by sorting on `ProcessKey`                                                                                                                                                                        | A missing root reports the process list (10.3); a list cut short would look complete              |
+| 4.3 files     | `procfs/files.rs` (caps, buffer), `task_jobs/{worker,logged}.rs`, `test_support/processes/gate.rs`, `test_support/sleeper.rs`                                                                                                                                                                                                                               | Every file stays under 300 lines; the sleep child is shared by the platform and control tests     |
+| 5.5, 6.1.3, 9 | `ControlError::Refused(ControlRefusal)`; the host refuses FFM and init before any system call and kernel threads after the re-read; `ControlRefusal::signal_to_pid` and `signal_to_kind` are the one rule both layers use                                                                                                                                   | No caller of `ProcessHost::signal` can reach them, whatever it checked first                      |
+| 6.1.3         | `ProcessControl { root, own, ticks }` holds what signal and renice share; `verify_start` reads another read error through `control_error` and an unparsable line as `Unverifiable`                                                                                                                                                                          | Fewer parameters; every re-read outcome has a variant                                             |
+| 7             | `TaskJobs { sampler: Sampler, logged }`, `Sampler { Idle, Running, Abandoned }`, `Worker.flight`; a reader that cannot open shows its own error; a spawn failure loses the worker for the session; a list reopened behind a stuck read becomes `Failed(WorkerStalled)` at the stall limit; every sample error and stall is logged once per session and kind | Illegal states unrepresentable; honest errors; no list that looks as if it were starting for ever |
+| 7 table       | A held list's stalled `Automatic` request goes back to `Held`                                                                                                                                                                                                                                                                                               | Its answer would have been discarded; asking again would change a held screen                     |
+| 10.x fixtures | `FixtureHost::new(samples)`, `FixtureHost::gated() -> (FixtureHost, Gate)`, `Control`, `fail(key, error)`, `readers_opened()`; the sample builders live in `test_support::processes` and the models' `tests_support` re-exports them; `Niceness::NORMAL`                                                                                                    | One fixture set for tests inside and outside the crate                                            |
 
 Until bootstrap installs the host (T19), `system_host()` carries the one
 `dead_code` expectation of the process table; T19 removes it.
@@ -1932,19 +1932,18 @@ The keymap, the effects and the popup landed. Where they differ from
 sections 2-10 as first written, those sections now say what was built; in
 short:
 
-| Where | As built | Why |
-|---|---|---|
-| 3.1, 8 S4, resolved question 6 | `[` asks for a confirmation (`Modal::Renice(NiceConfirm)`, buttons Renice and Cancel) unless FFM runs as root; the list knows it through `TaskList::new(session, own, privilege)`, with `crate::prompt::Privilege`, the type the shell prompt's `#` already uses | The resolved question; one privilege type, not two |
-| 4.3, 5.7 | `models/tasks/renice.rs`: `NicePlan`, `PlannedChange`, `Renice`; `Priority::stepped` refuses a bound, a Realtime class, a class limit (`ClassAtLimit`) and an unread priority (`UnknownPriority`) | Planning is pure and tested; `ops` only applies it |
-| 5.7, 9 | `Notice::Stepped { step, count }` for `]` and `[` ("Priority raised one step for 2 processes."); `Failure { target, attempt, error }` words each line, and a failed renice says "nothing was changed" and "priorities are not changed" on replay | Stepped targets may end at different values; a renice is not a signal |
-| 5.5 | `ProcessHost: Send + Sync` | The replay host wraps another host behind `Arc` |
-| 3.3 | Confirmation letters press their button only without Ctrl | Ctrl+K is a command chord and must not send SIGKILL |
-| 3.2 | Backspace in the PID jump moves the cursor to the shorter PID; the filter re-filters only when its text changed; a digit and a list move in a bar are what the keymap resolves them to | One rule for each key |
-| 3.3, 2.8 | Enter or F3 on an empty list gives the notice "No process is selected."; Enter on the Priority form's Cancel cancels, and F10 cancels the form too; the help page scrolls by the table's page | The nearest Far behaviour |
-| 4.3 | `test_support/task_list.rs` (`TaskApp`: an app with a fixture host and a sampled list); `models/tasks/table.rs`; `crate::scroll::WIDE_STEP`, the one 20-cell pan the viewer, the quick view and the Command column share | Shared fixtures; files within 300 lines; Rule of Three |
-| 4.4 | `App::task_list_mut`; `ops::tasks::control::{confirm_terminate, open_signal_menu, press, open_priority, set_nice, step_nice, answer_renice}`; the Unix-only tests (a shell for the report, real signal names) live in files compiled on Unix only | The popup and the mouse (T22) share one effect per button; the Windows cross-lint stays clean |
+| Where                          | As built                                                                                                                                                                                                                                                         | Why                                                                                           |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| 3.1, 8 S4, resolved question 6 | `[` asks for a confirmation (`Modal::Renice(NiceConfirm)`, buttons Renice and Cancel) unless FFM runs as root; the list knows it through `TaskList::new(session, own, privilege)`, with `crate::prompt::Privilege`, the type the shell prompt's `#` already uses | The resolved question; one privilege type, not two                                            |
+| 4.3, 5.7                       | `models/tasks/renice.rs`: `NicePlan`, `PlannedChange`, `Renice`; `Priority::stepped` refuses a bound, a Realtime class, a class limit (`ClassAtLimit`) and an unread priority (`UnknownPriority`)                                                                | Planning is pure and tested; `ops` only applies it                                            |
+| 5.7, 9                         | `Notice::Stepped { step, count }` for `]` and `[` ("Priority raised one step for 2 processes."); `Failure { target, attempt, error }` words each line, and a failed renice says "nothing was changed" and "priorities are not changed" on replay                 | Stepped targets may end at different values; a renice is not a signal                         |
+| 5.5                            | `ProcessHost: Send + Sync`                                                                                                                                                                                                                                       | The replay host wraps another host behind `Arc`                                               |
+| 3.3                            | Confirmation letters press their button only without Ctrl                                                                                                                                                                                                        | Ctrl+K is a command chord and must not send SIGKILL                                           |
+| 3.2                            | Backspace in the PID jump moves the cursor to the shorter PID; the filter re-filters only when its text changed; a digit and a list move in a bar are what the keymap resolves them to                                                                           | One rule for each key                                                                         |
+| 3.3, 2.8                       | Enter or F3 on an empty list gives the notice "No process is selected."; Enter on the Priority form's Cancel cancels, and F10 cancels the form too; the help page scrolls by the table's page                                                                    | The nearest Far behaviour                                                                     |
+| 4.3                            | `test_support/task_list.rs` (`TaskApp`: an app with a fixture host and a sampled list); `models/tasks/table.rs`; `crate::scroll::WIDE_STEP`, the one 20-cell pan the viewer, the quick view and the Command column share                                         | Shared fixtures; files within 300 lines; Rule of Three                                        |
+| 4.4                            | `App::task_list_mut`; `ops::tasks::control::{confirm_terminate, open_signal_menu, press, open_priority, set_nice, step_nice, answer_renice}`; the Unix-only tests (a shell for the report, real signal names) live in files compiled on Unix only                | The popup and the mouse (T22) share one effect per button; the Windows cross-lint stays clean |
 
 Until the renderer (T21) lands, `Ctrl+W` opens the live list behind the old
 "Coming in this release" placeholder and its keys act unseen: the branch must
 not be run against real processes before M6.
-

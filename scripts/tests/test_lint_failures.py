@@ -7,7 +7,7 @@ import signal
 import unittest
 
 from lint_case import (
-    ARCHITECTURE, CHECKS, CLIPPY_DEFAULT, CLIPPY_DEFAULT_LINE, CLIPPY_MATRIX, FMT_CHECK, PREFLIGHT,
+    ARCHITECTURE, CHECKS, CLIPPY_DEFAULT, CLIPPY_DEFAULT_LINE, CLIPPY_MATRIX, FMT_CHECK, MARKDOWN, PREFLIGHT,
     SOURCE_CHECKS, SPELLING, checks_env, fake_preflight, gate_sandbox, steps,
 )
 from process_signals import dies_of, run_into_closed_pipe, signal_group, waits_for_a_signal
@@ -23,7 +23,7 @@ class FailureTests(unittest.TestCase):
         result = sandbox.run("scripts/lint.py", env=checks_env(sandbox))
         self.assertEqual((result.returncode, result.stderr), (7, ""))
         self.assertEqual(
-            steps(sandbox), PREFLIGHT + FMT_CHECK + [SPELLING] + SOURCE_CHECKS + CLIPPY_MATRIX[:2]
+            steps(sandbox), PREFLIGHT + FMT_CHECK + [SPELLING, MARKDOWN] + SOURCE_CHECKS + CLIPPY_MATRIX[:2]
         )
         self.assertNotIn("✓", result.stdout)
 
@@ -35,7 +35,7 @@ class FailureTests(unittest.TestCase):
                 result = sandbox.run("scripts/lint.py", env=checks_env(sandbox))
                 self.assertEqual((result.returncode, result.stderr), (6, ""))
                 self.assertEqual(
-                    steps(sandbox), PREFLIGHT + FMT_CHECK + [SPELLING] + SOURCE_CHECKS[:index + 1]
+                    steps(sandbox), PREFLIGHT + FMT_CHECK + [SPELLING, MARKDOWN] + SOURCE_CHECKS[:index + 1]
                 )
                 self.assertNotIn("clippy", result.stdout)
 

@@ -26,13 +26,13 @@ through the MCP server `ffm-mcp`. Both programs are off by default.
 
 ## Enabling
 
-| Program | Setting | Effect |
-|---|---|---|
-| FFM | `FFM_CONTROL=1` | Starts the control channel and writes the discovery file. `0` or unset: off. |
-| ffm-mcp | `FFM_MCP_CONTROL=1` | Registers the `ffm_*` control tools (stdio and HTTP). |
+| Program | Setting                                   | Effect                                                                                                |
+| ------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| FFM     | `FFM_CONTROL=1`                           | Starts the control channel and writes the discovery file. `0` or unset: off.                          |
+| ffm-mcp | `FFM_MCP_CONTROL=1`                       | Registers the `ffm_*` control tools (stdio and HTTP).                                                 |
 | ffm-mcp | `--http <addr>` plus `FFM_MCP_HTTP_TOKEN` | Serves MCP over streamable HTTP at `/mcp` with bearer auth. The token must be at least 32 characters. |
-| ffm-mcp | `--allow-remote` | Required for a non-loopback `--http` address. |
-| ffm-mcp | `FFM_CONTROL_FILE` | Overrides the discovery file path. |
+| ffm-mcp | `--allow-remote`                          | Required for a non-loopback `--http` address.                                                         |
+| ffm-mcp | `FFM_CONTROL_FILE`                        | Overrides the discovery file path.                                                                    |
 
 ## Discovery file
 
@@ -66,18 +66,18 @@ start. On Unix it is created with mode 0600.
 Requests run on the event loop thread, between events. A long operation such as
 a copy delays the answer until it finishes, and the caller may see `busy`.
 
-| Method | Params | Result |
-|---|---|---|
-| `ping` | none | `{"pid", "version", "lifecycle"}`. `lifecycle` is `running` or `quitting`. |
-| `status` | none | `{"lifecycle", "active_panel": "left"|"right", "view": "panels"|"console", "overlay": "<variant name>", "status_text": string|null, "panels_shown": {"left": bool, "right": bool}, "terminal": {"width", "height"}}` |
-| `panels` | none | `{"left": P, "right": P}`. `P` is `{"path", "entries", "cursor": {"index", "name"}|null, "marked": [names, at most 500], "marked_count"}`. |
-| `screen` | none | `{"width", "height", "lines": [text per row, trailing spaces removed], "cursor": {"x", "y"}|null}`. The last frame drawn. |
-| `performance` | none | `{"actions": [{"action", "count", "total_ms", "mean_ms", "max_ms", "render_ms"}]}`, ranked by total wait. Same rows as the performance file. |
-| `log` | `{"lines"}` (default 200, max 2000) | `{"path": string|null, "lines": [...]}`. The tail of the FFM log. |
-| `keys` | `{"keys": [chord, ...]}` | `{"sent": n}`. Chords use the keymap syntax (`F10`, `Ctrl+Shift+F5`, `Alt+Left`, `Enter`). All chords are parsed first; if any fails, nothing is sent and the result is `invalid_params`. Keys are dispatched in order, exactly as typed keys. The answer comes after a frame has been drawn. |
-| `text` | `{"text"}` | `{"sent": n}`. Each character is typed as a key. The answer comes after a frame has been drawn. |
-| `navigate` | `{"path"}` | `{"path"}`, the active panel's path after the move. Failure is `failed`. The answer comes after a frame has been drawn. |
-| `quit` | none | `{"lifecycle": "quitting"}`. Same as pressing F10. |
+| Method        | Params                              | Result                                                                                                                                                                                                                                                                                        |
+| ------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ping`        | none                                | `{"pid", "version", "lifecycle"}`. `lifecycle` is `running` or `quitting`.                                                                                                                                                                                                                    |
+| `status`      | none                                | `{"lifecycle", "active_panel": "left"\|"right", "view": "panels"\|"console", "overlay": "<variant name>", "status_text": string\|null, "panels_shown": {"left": bool, "right": bool}, "terminal": {"width", "height"}}`                                                                       |
+| `panels`      | none                                | `{"left": P, "right": P}`. `P` is `{"path", "entries", "cursor": {"index", "name"}\|null, "marked": [names, at most 500], "marked_count"}`.                                                                                                                                                   |
+| `screen`      | none                                | `{"width", "height", "lines": [text per row, trailing spaces removed], "cursor": {"x", "y"}\|null}`. The last frame drawn.                                                                                                                                                                    |
+| `performance` | none                                | `{"actions": [{"action", "count", "total_ms", "mean_ms", "max_ms", "render_ms"}]}`, ranked by total wait. Same rows as the performance file.                                                                                                                                                  |
+| `log`         | `{"lines"}` (default 200, max 2000) | `{"path": string\|null, "lines": [...]}`. The tail of the FFM log.                                                                                                                                                                                                                            |
+| `keys`        | `{"keys": [chord, ...]}`            | `{"sent": n}`. Chords use the keymap syntax (`F10`, `Ctrl+Shift+F5`, `Alt+Left`, `Enter`). All chords are parsed first; if any fails, nothing is sent and the result is `invalid_params`. Keys are dispatched in order, exactly as typed keys. The answer comes after a frame has been drawn. |
+| `text`        | `{"text"}`                          | `{"sent": n}`. Each character is typed as a key. The answer comes after a frame has been drawn.                                                                                                                                                                                               |
+| `navigate`    | `{"path"}`                          | `{"path"}`, the active panel's path after the move. Failure is `failed`. The answer comes after a frame has been drawn.                                                                                                                                                                       |
+| `quit`        | none                                | `{"lifecycle": "quitting"}`. Same as pressing F10.                                                                                                                                                                                                                                            |
 
 ## MCP tools
 

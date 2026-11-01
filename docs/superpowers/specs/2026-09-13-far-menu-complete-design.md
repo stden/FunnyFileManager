@@ -83,34 +83,34 @@ pub enum OptionsPage {
 
 New variants, each with its key in `resolve` (modifier arms before bare arms):
 
-| Action | Key | Far row |
-|---|---|---|
-| `Panel(PanelCommand::View(PanelView::*))` | Ctrl+1 … Ctrl+0 | Brief … Alternative full |
-| `Panel(PanelCommand::Tree)` | Ctrl+T | Tree panel |
-| `Panel(PanelCommand::QuickView)` | Ctrl+Q | Quick view |
-| `Panel(PanelCommand::SortMenu)` | Ctrl+F12 | Sort modes |
-| `Panel(PanelCommand::Sort(SortMode::*))` | Ctrl+F3 … Ctrl+F11 | (keys only) |
-| `Panel(PanelCommand::LongNames)` | Ctrl+N | Show long names |
-| `Panel(PanelCommand::TogglePanel(side))` | Ctrl+F1 / Ctrl+F2 | Panel On/Off |
-| `File(FileCommand::Link)` | Alt+F6 | Link |
-| `File(FileCommand::Wipe)` | Alt+Del | Wipe |
-| `File(FileCommand::AddToArchive)` | Shift+F1 | Add to archive |
-| `File(FileCommand::Extract)` | Shift+F2 | Extract files |
-| `File(FileCommand::ArchiveCommands)` | Shift+F3 | Archive commands |
-| `File(FileCommand::Attributes)` | Ctrl+A | File attributes |
-| `File(FileCommand::ApplyCommand)` | Ctrl+G | Apply command |
-| `File(FileCommand::Describe)` | Ctrl+Z | Describe files |
-| `Tool(ToolCommand::FindFile)` | Alt+F7 | Find file |
-| `Tool(ToolCommand::History)` | Alt+F8 | History |
-| `Tool(ToolCommand::VideoMode)` | Alt+F9 | Video mode |
-| `Tool(ToolCommand::FindFolder)` | Alt+F10 | Find folder |
-| `Tool(ToolCommand::ViewHistory)` | Alt+F11 | File view history |
-| `Tool(ToolCommand::FolderHistory)` | Alt+F12 | Folders history |
-| `Tool(ToolCommand::Filter)` | Ctrl+I | File panel filter |
-| `Tool(ToolCommand::Screens)` | F12 | Screens list (replaces the console toggle on F12; Ctrl+O keeps it) |
-| `Tool(ToolCommand::Tasks)` | Ctrl+W | Task list |
-| `Tool(ToolCommand::SaveSetup)` | Shift+F9 | Save setup |
-| `Menu(MenuCommand)` | — | keyless rows; `resolve` never returns it |
+| Action                                    | Key                | Far row                                                            |
+| ----------------------------------------- | ------------------ | ------------------------------------------------------------------ |
+| `Panel(PanelCommand::View(PanelView::*))` | Ctrl+1 … Ctrl+0    | Brief … Alternative full                                           |
+| `Panel(PanelCommand::Tree)`               | Ctrl+T             | Tree panel                                                         |
+| `Panel(PanelCommand::QuickView)`          | Ctrl+Q             | Quick view                                                         |
+| `Panel(PanelCommand::SortMenu)`           | Ctrl+F12           | Sort modes                                                         |
+| `Panel(PanelCommand::Sort(SortMode::*))`  | Ctrl+F3 … Ctrl+F11 | (keys only)                                                        |
+| `Panel(PanelCommand::LongNames)`          | Ctrl+N             | Show long names                                                    |
+| `Panel(PanelCommand::TogglePanel(side))`  | Ctrl+F1 / Ctrl+F2  | Panel On/Off                                                       |
+| `File(FileCommand::Link)`                 | Alt+F6             | Link                                                               |
+| `File(FileCommand::Wipe)`                 | Alt+Del            | Wipe                                                               |
+| `File(FileCommand::AddToArchive)`         | Shift+F1           | Add to archive                                                     |
+| `File(FileCommand::Extract)`              | Shift+F2           | Extract files                                                      |
+| `File(FileCommand::ArchiveCommands)`      | Shift+F3           | Archive commands                                                   |
+| `File(FileCommand::Attributes)`           | Ctrl+A             | File attributes                                                    |
+| `File(FileCommand::ApplyCommand)`         | Ctrl+G             | Apply command                                                      |
+| `File(FileCommand::Describe)`             | Ctrl+Z             | Describe files                                                     |
+| `Tool(ToolCommand::FindFile)`             | Alt+F7             | Find file                                                          |
+| `Tool(ToolCommand::History)`              | Alt+F8             | History                                                            |
+| `Tool(ToolCommand::VideoMode)`            | Alt+F9             | Video mode                                                         |
+| `Tool(ToolCommand::FindFolder)`           | Alt+F10            | Find folder                                                        |
+| `Tool(ToolCommand::ViewHistory)`          | Alt+F11            | File view history                                                  |
+| `Tool(ToolCommand::FolderHistory)`        | Alt+F12            | Folders history                                                    |
+| `Tool(ToolCommand::Filter)`               | Ctrl+I             | File panel filter                                                  |
+| `Tool(ToolCommand::Screens)`              | F12                | Screens list (replaces the console toggle on F12; Ctrl+O keeps it) |
+| `Tool(ToolCommand::Tasks)`                | Ctrl+W             | Task list                                                          |
+| `Tool(ToolCommand::SaveSetup)`            | Shift+F9           | Save setup                                                         |
+| `Menu(MenuCommand)`                       | —                  | keyless rows; `resolve` never returns it                           |
 
 Terminal caveats, documented in the parity doc, not worked around: Ctrl+I is
 Tab and Ctrl+M is Enter on the wire, Ctrl+digit is not distinguishable in most
@@ -200,13 +200,13 @@ variant, Esc closes it.
 
 ## 4. Waves
 
-| Wave | Content | Parallelism |
-|---|---|---|
-| 0 | Scaffold (§3), then `config.rs` + `DirEntry` extension + sort modes | 2 agents, sequential |
-| 1 | Left/Right rows (A) and Files rows (B) | worktrees, one agent per feature |
-| 2 | Commands rows (C) | worktrees |
-| 3 | Options pages (D) and the consumers of each setting | worktrees, grouped |
-| 4 | Docs (CLAUDE.md tables, KB parity, F1 help, README), final gate, commit | sequential |
+| Wave | Content                                                                 | Parallelism                      |
+| ---- | ----------------------------------------------------------------------- | -------------------------------- |
+| 0    | Scaffold (§3), then `config.rs` + `DirEntry` extension + sort modes     | 2 agents, sequential             |
+| 1    | Left/Right rows (A) and Files rows (B)                                  | worktrees, one agent per feature |
+| 2    | Commands rows (C)                                                       | worktrees                        |
+| 3    | Options pages (D) and the consumers of each setting                     | worktrees, grouped               |
+| 4    | Docs (CLAUDE.md tables, KB parity, F1 help, README), final gate, commit | sequential                       |
 
 Integration after each wave: merge branches into main, run
 `scripts/lint.sh` (with `python3`), `cargo test --features test-helpers`,
@@ -402,31 +402,31 @@ in `src/config/pages/<page>.rs`, owned by the page's agent, who also wires
 the consumer of every setting the page shows. Every setting listed here is
 consumed somewhere; a setting nothing reads is not added.
 
-| Page | Settings (field: consumer) |
-|---|---|
-| System | `auto_save_setup: bool` (bootstrap saves at exit); `wipe_on_delete: bool` (F8 wipes, B2); `history_size: u32` (command history cap) |
-| Panel | `show_hidden: bool` (dotfiles, `Panel::load_entries`); `dirs_first: bool`; `case_sensitive_sort: bool`; `show_column_titles: bool`; `show_status_line: bool` (the panel footer); `show_free_size: bool`; `highlight_files: bool` (D Highlighting on/off) |
-| Tree | `auto_change_folder: bool` (A2); `min_width: u32` |
-| Interface | `clock: bool` (menu bar clock); `key_bar: bool` (F-key bar); `menu_bar: bool` (always shown / only on F9); `mouse: bool` (mouse events ignored when off) |
-| Languages | `main: Lang` (En/Ru: menu bar, drop-downs, key bar, dialog titles); `help: Lang` (F1 text) — translations in `src/i18n.rs` |
-| Plugins configuration | list of MCP servers from `.mcp.json` with `disabled: Vec<String>` (F11 status marks them) |
-| Plugins manager | `scan_project_mcp: bool` (read `.mcp.json` from the panel's folder for F11); `show_status_on_start: bool` |
-| Dialog | `remember_history: bool` (name/mask prompts keep last values); `click_outside_closes: bool` |
-| Menu | `far_letters: bool` (hotkey letters underlined); `wrap_cursor: bool` (Up at the top wraps to the bottom, default on) |
-| Command line | `prompt_format: String` (segments, `$p$g` style: `$p` path, `$b` branch, `$u` user, `$h` host, `$g` sigil); `history_size` shares System's |
-| AutoComplete | `fish: bool` (B: shell out to fish); `ghost: bool` (grey suggestion); `menu: bool` (drop-down on Tab) |
-| InfoPanel | `show_kinds: bool`, `show_largest: bool`, `largest_count: u32` (Ctrl+L sections) |
-| Groups of file masks | `groups: Vec<(String, String)>` name → masks, edited as `name=masks;…` text; usable in Gray+/Gray− and C11 as `<name>` |
-| Confirmations | `copy_overwrite, move_overwrite, delete, delete_folders, exit, clear_history: bool` (each read where the question is asked) |
-| File panel modes | per `PanelView`: `columns: String` (Far's `N,S,D,T` letters) and `fullscreen: bool`, consumed by A1's layout |
-| File descriptions | `names: Vec<String>` (default `Descript.ion`, `Files.bbs`); `update_on_copy: bool`; `update_on_move: bool` |
-| Folder description files | `names: Vec<String>` (default `Dirinfo`, `Folder.txt`) shown in A1's Descriptions modes for directories |
-| Viewer | `tab_size: u32`; `wrap: bool` (default off, Far's); `default_encoding: String` |
-| Editor | `tab_size: u32`; `expand_tabs: bool`; `auto_indent: bool`; `save_position: bool` |
-| Code pages | `favorites: Vec<String>` — the encodings the viewer cycles through |
-| Colors | `theme: Theme` (`FarBlue`, `Black`, `Grey`) — `ui/palette.rs` becomes a function of the theme |
-| Files highlighting | `rules: Vec<(String, String)>` mask → colour name, consumed by `ui/panel.rs::entry_colour` |
-| Save setup (Shift+F9) | writes `Settings` to disk; status confirms the path |
+| Page                     | Settings (field: consumer)                                                                                                                                                                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| System                   | `auto_save_setup: bool` (bootstrap saves at exit); `wipe_on_delete: bool` (F8 wipes, B2); `history_size: u32` (command history cap)                                                                                                                      |
+| Panel                    | `show_hidden: bool` (dotfiles, `Panel::load_entries`); `dirs_first: bool`; `case_sensitive_sort: bool`; `show_column_titles: bool`; `show_status_line: bool` (the panel footer); `show_free_size: bool`; `highlight_files: bool` (D Highlighting on/off) |
+| Tree                     | `auto_change_folder: bool` (A2); `min_width: u32`                                                                                                                                                                                                        |
+| Interface                | `clock: bool` (menu bar clock); `key_bar: bool` (F-key bar); `menu_bar: bool` (always shown / only on F9); `mouse: bool` (mouse events ignored when off)                                                                                                 |
+| Languages                | `main: Lang` (En/Ru: menu bar, drop-downs, key bar, dialog titles); `help: Lang` (F1 text) — translations in `src/i18n.rs`                                                                                                                               |
+| Plugins configuration    | list of MCP servers from `.mcp.json` with `disabled: Vec<String>` (F11 status marks them)                                                                                                                                                                |
+| Plugins manager          | `scan_project_mcp: bool` (read `.mcp.json` from the panel's folder for F11); `show_status_on_start: bool`                                                                                                                                                |
+| Dialog                   | `remember_history: bool` (name/mask prompts keep last values); `click_outside_closes: bool`                                                                                                                                                              |
+| Menu                     | `far_letters: bool` (hotkey letters underlined); `wrap_cursor: bool` (Up at the top wraps to the bottom, default on)                                                                                                                                     |
+| Command line             | `prompt_format: String` (segments, `$p$g` style: `$p` path, `$b` branch, `$u` user, `$h` host, `$g` sigil); `history_size` shares System's                                                                                                               |
+| AutoComplete             | `fish: bool` (B: shell out to fish); `ghost: bool` (grey suggestion); `menu: bool` (drop-down on Tab)                                                                                                                                                    |
+| InfoPanel                | `show_kinds: bool`, `show_largest: bool`, `largest_count: u32` (Ctrl+L sections)                                                                                                                                                                         |
+| Groups of file masks     | `groups: Vec<(String, String)>` name → masks, edited as `name=masks;…` text; usable in Gray+/Gray− and C11 as `<name>`                                                                                                                                   |
+| Confirmations            | `copy_overwrite, move_overwrite, delete, delete_folders, exit, clear_history: bool` (each read where the question is asked)                                                                                                                              |
+| File panel modes         | per `PanelView`: `columns: String` (Far's `N,S,D,T` letters) and `fullscreen: bool`, consumed by A1's layout                                                                                                                                             |
+| File descriptions        | `names: Vec<String>` (default `Descript.ion`, `Files.bbs`); `update_on_copy: bool`; `update_on_move: bool`                                                                                                                                               |
+| Folder description files | `names: Vec<String>` (default `Dirinfo`, `Folder.txt`) shown in A1's Descriptions modes for directories                                                                                                                                                  |
+| Viewer                   | `tab_size: u32`; `wrap: bool` (default off, Far's); `default_encoding: String`                                                                                                                                                                           |
+| Editor                   | `tab_size: u32`; `expand_tabs: bool`; `auto_indent: bool`; `save_position: bool`                                                                                                                                                                         |
+| Code pages               | `favorites: Vec<String>` — the encodings the viewer cycles through                                                                                                                                                                                       |
+| Colors                   | `theme: Theme` (`FarBlue`, `Black`, `Grey`) — `ui/palette.rs` becomes a function of the theme                                                                                                                                                            |
+| Files highlighting       | `rules: Vec<(String, String)>` mask → colour name, consumed by `ui/panel.rs::entry_colour`                                                                                                                                                               |
+| Save setup (Shift+F9)    | writes `Settings` to disk; status confirms the path                                                                                                                                                                                                      |
 
 ### E. Menu cursor
 

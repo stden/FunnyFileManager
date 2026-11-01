@@ -1,5 +1,5 @@
 """The checks that the linter gate's modes string together: format, spelling,
-Clippy and the architecture contracts.
+Markdown, Clippy and the architecture contracts.
 
 Each prints its → line and runs its steps through lint_steps.run, so the first
 failing step ends the gate with that step's status.
@@ -37,6 +37,11 @@ def format_crates(check):
         run(command, ROOT / "mcp")
     if has_crate("colorer-sys"):
         run(command, ROOT / "colorer-sys")
+
+
+def format_markdown_files(check):
+    """Align the Markdown tables and trim trailing spaces; with `check`, only verify them."""
+    run([python(), "scripts/format_markdown.py", *(["--check"] if check else [])])
 
 
 def require_typos():

@@ -11,7 +11,7 @@ import unittest
 from lint_case import (
     ALL, ALL_LINES, ARCHITECTURE, ARCHITECTURE_LINE, CHECKS, CLIPPY_DEFAULT, CLIPPY_DEFAULT_LINE,
     CLIPPY_LINES, CLIPPY_MATRIX, COMPLEXITY, DUPLICATION, FMT_CHECK, FMT_CHECK_LINES, FMT_FIX,
-    FMT_FIX_LINES, MODE_NAMES, PREFLIGHT,
+    FMT_FIX_LINES, MARKDOWN, MARKDOWN_FIX, MODE_NAMES, PREFLIGHT,
     ROOT, SELF_TEST, SPELLING, SPELLING_LINE, checks_env, gate_sandbox, steps,
 )
 from sandbox import Sandbox
@@ -24,12 +24,13 @@ class ModeTests(unittest.TestCase):
         ("",): (ALL, ALL_LINES),
         ("fmt",): (FMT_CHECK, FMT_CHECK_LINES + ["✓ fmt OK"]),
         ("spelling",): ([SPELLING], [SPELLING_LINE, "✓ spelling OK"]),
+        ("markdown",): ([MARKDOWN], ["✓ markdown OK"]),
         ("complexity",): ([COMPLEXITY], []),
         ("duplication",): ([DUPLICATION], []),
         ("clippy",): (PREFLIGHT + CLIPPY_MATRIX, CLIPPY_LINES + ["✓ clippy OK"]),
         ("clippy-fast",): (PREFLIGHT + [CLIPPY_DEFAULT], [CLIPPY_DEFAULT_LINE, "✓ clippy OK (default features)"]),
-        ("fix",): (PREFLIGHT + FMT_FIX + CLIPPY_MATRIX,
-                   FMT_FIX_LINES + CLIPPY_LINES + ["✓ lint OK after format (fmt + clippy)"]),
+        ("fix",): (PREFLIGHT + FMT_FIX + [MARKDOWN_FIX] + CLIPPY_MATRIX,
+                   FMT_FIX_LINES + CLIPPY_LINES + ["✓ lint OK after format (fmt + markdown + clippy)"]),
         ("self-test",): (PREFLIGHT + SELF_TEST, ["✓ spelling self-test OK"]),
         ("architecture",): (PREFLIGHT + ARCHITECTURE, [ARCHITECTURE_LINE]),
     }

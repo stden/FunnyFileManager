@@ -26,10 +26,10 @@ cargo run --features keepass
 
 Point either panel at a `.kdbx`/`.kbdx` file and press:
 
-| Key | Effect |
-|-----|--------|
+| Key     | Effect                                                                                                                 |
+| ------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `Enter` | Opens the vault browser (checked *before* FFM would otherwise treat an executable-flagged `.kdbx` as a program to run) |
-| `F3` | Same vault-open check, from the viewer path |
+| `F3`    | Same vault-open check, from the viewer path                                                                            |
 
 ### Unlocking
 
@@ -50,21 +50,21 @@ Point either panel at a `.kdbx`/`.kbdx` file and press:
 Once unlocked, the overlay starts in **Tree** view and includes empty groups.
 `F6` switches between the tree and the column list.
 
-| Key | Effect |
-|-----|--------|
-| `Up` / `Down` | Move selection one row (no wrap past the first/last row) |
-| `PageUp` / `PageDown` | Jump 10 rows |
-| Type any character | Filters live by case-insensitive substring in title, username, URL, or group path |
-| `Backspace` | Shrinks the filter |
-| `Ctrl+R` | Open/close a dialog showing the selected password; `Enter` in it copies the password |
-| `Enter` | Copy the selected entry's password to the clipboard |
-| `Ctrl+U` | Copy the selected entry's username to the clipboard |
-| `F4` | Open the selected entry for editing when the vault was opened in edit mode |
-| `F8` | Ask for confirmation, then delete the selected entry |
-| `Ctrl+Z` | Undo the latest saved edit or deletion |
-| `Esc` | Close the overlay and remember the key for this FFM process |
-| `Ctrl+L` | Lock the vault, forget cached keys, and close the overlay |
-| `Ctrl+C` | Lock the vault, then quit FFM |
+| Key                   | Effect                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| `Up` / `Down`         | Move selection one row (no wrap past the first/last row)                             |
+| `PageUp` / `PageDown` | Jump 10 rows                                                                         |
+| Type any character    | Filters live by case-insensitive substring in title, username, URL, or group path    |
+| `Backspace`           | Shrinks the filter                                                                   |
+| `Ctrl+R`              | Open/close a dialog showing the selected password; `Enter` in it copies the password |
+| `Enter`               | Copy the selected entry's password to the clipboard                                  |
+| `Ctrl+U`              | Copy the selected entry's username to the clipboard                                  |
+| `F4`                  | Open the selected entry for editing when the vault was opened in edit mode           |
+| `F8`                  | Ask for confirmation, then delete the selected entry                                 |
+| `Ctrl+Z`              | Undo the latest saved edit or deletion                                               |
+| `Esc`                 | Close the overlay and remember the key for this FFM process                          |
+| `Ctrl+L`              | Lock the vault, forget cached keys, and close the overlay                            |
+| `Ctrl+C`              | Lock the vault, then quit FFM                                                        |
 
 Moving the selection or editing the filter closes the password dialog and
 zeroizes its plaintext value, so a stale password cannot remain attached to
@@ -121,12 +121,12 @@ no feature flag — the MCP server always depends on the `keepass` crate.
 
 ### Parameters
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `path` | string, required | Must exist, must resolve inside the server's allowed root, extension `.kdbx` or `.kbdx` |
-| `password` | string, optional | Master password |
-| `keyfile` | string, optional | Must also resolve inside the allowed root |
-| `format` | `json` \| `yaml` \| `env`, optional | Defaults to `json` |
+| Field      | Type                                | Notes                                                                                   |
+| ---------- | ----------------------------------- | --------------------------------------------------------------------------------------- |
+| `path`     | string, required                    | Must exist, must resolve inside the server's allowed root, extension `.kdbx` or `.kbdx` |
+| `password` | string, optional                    | Master password                                                                         |
+| `keyfile`  | string, optional                    | Must also resolve inside the allowed root                                               |
+| `format`   | `json` \| `yaml` \| `env`, optional | Defaults to `json`                                                                      |
 
 At least one of `password` or `keyfile` is required.
 

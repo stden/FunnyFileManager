@@ -8,10 +8,10 @@ Arrows and PgUp/PgDn scroll; Esc or F10 closes the panel.
 
 Provide credentials to the process that starts FFM:
 
-| Provider | Environment variable | Required access |
-|---|---|---|
-| OpenAI | `OPENAI_ADMIN_KEY` | API organization usage read access |
-| Anthropic | `ANTHROPIC_ADMIN_KEY` | Organization analytics access |
+| Provider   | Environment variable        | Required access                     |
+| ---------- | --------------------------- | ----------------------------------- |
+| OpenAI     | `OPENAI_ADMIN_KEY`          | API organization usage read access  |
+| Anthropic  | `ANTHROPIC_ADMIN_KEY`       | Organization analytics access       |
 | OpenRouter | `OPENROUTER_MANAGEMENT_KEY` | Management key for account activity |
 
 Keys stay in memory and are never written to `ffm.yml`, logs or Git.

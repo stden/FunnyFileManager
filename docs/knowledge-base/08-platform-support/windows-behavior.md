@@ -36,14 +36,14 @@ Open the manager with `Ctrl+Alt+W`, the bare `wsl` command, or
 `F9 → Commands → WSL manager`. WSL must already be installed. The window lists
 registered distributions and shows the current operation's busy state or outcome.
 
-| Key | Behavior |
-|---|---|
-| Up / Down, Home / End | Select a distribution |
-| Enter | Open `\\wsl.localhost\<distribution>\` in the active file panel |
-| F2 | Refresh distribution names using `wsl.exe --list --quiet` |
-| F5 | Update the WSL platform using `wsl.exe --update` |
-| F6 | Upgrade installed packages inside the selected distribution |
-| Esc | Close the manager |
+| Key                   | Behavior                                                        |
+| --------------------- | --------------------------------------------------------------- |
+| Up / Down, Home / End | Select a distribution                                           |
+| Enter                 | Open `\\wsl.localhost\<distribution>\` in the active file panel |
+| F2                    | Refresh distribution names using `wsl.exe --list --quiet`       |
+| F5                    | Update the WSL platform using `wsl.exe --update`                |
+| F6                    | Upgrade installed packages inside the selected distribution     |
+| Esc                   | Close the manager                                               |
 
 A key answers with exactly these modifiers: Ctrl+Up does not move the
 selection, Shift+Enter does not open a root and Alt+Esc does not close. The
@@ -59,14 +59,14 @@ block the interface while the share responds.
 Package updates run as the distribution's `root` user, with a noninteractive
 script that chooses the first supported installed package manager:
 
-| Package manager | Update operation |
-|---|---|
-| apt-get | Refresh indexes, then `upgrade -y` |
-| dnf | `upgrade -y` |
-| yum | `update -y` |
-| zypper | `--non-interactive update` |
-| pacman | `-Syu --noconfirm` |
-| apk | Refresh indexes, then `upgrade` |
+| Package manager | Update operation                   |
+| --------------- | ---------------------------------- |
+| apt-get         | Refresh indexes, then `upgrade -y` |
+| dnf             | `upgrade -y`                       |
+| yum             | `update -y`                        |
+| zypper          | `--non-interactive update`         |
+| pacman          | `-Syu --noconfirm`                 |
+| apk             | Refresh indexes, then `upgrade`    |
 
 These follow the package manager's normal installed-package upgrade rules;
 they do not perform a distribution release upgrade. An unsupported package

@@ -54,7 +54,7 @@ cargo build --release
 ### ⌨️ Complete Hotkey Guide
 
 | Key                     | Action                                                  |
-|-------------------------|---------------------------------------------------------|
+| ----------------------- | ------------------------------------------------------- |
 | **↑/↓**                 | Navigate up/down in active panel                        |
 | **Enter**               | Open selected directory or file                         |
 | **Tab**                 | Switch between left and right panels                    |
@@ -88,7 +88,7 @@ Open a file with **F4**. **F2** saves; **Esc** or **F10** closes the editor and
 asks about unsaved changes.
 
 | Key                               | Action                                                 |
-|-----------------------------------|--------------------------------------------------------|
+| --------------------------------- | ------------------------------------------------------ |
 | **Shift + Arrow keys**            | Start or extend text selection, including across lines |
 | **Shift + Home/End**              | Extend selection to the start/end of the line          |
 | **Shift + PageUp/PageDown**       | Extend selection by a page                             |
@@ -137,7 +137,7 @@ Select an installed distribution with the arrow keys.
 ![WSL manager with distribution selection and separate platform and package update controls](docs/screenshots/wsl-manager.svg)
 
 | Key       | Action                                                         |
-|-----------|----------------------------------------------------------------|
+| --------- | -------------------------------------------------------------- |
 | **Enter** | Open the selected distribution's root in the active file panel |
 | **F2**    | Refresh the distribution list                                  |
 | **F5**    | Update the WSL platform                                        |

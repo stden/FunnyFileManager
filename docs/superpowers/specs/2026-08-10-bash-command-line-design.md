@@ -72,16 +72,16 @@ A public field would let any caller park the cursor mid-UTF-8 and panic the next
 
 Operations, all `O(len)` at worst and all pure:
 
-| Method | Meaning |
-|---|---|
-| `insert_char`, `insert_str` | splice at cursor, advance |
-| `backspace`, `delete_forward` | remove one char before / after cursor |
-| `left`, `right`, `home`, `end` | cursor moves, saturating |
-| `word_left`, `word_right` | to the nearest word boundary |
-| `kill_word_left`, `kill_to_start`, `kill_to_end` | cut into `kill` |
-| `yank` | insert `kill` at cursor |
-| `set_text` | replace the whole line, cursor to end (history recall) |
-| `clear` | empty the line |
+| Method                                           | Meaning                                                |
+| ------------------------------------------------ | ------------------------------------------------------ |
+| `insert_char`, `insert_str`                      | splice at cursor, advance                              |
+| `backspace`, `delete_forward`                    | remove one char before / after cursor                  |
+| `left`, `right`, `home`, `end`                   | cursor moves, saturating                               |
+| `word_left`, `word_right`                        | to the nearest word boundary                           |
+| `kill_word_left`, `kill_to_start`, `kill_to_end` | cut into `kill`                                        |
+| `yank`                                           | insert `kill` at cursor                                |
+| `set_text`                                       | replace the whole line, cursor to end (history recall) |
+| `clear`                                          | empty the line                                         |
 
 Word boundary rule, matching bash's `\w` behaviour: a *word* is a maximal run of
 non-whitespace. `word_left` skips whitespace backwards, then the run.
@@ -126,14 +126,14 @@ of completion already follows.
 `complete_with` gains a real position model. Today it matches the first word
 against a fixed list and gives up. The new rule set, in order:
 
-| Position | Candidates |
-|---|---|
-| Word 0, token contains `/` or starts with `.` / `~` | paths (a command given by path) |
-| Word 0, otherwise | `VERBS` ∪ `$PATH` executables, verbs ranked first |
-| Word ≥1 of `cd` | paths (unchanged, unescaped, whole-rest token) |
-| Word 1 of `sort` / `bookmark` / `mark` | sub-command words (unchanged) |
-| Word 2 of `bookmark` | slot digits (unchanged) |
-| Anything else | **paths, shell-escaped** |
+| Position                                            | Candidates                                        |
+| --------------------------------------------------- | ------------------------------------------------- |
+| Word 0, token contains `/` or starts with `.` / `~` | paths (a command given by path)                   |
+| Word 0, otherwise                                   | `VERBS` ∪ `$PATH` executables, verbs ranked first |
+| Word ≥1 of `cd`                                     | paths (unchanged, unescaped, whole-rest token)    |
+| Word 1 of `sort` / `bookmark` / `mark`              | sub-command words (unchanged)                     |
+| Word 2 of `bookmark`                                | slot digits (unchanged)                           |
+| Anything else                                       | **paths, shell-escaped**                          |
 
 The last row is the change that makes `cat src/ma<Tab>` and `ls /usr/l<Tab>`
 work. The path source itself (`path_complete`, fish-or-builtin) is reused as is.
@@ -198,22 +198,22 @@ more without letting a caller invalidate the cursor.
 
 ### ✏️ `src/popup.rs` — the key matrix (changed)
 
-| Key | Menu open | Searching | Otherwise |
-|---|---|---|---|
-| `Tab` | next candidate | — | complete at cursor |
-| `Up` / `Down` | move selection | — | history back / forward |
-| `Ctrl+R` | — | previous match | start reverse search |
-| `Enter` | accept candidate | accept match into buffer | execute |
-| `Esc` | close menu | cancel, restore buffer | close overlay |
-| `Left` / `Right` | — | — | move cursor; `Right`/`End` **at end of line** accepts ghost |
-| `Home` / `Ctrl+A`, `End` / `Ctrl+E` | — | — | line start / end |
-| `Alt+B` / `Ctrl+Left`, `Alt+F` / `Ctrl+Right` | — | — | word left / right |
-| `Backspace`, `Delete` | edit + refresh menu | edit query | edit buffer |
-| `Ctrl+W`, `Ctrl+U`, `Ctrl+K` | — | — | kill word back / to start / to end |
-| `Ctrl+Y` | — | — | yank |
-| `Ctrl+C` | — | cancel | clear line |
-| `Ctrl+D` | — | — | close overlay when the line is empty, else forward delete |
-| printable | edit + refresh menu | extend query | insert at cursor |
+| Key                                           | Menu open           | Searching                | Otherwise                                                   |
+| --------------------------------------------- | ------------------- | ------------------------ | ----------------------------------------------------------- |
+| `Tab`                                         | next candidate      | —                        | complete at cursor                                          |
+| `Up` / `Down`                                 | move selection      | —                        | history back / forward                                      |
+| `Ctrl+R`                                      | —                   | previous match           | start reverse search                                        |
+| `Enter`                                       | accept candidate    | accept match into buffer | execute                                                     |
+| `Esc`                                         | close menu          | cancel, restore buffer   | close overlay                                               |
+| `Left` / `Right`                              | —                   | —                        | move cursor; `Right`/`End` **at end of line** accepts ghost |
+| `Home` / `Ctrl+A`, `End` / `Ctrl+E`           | —                   | —                        | line start / end                                            |
+| `Alt+B` / `Ctrl+Left`, `Alt+F` / `Ctrl+Right` | —                   | —                        | word left / right                                           |
+| `Backspace`, `Delete`                         | edit + refresh menu | edit query               | edit buffer                                                 |
+| `Ctrl+W`, `Ctrl+U`, `Ctrl+K`                  | —                   | —                        | kill word back / to start / to end                          |
+| `Ctrl+Y`                                      | —                   | —                        | yank                                                        |
+| `Ctrl+C`                                      | —                   | cancel                   | clear line                                                  |
+| `Ctrl+D`                                      | —                   | —                        | close overlay when the line is empty, else forward delete   |
+| printable                                     | edit + refresh menu | extend query             | insert at cursor                                            |
 
 `Right`/`End` are overloaded deliberately. They accept the ghost only when the
 cursor already sits at the end of the line — which is exactly the state the

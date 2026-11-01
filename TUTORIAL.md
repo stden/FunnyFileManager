@@ -46,13 +46,13 @@ graph LR
 
 ### 💡 Why FFM?
 
-| Feature | GUI File Manager | FFM |
-|---------|-----------------|-----|
-| Speed | 🐌 Loading... | ⚡ Instant |
-| Mouse required | ✅ Yes | ❌ Nope |
-| Works over SSH | ❌ LOL no | ✅ Absolutely |
-| Cool factor | 😐 Meh | 😎 Maximum |
-| Makes you look like a hacker | ❌ | ✅ 100% |
+| Feature                      | GUI File Manager | FFM           |
+| ---------------------------- | ---------------- | ------------- |
+| Speed                        | 🐌 Loading...    | ⚡ Instant    |
+| Mouse required               | ✅ Yes           | ❌ Nope       |
+| Works over SSH               | ❌ LOL no        | ✅ Absolutely |
+| Cool factor                  | 😐 Meh           | 😎 Maximum    |
+| Makes you look like a hacker | ❌               | ✅ 100%       |
 
 ---
 
@@ -133,21 +133,21 @@ graph TB
 
 ### 🏛️ Module Responsibilities
 
-| Module | Job | Personality |
-|--------|-----|------------|
-| `main.rs` | Says "hello" and calls `lib::run()` | 🚪 The doorman |
-| `lib.rs` | Re-exports the public entry points | 🎪 The marquee |
-| `application/` | Runs the event loop and applies actions | 🎩 The ringmaster |
-| `action.rs` | Maps main-view keys to typed actions | 🎼 The score |
-| `popup.rs` | Consumes input for the active modal overlay | 🚦 The traffic controller |
-| `ops/` | Owns command, file, shell, and viewer operations | 🔧 The mechanic |
-| `handlers.rs` | Preserves old operation import paths | 🔌 The adapter |
-| `terminal.rs` | Restores terminal state with RAII guards | 🛟 The safety crew |
-| `models.rs` | Holds all the data structures | 🗄️ The librarian |
-| `ui.rs` | Makes everything look pretty | 🎨 The artist |
-| `utils.rs` | Provides reusable filesystem helpers | 🧰 The toolkit |
-| `editor.rs` | Opens the built-in or external editor | 📝 The messenger |
-| `s3.rs` | Talks to AWS S3 | ☁️ The cloud whisperer |
+| Module         | Job                                              | Personality               |
+| -------------- | ------------------------------------------------ | ------------------------- |
+| `main.rs`      | Says "hello" and calls `lib::run()`              | 🚪 The doorman            |
+| `lib.rs`       | Re-exports the public entry points               | 🎪 The marquee            |
+| `application/` | Runs the event loop and applies actions          | 🎩 The ringmaster         |
+| `action.rs`    | Maps main-view keys to typed actions             | 🎼 The score              |
+| `popup.rs`     | Consumes input for the active modal overlay      | 🚦 The traffic controller |
+| `ops/`         | Owns command, file, shell, and viewer operations | 🔧 The mechanic           |
+| `handlers.rs`  | Preserves old operation import paths             | 🔌 The adapter            |
+| `terminal.rs`  | Restores terminal state with RAII guards         | 🛟 The safety crew        |
+| `models.rs`    | Holds all the data structures                    | 🗄️ The librarian           |
+| `ui.rs`        | Makes everything look pretty                     | 🎨 The artist             |
+| `utils.rs`     | Provides reusable filesystem helpers             | 🧰 The toolkit            |
+| `editor.rs`    | Opens the built-in or external editor            | 📝 The messenger          |
+| `s3.rs`        | Talks to AWS S3                                  | ☁️ The cloud whisperer     |
 
 ---
 
@@ -198,16 +198,16 @@ graph LR
 
 ### 🧭 Moving Around
 
-| Key | What It Does | Think of It As... |
-|-----|-------------|-------------------|
-| `↑` / `↓` | Move selection up/down | 🏃 Walking through your files |
-| `Home` | Jump to first entry | 🏠 Going home |
-| `End` | Jump to last entry | 🏁 Finish line |
-| `Enter` | Open directory / file | 🚪 Opening the door |
-| `Tab` | Switch active panel | 🔄 Switching lanes |
-| `←` / `→` | Select left/right panel | 👈 / 👉 |
-| `Ctrl+\` | Go to root directory | 🌳 Back to the roots |
-| `Alt+letter` | Quick search | 🔍 Speed dating with files |
+| Key          | What It Does            | Think of It As...             |
+| ------------ | ----------------------- | ----------------------------- |
+| `↑` / `↓`    | Move selection up/down  | 🏃 Walking through your files |
+| `Home`       | Jump to first entry     | 🏠 Going home                 |
+| `End`        | Jump to last entry      | 🏁 Finish line                |
+| `Enter`      | Open directory / file   | 🚪 Opening the door           |
+| `Tab`        | Switch active panel     | 🔄 Switching lanes            |
+| `←` / `→`    | Select left/right panel | 👈 / 👉                       |
+| `Ctrl+\`     | Go to root directory    | 🌳 Back to the roots          |
+| `Alt+letter` | Quick search            | 🔍 Speed dating with files    |
 
 ### 🔍 Quick Search — Find Files Fast! 🔍
 
@@ -284,10 +284,10 @@ FFM always asks for confirmation before deleting. Because we've all had that mom
 
 ### 🎯 Marking Files for Batch Operations 🎯
 
-| Key | What It Does |
-|-----|-------------|
+| Key      | What It Does                              |
+| -------- | ----------------------------------------- |
 | `Insert` | Toggle mark on current file, move to next |
-| `Space` | Toggle mark on current file, move to next |
+| `Space`  | Toggle mark on current file, move to next |
 
 Mark multiple files, then press F5/F6/F8 to operate on all of them at once. It's like selecting multiple emails, but more satisfying!
 
@@ -342,17 +342,17 @@ dismisses the menu first and closes the command line when no menu is open.
 
 FFM supports these built-in commands:
 
-| Command | Example | What It Does |
-|---------|---------|-------------|
-| `cd <path>` | `cd /home/user/projects` | Change directory |
-| `pwd` | `pwd` | Show current path |
-| `sort <mode>` | `sort ext` | Same modes as Ctrl+F3…Ctrl+F11: name, ext, mtime, size, unsorted, ctime, atime, desc, owner |
-| `bookmark set <N>` | `bookmark set 3` | Save current path to slot |
-| `bookmark go <N>` | `bookmark go 3` | Jump to saved path |
-| `mark all` | `mark all` | Mark all files |
-| `unmark` | `unmark` | Clear all marks |
-| `help` | `help` | Show help overlay |
-| `quit` | `quit` | Exit FFM |
+| Command            | Example                  | What It Does                                                                                |
+| ------------------ | ------------------------ | ------------------------------------------------------------------------------------------- |
+| `cd <path>`        | `cd /home/user/projects` | Change directory                                                                            |
+| `pwd`              | `pwd`                    | Show current path                                                                           |
+| `sort <mode>`      | `sort ext`               | Same modes as Ctrl+F3…Ctrl+F11: name, ext, mtime, size, unsorted, ctime, atime, desc, owner |
+| `bookmark set <N>` | `bookmark set 3`         | Save current path to slot                                                                   |
+| `bookmark go <N>`  | `bookmark go 3`          | Jump to saved path                                                                          |
+| `mark all`         | `mark all`               | Mark all files                                                                              |
+| `unmark`           | `unmark`                 | Clear all marks                                                                             |
+| `help`             | `help`                   | Show help overlay                                                                           |
+| `quit`             | `quit`                   | Exit FFM                                                                                    |
 
 ---
 
@@ -513,17 +513,17 @@ Windows, Colorer, cargo-deny and (on pull requests) mutation testing.
 
 ### 🚦 Pipeline Jobs
 
-| Job | What it does |
-|-----|----------------|
-| **Resolve Cargo.lock** | `cargo generate-lockfile` once, for every other job but MCP |
-| **Lint** | `./ffm.py lint` (fmt, spelling, Clippy for all crates, architecture contracts) and `./ffm.py lint self-test` |
-| **Tests & Coverage** | `./ffm.py coverage`: every root test, TUI BDD included, failing under 98% of the measured root lines |
-| **BDD** | S3 unit tests plus `bdd` and `bdd_ru`, on Linux and Windows |
-| **Windows** | The whole root suite, keyboard scenarios through the real event loop included, then Clippy |
-| **MCP** | MCP tests and a 75% line gate |
-| **Colorer** | Builds the optional C++ highlighter and runs that feature |
-| **cargo-deny** | Licences, advisories, bans and sources for all three manifests |
-| **Mutation testing** | Pull requests only: mutants of the changed lines, in four shards; a surviving mutant fails |
+| Job                    | What it does                                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **Resolve Cargo.lock** | `cargo generate-lockfile` once, for every other job but MCP                                                  |
+| **Lint**               | `./ffm.py lint` (fmt, spelling, Clippy for all crates, architecture contracts) and `./ffm.py lint self-test` |
+| **Tests & Coverage**   | `./ffm.py coverage`: every root test, TUI BDD included, failing under 98% of the measured root lines         |
+| **BDD**                | S3 unit tests plus `bdd` and `bdd_ru`, on Linux and Windows                                                  |
+| **Windows**            | The whole root suite, keyboard scenarios through the real event loop included, then Clippy                   |
+| **MCP**                | MCP tests and a 75% line gate                                                                                |
+| **Colorer**            | Builds the optional C++ highlighter and runs that feature                                                    |
+| **cargo-deny**         | Licences, advisories, bans and sources for all three manifests                                               |
+| **Mutation testing**   | Pull requests only: mutants of the changed lines, in four shards; a surviving mutant fails                   |
 
 ---
 

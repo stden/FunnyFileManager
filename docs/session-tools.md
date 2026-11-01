@@ -49,11 +49,11 @@ waiting, not CPU time, and is separate from opt-in raw event recordings.
 **Update packages** detects Chocolatey on Windows, Homebrew on macOS, and
 apt-get (then Homebrew) on Linux. It shows the commands and defaults to Cancel:
 
-| Manager | Commands |
-|---|---|
-| Chocolatey | `choco upgrade all -y` |
-| apt-get | `apt-get update`, then `apt-get upgrade -y` |
-| Homebrew | `brew update`, then `brew upgrade` |
+| Manager    | Commands                                    |
+| ---------- | ------------------------------------------- |
+| Chocolatey | `choco upgrade all -y`                      |
+| apt-get    | `apt-get update`, then `apt-get upgrade -y` |
+| Homebrew   | `brew update`, then `brew upgrade`          |
 
 Select Run to update all installed packages managed by that tool. The terminal
 is handed to the package manager for progress and prompts, then restored.
@@ -128,12 +128,12 @@ Two scopes:
   active panel is not a local folder (a NetBox panel, an S3 listing, a folder
   that has gone).
 
-| Client | All projects | Current folder |
-|---|---|---|
+| Client      | All projects                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Current folder                      |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
 | Claude Code | `claude mcp add --scope user --transport stdio ffm-mcp -- <server>`, run in Claude's home folder. An entry that differs is replaced with `claude mcp remove --scope user ffm-mcp`, then `claude mcp add-json --scope user ffm-mcp '<entry>'` carrying the old entry's `env` and other keys. The user config is only read, found where the CLI finds it: a legacy `.config.json` in `$CLAUDE_CONFIG_DIR` (else `~/.claude`) when there is one, else `.claude.json` in `$CLAUDE_CONFIG_DIR` (else the home) | `<folder>/.mcp.json`, edited by FFM |
-| Codex | `$CODEX_HOME/config.toml`, else `~/.codex/config.toml` | `<folder>/.codex/config.toml` |
-| Junie | `~/.junie/mcp/mcp.json` | `<folder>/.junie/mcp/mcp.json` |
-| Kiro | `$KIRO_HOME/settings/mcp.json`, else `~/.kiro/settings/mcp.json` | `<folder>/.kiro/settings/mcp.json` |
+| Codex       | `$CODEX_HOME/config.toml`, else `~/.codex/config.toml`                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `<folder>/.codex/config.toml`       |
+| Junie       | `~/.junie/mcp/mcp.json`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `<folder>/.junie/mcp/mcp.json`      |
+| Kiro        | `$KIRO_HOME/settings/mcp.json`, else `~/.kiro/settings/mcp.json`                                                                                                                                                                                                                                                                                                                                                                                                                                          | `<folder>/.kiro/settings/mcp.json`  |
 
 JSON configs get `{"mcpServers": {"ffm-mcp": {"command": "<server>", "args": [],
 "env": {}}}}`; Codex gets `[mcp_servers.ffm-mcp]` with `command` and

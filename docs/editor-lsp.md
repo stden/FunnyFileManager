@@ -29,14 +29,14 @@ This also approves configured installation recipes. Use `lsp_trust: prompt`
 
 ![Built-in editor hover popup, captured from the TUI renderer](images/editor-lsp.png)
 
-| Editor key | Action |
-|---|---|
-| Ctrl+Space | Request completions |
-| Ctrl+K | Show hover information |
-| Ctrl+] | Go to definition (Ctrl+5 too: terminals without the kitty keyboard protocol send Ctrl+] as Ctrl+5's byte) |
-| Ctrl+Alt+R | Restart the language server or reopen the trust prompt |
-| Up / Down | Select a popup result or scroll hover text |
-| Enter / Esc | Accept / dismiss the popup |
+| Editor key  | Action                                                                                                    |
+| ----------- | --------------------------------------------------------------------------------------------------------- |
+| Ctrl+Space  | Request completions                                                                                       |
+| Ctrl+K      | Show hover information                                                                                    |
+| Ctrl+]      | Go to definition (Ctrl+5 too: terminals without the kitty keyboard protocol send Ctrl+] as Ctrl+5's byte) |
+| Ctrl+Alt+R  | Restart the language server or reopen the trust prompt                                                    |
+| Up / Down   | Select a popup result or scroll hover text                                                                |
+| Enter / Esc | Accept / dismiss the popup                                                                                |
 
 Completions show labels, kinds, details, and supplied documentation. The editor
 applies text edits and additional edits atomically. Unsupported snippets produce
@@ -57,13 +57,13 @@ and never waits for the `PATH` scan.
 The list shows each server's language, `[x]` or `[ ]` for enabled, its command,
 its extensions and one word of availability:
 
-| Tag | Meaning |
-|---|---|
-| `ready` (green) | The configured command is found, or the installed server that provides it |
-| `auto` (amber) | Not installed yet; installs after you trust a workspace, and what it installs with (Python 3, Node.js with npm, Java) is on PATH |
-| `recipe` (amber) | The configured command is not found, so the auto-install recipe's own program runs instead |
-| `missing` (red) | Not found, and no auto-install (or no install cache) |
-| `error` (red) | A broken install receipt, or a runtime the install needs is not on PATH (`LSP installation requires Node.js and npm`) |
+| Tag              | Meaning                                                                                                                          |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `ready` (green)  | The configured command is found, or the installed server that provides it                                                        |
+| `auto` (amber)   | Not installed yet; installs after you trust a workspace, and what it installs with (Python 3, Node.js with npm, Java) is on PATH |
+| `recipe` (amber) | The configured command is not found, so the auto-install recipe's own program runs instead                                       |
+| `missing` (red)  | Not found, and no auto-install (or no install cache)                                                                             |
+| `error` (red)    | A broken install receipt, or a runtime the install needs is not on PATH (`LSP installation requires Node.js and npm`)            |
 
 `*` marks a server changed since the file was read; `!` marks a problem, red
 when it blocks F2 and amber when it only warns. The pane below details the
@@ -76,17 +76,17 @@ list.
 
 ### Editing
 
-| Key | Action |
-|---|---|
-| Up / Down, PgUp / PgDn, Home / End | Select a server |
-| Enter, F4 | Edit the selected server |
-| Space | Turn it on or off |
-| Ins, F7 | Add a server |
-| Del, F8 | Reset a catalog server's command, arguments, extensions and on/off to the catalog; remove an added server |
-| F2 | Save to `settings.yaml` (only the changed fields) |
-| F3 | Every server, scrolled; F3 or Esc returns |
-| F5 | Check availability again |
-| Esc, F10 | Close; with unsaved changes, asks Save / Discard / Cancel |
+| Key                                | Action                                                                                                    |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Up / Down, PgUp / PgDn, Home / End | Select a server                                                                                           |
+| Enter, F4                          | Edit the selected server                                                                                  |
+| Space                              | Turn it on or off                                                                                         |
+| Ins, F7                            | Add a server                                                                                              |
+| Del, F8                            | Reset a catalog server's command, arguments, extensions and on/off to the catalog; remove an added server |
+| F2                                 | Save to `settings.yaml` (only the changed fields)                                                         |
+| F3                                 | Every server, scrolled; F3 or Esc returns                                                                 |
+| F5                                 | Check availability again                                                                                  |
+| Esc, F10                           | Close; with unsaved changes, asks Save / Discard / Cancel                                                 |
 
 In the form, Tab and Shift+Tab move between the fields, Space toggles
 **Enabled**, Enter presses OK and Esc drops the form's changes. The full key and
@@ -184,15 +184,15 @@ Catalog entries are merged with settings field by field. For example,
 `python: {enabled: false}` disables Python without replacing its other
 defaults. `install: null` disables automatic installation for one server.
 
-| Language | Server | Installation prerequisite |
-|---|---|---|
-| Rust | rust-analyzer | Install on PATH, e.g. `rustup component add rust-analyzer` |
-| Python | python-lsp-server (pylsp) | Python 3 with venv and pip |
-| Java | Eclipse JDT LS 1.61.0 | Java 21+ and curl 8.4+; JAVA_HOME takes precedence for Java |
-| JavaScript / JSX / TypeScript / TSX | typescript-language-server + TypeScript 6 | Node.js and npm |
-| HTML / CSS / JSON | vscode-langservers-extracted | Node.js and npm |
-| YAML | yaml-language-server | Node.js and npm |
-| Bash | bash-language-server | Node.js and npm |
+| Language                            | Server                                    | Installation prerequisite                                   |
+| ----------------------------------- | ----------------------------------------- | ----------------------------------------------------------- |
+| Rust                                | rust-analyzer                             | Install on PATH, e.g. `rustup component add rust-analyzer`  |
+| Python                              | python-lsp-server (pylsp)                 | Python 3 with venv and pip                                  |
+| Java                                | Eclipse JDT LS 1.61.0                     | Java 21+ and curl 8.4+; JAVA_HOME takes precedence for Java |
+| JavaScript / JSX / TypeScript / TSX | typescript-language-server + TypeScript 6 | Node.js and npm                                             |
+| HTML / CSS / JSON                   | vscode-langservers-extracted              | Node.js and npm                                             |
+| YAML                                | yaml-language-server                      | Node.js and npm                                             |
+| Bash                                | bash-language-server                      | Node.js and npm                                             |
 
 Python and Java have optional real acceptance tests. Other catalog entries use
 the same tested npm installation path; their runtime behavior depends on the server.

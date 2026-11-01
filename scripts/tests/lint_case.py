@@ -33,6 +33,8 @@ CLIPPY_MATRIX = [
     *ARCHITECTURE,
 ]
 SPELLING = ("typos", [], ROOT)
+MARKDOWN = (CHECKS, ["scripts/format_markdown.py", "--check"], ROOT)
+MARKDOWN_FIX = (CHECKS, ["scripts/format_markdown.py"], ROOT)
 COMPLEXITY = (CHECKS, ["scripts/lint_complexity.py"], ROOT)
 DUPLICATION = (CHECKS, ["scripts/lint_duplication.py"], ROOT)
 SOURCE_CHECKS = [COMPLEXITY, DUPLICATION]
@@ -41,13 +43,14 @@ SPELLING_SELF_TEST = [SPELLING, ("typos", ["-"], ROOT), ("typos", ["-"], ROOT)]
 SELF_TEST = [
     *SPELLING_SELF_TEST,
     (CHECKS, ["-m", "unittest", "discover", "-s", "scripts/tests"], ROOT),
+    (CHECKS, ["scripts/test_format_markdown.py"], ROOT),
     (CHECKS, ["scripts/test_readability.py"], ROOT),
     (CHECKS, ["scripts/test_lint_policy.py"], ROOT),
 ]
 
 FMT_CHECK_LINES = ["→ cargo fmt --all -- --check", "→ cargo fmt --all -- --check (mcp/)"]
 SPELLING_LINE = "→ typos"
-ALL = PREFLIGHT + FMT_CHECK + [SPELLING] + SOURCE_CHECKS + CLIPPY_MATRIX
+ALL = PREFLIGHT + FMT_CHECK + [SPELLING, MARKDOWN] + SOURCE_CHECKS + CLIPPY_MATRIX
 FMT_FIX_LINES = ["→ cargo fmt --all", "→ cargo fmt --all (mcp/)"]
 CLIPPY_DEFAULT_LINE = "→ cargo clippy --all-targets  -- -D warnings"
 ARCHITECTURE_LINE = (
@@ -62,11 +65,11 @@ CLIPPY_LINES = [
     ARCHITECTURE_LINE,
 ]
 ALL_LINES = FMT_CHECK_LINES + [SPELLING_LINE] + CLIPPY_LINES + [
-    "✓ lint OK (fmt + spelling + complexity + duplication + clippy)"
+    "✓ lint OK (fmt + spelling + markdown + complexity + duplication + clippy)"
 ]
 TYPOS_MISSING = "typos is not installed — run: cargo install typos-cli --locked\n"
 MODE_NAMES = (
-    "all", "fmt", "spelling", "complexity", "duplication", "clippy", "clippy-fast", "fix",
+    "all", "fmt", "spelling", "markdown", "complexity", "duplication", "clippy", "clippy-fast", "fix",
     "self-test", "architecture",
 )
 # A typos that rejects a known misspelling on stdin, as the real one does.

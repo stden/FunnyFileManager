@@ -36,22 +36,22 @@ The line is edited with a caret, not appended to. Three key columns apply
 depending on whether the completion dropdown is open and whether a `Ctrl+R`
 reverse search is running.
 
-| Key | Dropdown open | Searching | Otherwise |
-|---|---|---|---|
-| `Tab` | next candidate | — | complete the token at the caret |
-| `Up` / `Down` | move selection | — | history back / forward |
-| `Ctrl+R` | — | previous match | start reverse search |
-| `Enter` | accept candidate | accept match into the line | execute |
-| `Esc` | close dropdown | cancel, restore the typed line | close the overlay |
-| `Left` / `Right` | — | — | move caret; `Right`/`End`, bare or with any modifier, **at end of line** accept the ghost (`Ctrl+E` and `Alt+F` only move) |
-| `Home` / `Ctrl+A`, `End` / `Ctrl+E` | — | — | line start / end |
-| `Alt+B` / `Ctrl+Left`, `Alt+F` / `Ctrl+Right` | — | — | word left / right |
-| `Backspace`, `Delete` | edit + refresh candidates | edit query | edit the line |
-| `Ctrl+W`, `Ctrl+U`, `Ctrl+K` | — | — | kill word back / to start / to end |
-| `Ctrl+Y` | — | — | yank the killed text |
-| `Ctrl+C` | — | cancel | clear the line |
-| `Ctrl+D` | — | — | close when empty, else forward delete |
-| printable | edit + refresh candidates | extend query | insert at the caret |
+| Key                                           | Dropdown open             | Searching                      | Otherwise                                                                                                                  |
+| --------------------------------------------- | ------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `Tab`                                         | next candidate            | —                              | complete the token at the caret                                                                                            |
+| `Up` / `Down`                                 | move selection            | —                              | history back / forward                                                                                                     |
+| `Ctrl+R`                                      | —                         | previous match                 | start reverse search                                                                                                       |
+| `Enter`                                       | accept candidate          | accept match into the line     | execute                                                                                                                    |
+| `Esc`                                         | close dropdown            | cancel, restore the typed line | close the overlay                                                                                                          |
+| `Left` / `Right`                              | —                         | —                              | move caret; `Right`/`End`, bare or with any modifier, **at end of line** accept the ghost (`Ctrl+E` and `Alt+F` only move) |
+| `Home` / `Ctrl+A`, `End` / `Ctrl+E`           | —                         | —                              | line start / end                                                                                                           |
+| `Alt+B` / `Ctrl+Left`, `Alt+F` / `Ctrl+Right` | —                         | —                              | word left / right                                                                                                          |
+| `Backspace`, `Delete`                         | edit + refresh candidates | edit query                     | edit the line                                                                                                              |
+| `Ctrl+W`, `Ctrl+U`, `Ctrl+K`                  | —                         | —                              | kill word back / to start / to end                                                                                         |
+| `Ctrl+Y`                                      | —                         | —                              | yank the killed text                                                                                                       |
+| `Ctrl+C`                                      | —                         | cancel                         | clear the line                                                                                                             |
+| `Ctrl+D`                                      | —                         | —                              | close when empty, else forward delete                                                                                      |
+| printable                                     | edit + refresh candidates | extend query                   | insert at the caret                                                                                                        |
 
 Every other key is consumed without changing the line. It cannot trigger a panel
 action such as F8, Ctrl+U, or F10.
@@ -63,23 +63,23 @@ status with an ambiguity report.
 
 ## 💬 Supported Built-in Commands
 
-| Command | Description | Example |
-|---|---|---|
-| `cd <path>` | Change the active directory; relative, `~`, quoted, and space-containing paths are supported | `cd "My Documents"` |
-| `pwd` | Put the active path in status | `pwd` |
-| `sort name\|ext\|extension\|size` | Sort and reload the active panel | `sort size` |
-| `bookmark set <0-9>` | Save the active path | `bookmark set 3` |
-| `bookmark go <0-9>` | Open a saved path | `bookmark go 0` |
-| `mark all` | Mark all visible entries except `..` | `mark all` |
-| `unmark` | Clear active-panel marks | `unmark` |
-| `help` | Open the help overlay | `help` |
-| `mcp` | Open MCP status in the viewer overlay | `mcp` |
-| `sessions` | Show NetBox's stored-sessions panel in the active panel | `sessions` |
-| `sessions import netbox [path]` | Import a `.netbox` session export; the path is the rest of the line (relative to a file panel, `~` expanded), else the `.netbox` file under a file panel's cursor. Counts go to the status bar, each skipped entry and its reason to the console transcript | `sessions import netbox ~/demo.netbox` |
-| `winmsg` / aliases | Open Windows system-message diagnostics | `winmsg` |
-| `winperf` / `wincheck` | Open Windows performance diagnostics | `winperf` |
-| `wsl` | Open the WSL manager on Windows | `wsl` |
-| `quit` / `exit` | Set the application quit flag | `quit` |
+| Command                           | Description                                                                                                                                                                                                                                                 | Example                                |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `cd <path>`                       | Change the active directory; relative, `~`, quoted, and space-containing paths are supported                                                                                                                                                                | `cd "My Documents"`                    |
+| `pwd`                             | Put the active path in status                                                                                                                                                                                                                               | `pwd`                                  |
+| `sort name\|ext\|extension\|size` | Sort and reload the active panel                                                                                                                                                                                                                            | `sort size`                            |
+| `bookmark set <0-9>`              | Save the active path                                                                                                                                                                                                                                        | `bookmark set 3`                       |
+| `bookmark go <0-9>`               | Open a saved path                                                                                                                                                                                                                                           | `bookmark go 0`                        |
+| `mark all`                        | Mark all visible entries except `..`                                                                                                                                                                                                                        | `mark all`                             |
+| `unmark`                          | Clear active-panel marks                                                                                                                                                                                                                                    | `unmark`                               |
+| `help`                            | Open the help overlay                                                                                                                                                                                                                                       | `help`                                 |
+| `mcp`                             | Open MCP status in the viewer overlay                                                                                                                                                                                                                       | `mcp`                                  |
+| `sessions`                        | Show NetBox's stored-sessions panel in the active panel                                                                                                                                                                                                     | `sessions`                             |
+| `sessions import netbox [path]`   | Import a `.netbox` session export; the path is the rest of the line (relative to a file panel, `~` expanded), else the `.netbox` file under a file panel's cursor. Counts go to the status bar, each skipped entry and its reason to the console transcript | `sessions import netbox ~/demo.netbox` |
+| `winmsg` / aliases                | Open Windows system-message diagnostics                                                                                                                                                                                                                     | `winmsg`                               |
+| `winperf` / `wincheck`            | Open Windows performance diagnostics                                                                                                                                                                                                                        | `winperf`                              |
+| `wsl`                             | Open the WSL manager on Windows                                                                                                                                                                                                                             | `wsl`                                  |
+| `quit` / `exit`                   | Set the application quit flag                                                                                                                                                                                                                               | `quit`                                 |
 
 Bare `sort` means sort by name. Rejected recognized forms—such as bare `cd`, an
 unknown sort mode, or an invalid bookmark slot—become `Command::Invalid` with
@@ -96,15 +96,15 @@ text as `Command::Shell`; the built-in does not intercept them.
 `Tab` completes the token **under the caret**, preserving the rest of the line.
 Which source applies depends on the position:
 
-| Position | Candidates |
-|---|---|
-| Word 0 containing `/`, or starting with `.` / `~` | paths (a program named by location) |
-| Word 0 otherwise | built-in verbs, plus `$PATH` executables by prefix |
-| Argument of `cd` | paths, unescaped (see below) |
-| Argument 1 of `sort` / `bookmark` / `mark` | that verb's sub-commands |
-| Argument 2 of `bookmark` | slot digits, populated slots hinted with their path |
-| Built-in verb in a position it does not model | nothing |
-| Any argument of anything else | paths, shell-escaped |
+| Position                                          | Candidates                                          |
+| ------------------------------------------------- | --------------------------------------------------- |
+| Word 0 containing `/`, or starting with `.` / `~` | paths (a program named by location)                 |
+| Word 0 otherwise                                  | built-in verbs, plus `$PATH` executables by prefix  |
+| Argument of `cd`                                  | paths, unescaped (see below)                        |
+| Argument 1 of `sort` / `bookmark` / `mark`        | that verb's sub-commands                            |
+| Argument 2 of `bookmark`                          | slot digits, populated slots hinted with their path |
+| Built-in verb in a position it does not model     | nothing                                             |
+| Any argument of anything else                     | paths, shell-escaped                                |
 
 A prefix matching exactly one built-in verb is accepted outright and `$PATH` is
 not consulted, so `pw` still completes to `pwd ` on a host that also has `pwdx`.

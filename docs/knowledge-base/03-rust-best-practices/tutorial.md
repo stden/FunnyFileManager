@@ -200,12 +200,12 @@ src/
 
 ### 4.1 Visibility rules
 
-| Visibility | When to use |
-|---|---|
-| `pub(crate)` | **Default** — everything not consumed by `tests/` |
-| `pub(super)` | Helpers only the parent module needs |
-| `pub` | Items re-exported from `lib.rs`, or exercised by integration tests |
-| *(private)* | Internal helpers that nothing outside the file needs |
+| Visibility   | When to use                                                        |
+| ------------ | ------------------------------------------------------------------ |
+| `pub(crate)` | **Default** — everything not consumed by `tests/`                  |
+| `pub(super)` | Helpers only the parent module needs                               |
+| `pub`        | Items re-exported from `lib.rs`, or exercised by integration tests |
+| *(private)*  | Internal helpers that nothing outside the file needs               |
 
 ```rust
 // A type used across crates → pub
@@ -416,14 +416,14 @@ the design may need reconsideration.
 FFM runs `cargo clippy -- -D warnings` (warnings become errors). Common
 violations to avoid:
 
-| Lint | Bad | Good |
-|---|---|---|
-| `needless_pass_by_value` | `fn f(s: String)` when you only read | `fn f(s: &str)` |
-| `clone_on_ref_ptr` | `arc.clone()` just to pass it | keep the reference |
-| `match_wildcard_for_single_variants` | `_ =>` on a single-variant enum | name the variant |
-| `struct_excessive_bools` | 3+ `bool` fields | an `enum` |
-| `manual_let_else` | `if let … { } else { return; }` | `let … else { return; }` |
-| `redundant_closure` | `.map(\|x\| f(x))` | `.map(f)` |
+| Lint                                 | Bad                                  | Good                     |
+| ------------------------------------ | ------------------------------------ | ------------------------ |
+| `needless_pass_by_value`             | `fn f(s: String)` when you only read | `fn f(s: &str)`          |
+| `clone_on_ref_ptr`                   | `arc.clone()` just to pass it        | keep the reference       |
+| `match_wildcard_for_single_variants` | `_ =>` on a single-variant enum      | name the variant         |
+| `struct_excessive_bools`             | 3+ `bool` fields                     | an `enum`                |
+| `manual_let_else`                    | `if let … { } else { return; }`      | `let … else { return; }` |
+| `redundant_closure`                  | `.map(\|x\| f(x))`                   | `.map(f)`                |
 
 Run the full gate before every commit:
 
@@ -436,15 +436,15 @@ cargo test       # unit + integration
 
 ## Quick Reference
 
-| Pattern | Rule |
-|---|---|
-| `unwrap()` / `expect()` | Tests only |
-| Error propagation | `?` operator |
-| Typed errors | `thiserror::Error` enum |
-| Module files | `foo.rs` + `foo/`, never `mod.rs` |
-| Default visibility | `pub(crate)` |
-| File size | ≤ 200 lines |
-| New feature | Failing test first |
-| Bool state | Use an enum |
-| Raw primitive | Newtype with a constructor |
-| Multiple options/bools | Enum with per-variant data |
+| Pattern                 | Rule                              |
+| ----------------------- | --------------------------------- |
+| `unwrap()` / `expect()` | Tests only                        |
+| Error propagation       | `?` operator                      |
+| Typed errors            | `thiserror::Error` enum           |
+| Module files            | `foo.rs` + `foo/`, never `mod.rs` |
+| Default visibility      | `pub(crate)`                      |
+| File size               | ≤ 200 lines                       |
+| New feature             | Failing test first                |
+| Bool state              | Use an enum                       |
+| Raw primitive           | Newtype with a constructor        |
+| Multiple options/bools  | Enum with per-variant data        |

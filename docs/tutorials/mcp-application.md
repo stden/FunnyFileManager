@@ -35,16 +35,16 @@ capabilities. Both profiles retain full filesystem and shell authority.
 
 Keep the returned `session_id` for subsequent calls:
 
-| Tool | Operation |
-|---|---|
-| `ffm_session_catalog` | List every canonical context/action, description and default keys |
-| `ffm_session_state` | Read panels, current dialog, rendered screen, job and external process |
-| `ffm_session_action` | Invoke a named action in its owning context |
-| `ffm_session_input` | Send key chords, pasted text or a mouse event |
-| `ffm_session_wait` | Wait up to 10 seconds for application work |
-| `ffm_session_resize` | Resize the session and its private external terminal |
-| `ffm_session_cancel` | Request cancellation of the running operation |
-| `ffm_session_close` | End the background session and release its process |
+| Tool                  | Operation                                                              |
+| --------------------- | ---------------------------------------------------------------------- |
+| `ffm_session_catalog` | List every canonical context/action, description and default keys      |
+| `ffm_session_state`   | Read panels, current dialog, rendered screen, job and external process |
+| `ffm_session_action`  | Invoke a named action in its owning context                            |
+| `ffm_session_input`   | Send key chords, pasted text or a mouse event                          |
+| `ffm_session_wait`    | Wait up to 10 seconds for application work                             |
+| `ffm_session_resize`  | Resize the session and its private external terminal                   |
+| `ffm_session_cancel`  | Request cancellation of the running operation                          |
+| `ffm_session_close`   | End the background session and release its process                     |
 
 The catalogue is generated from FFM's key tables, including keyless menu rows.
 It includes panels, navigation, selection, filters, viewer/editor commands,

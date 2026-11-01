@@ -109,14 +109,14 @@ ignores the new features sees only the greyed suggestion.
 
 - **`popup.rs` — key handling in the command-line overlay.**
 
-  | Key | Menu closed | Menu open |
-  |---|---|---|
-  | `Tab` | open menu, advance to longest common prefix | next candidate |
-  | `Up` / `Down` | — | move selection |
-  | `Enter` | execute command | accept candidate, close menu |
-  | `Esc` | close overlay | close menu only |
-  | `Right` / `End` | accept ghost text | — |
-  | printable / `Backspace` | edit buffer, refresh ghost | edit buffer, refresh menu |
+  | Key                     | Menu closed                                 | Menu open                    |
+  | ----------------------- | ------------------------------------------- | ---------------------------- |
+  | `Tab`                   | open menu, advance to longest common prefix | next candidate               |
+  | `Up` / `Down`           | —                                           | move selection               |
+  | `Enter`                 | execute command                             | accept candidate, close menu |
+  | `Esc`                   | close overlay                               | close menu only              |
+  | `Right` / `End`         | accept ghost text                           | —                            |
+  | printable / `Backspace` | edit buffer, refresh ghost                  | edit buffer, refresh menu    |
 
   `Esc` closing only the menu — not the whole overlay — means an accidental
   `Tab` never costs a typed command.

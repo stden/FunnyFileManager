@@ -9,10 +9,10 @@ IAM, EC2, or the AWS console.
 
 Profiles are section names in the shared credentials file:
 
-| Host | Path |
-|---|---|
-| Linux and macOS | `$HOME/.aws/credentials` |
-| Windows | `%USERPROFILE%\.aws\credentials` |
+| Host            | Path                             |
+| --------------- | -------------------------------- |
+| Linux and macOS | `$HOME/.aws/credentials`         |
+| Windows         | `%USERPROFILE%\.aws\credentials` |
 
 ```ini
 [default]

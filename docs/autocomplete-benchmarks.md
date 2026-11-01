@@ -22,19 +22,19 @@ two-second measurement target per case. Directory cases use 20 samples; other
 cases use 100. Values below are Criterion's central time estimates from one run,
 not performance guarantees or evidence of an improvement over the parent commit.
 
-| Scenario | Time |
-|---|---:|
-| Empty command | 2.20 µs |
-| Command prefix `c`, warm PATH | 104.58 µs |
-| Fuzzy command `srt` | 2.74 µs |
-| `sort e` | 1.03 µs |
-| `bookmark go ` | 0.60 µs |
-| `mark a` | 0.49 µs |
-| Directory, 10 candidates | 95.37 µs |
-| Directory, 100 candidates | 272.02 µs |
-| Directory, 1,000 candidates | 1.99 ms |
-| Prefix ranking, 100 / 1,000 / 10,000 candidates | 30.74 µs / 308.17 µs / 2.97 ms |
-| Fuzzy ranking, 100 / 1,000 / 10,000 candidates | 28.37 µs / 252.76 µs / 2.52 ms |
+| Scenario                                          |                           Time |
+| ------------------------------------------------- | -----------------------------: |
+| Empty command                                     |                        2.20 µs |
+| Command prefix `c`, warm PATH                     |                      104.58 µs |
+| Fuzzy command `srt`                               |                        2.74 µs |
+| `sort e`                                          |                        1.03 µs |
+| `bookmark go `                                    |                        0.60 µs |
+| `mark a`                                          |                        0.49 µs |
+| Directory, 10 candidates                          |                       95.37 µs |
+| Directory, 100 candidates                         |                      272.02 µs |
+| Directory, 1,000 candidates                       |                        1.99 ms |
+| Prefix ranking, 100 / 1,000 / 10,000 candidates   | 30.74 µs / 308.17 µs / 2.97 ms |
+| Fuzzy ranking, 100 / 1,000 / 10,000 candidates    | 28.37 µs / 252.76 µs / 2.52 ms |
 | No-match ranking, 100 / 1,000 / 10,000 candidates | 23.22 µs / 228.18 µs / 2.49 ms |
 
 The measured ranking cost grows roughly with the candidate count. On this host,

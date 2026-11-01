@@ -192,11 +192,11 @@ for the test).
 
 ## 4. Waves
 
-| Wave | Content | Mode |
-|---|---|---|
-| 0 | Scaffold: `Session` types + store, `PanelKind::Sessions/Remote`, `Overlay::SessionEdit/PluginCommands`, `RemoteFs` trait + fake, feature `netbox`, Change-drive NetBox/Process-list rows, F11 list with stubs, `:sessions` verb; green gate | one agent, main tree |
-| 1 | `drives`, `sessions_panel`, `import_netbox`, `import_far`, `import_pwd`, `import_kdbx`, `remote_sftp` | worktrees in parallel, adversarial review, merge, gate |
-| 2 | docs: CLAUDE.md, parity page, module map, a `docs/netbox.md` how-to (import paths, password policy) | sequential |
+| Wave | Content                                                                                                                                                                                                                                     | Mode                                                   |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 0    | Scaffold: `Session` types + store, `PanelKind::Sessions/Remote`, `Overlay::SessionEdit/PluginCommands`, `RemoteFs` trait + fake, feature `netbox`, Change-drive NetBox/Process-list rows, F11 list with stubs, `:sessions` verb; green gate | one agent, main tree                                   |
+| 1    | `drives`, `sessions_panel`, `import_netbox`, `import_far`, `import_pwd`, `import_kdbx`, `remote_sftp`                                                                                                                                       | worktrees in parallel, adversarial review, merge, gate |
+| 2    | docs: CLAUDE.md, parity page, module map, a `docs/netbox.md` how-to (import paths, password policy)                                                                                                                                         | sequential                                             |
 
 ## 4a. Data flow
 

@@ -50,12 +50,12 @@ above, with 20 samples, 300 ms warm-up and a two-second measurement target per
 case. Criterion extended some runs to collect the requested samples. The table
 uses the saved `mean` estimates, rather than the displayed regression slope:
 
-| Corpus | Recorded, mean ms | Upstream, mean ms | Merged, mean ms | Incremental result vs upstream |
-| --- | ---: | ---: | ---: | --- |
-| ASCII, absent | 52.883 | 12.150 | 2.368 | 5.13× faster |
-| ASCII, late match | 52.165 | 12.080 | 2.329 | 5.19× faster |
-| Unicode, absent | 73.381 | 68.815 | 70.387 | 2.29% more time |
-| Invalid UTF-8, absent | 69.881 | 25.729 | 25.886 | 0.61% more time; overlapping intervals |
+| Corpus                | Recorded, mean ms | Upstream, mean ms | Merged, mean ms | Incremental result vs upstream         |
+| --------------------- | ----------------: | ----------------: | --------------: | -------------------------------------- |
+| ASCII, absent         |            52.883 |            12.150 |           2.368 | 5.13× faster                           |
+| ASCII, late match     |            52.165 |            12.080 |           2.329 | 5.19× faster                           |
+| Unicode, absent       |            73.381 |            68.815 |          70.387 | 2.29% more time                        |
+| Invalid UTF-8, absent |            69.881 |            25.729 |          25.886 | 0.61% more time; overlapping intervals |
 
 The complete recorded-to-merged ASCII speedups are 22.33× and 22.40×. These
 include upstream's improvements; this branch adds the 5.13× and 5.19× speedups

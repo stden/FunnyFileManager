@@ -49,7 +49,8 @@ Commands:
   release          Build in release mode and run
   run              Run FFM (assumes already built)
   test             Run all tests
-  lint [mode]      Rust linter gate (fmt + clippy; see scripts/lint.py)
+  lint [mode]      Rust linter gate (fmt + spelling + markdown + complexity +
+                   duplication + clippy; see scripts/lint.py)
   coverage         CI's line-coverage gate (llvm-cov; see scripts/coverage.py)
   clean            Clean build artifacts
   colorer          Install Colorer + Far's syntax schemes, then rebuild
@@ -62,7 +63,7 @@ Examples:
   ./ffm.py release          # Build and run in release mode
   ./ffm.py build release    # Only build in release mode
   ./ffm.py test             # Run tests
-  ./ffm.py lint             # fmt --check + clippy feature matrix
+  ./ffm.py lint             # the whole gate, clippy feature matrix included
   ./ffm.py lint clippy-fast # all targets, default features
 """
 CARGO_MISSING = "cargo: No such file or directory\n"

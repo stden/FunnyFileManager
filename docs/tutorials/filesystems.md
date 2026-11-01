@@ -11,10 +11,10 @@ the OS for that directory, and the panel draws the snapshot it got back.
 `Alt+F1` opens the drive list for the left panel. `Alt+F2` opens it for the
 right panel. The rows are built once, when the dialog opens.
 
-| Host | What the list contains |
-|---|---|
-| Linux and macOS | One local row, `/` |
-| Windows | One row for each drive letter returned by `GetLogicalDrives`, such as `C:\` |
+| Host            | What the list contains                                                      |
+| --------------- | --------------------------------------------------------------------------- |
+| Linux and macOS | One local row, `/`                                                          |
+| Windows         | One row for each drive letter returned by `GetLogicalDrives`, such as `C:\` |
 
 Enter, or the row's own key, opens that drive. If either panel is already
 somewhere on it, the chosen panel opens in that directory rather than at the
@@ -28,17 +28,17 @@ The read opens the directory first. If that open fails, the previous listing
 stays. Entries whose metadata cannot be read are skipped. Everything else
 becomes one row:
 
-| Fact | Where it comes from |
-|---|---|
-| Name | The directory entry |
-| Kind | Directory, file, symlink to a directory, symlink to a file, or a broken symlink |
-| Size | `len` of that entry. A symlink reports the link, not the target |
-| Modified, created, accessed | The same metadata. Created and accessed are omitted when the OS has no answer |
-| Link count | Unix `st_nlink`. Other hosts report 1 |
-| Owner | Resolved while the directory is read, then stored on the row |
-| Allocated | Unix `st_blocks` times 512. Elsewhere, the file length |
-| Description | A line from the first existing file among `Descript.ion` and `Files.bbs` |
-| Free space | Captured once for the directory, not per row |
+| Fact                        | Where it comes from                                                             |
+| --------------------------- | ------------------------------------------------------------------------------- |
+| Name                        | The directory entry                                                             |
+| Kind                        | Directory, file, symlink to a directory, symlink to a file, or a broken symlink |
+| Size                        | `len` of that entry. A symlink reports the link, not the target                 |
+| Modified, created, accessed | The same metadata. Created and accessed are omitted when the OS has no answer   |
+| Link count                  | Unix `st_nlink`. Other hosts report 1                                           |
+| Owner                       | Resolved while the directory is read, then stored on the row                    |
+| Allocated                   | Unix `st_blocks` times 512. Elsewhere, the file length                          |
+| Description                 | A line from the first existing file among `Descript.ion` and `Files.bbs`        |
+| Free space                  | Captured once for the directory, not per row                                    |
 
 `..` is added by FFM. It is not a second question to the OS about an entry
 named dot-dot. Its time comes from the parent directory when that directory

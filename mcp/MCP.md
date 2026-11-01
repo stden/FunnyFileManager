@@ -19,7 +19,7 @@ Built on the official **[rmcp](https://github.com/modelcontextprotocol/rust-sdk)
 ## ✅ Best Practices Applied
 
 | Practice                      | Implementation                                                                                                        |
-|-------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Official SDK                  | `rmcp` v3.x with `#[tool]` macros instead of hand-rolled JSON-RPC                                                     |
 | Never print to stdout         | All logging via `tracing` directed to stderr                                                                          |
 | Root confinement              | `paths::sanitize_path*()` rejects empty/null-byte paths, canonicalizes, and refuses anything outside the allowed root |
@@ -36,7 +36,7 @@ Core local-filesystem tools (the full list also covers pattern matching, batch
 operations, bookmarks, symlinks, permissions, checksums, system info and S3):
 
 | Tool                  | Description                                                                                                                                  |
-|-----------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `list_directory`      | List files/dirs at path with name, type, size                                                                                                |
 | `get_file_info`       | Detailed metadata: size, type (incl. `symlink` + target), permissions, modified time                                                         |
 | `view_file`           | Read text file contents (max 10 MB) with offset/limit                                                                                        |
@@ -73,17 +73,17 @@ shell commands and interactive terminals, WSL, user settings and remote
 servers. Existing file tools retain their root checks. The session starts in
 the configured root or an initial `path` validated inside it.
 
-| Tool | Parameters and behavior |
-|---|---|
-| `ffm_session_start` | Optional `path`, `width` (120), `height` (40), `profile` (`system`); returns opaque `session_id`, protocol version and initial state |
-| `ffm_session_catalog` | `session_id`; returns canonical action/context names, descriptions and default keys |
-| `ffm_session_state` | `session_id`; returns current application state, rendered screen and jobs |
-| `ffm_session_action` | `session_id`, `context`, `action` from the catalog; uses normal application dispatch |
-| `ffm_session_input` | `session_id`, optional `keys`, `text`, `mouse`; follows active modal/editor/terminal input |
-| `ffm_session_wait` | `session_id`, optional `timeout_ms` (1000, maximum 10000); waits for work and returns state |
-| `ffm_session_resize` | `session_id`, `width` (20..400), `height` (8..200) |
-| `ffm_session_cancel` | `session_id`; requests active job or terminal cancellation |
-| `ffm_session_close` | `session_id`; closes this child session and releases it |
+| Tool                  | Parameters and behavior                                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `ffm_session_start`   | Optional `path`, `width` (120), `height` (40), `profile` (`system`); returns opaque `session_id`, protocol version and initial state |
+| `ffm_session_catalog` | `session_id`; returns canonical action/context names, descriptions and default keys                                                  |
+| `ffm_session_state`   | `session_id`; returns current application state, rendered screen and jobs                                                            |
+| `ffm_session_action`  | `session_id`, `context`, `action` from the catalog; uses normal application dispatch                                                 |
+| `ffm_session_input`   | `session_id`, optional `keys`, `text`, `mouse`; follows active modal/editor/terminal input                                           |
+| `ffm_session_wait`    | `session_id`, optional `timeout_ms` (1000, maximum 10000); waits for work and returns state                                          |
+| `ffm_session_resize`  | `session_id`, `width` (20..400), `height` (8..200)                                                                                   |
+| `ffm_session_cancel`  | `session_id`; requests active job or terminal cancellation                                                                           |
+| `ffm_session_close`   | `session_id`; closes this child session and releases it                                                                              |
 
 Call `start`, read `catalog`, then send actions or input and inspect `state` or
 `wait`; close the session when finished. Long actions return an accepted job
@@ -183,12 +183,12 @@ sources), then use **F9 → Commands → Install MCP server** in FFM. It registe
 `FFM_MCP_ROOT` set to that folder), and never rewrites a config it cannot
 parse. The files it writes:
 
-| Client | All projects | Current folder |
-|---|---|---|
-| Claude Code | via `claude mcp add --scope user`, or `add-json` to replace an entry (the user config the CLI uses: `~/.claude.json`, `$CLAUDE_CONFIG_DIR/.claude.json`, or a legacy `.config.json`) | `<folder>/.mcp.json` |
-| Codex | `$CODEX_HOME/config.toml`, else `~/.codex/config.toml` | `<folder>/.codex/config.toml` |
-| Junie | `~/.junie/mcp/mcp.json` | `<folder>/.junie/mcp/mcp.json` |
-| Kiro | `$KIRO_HOME/settings/mcp.json`, else `~/.kiro/settings/mcp.json` | `<folder>/.kiro/settings/mcp.json` |
+| Client      | All projects                                                                                                                                                                         | Current folder                     |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
+| Claude Code | via `claude mcp add --scope user`, or `add-json` to replace an entry (the user config the CLI uses: `~/.claude.json`, `$CLAUDE_CONFIG_DIR/.claude.json`, or a legacy `.config.json`) | `<folder>/.mcp.json`               |
+| Codex       | `$CODEX_HOME/config.toml`, else `~/.codex/config.toml`                                                                                                                               | `<folder>/.codex/config.toml`      |
+| Junie       | `~/.junie/mcp/mcp.json`                                                                                                                                                              | `<folder>/.junie/mcp/mcp.json`     |
+| Kiro        | `$KIRO_HOME/settings/mcp.json`, else `~/.kiro/settings/mcp.json`                                                                                                                     | `<folder>/.kiro/settings/mcp.json` |
 
 The keys, the two scopes and the rules for leaving files alone are in
 [session tools](../docs/session-tools.md#mcp-server-setup). **F11 → MCP
@@ -217,14 +217,14 @@ started in — set it explicitly, since a client-spawned process often inherits
 
 ### ⚙️ Environment Variables
 
-| Variable              | Default                   | Description                                                                                                       |
-|-----------------------|---------------------------|-------------------------------------------------------------------------------------------------------------------|
-| `RUST_LOG`            | `info`                    | Log level filter (trace/debug/info/warn/error)                                                                    |
-| `FFM_MCP_ROOT`        | process working directory | Allowed tree for file tools and initial application-session directories. Full application sessions can navigate outside it. |
-| `FFM_MCP_READONLY`    | *(unset)*                 | Set to `1` to start the server in read-only mode. All write, delete, move, copy, symlink, chmod, S3-upload, and KeePass-export tools return an error. Read tools (`view_file`, `list_directory`, `head_file`, etc.) are unaffected. Recommended when running under untrusted AI hosts. |
-| `FFM_MCP_ALLOW_KDBX`  | *(unset)*                 | Set to `1` to enable the `kbdx` tool. When unset (the default), any call to `kbdx` is refused. This opt-in prevents inadvertent plaintext vault exposure when the server is added to a shared MCP host. |
-| `FFM_MCP_ALLOW_APPLICATION` | *(unset)* | Set to `1` to enable all nine full-authority application-session tools. Every session tool is refused in read-only mode, including state/catalog. |
-| `FFM_MCP_FFM_BINARY` | `ffm` on `PATH` | Administrator-selected FFM binary used only with fixed headless arguments; read once at startup. |
+| Variable                    | Default                   | Description                                                                                                                                                                                                                                                                            |
+| --------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RUST_LOG`                  | `info`                    | Log level filter (trace/debug/info/warn/error)                                                                                                                                                                                                                                         |
+| `FFM_MCP_ROOT`              | process working directory | Allowed tree for file tools and initial application-session directories. Full application sessions can navigate outside it.                                                                                                                                                            |
+| `FFM_MCP_READONLY`          | *(unset)*                 | Set to `1` to start the server in read-only mode. All write, delete, move, copy, symlink, chmod, S3-upload, and KeePass-export tools return an error. Read tools (`view_file`, `list_directory`, `head_file`, etc.) are unaffected. Recommended when running under untrusted AI hosts. |
+| `FFM_MCP_ALLOW_KDBX`        | *(unset)*                 | Set to `1` to enable the `kbdx` tool. When unset (the default), any call to `kbdx` is refused. This opt-in prevents inadvertent plaintext vault exposure when the server is added to a shared MCP host.                                                                                |
+| `FFM_MCP_ALLOW_APPLICATION` | *(unset)*                 | Set to `1` to enable all nine full-authority application-session tools. Every session tool is refused in read-only mode, including state/catalog.                                                                                                                                      |
+| `FFM_MCP_FFM_BINARY`        | `ffm` on `PATH`           | Administrator-selected FFM binary used only with fixed headless arguments; read once at startup.                                                                                                                                                                                       |
 
 ### 🔐 Security: `FFM_MCP_ALLOW_KDBX` and `FFM_MCP_READONLY`
 
@@ -303,7 +303,7 @@ Every tool argument arrives from an AI client and is treated as untrusted input.
 ## 📚 Dependencies
 
 | Crate                | Version | Purpose                                            |
-|----------------------|---------|----------------------------------------------------|
+| -------------------- | ------- | -------------------------------------------------- |
 | `rmcp`               | 3.x     | Official MCP SDK (server + stdio transport)        |
 | `serde`              | 1.x     | Serialization                                      |
 | `serde_json`         | 1.x     | JSON handling                                      |

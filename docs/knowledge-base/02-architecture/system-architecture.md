@@ -111,12 +111,12 @@ Input is translated into a small domain-specific language (DSL), represented
 by Rust enums, before an interpreter changes state or invokes an operation.
 The language records the user's intent; the interpreter owns its consequences.
 
-| Input context | Typed language | Interpreter |
-|---|---|---|
-| Main view | `Action`, resolved by `action::resolve(bindings, KeyEvent)` over `App.keymap.panels` | `application/dispatch.rs` |
-| Editor buffer | `EditorCommand`, resolved by `action::editor::resolve(bindings, KeyEvent)` over `App.keymap.editor` | `popup/editor.rs::apply_editor_command` |
-| WSL manager | `WslCommand`, resolved by `action::wsl::resolve(&app.keymap.wsl_manager, KeyEvent)` | `popup/wsl.rs` |
-| Submitted command line | `Command`, parsed and validated in `command.rs` | `ops/dispatch.rs` |
+| Input context          | Typed language                                                                                      | Interpreter                             |
+| ---------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| Main view              | `Action`, resolved by `action::resolve(bindings, KeyEvent)` over `App.keymap.panels`                | `application/dispatch.rs`               |
+| Editor buffer          | `EditorCommand`, resolved by `action::editor::resolve(bindings, KeyEvent)` over `App.keymap.editor` | `popup/editor.rs::apply_editor_command` |
+| WSL manager            | `WslCommand`, resolved by `action::wsl::resolve(&app.keymap.wsl_manager, KeyEvent)`                 | `popup/wsl.rs`                          |
+| Submitted command line | `Command`, parsed and validated in `command.rs`                                                     | `ops/dispatch.rs`                       |
 
 ```mermaid
 flowchart LR
@@ -142,12 +142,12 @@ flowchart LR
 The shared `keymap!` syntax in `action/keymap.rs` describes ordered bindings
 where it is used. The first match wins, and modifier policy is explicit:
 
-| Binding clause | Meaning |
-|---|---|
-| `has(SHIFT)` | Requires Shift and allows additional modifiers |
-| `exact(CONTROL)` | Requires Control alone, as for editor copy |
-| `without(CONTROL + ALT)` | Rejects either modifier, as for inserted text |
-| No clause | Matches the key regardless of modifiers |
+| Binding clause           | Meaning                                        |
+| ------------------------ | ---------------------------------------------- |
+| `has(SHIFT)`             | Requires Shift and allows additional modifiers |
+| `exact(CONTROL)`         | Requires Control alone, as for editor copy     |
+| `without(CONTROL + ALT)` | Rejects either modifier, as for inserted text  |
+| No clause                | Matches the key regardless of modifiers        |
 
 The panels' and editor's keys are rows of their tables in `src/keymap/tables/`,
 held by `App.keymap.panels` and `App.keymap.editor`. They match exactly: a
@@ -424,15 +424,15 @@ directory. When the launch directory itself was deleted before ffm started,
 shell's `PWD`, then the home folder (`panel_session::start_directory`). The event loop checkpoints changed directory pairs before rendering
 and flushes them once when it returns: the flush fsyncs the new contents but not the rename, so a power loss can roll back to the previous file. A default `App` never enables this persistence.
 
-| Store | Owner and lifetime | Boundary |
-|---|---|---|
-| Command history | `history`, optionally persisted | `DurableLine` admits supported durable commands and rejects shell/invalid lines; each save re-reads the file first, so running instances merge rather than overwrite |
-| Command transcript | `console`, process memory | Shell output is not written as history |
-| Bookmarks | `models/bookmarks`, data directory | `ffm/bookmarks`, one `<slot> <path>` line per saved slot; written on `bookmark set` after re-reading the file |
-| Panel directories | `panel_session`, config directory | Atomic `panel-session.json`; unchanged paths cause no writes; checkpoints skip the fsync; the exit save fsyncs the new contents but not the rename, so a power loss can roll back to the previous file; independent of setup autosave |
-| Diagnostic logs | `diagnostics`: on by default in the file manager (`FFM_LOG=0` turns it off), off in tests unless `FFM_LOG=1` | Character key payloads are redacted; tests supply temporary paths |
-| Editor clipboard | `models/clipboard` owns the session backend | `ops/editor/clipboard` coordinates copy/paste; UI only renders selection and feedback |
-| KeePass browser | `kdbx`, under `keepass` | Session and secret types back `Overlay::Kdbx`; clipboard access has its own adapter |
+| Store              | Owner and lifetime                                                                                           | Boundary                                                                                                                                                                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Command history    | `history`, optionally persisted                                                                              | `DurableLine` admits supported durable commands and rejects shell/invalid lines; each save re-reads the file first, so running instances merge rather than overwrite                                                                  |
+| Command transcript | `console`, process memory                                                                                    | Shell output is not written as history                                                                                                                                                                                                |
+| Bookmarks          | `models/bookmarks`, data directory                                                                           | `ffm/bookmarks`, one `<slot> <path>` line per saved slot; written on `bookmark set` after re-reading the file                                                                                                                         |
+| Panel directories  | `panel_session`, config directory                                                                            | Atomic `panel-session.json`; unchanged paths cause no writes; checkpoints skip the fsync; the exit save fsyncs the new contents but not the rename, so a power loss can roll back to the previous file; independent of setup autosave |
+| Diagnostic logs    | `diagnostics`: on by default in the file manager (`FFM_LOG=0` turns it off), off in tests unless `FFM_LOG=1` | Character key payloads are redacted; tests supply temporary paths                                                                                                                                                                     |
+| Editor clipboard   | `models/clipboard` owns the session backend                                                                  | `ops/editor/clipboard` coordinates copy/paste; UI only renders selection and feedback                                                                                                                                                 |
+| KeePass browser    | `kdbx`, under `keepass`                                                                                      | Session and secret types back `Overlay::Kdbx`; clipboard access has its own adapter                                                                                                                                                   |
 
 The KeePass browser is wired into the crate through `ops/vault`, `popup/kdbx`,
 `ui/kdbx`, and `models/vault_browser`. S3 remains behind `s3`; its client exposes

@@ -55,9 +55,9 @@ Final repeated measurements used 20 samples, 0.5 s warmup, and 2 s measurement
 time. The group sets 20 samples itself. Results below are Criterion means and
 their 95% confidence intervals:
 
-| Measurement | Before mean [95% CI] | After mean [95% CI] |
-|---|---:|---:|
-| Progress scan | 285.50967 µs [284.82605, 286.58379] | 60.29043 µs [59.92988, 60.69084] |
+| Measurement   |                   Before mean [95% CI] |                    After mean [95% CI] |
+| ------------- | -------------------------------------: | -------------------------------------: |
+| Progress scan |    285.50967 µs [284.82605, 286.58379] |       60.29043 µs [59.92988, 60.69084] |
 | Full deletion | 1.71233240 ms [1.70328402, 1.72207687] | 1.46277897 ms [1.45243300, 1.47316425] |
 
 The scan is **4.735 times faster**; full deletion elapsed time falls by

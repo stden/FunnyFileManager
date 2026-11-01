@@ -8,6 +8,10 @@ import sys
 import unittest
 
 from ffm_case import LauncherTest, status
+from lint_case import ALL_LINES
+
+# The checks that ./ffm.py lint names in its gate label and in its help: those lint.py reports running.
+LINT_CHECKS = "fmt + spelling + markdown + complexity + duplication + clippy"
 
 
 class TestCommandTests(LauncherTest):
@@ -114,10 +118,16 @@ class LintTests(LauncherTest):
                 self.forget_calls()
                 result = self.ffm("lint", *args, cwd=self.sandbox.home)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(result.stdout, status("Running Rust linter gate (fmt + spelling + clippy)..."))
+                self.assertEqual(result.stdout, status(f"Running Rust linter gate ({LINT_CHECKS})..."))
                 self.assertEqual(self.names(), ["cargo_preflight", "lint"])
                 call = self.sandbox.calls("lint")[0]
                 self.assertEqual((call.args, call.cwd), ([mode], str(self.repo)))
+
+    def test_the_help_and_the_gate_label_list_the_checks_that_lint_runs(self):
+        # lint.py's last line names what it ran. The help wraps the list over two lines.
+        self.assertIn(f"✓ lint OK ({LINT_CHECKS})", ALL_LINES)
+        words = " ".join(self.ffm("help").stdout.split())
+        self.assertIn(f"lint [mode] Rust linter gate ({LINT_CHECKS}; see scripts/lint.py)", words)
 
     def test_lint_exits_with_the_lint_status(self):
         self.sandbox.fake("lint", path=self.repo / "scripts/lint.py", status=3)

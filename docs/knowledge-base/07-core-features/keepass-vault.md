@@ -9,10 +9,10 @@ panel overlay. The feature is **optional but on by default**
 
 Two layers, deliberately separated:
 
-| Layer | File | Knows about |
-|-------|------|-------------|
-| Storage | `src/keepass.rs` | the `keepass` crate, files, encryption |
-| State machine | `src/kdbx.rs` (+ `src/kdbx/`) | locked/unlocked, filter, reveal, undo |
+| Layer         | File                          | Knows about                            |
+| ------------- | ----------------------------- | -------------------------------------- |
+| Storage       | `src/keepass.rs`              | the `keepass` crate, files, encryption |
+| State machine | `src/kdbx.rs` (+ `src/kdbx/`) | locked/unlocked, filter, reveal, undo  |
 
 `src/kdbx.rs` intentionally knows nothing about `crossterm`; keys are mapped by
 `src/popup/kdbx.rs`, rendering by `src/ui/kdbx.rs`.
@@ -105,22 +105,22 @@ This is the part to read before touching any of these files.
 
 ## ⌨️ Keys inside the overlay
 
-| Key | Action |
-|-----|--------|
-| `Enter` (locked) | Attempt unlock |
-| `Enter` (unlocked) | Copy password to clipboard |
-| `Ctrl+U` | Copy username |
-| `Ctrl+R` (locked) | Toggle master-password visibility |
-| `Ctrl+R` (unlocked) | Toggle reveal of the selected password |
-| `Ctrl+L` / `Ctrl+C` | Lock the vault |
-| `Ctrl+Z` | Undo the last vault change (one level) |
-| `F4` | Edit the selected entry (escalates to `Access::Edit`) |
-| `F6` | Toggle view/edit mode |
-| `F8` | Delete the selected entry (confirmed) |
-| `Up`/`Down`/`PgUp`/`PgDn`/`Home`/`End` | Move the cursor (`Motion`) |
-| printable char | Append to the incremental filter |
-| `Backspace` | Shorten the filter |
-| `Esc` | Close the overlay |
+| Key                                    | Action                                                |
+| -------------------------------------- | ----------------------------------------------------- |
+| `Enter` (locked)                       | Attempt unlock                                        |
+| `Enter` (unlocked)                     | Copy password to clipboard                            |
+| `Ctrl+U`                               | Copy username                                         |
+| `Ctrl+R` (locked)                      | Toggle master-password visibility                     |
+| `Ctrl+R` (unlocked)                    | Toggle reveal of the selected password                |
+| `Ctrl+L` / `Ctrl+C`                    | Lock the vault                                        |
+| `Ctrl+Z`                               | Undo the last vault change (one level)                |
+| `F4`                                   | Edit the selected entry (escalates to `Access::Edit`) |
+| `F6`                                   | Toggle view/edit mode                                 |
+| `F8`                                   | Delete the selected entry (confirmed)                 |
+| `Up`/`Down`/`PgUp`/`PgDn`/`Home`/`End` | Move the cursor (`Motion`)                            |
+| printable char                         | Append to the incremental filter                      |
+| `Backspace`                            | Shorten the filter                                    |
+| `Esc`                                  | Close the overlay                                     |
 
 > **Every other key must be swallowed** by returning `true`. A `_ => false`
 > fall-through in the command-line overlay once let `F8` reach the panel and
@@ -143,14 +143,14 @@ string cannot be split back reliably.
 
 ## 📚 Storage API (`src/keepass.rs`)
 
-| Function | Purpose |
-|----------|---------|
-| `list_entries` | All entries as `EntrySummary` |
-| `read_entry` / `read_entry_by_id` | Full `EntryDetails` incl. plaintext password |
-| `create_database` | New vault; refuses to overwrite (`AlreadyExists`) |
-| `upsert_entry` / `update_entry` / `update_entry_by_id` | Write one entry |
-| `delete_entry_by_id` | Remove one entry |
-| `export` / `to_json` / `to_yaml` / `export_json` / `export_yaml` | Structured dump |
+| Function                                                         | Purpose                                           |
+| ---------------------------------------------------------------- | ------------------------------------------------- |
+| `list_entries`                                                   | All entries as `EntrySummary`                     |
+| `read_entry` / `read_entry_by_id`                                | Full `EntryDetails` incl. plaintext password      |
+| `create_database`                                                | New vault; refuses to overwrite (`AlreadyExists`) |
+| `upsert_entry` / `update_entry` / `update_entry_by_id`           | Write one entry                                   |
+| `delete_entry_by_id`                                             | Remove one entry                                  |
+| `export` / `to_json` / `to_yaml` / `export_json` / `export_yaml` | Structured dump                                   |
 
 Errors are a closed enum, `KeepassError`: `Open`, `Save`, `Io`, `EntryNotFound`,
 `AlreadyExists`, `Serialize`.

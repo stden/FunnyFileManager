@@ -42,11 +42,11 @@ Rust 1.95. The lint gate treats warnings as errors and applies the same
 readability limits to production code and tests (the reliability lint families
 are in `docs/knowledge-base/04-development-workflow/build-run-test.md`):
 
-| Rule | Limit | What to improve |
-|---|---|---|
-| `too_many_lines` | 30 lines per function, as counted by Clippy | Separate coherent responsibilities into named functions |
-| `excessive_nesting` | Depth 4, including surrounding blocks such as `impl` | Use guard clauses, early returns, and focused helpers |
-| `cognitive_complexity` | Score 25 | Reduce branching and separate decisions from their effects |
+| Rule                   | Limit                                                | What to improve                                            |
+| ---------------------- | ---------------------------------------------------- | ---------------------------------------------------------- |
+| `too_many_lines`       | 30 lines per function, as counted by Clippy          | Separate coherent responsibilities into named functions    |
+| `excessive_nesting`    | Depth 4, including surrounding blocks such as `impl` | Use guard clauses, early returns, and focused helpers      |
+| `cognitive_complexity` | Score 25                                             | Reduce branching and separate decisions from their effects |
 
 Clippy describes cognitive complexity as an imperfect heuristic and recommends
 length and nesting checks for more direct structural feedback. These limits
@@ -78,7 +78,7 @@ This project strongly prefers rich domain types over raw primitives (`bool`, `&s
 
 ### 💡 Core Principles
 
-- **Prefer enums over multiple booleans or Options for state.**  
+- **Prefer enums over multiple booleans or Options for state.**
   Multiple `bool` / `Option` fields (e.g., `show_help`, `viewer`, `command_line`, `show_drives`, `delete_confirm`) allow illegal combinations. Use a single `enum` instead.
 
   Example from this codebase:
@@ -96,7 +96,7 @@ This project strongly prefers rich domain types over raw primitives (`bool`, `&s
   The `CommandLine` state owns both its editable buffer and its completion
   menu, so the overlay cannot hold one without the other.
 
-- **Use newtypes (tuple structs) for domain values instead of primitives.**  
+- **Use newtypes (tuple structs) for domain values instead of primitives.**
   `BookmarkSlot(u8)`, `UserId(u64)`, `FileSize(u64)`, `Email(String)` etc. give semantic meaning and allow invariants at construction time.
 
   ```rust
@@ -109,7 +109,7 @@ This project strongly prefers rich domain types over raw primitives (`bool`, `&s
   }
   ```
 
-- **Make illegal states unrepresentable at the type level.**  
+- **Make illegal states unrepresentable at the type level.**
   Instead of:
   ```rust
   struct Order { status: String, tracking: Option<String>, cancel_reason: Option<String> }
@@ -124,10 +124,10 @@ This project strongly prefers rich domain types over raw primitives (`bool`, `&s
   }
   ```
 
-- **Exhaustive matching is a feature.**  
+- **Exhaustive matching is a feature.**
   Adding a new variant to an enum forces you to handle it everywhere. This catches bugs at compile time.
 
-- **Validate at the boundary ("parse, don't validate").**  
+- **Validate at the boundary ("parse, don't validate").**
   Turn raw input (`&str`, `u64`) into a validated rich type as early as possible (e.g., in `Command::parse`, constructors for newtypes). After that point, the type guarantees correctness.
 
 ### 🧐 When to Apply in This Codebase

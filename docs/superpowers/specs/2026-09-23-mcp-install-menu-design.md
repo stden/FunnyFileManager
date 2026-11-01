@@ -160,18 +160,18 @@ Layout rules:
 "Presence" is `detected` or `not detected` (§5.3). "State" is the config's
 state for the selected scope (§5.4).
 
-| State (`ConfigState`) | Label | Enabled | Default mark |
-|---|---|---|---|
-| `NoConfig` (file absent) | `— no config` | yes | checked if detected |
-| `NotConfigured` (file parses, no `ffm-mcp`) | `⊘ not configured` | yes | checked if detected |
-| `DifferentEntry` (other command, args or root) | `≠ different entry` | yes | checked (it will be updated) |
-| `Registered` | `✓ registered` | no (dimmed) | checked (shown as done) |
-| `Blocked(Unparsable)` | `✗ config does not parse` | no | unchecked |
-| `Blocked(UnexpectedLayout)` | `✗ unexpected config layout` | no | unchecked |
-| `Blocked(Unreadable)` | `✗ config unreadable` | no | unchecked |
-| `Blocked(NeedsClaudeCli)` | `✗ needs the claude CLI` | no | unchecked |
-| `Blocked(HomeVarNotFolder(v))` | `✗ $CODEX_HOME is not a folder` (the variable named) | no | unchecked |
-| `Blocked(NoHomeFolder)` | `✗ no home folder` | no | unchecked |
+| State (`ConfigState`)                          | Label                                                | Enabled     | Default mark                 |
+| ---------------------------------------------- | ---------------------------------------------------- | ----------- | ---------------------------- |
+| `NoConfig` (file absent)                       | `— no config`                                        | yes         | checked if detected          |
+| `NotConfigured` (file parses, no `ffm-mcp`)    | `⊘ not configured`                                   | yes         | checked if detected          |
+| `DifferentEntry` (other command, args or root) | `≠ different entry`                                  | yes         | checked (it will be updated) |
+| `Registered`                                   | `✓ registered`                                       | no (dimmed) | checked (shown as done)      |
+| `Blocked(Unparsable)`                          | `✗ config does not parse`                            | no          | unchecked                    |
+| `Blocked(UnexpectedLayout)`                    | `✗ unexpected config layout`                         | no          | unchecked                    |
+| `Blocked(Unreadable)`                          | `✗ config unreadable`                                | no          | unchecked                    |
+| `Blocked(NeedsClaudeCli)`                      | `✗ needs the claude CLI`                             | no          | unchecked                    |
+| `Blocked(HomeVarNotFolder(v))`                 | `✗ $CODEX_HOME is not a folder` (the variable named) | no          | unchecked                    |
+| `Blocked(NoHomeFolder)`                        | `✗ no home folder`                                   | no          | unchecked                    |
 
 - **Server missing.** Every row is disabled. Rows keep their mark: registered
   rows show `[x]` and all others show `[ ]`. `Register` is disabled.
@@ -186,24 +186,24 @@ state for the selected scope (§5.4).
 Keys, as the Add to archive dialog (`src/popup/archive_prompt.rs`) handles
 them:
 
-| Key | Effect |
-|---|---|
-| Tab, Down / Shift+Tab, Up | Next / previous control in the focus order: the scope radio, then enabled client rows in table order, then `Register` (when enabled), then `Cancel`. Disabled rows are skipped. |
-| Left / Right on the radio | Switch scope. Calls `ops::mcp_install::switch_scope`, which surveys again for the new scope and resets every mark to that scope's defaults. Does nothing when the folder is not available. |
-| Space on a client row | Toggle its mark. |
-| Enter | On `Cancel` it cancels. Anywhere else it registers the checked rows (the default button). With the server missing it closes the dialog. With nothing checked the dialog stays open and the status line says `Nothing to register: check a client first`. |
-| Esc, F10 | Close without changes. |
-| Mouse | `Register` / `Cancel` through `dialog_button_key` (`application/dispatch/dialog_mouse/button_keys.rs`). A click sets the focus to that button and sends Enter, as `archive_button_key` does. |
+| Key                       | Effect                                                                                                                                                                                                                                                   |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tab, Down / Shift+Tab, Up | Next / previous control in the focus order: the scope radio, then enabled client rows in table order, then `Register` (when enabled), then `Cancel`. Disabled rows are skipped.                                                                          |
+| Left / Right on the radio | Switch scope. Calls `ops::mcp_install::switch_scope`, which surveys again for the new scope and resets every mark to that scope's defaults. Does nothing when the folder is not available.                                                               |
+| Space on a client row     | Toggle its mark.                                                                                                                                                                                                                                         |
+| Enter                     | On `Cancel` it cancels. Anywhere else it registers the checked rows (the default button). With the server missing it closes the dialog. With nothing checked the dialog stays open and the status line says `Nothing to register: check a client first`. |
+| Esc, F10                  | Close without changes.                                                                                                                                                                                                                                   |
+| Mouse                     | `Register` / `Cancel` through `dialog_button_key` (`application/dispatch/dialog_mouse/button_keys.rs`). A click sets the focus to that button and sends Enter, as `archive_button_key` does.                                                             |
 
 Focus starts on the scope radio.
 
 ### 4.4 The scope switch
 
-| | All projects (`Scope::AllProjects`) | Current folder (`Scope::CurrentFolder`) |
-|---|---|---|
-| Files | User-level (§5.5) | `<folder>/…` (§5.5) |
+|                             | All projects (`Scope::AllProjects`)                                                             | Current folder (`Scope::CurrentFolder`)                                                                                                                                                    |
+| --------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Files                       | User-level (§5.5)                                                                               | `<folder>/…` (§5.5)                                                                                                                                                                        |
 | `FFM_MCP_ROOT` in the entry | Must be absent. It is removed if present, because a fixed root would contradict "all projects". | Set to the absolute folder path. This follows the research recommendation for Kiro and Junie. The entry is machine-specific in either case, because `command` is already an absolute path. |
-| Notes shown | Junie and Kiro: working-directory warning | Claude Code: approval prompt. Codex: trusted folders only. |
+| Notes shown                 | Junie and Kiro: working-directory warning                                                       | Claude Code: approval prompt. Codex: trusted folders only.                                                                                                                                 |
 
 ### 4.5 Result reporting
 
@@ -274,12 +274,12 @@ pub struct Client {
 }
 ```
 
-| `id` | `name` | `programs` | `home_var` | `home_dir` | `user_config` | `project_config` | `format` | `user_level` |
-|---|---|---|---|---|---|---|---|---|
-| `ClaudeCode` | Claude Code | `claude` | `CLAUDE_CONFIG_DIR` | `""` | `.claude.json` | `.mcp.json` | Json | `ClaudeCli` |
-| `Codex` | Codex | `codex` | `CODEX_HOME` | `.codex` | `config.toml` | `.codex/config.toml` | Toml | `EditFile` |
-| `Junie` | Junie | `junie` | none | `.junie` | `mcp/mcp.json` | `.junie/mcp/mcp.json` | Json | `EditFile` |
-| `Kiro` | Kiro | `kiro`, `kiro-cli` | `KIRO_HOME` | `.kiro` | `settings/mcp.json` | `.kiro/settings/mcp.json` | Json | `EditFile` |
+| `id`         | `name`      | `programs`         | `home_var`          | `home_dir` | `user_config`       | `project_config`          | `format` | `user_level` |
+| ------------ | ----------- | ------------------ | ------------------- | ---------- | ------------------- | ------------------------- | -------- | ------------ |
+| `ClaudeCode` | Claude Code | `claude`           | `CLAUDE_CONFIG_DIR` | `""`       | `.claude.json`      | `.mcp.json`               | Json     | `ClaudeCli`  |
+| `Codex`      | Codex       | `codex`            | `CODEX_HOME`        | `.codex`   | `config.toml`       | `.codex/config.toml`      | Toml     | `EditFile`   |
+| `Junie`      | Junie       | `junie`            | none                | `.junie`   | `mcp/mcp.json`      | `.junie/mcp/mcp.json`     | Json     | `EditFile`   |
+| `Kiro`       | Kiro        | `kiro`, `kiro-cli` | `KIRO_HOME`         | `.kiro`    | `settings/mcp.json` | `.kiro/settings/mcp.json` | Json     | `EditFile`   |
 
 Notes carried by the table:
 
@@ -302,12 +302,12 @@ How the table is used:
 
 ### 5.2 Resolved paths
 
-| Client | All projects | Current folder |
-|---|---|---|
-| Claude Code | where the CLI looks (below); FFM only reads it | `<dir>/.mcp.json` |
-| Codex | `$CODEX_HOME/config.toml`, else `~/.codex/config.toml` | `<dir>/.codex/config.toml` |
-| Junie | `~/.junie/mcp/mcp.json` | `<dir>/.junie/mcp/mcp.json` |
-| Kiro | `$KIRO_HOME/settings/mcp.json`, else `~/.kiro/settings/mcp.json` | `<dir>/.kiro/settings/mcp.json` |
+| Client      | All projects                                                     | Current folder                  |
+| ----------- | ---------------------------------------------------------------- | ------------------------------- |
+| Claude Code | where the CLI looks (below); FFM only reads it                   | `<dir>/.mcp.json`               |
+| Codex       | `$CODEX_HOME/config.toml`, else `~/.codex/config.toml`           | `<dir>/.codex/config.toml`      |
+| Junie       | `~/.junie/mcp/mcp.json`                                          | `<dir>/.junie/mcp/mcp.json`     |
+| Kiro        | `$KIRO_HOME/settings/mcp.json`, else `~/.kiro/settings/mcp.json` | `<dir>/.kiro/settings/mcp.json` |
 
 - **Home folder.** On Unix it is `HOME`. On Windows it is `USERPROFILE`,
   then `HOME`: that is what Node's `os.homedir()` (Claude) and Rust's
@@ -420,12 +420,12 @@ are not read (§10).
 
 ### 5.5 Writing, per client and scope
 
-| Client | Scope | How | Written entry |
-|---|---|---|---|
-| Claude Code | All projects | `claude mcp add --scope user --transport stdio ffm-mcp -- <server>`, working directory = Claude's home. When the state is `DifferentEntry`, `claude mcp remove --scope user ffm-mcp` runs first, because `add` refuses a name that already exists, and then `claude mcp add-json --scope user ffm-mcp '<entry>'` with the old entry merged exactly as a file edit would merge it (rule 2 below), so its `env` and every key Claude knows survive; `add` would keep only the command. | Written by claude: `{"type":"stdio","command":"<server>","args":[],"env":{}}`, or the merged entry |
-| Claude Code | Current folder | FFM edits `<dir>/.mcp.json`. This is a documented, shared file format, so no CLI is needed. | `{"command":"<server>","args":[],"env":{"FFM_MCP_ROOT":"<dir>"}}`. `type` is optional and defaults to stdio. A `type` already in the file is kept. |
-| Codex | both | FFM edits the TOML file with `toml_edit`. | `[mcp_servers.ffm-mcp]` with `command = "<server>"`, `args = []`, plus `[mcp_servers.ffm-mcp.env]` `FFM_MCP_ROOT = "<dir>"` at Current folder |
-| Junie, Kiro | both | FFM edits the JSON file. | `{"command":"<server>","args":[],"env":{}}`, with `FFM_MCP_ROOT` at Current folder. No `type` key. |
+| Client      | Scope          | How                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Written entry                                                                                                                                      |
+| ----------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | All projects   | `claude mcp add --scope user --transport stdio ffm-mcp -- <server>`, working directory = Claude's home. When the state is `DifferentEntry`, `claude mcp remove --scope user ffm-mcp` runs first, because `add` refuses a name that already exists, and then `claude mcp add-json --scope user ffm-mcp '<entry>'` with the old entry merged exactly as a file edit would merge it (rule 2 below), so its `env` and every key Claude knows survive; `add` would keep only the command. | Written by claude: `{"type":"stdio","command":"<server>","args":[],"env":{}}`, or the merged entry                                                 |
+| Claude Code | Current folder | FFM edits `<dir>/.mcp.json`. This is a documented, shared file format, so no CLI is needed.                                                                                                                                                                                                                                                                                                                                                                                          | `{"command":"<server>","args":[],"env":{"FFM_MCP_ROOT":"<dir>"}}`. `type` is optional and defaults to stdio. A `type` already in the file is kept. |
+| Codex       | both           | FFM edits the TOML file with `toml_edit`.                                                                                                                                                                                                                                                                                                                                                                                                                                            | `[mcp_servers.ffm-mcp]` with `command = "<server>"`, `args = []`, plus `[mcp_servers.ffm-mcp.env]` `FFM_MCP_ROOT = "<dir>"` at Current folder      |
+| Junie, Kiro | both           | FFM edits the JSON file.                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `{"command":"<server>","args":[],"env":{}}`, with `FFM_MCP_ROOT` at Current folder. No `type` key.                                                 |
 
 **Codex writes the file at both scopes.** The alternative was running
 `codex mcp add` at All projects. The file edit won for three reasons:
@@ -518,24 +518,24 @@ Result:
 
 ### 5.7 Failure handling
 
-| Situation | Found at | Dialog | Register | Report |
-|---|---|---|---|---|
-| Config does not parse | survey and again before writing | dimmed `✗ config does not parse` | skipped | `<path> does not parse (<message>); left untouched. Fix or remove it, then register again.` |
-| Config has an unexpected layout | same | dimmed `✗ unexpected config layout` | skipped | `<path>: <key> is not an object; left untouched` |
-| Config unreadable | same | dimmed `✗ config unreadable` | skipped | `cannot read <path>: <error>` |
-| Cannot write (permission denied, read-only filesystem, parent is a file) | Register | — | `ensure_writable`, `create_dir_all`, temp file or rename fails; the file is untouched | `cannot write <path>: <error>` |
-| `claude` not on PATH (Claude Code, All projects) | survey | dimmed `✗ needs the claude CLI` | — | — |
-| `claude` gone by the time Register runs | Register (`NotFound`, and the program is no longer a file) | — | failed | `claude CLI not found` |
-| Any other `NotFound` from the run (a working or temp folder that is gone) | Register | — | failed | the error, plus the command to run by hand |
-| `claude` runs past 30 s | Register (`TimedOut`) | — | child killed, failed | `claude did not finish within 30 s. Run by hand: <add command>` |
-| `claude` exits non-zero | Register | — | failed | last drawable stderr line (`console::first_drawable`), plus the command to run by hand |
-| `remove` failed | Register | — | failed | the reason. `Run by hand: claude mcp remove --scope user ffm-mcp && claude mcp add-json --scope user ffm-mcp '<entry>'` |
-| `remove` succeeded, `add-json` failed or was not verified | Register | — | failed | `the old entry was removed but the new one was not added: <reason>. Run by hand: <add-json command>` |
-| `add` exited 0 but the entry is missing or differs | Register (read again) | — | failed | `claude reported success but <path> has no matching ffm-mcp entry` |
-| Override variable is not a folder / no home folder | survey | dimmed, as §4.2 | skipped | — |
-| Server missing or not Unicode | open | §4.1 second drawing | Enter closes | — |
-| Active panel is not a local folder | open | folder line explains; radio fixed on All projects | — | — |
-| Nothing checked | Register | stays open | status `Nothing to register: check a client first` | — |
+| Situation                                                                 | Found at                                                   | Dialog                                            | Register                                                                              | Report                                                                                                                  |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Config does not parse                                                     | survey and again before writing                            | dimmed `✗ config does not parse`                  | skipped                                                                               | `<path> does not parse (<message>); left untouched. Fix or remove it, then register again.`                             |
+| Config has an unexpected layout                                           | same                                                       | dimmed `✗ unexpected config layout`               | skipped                                                                               | `<path>: <key> is not an object; left untouched`                                                                        |
+| Config unreadable                                                         | same                                                       | dimmed `✗ config unreadable`                      | skipped                                                                               | `cannot read <path>: <error>`                                                                                           |
+| Cannot write (permission denied, read-only filesystem, parent is a file)  | Register                                                   | —                                                 | `ensure_writable`, `create_dir_all`, temp file or rename fails; the file is untouched | `cannot write <path>: <error>`                                                                                          |
+| `claude` not on PATH (Claude Code, All projects)                          | survey                                                     | dimmed `✗ needs the claude CLI`                   | —                                                                                     | —                                                                                                                       |
+| `claude` gone by the time Register runs                                   | Register (`NotFound`, and the program is no longer a file) | —                                                 | failed                                                                                | `claude CLI not found`                                                                                                  |
+| Any other `NotFound` from the run (a working or temp folder that is gone) | Register                                                   | —                                                 | failed                                                                                | the error, plus the command to run by hand                                                                              |
+| `claude` runs past 30 s                                                   | Register (`TimedOut`)                                      | —                                                 | child killed, failed                                                                  | `claude did not finish within 30 s. Run by hand: <add command>`                                                         |
+| `claude` exits non-zero                                                   | Register                                                   | —                                                 | failed                                                                                | last drawable stderr line (`console::first_drawable`), plus the command to run by hand                                  |
+| `remove` failed                                                           | Register                                                   | —                                                 | failed                                                                                | the reason. `Run by hand: claude mcp remove --scope user ffm-mcp && claude mcp add-json --scope user ffm-mcp '<entry>'` |
+| `remove` succeeded, `add-json` failed or was not verified                 | Register                                                   | —                                                 | failed                                                                                | `the old entry was removed but the new one was not added: <reason>. Run by hand: <add-json command>`                    |
+| `add` exited 0 but the entry is missing or differs                        | Register (read again)                                      | —                                                 | failed                                                                                | `claude reported success but <path> has no matching ffm-mcp entry`                                                      |
+| Override variable is not a folder / no home folder                        | survey                                                     | dimmed, as §4.2                                   | skipped                                                                               | —                                                                                                                       |
+| Server missing or not Unicode                                             | open                                                       | §4.1 second drawing                               | Enter closes                                                                          | —                                                                                                                       |
+| Active panel is not a local folder                                        | open                                                       | folder line explains; radio fixed on All projects | —                                                                                     | —                                                                                                                       |
+| Nothing checked                                                           | Register                                                   | stays open                                        | status `Nothing to register: check a client first`                                    | —                                                                                                                       |
 
 One client's failure never stops the others. Rows are processed in table
 order, and each gets one outcome.
@@ -666,19 +666,19 @@ Style rules for these types:
 The layout follows the AGENTS.md ownership map and
 `tests/module_boundaries`:
 
-| File | Owns |
-|---|---|
-| `src/mcp_clients.rs` (+ `json.rs`, `codex_toml.rs`, tests) | §7.1. A root domain module like `packages` / `path_env`, declared `pub mod mcp_clients;` in `lib.rs`. |
-| `src/ops/mcp_install.rs` | `open(app)`, `switch_scope(app, Direction)` and `register(app)`: the entry points the menu and popup call |
-| `src/ops/mcp_install/survey.rs` | `survey(host, scope, folder)`, `locate_server`, `find_program`, presence and state reading (the only `std::fs` reads) |
-| `src/ops/mcp_install/config_file.rs` | The atomic, symlink-following write from §5.5 |
-| `src/ops/mcp_install/claude.rs` | The `claude` remove/add calls and the check after them |
-| `src/ops/mcp_install/report.rs` | `Outcome`, `Failure`, report lines, status line |
-| `src/ops/mcp_install/system.rs` | `system_host()`, which reads `HOME`/`USERPROFILE`, the table's `home_var`s, `PATH`, `PATHEXT` and `current_exe()`. Also `SystemRunner`, which calls `ops::menu::process::capture_with_timeout`. |
-| `src/models/mcp_install.rs` | `McpInstallDialog { scope, folder, server, rows, field }`, `ClientRow { client, presence, state, mark }`, `Mark`, `McpInstallField { Scope, Client(ClientId), Register, Cancel }`, the focus order (`crate::cycle::step`, `crate::search::Direction`), `toggle`, default marks |
-| `src/popup/mcp_install.rs` | §4.3 keys, routed from `process_commands_dialog` in `src/popup.rs` |
-| `src/ui/mcp_install.rs` | §4.1 drawing, routed from `ui/overlays.rs` (846 lines, gains 1) |
-| `src/test_support/mcp_install.rs` | `FakeMachine` (tempdir home, folder, PATH dir and executable dir), `ClaudeEmulator` runner (§8) |
+| File                                                       | Owns                                                                                                                                                                                                                                                                           |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/mcp_clients.rs` (+ `json.rs`, `codex_toml.rs`, tests) | §7.1. A root domain module like `packages` / `path_env`, declared `pub mod mcp_clients;` in `lib.rs`.                                                                                                                                                                          |
+| `src/ops/mcp_install.rs`                                   | `open(app)`, `switch_scope(app, Direction)` and `register(app)`: the entry points the menu and popup call                                                                                                                                                                      |
+| `src/ops/mcp_install/survey.rs`                            | `survey(host, scope, folder)`, `locate_server`, `find_program`, presence and state reading (the only `std::fs` reads)                                                                                                                                                          |
+| `src/ops/mcp_install/config_file.rs`                       | The atomic, symlink-following write from §5.5                                                                                                                                                                                                                                  |
+| `src/ops/mcp_install/claude.rs`                            | The `claude` remove/add calls and the check after them                                                                                                                                                                                                                         |
+| `src/ops/mcp_install/report.rs`                            | `Outcome`, `Failure`, report lines, status line                                                                                                                                                                                                                                |
+| `src/ops/mcp_install/system.rs`                            | `system_host()`, which reads `HOME`/`USERPROFILE`, the table's `home_var`s, `PATH`, `PATHEXT` and `current_exe()`. Also `SystemRunner`, which calls `ops::menu::process::capture_with_timeout`.                                                                                |
+| `src/models/mcp_install.rs`                                | `McpInstallDialog { scope, folder, server, rows, field }`, `ClientRow { client, presence, state, mark }`, `Mark`, `McpInstallField { Scope, Client(ClientId), Register, Cancel }`, the focus order (`crate::cycle::step`, `crate::search::Direction`), `toggle`, default marks |
+| `src/popup/mcp_install.rs`                                 | §4.3 keys, routed from `process_commands_dialog` in `src/popup.rs`                                                                                                                                                                                                             |
+| `src/ui/mcp_install.rs`                                    | §4.1 drawing, routed from `ui/overlays.rs` (846 lines, gains 1)                                                                                                                                                                                                                |
+| `src/test_support/mcp_install.rs`                          | `FakeMachine` (tempdir home, folder, PATH dir and executable dir), `ClaudeEmulator` runner (§8)                                                                                                                                                                                |
 
 Edits in existing files:
 

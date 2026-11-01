@@ -8,10 +8,10 @@ F9 → Commands → `Things catalog` (no hotkey) lists the machines of the Thing
 
 Both values are read from the environment when the dialog opens. Neither is written to `ffm.yml`, the console, the status line or any log.
 
-| Variable | Value |
-|----------|-------|
-| `THINGS_URL` | `https://things.example.com`. It must start with `https://` and carry no user name, password, query (`?`) or fragment (`#`). Trailing slashes are trimmed. |
-| `THINGS_API_TOKEN` | `<token>`, a bearer token sent as `Authorization: Bearer <token>`. |
+| Variable           | Value                                                                                                                                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `THINGS_URL`       | `https://things.example.com`. It must start with `https://` and carry no user name, password, query (`?`) or fragment (`#`). Trailing slashes are trimmed. |
+| `THINGS_API_TOKEN` | `<token>`, a bearer token sent as `Authorization: Bearer <token>`.                                                                                         |
 
 If either variable is missing or invalid, the dialog names the variable and makes no request.
 
@@ -26,14 +26,14 @@ If either variable is missing or invalid, the dialog names the variable and make
 
 Machines are listed by name, each with its host (the hostname, or the IP address when the hostname is blank), its OS, its environment and its state.
 
-| Key | Action |
-|-----|--------|
-| Letters and digits | Add to the filter. The filter ignores case and matches the name, hostname, IP address, environment, location and tags. |
-| Backspace | Remove the last filter character. |
-| Up, Down, PgUp, PgDn, Home, End | Move the cursor. |
-| Space | Mark or unmark the row under the cursor. Space is never typed into the filter. |
-| Enter | Import the marked machines or, when none are marked, every machine the filter shows. |
-| Esc or F10 | Close the dialog. |
+| Key                             | Action                                                                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Letters and digits              | Add to the filter. The filter ignores case and matches the name, hostname, IP address, environment, location and tags. |
+| Backspace                       | Remove the last filter character.                                                                                      |
+| Up, Down, PgUp, PgDn, Home, End | Move the cursor.                                                                                                       |
+| Space                           | Mark or unmark the row under the cursor. Space is never typed into the filter.                                         |
+| Enter                           | Import the marked machines or, when none are marked, every machine the filter shows.                                   |
+| Esc or F10                      | Close the dialog.                                                                                                      |
 
 Every key is taken by the dialog, so nothing typed in it reaches the panels behind.
 

@@ -163,21 +163,21 @@ flowchart LR
 
 ### Where Changes Belong
 
-| Change | Primary owner |
-|--------|---------------|
-| Main-view hotkey | default in `src/keymap/tables/panels/`, command and fallback in `src/action.rs`, then effect dispatch in `src/application/dispatch.rs` |
-| Editor key binding | the `editor` row in `src/keymap/tables/editor.rs`; command in `src/action/editor.rs`, then interpretation in `src/popup/editor.rs` |
-| Viewer, command line, NetBox, Language servers, vault or WSL default key | `src/keymap/tables/<context>.rs`; typed command in `src/action/<context>.rs`, then interpretation in the matching `src/popup/` owner |
-| Tree or task-search key | `src/action/<context>.rs`, then interpretation in the matching `src/popup/` owner |
-| PATH editor default key | `src/keymap/tables/path_editor.rs`, then the command in `src/action/path_env.rs` and interpretation in `src/popup/path_env.rs` |
-| Modal/dialog key behavior | `src/popup.rs` or a focused `src/popup/` child |
-| Command syntax or validation | `src/command.rs` |
-| Command editing/completion/history | `src/lineedit.rs`, `src/complete.rs`, `src/history.rs` |
-| File, shell, viewer, or command effect | Matching module under `src/ops/` |
-| Application/domain state | `src/models.rs` or a focused `src/models/` child |
-| Rendering/layout | `src/ui.rs` or a focused `src/ui/` child |
-| Terminal setup/suspension/restoration | `src/bootstrap.rs`, `src/terminal.rs` |
-| MCP tool or root-confined MCP filesystem behavior | `mcp/src/` |
+| Change                                                                   | Primary owner                                                                                                                          |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Main-view hotkey                                                         | default in `src/keymap/tables/panels/`, command and fallback in `src/action.rs`, then effect dispatch in `src/application/dispatch.rs` |
+| Editor key binding                                                       | the `editor` row in `src/keymap/tables/editor.rs`; command in `src/action/editor.rs`, then interpretation in `src/popup/editor.rs`     |
+| Viewer, command line, NetBox, Language servers, vault or WSL default key | `src/keymap/tables/<context>.rs`; typed command in `src/action/<context>.rs`, then interpretation in the matching `src/popup/` owner   |
+| Tree or task-search key                                                  | `src/action/<context>.rs`, then interpretation in the matching `src/popup/` owner                                                      |
+| PATH editor default key                                                  | `src/keymap/tables/path_editor.rs`, then the command in `src/action/path_env.rs` and interpretation in `src/popup/path_env.rs`         |
+| Modal/dialog key behavior                                                | `src/popup.rs` or a focused `src/popup/` child                                                                                         |
+| Command syntax or validation                                             | `src/command.rs`                                                                                                                       |
+| Command editing/completion/history                                       | `src/lineedit.rs`, `src/complete.rs`, `src/history.rs`                                                                                 |
+| File, shell, viewer, or command effect                                   | Matching module under `src/ops/`                                                                                                       |
+| Application/domain state                                                 | `src/models.rs` or a focused `src/models/` child                                                                                       |
+| Rendering/layout                                                         | `src/ui.rs` or a focused `src/ui/` child                                                                                               |
+| Terminal setup/suspension/restoration                                    | `src/bootstrap.rs`, `src/terminal.rs`                                                                                                  |
+| MCP tool or root-confined MCP filesystem behavior                        | `mcp/src/`                                                                                                                             |
 
 Full module-level detail remains in
 `docs/knowledge-base/02-architecture/module-structure.md`.
@@ -471,14 +471,14 @@ what each buys, is in `docs/knowledge-base/03-rust-best-practices/type-system.md
 
 ## Dependencies
 
-| Crate | Purpose |
-|-------|---------|
-| `ratatui` | TUI framework |
-| `crossterm` | Terminal handling |
+| Crate                       | Purpose                                            |
+| --------------------------- | -------------------------------------------------- |
+| `ratatui`                   | TUI framework                                      |
+| `crossterm`                 | Terminal handling                                  |
 | `aws-sdk-s3` / `aws-config` | AWS S3 client & config (optional, `--features s3`) |
-| `tokio` | Async runtime for S3 (optional) |
-| `tempfile` | Test temporary directories |
-| `criterion` / `cucumber` | Benchmarks / BDD tests (dev-dependencies) |
+| `tokio`                     | Async runtime for S3 (optional)                    |
+| `tempfile`                  | Test temporary directories                         |
+| `criterion` / `cucumber`    | Benchmarks / BDD tests (dev-dependencies)          |
 
 ## Detailed Reference (Knowledge Base)
 
@@ -493,21 +493,21 @@ Deep-dive reference lives in the knowledge base — read on demand:
 
 Claude-Code-specific helpers (defined under `.claude/commands/` and `.claude/skills/`); other agents can ignore these:
 
-| Command | What it does |
-|---------|--------------|
-| `/build` | Build project, fix warnings |
-| `/check` | Full quality gate: fmt → clippy → build → test |
-| `/clippy` | Run clippy and auto-fix all warnings |
-| `/commit` | Stage, commit, rebase, push |
-| `/deps` | Audit and update dependencies |
-| `/doc` | Build docs and run doc tests |
-| `/fix <error>` | Find and fix a specific bug |
-| `/fmt` | Format all code with cargo fmt |
-| `/github` | Check CI pipeline and fix failures |
-| `/mutate` | Run mutation testing suite |
-| `/profile` | Find performance bottlenecks |
-| `/refactor <file>` | Refactor code to Rust best practices |
-| `/release` | Build release binary |
-| `/review` | Review recent changes for quality issues |
-| `/scaffold <feature>` | Scaffold a new feature |
-| `/test` | Run tests and improve coverage to 100% |
+| Command               | What it does                                   |
+| --------------------- | ---------------------------------------------- |
+| `/build`              | Build project, fix warnings                    |
+| `/check`              | Full quality gate: fmt → clippy → build → test |
+| `/clippy`             | Run clippy and auto-fix all warnings           |
+| `/commit`             | Stage, commit, rebase, push                    |
+| `/deps`               | Audit and update dependencies                  |
+| `/doc`                | Build docs and run doc tests                   |
+| `/fix <error>`        | Find and fix a specific bug                    |
+| `/fmt`                | Format all code with cargo fmt                 |
+| `/github`             | Check CI pipeline and fix failures             |
+| `/mutate`             | Run mutation testing suite                     |
+| `/profile`            | Find performance bottlenecks                   |
+| `/refactor <file>`    | Refactor code to Rust best practices           |
+| `/release`            | Build release binary                           |
+| `/review`             | Review recent changes for quality issues       |
+| `/scaffold <feature>` | Scaffold a new feature                         |
+| `/test`               | Run tests and improve coverage to 100%         |

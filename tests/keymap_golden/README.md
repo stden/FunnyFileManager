@@ -64,23 +64,23 @@ in the order the generator lists them. Every table has the same 900 rows:
 The fourteen contexts of spec §4.1, named as `ffm.yml` names them, and one
 state of the viewer:
 
-| Table | Screen | Layered over |
-|---|---|---|
-| `panels` | file panels and the Ctrl+O console | — |
-| `tree_panel` | the Ctrl+T tree | `panels` (`-> X` is the file panel's action) |
-| `netbox_panel` | the NetBox sessions list; the remote host reads the same keys and hands the five commands that need or make a session — Shift+F4's `NewSession` and the four row commands of F3, F4, F5 and F8 — back to be refused | `panels`, by the action's scope (`-> X` or `refuses X`) |
-| `quick_view` | the `viewer` context as the Ctrl+Q quick-view panel reads it: the scroll commands are its, everything else, the viewer's closing keys included, is the panels' | `panels` |
-| `viewer` | the F3 viewer | — (every key is consumed) |
-| `editor` | the F4 editor | — |
-| `command_line` | the `:` command line | — |
-| `command_line_search` | its Ctrl+R history search | — |
-| `command_line_completion` | its open completion list | `command_line` |
-| `task_list` | the Ctrl+W task list | — |
-| `task_list_search` | the task list's `/` bar: F3 is its own key, Up, Down, PgUp and PgDn close the bar and go on to the list, and every other key is the bar's fixed editing, recorded as `nothing` | `task_list` |
-| `wsl_manager` | the Ctrl+Alt+W WSL manager | — |
-| `language_servers` | Options → Language servers, list and view | — |
-| `path_editor` | Commands → Edit PATH | — |
-| `vault` | the KeePass vault | — |
+| Table                     | Screen                                                                                                                                                                                                              | Layered over                                            |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `panels`                  | file panels and the Ctrl+O console                                                                                                                                                                                  | —                                                       |
+| `tree_panel`              | the Ctrl+T tree                                                                                                                                                                                                     | `panels` (`-> X` is the file panel's action)            |
+| `netbox_panel`            | the NetBox sessions list; the remote host reads the same keys and hands the five commands that need or make a session — Shift+F4's `NewSession` and the four row commands of F3, F4, F5 and F8 — back to be refused | `panels`, by the action's scope (`-> X` or `refuses X`) |
+| `quick_view`              | the `viewer` context as the Ctrl+Q quick-view panel reads it: the scroll commands are its, everything else, the viewer's closing keys included, is the panels'                                                      | `panels`                                                |
+| `viewer`                  | the F3 viewer                                                                                                                                                                                                       | — (every key is consumed)                               |
+| `editor`                  | the F4 editor                                                                                                                                                                                                       | —                                                       |
+| `command_line`            | the `:` command line                                                                                                                                                                                                | —                                                       |
+| `command_line_search`     | its Ctrl+R history search                                                                                                                                                                                           | —                                                       |
+| `command_line_completion` | its open completion list                                                                                                                                                                                            | `command_line`                                          |
+| `task_list`               | the Ctrl+W task list                                                                                                                                                                                                | —                                                       |
+| `task_list_search`        | the task list's `/` bar: F3 is its own key, Up, Down, PgUp and PgDn close the bar and go on to the list, and every other key is the bar's fixed editing, recorded as `nothing`                                      | `task_list`                                             |
+| `wsl_manager`             | the Ctrl+Alt+W WSL manager                                                                                                                                                                                          | —                                                       |
+| `language_servers`        | Options → Language servers, list and view                                                                                                                                                                           | —                                                       |
+| `path_editor`             | Commands → Edit PATH                                                                                                                                                                                                | —                                                       |
+| `vault`                   | the KeePass vault                                                                                                                                                                                                   | —                                                       |
 
 Until a context switches to the keymap (step 5 of the spec's migration
 plan) its table describes the old resolver, and the replay proves the

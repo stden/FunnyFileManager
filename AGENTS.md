@@ -46,13 +46,13 @@ cargo fmt                           # format
 
 ## Where Changes Belong (quick map)
 
-| Change | Owner |
-|--------|-------|
-| Main-view hotkey | `src/action.rs` → `src/application/dispatch.rs` |
-| Editor key / command | `src/action/editor.rs` → `src/popup/editor.rs` |
-| File / shell / viewer effect | `src/ops/<module>` |
-| Application / domain state | `src/models.rs` |
-| Rendering / layout | `src/ui.rs` |
-| MCP tool | `mcp/src/` |
+| Change                       | Owner                                           |
+| ---------------------------- | ----------------------------------------------- |
+| Main-view hotkey             | `src/action.rs` → `src/application/dispatch.rs` |
+| Editor key / command         | `src/action/editor.rs` → `src/popup/editor.rs`  |
+| File / shell / viewer effect | `src/ops/<module>`                              |
+| Application / domain state   | `src/models.rs`                                 |
+| Rendering / layout           | `src/ui.rs`                                     |
+| MCP tool                     | `mcp/src/`                                      |
 
 Full detail → [`AGENTS_FULL.md`](AGENTS_FULL.md)

@@ -88,7 +88,7 @@ On the development host on 2026-11-01, median dirty-batch times from three
 release runs, including the cold index build, were:
 
 | Entries/results | Full-list lookup per result | Shared index |
-| ---: | ---: | ---: |
-| 1,000 | 2.06 ms | 0.28 ms |
-| 5,000 | 24.17 ms | 1.60 ms |
-| 10,000 | 91.45 ms | 3.43 ms |
+| --------------: | --------------------------: | -----------: |
+|           1,000 |                     2.06 ms |      0.28 ms |
+|           5,000 |                    24.17 ms |      1.60 ms |
+|          10,000 |                    91.45 ms |      3.43 ms |

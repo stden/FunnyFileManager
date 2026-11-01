@@ -2,14 +2,15 @@
 """Run the Rust linter gate used by CI, pre-commit, and `./ffm.py lint`.
 
 Usage:
-  scripts/lint.py              # fmt + spelling + complexity + duplication + clippy + architecture
+  scripts/lint.py              # fmt + spelling + markdown + complexity + duplication + clippy + architecture
   scripts/lint.py fmt          # format check only
   scripts/lint.py complexity   # Python scripts' cyclomatic complexity and nesting
   scripts/lint.py duplication  # no block of 10+ lines repeated in Rust or Python
   scripts/lint.py spelling     # typos over every text file (typos.toml)
+  scripts/lint.py markdown     # Markdown tables aligned, trailing spaces gone (format_markdown.py --check)
   scripts/lint.py clippy       # clippy and architecture (all targets, all features, fallback)
   scripts/lint.py clippy-fast  # clippy all targets (default features)
-  scripts/lint.py fix          # auto-format, then full clippy gate
+  scripts/lint.py fix          # auto-format (cargo fmt, then Markdown), then full clippy gate
   scripts/lint.py self-test    # spell check, script unit tests, readability limits, lint policy
   scripts/lint.py architecture # dependency ownership, layering, unsafe allowlist, file limits
 
@@ -28,24 +29,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # pre_commit_hook.py, cargo_preflight.py and coverage.py reach the step
 # runner, has_crate and ROOT through lint.
 from lint_checks import (  # noqa: E402, F401
-    format_crates, has_crate, python, run_architecture, run_clippy, run_clippy_matrix, run_spelling,
-    self_test_spelling,
+    format_crates, format_markdown_files, has_crate, python, run_architecture, run_clippy, run_clippy_matrix,
+    run_spelling, self_test_spelling,
 )
 from lint_steps import ROOT, exit_with, run, use_utf8_output  # noqa: E402
 
 PREFLIGHT = ROOT / "scripts/cargo_preflight.py"
 HELP_WORDS = ("-h", "--help", "help")
 # Modes that build nothing, so they skip the compiler-wrapper preflight.
-PREFLIGHT_FREE = ("fmt", "spelling", "complexity", "duplication")
+PREFLIGHT_FREE = ("fmt", "spelling", "markdown", "complexity", "duplication")
 
 
 def lint_all():
     format_crates(check=True)
     run_spelling()
+    format_markdown_files(check=True)
     lint_complexity()
     lint_duplication()
     run_clippy_matrix()
-    print("✓ lint OK (fmt + spelling + complexity + duplication + clippy)")
+    print("✓ lint OK (fmt + spelling + markdown + complexity + duplication + clippy)")
 
 
 def lint_duplication():
@@ -68,6 +70,11 @@ def lint_spelling():
     print("✓ spelling OK")
 
 
+def lint_markdown():
+    format_markdown_files(check=True)
+    print("✓ markdown OK")
+
+
 def lint_clippy():
     run_clippy_matrix()
     print("✓ clippy OK")
@@ -80,14 +87,17 @@ def lint_clippy_fast():
 
 def lint_fix():
     format_crates(check=False)
+    format_markdown_files(check=False)
     run_clippy_matrix()
-    print("✓ lint OK after format (fmt + clippy)")
+    print("✓ lint OK after format (fmt + markdown + clippy)")
 
 
 def self_test():
     self_test_spelling()
     # The developer scripts' unit tests (scripts/tests): fake commands, no Cargo.
     run([python(), "-m", "unittest", "discover", "-s", "scripts/tests"])
+    # The Markdown formatter's unit tests, beside this file.
+    run([python(), "scripts/test_format_markdown.py"])
     run([python(), "scripts/test_readability.py"])
     # Runs Cargo on throwaway crates, hence the wrapper preflight.
     run([python(), "scripts/test_lint_policy.py"])
@@ -98,6 +108,7 @@ MODES = {
     "all": lint_all,
     "fmt": lint_fmt,
     "spelling": lint_spelling,
+    "markdown": lint_markdown,
     "complexity": lint_complexity,
     "duplication": lint_duplication,
     "clippy": lint_clippy,
