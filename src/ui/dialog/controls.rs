@@ -46,7 +46,7 @@ pub(super) fn radio_line(
     focused: bool,
     style: Style,
 ) -> Line<'static> {
-    let accent = style.fg(palette::HOTKEY).add_modifier(Modifier::BOLD);
+    let accent = palette::hotkey_style(style);
     let focus = focused_control_style(style);
     let mut spans = hotkey_spans(caption, style, accent);
     spans.push(Span::styled(" ", style));
@@ -62,11 +62,7 @@ pub(super) fn radio_line(
             if chosen { RADIO_ON } else { RADIO_OFF },
             base,
         ));
-        spans.extend(hotkey_spans(
-            option,
-            base,
-            accent.bg(base.bg.unwrap_or(palette::DIALOG_BG)),
-        ));
+        spans.extend(hotkey_spans(option, base, palette::hotkey_style(base)));
     }
     Line::from(spans)
 }
@@ -78,17 +74,16 @@ pub(super) fn checkbox_line(
     enabled: bool,
     style: Style,
 ) -> Line<'static> {
-    let accent = style.fg(palette::HOTKEY).add_modifier(Modifier::BOLD);
     let focus = focused_control_style(style);
     let base = if !enabled {
-        style.fg(palette::DISABLED_FG)
+        palette::disabled_style(style)
     } else if focused {
         focus
     } else {
         style
     };
     let accent = if enabled {
-        accent.bg(base.bg.unwrap_or(palette::DIALOG_BG))
+        palette::hotkey_style(base)
     } else {
         base
     };
@@ -166,18 +161,23 @@ pub(super) fn captioned_box<'a>(
     let base = if enabled {
         style
     } else {
-        style.fg(palette::DISABLED_FG)
+        palette::disabled_style(style)
     };
     let gap = caption_gap(caption);
     let mut spans = hotkey_spans(caption, base, if enabled { accent } else { base });
     spans.push(Span::styled(" ".repeat(gap), style));
 
     let (_, room) = captioned_room(caption, width);
-    let field = Style::default().bg(palette::FIELD_BG).fg(if enabled {
-        palette::FIELD_FG
+    let field = Style::default().bg(palette::FIELD_BG).fg(palette::FIELD_FG);
+    let field = if enabled {
+        field
     } else {
-        palette::DISABLED_FG
-    });
+        palette::disabled_style(field)
+    };
+    let look = FieldLook {
+        focused: look.focused && enabled,
+        ..look
+    };
     spans.extend(field_spans(value, room, field, look));
     spans.push(Span::styled(DROP_MARKER.to_string(), base));
     Line::from(spans)

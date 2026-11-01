@@ -118,6 +118,7 @@ pub(super) fn render_at(
     f.render_widget(Paragraph::new("").style(style), area);
 
     let framed = frame_area(area);
+    let title = super::head_cells(title, super::Cells::columns(framed.width.saturating_sub(4)));
     let frame = far_block()
         .title(Line::from(Span::styled(format!(" {title} "), style)).centered())
         .border_style(style)

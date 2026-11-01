@@ -167,5 +167,5 @@ fn help_uses_fixed_far_console_colors() {
         .find(|cell| cell.symbol() == "H")
         .unwrap();
     assert_eq!(cell.fg, Color::Rgb(0, 0, 0));
-    assert_eq!(cell.bg, Color::Rgb(0, 128, 128));
+    assert_eq!(cell.bg, Color::Rgb(0, 132, 132));
 }

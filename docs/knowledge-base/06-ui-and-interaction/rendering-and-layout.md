@@ -40,14 +40,18 @@ The layout is defined in `src/ui.rs` using `ratatui::layout`.
 - Inactive border: Blue
 - Directories: White + Bold
 - Files: Cyan
-- Selection: Black on Cyan background
+- Cursor: White on dark blue; a marked entry keeps its yellow foreground
 
 Colors are named in `src/ui/palette.rs`. Forms use black on light gray with
 cyan input fields and focused controls. Warnings use white on dark red;
 their focused buttons use black on light gray. Vertical menus use white on
 teal with black selection bars; Help uses black on teal. Functional hotkeys
-use bright yellow. RGB values keep this palette independent of ANSI terminal
-themes. Panel theme adjustments run before menus and modal rendering.
+use bright yellow on dark grounds and black underlined text on light or teal
+grounds. RGB values keep the owned palette independent of ANSI terminal themes.
+Panel theme adjustments run before menus and modal rendering; disabling file
+highlighting preserves the cursor's foreground. The
+[UI quality suite](../../ui-quality.md) guards text contrast and layout and
+exports SVGs for visual review.
 
 ## 🎨 Panel Rendering
 

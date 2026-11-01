@@ -10,7 +10,7 @@ mod geometry;
 
 use ratatui::{
     layout::Rect,
-    style::{Modifier, Style},
+    style::Style,
     text::{Line, Span},
     widgets::{Clear, Paragraph},
     Frame,
@@ -110,7 +110,7 @@ fn hotkey_spans<'a>(label: &str, style: Style) -> Vec<Span<'a>> {
 /// row's letter does nothing, and a selected row is already picked out.
 fn hotkey_spans_in<'a>(label: &str, style: Style, accented: bool) -> Vec<Span<'a>> {
     let accent = if accented {
-        style.fg(palette::HOTKEY).add_modifier(Modifier::BOLD)
+        palette::hotkey_style(style)
     } else {
         style
     };

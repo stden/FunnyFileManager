@@ -31,7 +31,7 @@ const SCREEN_H: u16 = 20;
 const CODE_KEYWORD: Color = Color::Rgb(255, 255, 255);
 const CODE_STRING: Color = Color::Rgb(255, 255, 0);
 
-const CODE_COMMENT: Color = Color::Rgb(0, 128, 128);
+const CODE_COMMENT: Color = Color::Rgb(80, 170, 170);
 const CODE_TYPE: Color = Color::Rgb(0, 255, 0);
 
 #[expect(

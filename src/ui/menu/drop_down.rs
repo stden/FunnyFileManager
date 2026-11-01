@@ -142,7 +142,7 @@ fn entry_style(selected: bool, enabled: bool, ground: Style) -> Style {
             .fg(palette::MENU_SELECTED_FG)
     } else if !enabled {
         // A command the program does not have yet, drawn but not offered.
-        ground.fg(palette::DISABLED_FG)
+        palette::disabled_style(ground)
     } else {
         ground
     }

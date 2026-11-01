@@ -49,13 +49,9 @@ fn editor_bar_text(editor: &crate::models::Editor, width: u16, line: &str) -> St
     );
 
     let width = Cells::columns(width);
-    let label = editor.notice.as_ref().map_or_else(
-        || super::super::editor_lsp::label(editor, marker),
-        |notice| format!(" {notice}"),
-    );
-    // An operation's result must remain visible on a narrow terminal. Keep
-    // the cursor details alongside it only when both fit in the header.
-    let position = if editor.notice.is_some() && Cells::of(&label) + Cells::of(&position) > width {
+    let label = editor_label(editor, marker, width.saturating_sub(Cells::of(&position)));
+    // Keep the file and feedback visible before adding optional cursor details.
+    let position = if Cells::of(&label) + Cells::of(&position) > width {
         String::new()
     } else {
         position
@@ -66,6 +62,18 @@ fn editor_bar_text(editor: &crate::models::Editor, width: u16, line: &str) -> St
         .get();
 
     format!("{name}{}{position}", " ".repeat(gap))
+}
+
+fn editor_label(editor: &crate::models::Editor, marker: &str, room: Cells) -> String {
+    if let Some(notice) = &editor.notice {
+        return format!(" {notice}");
+    }
+    let label = super::super::editor_lsp::label(editor, marker);
+    if Cells::of(&label) > room {
+        super::super::editor_lsp::compact_label(editor, marker)
+    } else {
+        label
+    }
 }
 
 pub(super) fn render_editor(

@@ -17,7 +17,7 @@ pub(super) fn tree_content(vault: &Vault, rows: usize) -> Vec<Line<'static>> {
     let mut content = vec![Line::from(Span::styled(
         format!("Filter: {}_  Tree", vault.filter()),
         Style::default()
-            .fg(palette::HOTKEY)
+            .fg(palette::DIALOG_FG)
             .add_modifier(Modifier::BOLD),
     ))];
     append_visible_tree(&mut content, tree, first, rows);

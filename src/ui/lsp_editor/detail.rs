@@ -94,7 +94,7 @@ pub(super) fn extension_pieces(server: &ServerSettings, conflicts: &[String]) ->
 fn enablement_piece(enabled: Enablement) -> Piece {
     match enabled {
         Enablement::Enabled => ("[enabled]".to_owned(), plain(palette::STATUS_OK)),
-        Enablement::Disabled => ("[disabled]".to_owned(), plain(palette::DISABLED_FG)),
+        Enablement::Disabled => ("[disabled]".to_owned(), plain(palette::HIDDEN)),
     }
 }
 

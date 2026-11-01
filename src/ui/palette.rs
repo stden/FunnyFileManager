@@ -12,15 +12,22 @@
 
 mod aliases;
 mod code;
+mod disabled;
+mod hotkey;
 
 use ratatui::style::Color;
 
 pub(super) use aliases::*;
 pub(super) use code::*;
+pub(super) use disabled::disabled_style;
+pub(super) use hotkey::hotkey_style;
 
 /// The panel ground: the navy of the console palette Far was drawn for, not
 /// the terminal's idea of "blue" and not a brighter one of our own.
 pub(super) const BACKGROUND: Color = Color::Rgb(0, 0, 128);
+/// Alternate grounds stay explicit so terminal ANSI themes cannot hide text.
+pub(super) const BLACK_BACKGROUND: Color = Color::Rgb(0, 0, 0);
+pub(super) const GRAY_BACKGROUND: Color = Color::Rgb(32, 32, 32);
 
 /// Frames, column rules and separators.
 pub(super) const FRAME: Color = Color::Rgb(85, 221, 238);
@@ -51,7 +58,7 @@ pub(super) const DATA: Color = Color::Rgb(255, 255, 255);
 pub(super) const MARKED: Color = Color::Rgb(255, 255, 85);
 
 /// The cursor bar under the current entry, and the text on it.
-pub(super) const CURSOR_BG: Color = Color::Rgb(85, 150, 216);
+pub(super) const CURSOR_BG: Color = Color::Rgb(45, 110, 175);
 pub(super) const CURSOR_FG: Color = Color::Rgb(255, 255, 255);
 
 /// The active panel's title, and the key bar: black on cyan.
@@ -112,14 +119,14 @@ pub(super) const DIALOG_FG: Color = Color::Rgb(0, 0, 0);
 
 /// Far's help text, frame and title are black on cyan.
 pub(super) const HELP_FG: Color = Color::Rgb(0, 0, 0);
-pub(super) const HELP_BG: Color = Color::Rgb(0, 128, 128);
+pub(super) const HELP_BG: Color = Color::Rgb(0, 132, 132);
 
-/// A control that is present but does not apply. Far dims rather than hides,
-/// so the dialog keeps its shape and the user learns where the control lives.
-pub(super) const DISABLED_FG: Color = Color::Rgb(128, 128, 128);
+/// An unavailable control on a dark ground: muted but still readable.
+/// Other grounds use [`disabled_style`] for the same readable inactive state.
+pub(super) const DISABLED_FG: Color = Color::Rgb(176, 176, 176);
 
 /// A text field: sunk into the dialog rather than raised out of it.
-pub(super) const FIELD_BG: Color = Color::Rgb(0, 128, 128);
+pub(super) const FIELD_BG: Color = Color::Rgb(0, 132, 132);
 pub(super) const FIELD_FG: Color = Color::Rgb(0, 0, 0);
 /// Text selected in a field: an offered value that the first key typed
 /// replaces. White on black, the way a selected row is drawn elsewhere, so it
@@ -128,13 +135,13 @@ pub(super) const FIELD_SELECTED_BG: Color = Color::Rgb(0, 0, 0);
 pub(super) const FIELD_SELECTED_FG: Color = Color::Rgb(255, 255, 255);
 
 /// The focused form button: black on cyan; warnings use a gray button.
-pub(super) const DIALOG_FOCUS_BG: Color = Color::Rgb(0, 128, 128);
+pub(super) const DIALOG_FOCUS_BG: Color = Color::Rgb(0, 132, 132);
 pub(super) const WARNING_FOCUS_BG: Color = Color::Rgb(192, 192, 192);
 
 /// The menu bar across the top, and the drop-downs it opens. Far draws them on
 /// the same teal it uses for the key bar, so the two frames of the screen read
 /// as one piece of chrome around the panels.
-pub(super) const MENU_BG: Color = Color::Rgb(0, 128, 128);
+pub(super) const MENU_BG: Color = Color::Rgb(0, 132, 132);
 pub(super) const MENU_FG: Color = Color::Rgb(0, 0, 0);
 /// The heading whose drop-down is open, and the row under the cursor.
 pub(super) const MENU_SELECTED_BG: Color = Color::Rgb(0, 0, 0);

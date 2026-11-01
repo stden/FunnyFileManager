@@ -2,7 +2,7 @@ use super::{centered_rect, far_block, palette};
 use crate::path_env::{Mode, PathEditor, Validation};
 use ratatui::{
     layout::Rect,
-    style::{Color, Style},
+    style::Style,
     text::Line,
     widgets::{Clear, Paragraph},
     Frame,
@@ -36,12 +36,14 @@ fn rows(editor: &PathEditor, capacity: usize) -> Vec<Line<'_>> {
             entry.validation.label(),
             entry.text
         );
-        let color = if entry.validation == Validation::Directory {
-            palette::DRIVE_FG
+        let style = if entry.validation == Validation::Directory {
+            Style::default().fg(palette::DRIVE_FG)
         } else {
-            Color::Red
+            Style::default()
+                .fg(palette::WARNING_FG)
+                .bg(palette::WARNING_BG)
         };
-        lines.push(Line::styled(text, Style::default().fg(color)));
+        lines.push(Line::styled(text, style));
     }
     lines.extend(footer(editor));
     lines

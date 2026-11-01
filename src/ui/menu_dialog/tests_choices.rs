@@ -31,7 +31,7 @@ fn choices_use_white_on_teal_and_a_black_selected_row() {
     assert_eq!(selected.bg, Color::Rgb(0, 0, 0));
     assert!(cells
         .iter()
-        .any(|cell| cell.symbol() == "╔" && cell.bg == Color::Rgb(0, 128, 128)));
+        .any(|cell| cell.symbol() == "╔" && cell.bg == Color::Rgb(0, 132, 132)));
 }
 
 #[test]

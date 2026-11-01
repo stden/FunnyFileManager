@@ -37,6 +37,7 @@ mod overlay_name_prompt;
 mod overlay_status;
 mod panel_geometry;
 mod panel_rendering;
+mod quality;
 mod render_gaps_dialogs;
 mod render_gaps_editor;
 mod render_widths;

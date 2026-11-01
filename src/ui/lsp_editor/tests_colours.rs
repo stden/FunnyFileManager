@@ -50,7 +50,7 @@ fn the_colours_follow_what_each_cell_says() {
     assert_eq!(fg(&buffer, "[enabled]"), palette::STATUS_OK);
     assert_eq!(fg(&buffer, "command not found"), palette::STATUS_PENDING);
     assert_eq!(fg(&buffer, "python-lsp-server"), palette::CODE_STRING);
-    assert_eq!(fg(&buffer, "(none)"), palette::DISABLED_FG);
+    assert_eq!(fg(&buffer, "(none)"), palette::HIDDEN);
     assert_eq!(fg(&buffer, "java "), palette::CODE_KEYWORD);
     assert_eq!(fg(&buffer, "auto"), palette::STATUS_PENDING);
     let (row_x, row_y) = find(&buffer, "▸ python");
@@ -72,19 +72,15 @@ fn the_colours_follow_what_each_cell_says() {
 }
 
 #[test]
-fn a_disabled_server_is_dimmed_in_the_list_and_its_detail() {
+fn a_switched_off_server_is_readably_muted_in_the_list_and_its_detail() {
     let (_machine, mut app) = machine_with_changes();
     select(&mut app, "shellscript");
     let buffer = draw(&mut app, 80, 24);
-    assert_eq!(fg(&buffer, "[ ] rust"), palette::DISABLED_FG);
+    assert_eq!(fg(&buffer, "[ ] rust"), palette::HIDDEN);
     let (x, y) = find(&buffer, "[ ] rust");
-    assert_eq!(
-        buffer[(x + 4, y)].fg,
-        palette::DISABLED_FG,
-        "its command too"
-    );
+    assert_eq!(buffer[(x + 4, y)].fg, palette::HIDDEN, "its command too");
     select(&mut app, "rust");
     let buffer = draw(&mut app, 80, 24);
-    assert_eq!(fg(&buffer, "[disabled]"), palette::DISABLED_FG);
-    assert_eq!(fg(&buffer, "off"), palette::DISABLED_FG);
+    assert_eq!(fg(&buffer, "[disabled]"), palette::HIDDEN);
+    assert_eq!(fg(&buffer, "off"), palette::HIDDEN);
 }

@@ -28,9 +28,9 @@ fn an_existing_servers_form_dims_its_language() {
     assert!(screen.contains("[ Cancel ]"), "{screen}");
     assert!(screen.contains("Program name on PATH, or a full path. No shell runs it."));
     let (x, y) = find(&buffer, "Language:");
-    assert_eq!(buffer[(x, y)].fg, palette::DISABLED_FG);
+    assert!(buffer[(x, y)].modifier.contains(Modifier::ITALIC));
     let (x, y) = find(&buffer, "Command:");
-    assert_ne!(buffer[(x, y)].fg, palette::DISABLED_FG);
+    assert!(!buffer[(x, y)].modifier.contains(Modifier::ITALIC));
 }
 
 #[test]

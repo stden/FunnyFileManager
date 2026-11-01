@@ -99,3 +99,40 @@ fn alphabet_line(length: usize) -> String {
         .take(length)
         .collect()
 }
+
+#[test]
+fn quality_title_keeps_editor_file_name_and_position() {
+    let editor = Editor::from_content(
+        "quality.rs".to_owned(),
+        PathBuf::from("/ffm-quality/long-workspace/quality.rs"),
+        "body",
+    );
+    let bar = narrow_bar(editor);
+    assert!(bar.contains("quality.rs"), "{bar}");
+    assert!(bar.contains("Ln 1/1") && bar.contains("Col 1"), "{bar}");
+}
+
+#[test]
+fn quality_title_keeps_lsp_status_and_file_name() {
+    let mut editor = Editor::from_content(
+        "quality.rs".to_owned(),
+        PathBuf::from("/ffm-quality/long-workspace/quality.rs"),
+        "body",
+    );
+    editor.lsp.state = crate::models::ServerState::Ready;
+    let bar = narrow_bar(editor);
+    assert!(
+        bar.contains(crate::models::ServerState::Ready.label()),
+        "{bar}"
+    );
+    assert!(bar.contains("quality.rs"), "{bar}");
+}
+
+fn narrow_bar(editor: Editor) -> String {
+    let panel = crate::models::Panel::from_entries(PathBuf::from("/ffm-quality"), Vec::new());
+    let mut app = App::with_panels(panel.clone(), panel);
+    app.set_overlay(Overlay::Editor(editor));
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(40, 12)).unwrap();
+    terminal.draw(|frame| ui(frame, &mut app)).unwrap();
+    render_widths::row_text(&terminal, 0)
+}

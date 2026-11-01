@@ -4,7 +4,7 @@ use super::*;
 
 /// Far's panel ground, and the lighter blue of its cursor bar.
 const PANEL_BG: Color = Color::Rgb(0, 0, 128);
-const CURSOR_BG: Color = Color::Rgb(85, 150, 216);
+const CURSOR_BG: Color = Color::Rgb(45, 110, 175);
 
 #[test]
 fn test_active_panel_left_by_default() {

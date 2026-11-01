@@ -1,12 +1,12 @@
 //! Purpose: Underline the editor text a language server's diagnostics cover,
 //! in the colour of their severity, clipped to the visible columns.
 
-use super::super::{screen_u16, Cells, EditorLine};
+use super::super::{palette, screen_u16, Cells, EditorLine};
 use crate::lsp::{features::Diagnostic, positions};
 use crate::models::{CharColumn, Editor};
 use ratatui::{
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     Frame,
 };
 
@@ -103,9 +103,9 @@ pub(super) fn paint(
     severity: Option<u32>,
 ) {
     let color = match severity {
-        Some(1) => Color::LightRed,
-        Some(2) => Color::Yellow,
-        _ => Color::Cyan,
+        Some(1) => palette::PROMPT_FAILED,
+        Some(2) => palette::CODE_STRING,
+        _ => palette::CODE_NORMAL,
     };
     let style = Style::default()
         .fg(color)

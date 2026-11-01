@@ -1,13 +1,9 @@
 //! Purpose: The command line's visible window and the selection painted over it.
 
-use ratatui::{
-    layout::Rect,
-    style::{Color, Style},
-    Frame,
-};
+use ratatui::{layout::Rect, style::Style, Frame};
 
 use super::super::command_prompt::{prompt_width, window_prompt};
-use super::super::{screen_u16, tail_cells, take_cells, Cells};
+use super::super::{palette, screen_u16, tail_cells, take_cells, Cells};
 use super::{command_caret_text, CommandRow, PROMPT_SUFFIX};
 use crate::models::CommandLine;
 
@@ -40,8 +36,12 @@ pub(super) fn paint_selection(
         1,
     )
     .intersection(area);
-    f.buffer_mut()
-        .set_style(cells, Style::default().fg(Color::Black).bg(Color::Cyan));
+    f.buffer_mut().set_style(
+        cells,
+        Style::default()
+            .fg(palette::HIGHLIGHT_FG)
+            .bg(palette::HIGHLIGHT_BG),
+    );
 }
 
 pub(super) fn window_command_row(

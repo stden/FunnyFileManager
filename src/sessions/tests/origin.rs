@@ -33,7 +33,7 @@ fn each_origin_survives_a_save_and_a_reload() {
         Origin::Manual,
         netbox("/srv/x/demo.netbox"),
         things("machine-7"),
-        netbox("/srv/my exports/Démo ✓ #1.netbox"),
+        netbox("/work/my exports/Démo ✓ #1.netbox"),
         netbox("/srv/x/!tag: 'q' \"d\" &a *b.netbox"),
         things("7: ü #1 {x} [y] 'q' \"d\" !t &a *s"),
         things("null"),

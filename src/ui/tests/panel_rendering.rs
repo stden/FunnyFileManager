@@ -167,5 +167,5 @@ fn the_panel_key_bar_is_fars_twelve_labels_at_eighty_columns() {
     assert_eq!(buf[(0, 0)].bg, Color::Black);
     assert_eq!(buf[(0, 0)].fg, palette::DIRECTORY);
     assert_eq!(buf[(1, 0)].bg, palette::CURSOR_BG);
-    assert_eq!(buf[(1, 0)].fg, palette::HIGHLIGHT_FG);
+    assert_eq!(buf[(1, 0)].fg, palette::CURSOR_FG);
 }

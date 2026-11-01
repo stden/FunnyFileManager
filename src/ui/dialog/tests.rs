@@ -47,6 +47,39 @@ fn input_line_pads_wide_cjk_characters_by_cells_not_chars() {
 }
 
 #[test]
+fn quality_title_marks_oversized_dialog_with_ellipsis() {
+    use super::{Button, Ground};
+    use ratatui::{backend::TestBackend, Terminal};
+
+    let title = "Files highlighting and sort groups";
+    let mut terminal = Terminal::new(TestBackend::new(40, 12)).unwrap();
+    terminal
+        .draw(|frame| {
+            super::render_at(
+                frame,
+                title,
+                Ground::Prompt,
+                &[Row::Text("Readable")],
+                &[Button::new("OK")],
+                (0, 0),
+            );
+        })
+        .unwrap();
+    let screen: String = terminal
+        .backend()
+        .buffer()
+        .content
+        .iter()
+        .map(ratatui::buffer::Cell::symbol)
+        .collect();
+    assert!(screen.contains("Files highlighting"), "{screen}");
+    assert!(
+        screen.contains('…'),
+        "a clipped title must say it is truncated: {screen}"
+    );
+}
+
+#[test]
 fn long_input_windows_text_and_clamps_caret_before_drop_marker() {
     let long = "a".repeat(80);
     let input = LineEditor::new(&long);

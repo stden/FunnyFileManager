@@ -100,7 +100,7 @@ fn render_detail(f: &mut Frame<'_>, area: Rect, editor: &LspEditor) {
         lines.truncate(height.saturating_sub(1));
         lines.push(Line::from(Span::styled(
             "… F3 shows everything",
-            Style::default().fg(palette::DISABLED_FG),
+            Style::default().fg(palette::HIDDEN),
         )));
     }
     f.render_widget(Paragraph::new(lines).style(ground()), area);

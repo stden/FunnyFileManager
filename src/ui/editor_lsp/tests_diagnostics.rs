@@ -112,6 +112,6 @@ fn diagnostic_severity_selects_warning_and_hint_colors() {
             paint(frame, 0, 0, 1..2, Some(4));
         })
         .unwrap();
-    assert_eq!(terminal.backend().buffer()[(0, 0)].fg, Color::Yellow);
-    assert_eq!(terminal.backend().buffer()[(1, 0)].fg, Color::Cyan);
+    assert_eq!(terminal.backend().buffer()[(0, 0)].fg, palette::CODE_STRING);
+    assert_eq!(terminal.backend().buffer()[(1, 0)].fg, palette::CODE_NORMAL);
 }

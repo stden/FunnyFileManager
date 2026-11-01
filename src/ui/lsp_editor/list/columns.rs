@@ -34,7 +34,7 @@ fn widths(row: usize) -> (usize, usize) {
     (rest - extensions, extensions)
 }
 
-/// The command and extensions columns, dimmed for a disabled server.
+/// The command and extensions columns, muted for a switched-off server.
 pub(super) fn program(
     editor: &LspEditor,
     language: &LanguageId,
@@ -47,7 +47,7 @@ pub(super) fn program(
         if enabled {
             style
         } else {
-            Style::default().fg(palette::DISABLED_FG)
+            Style::default().fg(palette::HIDDEN)
         }
     };
     let command = column(&server.command, command_width);
@@ -86,7 +86,7 @@ pub(super) fn marks(editor: &LspEditor, language: &LanguageId) -> [Piece; 2] {
 pub(super) fn checkbox(enabled: Enablement) -> Piece {
     match enabled {
         Enablement::Enabled => ("[x]".to_owned(), Style::default().fg(palette::STATUS_OK)),
-        Enablement::Disabled => ("[ ]".to_owned(), Style::default().fg(palette::DISABLED_FG)),
+        Enablement::Disabled => ("[ ]".to_owned(), Style::default().fg(palette::HIDDEN)),
     }
 }
 

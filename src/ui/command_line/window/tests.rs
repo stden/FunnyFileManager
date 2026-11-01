@@ -11,17 +11,17 @@ fn selected_columns(line: &LineEditor, area: Rect, typed_from: usize, caret: usi
             let screen = frame.area();
             frame
                 .buffer_mut()
-                .set_style(screen, Style::default().bg(Color::Blue));
+                .set_style(screen, Style::default().bg(palette::BACKGROUND));
             paint_selection(frame, area, line, Cells::new(typed_from), Cells::new(caret));
         })
         .unwrap();
     (0..14)
         .filter(|column| {
             let cell = &terminal.backend().buffer()[(*column, area.y)];
-            if cell.bg != Color::Cyan {
+            if cell.bg != palette::HIGHLIGHT_BG {
                 return false;
             }
-            assert_eq!(cell.fg, Color::Black);
+            assert_eq!(cell.fg, palette::HIGHLIGHT_FG);
             true
         })
         .collect()

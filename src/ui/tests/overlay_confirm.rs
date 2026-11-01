@@ -88,7 +88,7 @@ fn test_render_overlays_new_file_input() {
         .find(|cell| cell.symbol() == "y")
         .unwrap();
     assert_eq!(cell.fg, Color::Rgb(0, 0, 0));
-    assert_eq!(cell.bg, Color::Rgb(0, 128, 128));
+    assert_eq!(cell.bg, Color::Rgb(0, 132, 132));
 }
 
 #[test]

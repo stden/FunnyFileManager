@@ -31,15 +31,7 @@ fn locate(buffer: &Buffer, label: &str) -> (u16, u16) {
 #[test]
 fn checklist_shows_sizes_pending_measurement_and_dimmed_missing_rows() {
     let temp = TempDir::new().unwrap();
-    let mut selected = candidate("Selected", temp.path());
-    selected.state = CandidateState::Present {
-        size: Some(FileSize::from_bytes(7)),
-        checked: true,
-    };
-    let mut missing = candidate("Missing", temp.path());
-    missing.state = CandidateState::Absent;
-    let pending = candidate("Pending", temp.path());
-    let mut app = app(temp.path(), vec![selected, missing, pending]);
+    let mut app = mixed_checklist(temp.path());
     let terminal = draw(&mut app);
     let text = buffer_text(&terminal);
     let path = temp.path().display();
@@ -58,7 +50,20 @@ fn checklist_shows_sizes_pending_measurement_and_dimmed_missing_rows() {
         buffer[locate(buffer, "Selected")].bg,
         palette::DIALOG_FOCUS_BG
     );
-    assert_eq!(buffer[locate(buffer, "Missing")].fg, palette::DISABLED_FG);
+    assert!(buffer[locate(buffer, "Missing")]
+        .modifier
+        .contains(ratatui::style::Modifier::ITALIC));
+}
+
+fn mixed_checklist(path: &std::path::Path) -> App {
+    let mut selected = candidate("Selected", path);
+    selected.state = CandidateState::Present {
+        size: Some(FileSize::from_bytes(7)),
+        checked: true,
+    };
+    let mut missing = candidate("Missing", path);
+    missing.state = CandidateState::Absent;
+    app(path, vec![selected, missing, candidate("Pending", path)])
 }
 
 #[test]

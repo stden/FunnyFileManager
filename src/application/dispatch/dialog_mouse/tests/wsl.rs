@@ -39,7 +39,7 @@ fn click_label(app: &mut App, terminal: &mut Terminal<WritableTestBackend>, labe
                 })
                 .filter(|&(column, row)| {
                     // Only dialog buttons, not a random "F5" in the background panel path.
-                    buffer[(column, row)].bg == ratatui::style::Color::Rgb(0, 128, 128)
+                    buffer[(column, row)].bg == ratatui::style::Color::Rgb(0, 132, 132)
                 })
         })
         .expect("button label must be rendered");

@@ -21,7 +21,7 @@ pub(in crate::ui) const STATUS_PENDING: Color = MARKED;
 pub(in crate::ui) const STATUS_FAILED: Color = PROMPT_FAILED;
 /// The completion dropdown's frame and highlight, shared by the command line
 /// and the dialog's form.
-pub(in crate::ui) const COMPLETION_BG: Color = Color::Cyan;
+pub(in crate::ui) const COMPLETION_BG: Color = FRAME;
 
 // ── The task list's meters ─────────────────────────────────────────
 //

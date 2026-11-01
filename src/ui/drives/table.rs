@@ -75,7 +75,7 @@ fn row_line<'a>(row: &'a DriveRow, widths: &Widths, chosen: bool) -> Line<'a> {
             .map_or_else(|| "   ".to_owned(), |k| format!(" {k} "));
         spans.push(Span::styled(
             hotkey,
-            Style::default().fg(palette::HOTKEY).bg(background),
+            palette::hotkey_style(Style::default().bg(background)),
         ));
         spans.push(Span::styled(
             pad_cells(

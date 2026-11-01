@@ -43,7 +43,7 @@ pub(super) fn rows(
 
 fn command_pieces(command: &str) -> Vec<Piece> {
     if command.trim().is_empty() {
-        return vec![(NOTHING.to_owned(), plain(palette::DISABLED_FG))];
+        return vec![(NOTHING.to_owned(), plain(palette::HIDDEN))];
     }
     vec![(command.to_owned(), plain(palette::DIRECTORY))]
 }
@@ -51,7 +51,7 @@ fn command_pieces(command: &str) -> Vec<Piece> {
 /// Arguments in Far's switch green, written as the form reads them back.
 fn argument_pieces(arguments: &[String]) -> Vec<Piece> {
     if arguments.is_empty() {
-        return vec![(NOTHING.to_owned(), plain(palette::DISABLED_FG))];
+        return vec![(NOTHING.to_owned(), plain(palette::HIDDEN))];
     }
     vec![(Arguments::to_line(arguments), token_style(Token::Switch))]
 }
@@ -80,7 +80,7 @@ fn recipe_pieces(server: &ServerSettings) -> Vec<Piece> {
         .as_ref()
         .and_then(|recipe| serde_json::to_string(recipe).ok())
     else {
-        return vec![(OFF.to_owned(), plain(palette::DISABLED_FG))];
+        return vec![(OFF.to_owned(), plain(palette::HIDDEN))];
     };
     Highlighter::new(Path::new("recipe.json"))
         .line(&json)

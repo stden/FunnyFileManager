@@ -179,13 +179,16 @@ fn busy_buttons_are_dim_and_disabled_while_close_stays_clickable() {
         for label in ["Open", "F2", "F5", "F6"] {
             let (column, row) = locate(&buffer, label);
             assert_eq!(wsl_button_at(buffer.area, &dialog, column, row), None);
-            assert_eq!(buffer[(column, row)].fg, palette::DISABLED_FG);
+            assert!(buffer[(column, row)].modifier.contains(Modifier::ITALIC));
+            assert!(!buffer[(column, row)]
+                .modifier
+                .contains(Modifier::UNDERLINED));
         }
         let (column, row) = locate(&buffer, "Esc");
         assert_eq!(
             wsl_button_at(buffer.area, &dialog, column, row),
             Some(WslCommand::Close)
         );
-        assert_eq!(buffer[(column, row)].fg, palette::HOTKEY);
+        assert_eq!(buffer[(column, row)].fg, palette::DIALOG_FG);
     }
 }

@@ -108,11 +108,8 @@ fn a_missing_server_is_explained_and_register_is_dimmed() {
     assert!(screen.contains("{ Cancel }"), "{screen}");
     let (x, y) = find(&screen, "[ ] Claude Code");
     let cell = &terminal.backend().buffer()[(x, y)];
-    assert_eq!(
-        cell.fg,
-        crate::ui::palette::DISABLED_FG,
-        "a disabled row is dimmed"
-    );
+    assert!(cell.modifier.contains(ratatui::style::Modifier::ITALIC));
+    assert!(!cell.modifier.contains(ratatui::style::Modifier::UNDERLINED));
 }
 
 #[test]

@@ -109,7 +109,7 @@ pub(super) fn render_key_bar(f: &mut Frame<'_>, area: Rect, labels: &KeyLabels<'
                     fit_name(label, label_width),
                     Style::default()
                         .bg(palette::CURSOR_BG)
-                        .fg(palette::HIGHLIGHT_FG),
+                        .fg(palette::CURSOR_FG),
                 ),
             ]
         })

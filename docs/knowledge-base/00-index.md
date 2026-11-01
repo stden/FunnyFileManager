@@ -38,6 +38,7 @@ This is the structured knowledge base for FunnyFileManager, designed for use by 
 ### 🎨 06. UI and Interaction
 - `06-ui-and-interaction/overlays-and-modals.md` — The Overlay enum and modal system
 - `06-ui-and-interaction/rendering-and-layout.md` — Ratatui layout and color scheme
+- [Terminal UI quality](../ui-quality.md) — contrast, text/layout checks and SVG review artifacts
 - `06-ui-and-interaction/keyboard-handling.md` — Main key dispatch, quick search, popup priority
 
 ### ✨ 07. Core Features

@@ -3,6 +3,7 @@
 //! warning grounds.
 
 use ratatui::backend::TestBackend;
+use ratatui::buffer::{Buffer, Cell};
 use ratatui::Terminal;
 
 use super::overlay_mask::screen_text;
@@ -97,27 +98,22 @@ fn draw_dialog_controls(ground: dialog::Ground) -> Terminal<TestBackend> {
 fn assert_dialog_control_colors(ground: dialog::Ground, button_bg: Color) {
     let terminal = draw_dialog_controls(ground);
     let buffer = terminal.backend().buffer();
-    let field = buffer
-        .content
-        .iter()
-        .find(|cell| cell.symbol() == "v")
-        .unwrap();
+    let field = cell_with_symbol(buffer, "v");
     assert_eq!(
         (field.fg, field.bg),
-        (Color::Rgb(0, 0, 0), Color::Rgb(0, 128, 128))
+        (Color::Rgb(0, 0, 0), Color::Rgb(0, 132, 132))
     );
-    let button = buffer
-        .content
-        .iter()
-        .find(|cell| cell.symbol() == "K")
-        .unwrap();
+    let button = cell_with_symbol(buffer, "K");
     assert_eq!((button.fg, button.bg), (Color::Rgb(0, 0, 0), button_bg));
-    let hotkey = buffer
-        .content
-        .iter()
-        .find(|cell| cell.symbol() == "N")
-        .unwrap();
-    assert_eq!(hotkey.fg, Color::Rgb(255, 255, 0));
+    let hotkey = cell_with_symbol(buffer, "N");
+    let expected = match ground {
+        dialog::Ground::Prompt => palette::DIALOG_FG,
+        dialog::Ground::Warning => palette::HOTKEY,
+    };
+    assert_eq!(hotkey.fg, expected);
+    assert!(hotkey
+        .modifier
+        .contains(ratatui::style::Modifier::UNDERLINED));
     let background = match ground {
         dialog::Ground::Prompt => Color::Rgb(192, 192, 192),
         dialog::Ground::Warning => Color::Rgb(128, 0, 0),
@@ -126,27 +122,31 @@ fn assert_dialog_control_colors(ground: dialog::Ground, button_bg: Color) {
     assert_button_accents(buffer, button_bg, background);
 }
 
-fn assert_button_accents(buffer: &ratatui::buffer::Buffer, focused: Color, ground: Color) {
-    let hotkey = buffer
+fn cell_with_symbol<'a>(buffer: &'a Buffer, symbol: &str) -> &'a Cell {
+    buffer
         .content
         .iter()
-        .find(|cell| cell.symbol() == "O")
-        .unwrap();
-    assert_eq!((hotkey.fg, hotkey.bg), (Color::Rgb(255, 255, 0), focused));
-    let disabled = buffer
-        .content
-        .iter()
-        .find(|cell| cell.symbol() == "A")
-        .unwrap();
+        .find(|cell| cell.symbol() == symbol)
+        .unwrap()
+}
+
+fn assert_button_accents(buffer: &Buffer, focused: Color, ground: Color) {
+    let hotkey = cell_with_symbol(buffer, "O");
+    assert_eq!((hotkey.fg, hotkey.bg), (palette::DIALOG_FG, focused));
+    let disabled = cell_with_symbol(buffer, "A");
     assert_eq!(
-        (disabled.fg, disabled.bg),
-        (Color::Rgb(128, 128, 128), ground)
+        Some(disabled.fg),
+        palette::disabled_style(Style::default().bg(ground)).fg
     );
+    assert!(disabled.modifier.contains(ratatui::style::Modifier::ITALIC));
+    assert!(!disabled
+        .modifier
+        .contains(ratatui::style::Modifier::UNDERLINED));
 }
 
 #[test]
 fn prompt_controls_use_far_black_on_cyan() {
-    assert_dialog_control_colors(dialog::Ground::Prompt, Color::Rgb(0, 128, 128));
+    assert_dialog_control_colors(dialog::Ground::Prompt, Color::Rgb(0, 132, 132));
 }
 
 #[test]

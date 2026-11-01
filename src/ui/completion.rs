@@ -2,7 +2,7 @@
 
 use ratatui::{
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Clear, List, ListItem},
     Frame,
@@ -94,7 +94,7 @@ fn completion_items(
             let style = if lit {
                 Style::default()
                     .bg(palette::COMPLETION_BG)
-                    .fg(Color::Black)
+                    .fg(palette::HIGHLIGHT_FG)
                     .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(palette::COMPLETION_BG)

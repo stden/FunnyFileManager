@@ -195,6 +195,8 @@ jobs:
       # scripts/coverage.py is the one definition of the gate: its features,
       # the files left out of the measurement and why, and the floor.
       - name: Tests + coverage gate (./ffm.py coverage)
+        env:
+          FFM_UI_ARTIFACT_DIR: ${{ runner.temp }}/ffm-ui-quality
         run: ./ffm.py coverage
 
       # KeePass and the libtest-wrapped TUI Cucumber suite (tests/tui_bdd.rs)
@@ -207,6 +209,14 @@ jobs:
         with:
           name: tui-screens-Linux
           path: target/tui-bdd/
+          if-no-files-found: warn
+
+      - name: Upload terminal visual review SVGs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-quality-Linux
+          path: ${{ runner.temp }}/ffm-ui-quality/
           if-no-files-found: warn
 
   # ── BDD tests (need the s3 feature to compile) ──────────────
@@ -289,6 +299,8 @@ jobs:
       # TUI BDD scenarios (tests/tui_bdd.rs; undefined steps fail) run here,
       # once.
       - name: Run the complete Windows test suite
+        env:
+          FFM_UI_ARTIFACT_DIR: ${{ runner.temp }}/ffm-ui-quality
         run: cargo test --features test-helpers --no-fail-fast
       # Runs even when the suite failed, so a Clippy regression in Windows
       # code is not hidden behind a red test.
@@ -308,6 +320,14 @@ jobs:
         with:
           name: tui-screens-Windows
           path: target/tui-bdd/
+          if-no-files-found: warn
+
+      - name: Upload terminal visual review SVGs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-quality-Windows
+          path: ${{ runner.temp }}/ffm-ui-quality/
           if-no-files-found: warn
 
   # ── MCP workspace: tests + coverage ─────────────────────────

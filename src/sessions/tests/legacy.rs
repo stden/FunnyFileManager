@@ -23,7 +23,7 @@ sessions:
   port: 22
   user: u
   auth: Password
-  origin: !NetBoxFile /srv/my exports/Démo.netbox
+  origin: !NetBoxFile /work/my exports/Démo.netbox
 - name: u@things.example.test
   protocol: Sftp
   host: things.example.test
@@ -42,7 +42,7 @@ const LEGACY_JSON: &str = r#"{
      "port": 22, "user": "u", "auth": "Password", "origin": "Manual"},
     {"name": "u@nb.example.test", "protocol": "Sftp", "host": "nb.example.test",
      "port": 22, "user": "u", "auth": "Password",
-     "origin": {"NetBoxFile": "/srv/my exports/Démo.netbox"}},
+     "origin": {"NetBoxFile": "/work/my exports/Démo.netbox"}},
     {"name": "u@things.example.test", "protocol": "Sftp", "host": "things.example.test",
      "port": 22, "user": "u", "auth": "Password",
      "origin": {"Things": {"machine": "7: ü #1"}}}
@@ -51,7 +51,7 @@ const LEGACY_JSON: &str = r#"{
 
 fn netbox() -> Origin {
     Origin::NetBoxFile {
-        path: PathBuf::from("/srv/my exports/Démo.netbox"),
+        path: PathBuf::from("/work/my exports/Démo.netbox"),
     }
 }
 
@@ -129,4 +129,38 @@ fn a_tag_that_is_not_a_session_origin_is_still_refused() {
         fs::write(&path, text).expect("ffm.yml");
         assert!(SessionStore::load_from(path).is_damaged(), "{text}");
     }
+}
+
+const MIGRATION_SOURCE: &str = "\
+outside: !Things keep
+sessions:
+- origin: !NetBoxFile /work/export.netbox
+- origin: !Things {machine: machine-7}
+- origin: !Elsewhere keep
+- origin: Manual
+- other: !Things keep
+- 7
+";
+
+const MIGRATION_EXPECTED: &str = "\
+outside: !Things keep
+sessions:
+- origin: {NetBoxFile: /work/export.netbox}
+- origin: {Things: {machine: machine-7}}
+- origin: !Elsewhere keep
+- origin: Manual
+- other: !Things keep
+- 7
+";
+
+#[test]
+fn untag_legacy_origins_preserves_unrelated_tags_and_is_idempotent() {
+    use crate::models::session::untag_legacy_origins;
+
+    let mut document: serde_norway::Mapping = serde_norway::from_str(MIGRATION_SOURCE).unwrap();
+    let expected: serde_norway::Mapping = serde_norway::from_str(MIGRATION_EXPECTED).unwrap();
+    untag_legacy_origins(&mut document);
+    assert_eq!(document, expected);
+    untag_legacy_origins(&mut document);
+    assert_eq!(document, expected);
 }

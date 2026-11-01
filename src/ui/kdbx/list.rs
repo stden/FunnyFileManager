@@ -104,7 +104,7 @@ pub(super) fn unlocked_content(
         Line::from(Span::styled(
             format!("Filter: {}_", vault.filter()),
             Style::default()
-                .fg(palette::HOTKEY)
+                .fg(palette::DIALOG_FG)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
@@ -118,10 +118,9 @@ pub(super) fn unlocked_content(
         content.push(Line::from(notice.clone()));
     }
     content.push(Line::from(""));
-    content.push(Line::from(Span::styled(
+    content.push(Line::from(
         "Enter Copy | Ctrl+U User | Ctrl+R Password | F4 Edit | F6 Tree | F8 Delete | Ctrl+Z Undo",
-        Style::default().fg(palette::HOTKEY),
-    )));
+    ));
 
     content
 }

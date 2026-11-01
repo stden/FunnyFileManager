@@ -117,7 +117,7 @@ fn row_line(command: ArchiveCommand, interior: usize, chosen: bool) -> Line<'sta
         palette::MENU_BG
     };
     let frame = Style::default().fg(palette::DRIVE_FG).bg(palette::MENU_BG);
-    let hotkey = Style::default().fg(palette::HOTKEY).bg(background);
+    let hotkey = palette::hotkey_style(Style::default().bg(background));
     let label = Style::default()
         .fg(if chosen {
             palette::MENU_SELECTED_FG

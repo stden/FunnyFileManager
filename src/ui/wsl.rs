@@ -4,7 +4,7 @@ mod geometry;
 
 use ratatui::{
     layout::{Position, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Clear, Paragraph, Wrap},
     Frame,
@@ -133,10 +133,16 @@ fn activity(dialog: &WslDialog) -> (String, Style) {
                 }
                 WslOperation::Open(name) => format!("Opening {}...", name.as_str()),
             };
-            (message, style.fg(palette::MARKED))
+            (
+                message,
+                style.fg(palette::DIALOG_FG).add_modifier(Modifier::BOLD),
+            )
         }
         WslActivity::Notice(message) => (message.clone(), style),
-        WslActivity::Failed(message) => (format!("Error: {message}"), style.fg(Color::LightRed)),
+        WslActivity::Failed(message) => (
+            format!("Error: {message}"),
+            style.fg(palette::WARNING_FG).bg(palette::WARNING_BG),
+        ),
     }
 }
 
@@ -152,13 +158,13 @@ fn render_buttons(f: &mut Frame<'_>, dialog: &WslDialog, layout: &Layout, ground
 }
 
 fn control_line(text: &str, enabled: bool, ground: Style) -> Line<'_> {
-    let normal = ground.fg(if enabled {
-        palette::DRIVE_FG
+    let normal = if enabled {
+        ground.fg(palette::DRIVE_FG)
     } else {
-        palette::DISABLED_FG
-    });
+        palette::disabled_style(ground)
+    };
     let hotkey = if enabled {
-        normal.fg(palette::HOTKEY)
+        palette::hotkey_style(normal)
     } else {
         normal
     };

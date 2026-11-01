@@ -3,6 +3,7 @@
 //! the help page, and the dialog tracker.
 
 use crossterm::event::KeyCode;
+use ratatui::style::Style;
 
 use super::tests::{draw, fg_of, lines};
 use super::tests_dialogs::{assert_shows, cursor_only, screen};
@@ -30,14 +31,14 @@ fn the_priority_form_disables_set_while_the_value_is_not_a_nice_value() {
     );
     let buttons = drawn.iter().position(|row| row.contains("Set }")).unwrap();
     let y = u16::try_from(buttons).unwrap();
-    assert_ne!(fg_of(buffer, y, "Set"), palette::DISABLED_FG);
+    let unavailable = palette::disabled_style(Style::default().bg(palette::DIALOG_BG))
+        .fg
+        .unwrap();
+    assert_ne!(fg_of(buffer, y, "Set"), unavailable);
     app.press(KeyCode::Backspace);
     app.type_text("x");
     let terminal = draw(&mut app, 80, 24);
-    assert_eq!(
-        fg_of(terminal.backend().buffer(), y, "Set"),
-        palette::DISABLED_FG
-    );
+    assert_eq!(fg_of(terminal.backend().buffer(), y, "Set"), unavailable);
 }
 
 #[test]

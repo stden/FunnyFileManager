@@ -1,14 +1,16 @@
 //! Purpose: Render language-server popups, diagnostic ranges, and compact editor feedback.
 
+mod label;
 mod underline;
 
 use crate::{
     models::{lsp::Dialog, Editor, ServerState},
-    ui::printable_name,
+    ui::{palette, printable_name},
 };
+pub(super) use label::{compact_label, label};
 use ratatui::{
     layout::Rect,
-    style::{Color, Style},
+    style::Style,
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
     Frame,
 };
@@ -38,17 +40,6 @@ pub(super) fn status(editor: &Editor) -> String {
     )
 }
 
-pub(super) fn label(editor: &Editor, marker: &str) -> String {
-    let raw = crate::path_display::label(&editor.path);
-    let path = printable_name(&raw);
-    let status = status(editor);
-    if status.is_empty() {
-        format!(" {path}{marker}")
-    } else {
-        format!(" {} | {path}{marker}", status.trim_start_matches(" | "))
-    }
-}
-
 pub(super) fn popup(frame: &mut Frame<'_>, editor: &Editor, caret: (u16, u16)) -> bool {
     let Some(dialog) = &editor.lsp.popup else {
         return false;
@@ -66,7 +57,11 @@ pub(super) fn popup(frame: &mut Frame<'_>, editor: &Editor, caret: (u16, u16)) -
     frame.render_widget(
         Paragraph::new(text)
             .block(Block::default().borders(Borders::ALL).title(title))
-            .style(Style::default().fg(Color::Cyan).bg(Color::Rgb(0, 0, 128)))
+            .style(
+                Style::default()
+                    .fg(palette::CODE_NORMAL)
+                    .bg(palette::BACKGROUND),
+            )
             .wrap(Wrap { trim: false })
             .scroll((scroll, 0)),
         area,

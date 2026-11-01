@@ -2,7 +2,7 @@
 
 use super::*;
 
-const PANEL_SELECTED: Color = Color::Rgb(85, 150, 216);
+const PANEL_SELECTED: Color = Color::Rgb(45, 110, 175);
 
 #[test]
 fn text_ui_closes_a_busy_manager_keeps_keyboard_working_and_reports_completion() -> io::Result<()> {

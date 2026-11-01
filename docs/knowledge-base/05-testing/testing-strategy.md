@@ -149,6 +149,11 @@ functions; avoid tests that merely duplicate implementation statements.
 
 ## Verification commands
 
+The [terminal UI quality suite](../../ui-quality.md) checks rendered text contrast,
+essential labels, Unicode cells and control geometry across viewports and themes.
+It runs in ordinary `cargo test`; set `FFM_UI_ARTIFACT_DIR` to export SVGs for
+visual review. Linux and Windows CI publish these artifacts automatically.
+
 ```sh
 cargo test
 cargo test --features test-helpers

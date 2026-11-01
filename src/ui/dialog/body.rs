@@ -4,7 +4,7 @@
 
 use ratatui::{
     layout::Rect,
-    style::{Modifier, Style},
+    style::Style,
     text::{Line, Span},
     widgets::Paragraph,
     Frame,
@@ -65,7 +65,7 @@ fn render_row(
     area: Rect,
     framed: Rect,
 ) {
-    let accent = style.fg(palette::HOTKEY).add_modifier(Modifier::BOLD);
+    let accent = palette::hotkey_style(style);
     let (focused, enabled) = (row.is_focused(), row.is_enabled());
     let look = FieldLook {
         focused,

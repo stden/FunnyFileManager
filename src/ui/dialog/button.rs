@@ -3,7 +3,7 @@
 //! columns each covers so a click lands on the button the user sees.
 
 use ratatui::{
-    style::{Modifier, Style},
+    style::Style,
     text::{Line, Span},
 };
 
@@ -111,7 +111,7 @@ pub(super) fn button_line<'a>(buttons: &[Button<'_>], ground: Style) -> Line<'a>
             button.label,
             base,
             if button.is_enabled {
-                base.fg(palette::HOTKEY).add_modifier(Modifier::BOLD)
+                palette::hotkey_style(base)
             } else {
                 base
             },
@@ -125,7 +125,7 @@ pub(super) fn button_line<'a>(buttons: &[Button<'_>], ground: Style) -> Line<'a>
 
 fn button_style(button: &Button<'_>, ground: Style) -> Style {
     if !button.is_enabled {
-        ground.fg(palette::DISABLED_FG)
+        palette::disabled_style(ground)
     } else if button.is_focused {
         focused_control_style(ground)
     } else {
