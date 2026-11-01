@@ -33,14 +33,30 @@ fn wsl(name: &'static str, activity: WslActivity, required: &'static str) -> Cas
 
 #[cfg(feature = "keepass")]
 fn vaults() -> Vec<Case> {
-    [
-        ("vault-tree", VaultView::Tree),
-        ("vault-list", VaultView::List),
-        ("vault-filter", VaultView::Filter),
-    ]
-    .into_iter()
-    .map(|(name, view)| vault(name, view))
-    .collect()
+    let locked = overlay(
+        "vault-locked-long-path",
+        Overlay::Kdbx(crate::models::KdbxOverlay(crate::kdbx::KdbxSession::new(
+            "/ffm-quality/a-deliberately-long-directory/another-long-directory/vault.kdbx".into(),
+        ))),
+        &[
+            "KeePass:",
+            "vault.kdbx",
+            "Master password:",
+            "Unlock",
+            "Cancel",
+        ],
+    );
+    std::iter::once(locked)
+        .chain(
+            [
+                ("vault-tree", VaultView::Tree),
+                ("vault-list", VaultView::List),
+                ("vault-filter", VaultView::Filter),
+            ]
+            .into_iter()
+            .map(|(name, view)| vault(name, view)),
+        )
+        .collect()
 }
 
 #[cfg(not(feature = "keepass"))]

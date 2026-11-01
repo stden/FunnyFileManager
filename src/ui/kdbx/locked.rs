@@ -4,7 +4,7 @@
 
 use ratatui::Frame;
 
-use super::super::dialog;
+use super::super::{dialog, tail_cells, Cells};
 
 pub(super) fn render_locked(
     f: &mut Frame<'_>,
@@ -12,7 +12,8 @@ pub(super) fn render_locked(
     prompt: &crate::kdbx::UnlockPrompt,
     tracker: &mut crate::mouse::DialogMouse,
 ) {
-    let password = clipped_password(f.area(), name, prompt, tracker.offset);
+    let title = locked_title(f.area(), name);
+    let password = clipped_password(f.area(), &title, prompt, tracker.offset);
     let detail = locked_details(prompt);
     let mut rows = vec![
         dialog::Row::Label("Master password:"),
@@ -24,21 +25,16 @@ pub(super) fn render_locked(
         dialog::Button::new("◉"),
         dialog::Button::new("Cancel"),
     ];
-    if let Some(position) = dialog::render_tracked(
-        f,
-        tracker,
-        &format!("KeePass: {name}"),
-        dialog::Ground::Prompt,
-        &rows,
-        &buttons,
-    ) {
+    if let Some(position) =
+        dialog::render_tracked(f, tracker, &title, dialog::Ground::Prompt, &rows, &buttons)
+    {
         f.set_cursor_position(position);
     }
 }
 
 fn clipped_password(
     screen: ratatui::layout::Rect,
-    name: &str,
+    title: &str,
     prompt: &crate::kdbx::UnlockPrompt,
     offset: (i32, i32),
 ) -> String {
@@ -51,11 +47,17 @@ fn clipped_password(
         dialog::Button::new("◉"),
         dialog::Button::new("Cancel"),
     ];
-    let width = dialog::place(screen, &format!("KeePass: {name}"), &rows, &buttons, offset)
-        .map_or(0, |placement| {
-            usize::from(placement.body.width.saturating_sub(1))
-        });
+    let width = dialog::place(screen, title, &rows, &buttons, offset).map_or(0, |placement| {
+        usize::from(placement.body.width.saturating_sub(1))
+    });
     prompt.visible_text().chars().take(width).collect()
+}
+
+fn locked_title(screen: ratatui::layout::Rect, name: &str) -> String {
+    const PREFIX: &str = "KeePass: ";
+
+    let room = dialog::title_width(screen).saturating_sub(Cells::of(PREFIX));
+    format!("{PREFIX}{}", tail_cells(name, room))
 }
 
 fn locked_details(prompt: &crate::kdbx::UnlockPrompt) -> Vec<String> {

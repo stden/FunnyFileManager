@@ -27,7 +27,7 @@ pub use unix::{clock_ticks_per_second, page_size};
 #[cfg(unix)]
 pub use unix::{hang_up_process_group, has_exited};
 #[cfg(unix)]
-pub(crate) use unix::{kill_terminal_foreground, nonblocking_terminal_fd};
+pub use unix::{kill_terminal_foreground, nonblocking_terminal_fd};
 #[cfg(all(unix, any(target_os = "linux", test)))]
 pub use unix::{set_niceness, signal_process};
 #[cfg(all(windows, test))]

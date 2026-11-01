@@ -68,7 +68,7 @@ fn running(pid: rustix::process::Pid) -> bool {
         return false;
     }
     let output = Command::new("ps")
-        .args(["-o", "stat=", "-p", &pid.as_raw().to_string()])
+        .args(["-o", "stat=", "-p", &pid.to_string()])
         .output()
         .unwrap();
     // Container PID 1 may leave a killed orphan zombie unreaped.

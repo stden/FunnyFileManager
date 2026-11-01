@@ -63,8 +63,9 @@ causes a failure rather than just producing another screenshot.
 
 ## Visual review
 
-Linux and Windows CI run these checks with the normal test suite and publish
-`ui-quality-Linux` and `ui-quality-Windows` artifacts, including on test failure.
+Linux and Windows CI run these checks with the normal test suite and upload
+generated `ui-quality-Linux` and `ui-quality-Windows` artifacts even when tests
+fail. A build failure or an early test-runner abort can prevent generation.
 Each contains `report.txt`, the blue-theme SVGs at every tested size, and panel
 overviews for the other theme configurations.
 

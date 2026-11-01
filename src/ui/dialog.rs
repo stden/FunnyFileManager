@@ -34,7 +34,7 @@ pub(super) use button::Button;
 use button::{button_line, button_spans};
 pub(super) use controls::field_caret;
 use placement::frame_area;
-pub(super) use placement::place;
+pub(super) use placement::{place, title_width};
 pub(super) use row::Row;
 pub(super) use shadow::render_shadow;
 
@@ -118,7 +118,7 @@ pub(super) fn render_at(
     f.render_widget(Paragraph::new("").style(style), area);
 
     let framed = frame_area(area);
-    let title = super::head_cells(title, super::Cells::columns(framed.width.saturating_sub(4)));
+    let title = super::head_cells(title, title_width(area));
     let frame = far_block()
         .title(Line::from(Span::styled(format!(" {title} "), style)).centered())
         .border_style(style)

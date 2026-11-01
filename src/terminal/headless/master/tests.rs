@@ -31,7 +31,7 @@ impl Read for WatchedReader {
 
 impl Drop for WatchedReader {
     fn drop(&mut self) {
-        drop(self.dropped.send(()));
+        let _delivery = self.dropped.send(());
     }
 }
 
@@ -44,49 +44,54 @@ struct Fixture {
     _slave: Box<dyn portable_pty::SlavePty + Send>,
 }
 
-fn fixture() -> Fixture {
+fn fixture() -> io::Result<Fixture> {
     let pair = portable_pty::native_pty_system()
         .openpty(PtySize::default())
-        .unwrap();
-    let reader = pair.master.try_clone_reader().unwrap();
+        .map_err(io::Error::other)?;
+    let reader = pair.master.try_clone_reader().map_err(io::Error::other)?;
     let master = Master::new(pair.master);
     let weak = Arc::downgrade(&master.0);
     let (dropped, observed) = mpsc::channel();
     let host = HeadlessHost::new();
     let (input, _receiver) = mpsc::sync_channel(1);
-    let generation = host.begin(input).unwrap();
+    let generation = host.begin(input)?;
     let (replies, _responses) = mpsc::sync_channel(1);
     let reader = Box::new(WatchedReader { reader, dropped });
-    let output = streams::read(reader, host.clone(), generation, replies, &master).unwrap();
+    let output = streams::read(reader, host.clone(), generation, replies, &master)?;
     drop(master);
-    Fixture {
+    Ok(Fixture {
         host,
         generation,
         output,
         master: weak,
         dropped: observed,
         _slave: pair.slave,
-    }
+    })
 }
 
 #[test]
-fn retained_slave_does_not_keep_capture_resources_after_completion_or_cancel() {
+fn retained_slave_does_not_keep_capture_resources_after_completion_or_cancel() -> io::Result<()> {
     for end in [End::Completed, End::Cancelled, End::Replaced, End::Dropped] {
-        check(end);
+        check(end)?;
     }
+    Ok(())
 }
 
-fn check(end: End) {
-    let fixture = fixture();
+fn check(end: End) -> io::Result<()> {
+    let fixture = fixture()?;
     assert!(
         fixture.master.upgrade().is_some(),
         "reader retains its master lease"
     );
-    prepare(&fixture, end);
+    prepare(&fixture, end)?;
     let started = Instant::now();
     match end {
         End::Dropped => drop(fixture.output),
-        _ => assert!(streams::collect(fixture.output).unwrap().is_empty()),
+        _ => assert_eq!(
+            streams::collect(fixture.output)?,
+            Vec::<u8>::new(),
+            "the private fixture must produce no output"
+        ),
     }
     assert!(
         started.elapsed() < Duration::from_secs(2),
@@ -101,17 +106,19 @@ fn check(end: End) {
         "reader released the last master lease"
     );
     // The slave stays owned until scope exit, as a background process can retain it.
+    Ok(())
 }
 
-fn prepare(fixture: &Fixture, end: End) {
+fn prepare(fixture: &Fixture, end: End) -> io::Result<()> {
     match end {
         End::Cancelled => fixture.host.cancel(),
         End::Replaced => {
             fixture
                 .host
                 .finish(fixture.generation, ExternalState::Exited { code: 0 });
-            fixture.host.reset().unwrap();
+            fixture.host.reset()?;
         }
         End::Completed | End::Dropped => {}
     }
+    Ok(())
 }

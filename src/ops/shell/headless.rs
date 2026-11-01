@@ -14,7 +14,10 @@ pub(super) fn run(
     directory: &Path,
     timeout: Option<Duration>,
 ) -> Result<Output, ShellError> {
+    #[cfg(windows)]
     let mut shell = shell(command).map_err(ShellError::Launch)?;
+    #[cfg(not(windows))]
+    let mut shell = shell(command);
     let result = headless::run_with_timeout(shell.command.current_dir(directory), timeout)
         .map_err(|error| failure(directory, error, timeout))?;
     Ok(Output {
@@ -50,10 +53,10 @@ fn shell(command: &str) -> io::Result<Shell> {
 }
 
 #[cfg(not(windows))]
-fn shell(command: &str) -> io::Result<Shell> {
+fn shell(command: &str) -> Shell {
     let mut shell = Command::new("sh");
     shell.args(["-c", command]);
-    Ok(Shell { command: shell })
+    Shell { command: shell }
 }
 
 fn failure(directory: &Path, error: io::Error, timeout: Option<Duration>) -> ShellError {

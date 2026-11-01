@@ -117,3 +117,8 @@ pub(super) fn frame_area(area: Rect) -> Rect {
         height: area.height.saturating_sub(MARGIN_Y * 2),
     }
 }
+
+/// Cells available for title text after frame insets and surrounding blanks.
+pub(in crate::ui) fn title_width(area: Rect) -> Cells {
+    Cells::columns(frame_area(area).width.saturating_sub(4))
+}

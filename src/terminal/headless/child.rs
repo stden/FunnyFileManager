@@ -31,8 +31,11 @@ impl OwnedChild {
         descendants: Descendants,
     ) -> io::Result<Self> {
         #[cfg(unix)]
-        if child.downcast_ref::<std::process::Child>().is_none() {
-            return Err(io::Error::other("Unsupported private terminal process"));
+        {
+            let native: &dyn Child = child.as_ref();
+            if native.downcast_ref::<std::process::Child>().is_none() {
+                return Err(io::Error::other("Unsupported private terminal process"));
+            }
         }
         #[cfg(windows)]
         let mut child = child;
@@ -117,7 +120,8 @@ impl OwnedChild {
 
     #[cfg(unix)]
     fn native(&self) -> io::Result<&std::process::Child> {
-        self.child
+        let child: &dyn Child = self.child.as_ref();
+        child
             .downcast_ref::<std::process::Child>()
             .ok_or_else(|| io::Error::other("Unsupported private terminal process"))
     }
