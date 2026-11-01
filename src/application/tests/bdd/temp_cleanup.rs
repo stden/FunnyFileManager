@@ -1,6 +1,8 @@
 //! Purpose: Temporary-cleanup acceptance steps use real menu input and a TempDir-only worker.
+use super::common::open_command_row;
 use super::{BehaviorWorld, Case};
 use crate::application::system_temp_cleanup_jobs::TempCleanupJobs;
+use crate::menu::MenuCommand;
 use crate::models::{
     temp_cleanup::{TempCleanupState, TempSource},
     Overlay,
@@ -28,26 +30,8 @@ fn temporary_files(world: &mut BehaviorWorld) {
 #[when("I open temporary-file cleanup from the F9 menu")]
 fn open(world: &mut BehaviorWorld) {
     let case = world.case();
-    case.press("F9 Alt+C Home");
-    select_cleanup(case);
-    case.press("Enter");
+    open_command_row(case, MenuCommand::SystemTempCleanup);
     assert!(matches!(case.app.overlay, Overlay::TempCleanup(_)));
-}
-
-fn select_cleanup(case: &mut Case) {
-    use crate::{action::Action, menu::MenuCommand};
-    for _ in 0..100 {
-        let Overlay::Menu(menu) = &case.app.overlay else {
-            panic!("the F9 Commands menu must be open");
-        };
-        if menu.entry().and_then(crate::menu::Entry::action)
-            == Some(Action::Menu(MenuCommand::SystemTempCleanup))
-        {
-            return;
-        }
-        case.press("Down");
-    }
-    panic!("the menu must offer temporary-file cleanup");
 }
 
 #[derive(Clone, Copy)]

@@ -1,7 +1,11 @@
 //! Shared fixture, key and rendered-screen steps.
 
 use super::{BehaviorWorld, Case};
-use crate::models::Overlay;
+use crate::{
+    action::Action,
+    menu::{Entry, MenuCommand},
+    models::Overlay,
+};
 use cucumber::{given, then, when};
 
 #[given("an isolated acceptance workspace")]
@@ -48,4 +52,24 @@ fn synchronized(world: &mut BehaviorWorld) {
 fn overlay_closed(world: &mut BehaviorWorld) {
     let overlay = &world.case().app.overlay;
     assert!(matches!(overlay, Overlay::None), "expected no overlay");
+}
+
+/// Rows the Commands drop-down may need pressing past before it reaches one.
+const MAX_MENU_PRESSES: usize = 100;
+
+/// Opens F9's Commands drop-down as a user does (Alt+C, then Home), walks it to
+/// `command`'s row, and runs that row with Enter.
+pub(super) fn open_command_row(case: &mut Case, command: MenuCommand) {
+    case.press("F9 Alt+C Home");
+    for _ in 0..MAX_MENU_PRESSES {
+        let Overlay::Menu(menu) = &case.app.overlay else {
+            panic!("the F9 Commands menu must be open");
+        };
+        if menu.entry().and_then(Entry::action) == Some(Action::Menu(command)) {
+            case.press("Enter");
+            return;
+        }
+        case.press("Down");
+    }
+    panic!("the Commands menu must offer {command:?}");
 }

@@ -22,9 +22,11 @@ mod queue;
 mod quick_search;
 mod samples;
 mod server_profiles;
+mod space_analysis;
 mod statistics;
 mod tasks;
 mod temp_cleanup;
+mod things_catalog;
 mod token_usage;
 mod viewer;
 
@@ -37,6 +39,7 @@ struct BehaviorWorld {
     profiles: Option<server_profiles::Fixture>,
     usage: Option<token_usage::Fixture>,
     temp_cleanup: Option<temp_cleanup::Fixture>,
+    things: Option<things_catalog::Fixture>,
 }
 
 impl std::fmt::Debug for BehaviorWorld {
