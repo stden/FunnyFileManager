@@ -62,6 +62,11 @@ fn with_a_home_every_row_is_offered() {
         dialog.candidates.first().map(|row| row.label),
         Some("Temp files")
     );
+    assert_cache_row(
+        &dialog.candidates,
+        "Cargo registry cache",
+        &home.path().join(".cargo").join("registry").join("cache"),
+    );
 }
 
 #[cfg(not(any(windows, target_os = "macos")))]
@@ -77,6 +82,18 @@ fn unix_cache_rows_live_under_the_platform_cache_dir() {
     assert_cache_row(&rows, "JetBrains caches", &caches.join("JetBrains"));
     assert_cache_row(&rows, "Playwright browsers", &caches.join("ms-playwright"));
     assert_cache_row(&rows, "pip cache", &caches.join("pip"));
+}
+
+#[cfg(not(windows))]
+#[test]
+fn tool_cache_rows_live_under_the_cache_dir() {
+    let base = tempfile::TempDir::new().expect("tempdir");
+    let _lock = crate::test_support::env_lock();
+    let caches = super::cache_dir(Some(base.path())).expect("a cache dir");
+    let rows = platform_caches(Some(base.path()));
+    assert_cache_row(&rows, "uv cache", &caches.join("uv"));
+    assert_cache_row(&rows, "Hugging Face cache", &caches.join("huggingface"));
+    assert_cache_row(&rows, "Puppeteer browsers", &caches.join("puppeteer"));
 }
 
 #[cfg(target_os = "macos")]

@@ -118,6 +118,10 @@ fn build_candidates() -> Vec<CleanupCandidate> {
         rows.extend([
             candidate("Gradle caches", home.join(".gradle").join("caches")),
             candidate("npm cache", home.join(".npm").join("_cacache")),
+            candidate(
+                "Cargo registry cache",
+                home.join(".cargo").join("registry").join("cache"),
+            ),
         ]);
     }
     rows.extend(platform_caches(home.as_deref()));
@@ -159,6 +163,9 @@ fn platform_caches(home: Option<&Path>) -> Vec<CleanupCandidate> {
         candidate("JetBrains caches", caches.join("JetBrains")),
         candidate("Playwright browsers", caches.join("ms-playwright")),
         candidate("pip cache", caches.join("pip")),
+        candidate("uv cache", caches.join("uv")),
+        candidate("Hugging Face cache", caches.join("huggingface")),
+        candidate("Puppeteer browsers", caches.join("puppeteer")),
     ]
 }
 
