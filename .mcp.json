@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "ffm-mcp": {
+      "type": "stdio",
+      "command": "ffm-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}

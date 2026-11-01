@@ -1,0 +1,26 @@
+//! Help content is shared by its renderer and scroll bounds.
+
+pub const HELP_LINES: &[&str] = &[
+    "Far Manager style navigation:",
+    "F1: Toggle this help window",
+    "Ctrl+Q: Preview the selected file in the other panel",
+    "F9 > Commands > File panel filter",
+    "F2: Open the user command menu",
+    "F3: View selected file (read-only)",
+    "F4: Edit; editor F2 saves, F7 searches, Shift+F7 repeats",
+    "Alt+F4: Edit selected file with $EDITOR or VS Code",
+    "F5: Copy selected entry to other panel",
+    "F6: Move/Rename selected entry to other panel",
+    "F7: Create a new directory in active panel",
+    "F8: Delete selected entry",
+    "F9: Open the menu bar",
+    "F10: Quit (or type `quit`)",
+    "F11: Plugin commands (MCP status, NetBox sessions and imports)",
+    "F12: Switch panels / console screen",
+    "Ctrl+W: Task list (processes; F1 inside lists its keys)",
+    "Ctrl+O: Show the console screen (press again for the panels)",
+    "Tab: switch active panel",
+    "PgUp/PgDn: move the selection one screen up/down",
+    ":  - command line (Tab completes verbs, args & cd paths)",
+    ":mcp, :winmsg, :winperf - MCP status and Windows diagnostics",
+];

@@ -1,0 +1,185 @@
+//! Purpose: the entry edit form of an unlocked `.kdbx` session (`F4`).
+//!
+//! Pure state, like [`super::vault`]: no rendering, no key types. The form
+//! lives inside [`super::Vault`], which exists only in
+//! `KdbxState::Unlocked`, so "editing while locked" is not representable.
+//!
+//! The draft password sits in a [`MasterKey`] rather than a `String`, so a
+//! half-edited secret is zeroized when the form is cancelled, locked away, or
+//! dropped — and so [`EntryForm`] cannot derive `Debug`, which keeps the whole
+//! session unformattable (`tests_secrets.rs` asserts this structurally).
+
+mod field;
+mod typing;
+mod undo;
+
+pub use field::{EditField, FormMode};
+use undo::EditUndo;
+
+use super::secret::MasterKey;
+use crate::keepass::EntryDetails;
+use crate::keepass::EntryId;
+
+/// One entry being edited: the draft fields plus the identity they came from.
+///
+/// `origin_id` is what `save_edit` addresses, so a changed title renames this
+/// entry in place instead of upserting a sibling — and a title shared with
+/// another entry cannot make the save land on that one. `origin_group` and
+/// `origin_title` are kept for the collision check and the dialog caption.
+///
+/// **No `Debug`**: [`MasterKey`] has none, which makes deriving one here a
+/// compile error. That is the guarantee, not an oversight.
+pub struct EntryForm {
+    origin_group: Vec<String>,
+    origin_title: String,
+    origin_id: EntryId,
+    title: String,
+    username: String,
+    url: String,
+    notes: String,
+    /// The draft password: a [`MasterKey`] rather than a `String`, so it is
+    /// zeroized on drop and cannot be formatted.
+    password: MasterKey,
+    focus: EditField,
+    mode: FormMode,
+    dirty: bool,
+    error: Option<String>,
+    undo: Option<EditUndo>,
+}
+
+impl EntryForm {
+    /// Build the form from a just-read entry.
+    ///
+    /// `pub(super)` so a form can only come from
+    /// [`super::KdbxSession::begin_edit`] — the one caller allowed to see an
+    /// [`EntryDetails`], whose password this constructor moves straight into
+    /// the zeroizing wrapper.
+    pub(super) fn new(
+        origin_group: Vec<String>,
+        origin_title: String,
+        origin_id: EntryId,
+        mut details: EntryDetails,
+    ) -> Self {
+        Self {
+            origin_group,
+            origin_title,
+            origin_id,
+            title: std::mem::take(&mut details.title),
+            username: std::mem::take(&mut details.username),
+            url: std::mem::take(&mut details.url),
+            notes: std::mem::take(&mut details.notes),
+            password: MasterKey::new(std::mem::take(&mut details.password)),
+            focus: EditField::Title,
+            mode: FormMode::Editing,
+            dirty: false,
+            error: None,
+            undo: None,
+        }
+    }
+
+    // ── Read-only accessors for the renderer ────────────────────────────
+
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+
+    pub fn username(&self) -> &str {
+        &self.username
+    }
+
+    pub fn url(&self) -> &str {
+        &self.url
+    }
+
+    pub fn notes(&self) -> &str {
+        &self.notes
+    }
+
+    /// The title the entry had when the form opened — the dialog caption.
+    pub fn origin_title(&self) -> &str {
+        &self.origin_title
+    }
+
+    /// The entry the save addresses.
+    pub fn origin_id(&self) -> EntryId {
+        self.origin_id
+    }
+
+    /// Group names from the root down to the entry's group; structural, not
+    /// joined, for the reason `EntrySummary::group_path` is.
+    pub fn origin_group(&self) -> &[String] {
+        &self.origin_group
+    }
+
+    pub fn focus(&self) -> EditField {
+        self.focus
+    }
+
+    pub fn mode(&self) -> FormMode {
+        self.mode
+    }
+
+    /// Whether any keystroke changed the draft — what turns `Esc` into a
+    /// discard question instead of a silent close.
+    pub fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    /// Why the previous save failed, ready to display.
+    pub fn error(&self) -> Option<&str> {
+        self.error.as_deref()
+    }
+
+    /// What the renderer draws for the password: one bullet per character,
+    /// never the text.
+    pub fn password_masked(&self) -> String {
+        "•".repeat(self.password.char_count())
+    }
+
+    /// The draft password in clear for the explicit edit dialog.
+    pub fn password_visible(&self) -> &str {
+        self.password.expose()
+    }
+
+    // ── For `super` only ────────────────────────────────────────────────
+
+    /// The draft password for the save path, revealed or not. `pub(super)`
+    /// for the reason `Vault::master` is: only `super`'s writes may read it.
+    pub(super) fn password(&self) -> &MasterKey {
+        &self.password
+    }
+
+    pub(super) fn password_text(&self) -> String {
+        self.password.expose().to_owned()
+    }
+
+    /// Record a failed save on the form, so it is shown next to the fields
+    /// that caused it and cleared by the next keystroke.
+    pub(super) fn set_error(&mut self, message: String) {
+        self.error = Some(message);
+    }
+
+    /// Overwrite the draft secret now rather than waiting for `Drop`.
+    pub(super) fn zeroize(&mut self) {
+        self.password.zeroize();
+        crate::kdbx::secret::zeroize_string(&mut self.notes);
+    }
+
+    /// The focused field's text, or `None` when the password has the cursor —
+    /// its bytes live in a [`MasterKey`], not a `String`.
+    fn focused_text_mut(&mut self) -> Option<&mut String> {
+        match self.focus {
+            EditField::Title => Some(&mut self.title),
+            EditField::Username => Some(&mut self.username),
+            EditField::Url => Some(&mut self.url),
+            EditField::Notes => Some(&mut self.notes),
+            EditField::Password => None,
+        }
+    }
+}
+
+impl Drop for EntryForm {
+    fn drop(&mut self) {
+        crate::kdbx::secret::zeroize_string(&mut self.notes);
+    }
+}
