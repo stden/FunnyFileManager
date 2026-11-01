@@ -11,6 +11,7 @@ mod case;
 mod common;
 mod documents;
 mod editor;
+mod image;
 mod lsp;
 mod lsp_fixture;
 mod network;

@@ -57,6 +57,19 @@ impl CountingBackend {
             .collect()
     }
 
+    pub(in crate::application::tests) fn contains_color(
+        &self,
+        color: ratatui::style::Color,
+    ) -> bool {
+        self.0
+            .borrow()
+            .backend
+            .buffer()
+            .content
+            .iter()
+            .any(|cell| cell.fg == color || cell.bg == color)
+    }
+
     pub(in crate::application::tests) fn rows(&self) -> Vec<String> {
         let state = self.0.borrow();
         let buffer = state.backend.buffer();
