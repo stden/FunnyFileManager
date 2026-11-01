@@ -36,6 +36,16 @@ impl TextEncoding {
         }
     }
 
+    /// The code page F8 switches to, as Far's OEM/ANSI toggle does: OEM-866
+    /// becomes Windows-1251, and any other encoding becomes OEM-866 first.
+    #[must_use]
+    pub const fn oem_ansi_toggle(self) -> Self {
+        match self {
+            Self::Oem866 => Self::Windows1251,
+            _ => Self::Oem866,
+        }
+    }
+
     pub fn detect(bytes: &[u8]) -> Self {
         if bytes.starts_with(b"\xef\xbb\xbf") {
             Self::Utf8Bom

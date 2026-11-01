@@ -1,4 +1,4 @@
-//! Purpose: the editor's encoding dialog (F8) — step through the encodings, then Enter converts the text and R reloads the file in the choice.
+//! Purpose: the editor's encoding dialog (Shift+F8) — step through the encodings, then Enter converts the text and R reloads the file in the choice.
 
 use crate::encoding::TextEncoding;
 use crate::models::App;

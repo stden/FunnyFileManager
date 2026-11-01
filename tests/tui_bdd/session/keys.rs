@@ -2,15 +2,28 @@
 
 use super::*;
 
+/// The modifier a `Ctrl+`, `Shift+` or `Alt+` prefix names.
+fn modifier(prefix: &str) -> Option<KeyModifiers> {
+    match prefix {
+        "Ctrl" => Some(KeyModifiers::CONTROL),
+        "Shift" => Some(KeyModifiers::SHIFT),
+        "Alt" => Some(KeyModifiers::ALT),
+        _ => None,
+    }
+}
+
+/// `Ctrl+Shift+Up`: any number of modifier prefixes, then the key they apply to.
 pub fn parse_key(key: &str) -> KeyEvent {
-    let (modifiers, key) = if let Some(key) = key.strip_prefix("Ctrl+") {
-        (KeyModifiers::CONTROL, key)
-    } else if let Some(key) = key.strip_prefix("Shift+") {
-        (KeyModifiers::SHIFT, key)
-    } else {
-        (KeyModifiers::NONE, key)
-    };
-    KeyEvent::new(key_code(key, modifiers), modifiers)
+    let mut modifiers = KeyModifiers::NONE;
+    let mut name = key;
+    while let Some((prefix, rest)) = name.split_once('+') {
+        let Some(modifier) = modifier(prefix) else {
+            break;
+        };
+        modifiers |= modifier;
+        name = rest;
+    }
+    KeyEvent::new(key_code(name, modifiers), modifiers)
 }
 
 #[expect(
@@ -30,19 +43,22 @@ fn key_code(key: &str, modifiers: KeyModifiers) -> KeyCode {
         "Right" => KeyCode::Right,
         "Home" => KeyCode::Home,
         "End" => KeyCode::End,
-        "Delete" => KeyCode::Delete,
+        "PgUp" => KeyCode::PageUp,
+        "PgDn" => KeyCode::PageDown,
+        "Ins" => KeyCode::Insert,
+        "Delete" | "Del" => KeyCode::Delete,
         "Backspace" => KeyCode::Backspace,
         "Space" => KeyCode::Char(' '),
         value => match value.strip_prefix('F') {
-            Some(number) => KeyCode::F(number.parse().expect("function key")),
-            None if value.chars().count() == 1 => KeyCode::Char(
+            Some(number) if !number.is_empty() => KeyCode::F(number.parse().expect("function key")),
+            _ if value.chars().count() == 1 => KeyCode::Char(
                 value
                     .to_ascii_lowercase()
                     .chars()
                     .next()
                     .expect("character"),
             ),
-            None => panic!("unknown key {key}"),
+            _ => panic!("unknown key {key}"),
         },
     }
 }

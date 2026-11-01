@@ -97,6 +97,27 @@ fn a_lossy_decode_replaces_what_the_strict_one_refuses_and_drops_the_bom() {
 }
 
 #[test]
+fn the_oem_ansi_toggle_swaps_the_two_cyrillic_pages_and_sends_others_to_oem() {
+    assert_eq!(
+        TextEncoding::Windows1251.oem_ansi_toggle(),
+        TextEncoding::Oem866
+    );
+    assert_eq!(
+        TextEncoding::Oem866.oem_ansi_toggle(),
+        TextEncoding::Windows1251
+    );
+    for encoding in [
+        TextEncoding::Utf8,
+        TextEncoding::Utf8Bom,
+        TextEncoding::Utf16Le,
+        TextEncoding::Utf16Be,
+        TextEncoding::Windows1252,
+    ] {
+        assert_eq!(encoding.oem_ansi_toggle(), TextEncoding::Oem866);
+    }
+}
+
+#[test]
 fn a_nul_byte_is_binary_unless_a_utf16_byte_order_mark_explains_it() {
     assert!(is_binary(b"MZ\x00\x01"));
     assert!(!is_binary(b"plain text"));

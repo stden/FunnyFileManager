@@ -126,6 +126,7 @@ fn apply_editor_command(app: &mut App, command: EditorCommand) {
         EditorCommand::InsertFileName => crate::ops::insert_editor_file_name(app),
         EditorCommand::SelectAll => editor.select_all(),
         EditorCommand::ChooseEncoding => editor.encoding_choice = Some(editor.format.encoding),
+        EditorCommand::ToggleCodePage => crate::ops::toggle_editor_code_page(app),
         EditorCommand::Paste => crate::ops::paste_into_editor(app),
         EditorCommand::RepeatSearch => repeat_search(app),
         EditorCommand::FormatDocument => editor.format_document(),

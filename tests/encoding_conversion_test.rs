@@ -13,8 +13,11 @@ fn encoding_dialog_converts_clean_unicode_text_without_reinterpreting_it() {
     use funny_file_manager::popup::process_popup_input;
     let root = TempDir::new().expect("directory");
     let mut app = open_bytes(&root, "Привет\r\n".as_bytes());
+    assert!(process_popup_input(
+        &mut app,
+        KeyEvent::new(KeyCode::F(8), KeyModifiers::SHIFT)
+    ));
     for code in [
-        KeyCode::F(8),
         KeyCode::Down,
         KeyCode::Down,
         KeyCode::Down,
@@ -115,7 +118,11 @@ fn encoding_dialog_can_explicitly_reload_an_oem866_file() {
     use funny_file_manager::popup::process_popup_input;
     let root = TempDir::new().expect("directory");
     let mut app = open_bytes(&root, &[0x8f, 0xe0, 0xa8, 0xa2, 0xa5, 0xe2]);
-    for code in [KeyCode::F(8), KeyCode::Down, KeyCode::Char('r')] {
+    assert!(process_popup_input(
+        &mut app,
+        KeyEvent::new(KeyCode::F(8), KeyModifiers::SHIFT)
+    ));
+    for code in [KeyCode::Down, KeyCode::Char('r')] {
         assert!(process_popup_input(
             &mut app,
             KeyEvent::new(code, KeyModifiers::NONE)
@@ -133,7 +140,11 @@ fn encoding_reload_refuses_to_discard_unsaved_edits() {
     let root = TempDir::new().expect("directory");
     let mut app = open_bytes(&root, b"original\n");
     app.get_editor_mut().expect("editor").insert_char('!');
-    for code in [KeyCode::F(8), KeyCode::Down, KeyCode::Char('r')] {
+    funny_file_manager::popup::process_popup_input(
+        &mut app,
+        KeyEvent::new(KeyCode::F(8), KeyModifiers::SHIFT),
+    );
+    for code in [KeyCode::Down, KeyCode::Char('r')] {
         funny_file_manager::popup::process_popup_input(
             &mut app,
             KeyEvent::new(code, KeyModifiers::NONE),

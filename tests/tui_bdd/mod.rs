@@ -9,6 +9,7 @@ use cucumber::{given, then, when};
 use ratatui::layout::Size;
 use tempfile::TempDir;
 
+mod encoding_steps;
 mod file_steps;
 mod input_steps;
 mod lsp;

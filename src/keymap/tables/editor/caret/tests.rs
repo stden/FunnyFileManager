@@ -2,6 +2,7 @@
 //! move, without the selection and with it.
 
 use super::*;
+use crate::action::KeyChord;
 
 #[test]
 fn a_move_ends_the_selection_and_a_selecting_move_extends_it() {
@@ -21,12 +22,25 @@ fn a_move_ends_the_selection_and_a_selecting_move_extends_it() {
     );
 }
 
+/// Ctrl+PgUp and Ctrl+PgDn go to the ends of the file as Ctrl+Home and Ctrl+End
+/// do. They have no selecting twin: Far's Ctrl+Shift+PgUp and Ctrl+Shift+PgDn
+/// are block keys that FFM does not bind (`far_gaps`).
+const PAGE_ALIASES: [KeyChord; 2] = [ctrl(named(PgUp)), ctrl(named(PgDn))];
+
 #[test]
 fn every_selecting_row_is_its_moving_row_with_shift() {
     assert_eq!(MOVING.rows.len(), SELECTING.rows.len());
     for (moving, selecting) in MOVING.rows.iter().zip(SELECTING.rows) {
-        let shifted: Vec<_> = moving.defaults.iter().copied().map(shift).collect();
-        assert_eq!(selecting.defaults, shifted, "{}", selecting.name);
+        // Each selecting row is exactly the shifted moving chords, except the
+        // aliases that have no twin.
+        let twins: Vec<_> = moving
+            .defaults
+            .iter()
+            .copied()
+            .filter(|chord| !PAGE_ALIASES.contains(chord))
+            .map(shift)
+            .collect();
+        assert_eq!(selecting.defaults, twins, "{}", selecting.name);
         let (
             EditorCommand::Move { motion, .. },
             EditorCommand::Move {

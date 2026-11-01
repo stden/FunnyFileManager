@@ -1,6 +1,13 @@
 //! Purpose: Reading the current frame: text, panels, size, clipboard and how the session ended.
 
+use ratatui::style::Color;
+
 use super::*;
+
+/// The editor paints its selection in the UI palette's `CURSOR_BG`. Pinned by
+/// value on purpose: the harness checks the colour a user sees, so a palette
+/// change must also be an edit here.
+const SELECTION_BG: Color = Color::Rgb(45, 110, 175);
 
 impl Session {
     #[expect(
@@ -20,6 +27,21 @@ impl Session {
 
     pub(in crate::tui_bdd) fn text(&self) -> String {
         buffer_text(self.buffer(), 0..self.size().width)
+    }
+
+    /// The text painted in the selection colour, one line per row that has any.
+    pub(in crate::tui_bdd) fn highlighted(&self) -> String {
+        let buffer = self.buffer();
+        (0..buffer.area.height)
+            .map(|y| {
+                (0..buffer.area.width)
+                    .filter(|&x| buffer[(x, y)].bg == SELECTION_BG)
+                    .map(|x| buffer[(x, y)].symbol())
+                    .collect::<String>()
+            })
+            .filter(|row| !row.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 
     #[expect(

@@ -8,6 +8,8 @@ use crate::keymap::Keymap;
 use crate::models::{CompletionTrigger, LspFeature};
 
 mod fallback;
+mod far_gaps;
+mod far_parity;
 mod letters;
 mod remapped;
 
@@ -26,12 +28,14 @@ const fn moves(motion: EditorNavigation, selection: SelectionMode) -> EditorComm
 }
 
 /// Each key that runs its command with the modifiers shown: the plain keys,
-/// Shift+F7 and Ctrl+Insert.
-const PLAIN_KEYS: [(KeyCode, KeyModifiers, EditorCommand); 11] = [
+/// Shift+F7, F8, Shift+F8 and Ctrl+Insert.
+const PLAIN_KEYS: [(KeyCode, KeyModifiers, EditorCommand); 13] = [
     (KeyCode::F(2), NONE, EditorCommand::Save),
+    (KeyCode::F(4), NONE, EditorCommand::Close),
     (KeyCode::F(7), NONE, EditorCommand::Search),
     (KeyCode::F(7), SHIFT, EditorCommand::RepeatSearch),
-    (KeyCode::F(8), NONE, EditorCommand::ChooseEncoding),
+    (KeyCode::F(8), NONE, EditorCommand::ToggleCodePage),
+    (KeyCode::F(8), SHIFT, EditorCommand::ChooseEncoding),
     (KeyCode::F(10), NONE, EditorCommand::Close),
     (KeyCode::Esc, NONE, EditorCommand::Close),
     (KeyCode::Enter, NONE, EditorCommand::Newline),
@@ -45,12 +49,11 @@ const PLAIN_KEYS: [(KeyCode, KeyModifiers, EditorCommand); 11] = [
 /// with. Exact matching makes each one fall to the fallback, which runs
 /// nothing: a sample of the 106 rows `tests/keymap_golden/editor.tsv` lists
 /// as `fallback`.
-const ONCE_LENIENT: [(KeyCode, KeyModifiers); 14] = [
+const ONCE_LENIENT: [(KeyCode, KeyModifiers); 13] = [
     (KeyCode::F(2), SHIFT),
     (KeyCode::F(2), CTRL),
     (KeyCode::F(7), ALT),
     (KeyCode::F(7), SHIFT.union(ALT)),
-    (KeyCode::F(8), SHIFT),
     (KeyCode::F(10), ALT),
     (KeyCode::Esc, SHIFT),
     (KeyCode::Enter, SHIFT),
@@ -100,10 +103,6 @@ fn the_caret_moves_bare_and_selects_with_shift_alone() {
             (ALT, EditorCommand::Ignore),
         ] {
             assert_eq!(command(code, modifiers), expected, "{modifiers:?} {code:?}");
-        }
-        if !matches!(code, KeyCode::Home | KeyCode::End) {
-            assert_eq!(command(code, CTRL), EditorCommand::Ignore);
-            assert_eq!(command(code, CTRL.union(SHIFT)), EditorCommand::Ignore);
         }
     }
 }

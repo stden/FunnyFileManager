@@ -21,6 +21,17 @@ fn contains(world: &mut TuiWorld, text: String) {
     assert!(screen.contains(&text), "missing {text:?}\n{screen}");
 }
 
+/// The selection on screen: exactly this text, painted in the selection colour.
+#[then(expr = "the screen highlights {string}")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Cucumber dictates step signatures: captured args arrive owned"
+)]
+fn highlights(world: &mut TuiWorld, text: String) {
+    let highlighted = world.ui().highlighted();
+    assert_eq!(highlighted, text, "highlighted\n{}", world.ui().text());
+}
+
 /// Either of two texts: the 8.3 short name of a long file name exists only on
 /// Windows, so the same command line can be printed in two correct ways.
 #[then(expr = "the screen contains {string} or {string}")]

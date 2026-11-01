@@ -41,7 +41,11 @@ pub enum EditorCommand {
     /// and put it on the clipboard too.
     InsertFileName,
     SelectAll,
+    /// Shift+F8: the encoding dialog that chooses the code page to save in.
     ChooseEncoding,
+    /// F8, as Far's OEM/ANSI toggle: the file is read again in the other of
+    /// OEM-866 and Windows-1251.
+    ToggleCodePage,
     Paste,
     Save,
     Close,

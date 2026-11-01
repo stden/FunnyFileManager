@@ -60,7 +60,7 @@ pub mod wsl;
 pub use dispatch::execute_command;
 pub(crate) use editor::{
     change_editor_encoding, copy_editor_selection, insert_editor_file_name, paste_into_editor,
-    reload_editor_encoding,
+    reload_editor_encoding, toggle_editor_code_page,
 };
 pub use file::{
     answer_existing, cancel_existing, copy_with, get_source_paths, handle_copy, handle_delete,

@@ -49,14 +49,20 @@ const FILE: Group<EditorCommand> = Group {
         )
         .note(Ffm, "Format the document, as JSON or XML"),
         row("save", EditorCommand::Save, &[f(2)]).note(FarSame, "Save the file"),
-        row("close", EditorCommand::Close, &[named(Esc), f(10)])
+        row("close", EditorCommand::Close, &[named(Esc), f(10), f(4)])
             .note(FarSame, "Close the editor, asking when the text changed")
             .exit(),
         row("search", EditorCommand::Search, &[f(7)]).note(FarSame, "Search the text"),
         row("search_again", EditorCommand::RepeatSearch, &[shift(f(7))])
             .note(FarSame, "Search for the same text again"),
-        row("choose_encoding", EditorCommand::ChooseEncoding, &[f(8)])
-            .note(Far("F8 / Shift+F8"), "Choose the encoding"),
+        row("toggle_code_page", EditorCommand::ToggleCodePage, &[f(8)])
+            .note(FarSame, "Toggle the OEM and ANSI code pages"),
+        row(
+            "choose_encoding",
+            EditorCommand::ChooseEncoding,
+            &[shift(f(8))],
+        )
+        .note(FarSame, "Choose the code page in a dialog"),
     ],
 };
 

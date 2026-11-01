@@ -33,16 +33,22 @@ pub(super) const MOVING: Group<EditorCommand> = Group {
         row("cursor_down", go(To::Down), &[named(Down)]).note(FarSame, "One line down"),
         row("line_start", go(To::Home), &[named(Home)]).note(FarSame, "To the start of the line"),
         row("line_end", go(To::End), &[named(End)]).note(FarSame, "To the end of the line"),
-        row("page_up", go(To::PageUp), &[named(PgUp)]).note(FarSame, "One screen up"),
-        row("page_down", go(To::PageDown), &[named(PgDn)]).note(FarSame, "One screen down"),
+        row("page_up", go(To::PageUp), &[named(PgUp)])
+            .note(FarSame, "One page up (a fixed 20 lines, not the screen)"),
+        row("page_down", go(To::PageDown), &[named(PgDn)])
+            .note(FarSame, "One page down (a fixed 20 lines, not the screen)"),
         row(
             "document_start",
             go(To::DocumentStart),
-            &[ctrl(named(Home))],
+            &[ctrl(named(Home)), ctrl(named(PgUp))],
         )
         .note(FarSame, "To the start of the document"),
-        row("document_end", go(To::DocumentEnd), &[ctrl(named(End))])
-            .note(FarSame, "To the end of the document"),
+        row(
+            "document_end",
+            go(To::DocumentEnd),
+            &[ctrl(named(End)), ctrl(named(PgDn))],
+        )
+        .note(FarSame, "To the end of the document"),
     ],
 };
 
@@ -60,14 +66,19 @@ pub(super) const SELECTING: Group<EditorCommand> = Group {
             .note(FarSame, "Select to the start of the line"),
         row("select_line_end", select(To::End), &[shift(named(End))])
             .note(FarSame, "Select to the end of the line"),
-        row("select_page_up", select(To::PageUp), &[shift(named(PgUp))])
-            .note(FarSame, "Select one screen up"),
+        row("select_page_up", select(To::PageUp), &[shift(named(PgUp))]).note(
+            FarSame,
+            "Select one page up (a fixed 20 lines, not the screen)",
+        ),
         row(
             "select_page_down",
             select(To::PageDown),
             &[shift(named(PgDn))],
         )
-        .note(FarSame, "Select one screen down"),
+        .note(
+            FarSame,
+            "Select one page down (a fixed 20 lines, not the screen)",
+        ),
         row(
             "select_document_start",
             select(To::DocumentStart),

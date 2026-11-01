@@ -281,15 +281,38 @@ The editor's keys are rows of the `editor` table (`src/keymap/tables/editor.rs`)
 A row runs only for the chord with exactly its modifiers, as the design spec's
 §6.2 says (`docs/superpowers/specs/2026-09-24-ffm-yml-keymap-design.md`). Before
 the switch an editor key still ran its command with an extra modifier that
-nothing bound, so the keys below stopped acting. They are the 106 chords
-that were `lenient` in `tests/keymap_golden/editor.tsv`; each now reads
-`fallback` there and runs nothing. The bare keys and Shift alone on the
-caret moves are unchanged.
+nothing bound, so the keys below stopped acting. They were the 106 chords that
+were `lenient` in `tests/keymap_golden/editor.tsv`; they now read `fallback`
+there and run nothing, except the three chords bound again below. The bare keys
+and Shift alone on the caret moves are unchanged.
+
+Three chords are bound again, with the commands Far's editor help gives them
+(`FarEng.hlf.m4`, "Cursor movement" and "Other operations"): F4 closes the
+editor as F10 and Esc do, and Ctrl+PgUp and Ctrl+PgDn go to the start and the
+end of the file. F8 toggles OEM-866 and Windows-1251, as Far's F8 toggles OEM
+and ANSI. The file is read again in the other code page and the caret stays
+where it is; a file in any other encoding goes to OEM-866 first. Like R in the
+dialog, the toggle refuses while the text has unsaved changes. Shift+F8 chooses
+the encoding in FFM's own dialog, which lists seven encodings. Far's Shift+F8
+opens a menu of every installed code page, so the key matches and the list does
+not. Ctrl+K is still the language server's hover, not Far's delete to the end
+of the line.
+
+Some Far keys are not rebound, because each needs a missing command rather than
+a different chord. Far's Ctrl+Shift+Up and Ctrl+Shift+Down are "Select block",
+the same words the help gives Shift+Up and Shift+Down, but the help does not say
+how far the selection goes, and Far's Ctrl+Up and Ctrl+Down scroll the screen,
+which FFM does not do, so both stay unbound. Far's Ctrl+Left and Ctrl+Right
+(word moves) stay unbound too: FFM has no word command yet. The other Far keys
+with no FFM command are listed below, with their Far lines.
+
+The encoding scenarios in `tests/tui_features/editor_far_parity_encoding.feature`
+cover both keys: F8 toggles the code page, and Shift+F8 opens FFM's dialog.
 
 | Keys | Was | Now |
 |------|-----|-----|
-| Left, Right, Up, Down, Home, End, PgUp, PgDn with Alt or Ctrl, with or without Shift: Ctrl+Left, Ctrl+Right, Ctrl+Up, Alt+Shift+Home | the caret move; with Shift, the selection | nothing |
-| Enter, Backspace, Del, Esc, F2, F8, F10 with Shift, Alt or Ctrl: Alt+Enter, Shift+Enter, Ctrl+Del, Ctrl+Backspace, Shift+F2, Alt+F8 | new line, delete, close, save, choose the encoding | nothing |
+| Left, Right, Up, Down, Home, End, PgUp, PgDn with Alt or Ctrl, with or without Shift, except Ctrl+Home, Ctrl+End, Ctrl+PgUp and Ctrl+PgDn (bound again above) and Ctrl+Shift+Home and Ctrl+Shift+End (select to the ends of the file) | the caret move; with Shift, the selection | nothing |
+| Enter, Backspace, Del, Esc, F2, F10 with Shift, Alt or Ctrl, and F8 with Alt or Ctrl: Alt+Enter, Shift+Enter, Ctrl+Del, Ctrl+Backspace, Shift+F2, Alt+F8 | new line, delete, close, save, choose the encoding | nothing |
 | F7 with Alt or Ctrl, with or without Shift: Alt+F7, Ctrl+F7 | search; with Shift, repeat the search | nothing; Shift+F7 still repeats the search |
 | Tab with Alt or Ctrl: Alt+Tab, Ctrl+Tab | indent | nothing |
 
@@ -299,6 +322,70 @@ capital C under Ctrl) no longer copies, Ctrl+Shift+F no longer types the file
 name, and Ctrl+Alt+Shift+L no longer formats the document. The Windows console
 sends the same capital for `CapsLock`, which keeps Ctrl+C, Ctrl+F and
 Ctrl+Alt+L as they were. The lowercase keys work on every platform.
+
+### Far editor keys FFM does not implement
+
+These are the keys of Far's editor help (`docs/upstream/far-manager/FarEng.hlf.m4`,
+lines 3159 to 3241) that FFM has no command for. Status: not implemented. The
+pinned list is `UNIMPLEMENTED` in `src/action/editor/tests/far_gaps.rs`, with one
+row for each key event (94 rows). A key bound later fails that test, which is the
+point at which this table changes. The test reads "cursor keys" as the eight
+caret keys, the arrows and Home, End, PgUp and PgDn, which is how Shift+cursor
+selection reads them. `LeftCtrl+0…9` and `RightCtrl+0…9` arrive as Ctrl+digit,
+and Ctrl+5 is left out because FFM binds it to Ctrl+] (go to definition). Ctrl+K
+is the one row that runs a command: the test pins FFM's language server hover on
+it, while Far's delete to the end of the line stays missing.
+
+| Far line | Far key | Far action | FFM status |
+|---|---|---|---|
+| 3162 | Ctrl+S | One character left, without going to the previous line | not implemented |
+| 3166 | Ctrl+Left | Word left | not implemented |
+| 3167 | Ctrl+Right | Word right | not implemented |
+| 3168 | Ctrl+Up | Scroll the screen up | not implemented |
+| 3169 | Ctrl+Down | Scroll the screen down | not implemented |
+| 3176 | Ctrl+N | Start of the screen | not implemented |
+| 3177 | Ctrl+E | End of the screen | not implemented |
+| 3183 | Ctrl+Y | Delete line | not implemented |
+| 3184 | Ctrl+K | Delete to the end of the line (FFM's Ctrl+K is the language server's hover) | not implemented |
+| 3185 | Ctrl+BS | Delete word left | not implemented |
+| 3186 | Ctrl+T, Ctrl+Del | Delete word right | not implemented |
+| 3191 | Ctrl+Shift+Left, Ctrl+Shift+Right, Ctrl+Shift+Up, Ctrl+Shift+Down, Ctrl+Shift+PgUp, Ctrl+Shift+PgDn | Select block ("Ctrl+Shift+Cursor keys"; Ctrl+Shift+Home and Ctrl+Shift+End are bound) | not implemented |
+| 3192 | Alt+Left, Alt+Right, Alt+Up, Alt+Down, Alt+Home, Alt+End, Alt+PgUp, Alt+PgDn | Select vertical block ("Alt+gray cursor keys") | not implemented |
+| 3193 | Alt+Shift with each of the eight cursor keys | Select vertical block ("Alt+Shift+Cursor keys") | not implemented |
+| 3194 | Ctrl+Alt with each of the eight cursor keys | Select vertical block ("Ctrl+Alt+gray keys") | not implemented |
+| 3196 | Ctrl+U | Deselect block | not implemented |
+| 3198 | Shift+Del, Ctrl+X | Cut block | not implemented |
+| 3200 | Ctrl+Gray + | Append block to clipboard | not implemented |
+| 3201 | Ctrl+D | Delete block | not implemented |
+| 3202 | Ctrl+P | Copy block to the cursor (persistent blocks only) | not implemented |
+| 3203 | Ctrl+M | Move block to the cursor (persistent blocks only) | not implemented |
+| 3204 | Alt+U | Shift block left; indents the line when no block is selected | not implemented |
+| 3205 | Alt+I | Shift block right; indents the line when no block is selected | not implemented |
+| 3209 | F1 | Help | not implemented |
+| 3211 | Shift+F2 | Save file as | not implemented |
+| 3212 | Shift+F4 | Edit a new file | not implemented |
+| 3213 | F6 | Switch to the viewer | not implemented |
+| 3215 | Ctrl+F7 | Replace | not implemented |
+| 3217 | Alt+F7 | Continue searching or replacing backwards | not implemented |
+| 3220 | Alt+F8 | Go to a line and column | not implemented |
+| 3221 | Alt+F9 | Maximize or restore the console window | not implemented |
+| 3222 | Alt+Shift+F9 | Editor settings dialog | not implemented |
+| 3224 | Shift+F10 | Save and quit | not implemented |
+| 3225 | Ctrl+F10 | Position to the current file | not implemented |
+| 3226 | F11 | Plugin commands menu | not implemented |
+| 3227 | Alt+F11 | File view and edit history | not implemented |
+| 3228 | Alt+BS, Ctrl+Z | Undo | not implemented |
+| 3229 | Ctrl+Shift+Z | Redo | not implemented |
+| 3230 | Ctrl+L | Disable edited text modification | not implemented |
+| 3231 | Ctrl+O | Show the user screen | not implemented |
+| 3232 | Ctrl+Alt+Shift (held down) | Show the user screen while the keys are held | not implemented |
+| 3233 | Ctrl+Q | Treat the next key combination as a character code | not implemented |
+| 3234, 3236 | RightCtrl+0…9, LeftCtrl+0…9 (pinned as Ctrl+0…9, except 5) | Set a bookmark; go to a bookmark | not implemented |
+| 3235 | Ctrl+Shift+0…9 | Set a bookmark | not implemented |
+| 3237 | Shift+Enter | Insert the active panel's file name at the cursor | not implemented |
+| 3238 | Ctrl+Shift+Enter | Insert the passive panel's file name at the cursor | not implemented |
+| 3240 | Ctrl+B | Show or hide the function key bar | not implemented |
+| 3241 | Ctrl+Shift+B | Show or hide the status line | not implemented |
 
 Nobody can give these keys back yet: `ffm.yml` is read by a later step of the
 keymap design (spec §10 step 8), so until then the defaults are the only keys.

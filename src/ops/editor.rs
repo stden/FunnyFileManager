@@ -98,9 +98,19 @@ pub fn change_editor_encoding(
         editor.state = EditState::Modified;
     }
     editor.notice = Some(format!(
-        "Encoding: {} (F8 changes encoding)",
+        "Encoding: {} (Shift+F8 changes encoding)",
         encoding.label()
     ));
+}
+
+/// F8: the file read again in the other of OEM-866 and Windows-1251. It is a
+/// reload, so unsaved edits stop it, as R in the dialog does; the caret stays.
+pub fn toggle_editor_code_page(app: &mut crate::models::App) {
+    let Some(editor) = app.get_editor() else {
+        return;
+    };
+    let other = editor.format.encoding.oem_ansi_toggle();
+    reload_editor_encoding(app, other);
 }
 
 fn reload_editor(editor: &mut Editor, encoding: crate::encoding::TextEncoding) -> io::Result<()> {

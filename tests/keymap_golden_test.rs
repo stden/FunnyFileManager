@@ -65,7 +65,7 @@ const LENIENT_ROWS: [(&str, usize, &str); 15] = [
     (
         "editor",
         0,
-        "read from the keymap, which matches exactly; 106 before the switch",
+        "read from the keymap, which matches exactly; 106 before the switch; F8 toggles the code page, so no subset of Shift+F8's modifiers yields the encoding dialog",
     ),
     (
         "command_line",

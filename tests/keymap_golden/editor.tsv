@@ -516,7 +516,7 @@ Ctrl+F3	fallback	Ignore
 Ctrl+Shift+F3	fallback	Ignore
 Ctrl+Alt+F3	fallback	Ignore
 Ctrl+Alt+Shift+F3	fallback	Ignore
-F4	fallback	Ignore
+F4	bound	Close
 Shift+F4	fallback	Ignore
 Alt+F4	fallback	Ignore
 Alt+Shift+F4	fallback	Ignore
@@ -548,8 +548,8 @@ Ctrl+F7	fallback	Ignore
 Ctrl+Shift+F7	fallback	Ignore
 Ctrl+Alt+F7	fallback	Ignore
 Ctrl+Alt+Shift+F7	fallback	Ignore
-F8	bound	ChooseEncoding
-Shift+F8	fallback	Ignore
+F8	bound	ToggleCodePage
+Shift+F8	bound	ChooseEncoding
 Alt+F8	fallback	Ignore
 Alt+Shift+F8	fallback	Ignore
 Ctrl+F8	fallback	Ignore
@@ -752,7 +752,7 @@ PgUp	bound	Move { motion: PageUp, selection: Move }
 Shift+PgUp	bound	Move { motion: PageUp, selection: Extend }
 Alt+PgUp	fallback	Ignore
 Alt+Shift+PgUp	fallback	Ignore
-Ctrl+PgUp	fallback	Ignore
+Ctrl+PgUp	bound	Move { motion: DocumentStart, selection: Move }
 Ctrl+Shift+PgUp	fallback	Ignore
 Ctrl+Alt+PgUp	fallback	Ignore
 Ctrl+Alt+Shift+PgUp	fallback	Ignore
@@ -760,7 +760,7 @@ PgDn	bound	Move { motion: PageDown, selection: Move }
 Shift+PgDn	bound	Move { motion: PageDown, selection: Extend }
 Alt+PgDn	fallback	Ignore
 Alt+Shift+PgDn	fallback	Ignore
-Ctrl+PgDn	fallback	Ignore
+Ctrl+PgDn	bound	Move { motion: DocumentEnd, selection: Move }
 Ctrl+Shift+PgDn	fallback	Ignore
 Ctrl+Alt+PgDn	fallback	Ignore
 Ctrl+Alt+Shift+PgDn	fallback	Ignore
