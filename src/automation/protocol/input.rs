@@ -77,3 +77,6 @@ fn modifiers(modifiers: &[String]) -> io::Result<KeyModifiers> {
             Ok(flags | flag)
         })
 }
+
+#[cfg(test)]
+mod tests;

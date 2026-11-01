@@ -30,3 +30,6 @@ pub(super) fn launch(app: &mut App) -> io::Result<()> {
     app.record_run_outcome(status);
     crate::utils::refresh_panels(app)
 }
+
+#[cfg(all(test, unix))]
+mod tests;

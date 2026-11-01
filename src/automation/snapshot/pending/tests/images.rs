@@ -66,3 +66,16 @@ fn images_without_a_source_path_are_not_queued_by_the_decoder() {
     }));
     assert!(!is_pending(&app));
 }
+
+#[test]
+fn text_previews_do_not_keep_automation_wait_pending() {
+    let root = TempDir::new().unwrap();
+    let mut app = application(&root);
+    let path = root.path().join("fixture.txt");
+    app.right_panel.kind = PanelKind::QuickView(Box::new(QuickView {
+        shown: Some(path.clone()),
+        preview: Preview::Text(crate::models::TextPreview::decoded(&path, b"ready text")),
+        ..QuickView::default()
+    }));
+    assert!(!is_pending(&app));
+}

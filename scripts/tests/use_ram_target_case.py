@@ -30,7 +30,10 @@ class RamTargetTestCase(unittest.TestCase):
         self.parent = self.sandbox.tmp / "ram disk's"
 
     def run_helper(self, ram_dir, *args):
-        return self.sandbox.run(SCRIPT, *args, env={"FFM_RAM_TARGET": str(ram_dir)}, input="")
+        # Keep Python's child diagnostics in the native oracle's C locale.
+        return self.sandbox.run(
+            SCRIPT, *args, env={"FFM_RAM_TARGET": str(ram_dir), "LC_ALL": "C"}, input="",
+        )
 
     def eval_helper(self, ram_dir):
         """Run the helper under `sh`, eval its output, and return the shell's result."""

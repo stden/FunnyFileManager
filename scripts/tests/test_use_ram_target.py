@@ -64,19 +64,21 @@ class RamTargetTests(RamTargetTestCase):
         # mkdir(1) and df(1) word their complaints, and quote the path, themselves.
         self.parent.mkdir()
         cases = {
-            "a file": (lambda target: target.write_text("x", encoding="utf-8"), FREE, ""),
+            "a file": (lambda target: target.write_text("x", encoding="utf-8"), FREE),
             "a dangling symlink": (lambda target: target.symlink_to(self.sandbox.root / "gone"),
-                                   "", r"df: .*a dangling symlink.*: No such file or directory\n"),
+                                   ""),
         }
-        for name, (create, free, df_error) in cases.items():
+        for name, (create, free) in cases.items():
             with self.subTest(name):
                 target = self.parent / name
                 create(target)
+                mkdir = self.sandbox.execute(["mkdir", "-p", target])
+                disk_free = self.sandbox.execute(["df", "-h", "--output=avail", target])
+                self.assertNotEqual(mkdir.returncode, 0)
                 result = self.run_helper(target)
                 self.assert_exported(result, target)
                 self.assertRegex(result.stderr, "".join((
-                    rf"\Amkdir: cannot create directory .*{name}.*: File exists\n",
-                    df_error,
+                    r"\A" + re.escape(mkdir.stderr + disk_free.stderr),
                     rf"ffm: cargo target -> {re.escape(str(target))} \(tmpfs, {free} free\)\n\Z",
                 )))
 

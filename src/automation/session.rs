@@ -175,3 +175,6 @@ impl Drop for Session {
         self.host.cancel();
     }
 }
+
+#[cfg(test)]
+mod tests;

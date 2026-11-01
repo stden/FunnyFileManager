@@ -42,3 +42,6 @@ pub(crate) fn finish(app: &mut App, profile: Profile) {
         }
     }
 }
+
+#[cfg(all(test, feature = "keepass"))]
+mod tests;

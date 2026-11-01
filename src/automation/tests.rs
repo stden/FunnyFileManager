@@ -71,3 +71,24 @@ fn idle_runtime_pump_reports_unchanged_after_initial_frame() {
     let _ = runtime.pump().unwrap();
     assert!(!runtime.pump().unwrap());
 }
+
+#[test]
+fn isolated_server_recovers_from_invalid_frames_and_accepts_cancel_before_close() {
+    let root = tempfile::TempDir::new().unwrap();
+    let options =
+        Options::parse(&["--root".into(), root.path().into(), "--isolated".into()]).unwrap();
+    let input = std::io::Cursor::new(b"invalid\n{\"operation\":\"state\"}\n{\"operation\":\"cancel\"}\n{\"operation\":\"close\"}\n");
+    let mut output = Vec::new();
+    super::server::serve(options, input, &mut output).unwrap();
+    let text = String::from_utf8(output).unwrap();
+    let replies: Vec<serde_json::Value> = text
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(replies.len(), 5);
+    assert_eq!(replies[0]["result"]["protocol_version"], 1);
+    assert_eq!(replies[1]["error"]["code"], "invalid_input");
+    assert_eq!(replies[2]["result"]["state"]["running"], true);
+    assert_eq!(replies[3]["ok"], true);
+    assert_eq!(replies[4]["result"]["state"]["running"], false);
+}

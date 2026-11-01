@@ -3,6 +3,10 @@
 use super::*;
 use std::sync::{mpsc, Arc, Mutex};
 
+mod delivery;
+mod pump;
+mod worker;
+
 struct FirstWrite(Arc<Mutex<Vec<u8>>>);
 
 impl Write for FirstWrite {

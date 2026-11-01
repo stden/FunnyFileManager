@@ -128,3 +128,6 @@ fn resize(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

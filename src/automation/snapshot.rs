@@ -71,3 +71,6 @@ fn secret_visible(overlay: &Overlay) -> bool {
 const fn secret_visible(_overlay: &Overlay) -> bool {
     false
 }
+
+#[cfg(test)]
+mod tests;

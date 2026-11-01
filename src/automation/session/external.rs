@@ -71,3 +71,6 @@ const fn button_code(button: MouseButton) -> u16 {
         MouseButton::Right => 2,
     }
 }
+
+#[cfg(test)]
+mod tests;

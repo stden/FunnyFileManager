@@ -3,6 +3,31 @@ use crate::models::PanelSide;
 use crate::models::PanelView;
 
 #[test]
+fn sort_cycle_preserves_legacy_modes_and_returns_extended_modes_to_name() {
+    use crate::models::SortMode::{
+        AccessTime, CreationTime, Descriptions, Extension, ModificationTime, Name, Owner, Size,
+        Unsorted,
+    };
+
+    for sequence in [
+        &[Name, Extension, Size, Name][..],
+        &[
+            ModificationTime,
+            Unsorted,
+            CreationTime,
+            AccessTime,
+            Descriptions,
+            Owner,
+            Name,
+        ][..],
+    ] {
+        for transition in sequence.windows(2) {
+            assert_eq!(transition[0].next(), transition[1]);
+        }
+    }
+}
+
+#[test]
 fn full_is_the_view_a_panel_starts_in() {
     assert_eq!(PanelView::default(), PanelView::Full);
     assert_eq!(PanelKind::default(), PanelKind::Files);

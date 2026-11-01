@@ -46,3 +46,6 @@ fn outcome(
         },
     }
 }
+
+#[cfg(test)]
+mod tests;

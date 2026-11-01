@@ -3,6 +3,13 @@
 use super::*;
 
 #[test]
+fn association_without_a_private_host_never_launches_a_desktop_program() {
+    assert!(!headless::installed());
+    let error = open(Path::new("never-open-this-file.txt")).unwrap_err();
+    assert_eq!(error.kind(), io::ErrorKind::NotConnected);
+}
+
+#[test]
 fn association_command_keeps_the_selected_path_literal() {
     let root = tempfile::TempDir::new().unwrap();
     let path = root.path().join("two words' document.txt");

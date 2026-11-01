@@ -104,3 +104,34 @@ fn changing_an_enabled_servers_extensions_can_introduce_a_blocking_conflict() {
         ]
     );
 }
+
+#[test]
+fn each_problem_identifies_the_first_affected_language() {
+    let language = LanguageId::from_key("fixture");
+    let issues = [
+        Problem::DuplicateExtension {
+            extension: "rs".to_owned(),
+            first: language.clone(),
+            second: LanguageId::from_key("other"),
+        },
+        Problem::InvalidExtension {
+            language: language.clone(),
+            extension: "bad extension".to_owned(),
+        },
+        Problem::EmptyCommand {
+            language: language.clone(),
+        },
+        Problem::NoExtensions {
+            language: language.clone(),
+        },
+        Problem::ControlCharacter {
+            language: language.clone(),
+            field: OwnedField::Command,
+        },
+    ];
+    for issue in issues {
+        assert_eq!(issue.language(), &language);
+        assert!(issue.involves(&language));
+        assert!(!issue.involves(&LanguageId::from_key("unrelated")));
+    }
+}

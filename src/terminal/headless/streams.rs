@@ -108,3 +108,6 @@ pub(super) fn collect(mut output: Output) -> io::Result<Vec<u8>> {
         .bytes();
     Ok(bytes)
 }
+
+#[cfg(test)]
+mod tests;

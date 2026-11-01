@@ -45,3 +45,6 @@ fn failure(error: &io::Error) -> Value {
     };
     json!({"ok": false, "error": {"code": code, "message": error.to_string()}})
 }
+
+#[cfg(test)]
+mod tests;

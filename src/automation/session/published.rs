@@ -122,3 +122,6 @@ impl Shared {
             .map_err(|_error| io::Error::other("session state lock failed"))
     }
 }
+
+#[cfg(test)]
+pub(super) mod tests;

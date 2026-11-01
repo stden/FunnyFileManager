@@ -54,3 +54,6 @@ impl Drop for Task {
         self.close();
     }
 }
+
+#[cfg(all(test, unix))]
+mod tests;

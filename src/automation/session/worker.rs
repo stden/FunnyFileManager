@@ -101,3 +101,6 @@ fn execute(runtime: &mut Runtime, shared: &Shared, host: &HeadlessHost, command:
 fn publish(runtime: &Runtime, shared: &Shared) -> io::Result<()> {
     shared.update(snapshot::capture(runtime))
 }
+
+#[cfg(test)]
+mod tests;

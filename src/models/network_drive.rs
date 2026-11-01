@@ -91,3 +91,6 @@ impl std::fmt::Display for NetworkDriveError {
     }
 }
 impl std::error::Error for NetworkDriveError {}
+
+#[cfg(test)]
+mod tests;

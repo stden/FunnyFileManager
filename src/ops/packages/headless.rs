@@ -48,3 +48,6 @@ fn command(_: &UpdatePlan, path: &Path, args: &[&str]) -> Command {
     command.args(args);
     command
 }
+
+#[cfg(all(test, unix))]
+mod tests;

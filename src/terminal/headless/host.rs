@@ -182,3 +182,6 @@ fn input_error(error: &TrySendError<Vec<u8>>) -> io::Error {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

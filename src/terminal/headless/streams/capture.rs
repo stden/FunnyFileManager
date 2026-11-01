@@ -65,3 +65,6 @@ fn respond(replies: &SyncSender<Reply>, count: usize) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
