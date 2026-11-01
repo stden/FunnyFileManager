@@ -48,3 +48,9 @@ Feature: Images can be inspected without leaving the file manager
     When I dispatch the keys "Ctrl+Q"
     Then the right panel is a file list
     And the left panel cursor selects "first.png"
+
+  Scenario: Quick view loads an image whose filename is wider than the panel
+    Given a PNG image named "photo-with-a-name-longer-than-the-right-panel-can-display-in-one-line.png" with size 4 by 3
+    When I dispatch the keys "Ctrl+Q"
+    And the image preview finishes loading
+    Then the right quick view shows "photo-with-a-name-longer-than-the-right-panel-can-display-in-one-line.png" as a 4 by 3 image

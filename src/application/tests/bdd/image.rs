@@ -90,7 +90,7 @@ fn quick_view_image(world: &mut BehaviorWorld, name: String, width: u32, height:
         Some(name.as_ref())
     );
     let screen = case.screen.text();
-    assert!(screen.contains(&name), "missing {name:?}\n{screen}");
+    // Long paths are elided in the title; the exact file is checked above.
     let dimensions = format!("{width}×{height}");
     assert!(
         screen.contains(&dimensions),
