@@ -7,6 +7,7 @@ Amazon Web Services course.
 
 | Page | What it covers |
 |---|---|
+| [FFM application sessions over MCP](mcp-application.md) | Stateful panels, editor, dialogs, background jobs and private external terminals |
 | [Clean temporary files](system-temp-cleanup.md) | Preview and confirm removal of temporary files older than seven days |
 | [Token usage](token-usage.md) | Automatic usage reports for OpenAI, Anthropic and OpenRouter |
 | [Network drives](network-drives.md) | Private ffm.yml mappings discovered on Windows and Linux |

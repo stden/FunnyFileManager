@@ -14,7 +14,7 @@ use super::{
 mod live_input;
 mod panels;
 
-pub use live_input::{LiveInput, ProgramPause};
+pub use live_input::{LiveInput, ProgramPause, TerminalMode};
 
 /// Main application state: two panels, overlays, bookmarks, etc.
 #[derive(Clone)]

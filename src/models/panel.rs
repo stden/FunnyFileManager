@@ -6,6 +6,7 @@ use std::{
     cell::RefCell,
     collections::{BTreeSet, VecDeque},
     path::PathBuf,
+    sync::Arc,
 };
 
 use super::{
@@ -86,8 +87,8 @@ pub struct Panel {
     pub navigation_history: VecDeque<PathBuf>,
     /// Facts captured with the listing, never queried while rendering.
     metadata: PanelMetadata,
-    /// Cached 8.3 short-name table for the current listing order.
-    short_names: RefCell<Option<((usize, usize), ShortNames)>>,
+    /// Cached 8.3 short-name table for the current listing revision.
+    short_names: RefCell<Option<(Arc<()>, ShortNames)>>,
     /// Folded-name index for quick search. Rebuilt when the listing moves.
     name_index: RefCell<Option<search_index::NameIndex>>,
     totals: totals::PanelTotals,
@@ -113,17 +114,17 @@ impl Panel {
     /// reused across frames until the listing or its sort order changes.
     #[must_use]
     pub(crate) fn short_names(&self) -> ShortNames {
-        let key = (self.entries.as_ptr().addr(), self.entries.len());
         if let Some((_, table)) = self
             .short_names
             .borrow()
             .as_ref()
-            .filter(|(cached_key, _)| *cached_key == key)
+            .filter(|(rev, _)| Arc::ptr_eq(rev, self.entries.revision()))
         {
             return table.clone();
         }
         let table = ShortNames::for_entries(&self.entries);
-        *self.short_names.borrow_mut() = Some((key, table.clone()));
+        let rev = Arc::clone(self.entries.revision());
+        *self.short_names.borrow_mut() = Some((rev, table.clone()));
         table
     }
 

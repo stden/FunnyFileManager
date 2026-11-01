@@ -28,6 +28,7 @@ path = "tests/system_open_test.rs"
 required-features = ["test-helpers"]
 
 [dependencies]
+portable-pty = "0.9.0"
 file-id = "0.2.3"
 reqwest = { version = "0.13.5", default-features = false, features = ["blocking", "query", "rustls"] }
 ratatui = "0.30.2"
@@ -74,7 +75,7 @@ roxmltree = "0.21.1"
 # NOTE: keepass >= 0.13 declares rust-version 1.85, below the crate's 1.95 floor.
 # The write path is upstream-experimental, so the module backs up + writes
 # atomically (see src/keepass.rs).
-keepass = { version = "0.15.0", default-features = false, features = ["save_kdbx4"], optional = true }
+keepass = { version = "0.17.0", default-features = false, features = ["save_kdbx4"], optional = true }
 # Serialization for portable recordings, the settings file (YAML, with the
 # JSON file older builds wrote read once for migration) and kdbx JSON/YAML
 # export. serde_norway is a maintained serde_yaml fork; serde_yaml itself is
@@ -293,6 +294,14 @@ name = "kdbx_bench"
 harness = false
 required-features = ["keepass"]
 
+[[bench]]
+name = "viewer_bench"
+harness = false
+
+[[bench]]
+name = "event_throughput"
+harness = false
+
 # Local builds prioritize compilation speed. Matching dev/test settings lets
 # Cargo reuse dependency artifacts between building, checking and testing.
 # Production optimization remains explicit via --release.
@@ -473,6 +482,10 @@ option_if_let_else = "allow"
 # `param` is a feature without dependencies, so Cargo.lock does not change.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.189"
+mio = { version = "1", features = ["os-poll", "os-ext"] }
+# portable-pty already uses this version; its safe raw-fd API configures the
+# retained master without manufacturing a borrowed fd through unsafe code.
+nix = { version = "0.28", features = ["fs"] }
 rustix = { version = "1.1.5", features = ["fs", "param", "process"] }
 # Catches Ctrl+C / Ctrl+\ while a program owns the terminal, so the signal
 # stops that program and not FFM. crossterm still pulls signal-hook 0.3; both

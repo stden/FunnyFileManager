@@ -4,13 +4,20 @@ use std::{io, path::Path};
 
 use crate::{models::App, status::Status};
 
+mod headless;
+
 pub fn selected(app: &mut App) -> io::Result<()> {
     let Some(path) = app.get_active_panel().selected_path() else {
         return Ok(());
     };
     let path = std::path::absolute(path)?;
     crate::diagnostics::log_action("SystemOpen: requested");
-    match open(&path) {
+    let result = if app.live.terminal_mode == crate::models::TerminalMode::Headless {
+        headless::open(&path)
+    } else {
+        open(&path)
+    };
+    match result {
         Ok(()) => app.set_status(Status::Cleared),
         Err(error) => app.set_status(Status::CannotRun {
             program: path,

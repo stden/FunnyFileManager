@@ -9,8 +9,8 @@ pub(super) const TYPST: Syntax = Syntax {
     block_comments: &[("/*", "*/")],
     quotes: &['"'],
     keywords: &[
-        "and", "as", "auto", "break", "continue", "else", "false", "for", "if", "import",
-        "include", "in", "let", "none", "not", "or", "return", "set", "show", "true", "while",
+        "and", "as", "auto", "break", "continue", "else", "false", "for", "if", "import", "in",
+        "include", "let", "none", "not", "or", "return", "set", "show", "true", "while",
     ],
     types: &[
         "align",

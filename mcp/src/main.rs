@@ -4,7 +4,7 @@
 //! (Claude, `ChatGPT`, etc.) can manage files, directories, and S3 objects.
 //!
 //! Built on the official `rmcp` SDK with stdio transport. This file composes
-//! the server: the root every path is confined to, the handler and startup.
+//! the server: file-tool confinement, application-session authority, handler and startup.
 //! The tools themselves are declared per area under `tools/`.
 
 use rmcp::{
@@ -17,6 +17,7 @@ use std::io;
 use std::path::PathBuf;
 use tracing::info;
 
+mod automation;
 mod checksum;
 mod cleanup;
 mod content_search;
@@ -141,7 +142,11 @@ impl ServerHandler for FfmServer {
                  batch operations, bookmarks, symlinks, permissions, checksums, \
                  read-only KeePass export to JSON, YAML, or dotenv, \
                  S3 cloud storage (list profiles/buckets/objects, upload, download, delete, copy), \
-                 and system information. All paths are confined to the server's allowed root."
+                 and system information. File tools are confined to the allowed root. \
+                 The separately enabled ffm_session_* tools control private headless FFM sessions \
+                 with the user's full application authority, including shell, configuration, \
+                 WSL and remote servers. They require FFM_MCP_ALLOW_APPLICATION=1 and a writable server; \
+                 sessions can navigate outside the file-tool root."
                     .to_owned(),
             )
     }
@@ -161,12 +166,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_ansi(false)
         .init();
 
-    // Resolved once: every tool argument is confined to this tree.
+    // Resolved once: file tools and initial session paths use this allowed tree.
     let root: PathBuf = paths::resolve_root()?;
     info!(root = %root.display(), tools = TOOL_NAMES.len(), "ffm-mcp server starting");
 
-    let service = FfmServer::new(root).serve(stdio()).await?;
-    service.waiting().await?;
+    FfmServer::new(root).serve(stdio()).await?.waiting().await?;
 
     info!("ffm-mcp server stopped");
     Ok(())

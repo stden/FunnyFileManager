@@ -17,14 +17,14 @@ const RUST: Syntax = Syntax {
     block_comments: &[("/*", "*/")],
     quotes: &['"', '\''],
     keywords: &[
-        "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else", "enum",
-        "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move",
-        "mut", "pub", "ref", "return", "self", "Self", "static", "struct", "super", "trait",
+        "Self", "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else",
+        "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod",
+        "move", "mut", "pub", "ref", "return", "self", "static", "struct", "super", "trait",
         "true", "type", "unsafe", "use", "where", "while", "yield",
     ],
     types: &[
-        "bool", "char", "f32", "f64", "i8", "i16", "i32", "i64", "i128", "isize", "str", "u8",
-        "u16", "u32", "u64", "u128", "usize", "String", "Vec", "Option", "Result", "Box",
+        "Box", "Option", "Result", "String", "Vec", "bool", "char", "f32", "f64", "i128", "i16",
+        "i32", "i64", "i8", "isize", "str", "u128", "u16", "u32", "u64", "u8", "usize",
     ],
     meta_prefix: None,
     section_headers: false,
@@ -39,9 +39,9 @@ const PYTHON: Syntax = Syntax {
     block_comments: &[("\"\"\"", "\"\"\""), ("'''", "'''")],
     quotes: &['"', '\''],
     keywords: &[
-        "and", "as", "assert", "async", "await", "break", "class", "continue", "def", "del",
-        "elif", "else", "except", "False", "finally", "for", "from", "global", "if", "import",
-        "in", "is", "lambda", "None", "nonlocal", "not", "or", "pass", "raise", "return", "True",
+        "False", "None", "True", "and", "as", "assert", "async", "await", "break", "class",
+        "continue", "def", "del", "elif", "else", "except", "finally", "for", "from", "global",
+        "if", "import", "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise", "return",
         "try", "while", "with", "yield",
     ],
     types: &[
@@ -116,8 +116,8 @@ const C_LIKE: Syntax = Syntax {
         "yield",
     ],
     types: &[
-        "bool", "char", "double", "float", "int", "long", "short", "signed", "unsigned", "size_t",
-        "string", "number", "boolean", "any", "object",
+        "any", "bool", "boolean", "char", "double", "float", "int", "long", "number", "object",
+        "short", "signed", "size_t", "string", "unsigned",
     ],
     meta_prefix: Some('#'),
     section_headers: false,

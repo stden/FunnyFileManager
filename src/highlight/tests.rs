@@ -46,6 +46,31 @@ fn rust_keywords_types_strings_and_numbers_are_separated() {
 }
 
 #[test]
+fn every_syntax_table_keeps_keywords_and_types_sorted_for_binary_search() {
+    for name in [
+        "a.rs",
+        "a.py",
+        "a.kt",
+        "a.cpp",
+        "a.sh",
+        "a.cmd",
+        "a.ps1",
+        "a.toml",
+        "a.env",
+        "a.json",
+        "a.xml",
+        "a.md",
+        "a.typ",
+        "Makefile",
+        "Cargo.lock",
+    ] {
+        let syntax = syntax_for(Path::new(name)).expect(name);
+        assert!(syntax.keywords.is_sorted(), "{name} keywords unsorted");
+        assert!(syntax.types.is_sorted(), "{name} types unsorted");
+    }
+}
+
+#[test]
 fn a_number_is_one_run_including_its_suffix_and_point() {
     let out = runs("a.rs", "let x = 3.14f64;");
     assert_eq!(token_of(&out, "3.14f64"), Token::Number);

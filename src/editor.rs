@@ -8,6 +8,7 @@ use crate::models::App;
 use crate::status::Status;
 
 mod builtin;
+mod headless;
 #[cfg(any(test, coverage, feature = "test-helpers"))]
 mod scripted;
 
@@ -45,6 +46,9 @@ pub fn handle_edit<B: Backend + Write>(
     terminal: &mut Terminal<B>,
     app: &mut App,
 ) -> io::Result<()> {
+    if app.live.terminal_mode == crate::models::TerminalMode::Headless {
+        return headless::edit(app);
+    }
     let mut terminal_ops = crate::terminal::CrosstermOps;
     handle_edit_with(terminal, app, &mut terminal_ops, |editor, args, path| {
         let safe_path = if path.is_relative() && path.as_os_str().to_string_lossy().starts_with('-')

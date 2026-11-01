@@ -42,9 +42,11 @@ Feature: Images can be inspected without leaving the file manager
     When I dispatch the keys "Ctrl+Q"
     And the image preview finishes loading
     Then the right quick view shows "second.png" as a 3 by 2 image
+    And the image is rendered in its original color
     When I dispatch the keys "Up"
     And the image preview finishes loading
     Then the right quick view shows "first.png" as a 2 by 1 image
+    And the image is rendered in its original color
     When I dispatch the keys "Ctrl+Q"
     Then the right panel is a file list
     And the left panel cursor selects "first.png"
@@ -54,3 +56,4 @@ Feature: Images can be inspected without leaving the file manager
     When I dispatch the keys "Ctrl+Q"
     And the image preview finishes loading
     Then the right quick view shows "photo-with-a-name-longer-than-the-right-panel-can-display-in-one-line.png" as a 4 by 3 image
+    And the image is rendered in its original color

@@ -18,6 +18,9 @@ use std::time::Duration;
 /// is recorded: a replay must not run keys the session itself threw away. A
 /// read that fails ends the drain; the event loop's next read reports it.
 pub fn discard_queued() -> bool {
+    if let Some(cancelled) = super::headless::cancelled() {
+        return cancelled;
+    }
     let mut cancel = false;
     while crossterm::event::poll(Duration::ZERO).unwrap_or(false) {
         let Ok(event) = crossterm::event::read() else {
@@ -38,5 +41,8 @@ pub fn discard_queued() -> bool {
 /// child and unwinds to the loop, which ends the session on its own next
 /// read. See `recording::tty`.
 pub fn cancel_requested() -> bool {
+    if let Some(cancelled) = super::headless::cancelled() {
+        return cancelled;
+    }
     crate::recording::wait_for_terminal(Duration::ZERO).is_err() || discard_queued()
 }

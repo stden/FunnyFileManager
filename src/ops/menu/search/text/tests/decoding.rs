@@ -104,3 +104,22 @@ fn folding_appends_without_lowercasing_the_existing_prefix() {
     fold_into("XYZ", &mut out);
     assert_eq!(out, "Prefix Ж abci\u{307}σxyz");
 }
+
+#[test]
+fn non_ascii_code_points_only_fold_to_ascii_i_or_k() {
+    for ch in '\u{80}'..=char::MAX {
+        for lower in ch.to_lowercase() {
+            assert!(
+                !lower.is_ascii() || lower == 'i' || lower == 'k',
+                "unexpected ASCII fold {ch:?} -> {lower:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn kelvin_and_split_anchor_across_chunk_boundaries_are_found() {
+    assert_eq!(scan("temp=273\u{212A}!".as_bytes(), "273k!"), Scan::Found);
+    assert_eq!(scan(&padded(CHUNK - 4, "abc_def"), "abc_def"), Scan::Found);
+    assert_eq!(scan(&padded(CHUNK - 3, "abc_def"), "abc_def"), Scan::Found);
+}

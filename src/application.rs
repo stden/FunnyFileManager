@@ -12,10 +12,20 @@ use ratatui::{backend::Backend, Terminal};
 
 use crate::models::App;
 
+#[allow(
+    clippy::redundant_pub_crate,
+    reason = "pub(super) exposes automation to crate-level modules through crate::application::automation paths"
+)]
+pub(super) mod automation;
 mod dispatch;
 mod event;
 mod frame;
 mod git_jobs;
+#[allow(
+    clippy::redundant_pub_crate,
+    reason = "pub(super) exposes headless to crate-level modules through crate::application::headless paths"
+)]
+pub(super) mod headless;
 mod image_preview_jobs;
 mod input;
 mod loop_state;

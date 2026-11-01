@@ -5,6 +5,7 @@
 //! be tested against a made-up filesystem and drawn without touching a real
 //! one.
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -67,9 +68,15 @@ impl TreeRow {
     /// The folder's own name; the root has none, so it shows its whole path.
     #[must_use]
     pub fn name(&self) -> String {
+        self.name_cow().into_owned()
+    }
+
+    /// Borrowed folder name when valid UTF-8, avoiding per-row heap allocation
+    /// during quick-search scans over thousands of expanded tree rows.
+    pub(super) fn name_cow(&self) -> Cow<'_, str> {
         self.path.file_name().map_or_else(
-            || self.path.display().to_string(),
-            |name| name.to_string_lossy().into_owned(),
+            || Cow::Owned(self.path.display().to_string()),
+            |name| name.to_string_lossy(),
         )
     }
 }

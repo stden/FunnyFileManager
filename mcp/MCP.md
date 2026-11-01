@@ -12,7 +12,7 @@ Built on the official **[rmcp](https://github.com/modelcontextprotocol/rust-sdk)
 - **`#[tool]` macros** — auto-generated JSON schemas from Rust types via `schemars`
 - **`#[tool_router]` + `#[tool_handler]`** — declarative tool dispatch, no manual JSON-RPC parsing
 - **`tracing`** — structured logging to stderr (stdout reserved for protocol)
-- **Root confinement** — every user-supplied path is canonicalized *and* checked to live under one allowed root
+- **Root confinement for file tools** — user-supplied file-tool paths are canonicalized *and* checked to live under one allowed root
   (`FFM_MCP_ROOT`, default: the process working directory)
 - **Typed parameters** — each tool has a dedicated `Deserialize + JsonSchema` struct
 
@@ -30,7 +30,7 @@ Built on the official **[rmcp](https://github.com/modelcontextprotocol/rust-sdk)
 | No `unwrap()` in library code | All errors propagated via `Result` / `?` operator                                                                     |
 | Focused dependencies          | MCP/stdio, serialization, KeePass, filesystem, and S3 support only                                                    |
 
-## 🔌 Tools (54)
+## 🔌 Tools (63)
 
 Core local-filesystem tools (the full list also covers pattern matching, batch
 operations, bookmarks, symlinks, permissions, checksums, system info and S3):
@@ -64,6 +64,51 @@ operations, bookmarks, symlinks, permissions, checksums, system info and S3):
 | `largest_files`       | The biggest files under a tree, biggest first, with a `truncated` flag when the walk budget stops early                                      |
 | `which`               | Every match for an executable on `PATH`, in `PATH` order; on Unix only a file with an execute bit counts                                     |
 
+### Full application sessions
+
+The nine `ffm_session_*` tools control a separate headless FFM process. Enable
+them with `FFM_MCP_ALLOW_APPLICATION=1` on a writable MCP server. Each session
+has the user's full FFM authority: navigation beyond `FFM_MCP_ROOT`, editing,
+shell commands and interactive terminals, WSL, user settings and remote
+servers. Existing file tools retain their root checks. The session starts in
+the configured root or an initial `path` validated inside it.
+
+| Tool | Parameters and behavior |
+|---|---|
+| `ffm_session_start` | Optional `path`, `width` (120), `height` (40), `profile` (`system`); returns opaque `session_id`, protocol version and initial state |
+| `ffm_session_catalog` | `session_id`; returns canonical action/context names, descriptions and default keys |
+| `ffm_session_state` | `session_id`; returns current application state, rendered screen and jobs |
+| `ffm_session_action` | `session_id`, `context`, `action` from the catalog; uses normal application dispatch |
+| `ffm_session_input` | `session_id`, optional `keys`, `text`, `mouse`; follows active modal/editor/terminal input |
+| `ffm_session_wait` | `session_id`, optional `timeout_ms` (1000, maximum 10000); waits for work and returns state |
+| `ffm_session_resize` | `session_id`, `width` (20..400), `height` (8..200) |
+| `ffm_session_cancel` | `session_id`; requests active job or terminal cancellation |
+| `ffm_session_close` | `session_id`; closes this child session and releases it |
+
+Call `start`, read `catalog`, then send actions or input and inspect `state` or
+`wait`; close the session when finished. Long actions return an accepted job
+identifier promptly. Sessions belong to this MCP server and survive tool calls;
+they are shared across server clones and end when closed or the server exits.
+They do not attach to an existing interactive FFM window.
+
+The default `system` profile loads the user's normal FFM configuration and
+integrations. Choose `profile: "isolated"` for a separate workspace profile
+without user configuration, LSP startup or system-management integrations;
+file operations, the built-in editor and captured shell commands remain
+available. This profile is useful for reproducible automation and testing;
+it does not impose a filesystem or shell sandbox.
+
+The executable is configured by the administrator through `FFM_MCP_FFM_BINARY`
+or resolved as `ffm` on `PATH`; no tool accepts an executable or extra arguments.
+The server always uses `--automation` with private JSON-line stdin/stdout and
+discards child stderr. It sets `FFM_LOG=0` for the child so background-session
+input is not persisted to the user's FFM diagnostic log. Four sessions,
+8 MiB response frames, a five-second
+handshake and a fifteen-second request deadline bound resource usage. A broken
+or timed-out transport closes that session; ordinary application errors leave
+it usable. Input accepts at most 128 key chords and 1 MiB of pasted text.
+Encoded request frames are limited to 4 MiB, matching the FFM protocol input bound.
+
 ### 🔐 KeePass export
 
 `kbdx` takes `path`, an optional `password`, an optional root-confined
@@ -92,6 +137,28 @@ cargo build --release      # Build optimized binary
 cargo run                  # Run MCP server (stdio mode)
 cargo bench --bench tree_walk  # Benchmark generated directory trees
 ```
+
+The real application-session tests require both independently built binaries.
+They are ignored in normal MCP test/coverage runs with an explicit reason; the
+dedicated Linux/Windows CI jobs build both artifacts and run them explicitly:
+
+```bash
+cargo build --bin ffm
+cargo build --manifest-path mcp/Cargo.toml --bin ffm-mcp
+FFM_APPLICATION_TEST_BINARY="$(pwd)/target/debug/ffm" \
+  cargo test --manifest-path mcp/Cargo.toml --test application_sessions -- --ignored
+```
+
+On Windows, set `FFM_APPLICATION_TEST_BINARY` to the absolute
+`target/debug/ffm.exe` path before the same test command. An explicit test run
+fails if the variable or artifact is missing; it never silently skips these
+workflows. All scenarios use temporary fixtures and the isolated profile.
+
+The same target includes the Cucumber acceptance scenarios in
+[`tests/application_features/background_sessions.feature`](tests/application_features/background_sessions.feature):
+named editor save, independent unsaved buffers, and private interactive shell
+input with responsive state and cancellation. Their libtest wrapper is also
+ignored normally and runs under the dedicated CI `--ignored` command.
 
 To include an existing Windows tree and report its measured entry count and
 total byte size, set `FFM_BENCH_REAL_TREE` for the benchmark process:
@@ -144,7 +211,7 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
-Without `FFM_MCP_ROOT` the server confines itself to whatever directory it was
+Without `FFM_MCP_ROOT` file tools confine themselves to whatever directory the server was
 started in — set it explicitly, since a client-spawned process often inherits
 `/`.
 
@@ -153,9 +220,11 @@ started in — set it explicitly, since a client-spawned process often inherits
 | Variable              | Default                   | Description                                                                                                       |
 |-----------------------|---------------------------|-------------------------------------------------------------------------------------------------------------------|
 | `RUST_LOG`            | `info`                    | Log level filter (trace/debug/info/warn/error)                                                                    |
-| `FFM_MCP_ROOT`        | process working directory | The only directory tree tools may read or write. Resolved once at startup; every path argument is confined to it. |
+| `FFM_MCP_ROOT`        | process working directory | Allowed tree for file tools and initial application-session directories. Full application sessions can navigate outside it. |
 | `FFM_MCP_READONLY`    | *(unset)*                 | Set to `1` to start the server in read-only mode. All write, delete, move, copy, symlink, chmod, S3-upload, and KeePass-export tools return an error. Read tools (`view_file`, `list_directory`, `head_file`, etc.) are unaffected. Recommended when running under untrusted AI hosts. |
 | `FFM_MCP_ALLOW_KDBX`  | *(unset)*                 | Set to `1` to enable the `kbdx` tool. When unset (the default), any call to `kbdx` is refused. This opt-in prevents inadvertent plaintext vault exposure when the server is added to a shared MCP host. |
+| `FFM_MCP_ALLOW_APPLICATION` | *(unset)* | Set to `1` to enable all nine full-authority application-session tools. Every session tool is refused in read-only mode, including state/catalog. |
+| `FFM_MCP_FFM_BINARY` | `ffm` on `PATH` | Administrator-selected FFM binary used only with fixed headless arguments; read once at startup. |
 
 ### 🔐 Security: `FFM_MCP_ALLOW_KDBX` and `FFM_MCP_READONLY`
 
@@ -178,7 +247,10 @@ return an error immediately:
 - S3 mutations (`s3_upload`, `s3_delete`, `s3_copy`; `s3_download` is still allowed)
 - Pattern-based mutations (`replace`, `delete_by_pattern`)
 - Bookmark writes (`set_bookmark`, `delete_bookmark`)
-- KeePass export (`kbdx`) — gated separately by `FFM_MCP_ALLOW_KDBX`
+- Every `ffm_session_*` tool, including start, catalog, state and input
+
+KeePass export (`kbdx`) is read-only and is gated separately by
+`FFM_MCP_ALLOW_KDBX`; that explicit export opt-in also applies on a read-only server.
 
 ## 🔌 Protocol Flow
 
@@ -190,7 +262,7 @@ Client                          Server (ffm-mcp)
   ├─ notifications/initialized ───►│
   │                                │
   ├─ tools/list ──────────────────►│
-  │◄────────── 54 tools ──────────┤
+  │◄────────── 63 tools ──────────┤
   │                                │
   ├─ tools/call {name, args} ────►│
   │◄────────── result/error ──────┤
@@ -201,7 +273,7 @@ Client                          Server (ffm-mcp)
 
 Every tool argument arrives from an AI client and is treated as untrusted input.
 
-- **Root confinement**: paths are canonicalized *and* rejected unless they resolve
+- **Root confinement for file tools**: paths are canonicalized *and* rejected unless they resolve
   under `FFM_MCP_ROOT` (default: the working directory). Canonicalizing `..` is not
   traversal prevention on its own — an absolute path resolves to itself.
 - **Null byte rejection**: paths containing `\0` are rejected
@@ -212,11 +284,13 @@ Every tool argument arrives from an AI client and is treated as untrusted input.
   write is reported instead of leaving a truncated file
 - **Permissions are narrowed, never widened**: clearing the read-only flag restores
   the owner's write bit only — it does not grant group/world access
-- **No editor / arbitrary command tool**: the server owns fd 0/1 for JSON-RPC, so a
-  spawned child would corrupt the protocol stream; there is no tool that runs a
-  caller-named binary
-- **One internal subprocess**: `system_info` shells out to `df -h /` (fixed
-  argv, no user input) to report free space. Everything else uses `std::fs`.
+- **Explicit full-application authority**: session tools are disabled unless
+  `FFM_MCP_ALLOW_APPLICATION=1` and the server is writable. They can run commands
+  and contact remote servers with the user's permissions. Their private
+  headless child pipes never inherit MCP protocol stdin/stdout.
+- **Fixed subprocess entry points**: session tools start only the configured FFM
+  binary with fixed automation arguments. `system_info` uses `df -h /` with
+  fixed arguments. Caller-named executable/argv parameters are not exposed.
 - **Size limits**: `view_file` accepts at most a 10 MB file, and `head_file`/`read_lines` stop after 10 MB of reading,
   to prevent memory exhaustion
 - **KeePass secrets**: `kbdx` is read-only and writes no export file, but its response deliberately contains plaintext

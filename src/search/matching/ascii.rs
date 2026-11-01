@@ -2,7 +2,10 @@
 
 use std::ops::Range;
 
+use crate::casefold::ascii_anchor_rank;
+
 use super::super::{Case, Search, WordMatch};
+use super::PreparedNeedle;
 
 fn is_ascii_word_byte(byte: u8) -> bool {
     byte.is_ascii_alphanumeric() || byte == b'_'
@@ -17,6 +20,14 @@ fn ascii_word_ok(haystack: &[u8], at: usize, len: usize) -> bool {
         .get(at + len)
         .is_none_or(|&byte| !is_ascii_word_byte(byte));
     before_ok && after_ok
+}
+
+pub(super) fn rarest_anchor(needle_lower: &[u8]) -> Option<(usize, u8)> {
+    needle_lower
+        .iter()
+        .copied()
+        .enumerate()
+        .min_by_key(|&(_, byte)| ascii_anchor_rank(byte))
 }
 
 fn ascii_ignore_case_at(
@@ -43,22 +54,21 @@ impl Search {
     pub(super) fn find_in_ascii_line(
         &self,
         bytes: &[u8],
-        needle_raw: &[u8],
-        needle_lower: &[u8],
+        prepared: &PreparedNeedle<'_>,
         step: usize,
         count: usize,
         caret: usize,
     ) -> Option<usize> {
-        let len = needle_raw.len();
+        let len = prepared.raw.len();
         let last_start = bytes.len().checked_sub(len)?;
         let range = self.column_range(step, count, caret, last_start);
         if range.is_empty() {
             return None;
         }
         if self.case == Case::Match {
-            return self.find_ascii_exact(bytes, needle_raw, range);
+            return self.find_ascii_exact(bytes, prepared.raw.as_bytes(), range);
         }
-        self.find_ascii_ignore_case(bytes, needle_lower, range)
+        self.find_ascii_ignore_case(bytes, &prepared.lower_ascii, prepared.ascii_anchor?, range)
     }
 
     fn find_ascii_exact(&self, bytes: &[u8], needle: &[u8], range: Range<usize>) -> Option<usize> {
@@ -80,20 +90,48 @@ impl Search {
         &self,
         bytes: &[u8],
         needle_lower: &[u8],
-        mut range: Range<usize>,
+        (offset, anchor): (usize, u8),
+        range: Range<usize>,
     ) -> Option<usize> {
         let len = needle_lower.len();
         let first = *needle_lower.first()?;
         let last = *needle_lower.last()?;
+        let sub = bytes.get(range.start + offset..range.end + offset)?;
         let whole = self.words == WordMatch::WholeWords;
-        let matches = |col: usize| {
-            ascii_ignore_case_at(bytes, needle_lower, first, last, col)
-                && (!whole || ascii_word_ok(bytes, col, len))
+        let matches = |rel: usize| {
+            let col = range.start + rel;
+            (ascii_ignore_case_at(bytes, needle_lower, first, last, col)
+                && (!whole || ascii_word_ok(bytes, col, len)))
+            .then_some(col)
         };
         if self.direction.is_backward() {
-            range.rev().find(|&col| matches(col))
+            scan_anchor_backward(sub, anchor, matches)
         } else {
-            range.find(|&col| matches(col))
+            scan_anchor_forward(sub, anchor, matches)
         }
+    }
+}
+
+fn scan_anchor_forward(
+    sub: &[u8],
+    anchor: u8,
+    mut check: impl FnMut(usize) -> Option<usize>,
+) -> Option<usize> {
+    if anchor.is_ascii_alphabetic() {
+        memchr::memchr2_iter(anchor, anchor.to_ascii_uppercase(), sub).find_map(&mut check)
+    } else {
+        memchr::memchr_iter(anchor, sub).find_map(&mut check)
+    }
+}
+
+fn scan_anchor_backward(
+    sub: &[u8],
+    anchor: u8,
+    mut check: impl FnMut(usize) -> Option<usize>,
+) -> Option<usize> {
+    if anchor.is_ascii_alphabetic() {
+        memchr::memrchr2_iter(anchor, anchor.to_ascii_uppercase(), sub).find_map(&mut check)
+    } else {
+        memchr::memrchr_iter(anchor, sub).find_map(&mut check)
     }
 }

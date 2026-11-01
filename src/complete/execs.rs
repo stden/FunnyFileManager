@@ -96,6 +96,12 @@ fn collect_executables(dir: &Path, names: &mut BTreeSet<String>) {
 /// would pass every one of them, including links pointing at directories, and
 /// would call a dangling link runnable.
 fn is_executable(entry: &std::fs::DirEntry) -> bool {
+    #[cfg(not(unix))]
+    if let Ok(kind) = entry.file_type() {
+        if !kind.is_symlink() {
+            return !kind.is_dir();
+        }
+    }
     let Ok(metadata) = std::fs::metadata(entry.path()) else {
         return false;
     };
@@ -109,7 +115,6 @@ fn is_executable(entry: &std::fs::DirEntry) -> bool {
     }
     #[cfg(not(unix))]
     {
-        let _ = metadata;
         true
     }
 }

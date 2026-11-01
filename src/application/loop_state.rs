@@ -23,7 +23,7 @@ pub(super) struct LoopState {
     temp_cleanup: super::system_temp_cleanup_jobs::TempCleanupJobs,
     usage: super::token_usage_jobs::UsageJobs,
     things: super::things_jobs::ThingsJobs,
-    redraw: Redraw,
+    pub(super) redraw: Redraw,
     pending: Option<timing::Pending>,
     /// The clock as the last frame showed it.
     shown_time: String,
@@ -86,11 +86,11 @@ impl LoopState {
         }
         Ok(())
     }
-    fn prepare_frame<B: Backend + Write>(
+    pub(super) fn prepare_frame<B: Backend + Write>(
         &mut self,
         terminal: &mut Terminal<B>,
         app: &mut App,
-    ) -> io::Result<()> {
+    ) -> io::Result<Redraw> {
         self.pump_background(app);
         let size = terminal
             .size()
@@ -113,7 +113,7 @@ impl LoopState {
             self.redraw = Redraw::Needed;
         }
         if self.redraw == Redraw::Unchanged {
-            return Ok(());
+            return Ok(Redraw::Unchanged);
         }
         self.shown_time = time;
         crate::ops::panel_session::checkpoint(app);
@@ -122,7 +122,7 @@ impl LoopState {
         let result = draw_frame(terminal, app);
         self.finish(app, rendering, Instant::now());
         self.redraw = Redraw::Unchanged;
-        result
+        result.map(|()| Redraw::Needed)
     }
     /// Collect what background work finished, asking for a frame when it
     /// changed what is on screen.

@@ -123,9 +123,9 @@ fn next_token(rest: &str, ch: char, syntax: Syntax) -> (usize, Token) {
 }
 
 fn word_token(word: &str, syntax: Syntax) -> Token {
-    if syntax.keywords.contains(&word) {
+    if syntax.keywords.binary_search(&word).is_ok() {
         Token::Keyword
-    } else if syntax.types.contains(&word) {
+    } else if syntax.types.binary_search(&word).is_ok() {
         Token::Type
     } else {
         Token::Normal

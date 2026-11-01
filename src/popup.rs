@@ -146,7 +146,7 @@ mod shortcuts;
 mod sortmenu;
 mod space_analysis;
 mod stub;
-mod tasks;
+pub(crate) mod tasks;
 pub(crate) mod text_field;
 mod things;
 pub(crate) mod tree;

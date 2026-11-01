@@ -54,3 +54,23 @@ fn the_session_painter_draws_on_standard_output() {
     // Built, never painted: a test has no terminal to draw on.
     let _screen = ProgressScreen::stdout();
 }
+
+#[test]
+fn automation_never_paints_progress_on_the_protocol_stream() {
+    let host = crate::terminal::headless::HeadlessHost::new();
+    let _scope = host.enter();
+    let out = Written::default();
+    let mut screen = ProgressScreen::new(out.clone(), || {
+        panic!("headless must not query terminal size")
+    });
+    screen.paint(&Snapshot {
+        operation: Operation::Copy,
+        phase: Phase::Working,
+        current: PathBuf::from("private.iso"),
+        transfer: None,
+        done: Tally::default(),
+        total: Tally { files: 1, bytes: 1 },
+        elapsed: Duration::ZERO,
+    });
+    assert!(out.0.borrow().is_empty());
+}

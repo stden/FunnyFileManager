@@ -11,6 +11,8 @@ mod case;
 mod common;
 mod documents;
 mod editor;
+mod editor_search;
+mod find_file;
 mod image;
 mod lsp;
 mod lsp_fixture;
@@ -21,6 +23,7 @@ mod panels;
 mod queue;
 mod quick_search;
 mod samples;
+mod selection_marks;
 mod server_profiles;
 mod space_analysis;
 mod statistics;
@@ -29,6 +32,9 @@ mod temp_cleanup;
 mod things_catalog;
 mod token_usage;
 mod viewer;
+mod workflow_developer;
+mod workflow_file_ops;
+mod workflow_sort;
 
 use case::Case;
 

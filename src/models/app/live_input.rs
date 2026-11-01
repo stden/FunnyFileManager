@@ -12,6 +12,14 @@ pub enum ProgramPause {
     UntilKey,
 }
 
+/// Where external programs receive input and draw their output.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum TerminalMode {
+    #[default]
+    Interactive,
+    Headless,
+}
+
 /// What the production entry point switches on for live input only.
 ///
 /// A test's or a replayed recording's `App` keeps all of it off: nobody is at
@@ -22,6 +30,7 @@ pub enum ProgramPause {
 /// test.
 #[derive(Clone, Default)]
 pub struct LiveInput {
+    pub terminal_mode: TerminalMode,
     pub(crate) temp_cleanup: crate::models::temp_cleanup::TempSource,
     /// Only live input may read provider API credentials and usage reports.
     pub(crate) usage: crate::models::token_usage::UsageAccess,

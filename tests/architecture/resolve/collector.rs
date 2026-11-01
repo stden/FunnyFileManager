@@ -105,6 +105,19 @@ impl Collector {
 }
 
 impl<'ast> Visit<'ast> for Collector {
+    /// Attributes (`cfg`, `doc`, `derive`, ...) configure code; they are not scanned.
+    fn visit_attribute(&mut self, _: &'ast Attribute) {}
+
+    fn visit_block(&mut self, block: &'ast Block) {
+        let items = block.stmts.iter().filter_map(|statement| match statement {
+            Stmt::Item(item) => Some(item),
+            _ => None,
+        });
+        self.enter(items, false);
+        visit::visit_block(self, block);
+        self.scopes.pop();
+    }
+
     fn visit_file(&mut self, file: &'ast syn::File) {
         self.enter(&file.items, true);
         visit::visit_file(self, file);
@@ -130,19 +143,18 @@ impl<'ast> Visit<'ast> for Collector {
         self.module.pop();
     }
 
-    fn visit_block(&mut self, block: &'ast Block) {
-        let items = block.stmts.iter().filter_map(|statement| match statement {
-            Stmt::Item(item) => Some(item),
-            _ => None,
-        });
-        self.enter(items, false);
-        visit::visit_block(self, block);
-        self.scopes.pop();
-    }
-
     fn visit_item_use(&mut self, declaration: &'ast ItemUse) {
         for leaf in use_leaves(declaration) {
             self.record(&leaf.path, leaf.span);
+        }
+    }
+
+    fn visit_macro(&mut self, invocation: &'ast Macro) {
+        self.visit_path(&invocation.path);
+        let mut scanner = TokenPaths::default();
+        scanner.scan(invocation.tokens.clone());
+        for (segments, span) in scanner.paths {
+            self.record(&segments, span);
         }
     }
 
@@ -166,18 +178,6 @@ impl<'ast> Visit<'ast> for Collector {
 
     /// `pub(crate)` and `pub(super)` restrict visibility; they name no dependency.
     fn visit_visibility(&mut self, _: &'ast Visibility) {}
-
-    /// Attributes (`cfg`, `doc`, `derive`, ...) configure code; they are not scanned.
-    fn visit_attribute(&mut self, _: &'ast Attribute) {}
-
-    fn visit_macro(&mut self, invocation: &'ast Macro) {
-        self.visit_path(&invocation.path);
-        let mut scanner = TokenPaths::default();
-        scanner.scan(invocation.tokens.clone());
-        for (segments, span) in scanner.paths {
-            self.record(&segments, span);
-        }
-    }
 }
 
 /// `crate` followed by `module` and `rest`.

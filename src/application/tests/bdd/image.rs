@@ -89,6 +89,7 @@ fn quick_view_image(world: &mut BehaviorWorld, name: String, width: u32, height:
         view.shown.as_deref().and_then(|path| path.file_name()),
         Some(name.as_ref())
     );
+    assert_ready_image(&view.preview, width, height);
     let screen = case.screen.text();
     // Long paths are elided in the title; the exact file is checked above.
     let dimensions = format!("{width}×{height}");
@@ -97,6 +98,14 @@ fn quick_view_image(world: &mut BehaviorWorld, name: String, width: u32, height:
         "missing {dimensions}\n{screen}"
     );
     assert!(screen.contains("PNG"), "missing image format\n{screen}");
+}
+
+fn assert_ready_image(preview: &Preview, width: u32, height: u32) {
+    let Preview::Image(ImageState::Ready(image)) = preview else {
+        panic!("quick view must contain a decoded image");
+    };
+    assert_eq!((image.width(), image.height()), (width, height));
+    assert_eq!(image.format(), "PNG");
 }
 
 #[then("the right panel is a file list")]

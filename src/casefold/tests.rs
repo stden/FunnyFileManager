@@ -130,3 +130,15 @@ fn folded_names_agree_with_starts_with_ignore_case() {
         );
     }
 }
+
+#[test]
+fn ascii_anchor_rank_and_probe_prefer_punctuation_and_match_both_cases() {
+    use super::{ascii_anchor_rank, has_ascii_anchor};
+    assert!(ascii_anchor_rank(b'_') < ascii_anchor_rank(b'7'));
+    assert!(ascii_anchor_rank(b'7') < ascii_anchor_rank(b'z'));
+    assert!(ascii_anchor_rank(b'z') < ascii_anchor_rank(b'e'));
+    assert!(ascii_anchor_rank(b'e') < ascii_anchor_rank(b' '));
+    assert!(has_ascii_anchor(b"Hello_World", b'_'));
+    assert!(has_ascii_anchor(b"Hello_World", b'w'));
+    assert!(!has_ascii_anchor(b"Hello_World", b'q'));
+}

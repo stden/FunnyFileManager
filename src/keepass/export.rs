@@ -115,11 +115,7 @@ pub(super) fn export_times(times: &Times) -> ExportTimes {
     ExportTimes {
         created: times.creation.map(|t| t.to_string()),
         modified: times.last_modification.map(|t| t.to_string()),
-        expires: if times.expires == Some(true) {
-            times.expiry.map(|t| t.to_string())
-        } else {
-            None
-        },
+        expires: (times.expires == Some(true)).then(|| times.expiry.to_string()),
     }
 }
 

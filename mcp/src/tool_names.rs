@@ -74,4 +74,13 @@ pub const TOOL_NAMES: &[&str] = &[
     "s3_upload",
     "s3_delete",
     "s3_copy",
+    "ffm_session_start",
+    "ffm_session_catalog",
+    "ffm_session_state",
+    "ffm_session_action",
+    "ffm_session_input",
+    "ffm_session_wait",
+    "ffm_session_resize",
+    "ffm_session_cancel",
+    "ffm_session_close",
 ];

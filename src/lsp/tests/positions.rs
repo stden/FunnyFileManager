@@ -141,3 +141,10 @@ fn windows_file_identity_accepts_drive_case_and_mixed_separators() {
         "https://example.com/file"
     ));
 }
+
+#[test]
+fn utf16_column_byte_maps_ascii_and_surrogate_pairs_directly() {
+    assert_eq!(column_byte("hello", 3), Some(3));
+    assert_eq!(column_byte("A😀Б", 3), Some(5));
+    assert_eq!(column_byte("A😀Б", 2), None);
+}

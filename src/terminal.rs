@@ -39,8 +39,18 @@ mod crossterm_ops;
 mod guards;
 #[cfg(unix)]
 mod hang_up;
+#[allow(
+    clippy::redundant_pub_crate,
+    reason = "headless terminal module added during active automation development"
+)]
+pub(crate) mod headless;
 mod interrupts;
 mod keyboard;
+#[allow(
+    clippy::redundant_pub_crate,
+    reason = "memory terminal backend added during active automation development"
+)]
+pub(crate) mod memory;
 #[cfg(any(test, coverage))]
 mod noop_ops;
 mod progress_screen;
@@ -91,6 +101,9 @@ pub fn merge_run_and_cleanup<T>(run: io::Result<T>, cleanup: io::Result<()>) -> 
 /// Best effort, after a panic: every step runs whatever the one before it
 /// returned, and there is no caller left to hand an error to.
 pub fn restore_after_abort() {
+    if headless::installed() {
+        return;
+    }
     drop(disable_raw_mode());
     let mut stdout = io::stdout();
     // Before the alternate screen goes: each screen has its own flag stack,

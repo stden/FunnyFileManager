@@ -68,19 +68,24 @@ fn export_includes_nested_groups() {
 #[test]
 fn export_times_reports_expiry_only_when_the_flag_is_set() {
     let mut times = Times::default();
-    times.expires = Some(false);
-    times.expiry = times.creation;
-    assert_eq!(
-        export_times(&times).expires,
-        None,
-        "an expiry date without the flag means 'does not expire'"
-    );
+    times.expiry = chrono::NaiveDate::from_ymd_opt(2030, 6, 7)
+        .unwrap()
+        .and_hms_opt(8, 9, 10)
+        .unwrap();
+    for expires in [None, Some(false)] {
+        times.expires = expires;
+        assert_eq!(
+            export_times(&times).expires,
+            None,
+            "an expiry date without an enabled flag means 'does not expire'"
+        );
+    }
 
     times.expires = Some(true);
     let exported = export_times(&times);
     assert_eq!(
-        exported.expires.is_some(),
-        times.expiry.is_some(),
+        exported.expires.as_deref(),
+        Some("2030-06-07 08:09:10"),
         "with the flag set the expiry timestamp is passed through"
     );
 }

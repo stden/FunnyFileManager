@@ -40,14 +40,14 @@ impl ProcessHost for NetworkHost {
     fn reader(&self) -> Result<Box<dyn ProcessReader>, SampleError> {
         Ok(Box::new(NetworkReader(0)))
     }
-    fn net_prober(&self) -> Option<Box<dyn NetProber>> {
-        Some(Box::new(NetworkProber))
-    }
     fn signal(&self, key: ProcessKey, signal: Signal) -> Result<(), ControlError> {
         self.0.signal(key, signal)
     }
     fn set_priority(&self, key: ProcessKey, change: PriorityChange) -> Result<(), ControlError> {
         self.0.set_priority(key, change)
+    }
+    fn net_prober(&self) -> Option<Box<dyn NetProber>> {
+        Some(Box::new(NetworkProber))
     }
 }
 

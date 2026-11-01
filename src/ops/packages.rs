@@ -12,6 +12,8 @@ use std::{
 
 use super::shell::{collect_until, drain_echoing, DRAIN_GRACE};
 
+mod headless;
+
 pub fn open(app: &mut App) {
     open_with(app, crate::packages::detect());
 }
@@ -44,6 +46,9 @@ pub(crate) fn run_pending<B: Backend + Write>(
     terminal: &mut Terminal<B>,
     app: &mut App,
 ) -> io::Result<()> {
+    if app.live.terminal_mode == crate::models::TerminalMode::Headless {
+        return headless::run(app);
+    }
     run_with(terminal, app, &mut crate::terminal::CrosstermOps, execute)
 }
 

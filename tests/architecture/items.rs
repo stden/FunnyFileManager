@@ -55,6 +55,14 @@ struct Functions {
 }
 
 impl<'ast> Visit<'ast> for Functions {
+    fn visit_impl_item_fn(&mut self, function: &'ast ImplItemFn) {
+        let mut mentions = TestHelpersMention::default();
+        mentions.visit_impl_item_fn(function);
+        let found = Function::new(&function.vis, &function.sig, &function.block, mentions.0);
+        self.found.push(found);
+        visit::visit_impl_item_fn(self, function);
+    }
+
     fn visit_item(&mut self, item: &'ast Item) {
         if !item_attributes(item).iter().any(is_cfg_test) {
             visit::visit_item(self, item);
@@ -68,14 +76,6 @@ impl<'ast> Visit<'ast> for Functions {
         self.found.push(found);
         visit::visit_item_fn(self, function);
     }
-
-    fn visit_impl_item_fn(&mut self, function: &'ast ImplItemFn) {
-        let mut mentions = TestHelpersMention::default();
-        mentions.visit_impl_item_fn(function);
-        let found = Function::new(&function.vis, &function.sig, &function.block, mentions.0);
-        self.found.push(found);
-        visit::visit_impl_item_fn(self, function);
-    }
 }
 
 /// Finds `feature = "test-helpers"` in `cfg`, `cfg_attr` and `cfg!` input.
@@ -83,13 +83,13 @@ impl<'ast> Visit<'ast> for Functions {
 struct TestHelpersMention(bool);
 
 impl<'ast> Visit<'ast> for TestHelpersMention {
+    fn visit_macro(&mut self, invocation: &'ast Macro) {
+        self.0 |= invocation.tokens.to_string().contains(TEST_HELPERS);
+    }
+
     fn visit_meta_list(&mut self, list: &'ast MetaList) {
         self.0 |= list.tokens.to_string().contains(TEST_HELPERS);
         visit::visit_meta_list(self, list);
-    }
-
-    fn visit_macro(&mut self, invocation: &'ast Macro) {
-        self.0 |= invocation.tokens.to_string().contains(TEST_HELPERS);
     }
 }
 

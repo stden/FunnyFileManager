@@ -4,7 +4,10 @@
       "type": "stdio",
       "command": "ffm-mcp",
       "args": [],
-      "env": {}
+      "env": {
+        "FFM_MCP_ALLOW_APPLICATION": "1",
+        "FFM_MCP_ALLOW_KDBX": "1"
+      }
     }
   }
 }

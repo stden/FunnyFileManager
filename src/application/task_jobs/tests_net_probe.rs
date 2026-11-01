@@ -69,18 +69,18 @@ impl ProcessHost for ProbedHost {
         Ok(Box::new(OnceReader))
     }
 
-    fn net_prober(&self) -> Option<Box<dyn NetProber>> {
-        Some(Box::new(FastProber {
-            calls: Arc::clone(&self.calls),
-        }))
-    }
-
     fn signal(&self, _: ProcessKey, _: crate::models::Signal) -> Result<(), ControlError> {
         Ok(())
     }
 
     fn set_priority(&self, _: ProcessKey, _: PriorityChange) -> Result<(), ControlError> {
         Ok(())
+    }
+
+    fn net_prober(&self) -> Option<Box<dyn NetProber>> {
+        Some(Box::new(FastProber {
+            calls: Arc::clone(&self.calls),
+        }))
     }
 }
 

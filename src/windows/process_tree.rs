@@ -6,14 +6,31 @@ use std::io;
 /// Own a child's process tree: closing the returned handle kills every
 /// process in it, so a crashed or unresponsive LSP server, or a CLI stopped
 /// at its time limit, cannot orphan children.
-#[allow(
-    unsafe_code,
-    reason = "std has no job objects, the only way to end a process tree with its handle"
-)]
 pub fn process_tree_job(
     child: &std::process::Child,
 ) -> io::Result<std::os::windows::io::OwnedHandle> {
-    use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+    use std::os::windows::io::AsRawHandle;
+    job_for_process(child.as_raw_handle())
+}
+
+/// Own a private PTY child's descendants without transferring its process handle.
+pub fn private_terminal_job(
+    child: &dyn portable_pty::Child,
+) -> io::Result<std::os::windows::io::OwnedHandle> {
+    let handle = child
+        .as_raw_handle()
+        .ok_or_else(|| io::Error::other("Private process has no handle"))?;
+    job_for_process(handle)
+}
+
+#[allow(
+    unsafe_code,
+    reason = "Windows process trees require owned job objects"
+)]
+fn job_for_process(
+    process: std::os::windows::io::RawHandle,
+) -> io::Result<std::os::windows::io::OwnedHandle> {
+    use std::os::windows::io::{FromRawHandle, OwnedHandle};
     use windows_sys::Win32::System::JobObjects::{
         AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
     };
@@ -26,7 +43,7 @@ pub fn process_tree_job(
     let job = unsafe { OwnedHandle::from_raw_handle(raw) };
     set_job_limit_flags(raw, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE)?;
     // SAFETY: both handles remain live throughout the call; the child is owned by the caller.
-    if unsafe { AssignProcessToJobObject(raw, child.as_raw_handle()) } == 0 {
+    if unsafe { AssignProcessToJobObject(raw, process) } == 0 {
         return Err(io::Error::last_os_error());
     }
     Ok(job)

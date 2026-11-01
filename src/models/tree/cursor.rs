@@ -117,7 +117,7 @@ impl FolderTree {
             return false;
         }
         self.move_to(|row| {
-            row.branch != Branch::Root && starts_with_ignore_case(&row.name(), prefix)
+            row.branch != Branch::Root && starts_with_ignore_case(&row.name_cow(), prefix)
         })
     }
 
@@ -131,7 +131,7 @@ impl FolderTree {
             self.rows
                 .get((self.cursor + offset) % len)
                 .is_some_and(|row| {
-                    row.branch != Branch::Root && starts_with_ignore_case(&row.name(), prefix)
+                    row.branch != Branch::Root && starts_with_ignore_case(&row.name_cow(), prefix)
                 })
         }) else {
             return false;

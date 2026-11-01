@@ -21,6 +21,9 @@ use std::path::PathBuf;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use funny_file_manager::models::{DirEntry, EntryKind, FileSize, Modified, Panel};
 
+#[path = "panel_bench/hotpaths.rs"]
+mod hotpaths;
+
 /// A small directory, a large one, and one big enough to expose a per-entry
 /// allocation that the smaller sizes hide in noise.
 const SIZES: [usize; 3] = [100, 1_000, 10_000];
@@ -149,6 +152,7 @@ criterion_group!(
     bench_quick_search,
     bench_search_next,
     bench_mark,
-    bench_from_entries
+    bench_from_entries,
+    hotpaths::bench_hotpaths
 );
 criterion_main!(benches);

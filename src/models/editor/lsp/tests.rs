@@ -176,6 +176,19 @@ fn completion_preserves_trailing_newline_flag_and_trailing_empty_lines() {
     assert!(editor.lsp.popup.is_none());
 }
 
+#[test]
+fn single_line_completion_marks_only_the_edited_line_dirty() {
+    let root = TempDir::new().unwrap();
+    let mut editor = editor(&root, "line0\nline1\nline2\nfo\nline4\n");
+    editor.cursor_line = 3;
+    editor.cursor_col = 2;
+    editor.dirty_span.set(None);
+    let item = completion(json!({"label":"foobar"}));
+    editor.complete_lsp(query(&editor), &item).unwrap();
+    assert_eq!(editor.lines[3], "foobar");
+    assert_eq!(editor.dirty_span.get(), Some((3, 4)));
+}
+
 mod matcher;
 mod tests_off_text;
 mod tests_replies;

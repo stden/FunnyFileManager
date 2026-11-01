@@ -64,7 +64,7 @@ impl std::fmt::Display for AtExitErrorLine<'_> {
 /// Write the histories, and the settings when "Auto save setup" is on, after
 /// the terminal is back in the user's hands. Failures are logged, never
 /// raised: a full disk must not turn a clean exit into an error report.
-fn persist_at_exit(app: &App) {
+pub(super) fn persist_at_exit(app: &App) {
     let mut writes = vec![
         ("view history", app.view_history.save()),
         ("folder history", app.folder_history.save()),

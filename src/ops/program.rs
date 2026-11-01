@@ -12,7 +12,12 @@ use std::{
     process::{Command, ExitStatus},
 };
 
+mod headless;
+
 pub fn launch<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> {
+    if app.live.terminal_mode == crate::models::TerminalMode::Headless {
+        return headless::launch(app);
+    }
     launch_with(terminal, app, &mut CrosstermOps, |path, directory| {
         program_command(path).current_dir(directory).status()
     })

@@ -10,6 +10,7 @@ use crate::terminal::cancel_requested;
 #[cfg(windows)]
 mod console;
 mod error;
+mod headless;
 mod pipes;
 mod spawn;
 
@@ -20,6 +21,11 @@ use spawn::{detach_shell_tree, kill_shell_tree, spawn_shell};
 
 /// Start an interactive shell without waiting for it or sharing the TUI's I/O.
 pub(super) fn spawn_console(command: &ShellCommand, current_dir: &Path) -> io::Result<()> {
+    if crate::terminal::headless::installed() {
+        return headless::run(command.as_str(), current_dir, None)
+            .map(drop)
+            .map_err(io::Error::other);
+    }
     #[cfg(windows)]
     {
         console::spawn(command, current_dir).map(drop)
@@ -63,6 +69,9 @@ pub fn run_shell_command_with_timeout(
     current_dir: &Path,
     timeout: Duration,
 ) -> Result<Output, ShellError> {
+    if crate::terminal::headless::installed() {
+        return headless::run(command, current_dir, Some(timeout));
+    }
     run_until(command, current_dir, timeout, cancel_requested)
 }
 

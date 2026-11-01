@@ -12,7 +12,7 @@ pub(super) const SHELL: Syntax = Syntax {
         "in", "local", "return", "select", "then", "until", "while",
     ],
     types: &[
-        "echo", "cd", "exit", "read", "set", "source", "test", "unset",
+        "cd", "echo", "exit", "read", "set", "source", "test", "unset",
     ],
     meta_prefix: None,
     section_headers: false,
@@ -91,8 +91,8 @@ pub(super) const POWERSHELL: Syntax = Syntax {
     types: &[
         "Add-Content",
         "Compare-Object",
-        "ConvertTo-Json",
         "ConvertFrom-Json",
+        "ConvertTo-Json",
         "Copy-Item",
         "Get-ChildItem",
         "Get-Content",

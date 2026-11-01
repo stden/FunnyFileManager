@@ -66,7 +66,7 @@ mod view_mode;
 mod viewer;
 mod viewport;
 mod wsl;
-pub use app::{App, LiveInput, ProgramPause};
+pub use app::{App, LiveInput, ProgramPause, TerminalMode};
 pub use apply::ApplyPrompt;
 pub use archive::{
     ArchiveCommand, ArchiveField, ArchiveFormat, ArchiveMenu, ArchivePrompt, ExtractField,

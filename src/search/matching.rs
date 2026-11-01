@@ -5,6 +5,7 @@ use std::ops::Range;
 use super::{Caret, Case, Search, WordMatch};
 
 mod ascii;
+mod unicode;
 
 /// Characters that count as part of a word, for [`WordMatch::WholeWords`].
 fn is_word_char(ch: char) -> bool {
@@ -14,20 +15,30 @@ fn is_word_char(ch: char) -> bool {
 struct PreparedNeedle<'a> {
     raw: &'a str,
     lower_ascii: Vec<u8>,
+    ascii_anchor: Option<(usize, u8)>,
+    safe_ascii: Option<u8>,
     chars: Option<Vec<char>>,
+    scratch: Vec<char>,
 }
 
 impl<'a> PreparedNeedle<'a> {
-    fn new(raw: &'a str) -> Self {
-        let lower_ascii = if raw.is_ascii() {
+    fn new(raw: &'a str, case: Case) -> Self {
+        let lower_ascii: Vec<u8> = if raw.is_ascii() {
             raw.bytes().map(|b| b.to_ascii_lowercase()).collect()
         } else {
             Vec::new()
         };
+        let ascii_anchor = ascii::rarest_anchor(&lower_ascii);
+        let safe_ascii = (case == Case::Ignore)
+            .then(|| unicode::safe_ascii_anchor(raw))
+            .flatten();
         Self {
             raw,
             lower_ascii,
+            ascii_anchor,
+            safe_ascii,
             chars: None,
+            scratch: Vec::new(),
         }
     }
 }
@@ -42,13 +53,9 @@ impl Search {
     /// lowercase is genuinely multi-character (`ß` → `ss`) folds to its first
     /// only, so `ß` does not match `SS`. That is the rarer wrong answer.
     fn fold(&self, text: &str) -> Vec<char> {
-        match self.case {
-            Case::Match => text.chars().collect(),
-            Case::Ignore => text
-                .chars()
-                .map(|ch| ch.to_lowercase().next().unwrap_or(ch))
-                .collect(),
-        }
+        let mut chars = Vec::new();
+        unicode::fold_into(self.case, text, &mut chars);
+        chars
     }
 
     /// Whether `needle` sits at `at` in `haystack`, honouring whole-word mode.
@@ -80,7 +87,7 @@ impl Search {
         if lines.is_empty() {
             return None;
         }
-        let mut prepared = PreparedNeedle::new(self.needle.as_str());
+        let mut prepared = PreparedNeedle::new(self.needle.as_str(), self.case);
         let count = lines.len();
         let caret = from.column.chars();
         for step in 0..=count {
@@ -111,45 +118,44 @@ impl Search {
         count: usize,
         caret: usize,
     ) -> Option<usize> {
-        if prepared.raw.is_ascii() && text.is_ascii() {
-            return self.find_in_ascii_line(
-                text.as_bytes(),
-                prepared.raw.as_bytes(),
-                &prepared.lower_ascii,
-                step,
-                count,
-                caret,
-            );
-        }
         if self.case == Case::Match
             && memchr::memmem::find(text.as_bytes(), prepared.raw.as_bytes()).is_none()
         {
             return None;
         }
+        if prepared
+            .safe_ascii
+            .is_some_and(|anchor| !unicode::has_ascii_anchor(text.as_bytes(), anchor))
+        {
+            return None;
+        }
+        if prepared.raw.is_ascii() && text.is_ascii() {
+            return self.find_in_ascii_line(text.as_bytes(), prepared, step, count, caret);
+        }
         let needle = prepared
             .chars
             .get_or_insert_with(|| self.fold(prepared.raw));
-        self.find_in_unicode_line(text, needle, step, count, caret)
+        unicode::fold_into(self.case, text, &mut prepared.scratch);
+        self.find_in_folded(&prepared.scratch, needle, step, count, caret)
     }
 
-    fn find_in_unicode_line(
+    fn find_in_folded(
         &self,
-        text: &str,
+        haystack: &[char],
         needle: &[char],
         step: usize,
         count: usize,
         caret: usize,
     ) -> Option<usize> {
-        let haystack = self.fold(text);
         let last_start = haystack.len().checked_sub(needle.len())?;
         let range = self.column_range(step, count, caret, last_start);
         if self.direction.is_backward() {
             range
                 .rev()
-                .find(|&col| self.matches_at(&haystack, needle, col))
+                .find(|&col| self.matches_at(haystack, needle, col))
         } else {
             let mut range = range;
-            range.find(|&col| self.matches_at(&haystack, needle, col))
+            range.find(|&col| self.matches_at(haystack, needle, col))
         }
     }
 

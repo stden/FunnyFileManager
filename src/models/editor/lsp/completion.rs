@@ -1,12 +1,14 @@
 //! Purpose: Validate and atomically apply Unicode completion edits to the editor buffer.
 
+mod prepare;
+
+use self::prepare::{normalize, prepare};
 use super::Editor;
 use crate::lsp::{
     features::{Completion, TextEdit},
     positions::{self, Position, Range},
     types::Query,
 };
-use std::borrow::Cow;
 
 impl Editor {
     pub(crate) fn complete_lsp(
@@ -37,8 +39,11 @@ impl Editor {
         if item.snippet {
             return Err("Snippet completion is not supported");
         }
-        let mut text = self.lsp_text();
         let primary = self.primary_edit(item, query, overwrite_suffix);
+        if let Some(outcome) = self.try_single_line(&primary, &item.additional_edits) {
+            return outcome;
+        }
+        let mut text = self.lsp_text();
         let (edits, caret) = prepare(&text, &primary, &item.additional_edits)?;
         for (range, replacement) in edits.into_iter().rev() {
             text.replace_range(range, &replacement);
@@ -46,12 +51,63 @@ impl Editor {
         let position = positions::at_byte(&text, caret).ok_or("Invalid completion cursor")?;
         self.set_completed_text(&text, caret);
         let (line, column) = self.caret_at(position).ok_or("Invalid completion cursor")?;
+        self.finish_completion(line, column);
+        Ok(())
+    }
+
+    fn try_single_line(
+        &mut self,
+        primary: &TextEdit,
+        extra: &[TextEdit],
+    ) -> Option<Result<(), &'static str>> {
+        if !extra.is_empty() || primary.range.start.line != primary.range.end.line {
+            return None;
+        }
+        let replacement = normalize(&primary.new_text);
+        if replacement.contains('\n') || replacement.contains('\r') {
+            return None;
+        }
+        let line_idx = usize::try_from(primary.range.start.line).ok()?;
+        if self.lines.get(line_idx).is_none_or(|l| l.ends_with('\r')) {
+            return None;
+        }
+        Some(self.edit_line_in_place(line_idx, primary.range, &replacement))
+    }
+
+    fn edit_line_in_place(
+        &mut self,
+        line_idx: usize,
+        range: Range,
+        replacement: &str,
+    ) -> Result<(), &'static str> {
+        let line = self
+            .lines
+            .get_mut(line_idx)
+            .ok_or("Invalid completion range")?;
+        let start = positions::column_byte(line, range.start.character)
+            .ok_or("Invalid completion range")?;
+        let end =
+            positions::column_byte(line, range.end.character).ok_or("Invalid completion range")?;
+        if start > end {
+            return Err("Invalid completion range");
+        }
+        line.replace_range(start..end, replacement);
+        let column = line
+            .get(..start + replacement.len())
+            .ok_or("Invalid completion cursor")?
+            .chars()
+            .count();
+        self.note_dirty(line_idx, 1);
+        self.finish_completion(line_idx, column);
+        Ok(())
+    }
+
+    fn finish_completion(&mut self, line: usize, column: usize) {
         self.cursor_line = line;
         self.cursor_col = column;
         self.selection = super::super::EditorSelection::None;
         self.lsp.completions = None;
         self.mark_modified();
-        Ok(())
     }
 
     fn primary_edit(&self, item: &Completion, query: Query, overwrite_suffix: bool) -> TextEdit {
@@ -122,54 +178,4 @@ impl Editor {
             new_text: item.insert_text.clone(),
         }
     }
-}
-
-type Edits<'a> = Vec<(std::ops::Range<usize>, Cow<'a, str>)>;
-
-fn normalize(text: &str) -> Cow<'_, str> {
-    if text.contains("\r\n") {
-        Cow::Owned(text.replace("\r\n", "\n"))
-    } else {
-        Cow::Borrowed(text)
-    }
-}
-
-/// Whether two edits, in start order, cannot both apply: the later one starts
-/// inside the earlier, or where it starts, which leaves their order undefined.
-fn clash(earlier: &std::ops::Range<usize>, later: &std::ops::Range<usize>) -> bool {
-    let starts_inside = later.start < earlier.end;
-    let starts_together = later.start == earlier.start;
-    starts_inside || starts_together
-}
-
-fn prepare<'a>(
-    text: &str,
-    primary: &'a TextEdit,
-    extra: &'a [TextEdit],
-) -> Result<(Edits<'a>, usize), &'static str> {
-    let primary_range =
-        positions::byte_range(text, primary.range).ok_or("Invalid completion range")?;
-    let mut edits = std::iter::once(primary)
-        .chain(extra)
-        .map(|edit| {
-            positions::byte_range(text, edit.range)
-                .map(|range| (range, normalize(&edit.new_text)))
-                .ok_or("Invalid completion range")
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    edits.sort_unstable_by_key(|(range, _)| (range.start, range.end));
-    if edits
-        .iter()
-        .zip(edits.iter().skip(1))
-        .any(|((earlier, _), (later, _))| clash(earlier, later))
-    {
-        return Err("Overlapping completion edits");
-    }
-    let mut caret = primary_range.start + normalize(&primary.new_text).len();
-    for (range, replacement) in &edits {
-        if range.start < primary_range.start {
-            caret = caret - range.len() + replacement.len();
-        }
-    }
-    Ok((edits, caret))
 }

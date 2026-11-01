@@ -24,16 +24,21 @@ impl Finder {
 }
 
 impl<'ast> Visit<'ast> for Finder {
+    fn visit_attribute(&mut self, node: &'ast syn::Attribute) {
+        if permits_unsafe_code(node) {
+            self.record(node.span(), "allow(unsafe_code)");
+        }
+        visit::visit_attribute(self, node);
+    }
+
     fn visit_expr_unsafe(&mut self, node: &'ast syn::ExprUnsafe) {
         self.record(node.unsafe_token.span, "unsafe block");
         visit::visit_expr_unsafe(self, node);
     }
 
-    fn visit_signature(&mut self, node: &'ast syn::Signature) {
-        if let syn::Safety::Unsafe(token) = node.safety {
-            self.record(token.span, format!("unsafe fn {}", node.ident));
-        }
-        visit::visit_signature(self, node);
+    fn visit_item_foreign_mod(&mut self, node: &'ast syn::ItemForeignMod) {
+        self.record(node.abi.extern_token.span, "extern block");
+        visit::visit_item_foreign_mod(self, node);
     }
 
     fn visit_item_impl(&mut self, node: &'ast syn::ItemImpl) {
@@ -50,18 +55,6 @@ impl<'ast> Visit<'ast> for Finder {
         visit::visit_item_trait(self, node);
     }
 
-    fn visit_item_foreign_mod(&mut self, node: &'ast syn::ItemForeignMod) {
-        self.record(node.abi.extern_token.span, "extern block");
-        visit::visit_item_foreign_mod(self, node);
-    }
-
-    fn visit_attribute(&mut self, node: &'ast syn::Attribute) {
-        if permits_unsafe_code(node) {
-            self.record(node.span(), "allow(unsafe_code)");
-        }
-        visit::visit_attribute(self, node);
-    }
-
     /// syn does not parse macro bodies, so an `unsafe` inside one is found by
     /// its tokens.
     fn visit_macro(&mut self, node: &'ast syn::Macro) {
@@ -73,6 +66,13 @@ impl<'ast> Visit<'ast> for Finder {
             self.record(node.span(), "macro that mentions unsafe");
         }
         visit::visit_macro(self, node);
+    }
+
+    fn visit_signature(&mut self, node: &'ast syn::Signature) {
+        if let syn::Safety::Unsafe(token) = node.safety {
+            self.record(token.span, format!("unsafe fn {}", node.ident));
+        }
+        visit::visit_signature(self, node);
     }
 }
 

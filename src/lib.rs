@@ -67,6 +67,7 @@
 
 pub mod action;
 mod application;
+mod automation;
 mod bootstrap;
 mod diagnostics;
 mod directory;

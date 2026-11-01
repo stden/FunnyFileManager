@@ -98,3 +98,20 @@ fn duplicate_display_names_and_overflow_keep_existing_semantics() {
     assert_eq!(panel.file_totals(), (2, u64::MAX));
     assert_eq!(panel.marked_totals(), (1, 2, u64::MAX));
 }
+
+#[test]
+fn repeated_single_marks_build_the_name_index_only_once_per_listing() {
+    let entries = (0..200)
+        .map(|idx| DirEntry {
+            name: format!("item-{idx:04}.txt"),
+            size: FileSize::from_bytes(10),
+            ..DirEntry::default()
+        })
+        .collect();
+    let mut panel = Panel::from_entries(PathBuf::from("/dir"), entries);
+    for _ in 0..20 {
+        panel.toggle_mark_selected();
+        let _ = panel.marked_totals();
+    }
+    assert_eq!(panel.totals.index_builds.get(), 1);
+}

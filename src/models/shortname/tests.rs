@@ -121,18 +121,16 @@ fn an_unlisted_name_has_no_short_form() {
     assert!(table.get("b.txt").is_none());
 }
 
+fn named_entry(name: &str) -> DirEntry {
+    DirEntry {
+        name: name.to_owned(),
+        ..DirEntry::default()
+    }
+}
+
 #[test]
 fn a_table_can_be_built_from_panel_entries() {
-    let entries = vec![
-        DirEntry {
-            name: "..".to_owned(),
-            ..DirEntry::default()
-        },
-        DirEntry {
-            name: "Cargo.toml".to_owned(),
-            ..DirEntry::default()
-        },
-    ];
+    let entries = vec![named_entry(".."), named_entry("Cargo.toml")];
     let table = ShortNames::for_entries(&entries);
     assert_eq!(table.get("..").map(ShortName::as_str), Some(".."));
     assert_eq!(
@@ -143,13 +141,12 @@ fn a_table_can_be_built_from_panel_entries() {
 
 #[test]
 fn panel_short_names_cache_reuses_and_invalidates_on_listing_change() {
-    let entry = |name: &str| DirEntry {
-        name: name.to_owned(),
-        ..DirEntry::default()
-    };
     let mut panel = crate::models::Panel::from_entries(
         std::path::PathBuf::from("/dir"),
-        vec![entry("longfilename1.txt"), entry("longfilename2.txt")],
+        vec![
+            named_entry("longfilename1.txt"),
+            named_entry("longfilename2.txt"),
+        ],
     );
     let first = panel.short_names();
     let second = panel.short_names();
@@ -160,7 +157,7 @@ fn panel_short_names_cache_reuses_and_invalidates_on_listing_change() {
     );
 
     panel.apply_listing(crate::models::DirectoryListing {
-        entries: vec![entry("longfilename2.txt")],
+        entries: vec![named_entry("longfilename2.txt")],
         parent: None,
         metadata: crate::models::PanelMetadata::default(),
     });
@@ -168,6 +165,32 @@ fn panel_short_names_cache_reuses_and_invalidates_on_listing_change() {
     assert!(!std::sync::Arc::ptr_eq(&first.by_name, &refreshed.by_name));
     assert_eq!(
         refreshed.get("longfilename2.txt").map(ShortName::as_str),
+        Some("LONGFI~1.TXT")
+    );
+}
+
+#[test]
+fn in_place_entry_reorder_invalidates_cached_short_names() {
+    let mut panel = crate::models::Panel::from_entries(
+        std::path::PathBuf::from("/dir"),
+        vec![
+            named_entry("longfilename1.txt"),
+            named_entry("longfilename2.txt"),
+        ],
+    );
+    assert_eq!(
+        panel
+            .short_names()
+            .get("longfilename2.txt")
+            .map(ShortName::as_str),
+        Some("LONGFI~2.TXT")
+    );
+    panel.entries.reverse();
+    assert_eq!(
+        panel
+            .short_names()
+            .get("longfilename2.txt")
+            .map(ShortName::as_str),
         Some("LONGFI~1.TXT")
     );
 }

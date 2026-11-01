@@ -20,6 +20,9 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
 fn main_impl() -> Result<(), Box<dyn Error>> {
     let args = std::env::args_os().skip(1).collect::<Vec<_>>();
+    if let Some(options) = crate::automation::arguments(&args) {
+        return crate::automation::run(options).map_err(Into::into);
+    }
     // Started by "Retry as administrator": no terminal, only the pipe.
     if let Some(served) = crate::ops::helper_main(&args) {
         return served.map_err(Into::into);
@@ -106,6 +109,7 @@ fn live_input(input: &Input) -> crate::models::LiveInput {
         return crate::models::LiveInput::default();
     }
     crate::models::LiveInput {
+        terminal_mode: crate::models::TerminalMode::Interactive,
         temp_cleanup: crate::models::temp_cleanup::TempSource::System,
         usage: crate::models::token_usage::UsageAccess::Network,
         things: crate::models::things::ThingsAccess::Network,
@@ -149,6 +153,11 @@ fn load_persisted(app: &mut App) {
 }
 
 mod at_exit;
+#[allow(
+    clippy::redundant_pub_crate,
+    reason = "background module added during active automation development"
+)]
+pub(crate) mod background;
 
 #[cfg(test)]
 mod tests;

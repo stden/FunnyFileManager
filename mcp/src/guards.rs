@@ -24,6 +24,11 @@ pub fn is_kdbx_allowed() -> bool {
     std::env::var("FFM_MCP_ALLOW_KDBX").as_deref() == Ok("1")
 }
 
+/// Read once: application sessions have full user authority beyond the file-tool root.
+pub fn is_application_allowed() -> bool {
+    std::env::var("FFM_MCP_ALLOW_APPLICATION").as_deref() == Ok("1")
+}
+
 /// Returns an error when `readonly` is `true`.
 ///
 /// The `readonly` argument is the value stored on the server, not a fresh env

@@ -1,11 +1,8 @@
 //! Purpose: The MCP tool surface. Each area declares its tools in its own
 //! `#[tool_router]`; the server's router is all of them merged.
 //!
-//! NOTE: there is deliberately no "open editor" tool. This server speaks
-//! JSON-RPC over fd 0/1, so any child process it spawns inherits the
-//! protocol streams — an interactive editor writes terminal escapes into
-//! the response frames, and running a caller-named binary is arbitrary
-//! code execution from a tool argument.
+//! Full-application sessions use a fixed headless child with private pipes.
+//! They never inherit MCP protocol streams or accept an executable argument.
 
 use crate::FfmServer;
 use rmcp::{
@@ -15,6 +12,7 @@ use rmcp::{
 use serde::Deserialize;
 
 pub mod analysis;
+pub mod application;
 pub mod batch;
 pub mod bookmarks;
 pub mod comparing;
@@ -59,6 +57,7 @@ impl FfmServer {
             + Self::file_stats_tools()
             + Self::s3_tools()
             + Self::s3_transfer_tools()
+            + Self::application_tools()
     }
 }
 

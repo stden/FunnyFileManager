@@ -16,7 +16,12 @@ use crate::scroll::ScrollTop;
 use super::{bars, menus};
 
 pub(super) fn process(app: &mut App, key: KeyEvent) {
-    match resolve(key) {
+    execute(app, resolve(key));
+}
+
+/// Apply a typed browse command from a key or named automation invocation.
+pub(super) fn execute(app: &mut App, command: TaskCommand) {
+    match command {
         TaskCommand::Close => app.close_overlay(),
         TaskCommand::Nice(step) => {
             if app

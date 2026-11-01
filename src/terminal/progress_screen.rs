@@ -36,6 +36,9 @@ impl<W: Write> ProgressScreen<W> {
 
 impl<W: Write> Painter for ProgressScreen<W> {
     fn paint(&mut self, snapshot: &Snapshot) {
+        if super::headless::installed() {
+            return;
+        }
         let (width, height) = (self.size)();
         let dialog = crate::ui::progress_dialog(Rect::new(0, 0, width, height), snapshot);
         let cells = dialog.content.iter().enumerate().map(|(index, cell)| {

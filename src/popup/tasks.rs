@@ -20,12 +20,27 @@ mod dialogs;
 mod menus;
 
 pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> bool {
+    transition(app, |app| route(app, KeyEvent::new(code, modifiers)))
+}
+
+/// The same browse command a key runs, without depending on its physical chord.
+pub fn invoke(app: &mut App, command: TaskCommand) -> bool {
+    if !app
+        .task_list_mut()
+        .is_some_and(|list| matches!(list.modal(), Modal::Browse))
+    {
+        return false;
+    }
+    transition(app, |app| browse::execute(app, command))
+}
+
+fn transition(app: &mut App, apply: impl FnOnce(&mut App)) -> bool {
     let Some(list) = app.task_list_mut() else {
         return false;
     };
     list.clear_notice();
     let before = discriminant(list.modal());
-    route(app, KeyEvent::new(code, modifiers));
+    apply(app);
     let after = app.task_list_mut().map(|list| discriminant(list.modal()));
     if after != Some(before) {
         app.dialog_mouse.reset();

@@ -50,3 +50,15 @@ fn signal_group(leader: &Child, signal: SystemSignal) -> io::Result<()> {
     rustix::process::kill_process_group(SystemPid::from_child(leader), signal)
         .map_err(io::Error::from)
 }
+
+/// Stop the foreground job of an owned private terminal, including a shell's
+/// job-control group, whose identity comes from that terminal's kernel state.
+pub fn kill_terminal_foreground(master: &dyn portable_pty::MasterPty) -> io::Result<()> {
+    let Some(pid) = master.process_group_leader().and_then(SystemPid::from_raw) else {
+        return Ok(());
+    };
+    match rustix::process::kill_process_group(pid, SystemSignal::KILL) {
+        Err(rustix::io::Errno::SRCH) => Ok(()),
+        result => result.map_err(io::Error::from),
+    }
+}

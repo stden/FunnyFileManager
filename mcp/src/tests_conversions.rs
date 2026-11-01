@@ -89,6 +89,7 @@ fn view_file_answers_an_offset_past_the_end_with_no_lines() {
             limit: Some(u64::MAX),
         }))
         .expect("an out-of-range window is not an error");
+    drop(server);
     let text = result
         .content
         .first()

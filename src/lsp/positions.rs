@@ -44,7 +44,8 @@ pub fn to_chars(text: &str, units: u32) -> Option<usize> {
     Some(text.get(..byte)?.chars().count())
 }
 
-fn column_byte(text: &str, units: u32) -> Option<usize> {
+#[must_use]
+pub fn column_byte(text: &str, units: u32) -> Option<usize> {
     if text.is_ascii() {
         return usize::try_from(units).ok().filter(|&col| col <= text.len());
     }

@@ -46,15 +46,6 @@ pub fn included_files(file: &SourceFile) -> Vec<(usize, String)> {
 pub struct IncludedFiles(pub Vec<(usize, String)>);
 
 impl<'ast> Visit<'ast> for IncludedFiles {
-    fn visit_macro(&mut self, invocation: &'ast Macro) {
-        let includes = ["include", "include_str", "include_bytes"]
-            .iter()
-            .any(|name| invocation.path.is_ident(name));
-        if let (true, Ok(path)) = (includes, invocation.parse_body::<LitStr>()) {
-            self.0.push((path.span().start().line, path.value()));
-        }
-    }
-
     fn visit_attribute(&mut self, attribute: &'ast Attribute) {
         if let Meta::NameValue(pair) = &attribute.meta {
             if let (
@@ -67,6 +58,15 @@ impl<'ast> Visit<'ast> for IncludedFiles {
             {
                 self.0.push((path.span().start().line, path.value()));
             }
+        }
+    }
+
+    fn visit_macro(&mut self, invocation: &'ast Macro) {
+        let includes = ["include", "include_str", "include_bytes"]
+            .iter()
+            .any(|name| invocation.path.is_ident(name));
+        if let (true, Ok(path)) = (includes, invocation.parse_body::<LitStr>()) {
+            self.0.push((path.span().start().line, path.value()));
         }
     }
 }

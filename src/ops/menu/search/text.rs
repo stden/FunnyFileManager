@@ -12,6 +12,8 @@ use std::io::{self, Read};
 use std::path::Path;
 use std::time::Instant;
 
+mod anchor;
+
 /// How much of a file is read at a time.
 const CHUNK: usize = 64 * 1024;
 
@@ -46,13 +48,16 @@ fn fold_into(source: &str, out: &mut String) {
         }
         return;
     }
-    out.extend(source.chars().flat_map(char::to_lowercase).map(|letter| {
-        if letter == 'ς' {
-            'σ'
+    for ch in source.chars() {
+        if ch.is_ascii() {
+            out.push(ch.to_ascii_lowercase());
         } else {
-            letter
+            out.extend(
+                ch.to_lowercase()
+                    .map(|letter| if letter == 'ς' { 'σ' } else { letter }),
+            );
         }
-    }));
+    }
 }
 
 /// Scan the regular file at `path` for `needle`, already [`fold`]ed.
@@ -78,6 +83,7 @@ pub(super) fn file_contains(path: &Path, needle: &str, deadline: Instant) -> Sca
 /// which is not searched.
 fn contains_text(mut reader: impl Read, needle: &str, deadline: Instant) -> io::Result<Scan> {
     let finder = memchr::memmem::Finder::new(needle.as_bytes());
+    let fast_anchor = anchor::safe_anchor(needle);
     let mut chunk = vec![0_u8; CHUNK];
     let mut undecoded = Vec::new();
     let mut text = String::new();
@@ -91,6 +97,12 @@ fn contains_text(mut reader: impl Read, needle: &str, deadline: Instant) -> io::
         if memchr::memchr(0, bytes).is_some() {
             return Ok(Scan::Absent);
         }
+        if skip_without_anchor(fast_anchor, needle.len(), bytes, &mut undecoded, &mut text) {
+            if read == 0 {
+                return Ok(Scan::Absent);
+            }
+            continue;
+        }
         push_chunk(read, bytes, &mut undecoded, &mut text);
         if finder.find(text.as_bytes()).is_some() {
             return Ok(Scan::Found);
@@ -98,56 +110,68 @@ fn contains_text(mut reader: impl Read, needle: &str, deadline: Instant) -> io::
         if read == 0 {
             return Ok(Scan::Absent);
         }
-        keep_tail(&mut text, needle.len());
+        anchor::keep_tail(&mut text, needle.len());
     }
+}
+
+fn skip_without_anchor(
+    fast_anchor: Option<u8>,
+    needle_len: usize,
+    bytes: &[u8],
+    undecoded: &mut Vec<u8>,
+    text: &mut String,
+) -> bool {
+    if !anchor::ruled_out(fast_anchor, text, bytes) {
+        return false;
+    }
+    if bytes.is_empty() {
+        return true;
+    }
+    let Some(cut) = anchor::tail_cut(bytes, needle_len) else {
+        return false;
+    };
+    undecoded.clear();
+    text.clear();
+    anchor::decode_slice(bytes.get(cut..).unwrap_or_default(), false, undecoded, text);
+    anchor::keep_tail(text, needle_len);
+    true
 }
 
 fn push_chunk(read: usize, bytes: &[u8], undecoded: &mut Vec<u8>, text: &mut String) {
     if read == 0 {
-        undecoded.extend_from_slice(bytes);
-        fold_into(&String::from_utf8_lossy(undecoded), text);
+        if !undecoded.is_empty() {
+            let pending = std::mem::take(undecoded);
+            anchor::decode_slice(&pending, true, undecoded, text);
+        }
         return;
     }
-    if undecoded.is_empty() {
-        if let Ok(valid) = std::str::from_utf8(bytes) {
-            fold_into(valid, text);
-            return;
-        }
-    }
-    undecoded.extend_from_slice(bytes);
+    let skip = if undecoded.is_empty() {
+        0
+    } else {
+        stitch_boundary(bytes, undecoded, text)
+    };
+    let rest = bytes.get(skip..).unwrap_or_default();
+    anchor::decode_slice(rest, false, undecoded, text);
+}
+
+fn stitch_boundary(bytes: &[u8], undecoded: &mut Vec<u8>, text: &mut String) -> usize {
+    let prev = undecoded.len();
+    let take = bytes.len().min(4_usize.saturating_sub(prev));
+    undecoded.extend_from_slice(bytes.get(..take).unwrap_or_default());
     decode_complete(undecoded, text);
+    if bytes.len() <= take {
+        return bytes.len();
+    }
+    let consumed = (prev + take).saturating_sub(undecoded.len());
+    undecoded.clear();
+    consumed.saturating_sub(prev)
 }
 
 /// Decode `bytes` as `String::from_utf8_lossy` would, except that a sequence
 /// cut short at the very end stays in `bytes`: the next chunk completes it.
 fn decode_complete(bytes: &mut Vec<u8>, out: &mut String) {
-    let mut start = 0;
-    while let Some(rest) = bytes.get(start..) {
-        let error = match std::str::from_utf8(rest) {
-            Ok(valid) => {
-                fold_into(valid, out);
-                start = bytes.len();
-                break;
-            }
-            Err(error) => error,
-        };
-        let valid = rest.get(..error.valid_up_to()).unwrap_or_default();
-        fold_into(&String::from_utf8_lossy(valid), out);
-        start += error.valid_up_to();
-        let Some(invalid) = error.error_len() else {
-            break;
-        };
-        out.push(char::REPLACEMENT_CHARACTER);
-        start += invalid;
-    }
-    bytes.drain(..start.min(bytes.len()));
-}
-
-/// Keep only what a match that starts before the next chunk could use: the
-/// last `needle_len - 1` bytes, widened to a character boundary.
-fn keep_tail(text: &mut String, needle_len: usize) {
-    let cut = text.floor_char_boundary(text.len().saturating_sub(needle_len.saturating_sub(1)));
-    text.drain(..cut);
+    let source = std::mem::take(bytes);
+    anchor::decode_slice(&source, false, bytes, out);
 }
 
 #[cfg(test)]

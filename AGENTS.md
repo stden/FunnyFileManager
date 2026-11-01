@@ -2,7 +2,7 @@
 
 # FunnyFileManager — Agent Entry Point
 
-Stack: Rust 1.95 · ratatui · crossterm. `mcp/` ships the `ffm-mcp` server (54 tools) as a separate process.
+Stack: Rust 1.95 · ratatui · crossterm. `mcp/` ships the `ffm-mcp` server (63 tools) as a separate process.
 
 **Full reference (architecture, module map, Rust rules, testing, commit guide):** → [`AGENTS_FULL.md`](AGENTS_FULL.md)
 
