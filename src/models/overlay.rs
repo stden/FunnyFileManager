@@ -40,6 +40,8 @@ pub enum Overlay {
     None,
     TempCleanup(Box<super::TempCleanupDialog>),
     TokenUsage(Box<super::TokenUsagePanel>),
+    /// Commands menu: Cloudflare DNS records, listed and edited through the API.
+    CloudflareDns(Box<super::CloudflareDnsPanel>),
 
     /// F1 help screen
     Help,

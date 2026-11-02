@@ -17,6 +17,7 @@ mod archive_prompt;
 mod associations;
 mod attributes;
 mod cells;
+mod cloudflare_dns;
 mod code;
 mod command_line;
 mod command_prompt;

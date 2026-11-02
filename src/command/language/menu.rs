@@ -8,6 +8,7 @@
 pub enum MenuCommand {
     Performance,
     TokenUsage,
+    CloudflareDns,
     SystemTempCleanup,
     LanguageServers,
     UpdatePackages,

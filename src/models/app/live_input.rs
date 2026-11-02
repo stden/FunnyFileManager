@@ -36,6 +36,8 @@ pub struct LiveInput {
     pub(crate) usage: crate::models::token_usage::UsageAccess,
     /// Only live input may read the Things catalog over the network.
     pub(crate) things: crate::models::things::ThingsAccess,
+    /// Only live input may read the Cloudflare API token and reach the Cloudflare API.
+    pub(crate) cloudflare: crate::models::cloudflare_dns::CloudflareAccess,
     /// Whether a finished program's output waits for a key before the panels
     /// return.
     pub program_pause: ProgramPause,

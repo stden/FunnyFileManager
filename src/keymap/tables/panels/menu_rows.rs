@@ -24,6 +24,8 @@ pub(super) const KEYLESS: Group<Action> = Group {
             .note(Ffm, "Provider token usage reports"),
         row("things_catalog", Menu(MenuCommand::ThingsCatalog), &[])
             .note(Ffm, "Import Things catalog machines as sessions"),
+        row("cloudflare_dns", Menu(MenuCommand::CloudflareDns), &[])
+            .note(Ffm, "Cloudflare DNS records: edit A records, TTL and proxy"),
         row("compare_folders", Menu(MenuCommand::Compare), &[]).note(FarNoKey, "Compare folders"),
         row("edit_user_menu", Menu(MenuCommand::UserMenu), &[])
             .note(FarNoKey, "Edit the user menu"),

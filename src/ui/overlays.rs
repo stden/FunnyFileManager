@@ -122,6 +122,7 @@ fn render_commands_dialog(
         Overlay::Settings(dialog) => super::settings::render(f, tracker, dialog),
         Overlay::DiskCleanup(dialog) => super::disk_cleanup::render(f, tracker, dialog),
         Overlay::SessionEdit(dialog) => super::session_edit::render(f, tracker, dialog),
+        Overlay::CloudflareDns(panel) => super::cloudflare_dns::render(f, tracker, panel),
         Overlay::Remote(dialog) => super::remote_dialog::render(f, tracker, dialog),
         Overlay::PluginCommands(dialog) => super::plugin_commands::render(f, tracker, dialog),
         Overlay::InputPrompt(prompt) => super::prompts::render_input(f, tracker, prompt),

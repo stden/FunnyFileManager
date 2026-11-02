@@ -1,5 +1,7 @@
 //! Purpose: what each drop-down holds: usable rows, entry shape, the WSL row and Far's row counts.
 use super::*;
+use crate::action::Action;
+use crate::command::language::MenuCommand;
 use crate::menu::cursor;
 
 /// Every drop-down offers something, except Options, which cannot.
@@ -51,7 +53,7 @@ fn wsl_menu_uses_the_same_command_as_its_keyboard_shortcut() {
             ..
         }
     ));
-    assert_eq!(entry.action(), Some(crate::action::Action::WslManagement));
+    assert_eq!(entry.action(), Some(Action::WslManagement));
 }
 
 #[cfg(not(windows))]
@@ -89,10 +91,10 @@ fn every_far_menu_is_present_in_full() {
     );
     assert_eq!(
         rows(Heading::Commands),
-        29 + usize::from(cfg!(windows)),
+        30 + usize::from(cfg!(windows)),
         "Far commands, root navigation, statistics, LSP, package updates, two PATH scopes, \
          bulk Git pulls, temporary-file cleanup, the space analysis, token usage, the Things \
-         catalog, the MCP server installer and Windows WSL",
+         catalog, the Cloudflare DNS editor, the MCP server installer and Windows WSL",
     );
     assert_eq!(rows(Heading::Options), 23, "Far's Options menu");
 }
@@ -105,8 +107,24 @@ fn cursor_helpers_handle_empty_and_leading_separator_slices() {
     let item = Entry::Item {
         label: "&Quit",
         shortcut: "F10",
-        action: crate::action::Action::Quit,
+        action: Action::Quit,
         checked: false,
     };
     assert_eq!(cursor::open_row(&[Entry::Separator, item]), 1);
+}
+
+/// The Cloudflare DNS row is the one the Commands menu runs for the editor.
+#[test]
+fn the_commands_menu_runs_the_cloudflare_dns_dialog() {
+    let offered = Menu::open(Heading::Commands).entries().iter().any(|entry| {
+        matches!(
+            entry,
+            Entry::Item {
+                label: "Cloudflare DNS",
+                action: Action::Menu(MenuCommand::CloudflareDns),
+                ..
+            }
+        )
+    });
+    assert!(offered, "the Commands menu offers Cloudflare DNS");
 }

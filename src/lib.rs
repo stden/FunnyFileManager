@@ -69,6 +69,7 @@ pub mod action;
 mod application;
 mod automation;
 mod bootstrap;
+mod cloudflare_dns;
 mod diagnostics;
 mod directory;
 mod recording;

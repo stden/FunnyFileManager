@@ -166,6 +166,11 @@ pub(super) const COMMANDS: &[Entry] = &[
     ),
     Entry::item("Token usage", "", Action::Menu(MenuCommand::TokenUsage)),
     Entry::item(
+        "Cloudflare DNS",
+        "",
+        Action::Menu(MenuCommand::CloudflareDns),
+    ),
+    Entry::item(
         "Things catalog",
         "",
         Action::Menu(MenuCommand::ThingsCatalog),

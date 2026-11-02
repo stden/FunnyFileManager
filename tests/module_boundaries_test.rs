@@ -9,6 +9,8 @@ mod architecture;
 
 #[path = "module_boundaries/automation.rs"]
 mod automation;
+#[path = "module_boundaries/cloudflare.rs"]
+mod cloudflare;
 #[path = "module_boundaries/layers.rs"]
 mod layers;
 #[path = "module_boundaries/mcp.rs"]

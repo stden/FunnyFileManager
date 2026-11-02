@@ -110,6 +110,7 @@ fn live_input(input: &Input) -> crate::models::LiveInput {
         temp_cleanup: crate::models::temp_cleanup::TempSource::System,
         usage: crate::models::token_usage::UsageAccess::Network,
         things: crate::models::things::ThingsAccess::Network,
+        cloudflare: crate::models::cloudflare_dns::CloudflareAccess::Network,
         program_pause: crate::models::ProgramPause::UntilKey,
         mcp_host: crate::ops::mcp_install::system_host(),
         lsp_probe: crate::lsp::Probe::from_process(),

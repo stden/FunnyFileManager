@@ -65,6 +65,7 @@ pub const fn menu_scope(command: MenuCommand) -> ActionScope {
         MenuCommand::Performance
         | MenuCommand::TokenUsage
         | MenuCommand::SystemTempCleanup
+        | MenuCommand::CloudflareDns
         | MenuCommand::LanguageServers
         | MenuCommand::UpdatePackages
         | MenuCommand::McpInstall

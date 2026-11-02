@@ -3,6 +3,7 @@
 use crate::models::{App, Overlay};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
+mod cloudflare_dns;
 mod disk_cleanup;
 mod editor_search;
 pub(crate) mod lsp_editor;
@@ -86,6 +87,7 @@ fn process_commands_dialog(app: &mut App, code: KeyCode, modifiers: KeyModifiers
         Overlay::ViewHistory(_) => view_history::process(app, code, modifiers),
         Overlay::FolderHistory(_) => folder_history::process(app, code, modifiers),
         Overlay::UserMenu(_) => usermenu::process(app, code, modifiers),
+        Overlay::CloudflareDns(_) => cloudflare_dns::process(app, code, modifiers),
         Overlay::Associations(_) => associations::process(app, code, modifiers),
         Overlay::FolderShortcuts(_) => shortcuts::process(app, code, modifiers),
         Overlay::Filter(_) => filter::process(app, code, modifiers),

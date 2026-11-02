@@ -29,6 +29,18 @@ fn space_analysis_is_a_keyless_ffm_row_for_the_commands_menu() {
 }
 
 #[test]
+fn the_cloudflare_dns_row_is_a_keyless_command_of_the_f9_group() {
+    let row = KEYLESS
+        .rows
+        .iter()
+        .find(|row| row.command == Menu(MenuCommand::CloudflareDns))
+        .expect("the Cloudflare DNS row");
+    assert_eq!(row.name, ActionName::new("cloudflare_dns"));
+    assert_eq!(row.defaults, []);
+    assert_eq!(row.origin, Ffm);
+}
+
+#[test]
 fn every_page_of_the_options_menu_has_its_row() {
     let pages: Vec<&str> = OPTIONS.rows.iter().map(|row| row.summary).collect();
     assert_eq!(pages.len(), 22);

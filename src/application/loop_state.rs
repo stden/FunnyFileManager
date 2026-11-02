@@ -24,6 +24,7 @@ pub(super) struct LoopState {
     usage: super::token_usage_jobs::UsageJobs,
     things: super::things_jobs::ThingsJobs,
     pub(super) redraw: Redraw,
+    cloudflare: super::cloudflare_jobs::CloudflareJobs,
     pending: Option<timing::Pending>,
     /// The clock as the last frame showed it.
     shown_time: String,
@@ -43,6 +44,7 @@ impl LoopState {
             temp_cleanup: super::system_temp_cleanup_jobs::TempCleanupJobs::default(),
             usage: super::token_usage_jobs::UsageJobs::default(),
             things: super::things_jobs::ThingsJobs::default(),
+            cloudflare: super::cloudflare_jobs::CloudflareJobs::default(),
             redraw: Redraw::Needed,
             pending: None,
             shown_time: String::new(),
@@ -135,6 +137,7 @@ impl LoopState {
             self.git.pump(app),
             self.jobs.pump(app),
             self.tasks.pump(app),
+            self.cloudflare.pump(app),
         ];
         // Every pump runs, whatever the others changed.
         let lsp = self.lsp.pump(app);

@@ -159,7 +159,7 @@ fn the_number_of_actions_of_each_context_is_pinned() {
     assert_eq!(
         counts,
         [
-            ("panels", 121),
+            ("panels", 122),
             ("tree_panel", 15),
             ("netbox_panel", 12),
             ("command_line", 29),

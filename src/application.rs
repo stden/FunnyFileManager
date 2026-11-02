@@ -17,6 +17,7 @@ use crate::models::App;
     reason = "pub(super) exposes automation to crate-level modules through crate::application::automation paths"
 )]
 pub(super) mod automation;
+mod cloudflare_jobs;
 mod dispatch;
 mod event;
 mod frame;

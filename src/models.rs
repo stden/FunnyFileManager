@@ -167,6 +167,8 @@ pub use panel_side::PanelSide;
 pub(crate) mod network_drive;
 pub(crate) mod token_usage;
 pub use token_usage::TokenUsagePanel;
+pub(crate) mod cloudflare_dns;
+pub use cloudflare_dns::CloudflareDnsPanel;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

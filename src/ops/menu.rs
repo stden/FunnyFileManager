@@ -80,6 +80,7 @@ fn execute_result(app: &mut App, command: MenuCommand) -> io::Result<()> {
         MenuCommand::McpInstall => super::mcp_install::open(app),
         MenuCommand::SpaceAnalysis => super::space_analysis::open(app)?,
         MenuCommand::ThingsCatalog => super::things::open(app),
+        MenuCommand::CloudflareDns => super::cloudflare_dns::open(app),
         MenuCommand::GitPullAll => super::git_pull::queue(app)?,
         MenuCommand::UserMenu | MenuCommand::Associations => user::edit(app, command)?,
     }
