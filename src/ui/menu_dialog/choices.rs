@@ -1,0 +1,118 @@
+//! Purpose: Content-sized vertical menus with shared rendering and click geometry.
+//!
+//! Generic over the row type, so the F9 result lists (`MenuChoice`) and the
+//! task list's menus (plain labels) are drawn and hit-tested by one geometry.
+
+use ratatui::{
+    layout::Rect,
+    style::Style,
+    text::Line,
+    widgets::{Clear, Paragraph},
+    Frame,
+};
+
+use super::super::{dialog, far_block, palette, Cells};
+
+/// The index of the row drawn under (`column`, `row`), if a row is there.
+pub fn row_at(
+    screen: Rect,
+    title: &str,
+    rows: &[impl AsRef<str>],
+    selected: usize,
+    column: u16,
+    row: u16,
+) -> Option<usize> {
+    let body = far_block().inner(area(screen, title, rows));
+    if !body.contains((column, row).into()) {
+        return None;
+    }
+    let index = first_row(selected, rows.len(), body.height) + usize::from(row - body.y);
+    (index < rows.len()).then_some(index)
+}
+
+fn area(screen: Rect, title: &str, rows: &[impl AsRef<str>]) -> Rect {
+    let content = rows
+        .iter()
+        .map(|row| Cells::of(row.as_ref()).get())
+        .chain([Cells::of(title).get(), 22])
+        .max()
+        .unwrap_or(22);
+    let width = u16::try_from(content.saturating_add(4))
+        .unwrap_or(u16::MAX)
+        .min(80)
+        .min(screen.width.saturating_sub(4).max(2).min(screen.width));
+    let height = u16::try_from(rows.len().max(1).saturating_add(2))
+        .unwrap_or(u16::MAX)
+        .min(screen.height.saturating_sub(4).max(3).min(screen.height));
+    Rect::new(
+        screen.x + (screen.width - width) / 2,
+        screen.y + (screen.height - height) / 2,
+        width,
+        height,
+    )
+}
+
+fn first_row(selected: usize, length: usize, height: u16) -> usize {
+    selected
+        .min(length.saturating_sub(1))
+        .saturating_add(1)
+        .saturating_sub(usize::from(height))
+}
+
+/// Draws the menu centred on the screen, with row `selected` highlighted.
+pub(in crate::ui) fn render(
+    f: &mut Frame<'_>,
+    title: &str,
+    rows: &[impl AsRef<str>],
+    selected: usize,
+) {
+    let area = area(f.area(), title, rows);
+    dialog::render_shadow(f, area, f.area());
+    let style = Style::default().fg(palette::DRIVE_FG).bg(palette::MENU_BG);
+    let block = far_block()
+        .title(Line::from(format!(" {title} ")).centered())
+        .style(style);
+    let body = block.inner(area);
+    f.render_widget(Clear, area);
+    f.render_widget(block, area);
+    if rows.is_empty() {
+        f.render_widget(Paragraph::new(" No entries. F10: close").style(style), body);
+        return;
+    }
+    render_rows(f, body, rows, selected, style);
+}
+
+fn render_rows(
+    f: &mut Frame<'_>,
+    body: Rect,
+    rows: &[impl AsRef<str>],
+    selected: usize,
+    style: Style,
+) {
+    let first = first_row(selected, rows.len(), body.height);
+    for (index, row) in rows
+        .iter()
+        .enumerate()
+        .skip(first)
+        .take(usize::from(body.height))
+    {
+        let area = Rect::new(
+            body.x,
+            body.y + u16::try_from(index - first).unwrap_or(0),
+            body.width,
+            1,
+        );
+        let style = if index == selected {
+            style.bg(palette::MENU_SELECTED_BG)
+        } else {
+            style
+        };
+        f.render_widget(
+            Paragraph::new(format!(" {}", row.as_ref())).style(style),
+            area,
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests;

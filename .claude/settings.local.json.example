@@ -1,0 +1,10 @@
+{
+  "_comment": "Copy to settings.local.json (gitignored) for personal overrides. These take precedence over settings.json.",
+  "env": {
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "85",
+    "_comment_AWS_AIDLC_DEFAULT_SCOPE": "Pre-set default scope for /aidlc workflows. Valid: enterprise, feature, mvp, poc, bugfix, refactor, infra, security-patch, classic, workshop, express. Applies at workflow init only. See docs/guide/13-customization.md § Per-Project Default Scope.",
+    "AWS_AIDLC_DEFAULT_SCOPE": "classic"
+  },
+  "model": "opus[1m]",
+  "effortLevel": "xhigh"
+}
