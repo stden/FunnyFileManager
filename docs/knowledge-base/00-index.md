@@ -20,6 +20,7 @@ This is the structured knowledge base for FunnyFileManager, designed for use by 
 ### 🏛️ 02. Architecture
 - `02-architecture/system-architecture.md` — Runtime architecture: layers, event loop, state model, subsystems, invariants
 - `02-architecture/module-structure.md` — Detailed breakdown of every module
+- `02-architecture/layers.md` — The seven layers, the one dependency rule, and the upward uses still allowed (checked by the `module_layers` architecture test)
 
 ### ✅ 03. Rust Best Practices
 
@@ -67,6 +68,7 @@ This is the structured knowledge base for FunnyFileManager, designed for use by 
 - **Rust coding / refactoring** → Read `03-rust-best-practices/tutorial.md`, then `type-system.md`
 - **Writing tests** → Read `05-testing/testing-strategy.md`
 - **Understanding UI behavior** → Read files in `06-ui-and-interaction/`
+- **Moving code between modules or adding a dependency** → Read `02-architecture/layers.md`
 
 ---
 

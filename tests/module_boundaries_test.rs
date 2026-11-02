@@ -13,6 +13,8 @@ mod automation;
 mod layers;
 #[path = "module_boundaries/mcp.rs"]
 mod mcp;
+#[path = "module_boundaries/module_layers.rs"]
+mod module_layers;
 #[path = "module_boundaries/ownership.rs"]
 mod ownership;
 #[path = "module_boundaries/popup.rs"]

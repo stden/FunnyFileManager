@@ -93,7 +93,7 @@ def run_clippy_matrix():
 
 
 def run_architecture():
-    print("→ architecture contracts (ownership, dependencies, unsafe allowlist, test separation, file limits)")
+    print("→ architecture contracts (ownership, layers, unsafe allowlist, test separation, file limits)")
     run([
         "cargo", "test", "--test", "module_boundaries_test",
         "--test", "unsafe_boundary_test", "--test", "file_line_limit_test",
