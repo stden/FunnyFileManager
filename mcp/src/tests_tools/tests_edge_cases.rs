@@ -15,11 +15,31 @@ fn replace_recurses_and_records_size_and_readonly_errors() {
     let (server, root) = server_at(&dir);
     write_file_at(&root.join("sub/nested.txt"), "swap_me");
     write_file_at(&root.join("huge.txt"), &"x".repeat(10_240));
-    let locked = root.join("locked.txt");
+    // On Unix, write_replaced uses rename(), which bypasses a file's own
+    // read-only bit (only the directory's write bit matters). Make the
+    // containing directory non-writable to force a real write error.
+    // On Windows the read-only file flag is enough.
+    let no_write = root.join("no_write");
+    fs::create_dir_all(&no_write).unwrap();
+    let locked = no_write.join("locked.txt");
     write_file_at(&locked, "swap_me");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&no_write, fs::Permissions::from_mode(0o555)).unwrap();
+    }
+    #[cfg(not(unix))]
     crate::fsops::apply_readonly(&locked, true).unwrap();
     let req1 = json!({"path": root.display().to_string(), "find": "swap_me", "replace": "done"});
     let out1 = tool_json(&server.replace(p(req1)).unwrap());
+    // Restore so TempDir cleanup can remove the directory.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&no_write, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    #[cfg(not(unix))]
+    drop(crate::fsops::apply_readonly(&locked, false));
     assert_eq!(out1["total_replacements"], 1);
     assert_eq!(out1["errors"], 1);
     let req2 =
@@ -30,7 +50,6 @@ fn replace_recurses_and_records_size_and_readonly_errors() {
         .as_str()
         .unwrap()
         .contains("10 MiB"));
-    drop(crate::fsops::apply_readonly(&locked, false));
 }
 
 #[test]

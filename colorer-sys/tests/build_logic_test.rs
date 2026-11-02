@@ -8,6 +8,34 @@
 //! Unix names were the default on every target — and either mistake is
 //! LNK1181 on the first machine that actually links the engine.
 
+// Stubs for the items build_logic.rs imports from its parent (build.rs).
+// This test binary includes build_logic.rs as a submodule; it does not include
+// build.rs, so we provide just enough for the module to compile. The two
+// functions under test (default_link_libs, vcpkg_lib_dir) never call these.
+
+pub(crate) struct Found {
+    #[allow(dead_code)]
+    pub(crate) include: std::path::PathBuf,
+    #[allow(dead_code)]
+    pub(crate) generated: std::path::PathBuf,
+    pub(crate) lib_dir: std::path::PathBuf,
+}
+
+pub(crate) fn probe(
+    _include: std::path::PathBuf,
+    _generated: std::path::PathBuf,
+    _lib_dir: &std::path::Path,
+) -> Option<Found> {
+    None
+}
+
+pub(crate) fn from_build_tree(
+    _root: &std::path::Path,
+    _build: &std::path::Path,
+) -> Option<Found> {
+    None
+}
+
 #[path = "../build_logic.rs"]
 mod build_logic;
 
