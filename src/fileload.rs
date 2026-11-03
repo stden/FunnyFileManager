@@ -2,12 +2,6 @@
 //! F4 editor, and every configuration and data file FFM keeps — settings,
 //! user menu, associations, histories, bookmarks, sessions — and the one
 //! open that never waits on a FIFO ([`open_regular`]).
-//!
-//! Every entry point needs the exact same three answers before it may load a
-//! file — "is this even a file?", "is it small enough?", "give me its bytes" —
-//! so the rule lives here once instead of being re-derived at each call site.
-//! Only the limit differs: a text UI takes [`MAX_FILE_SIZE`], a configuration
-//! or data file [`MAX_SMALL_FILE_BYTES`].
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read};
@@ -23,10 +17,6 @@ pub use open::open_regular;
 pub const MAX_SMALL_FILE_BYTES: u64 = 1_048_576;
 
 /// What reading a file for a text UI produced.
-///
-/// One enum for both callers, so the viewer and the editor cannot disagree
-/// about which cases exist; they differ only in how each case reads in the
-/// status bar.
 pub enum Loaded {
     /// The file's bytes, never more than the limit asked for.
     Bytes(Vec<u8>),
@@ -42,20 +32,9 @@ pub enum Loaded {
 /// SECURITY / LIVENESS GUARD — both halves are load-bearing, do not "simplify"
 /// either one away:
 ///
-/// * The `is_file` check is what stops FIFOs and device nodes. A size check
-///   alone cannot: **every** non-regular file reports `len() == 0`, so
-///   `/dev/zero` sails past it and then grows a `Vec` until the OOM killer
-///   fires, and opening a writer-less FIFO blocks inside `File::open` forever
-///   with the terminal still in raw mode — the event loop is wedged and Ctrl+C
-///   is not even delivered as a signal. The check must happen *before* the
-///   open, because the open is the thing that blocks.
+/// * The `is_file` check is what stops FIFOs and device nodes before opening.
 /// * The bounded `take` is what stops a file that lies about (or changes) its
-///   size between the `metadata` call and the read. `metadata` is a snapshot;
-///   the read is where the memory is actually spent.
-///
-/// The size check still cannot be dropped in favour of `take` alone, either:
-/// `take` would silently present the first 10 MB of a 4 GB log as if that were
-/// the whole file.
+///   size between the `metadata` call and the read.
 pub fn read_for_text_ui(path: &Path) -> io::Result<Loaded> {
     read_regular(path, MAX_FILE_SIZE.bytes())
 }
@@ -63,6 +42,14 @@ pub fn read_for_text_ui(path: &Path) -> io::Result<Loaded> {
 /// [`read_for_text_ui`] with the limit given: at most `limit` bytes of a
 /// regular file, under the same two guards.
 pub fn read_regular(path: &Path, limit: u64) -> io::Result<Loaded> {
+    read_regular_after_stat(path, limit, || {})
+}
+
+fn read_regular_after_stat(
+    path: &Path,
+    limit: u64,
+    after_stat: impl FnOnce(),
+) -> io::Result<Loaded> {
     // Follows symlinks on purpose: a link to a regular file is viewable, and
     // it is the *target*'s type that decides whether opening it is safe.
     let meta = fs::metadata(path)?;
@@ -72,6 +59,7 @@ pub fn read_regular(path: &Path, limit: u64) -> io::Result<Loaded> {
     if meta.len() > limit {
         return Ok(Loaded::TooLarge(meta.len()));
     }
+    after_stat();
 
     let bytes = read_bounded(open_regular(path, OpenOptions::new().read(true))?, limit)?;
     let read_len = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
@@ -83,10 +71,6 @@ pub fn read_regular(path: &Path, limit: u64) -> io::Result<Loaded> {
 
 /// The text of a small configuration or data file, with `what` naming it in
 /// every error: at most [`MAX_SMALL_FILE_BYTES`] of UTF-8 in a regular file.
-/// A missing file's error keeps its [`io::ErrorKind::NotFound`].
-///
-/// The guards of [`read_regular`]: a FIFO in the file's place froze the event
-/// loop inside `open`, and a link to `/dev/zero` read until memory ran out.
 pub fn read_small_file(path: &Path, what: &str) -> io::Result<String> {
     let loaded = read_regular(path, MAX_SMALL_FILE_BYTES)
         .map_err(|error| io::Error::new(error.kind(), format!("{what}: {error}")))?;
@@ -102,17 +86,11 @@ pub fn read_small_file(path: &Path, what: &str) -> io::Result<String> {
     }
 }
 
-/// Read at most one byte past the limit from `file`.
-///
-/// Split out so the bound can be tested against a genuinely endless file: the
-/// `take` is the only thing that ever stops such a read. `fs::read` merely
-/// *pre-sizes* its buffer from `metadata().len()` and then reads to EOF, which
-/// for `/dev/zero` never comes.
-///
-/// The extra byte is what keeps "exactly at the limit" loadable while still
-/// making "over the limit" detectable without reading all of it.
+/// Read at most one byte past the limit from `file`, pre-sizing from the open
+/// handle's bounded length while still relying on `take` to cap endless streams.
 fn read_bounded(file: File, limit: u64) -> io::Result<Vec<u8>> {
-    let mut bytes = Vec::new();
+    let hint = file.metadata().map_or(0, |meta| meta.len().min(limit));
+    let mut bytes = Vec::with_capacity(usize::try_from(hint).unwrap_or(0));
     file.take(limit.saturating_add(1)).read_to_end(&mut bytes)?;
     Ok(bytes)
 }

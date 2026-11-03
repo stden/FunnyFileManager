@@ -1,7 +1,6 @@
 //! Purpose: Loopback named-pipe IPC and validation tests for the Windows elevated helper session.
 
 use std::os::windows::process::CommandExt;
-use std::path::Path;
 use std::process::{Command, Stdio};
 
 use tempfile::TempDir;
@@ -166,3 +165,5 @@ fn assert_broken_session_resets(app: &mut App, retry: &ElevatedRetry) {
     assert!(!super::super::session_active());
     assert!(matches!(&app.status, Status::Error(msg) if msg.contains("administrator")));
 }
+
+mod tests_start;

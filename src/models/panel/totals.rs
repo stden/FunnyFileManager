@@ -83,10 +83,13 @@ impl Panel {
 
     fn sum_marked_by_name(&self) -> MarkedBucket {
         let mut guard = self.totals.by_name.borrow_mut();
-        let stale = guard
+        if guard
             .as_ref()
-            .is_none_or(|(rev, _)| !Arc::ptr_eq(rev, self.entries.revision()));
-        if stale {
+            .is_none_or(|(rev, _)| !Arc::ptr_eq(rev, self.entries.revision()))
+        {
+            *guard = None;
+        }
+        let (_, map) = guard.get_or_insert_with(|| {
             #[cfg(test)]
             self.totals
                 .index_builds
@@ -96,11 +99,8 @@ impl Panel {
                 let bucket = map.entry(entry.name.clone()).or_insert((0, 0, 0));
                 *bucket = add_marked(*bucket, entry);
             }
-            *guard = Some((Arc::clone(self.entries.revision()), map));
-        }
-        let Some((_, map)) = guard.as_ref() else {
-            return (0, 0, 0);
-        };
+            (Arc::clone(self.entries.revision()), map)
+        });
         self.marked.iter().fold((0, 0, 0u64), |acc, name| {
             let Some(&(folders, files, bytes)) = map.get(name.as_str()) else {
                 return acc;

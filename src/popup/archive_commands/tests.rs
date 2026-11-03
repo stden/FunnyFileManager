@@ -90,6 +90,7 @@ fn open_sets_the_variant_and_esc_closes_it() {
     assert!(matches!(app.overlay, Overlay::ArchiveCommands(_)));
 
     press(&mut app, KeyCode::Char('x'));
+    press(&mut app, KeyCode::Tab);
     assert!(
         matches!(app.overlay, Overlay::ArchiveCommands(_)),
         "other keys are consumed"

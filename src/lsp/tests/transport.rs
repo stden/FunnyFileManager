@@ -94,4 +94,7 @@ fn a_malformed_frame_names_the_part_that_is_invalid() {
         assert_eq!(error.kind(), io::ErrorKind::InvalidData, "{message}");
         assert_eq!(error.to_string(), message);
     }
+    let oversized = serde_json::Value::String("x".repeat(32 * 1024 * 1024 + 1));
+    let err = write_frame(&mut Vec::new(), &oversized).unwrap_err();
+    assert_eq!(err.to_string(), "LSP message too large");
 }

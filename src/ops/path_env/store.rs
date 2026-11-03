@@ -6,6 +6,8 @@ mod unix;
 mod windows;
 #[cfg(unix)]
 pub(super) use unix::{read, write};
+#[cfg(all(test, windows))]
+pub(super) use windows::with_fake_user;
 #[cfg(windows)]
 pub(super) use windows::{read, write};
 

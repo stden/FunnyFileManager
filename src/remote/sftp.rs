@@ -4,20 +4,27 @@ use super::{connection, Credentials, RemoteError, RemoteFs};
 use crate::values::remote_path::RemotePath;
 use crate::values::session::{Auth, Session};
 use base64::Engine;
+use ops::{ClientOps, SftpOps, SSH2_CLIENT_OPS};
 use sha2::{Digest, Sha256};
 use ssh2::{CheckResult, KnownHostFileKind};
-use std::path::{Path, PathBuf};
+use std::{
+    io::{Read, Write},
+    net::TcpStream,
+    path::{Path, PathBuf},
+};
 
 mod filesystem;
 mod metadata;
+mod ops;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
 #[cfg(target_os = "linux")]
 mod tests_integration;
 
-pub(super) struct SftpFs {
-    sftp: ssh2::Sftp,
+pub(super) struct SftpFs<S: 'static, F: 'static> {
+    sftp: S,
+    ops: &'static SftpOps<S, F>,
 }
 
 pub(super) fn connect(
@@ -25,33 +32,54 @@ pub(super) fn connect(
     credentials: &Credentials,
     user: &str,
 ) -> Result<Box<dyn RemoteFs>, RemoteError> {
-    let mut ssh = ssh_result(ssh2::Session::new(), "cannot initialize SSH")?;
-    ssh.set_timeout(15_000);
-    ssh.set_tcp_stream(connection::socket(session)?);
-    ssh_result(ssh.handshake(), "SSH handshake failed")?;
-    verify_host(&ssh, session, credentials)?;
-    authenticate(&ssh, session, credentials, user)?;
-    let sftp = ssh_result(ssh.sftp(), "server refused the SFTP subsystem")?;
-    Ok(Box::new(SftpFs { sftp }))
+    connect_over(
+        &SSH2_CLIENT_OPS,
+        connection::socket(session)?,
+        session,
+        credentials,
+        user,
+    )
 }
 
-fn authenticate(
-    ssh: &ssh2::Session,
+fn connect_over<S: 'static, K, B: Send + 'static, F: Read + Write + 'static>(
+    ops: &ClientOps<S, K, B, F>,
+    stream: TcpStream,
+    session: &Session,
+    credentials: &Credentials,
+    user: &str,
+) -> Result<Box<dyn RemoteFs>, RemoteError> {
+    let mut ssh = ssh_result((ops.new_session)(), "cannot initialize SSH")?;
+    (ops.set_timeout)(&ssh, 15_000);
+    (ops.set_tcp_stream)(&mut ssh, stream);
+    ssh_result((ops.handshake)(&mut ssh), "SSH handshake failed")?;
+    verify_host(ops, &ssh, session, credentials)?;
+    authenticate(ops, &ssh, session, credentials, user)?;
+    let sftp = ssh_result((ops.open_sftp)(&ssh), "server refused the SFTP subsystem")?;
+    Ok(Box::new(SftpFs {
+        sftp,
+        ops: ops.sftp_ops,
+    }))
+}
+
+fn authenticate<S: 'static, K, B: 'static, F: 'static>(
+    ops: &ClientOps<S, K, B, F>,
+    ssh: &S,
     session: &Session,
     credentials: &Credentials,
     user: &str,
 ) -> Result<(), RemoteError> {
     let result = match &session.auth {
-        Auth::Password => ssh.userauth_password(user, &credentials.password),
-        Auth::KeyFile(key) => ssh.userauth_pubkey_file(
+        Auth::Password => (ops.auth_password)(ssh, user, &credentials.password),
+        Auth::KeyFile(key) => (ops.auth_pubkey_file)(
+            ssh,
             user,
             None,
             Path::new(&key.to_string()),
             (!credentials.password.is_empty()).then_some(credentials.password.as_str()),
         ),
-        Auth::Agent => ssh.userauth_agent(user),
+        Auth::Agent => (ops.auth_agent)(ssh, user),
     };
-    authentication_result(result, ssh.authenticated())
+    authentication_result(result, (ops.authenticated)(ssh))
 }
 
 fn authentication_result(
@@ -65,24 +93,24 @@ fn authentication_result(
     Ok(())
 }
 
-fn verify_host(
-    ssh: &ssh2::Session,
+fn verify_host<S: 'static, K, B: 'static, F: 'static>(
+    ops: &ClientOps<S, K, B, F>,
+    ssh: &S,
     session: &Session,
     credentials: &Credentials,
 ) -> Result<(), RemoteError> {
-    let (key, _) = ssh
-        .host_key()
-        .ok_or(RemoteError::Failed("SSH server supplied no host key"))?;
+    let (key, _) =
+        (ops.host_key)(ssh).ok_or(RemoteError::Failed("SSH server supplied no host key"))?;
     let fingerprint = fingerprint(key);
-    let mut hosts = ssh_result(ssh.known_hosts(), "cannot verify SSH host key")?;
+    let mut hosts = ssh_result((ops.known_hosts)(ssh), "cannot verify SSH host key")?;
     if let Some(path) = known_hosts().filter(|path| path.exists()) {
         ssh_result(
-            hosts.read_file(&path, KnownHostFileKind::OpenSSH),
+            (ops.read_known_hosts)(&mut hosts, &path, KnownHostFileKind::OpenSSH),
             "cannot read SSH known_hosts",
         )?;
     }
     host_key_decision(
-        hosts.check_port(&session.host.to_string(), session.port.get(), key),
+        (ops.check_port)(&hosts, &session.host.to_string(), session.port.get(), key),
         fingerprint,
         credentials.trusted_host_key.as_deref(),
     )

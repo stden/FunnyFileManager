@@ -63,27 +63,30 @@ fn plain_edge(left: char, right: char, widths: &Widths) -> Line<'static> {
 /// One row: three columns for a disk, a hotkey and a name for anything else.
 fn row_line<'a>(row: &'a DriveRow, widths: &Widths, chosen: bool) -> Line<'a> {
     let (name, number, frame) = row_styles(chosen);
-    let background = number.bg.unwrap_or(palette::MENU_BG);
     let mut spans = vec![Span::styled("│", frame)];
-    if let Some(cols) = columns(&row.kind) {
-        append_disk_columns(&mut spans, &cols, widths, name, number, frame);
-    } else if let RowKind::Plugin { name: label } = &row.kind {
-        // A keyless row still pays for the hotkey cell, or its name would sit
-        // one column left of the keyed rows above it.
-        let hotkey = row
-            .key
-            .map_or_else(|| "   ".to_owned(), |k| format!(" {k} "));
-        spans.push(Span::styled(
-            hotkey,
-            palette::hotkey_style(Style::default().bg(background)),
-        ));
-        spans.push(Span::styled(
-            pad_cells(
-                label,
-                Cells::new(widths.interior().saturating_sub(HOTKEY_CELLS - 1)),
-            ),
-            name,
-        ));
+    match &row.kind {
+        RowKind::Disk {
+            label,
+            device,
+            space,
+        } => {
+            let cols = columns(label, device.label(), space.map(|s| (s.total, s.available)));
+            append_disk_columns(&mut spans, &cols, widths, name, number, frame);
+        }
+        RowKind::Plugin { name: label } => {
+            // A keyless row still pays for the hotkey cell, or its name would sit
+            // one column left of the keyed rows above it.
+            let bg = number.bg.unwrap_or(palette::MENU_BG);
+            let hotkey = row
+                .key
+                .map_or_else(|| "   ".to_owned(), |k| format!(" {k} "));
+            spans.push(Span::styled(
+                hotkey,
+                palette::hotkey_style(Style::default().bg(bg)),
+            ));
+            let width = Cells::new(widths.interior().saturating_sub(HOTKEY_CELLS - 1));
+            spans.push(Span::styled(pad_cells(label, width), name));
+        }
     }
     spans.push(Span::styled("│", frame));
     Line::from(spans)

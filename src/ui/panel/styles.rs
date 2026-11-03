@@ -15,54 +15,74 @@ pub(in crate::ui) enum Mark {
     Unmarked,
 }
 
+#[derive(Clone, Copy)]
+pub(super) struct RowFacts {
+    pub(super) mark: Mark,
+    pub(super) name_style: Style,
+    pub(super) data_style: Style,
+}
+
 /// Whether `entry` is marked in `panel`.
 pub(super) fn mark_of(panel: &Panel, entry: &DirEntry) -> Mark {
-    if panel.marked.contains(entry.name.as_str()) {
+    if !panel.marked.is_empty() && panel.marked.contains(entry.name.as_str()) {
         Mark::Marked
     } else {
         Mark::Unmarked
     }
 }
 
-/// The colour Far gives a row, in the order its rules override each other.
-///
-/// Marked first — a mark is the user's own statement about the row and must
-/// survive whatever the row is. Hidden next, because a dimmed row is dimmed
-/// whether it is a folder, a program or a file. Only then does the entry's own
-/// nature get a say.
-pub(super) fn entry_colour(panel: &Panel, entry: &DirEntry, mark: Mark) -> Color {
+/// Resolve mark, name style and column data style for `entry` in a single pass.
+pub(super) fn row_facts(panel: &Panel, entry: &DirEntry) -> RowFacts {
+    let mark = mark_of(panel, entry);
+    let hidden = panel.is_hidden(&entry.name);
+    let dimmed = hidden || panel.is_ignored(&entry.name);
+    let is_dir = entry.kind.is_dir();
+    let colour = row_colour(panel, entry, mark, hidden, dimmed, is_dir);
+    let base = Style::default().fg(colour);
+    let name_style = if !dimmed && (mark == Mark::Marked || is_dir) {
+        base.add_modifier(Modifier::BOLD)
+    } else {
+        base
+    };
+    let whole_row = mark == Mark::Marked || dimmed || (entry.executable && !is_dir);
+    let data_style = Style::default().fg(if whole_row { colour } else { palette::DATA });
+    RowFacts {
+        mark,
+        name_style,
+        data_style,
+    }
+}
+
+fn row_colour(
+    panel: &Panel,
+    entry: &DirEntry,
+    mark: Mark,
+    hidden: bool,
+    dimmed: bool,
+    is_dir: bool,
+) -> Color {
     if mark == Mark::Marked {
-        return palette::MARKED;
-    }
-    if panel.is_hidden(&entry.name) {
-        return palette::HIDDEN;
-    }
-    if panel.is_ignored(&entry.name) {
-        return palette::IGNORED;
-    }
-    if entry.kind.is_dir() {
-        return if panel.is_dirty_repo(&entry.name) {
+        palette::MARKED
+    } else if hidden {
+        palette::HIDDEN
+    } else if dimmed {
+        palette::IGNORED
+    } else if is_dir {
+        if panel.is_dirty_repo(&entry.name) {
             palette::DIRTY_REPO
         } else {
             palette::DIRECTORY
-        };
+        }
+    } else if entry.executable {
+        palette::EXECUTABLE
+    } else {
+        palette::FILE
     }
-    if entry.executable {
-        return palette::EXECUTABLE;
-    }
-    palette::FILE
 }
 
 /// The style for a row's name: its colour, bold where Far bolds it.
-pub(super) fn entry_style(panel: &Panel, entry: &DirEntry, mark: Mark) -> Style {
-    let style = Style::default().fg(entry_colour(panel, entry, mark));
-    if panel.is_hidden(&entry.name) || panel.is_ignored(&entry.name) {
-        return style;
-    }
-    if mark == Mark::Marked || entry.kind.is_dir() {
-        return style.add_modifier(Modifier::BOLD);
-    }
-    style
+pub(super) fn entry_style(panel: &Panel, entry: &DirEntry, _mark: Mark) -> Style {
+    row_facts(panel, entry).name_style
 }
 
 /// The colour of the column rules, which is the frame's.

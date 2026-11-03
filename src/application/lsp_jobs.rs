@@ -104,7 +104,7 @@ impl EditorLspController {
         editor.lsp.intent = Intent::None;
         editor.lsp.state = ServerState::Starting;
         if self.manager.is_none() {
-            if let Ok(manager) = Manager::start() {
+            if let Some(manager) = start_manager() {
                 self.manager = Some(manager);
             } else {
                 editor.lsp.state = ServerState::Failed;
@@ -159,6 +159,19 @@ impl EditorLspController {
         }
         changed
     }
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(super) static FORCE_SPAWN_FAILURE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+fn start_manager() -> Option<Manager> {
+    #[cfg(test)]
+    if FORCE_SPAWN_FAILURE.get() {
+        return None;
+    }
+    Manager::start().ok()
 }
 
 #[cfg(test)]

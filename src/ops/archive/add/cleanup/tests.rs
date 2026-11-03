@@ -7,9 +7,7 @@ use std::fs;
 
 use tempfile::TempDir;
 
-#[cfg(unix)]
-use super::delete_sources;
-use super::{contains_archive, discard_partial};
+use super::{contains_archive, delete_sources, discard_partial, remove_siblings_of_archive};
 use crate::models::{App, Panel};
 
 fn app_on(root: &std::path::Path) -> App {
@@ -63,4 +61,15 @@ fn a_folder_reached_by_another_path_still_holds_the_archive() {
 
     assert!(contains_archive(&detour, &archive));
     assert!(!contains_archive(&root.path().join("other"), &archive));
+
+    let detoured_archive = folder.join("..").join("sub").join("out.tar");
+    assert_eq!(
+        delete_sources(&folder, &["out.tar".to_owned()], &detoured_archive),
+        0
+    );
+    assert!(archive.exists());
+    assert!(remove_siblings_of_archive(&folder, &archive, |_, _| {
+        Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+    })
+    .is_err());
 }

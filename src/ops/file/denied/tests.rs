@@ -59,4 +59,12 @@ fn windows_distinguishes_sharing_violations_and_readonly_files() {
         classify(&path, &io::ErrorKind::PermissionDenied.into()),
         Some(Denial::ReadOnly)
     );
+    assert_eq!(refused_for_elevation(true), Denial::NotEvenAdministrator);
+    assert_eq!(refused_for_elevation(false), Denial::NeedsAdministrator);
+    let plain = root.path().join("plain");
+    fs::write(&plain, b"x").unwrap();
+    assert!(matches!(
+        classify(&plain, &io::ErrorKind::PermissionDenied.into()),
+        Some(Denial::NeedsAdministrator | Denial::NotEvenAdministrator)
+    ));
 }

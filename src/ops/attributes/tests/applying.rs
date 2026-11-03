@@ -108,6 +108,16 @@ fn process_subfolders_stamps_children_before_parent_directory() {
     apply(&mut app, &dialog);
 
     assert_eq!(app.status_text(), "Attributes set on 2 object(s)");
+
+    let mut outcome = super::super::Outcome::default();
+    let times = dialog.requested_times().expect("times");
+    super::super::apply_path_with(&dir, &dialog, times, &mut outcome, |_| {
+        Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+    });
+    assert!(matches!(
+        outcome.summary(),
+        crate::status::Status::AttributesSetWithErrors { error_count: 1, .. }
+    ));
 }
 
 #[test]

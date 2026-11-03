@@ -20,7 +20,8 @@ pub(super) fn click_task_list<B: Backend + Write>(
     column: u16,
     row: u16,
 ) -> bool {
-    let Overlay::Tasks(list) = &app.overlay else {
+    let viewport = app.viewport;
+    let Overlay::Tasks(list) = &mut app.overlay else {
         return false;
     };
     let Ok(size) = terminal.size() else {
@@ -31,35 +32,38 @@ pub(super) fn click_task_list<B: Backend + Write>(
         return false;
     };
     crate::diagnostics::log_action(&format!("Task list click: {click:?}"));
-    apply(terminal, app, click);
+    if let Some(key) = select_click(list, viewport, click) {
+        dispatch_key(terminal, app, key);
+    }
     true
 }
 
-/// Does what `click` names: the key it presses, or the move it makes.
-fn apply<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut App, click: TaskClick) {
-    let viewport = app.viewport;
+/// Applies `click` to `list` and returns any key to dispatch afterwards.
+fn select_click(
+    list: &mut TaskList,
+    viewport: crate::models::Viewport,
+    click: TaskClick,
+) -> Option<KeyEvent> {
     match click {
-        TaskClick::Key(number) => dispatch_key(terminal, app, KeyCode::F(number).into()),
+        TaskClick::Key(number) => Some(KeyCode::F(number).into()),
         TaskClick::MenuLine(index) => {
-            if let Some(Modal::Menu(menu)) = app.task_list_mut().map(TaskList::modal_mut) {
+            if let Modal::Menu(menu) = list.modal_mut() {
                 menu.select(index);
             }
-            dispatch_key(terminal, app, KeyCode::Enter.into());
+            Some(KeyCode::Enter.into())
         }
         TaskClick::Row(index) => {
-            if let Some(list) = app.task_list_mut() {
-                let page = list.page_for(viewport);
-                if list.tab() == TaskTab::Network {
-                    list.select_net_index(index, page);
-                } else {
-                    list.select_index(index, page);
-                }
+            let page = list.page_for(viewport);
+            if list.tab() == TaskTab::Network {
+                list.select_net_index(index, page);
+            } else {
+                list.select_index(index, page);
             }
+            None
         }
         TaskClick::Title(key) => {
-            if let Some(list) = app.task_list_mut() {
-                list.choose_sort(key);
-            }
+            list.choose_sort(key);
+            None
         }
     }
 }
@@ -94,7 +98,7 @@ pub(super) fn tasks_button_key(list: &mut TaskList, index: usize) -> Option<KeyE
     Some(code.into())
 }
 
-const fn confirm_key(button: ConfirmButton) -> KeyCode {
+pub(super) const fn confirm_key(button: ConfirmButton) -> KeyCode {
     match button {
         ConfirmButton::Terminate => KeyCode::Char('t'),
         ConfirmButton::Kill => KeyCode::Char('k'),

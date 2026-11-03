@@ -90,3 +90,10 @@ fn with_owned_fields_copies_the_owned_four_and_keeps_the_rest() {
     assert_eq!(merged.root_markers, python.root_markers);
     assert_eq!(merged.install, python.install);
 }
+
+#[test]
+fn diff_ignores_catalog_entries_missing_from_a_stripped_baseline() {
+    let mut baseline = LspSettings::catalog().clone();
+    baseline.0.clear();
+    assert_eq!(diff(&baseline, LspSettings::catalog()), []);
+}

@@ -24,8 +24,12 @@ fn zzz_probe_confirm_delete_reloads_catalog() {
 #[test]
 fn zzz_tmp_probe_confirm_delete_keepass_error() {
     let (_d, mut s, now) = unlocked_sample();
+    s.access = crate::kdbx::Access::View;
+    assert!(matches!(s.confirm_delete(now), Err(KdbxError::ReadOnly)));
+    s.access = crate::kdbx::Access::Edit;
     fs::remove_file(&s.path).expect("delete the vault file");
     assert!(matches!(s.confirm_delete(now), Err(KdbxError::Keepass(_))));
+    assert_eq!(KdbxError::NoEdit.to_string(), "No entry is being edited");
 }
 
 #[test]

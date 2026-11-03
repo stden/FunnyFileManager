@@ -37,6 +37,28 @@ fn editor_line_counts_unsafe_control_and_bidi_chars_as_one_cell_replacement() {
 }
 
 #[test]
+fn editor_line_dropped_and_width_match_expanded_tabs_on_ascii_tabs_and_cjk() {
+    let ascii = EditorLine {
+        text: "abcdef",
+        tab: TabSize::DEFAULT,
+    };
+    assert_eq!(ascii.width(), Cells::new(6));
+    assert_eq!(ascii.dropped(Cells::ZERO), Cells::ZERO);
+    assert_eq!(ascii.dropped(Cells::new(3)), Cells::new(3));
+    assert_eq!(ascii.dropped(Cells::new(99)), Cells::new(6));
+
+    let mixed = EditorLine {
+        text: "\t界x",
+        tab: TabSize::new(4),
+    };
+    assert_eq!(mixed.width(), Cells::new(7));
+    assert_eq!(mixed.dropped(Cells::ZERO), Cells::ZERO);
+    assert_eq!(mixed.dropped(Cells::new(2)), Cells::new(2));
+    assert_eq!(mixed.dropped(Cells::new(5)), Cells::new(6));
+    assert_eq!(mixed.dropped(Cells::new(20)), Cells::new(7));
+}
+
+#[test]
 fn skip_cells_drops_combining_marks_attached_to_skipped_base_char() {
     assert_eq!(
         skip_cells("e\u{0301}\u{0302}x", Cells::new(1)),

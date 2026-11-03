@@ -32,11 +32,19 @@ use dialogs::{choices, history, prompt, shortcuts};
 /// Ctrl+F2) is the exception: its "Panel On/Off" row still runs, but the
 /// cursor stays on the panel that is on screen.
 pub fn activate_row(app: &mut App, menu: crate::menu::Menu) {
-    let Some(entry) = menu.entry().copied() else {
+    activate_selected_row(app, menu.heading, menu.entry().copied());
+}
+
+fn activate_selected_row(
+    app: &mut App,
+    heading: crate::menu::Heading,
+    entry: Option<crate::menu::Entry>,
+) {
+    let Some(entry) = entry else {
         app.close_overlay();
         return;
     };
-    if let Some(side) = menu.heading.side() {
+    if let Some(side) = heading.side() {
         app.select_panel(side);
     }
     activate(app, entry);

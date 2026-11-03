@@ -48,15 +48,13 @@ pub(super) type KeyLabels<'a> = [(&'a str, &'a str); FKEY_COUNT];
 pub(super) fn panel_key_labels(width: u16) -> KeyLabels<'static> {
     let mut labels = FKEY_LABELS;
     let widths = crate::mouse::fkey_widths(width, FKEY_COUNT);
-    for (index, compact, expanded) in [
-        (1, "User", "User menu"),
-        (5, "Move", "Move/Rename"),
-        (6, "MkDir", "New folder"),
-        (8, "Menu", "Menu"),
+    let [_, f2, _, _, _, f6, f7, _, f9, _, _, _] = &mut labels;
+    for ((key, label), index, compact, expanded) in [
+        (f2, 1, "User", "User menu"),
+        (f6, 5, "Move", "Move/Rename"),
+        (f7, 6, "MkDir", "New folder"),
+        (f9, 8, "Menu", "Menu"),
     ] {
-        let Some((key, label)) = labels.get_mut(index) else {
-            continue;
-        };
         let cell = usize::from(widths.get(index).copied().unwrap_or_default());
         *label = if key.len() + expanded.len() <= cell {
             expanded

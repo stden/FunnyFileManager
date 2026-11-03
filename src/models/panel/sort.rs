@@ -54,29 +54,19 @@ fn reverse_groups(entries: &mut [DirEntry]) {
     rest.reverse();
 }
 
-/// Directories first, then `key`, then the case-folded name.
-///
-/// The mode key is computed once per entry. ASCII names compare without
-/// allocating; a name that is not ASCII is lowercased once, not once per
-/// comparison. The sort is stable, so equal folded names keep listing order.
+/// Directories first, then `key`, then the case-folded name (evaluated lazily on ties).
 fn sort_by<K: Ord>(entries: &mut [DirEntry], key: impl Fn(&DirEntry) -> K) {
-    let order = order_of(entries, key);
-    place(entries, &order);
-}
-
-fn order_of<K: Ord>(entries: &[DirEntry], key: impl Fn(&DirEntry) -> K) -> Vec<usize> {
     let keys: Vec<K> = entries.iter().map(key).collect();
-    order_with(entries, &keys)
+    let order = order_with(entries, &keys);
+    place(entries, &order);
 }
 
 fn sort_text(entries: &mut [DirEntry], key: impl for<'a> Fn(&'a DirEntry) -> &'a str) {
-    let order = text_order(entries, &key);
+    let order = {
+        let keys: Vec<Folded<'_>> = entries.iter().map(|entry| fold(key(entry))).collect();
+        order_with(entries, &keys)
+    };
     place(entries, &order);
-}
-
-fn text_order<'a>(entries: &'a [DirEntry], key: &impl Fn(&'a DirEntry) -> &'a str) -> Vec<usize> {
-    let keys: Vec<Folded<'a>> = entries.iter().map(|entry| fold(key(entry))).collect();
-    order_with(entries, &keys)
 }
 
 fn order_with<K: Ord>(entries: &[DirEntry], keys: &[K]) -> Vec<usize> {
@@ -96,15 +86,20 @@ fn cmp_at<K: Ord>(
     let (Some(a), Some(b)) = (entries.get(left), entries.get(right)) else {
         return left.cmp(&right);
     };
-    let by_key = keys
-        .get(left)
-        .zip(keys.get(right))
-        .map_or(Ordering::Equal, |(a, b)| a.cmp(b));
-    let by_name = folded
+    dirs_first(a, b)
+        .then_with(|| {
+            keys.get(left)
+                .zip(keys.get(right))
+                .map_or(Ordering::Equal, |(lk, rk)| lk.cmp(rk))
+        })
+        .then_with(|| cmp_folded_at(folded, left, right))
+}
+
+fn cmp_folded_at(folded: &[Folded<'_>], left: usize, right: usize) -> Ordering {
+    folded
         .get(left)
         .zip(folded.get(right))
-        .map_or(Ordering::Equal, |(a, b)| cmp_folded(a, b));
-    dirs_first(a, b).then(by_key).then(by_name)
+        .map_or(Ordering::Equal, |(a, b)| cmp_folded(a, b))
 }
 
 fn dirs_first(left: &DirEntry, right: &DirEntry) -> Ordering {
@@ -121,8 +116,6 @@ fn place(entries: &mut [DirEntry], order: &[usize]) {
     }
 }
 
-/// A name prepared for one sort. ASCII keeps the original text and is folded
-/// while comparing; other names are lowercased once.
 enum Folded<'a> {
     Ascii(&'a str),
     Unicode(String),
@@ -168,9 +161,6 @@ fn stored_bytes<'a>(folded: &'a Folded<'_>) -> &'a [u8] {
     .as_bytes()
 }
 
-/// Both sides are folded here. An ASCII name is still the original text, so
-/// its letters are lowercased during the compare. A Unicode name was already
-/// passed through `to_lowercase`, and `to_ascii_lowercase` leaves those bytes.
 fn ascii_cmp(left: &[u8], right: &[u8]) -> Ordering {
     left.iter()
         .copied()

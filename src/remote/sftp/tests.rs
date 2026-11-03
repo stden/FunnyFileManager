@@ -11,6 +11,7 @@ use std::{
 };
 
 mod policy;
+mod session;
 
 #[test]
 fn a_closed_ssh_handshake_is_reported_without_exposing_protocol_details() {
@@ -86,7 +87,12 @@ fn verification_without_a_handshake_refuses_a_missing_host_key() {
     let ssh = ssh2::Session::new().expect("SSH session");
     let session = crate::test_support::netbox::session("fixture.invalid", Some("fixture"));
     assert_eq!(
-        super::verify_host(&ssh, &session, &crate::remote::Credentials::default()),
+        super::verify_host(
+            &super::ops::SSH2_CLIENT_OPS,
+            &ssh,
+            &session,
+            &crate::remote::Credentials::default(),
+        ),
         Err(RemoteError::Failed("SSH server supplied no host key"))
     );
 }

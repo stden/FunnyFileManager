@@ -75,7 +75,16 @@ fn drive(
 }
 
 fn refresh_idle(runtime: &mut Runtime, shared: &Shared, was_pending: bool) -> bool {
-    let Ok(redrew) = runtime.pump() else {
+    refresh_idle_with(runtime, shared, was_pending, Runtime::pump)
+}
+
+fn refresh_idle_with(
+    runtime: &mut Runtime,
+    shared: &Shared,
+    was_pending: bool,
+    pump: impl FnOnce(&mut Runtime) -> io::Result<bool>,
+) -> bool {
+    let Ok(redrew) = pump(runtime) else {
         return false;
     };
     if !redrew && snapshot::is_pending(&runtime.app) == was_pending {

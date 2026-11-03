@@ -85,4 +85,11 @@ fn a_kitty_terminals_keys_are_already_what_was_pressed() {
 fn events_other_than_keys_pass_through_decode_input() {
     let resize = Event::Resize(80, 24);
     assert_eq!(decode_input(resize.clone()), resize);
+    let _ = host_protocol();
+    let _ = known_protocol();
+    #[cfg(windows)]
+    {
+        assert!(push(&mut Vec::new(), KeyboardProtocol::Kitty).is_err());
+        assert!(pop(&mut Vec::new(), KeyboardProtocol::Kitty).is_err());
+    }
 }

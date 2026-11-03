@@ -41,6 +41,7 @@ fn space_toggles_enabled_and_presses_a_button() {
     for _ in 0..3 {
         press(&mut app, KeyCode::Tab);
     }
+    press(&mut app, KeyCode::F(12));
     press(&mut app, KeyCode::Char(' '));
     let form = editor_mut(&mut app).form_mut().expect("form");
     assert_eq!(form.enabled(), Enablement::Disabled);
@@ -169,4 +170,13 @@ fn a_multibyte_space_in_extensions_is_a_separator_not_a_crash() {
             format!(".py .pyi{space}.rs ")
         );
     }
+}
+
+#[test]
+fn pasting_into_lsp_form_text_field_refreshes_completion() {
+    let machine = LspMachine::new();
+    let mut app = edit_python(&machine);
+    crate::popup::paste_text(&mut app, "-extra");
+    assert_eq!(field(&mut app, FormField::Command), "pylsp-extra");
+    assert_eq!(list_focus(&mut app), None);
 }

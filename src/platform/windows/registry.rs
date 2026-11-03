@@ -98,3 +98,6 @@ fn os_error(status: WIN32_ERROR) -> io::Error {
         io::Error::from_raw_os_error,
     )
 }
+
+#[cfg(test)]
+mod tests;

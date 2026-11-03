@@ -1,5 +1,6 @@
 //! Purpose: what each drop-down holds: usable rows, entry shape, the WSL row and Far's row counts.
 use super::*;
+use crate::menu::cursor;
 
 /// Every drop-down offers something, except Options, which cannot.
 ///
@@ -94,4 +95,18 @@ fn every_far_menu_is_present_in_full() {
          catalog, the MCP server installer and Windows WSL",
     );
     assert_eq!(rows(Heading::Options), 23, "Far's Options menu");
+}
+
+#[test]
+fn cursor_helpers_handle_empty_and_leading_separator_slices() {
+    assert_eq!(cursor::open_row(&[]), 0);
+    assert_eq!(cursor::step_row(&[], 3, true), 3);
+    assert_eq!(cursor::step_row(&[Entry::Separator], 0, true), 0);
+    let item = Entry::Item {
+        label: "&Quit",
+        shortcut: "F10",
+        action: crate::action::Action::Quit,
+        checked: false,
+    };
+    assert_eq!(cursor::open_row(&[Entry::Separator, item]), 1);
 }

@@ -130,6 +130,47 @@ fn clicking_a_dialog_body_row_through_the_pointer_reaches_the_field() {
     assert!(prompt.timestamps, "the checkbox answered the click");
 }
 
+#[test]
+fn archive_row_click_dispatches_enter_and_existing_file_button_maps() {
+    let dir = TempDir::new().expect("temp");
+    std::fs::write(dir.path().join("a.txt"), b"left").expect("a");
+    std::fs::write(dir.path().join("b.txt"), b"right").expect("b");
+    let mut left = Panel::new(dir.path().to_path_buf()).expect("left panel");
+    assert!(left.select_named("a.txt"));
+    let mut app = App::with_panels(left.clone(), left);
+    let mut term = terminal();
+
+    app.set_overlay(Overlay::ArchiveCommands(
+        crate::models::ArchiveMenu::default(),
+    ));
+    draw(&mut app, &mut term);
+    let body = app.dialog_mouse.body.expect("archive commands body");
+    dispatch_dialog_mouse(
+        &mut term,
+        &mut app,
+        mouse(MouseEventKind::Down(MouseButton::Left), body.x, body.y),
+    );
+    assert!(!matches!(app.overlay, Overlay::ArchiveCommands(_)));
+
+    let dest = dir.path().join("b.txt");
+    app.set_overlay(Overlay::CopyPrompt(Box::new(CopyPrompt::new(
+        "a.txt", &dest,
+    ))));
+    assert!(popup::process_popup_input(&mut app, KeyCode::Enter.into()));
+    assert!(matches!(app.overlay, Overlay::ExistingFile(_)));
+    assert_eq!(code(&mut app, 0), KeyCode::Char('o'));
+}
+
+#[test]
+fn settings_and_retry_failure_buttons_map_to_enter_retry_and_esc() {
+    let dir = TempDir::new().expect("temp");
+    let mut app = app_at(&dir);
+    app.set_overlay(Overlay::Settings(Box::default()));
+    assert_eq!(code(&mut app, 0), KeyCode::Enter);
+    assert_eq!(failed_button_key(true, 0), KeyCode::Char('a'));
+    assert_eq!(failed_button_key(true, 1), KeyCode::Esc);
+}
+
 fn menu_command_position(menu: &Menu, screen: ratatui::layout::Rect, caption: &str) -> (u16, u16) {
     let index = menu
         .entries()

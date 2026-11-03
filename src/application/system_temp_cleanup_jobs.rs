@@ -45,12 +45,7 @@ impl TempCleanupJobs {
         };
         let (sender, receiver) = mpsc::channel();
         let generation = Arc::clone(&dialog.generation);
-        let result = std::thread::Builder::new()
-            .name("ffm-temp-cleanup".to_owned())
-            .spawn(move || {
-                drop(sender.send(execute(work))); // A scan can finish after its dialog closes.
-            });
-        if result.is_err() {
+        if spawn_worker(work, sender).is_err() {
             dialog.state = TempCleanupState::Failed(TempError::Worker);
         } else {
             self.pending = Some(Pending {
@@ -62,19 +57,39 @@ impl TempCleanupJobs {
         redraw
     }
     fn collect(&mut self, app: &mut App) -> Redraw {
-        let Some(pending) = &self.pending else {
+        let Some(pending) = self.pending.take() else {
             return Redraw::Unchanged;
         };
         let answer = match pending.receiver.try_recv() {
             Ok(answer) => answer,
-            Err(TryRecvError::Empty) => return Redraw::Unchanged,
+            Err(TryRecvError::Empty) => {
+                self.pending = Some(pending);
+                return Redraw::Unchanged;
+            }
             Err(TryRecvError::Disconnected) => Err(TempError::Worker),
-        };
-        let Some(pending) = self.pending.take() else {
-            return Redraw::Unchanged;
         };
         completion::publish(app, &pending.generation, answer)
     }
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(super) static FORCE_SPAWN_FAILURE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+fn spawn_worker(
+    work: Work,
+    sender: mpsc::Sender<Result<Answer, TempError>>,
+) -> std::io::Result<std::thread::JoinHandle<()>> {
+    #[cfg(test)]
+    if FORCE_SPAWN_FAILURE.get() {
+        return Err(std::io::Error::other("forced spawn failure"));
+    }
+    std::thread::Builder::new()
+        .name("ffm-temp-cleanup".to_owned())
+        .spawn(move || {
+            drop(sender.send(execute(work))); // A scan can finish after its dialog closes.
+        })
 }
 fn take_work(state: &mut TempCleanupState) -> Option<Work> {
     let previous = std::mem::replace(state, TempCleanupState::Scanning);

@@ -72,8 +72,14 @@ impl Peer {
         match command {
             "USER" => self.reply("331 password"),
             "PASS" => self.reply("230 logged in"),
+            "SITE" if argument.ends_with("/pending.txt") => self.reply("202 not implemented"),
+            "SITE" if argument.ends_with("/forbidden") => self.reply("550 denied"),
             "TYPE" | "SITE" => self.reply("200 accepted"),
             "PASV" | "EPSV" => self.passive(command),
+            "MLSD" if argument == "/forbidden" => {
+                drop(self.passive.take());
+                self.reply("550 denied");
+            }
             "MLSD" if self.legacy => self.reply("502 use LIST"),
             "MLSD" | "LIST" => self.list(command),
             "STOR" => self.upload(argument),

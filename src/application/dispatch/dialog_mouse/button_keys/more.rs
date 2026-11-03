@@ -128,7 +128,14 @@ pub(super) fn copy_button_key(
 
 /// "Retry as administrator" is `A`; OK, the only button or the second, Esc.
 pub(super) fn failed_button(failure: &crate::models::OperationFailed, index: usize) -> KeyCode {
-    if failure.retry().is_some() && index == 0 {
+    failed_button_key(failure.retry().is_some(), index)
+}
+
+pub(in crate::application::dispatch::dialog_mouse) const fn failed_button_key(
+    has_retry: bool,
+    index: usize,
+) -> KeyCode {
+    if has_retry && index == 0 {
         KeyCode::Char('a')
     } else {
         KeyCode::Esc

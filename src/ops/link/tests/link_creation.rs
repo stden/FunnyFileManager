@@ -171,4 +171,9 @@ fn dangling_destination_and_symbolic_attempts_report_clean_status() {
         app.status,
         Status::Linked { .. } | Status::CommandOutput(_)
     ));
+
+    let err = super::super::make(LinkType::None, "notes.txt", &other_dir(&root).join("none"))
+        .expect_err("LinkType::None refused");
+    assert_eq!(err.to_string(), "a link needs a kind");
+    super::super::settle_on(&mut app, Path::new(""));
 }

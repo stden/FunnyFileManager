@@ -49,23 +49,32 @@ pub fn enter(app: &mut App) {
         Some(Target::Leave) => leave(app),
         Some(Target::Directory(path)) => request_list(app, path),
         Some(Target::File) => {
-            if let Err(error) = actions::open(app, false) {
-                fail(app, &error.to_string());
-            }
+            let _ = actions::handle(app, crate::command::language::Action::View);
         }
         None => {}
     }
 }
 
 pub(crate) fn request_list(app: &mut App, path: RemotePath) {
-    if let Ok(target) = context::operation_target(app) {
-        if let crate::models::remote_work::RemoteTarget::Panel { link, .. } = &target {
-            let task = crate::models::remote_work::RemoteTask::List {
-                link: link.clone(),
-                path,
-            };
-            enqueue(app, target, task);
-        }
+    if let Ok(crate::models::remote_work::RemoteTarget::Panel {
+        side,
+        link,
+        path: current,
+    }) = context::operation_target(app)
+    {
+        let task = crate::models::remote_work::RemoteTask::List {
+            link: link.clone(),
+            path,
+        };
+        enqueue(
+            app,
+            crate::models::remote_work::RemoteTarget::Panel {
+                side,
+                link,
+                path: current,
+            },
+            task,
+        );
     }
 }
 

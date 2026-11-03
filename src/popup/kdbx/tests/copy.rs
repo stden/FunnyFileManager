@@ -166,4 +166,8 @@ fn copy_with_no_working_route_reports_and_does_not_arm() {
         !app.clipboard.is_armed(),
         "a copy that reached no clipboard must not schedule a wipe"
     );
+
+    let mut closed = App::new().expect("app");
+    super::super::copy::copy_edit_password(&mut closed, std::time::Instant::now());
+    assert!(closed.status_text().contains("Copy failed"));
 }

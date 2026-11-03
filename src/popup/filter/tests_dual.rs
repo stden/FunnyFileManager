@@ -39,3 +39,14 @@ fn a_second_include_can_be_cleared_without_losing_the_first() {
     assert!(names.contains(&"y.rs"));
     assert!(!names.contains(&"x.txt"));
 }
+
+#[test]
+fn typing_when_additional_filter_line_is_absent_is_a_noop() {
+    let temp = tempfile::TempDir::new().expect("temp");
+    let panel = Panel::new(temp.path().to_owned()).expect("panel");
+    let mut app = App::from_panels(panel.clone(), panel);
+    crate::ops::filter::open(&mut app);
+    assert!(app.filter_input.additional.is_none());
+    app.filter_input.field = crate::models::FilterField::Additional;
+    process_popup_input(&mut app, KeyCode::Char('z').into());
+}

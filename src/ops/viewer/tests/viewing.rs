@@ -172,3 +172,16 @@ fn viewing_expands_tabs_to_next_tab_stop() -> io::Result<()> {
     assert_eq!(viewer.lines, vec!["a   b", "ab  c", "界  d"]);
     Ok(())
 }
+
+#[test]
+fn f3_refuses_non_regular_entry_and_sets_status() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let panel = crate::models::Panel::new(temp.path().to_path_buf())?;
+    let mut app = App::with_panels(panel.clone(), panel);
+    view_path_with(&mut app, temp.path().join("special"), |_| {
+        Ok(Loaded::NotRegular)
+    })?;
+    assert!(app.get_viewer().is_none());
+    assert!(matches!(app.status, Status::NotRegularFile(_)));
+    Ok(())
+}

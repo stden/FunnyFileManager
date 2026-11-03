@@ -15,6 +15,18 @@ fn a_malformed_open_result_reports_an_error_without_opening_an_editor() {
     );
     assert!(!app.overlay.is_active());
     assert!(matches!(app.status, Status::Error(_)));
+
+    app.set_overlay(crate::models::Overlay::Help);
+    completion::apply(
+        &mut app,
+        request(&link),
+        Ok(RemoteOutcome::Opened {
+            source: FileLocation::Local(std::path::PathBuf::new()),
+            bytes: b"text".to_vec(),
+            edit: false,
+        }),
+    );
+    assert!(matches!(app.overlay, crate::models::Overlay::Help));
 }
 
 #[test]

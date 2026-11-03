@@ -30,4 +30,16 @@ fn dropping_an_idle_manager_wakes_the_blocked_worker_immediately() {
     let started = std::time::Instant::now();
     drop(manager);
     assert!(started.elapsed() < std::time::Duration::from_millis(250));
+
+    let closed = Manager {
+        commands: None,
+        events: None,
+        stop: Arc::new(AtomicBool::new(false)),
+        task: Some(thread::spawn(|| panic!("injected worker panic"))),
+    };
+    assert!(matches!(
+        closed.send(Command::Close),
+        Err(SendError::Disconnected(_))
+    ));
+    drop(closed);
 }

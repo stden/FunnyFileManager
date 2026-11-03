@@ -73,10 +73,14 @@ fn select_drive(app: &mut App, side: PanelSide, drive: DriveEntry) -> Status {
         }
         DriveEntry::S3Profile(profile) => Status::S3ProfileSelected(profile),
         DriveEntry::NetBox => crate::ops::sessions::open_on(app, side),
-        DriveEntry::ProcessList => match crate::ops::tasks::open(app) {
-            Ok(()) => Status::Cleared,
-            Err(error) => Status::Error(error.to_string()),
-        },
+        DriveEntry::ProcessList => process_list_status(crate::ops::tasks::open(app)),
+    }
+}
+
+fn process_list_status(result: std::io::Result<()>) -> Status {
+    match result {
+        Ok(()) => Status::Cleared,
+        Err(error) => Status::Error(error.to_string()),
     }
 }
 

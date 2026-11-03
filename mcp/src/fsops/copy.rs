@@ -42,11 +42,15 @@ pub enum Purpose {
 pub fn copy_entry(src: &Path, dst: &Path, purpose: Purpose) -> io::Result<()> {
     let meta = fs::symlink_metadata(src)?;
     if meta.is_symlink() {
+        #[cfg(unix)]
         return copy_symlink(src, dst);
+        #[cfg(windows)]
+        return copy_symlink(src, dst, &meta);
     }
     if meta.is_dir() {
         return copy_dir(src, dst, &meta, purpose);
     }
+    #[cfg(unix)]
     if !meta.is_file() {
         // A FIFO would block until a writer appeared, a device would copy
         // until the disk filled: only a regular file is opened.
@@ -67,12 +71,17 @@ fn copy_symlink(src: &Path, dst: &Path) -> io::Result<()> {
 /// Same, for Windows — where the link itself carries the file/directory
 /// distinction, so the kind has to be chosen from what the link reaches.
 #[cfg(windows)]
-fn copy_symlink(src: &Path, dst: &Path) -> io::Result<()> {
-    let target = fs::read_link(src)?;
-    if std::os::windows::fs::FileTypeExt::is_symlink_dir(&fs::symlink_metadata(src)?.file_type()) {
-        std::os::windows::fs::symlink_dir(&target, dst)
+fn copy_symlink(src: &Path, dst: &Path, meta: &fs::Metadata) -> io::Result<()> {
+    use std::os::windows::fs::FileTypeExt;
+    create_windows_symlink(&fs::read_link(src)?, dst, meta.file_type().is_symlink_dir())
+}
+
+#[cfg(windows)]
+fn create_windows_symlink(target: &Path, dst: &Path, is_dir: bool) -> io::Result<()> {
+    if is_dir {
+        std::os::windows::fs::symlink_dir(target, dst)
     } else {
-        std::os::windows::fs::symlink_file(&target, dst)
+        std::os::windows::fs::symlink_file(target, dst)
     }
 }
 

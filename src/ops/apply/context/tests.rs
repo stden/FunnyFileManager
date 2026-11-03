@@ -32,4 +32,9 @@ fn capture_and_select_strip_shell_metacharacters_from_descriptions() {
     assert_eq!(ctx.left.description, "safe rm -rf /id uname  cat  out  X");
     select(&mut ctx, &app, "b.txt");
     assert_eq!(ctx.left.description, "next[31mq s in sub slash");
+    #[cfg(windows)]
+    assert_eq!(
+        short_path_capped(&dir.path().join("a.txt"), 1),
+        dir.path().join("a.txt")
+    );
 }

@@ -142,6 +142,7 @@ impl LoopState {
             self.redraw = Redraw::Needed;
         }
         app.record_folder_visits();
+        #[cfg(feature = "keepass")]
         if crate::ops::vault::maintenance(app) {
             self.redraw = Redraw::Needed;
         }

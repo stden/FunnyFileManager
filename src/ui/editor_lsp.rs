@@ -7,7 +7,9 @@ use crate::{
     models::{lsp::Dialog, Editor, ServerState},
     ui::{palette, printable_name},
 };
-pub(super) use label::{compact_label, label};
+pub(super) use label::fitted_label;
+#[cfg(test)]
+use label::label;
 use ratatui::{
     layout::Rect,
     style::Style,

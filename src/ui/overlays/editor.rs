@@ -68,12 +68,7 @@ fn editor_label(editor: &crate::models::Editor, marker: &str, room: Cells) -> St
     if let Some(notice) = &editor.notice {
         return format!(" {notice}");
     }
-    let label = super::super::editor_lsp::label(editor, marker);
-    if Cells::of(&label) > room {
-        super::super::editor_lsp::compact_label(editor, marker)
-    } else {
-        label
-    }
+    super::super::editor_lsp::fitted_label(editor, marker, room)
 }
 
 pub(super) fn render_editor(

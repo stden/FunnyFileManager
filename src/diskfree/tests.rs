@@ -68,6 +68,36 @@ fn unix_calls_every_mount_fixed() {
     );
 }
 
+#[cfg(windows)]
+#[test]
+fn windows_classifies_every_win32_drive_type_and_queries_live_paths() {
+    use windows_sys::Win32::System::WindowsProgramming::{
+        DRIVE_CDROM, DRIVE_FIXED, DRIVE_NO_ROOT_DIR, DRIVE_RAMDISK, DRIVE_REMOTE, DRIVE_REMOVABLE,
+        DRIVE_UNKNOWN,
+    };
+
+    for (raw, expected) in [
+        (DRIVE_FIXED, DriveKind::Fixed),
+        (DRIVE_REMOVABLE, DriveKind::Removable),
+        (DRIVE_REMOTE, DriveKind::Network),
+        (DRIVE_CDROM, DriveKind::CdRom),
+        (DRIVE_RAMDISK, DriveKind::RamDisk),
+        (DRIVE_UNKNOWN, DriveKind::Unknown),
+        (DRIVE_NO_ROOT_DIR, DriveKind::Unknown),
+    ] {
+        assert_eq!(super::classify_drive_type(raw), expected);
+    }
+    assert_ne!(
+        super::drive_kind(Path::new(r"C:\")),
+        DriveKind::CdRom,
+        "system volume query reaches GetDriveTypeW"
+    );
+    assert_eq!(
+        super::drive_kind(Path::new("bad\0path")),
+        DriveKind::Unknown
+    );
+}
+
 #[test]
 fn capacity_is_a_plain_value() {
     let space = Capacity {

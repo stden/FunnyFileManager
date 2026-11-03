@@ -22,13 +22,21 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
         KeyCode::Esc | KeyCode::F(10) => app.close_overlay(),
         KeyCode::Enter => {
             let command = list.selected();
-            if let Err(error) = plugin_commands::run(app, command) {
-                app.set_status(Status::Error(error.to_string()));
-            }
+            run_selected(app, command, plugin_commands::run);
         }
         _ => {}
     }
     true
+}
+
+fn run_selected(
+    app: &mut App,
+    command: crate::models::PluginCommand,
+    runner: impl FnOnce(&mut App, crate::models::PluginCommand) -> std::io::Result<()>,
+) {
+    if let Err(error) = runner(app, command) {
+        app.set_status(Status::Error(error.to_string()));
+    }
 }
 
 /// The list key `key` is, for a list `page` rows high: the dialog

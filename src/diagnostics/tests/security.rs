@@ -86,3 +86,18 @@ fn test_append_log_line_ignores_open_failure() -> io::Result<()> {
     assert!(blocked.is_dir());
     Ok(())
 }
+
+#[cfg(unix)]
+#[test]
+fn test_append_log_line_refuses_hard_linked_file() -> io::Result<()> {
+    let temp_dir = TempDir::new()?;
+    let path = temp_dir.path().join("ffm_actions.log");
+    let alias = temp_dir.path().join("alias.log");
+    fs::write(&path, "seed\n")?;
+    fs::hard_link(&path, &alias)?;
+
+    append_log_line(&path, "refused");
+
+    assert_eq!(fs::read_to_string(&path)?, "seed\n");
+    Ok(())
+}

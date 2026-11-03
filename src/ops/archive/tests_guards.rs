@@ -2,10 +2,9 @@
 //! tool: a setuid member is refused, an archive name that reads as an option is
 //! given as a path, and an extraction answer with no prompt open does nothing.
 
-#[cfg(unix)]
 use super::tool::safe_archive_arg;
 use super::*;
-use crate::models::Panel;
+use crate::models::{ArchiveCommand, FileName, Panel};
 use tempfile::TempDir;
 
 #[test]
@@ -24,16 +23,15 @@ fn a_member_with_setuid_bits_is_refused() {
     assert!(error.to_string().contains("setuid"), "{error}");
 }
 
-#[cfg(unix)]
 #[test]
 fn an_archive_name_that_reads_as_an_option_or_a_drive_is_given_as_a_path() {
     assert_eq!(
         safe_archive_arg(Path::new("-x.tar")).as_ref(),
-        Path::new("./-x.tar")
+        Path::new(".").join("-x.tar")
     );
     assert_eq!(
         safe_archive_arg(Path::new("host:x.tar")).as_ref(),
-        Path::new("./host:x.tar")
+        Path::new(".").join("host:x.tar")
     );
     assert_eq!(
         safe_archive_arg(Path::new("plain.tar")).as_ref(),
@@ -61,16 +59,27 @@ fn run_command_reports_missing_archive_and_opens_add_prompt() {
         Panel::new(temp.path().to_path_buf()).unwrap(),
         Panel::new(temp.path().to_path_buf()).unwrap(),
     );
-    run_command(&mut app, crate::models::ArchiveCommand::ExtractHere);
+    run_command(&mut app, ArchiveCommand::ExtractHere);
     assert!(app.status_text().contains("put the cursor on an archive"));
 
     std::fs::write(temp.path().join("bundle.tar"), b"").unwrap();
     std::fs::write(temp.path().join("note.txt"), b"hi").unwrap();
     app.left_panel.load_entries().unwrap();
+    assert!(app.left_panel.select_named("note.txt"));
+    run_command(&mut app, ArchiveCommand::ExtractHere);
+    assert!(matches!(app.overlay, Overlay::ExtractPrompt(_)));
+    app.close_overlay();
+
     assert!(app.left_panel.select_named("bundle.tar"));
-    app.left_panel
-        .marked
-        .insert(crate::models::FileName::new("note.txt"));
-    run_command(&mut app, crate::models::ArchiveCommand::AddSelected);
+    app.left_panel.marked.insert(FileName::new("note.txt"));
+    run_command(&mut app, ArchiveCommand::AddSelected);
     assert!(matches!(app.overlay, Overlay::ArchivePrompt(_)));
+    app.close_overlay();
+
+    app.left_panel.marked.insert(FileName::new("bundle.tar"));
+    let root_path = temp.path().ancestors().last().unwrap().to_path_buf();
+    app.left_panel.path = root_path;
+    open_add(&mut app);
+    assert!(matches!(app.overlay, Overlay::ArchivePrompt(_)));
+    assert_eq!(commands::name_of(Path::new("/")), "/");
 }

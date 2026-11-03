@@ -61,4 +61,13 @@ fn a_box_the_groups_do_not_place_is_not_highlighted() {
         .draw(|f| highlight_box(f, &dialog, &[], 0, f.area()))
         .expect("draw");
     assert_eq!(reversed_cells(&terminal), 0);
+
+    let overflow = [super::GroupLine {
+        text: String::new(),
+        box_columns: vec![usize::MAX],
+    }];
+    terminal
+        .draw(|f| highlight_box(f, &dialog, &overflow, 0, f.area()))
+        .expect("draw");
+    assert_eq!(reversed_cells(&terminal), 0);
 }

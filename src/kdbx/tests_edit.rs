@@ -130,7 +130,9 @@ fn saving_without_an_editable_form_never_changes_the_database() {
     assert!(!session.save_edit(now), "no form is open");
     session.access = super::Access::View;
     assert!(!session.save_edit(now), "view mode refuses writes");
+    let id = session.vault().unwrap().selected_entry().unwrap().id;
     session.lock();
+    session.finish_save(id, now);
     session.access = super::Access::Edit;
     assert!(!session.save_edit(now), "locked database refuses writes");
     assert_eq!(

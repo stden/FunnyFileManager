@@ -86,4 +86,64 @@ fn a_bare_kind_is_reported_by_name() {
         AtExitErrorLine(&error).to_string(),
         "Error: Kind(BrokenPipe)"
     );
+    let missing = Err(io::Error::from(io::ErrorKind::NotFound));
+    let session_only = crate::history::Persistence::SessionOnly;
+    assert!(super::load_app_from(missing, None, None, session_only).is_err());
+}
+
+#[test]
+fn load_app_install_hosts_and_panic_hook_work_in_sandboxed_home() {
+    let root = TempDir::new().expect("temp dir");
+    let _homes = SandboxedHomes::new(root.path());
+    let mut app = super::load_app().expect("load_app");
+    super::install_hosts(&mut app, &crate::recording::Input::Live(None));
+    assert!(app.live.elevation);
+
+    let rec_path = root.path().join("events.jsonl");
+    fs::write(
+        &rec_path,
+        r#"{"version":1,"executable":"ffm","directory":".","size":[80,24]}"#,
+    )
+    .expect("write header");
+    let (replay, _) =
+        crate::recording::Input::from_args(&["--replay".into(), rec_path.into()], (80, 24))
+            .expect("replay args");
+    super::install_hosts(&mut app, &replay);
+    assert!(!app.live.elevation);
+
+    let host = crate::terminal::headless::HeadlessHost::new();
+    let _scope = host.enter();
+    let saved = std::panic::take_hook();
+    let noop = |_: &std::panic::PanicHookInfo<'_>| {};
+    std::panic::set_hook(super::panic_restore_hook(Box::new(noop)));
+    let caught = std::panic::catch_unwind(|| panic!("abort hook exercise"));
+    std::panic::set_hook(saved);
+    assert!(caught.is_err());
+}
+
+#[test]
+fn end_session_logs_persistence_failures_and_suppresses_lost_terminal_errors() {
+    let root = TempDir::new().expect("temp dir");
+    let _homes = SandboxedHomes::new(root.path());
+    for name in HOMES {
+        fs::write(root.path().join(name.to_lowercase()), b"blocker").expect("file blocker");
+    }
+    let panels = TempDir::new().expect("panels");
+    let mut app = app_in(panels.path());
+    app.config.system.auto_save_setup = true;
+    app.performance.record(
+        "OpenHelp",
+        std::time::Duration::from_millis(2),
+        std::time::Duration::from_millis(1),
+    );
+    crate::recording::set_stopped_for_test("disk full");
+
+    super::at_exit::end_session_after_wait(
+        &app,
+        Err(io::Error::other("lost")),
+        Err(io::Error::other("cleanup")),
+        true,
+    )
+    .expect("lost terminal suppresses error");
+    assert!(super::at_exit::end_session(&app, Err(io::Error::other("boom")), Ok(())).is_err());
 }

@@ -37,10 +37,8 @@ pub(super) fn render(frame: &mut Frame<'_>, editor: &Editor, area: Rect, top: us
     }
 }
 
-/// The screen column of the character at `column_index` on `line_index` once
-/// `skip` cells are scrolled off; `None` for a missing line or for a character
-/// scrolled off the left edge, which clamping to column 0 would paint over
-/// whatever shows there.
+/// Screen column of `column_index` on `line_index` after `skip` cells; `None`
+/// for a missing line or a character scrolled off the left edge.
 pub(super) fn column_on_screen(
     editor: &Editor,
     line_index: usize,
@@ -60,7 +58,7 @@ pub(super) const MAX_SCAN_LINES: usize = 1_000;
 fn matching_pair(editor: &Editor) -> Option<(usize, usize, usize, usize)> {
     let (line, column, bracket) = candidate(editor)?;
     let (bracket_byte, wanted_byte) = mate(bracket)?;
-    let partner = if is_open(bracket) {
+    let partner = if matches!(bracket, '(' | '[' | '{') {
         scan_forward(editor, line, column, bracket_byte, wanted_byte)?
     } else {
         scan_backward(editor, line, column, bracket_byte, wanted_byte)?
@@ -89,10 +87,10 @@ fn scan_forward(
             0
         };
         let slice = text.get(start..).unwrap_or_default().as_bytes();
-        for (offset, &byte) in slice.iter().enumerate() {
-            if step_bracket(byte, bracket, wanted, &mut depth) {
-                let col = text.get(..start + offset)?.chars().count();
-                return Some((index, col));
+        for offset in memchr::memchr2_iter(bracket, wanted, slice) {
+            let byte = slice.get(offset).copied().unwrap_or_default();
+            if step_bracket(byte, bracket, &mut depth) {
+                return Some((index, char_col_at(text, start + offset)?));
             }
         }
     }
@@ -122,26 +120,34 @@ fn scan_backward(
             text.len()
         };
         let slice = text.get(..end).unwrap_or_default().as_bytes();
-        for (offset, &byte) in slice.iter().enumerate().rev() {
-            if step_bracket(byte, bracket, wanted, &mut depth) {
-                let col = text.get(..offset)?.chars().count();
-                return Some((index, col));
+        for offset in memchr::memrchr2_iter(bracket, wanted, slice) {
+            let byte = slice.get(offset).copied().unwrap_or_default();
+            if step_bracket(byte, bracket, &mut depth) {
+                return Some((index, char_col_at(text, offset)?));
             }
         }
     }
     None
 }
 
-const fn step_bracket(byte: u8, bracket: u8, wanted: u8, depth: &mut usize) -> bool {
+const fn step_bracket(byte: u8, bracket: u8, depth: &mut usize) -> bool {
     if byte == bracket {
         *depth += 1;
-    } else if byte == wanted {
-        if *depth == 0 {
-            return true;
-        }
-        *depth -= 1;
+        return false;
     }
+    if *depth == 0 {
+        return true;
+    }
+    *depth -= 1;
     false
+}
+
+fn char_col_at(text: &str, byte_offset: usize) -> Option<usize> {
+    let head = text.get(..byte_offset)?;
+    if head.is_ascii() {
+        return Some(byte_offset);
+    }
+    Some(head.chars().count())
 }
 
 pub(super) fn byte_at_char(text: &str, char_col: usize) -> usize {
@@ -154,30 +160,25 @@ pub(super) fn byte_at_char(text: &str, char_col: usize) -> usize {
 }
 
 fn candidate(editor: &Editor) -> Option<(usize, usize, char)> {
-    let line_idx = editor.cursor_line;
-    let col = editor.cursor_column().chars();
+    let (line_idx, col) = (editor.cursor_line, editor.cursor_column().chars());
     let line = editor.lines.get(line_idx)?;
     if col == 0 {
-        let ch = line.chars().next().filter(|ch| is_bracket(*ch))?;
-        return Some((line_idx, 0, ch));
+        return line
+            .chars()
+            .next()
+            .filter(|&ch| mate(ch).is_some())
+            .map(|ch| (line_idx, 0, ch));
     }
     let mut chars = line.chars().skip(col - 1);
-    let prev = chars.next();
-    let curr = chars.next();
-    curr.filter(|ch| is_bracket(*ch))
+    let (prev, curr) = (chars.next(), chars.next());
+    curr.filter(|&ch| mate(ch).is_some())
         .map(|ch| (line_idx, col, ch))
         .or_else(|| {
-            prev.filter(|ch| is_bracket(*ch))
+            prev.filter(|&ch| mate(ch).is_some())
                 .map(|ch| (line_idx, col - 1, ch))
         })
 }
 
-const fn is_bracket(ch: char) -> bool {
-    mate(ch).is_some()
-}
-const fn is_open(ch: char) -> bool {
-    matches!(ch, '(' | '[' | '{')
-}
 const fn mate(ch: char) -> Option<(u8, u8)> {
     match ch {
         '(' => Some((b'(', b')')),

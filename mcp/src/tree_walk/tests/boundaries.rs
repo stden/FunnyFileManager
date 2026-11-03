@@ -23,6 +23,26 @@ fn unreadable_subdirectories_contribute_no_bytes() {
     });
 }
 
+#[cfg(windows)]
+#[test]
+fn exclusively_locked_subdirectories_contribute_no_bytes() {
+    use std::os::windows::fs::OpenOptionsExt;
+
+    let root = TempDir::new().unwrap();
+    let denied = root.path().join("denied");
+    fs::create_dir(&denied).unwrap();
+    fs::write(denied.join("private"), b"unreadable").unwrap();
+    let lock = fs::OpenOptions::new()
+        .read(true)
+        .share_mode(0)
+        .custom_flags(0x0200_0000)
+        .open(&denied)
+        .unwrap();
+    let size = directory_size(root.path());
+    drop(lock);
+    assert_eq!(size, 0);
+}
+
 #[test]
 fn size_walk_honors_zero_and_exhausted_budgets() {
     let root = TempDir::new().unwrap();

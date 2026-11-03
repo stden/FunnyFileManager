@@ -97,3 +97,6 @@ fn row(entry: &DirEntry, chosen: bool, marked: bool, width: Cells) -> Line<'stat
         },
     ))
 }
+
+#[cfg(test)]
+mod tests;

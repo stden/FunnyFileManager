@@ -52,7 +52,9 @@ fn the_dialog_is_written_where_it_stands_and_nothing_else() {
 #[test]
 fn the_session_painter_draws_on_standard_output() {
     // Built, never painted: a test has no terminal to draw on.
-    let _screen = ProgressScreen::stdout();
+    let screen = ProgressScreen::stdout();
+    let (width, height) = (screen.size)();
+    assert!(width > 0 && height > 0);
 }
 
 #[test]

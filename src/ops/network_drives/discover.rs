@@ -4,8 +4,13 @@ use std::io;
 
 #[cfg(windows)]
 pub(super) fn read() -> io::Result<Vec<NetworkDrive>> {
+    read_with(std::ffi::OsStr::new("pwsh.exe"))
+}
+
+#[cfg(windows)]
+pub(super) fn read_with(program: &std::ffi::OsStr) -> io::Result<Vec<NetworkDrive>> {
     use std::{process::Command, time::Duration};
-    let mut command = Command::new("pwsh.exe");
+    let mut command = Command::new(program);
     command.args([
         "-NoLogo",
         "-NoProfile",
@@ -18,6 +23,11 @@ pub(super) fn read() -> io::Result<Vec<NetworkDrive>> {
         Duration::from_secs(10),
         &std::env::temp_dir(),
     )?;
+    parse_windows_output(&output)
+}
+
+#[cfg(any(windows, test))]
+pub(super) fn parse_windows_output(output: &std::process::Output) -> io::Result<Vec<NetworkDrive>> {
     if !output.status.success() {
         return Err(io::Error::other("Windows network drive discovery failed"));
     }
@@ -29,7 +39,7 @@ pub(super) fn read() -> io::Result<Vec<NetworkDrive>> {
         .collect()
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, test))]
 #[derive(serde::Deserialize)]
 struct WindowsMount {
     path: String,

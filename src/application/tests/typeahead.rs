@@ -92,3 +92,31 @@ fn keys_queued_behind_a_quick_event_still_run() {
 
     assert!(!folder.path().join("a-keep.txt").exists(), "{}", app.status);
 }
+
+#[test]
+fn discard_typeahead_logs_queued_cancel_and_navigation_batch_honors_budget() -> io::Result<()> {
+    let folder = TempDir::new().expect("test setup");
+    let mut app = app_on_keep_file(folder.path(), "");
+
+    let mut esc_input =
+        BufferedInput::new(Typed(VecDeque::from([Event::Key(key_event(KeyCode::Esc))])));
+    event::discard_typeahead(&mut esc_input, &mut app)?;
+
+    let mut terminal = Terminal::new(WritableTestBackend::new(80, 24))?;
+    let mut nav_input = BufferedInput::new(Typed(VecDeque::from([Event::Key(key_event(
+        KeyCode::Down,
+    ))])));
+    let mut clicks = crate::mouse::PanelClicks::default();
+    let expired = Instant::now()
+        .checked_sub(std::time::Duration::from_secs(1))
+        .unwrap();
+    navigation_batch::drain(
+        &mut terminal,
+        &mut app,
+        &mut nav_input,
+        &mut clicks,
+        expired,
+    )?;
+    assert!(nav_input.next_navigation(&app).is_some());
+    Ok(())
+}

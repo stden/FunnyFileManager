@@ -55,3 +55,29 @@ fn metadata_and_directory_creation_errors_do_not_change_the_source() {
     .is_err());
     assert_eq!(fs::read(source).expect("source remains"), b"original");
 }
+
+#[test]
+fn failed_local_stage_flush_removes_created_destination_and_non_utf8_names_error() {
+    let temp = tempfile::TempDir::new().expect("tempdir");
+    let mut staged = tempfile::tempfile().expect("staged");
+    let dest = temp.path().join("partial.bin");
+    file::write_created_local(&dest, &mut staged, |_, _| {
+        Err(std::io::Error::other("disk full"))
+    })
+    .expect_err("flush failure");
+    assert!(
+        !dest.exists(),
+        "exclusively created file must be cleaned up"
+    );
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStringExt;
+        assert_eq!(
+            location::utf8_name(std::ffi::OsString::from_wide(&[0xD800])),
+            Err(RemoteError::InvalidInput(
+                "cannot transfer a non-UTF-8 name"
+            ))
+        );
+    }
+}

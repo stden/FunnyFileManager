@@ -50,7 +50,12 @@ pub(super) const fn administrator_may_help(denial: &Denial) -> bool {
 /// have unless FFM already is one.
 #[cfg(windows)]
 fn refused(_path: &Path, _metadata: Option<&fs::Metadata>) -> Denial {
-    if crate::platform::is_elevated() {
+    refused_for_elevation(crate::platform::is_elevated())
+}
+
+#[cfg(windows)]
+const fn refused_for_elevation(elevated: bool) -> Denial {
+    if elevated {
         Denial::NotEvenAdministrator
     } else {
         Denial::NeedsAdministrator

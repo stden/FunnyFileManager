@@ -152,6 +152,8 @@ mod tests_meters;
 #[cfg(test)]
 mod tests_meters_lines;
 #[cfg(test)]
+mod tests_network_edges;
+#[cfg(test)]
 mod tests_network_ui;
 #[cfg(test)]
 mod tests_screen;

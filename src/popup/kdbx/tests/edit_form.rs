@@ -152,3 +152,21 @@ fn view_mode_f4_password_undo_backtab_backspace_and_confirm_esc() {
         crate::kdbx::FormMode::Editing
     );
 }
+
+#[test]
+fn form_helpers_return_cleanly_without_an_open_form() {
+    let now = std::time::Instant::now();
+    let mut no_session = App::new().expect("app");
+    assert!(!super::super::form::apply_command(
+        &mut no_session,
+        crate::action::vault::VaultCommand::Save,
+        now,
+    ));
+    super::super::form::edit_form_input(&mut no_session, key(KeyCode::Esc), now);
+    let (_dir, mut unlocked) = app_with_unlocked_vault();
+    super::super::form::edit_key(
+        unlocked.kdbx_session_mut().expect("session"),
+        key(KeyCode::Esc),
+        now,
+    );
+}

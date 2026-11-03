@@ -3,8 +3,12 @@
 
 use std::{fs, io, path::Path};
 
-use super::{copies_as_file, folder_of, keeps_replaced_mode, FailedAt};
+#[cfg(unix)]
+use super::keeps_replaced_mode;
+use super::{copies_as_file, folder_of};
 use crate::copy::CopyPrompt;
+use crate::utils::FailedAt;
+#[cfg(unix)]
 use crate::utils::FileMode;
 
 /// Make the replacement beside `dest` and rename it over `dest` once it holds
@@ -17,31 +21,81 @@ use crate::utils::FileMode;
 /// for a link, the staged entry has that name from the start; a failure
 /// FFM survives removes it, a kill does not.
 pub(super) fn stage(source: &Path, dest: &Path, settings: &CopyPrompt) -> io::Result<()> {
+    stage_with(
+        source,
+        dest,
+        settings,
+        crate::utils::unnamed_file_in,
+        crate::utils::name_unnamed,
+    )
+}
+
+pub(super) fn stage_with(
+    source: &Path,
+    dest: &Path,
+    settings: &CopyPrompt,
+    make_unnamed: impl FnOnce(&Path) -> Option<fs::File>,
+    name_it: impl Fn(&fs::File, &Path) -> io::Result<()>,
+) -> io::Result<()> {
     let folder = folder_of(dest);
     #[cfg(unix)]
     crate::platform::check_write_access(folder).map_err(FailedAt::for_path(folder))?;
-    let kept_mode = fs::symlink_metadata(dest)
+    #[cfg(unix)]
+    let kept_mode = replaced_mode(source, dest, settings);
+    let staged = match unnamed_stage_with(
+        source,
+        folder,
+        settings,
+        #[cfg(unix)]
+        kept_mode.as_ref(),
+        make_unnamed,
+        name_it,
+    )? {
+        Some(staged) => staged,
+        None => named_stage(
+            source,
+            dest,
+            folder,
+            settings,
+            #[cfg(unix)]
+            kept_mode,
+        )?,
+    };
+    finish_stage(staged, dest)
+}
+
+#[cfg(unix)]
+fn replaced_mode(source: &Path, dest: &Path, settings: &CopyPrompt) -> Option<fs::Permissions> {
+    fs::symlink_metadata(dest)
         .ok()
         .filter(|meta| meta.is_file() && keeps_replaced_mode(settings))
         .filter(|_| copies_as_file(source, settings))
-        .map(|meta| meta.permissions());
-    let unnamed = unnamed_copy(source, folder, settings, kept_mode.as_ref())?;
-    let mut staged = if let Some(file) = unnamed {
-        named(folder, |path| crate::utils::name_unnamed(&file, path))?
-    } else {
-        // copy_entry claims the name exclusively and cleans up a failed
-        // copy. Once it succeeds, the temporary owns cleanup for every later
-        // failure. A sibling also keeps the meaning of a relative link.
-        let staged = named(folder, |path| {
-            crate::progress::with_destination(dest, || {
-                super::super::copy_entry(source, path, settings.rules())
-            })
-        })?;
-        if let Some(mode) = kept_mode {
-            fs::set_permissions(staged.path(), mode)?;
-        }
-        staged
-    };
+        .map(|meta| meta.permissions())
+}
+
+pub(super) fn named_stage(
+    source: &Path,
+    dest: &Path,
+    folder: &Path,
+    settings: &CopyPrompt,
+    #[cfg(unix)] kept_mode: Option<fs::Permissions>,
+) -> io::Result<tempfile::NamedTempFile<()>> {
+    // copy_entry claims the name exclusively and cleans up a failed
+    // copy. Once it succeeds, the temporary owns cleanup for every later
+    // failure. A sibling also keeps the meaning of a relative link.
+    let staged = named(folder, |path| {
+        crate::progress::with_destination(dest, || {
+            super::super::copy_entry(source, path, settings.rules())
+        })
+    })?;
+    #[cfg(unix)]
+    if let Some(mode) = kept_mode {
+        fs::set_permissions(staged.path(), mode)?;
+    }
+    Ok(staged)
+}
+
+fn finish_stage(mut staged: tempfile::NamedTempFile<()>, dest: &Path) -> io::Result<()> {
     // tempfile::persist clears Windows attributes. This entry was created
     // by copy_entry, so it has no temporary attribute to clear.
     prepare_windows_target(dest).map_err(FailedAt::for_path(dest))?;
@@ -111,26 +165,35 @@ fn named(
 /// The copy of the regular file `source`, whole, in a file of `folder` that
 /// has no name yet — or `None` when `source` is not copied as a file or the
 /// system cannot make such a file, and the named staging takes over.
-fn unnamed_copy(
+pub(super) fn unnamed_stage_with(
     source: &Path,
     folder: &Path,
     settings: &CopyPrompt,
-    kept_mode: Option<&fs::Permissions>,
-) -> io::Result<Option<fs::File>> {
+    #[cfg(unix)] kept_mode: Option<&fs::Permissions>,
+    make_unnamed: impl FnOnce(&Path) -> Option<fs::File>,
+    name_it: impl Fn(&fs::File, &Path) -> io::Result<()>,
+) -> io::Result<Option<tempfile::NamedTempFile<()>>> {
     if !copies_as_file(source, settings) {
         return Ok(None);
     }
-    let Some(mut file) = crate::utils::unnamed_file_in(folder) else {
+    let Some(mut file) = make_unnamed(folder) else {
         return Ok(None);
     };
     let input = crate::utils::open_regular_file(source)?;
-    let mut rules = settings.rules();
-    if kept_mode.is_some() {
-        rules.modes = FileMode::Fresh;
-    }
+    #[cfg(unix)]
+    let rules = {
+        let mut rules = settings.rules();
+        if kept_mode.is_some() {
+            rules.modes = FileMode::Fresh;
+        }
+        rules
+    };
+    #[cfg(not(unix))]
+    let rules = settings.rules();
     crate::utils::write_contents(&input, &mut file, rules)?;
+    #[cfg(unix)]
     if let Some(mode) = kept_mode {
         file.set_permissions(mode.clone())?;
     }
-    Ok(Some(file))
+    named(folder, |path| name_it(&file, path)).map(Some)
 }

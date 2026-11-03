@@ -2,6 +2,7 @@
 //! point of the feature and the next step erases them, so this is the only
 //! place they can be read back.
 
+#[cfg(any(test, tarpaulin))]
 use std::path::Path;
 
 /// The moments a wipe can be observed at, for the test seam.
@@ -34,6 +35,3 @@ pub(super) fn witness(stage: Stage, path: &Path) {
         }
     });
 }
-
-#[cfg(not(any(test, tarpaulin)))]
-pub(super) const fn witness(_stage: Stage, _path: &Path) {}

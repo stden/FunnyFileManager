@@ -22,6 +22,34 @@ pub enum ContentKind {
 }
 
 impl ContentKind {
+    pub(super) const COUNT: usize = 9;
+
+    pub(super) const ALL: [Self; Self::COUNT] = [
+        Self::Source,
+        Self::Document,
+        Self::Image,
+        Self::Audio,
+        Self::Video,
+        Self::Archive,
+        Self::Executable,
+        Self::Data,
+        Self::Other,
+    ];
+
+    pub(super) const fn index(self) -> usize {
+        match self {
+            Self::Source => 0,
+            Self::Document => 1,
+            Self::Image => 2,
+            Self::Audio => 3,
+            Self::Video => 4,
+            Self::Archive => 5,
+            Self::Executable => 6,
+            Self::Data => 7,
+            Self::Other => 8,
+        }
+    }
+
     /// A short label for the panel.
     #[must_use]
     pub const fn label(self) -> &'static str {
@@ -45,33 +73,34 @@ impl ContentKind {
     /// in the tree, which is the one thing this walk must not do.
     #[must_use]
     pub fn of(name: &str) -> Self {
-        let extension = Path::new(name)
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .map(str::to_ascii_lowercase)
-            .unwrap_or_default();
+        let Some(ext) = Path::new(name).extension().and_then(|ext| ext.to_str()) else {
+            return Self::Other;
+        };
+        let mut buf = [0_u8; 8];
+        let Some(dest) = buf.get_mut(..ext.len()) else {
+            return Self::Other;
+        };
+        for (dst, src) in dest.iter_mut().zip(ext.bytes()) {
+            *dst = src.to_ascii_lowercase();
+        }
 
-        match extension.as_str() {
-            "rs" | "c" | "h" | "cc" | "cpp" | "hpp" | "cs" | "go" | "java" | "js" | "jsx"
-            | "ts" | "tsx" | "py" | "rb" | "php" | "kt" | "swift" | "lua" | "sh" | "bash"
-            | "ps1" | "cmd" | "bat" | "sql" | "css" | "scss" | "html" | "htm" | "vue" => {
-                Self::Source
-            }
-            "md" | "markdown" | "txt" | "rst" | "adoc" | "pdf" | "doc" | "docx" | "odt" | "rtf"
-            | "tex" | "epub" => Self::Document,
-            "png" | "jpg" | "jpeg" | "gif" | "bmp" | "svg" | "webp" | "ico" | "tif" | "tiff" => {
-                Self::Image
-            }
-            "mp3" | "wav" | "flac" | "ogg" | "m4a" | "aac" | "opus" | "wma" => Self::Audio,
-            "mp4" | "mkv" | "avi" | "mov" | "webm" | "wmv" | "flv" | "m4v" => Self::Video,
-            "zip" | "tar" | "gz" | "bz2" | "xz" | "zst" | "7z" | "rar" | "jar" | "whl" => {
-                Self::Archive
-            }
-            "exe" | "dll" | "so" | "dylib" | "a" | "o" | "bin" | "msi" | "deb" | "rpm" => {
-                Self::Executable
-            }
-            "json" | "yaml" | "yml" | "toml" | "xml" | "csv" | "tsv" | "db" | "sqlite" | "log"
-            | "lock" | "parquet" => Self::Data,
+        match &*dest {
+            b"rs" | b"c" | b"h" | b"cc" | b"cpp" | b"hpp" | b"cs" | b"go" | b"java" | b"js"
+            | b"jsx" | b"ts" | b"tsx" | b"py" | b"rb" | b"php" | b"kt" | b"swift" | b"lua"
+            | b"sh" | b"bash" | b"ps1" | b"cmd" | b"bat" | b"sql" | b"css" | b"scss" | b"html"
+            | b"htm" | b"vue" => Self::Source,
+            b"md" | b"markdown" | b"txt" | b"rst" | b"adoc" | b"pdf" | b"doc" | b"docx"
+            | b"odt" | b"rtf" | b"tex" | b"epub" => Self::Document,
+            b"png" | b"jpg" | b"jpeg" | b"gif" | b"bmp" | b"svg" | b"webp" | b"ico" | b"tif"
+            | b"tiff" => Self::Image,
+            b"mp3" | b"wav" | b"flac" | b"ogg" | b"m4a" | b"aac" | b"opus" | b"wma" => Self::Audio,
+            b"mp4" | b"mkv" | b"avi" | b"mov" | b"webm" | b"wmv" | b"flv" | b"m4v" => Self::Video,
+            b"zip" | b"tar" | b"gz" | b"bz2" | b"xz" | b"zst" | b"7z" | b"rar" | b"jar"
+            | b"whl" => Self::Archive,
+            b"exe" | b"dll" | b"so" | b"dylib" | b"a" | b"o" | b"bin" | b"msi" | b"deb"
+            | b"rpm" => Self::Executable,
+            b"json" | b"yaml" | b"yml" | b"toml" | b"xml" | b"csv" | b"tsv" | b"db" | b"sqlite"
+            | b"log" | b"lock" | b"parquet" => Self::Data,
             _ => Self::Other,
         }
     }

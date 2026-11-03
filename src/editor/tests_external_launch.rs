@@ -153,3 +153,35 @@ fn test_mode_propagates_a_reload_failure_from_the_inactive_panel() -> io::Result
     assert_eq!(error.kind(), io::ErrorKind::NotFound);
     Ok(())
 }
+
+#[test]
+fn handle_edit_routes_headless_mode_and_prefixes_dash_relative_paths() -> io::Result<()> {
+    let temp_dir = TempDir::new()?;
+    let mut headless_app = build_app(&temp_dir);
+    headless_app.live.terminal_mode = crate::models::TerminalMode::Headless;
+    headless_app.left_panel.select(None);
+    let mut terminal = Terminal::new(WritableTestBackend::new(40, 8))?;
+    handle_edit(&mut terminal, &mut headless_app)?;
+    assert_eq!(headless_app.status_text(), "");
+
+    let mut dash_app = build_app(&temp_dir);
+    dash_app.left_panel.path = std::path::PathBuf::new();
+    *dash_app.left_panel.entries = vec![crate::models::DirEntry {
+        name: "-dash.txt".to_owned(),
+        kind: crate::models::EntryKind::File,
+        ..crate::models::DirEntry::default()
+    }];
+    dash_app.left_panel.select(Some(0));
+
+    let _session = SessionGuard::enter();
+    let _editor = EditorEnvGuard::set(Path::new("ffm-no-such-editor-dash-b7f19c4e"));
+    drop(handle_edit(&mut terminal, &mut dash_app));
+    assert!(
+        dash_app
+            .status_text()
+            .starts_with("Failed to launch editor:"),
+        "status was {:?}",
+        dash_app.status_text()
+    );
+    Ok(())
+}

@@ -36,6 +36,8 @@ fn network_mount_types_reject_relative_paths_and_control_characters() {
     assert!(MountPoint::try_from("relative".to_owned()).is_err());
     assert!(NetworkAddress::try_from("host\nshare".to_owned()).is_err());
     assert!(NetworkAddress::try_from("https://user:password@example.test/dav".to_owned()).is_err());
+    #[cfg(windows)]
+    assert!(discover::read_with(std::ffi::OsStr::new("ffm-missing-pwsh.exe")).is_err());
 }
 
 #[test]
@@ -59,4 +61,63 @@ fn discovering_drives_before_profile_save_preserves_legacy_sessions() {
     let path = temp.path().join("ffm.yml");
     save_to(&path, &[drive()]).expect("discover drives");
     assert_eq!(crate::sessions::SessionStore::load_from(path).len(), 1);
+}
+
+#[test]
+fn damaged_legacy_sessions_and_worker_errors_are_handled() {
+    use crate::test_support::{EnvVarGuard, CONFIG_HOME};
+
+    let temp = tempfile::TempDir::new().expect("temp");
+    std::fs::write(temp.path().join(crate::sessions::FILE_NAME), b"{broken").expect("broken");
+    let err = save_to(&temp.path().join("ffm.yml"), &[drive()]).expect_err("damaged legacy");
+    assert!(err.to_string().contains("legacy server profiles"));
+
+    start_with(|_| Err(io::Error::other("spawn failed")), refresh);
+    start_with(
+        |task| {
+            task();
+            Ok(())
+        },
+        || Err(io::Error::other("refresh failed")),
+    );
+    refresh_at(None).expect("no store path is a no-op");
+    let clean = tempfile::TempDir::new().expect("clean");
+    let _home = EnvVarGuard::set(CONFIG_HOME, clean.path());
+    drop(refresh());
+}
+
+#[test]
+fn parse_windows_output_validates_exit_status_and_mounts() {
+    use std::process::Command;
+
+    #[cfg(windows)]
+    let (ok_status, fail_status) = (
+        Command::new("cmd.exe")
+            .args(["/D", "/C", "exit /b 0"])
+            .status()
+            .unwrap(),
+        Command::new("cmd.exe")
+            .args(["/D", "/C", "exit /b 1"])
+            .status()
+            .unwrap(),
+    );
+    #[cfg(not(windows))]
+    let (ok_status, fail_status) = (
+        Command::new("sh").args(["-c", "exit 0"]).status().unwrap(),
+        Command::new("sh").args(["-c", "exit 1"]).status().unwrap(),
+    );
+    let failed_out = std::process::Output {
+        status: fail_status,
+        stdout: Vec::new(),
+        stderr: Vec::new(),
+    };
+    assert!(discover::parse_windows_output(&failed_out).is_err());
+
+    let valid_out = std::process::Output {
+        status: ok_status,
+        stdout: br#"[{"path":"Z:\\","remote":"\\\\server\\share"}]"#.to_vec(),
+        stderr: Vec::new(),
+    };
+    let parsed = discover::parse_windows_output(&valid_out).expect("parsed");
+    assert_eq!(parsed.len(), 1);
 }

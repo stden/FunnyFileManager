@@ -2,7 +2,7 @@
 //! title and alignment, and its cell's text from the cached directory facts,
 //! made printable — and the columns each view asks for.
 
-use crate::models::{DirEntry, EntryKind, Modified, Panel, PanelView};
+use crate::models::{DirEntry, EntryKind, Panel, PanelView};
 
 use super::super::super::{
     abbreviate_bytes, group_digits, head_cells, pad_cells, right_cells, size_field, Cells,
@@ -54,11 +54,6 @@ impl Column {
     }
 
     /// The text of one detail cell.
-    ///
-    /// Description, Owner and Links carry text from `descript.ion` files, from
-    /// the passwd database and from symlink targets, so they get the same
-    /// treatment a name does: nothing the terminal refuses to draw survives
-    /// into a width the row is budgeted by.
     pub(super) fn cell(self, panel: &Panel, entry: &DirEntry) -> String {
         crate::ui::printable_name(&self.raw_cell(panel, entry)).into_owned()
     }
@@ -69,9 +64,9 @@ impl Column {
             Self::GroupedSize => sized(entry, grouped_bytes(entry.size.bytes())),
             Self::Allocated => sized(entry, fitted_bytes(entry.allocated.bytes())),
             Self::Date => entry.modified.date(),
-            Self::Modified => stamp(entry.modified),
-            Self::Created => stamp(entry.created),
-            Self::Accessed => stamp(entry.accessed),
+            Self::Modified => entry.modified.stamp(),
+            Self::Created => entry.created.stamp(),
+            Self::Accessed => entry.accessed.stamp(),
             Self::Attributes => entry.attributes.to_string(),
             Self::Description => panel
                 .details
@@ -138,9 +133,8 @@ fn sized(entry: &DirEntry, bytes: String) -> String {
 }
 
 fn fitted_bytes(bytes: u64) -> String {
-    let exact = bytes.to_string();
-    if exact.len() <= 6 {
-        exact
+    if bytes < 1_000_000 {
+        bytes.to_string()
     } else {
         abbreviate_bytes(bytes)
     }
@@ -152,15 +146,6 @@ fn grouped_bytes(bytes: u64) -> String {
         grouped
     } else {
         abbreviate_bytes(bytes)
-    }
-}
-
-fn stamp(at: Modified) -> String {
-    let date = at.date();
-    if date.is_empty() {
-        String::new()
-    } else {
-        format!("{date} {}", at.time())
     }
 }
 

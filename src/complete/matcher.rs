@@ -133,6 +133,16 @@ fn bonus(previous: Option<usize>, index: usize, before: Option<char>) -> i32 {
     }
 }
 
+/// Deterministic comparison: `(tier desc, points desc, length asc, lexicographic asc)`.
+pub(super) fn cmp_ranked(a_score: Score, a: &str, b_score: Score, b: &str) -> std::cmp::Ordering {
+    b_score
+        .tier
+        .cmp(&a_score.tier)
+        .then(b_score.points.cmp(&a_score.points))
+        .then(a.len().cmp(&b.len()))
+        .then_with(|| a.cmp(b))
+}
+
 /// Keep the candidates matching `query`, best first.
 ///
 /// The ordering key is `(tier desc, points desc, length asc, lexicographic asc)`
@@ -145,14 +155,7 @@ pub fn rank(query: &str, candidates: Vec<String>) -> Vec<String> {
         .filter_map(|candidate| score(query, &candidate).map(|s| (s, candidate)))
         .collect();
 
-    scored.sort_by(|(a_score, a), (b_score, b)| {
-        b_score
-            .tier
-            .cmp(&a_score.tier)
-            .then(b_score.points.cmp(&a_score.points))
-            .then(a.len().cmp(&b.len()))
-            .then(a.cmp(b))
-    });
+    scored.sort_by(|(a_score, a), (b_score, b)| cmp_ranked(*a_score, a, *b_score, b));
 
     scored.into_iter().map(|(_, candidate)| candidate).collect()
 }

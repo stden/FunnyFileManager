@@ -120,3 +120,6 @@ fn settle_on(app: &mut App, name: &str) {
     drop(refresh_panels(app));
     app.get_active_panel().select_named(name);
 }
+
+#[cfg(test)]
+mod tests;

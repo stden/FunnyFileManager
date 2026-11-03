@@ -20,6 +20,8 @@ fn simultaneous_lists_have_distinct_names_and_encodings() {
     let mut lists = Lists::new(dir.path());
     let utf8 = lists.write(&panel, options("!@U!")).expect("UTF-8");
     let utf16 = lists.write(&panel, options("!@W!")).expect("UTF-16");
+    let short_list = lists.write(&panel, options("!$!")).expect("short list");
+    assert!(Path::new(&short_list).exists());
     assert_ne!(utf8, utf16);
     let text = format!(
         "файл с пробелами.txt{}",
@@ -61,6 +63,8 @@ fn native_code_pages_preserve_ascii_and_allow_empty_lists() {
         );
         assert_eq!(encode("", encoding).expect("empty").len(), 0);
     }
+    #[cfg(windows)]
+    assert!(native_convert(&[u16::from(b'a')], u32::MAX, &mut []).is_err());
 }
 
 #[test]

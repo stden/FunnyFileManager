@@ -2,11 +2,12 @@
 //! depth and age filters, never descending through a link.
 
 use crate::conversions::format_size;
+use crate::globmatch::CompiledGlob;
 use crate::tools::{json_response, patterns::FindParams};
-use crate::{globmatch, FfmServer};
+use crate::FfmServer;
 use rmcp::{model::CallToolResult, ErrorData as McpError};
 use serde_json::json;
-use std::{fs, path::Path};
+use std::{fs, path::Path, time::SystemTime};
 
 #[cfg(test)]
 mod tests;
@@ -19,75 +20,58 @@ pub fn find(server: &FfmServer, params: &FindParams) -> Result<CallToolResult, M
             None,
         ));
     }
-    if let Some(pattern) = &params.name {
-        globmatch::validate_pattern(pattern).map_err(|e| McpError::invalid_params(e, None))?;
-    }
+    let compiled = params
+        .name
+        .as_deref()
+        .map(CompiledGlob::compile)
+        .transpose()
+        .map_err(|e| McpError::invalid_params(e, None))?;
 
-    let now = std::time::SystemTime::now();
-    let mut results = Vec::new();
-    let mut visited = 0usize;
-
-    find_recursive(&root, 0, params, now, &mut results, &mut visited);
+    let mut run = FindRun {
+        params,
+        name_glob: compiled.as_ref(),
+        now: SystemTime::now(),
+        results: Vec::new(),
+        visited: 0,
+    };
+    find_recursive(&root, 0, &mut run);
 
     let result = json!({
         "root": root.display().to_string(),
-        "count": results.len(),
-        "results": results,
+        "count": run.results.len(),
+        "results": run.results,
     });
     Ok(json_response(&result))
 }
 
-fn find_recursive(
-    dir: &Path,
-    depth: usize,
-    params: &FindParams,
-    now: std::time::SystemTime,
-    results: &mut Vec<serde_json::Value>,
-    visited: &mut usize,
-) {
-    if results.len() >= params.max_results || *visited >= crate::walk::WALK_BUDGET {
-        return;
-    }
-    if params.max_depth.is_some_and(|max| depth > max) {
-        return;
-    }
+struct FindRun<'a> {
+    params: &'a FindParams,
+    name_glob: Option<&'a CompiledGlob<'a>>,
+    now: SystemTime,
+    results: Vec<serde_json::Value>,
+    visited: usize,
+}
 
+fn find_recursive(dir: &Path, depth: usize, run: &mut FindRun<'_>) {
+    if run.results.len() >= run.params.max_results || run.visited >= crate::walk::WALK_BUDGET {
+        return;
+    }
+    if run.params.max_depth.is_some_and(|max| depth > max) {
+        return;
+    }
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
-
     for entry in entries.flatten() {
-        if results.len() >= params.max_results || *visited >= crate::walk::WALK_BUDGET {
+        if run.results.len() >= run.params.max_results || run.visited >= crate::walk::WALK_BUDGET {
             return;
         }
-        *visited += 1;
-
-        visit_find_entry(&entry, depth, params, now, results, visited);
+        run.visited += 1;
+        visit_find_entry(&entry, depth, run);
     }
 }
 
-/// Filter metadata without following links; missing or future timestamps remain eligible.
-fn matches_filters(
-    name: &str,
-    kind: &str,
-    meta: &fs::Metadata,
-    params: &FindParams,
-    now: std::time::SystemTime,
-) -> bool {
-    if params
-        .name
-        .as_deref()
-        .is_some_and(|pattern| !globmatch::matches(name, pattern))
-    {
-        return false;
-    }
-    if params
-        .file_type
-        .as_deref()
-        .is_some_and(|wanted| wanted != kind)
-    {
-        return false;
-    }
+fn matches_metadata(meta: &fs::Metadata, params: &FindParams, now: SystemTime) -> bool {
     if params.min_size.is_some_and(|min| meta.len() < min)
         || params.max_size.is_some_and(|max| meta.len() > max)
     {
@@ -100,11 +84,7 @@ fn matches_filters(
 }
 
 /// Missing or future timestamps cannot prove that an entry is too old.
-fn modified_within(
-    modified: &std::io::Result<std::time::SystemTime>,
-    now: std::time::SystemTime,
-    secs: u64,
-) -> bool {
+fn modified_within(modified: &std::io::Result<SystemTime>, now: SystemTime, secs: u64) -> bool {
     let Ok(modified) = modified else {
         return true;
     };
@@ -114,40 +94,50 @@ fn modified_within(
     elapsed.as_secs() <= secs
 }
 
-fn visit_find_entry(
-    entry: &fs::DirEntry,
-    depth: usize,
-    params: &FindParams,
-    now: std::time::SystemTime,
-    results: &mut Vec<serde_json::Value>,
-    visited: &mut usize,
-) {
-    let name = entry.file_name().to_string_lossy().to_string();
-    let Ok(meta) = fs::symlink_metadata(entry.path()) else {
-        return;
-    };
+fn visit_find_entry(entry: &fs::DirEntry, depth: usize, run: &mut FindRun<'_>) {
+    let (is_symlink, is_dir) = entry.file_type().map_or((false, false), |ft| {
+        (ft.is_symlink(), ft.is_dir() && !ft.is_symlink())
+    });
+    let kind = entry_kind(is_symlink, is_dir);
+    let raw_name = entry.file_name();
+    let name = raw_name.to_string_lossy();
+    let eligible = run.name_glob.is_none_or(|glob| glob.matches(&name))
+        && run
+            .params
+            .file_type
+            .as_deref()
+            .is_none_or(|wanted| wanted == kind);
+    if eligible || is_dir {
+        let path = entry.path();
+        if eligible {
+            record_find_match(&path, &name, kind, run);
+        }
+        if is_dir {
+            find_recursive(&path, depth + 1, run);
+        }
+    }
+}
 
-    let is_dir = meta.is_dir();
-    let is_symlink = meta.is_symlink();
-    let file_type_str = if is_symlink {
+const fn entry_kind(is_symlink: bool, is_dir: bool) -> &'static str {
+    if is_symlink {
         "symlink"
     } else if is_dir {
         "dir"
     } else {
         "file"
-    };
-
-    if matches_filters(&name, file_type_str, &meta, params, now) {
-        results.push(json!({
-            "path": entry.path().display().to_string(),
-            "name": name,
-            "type": file_type_str,
-            "size": meta.len(),
-            "size_human": format_size(meta.len()),
-        }));
     }
+}
 
-    if is_dir && !is_symlink {
-        find_recursive(&entry.path(), depth + 1, params, now, results, visited);
+fn record_find_match(path: &Path, name: &str, kind: &str, run: &mut FindRun<'_>) {
+    if let Ok(meta) = fs::symlink_metadata(path) {
+        if matches_metadata(&meta, run.params, run.now) {
+            run.results.push(json!({
+                "path": path.display().to_string(),
+                "name": name,
+                "type": kind,
+                "size": meta.len(),
+                "size_human": format_size(meta.len()),
+            }));
+        }
     }
 }

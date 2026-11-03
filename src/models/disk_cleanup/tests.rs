@@ -121,4 +121,9 @@ fn windows_cache_rows_live_under_the_platform_cache_dir() {
     assert_cache_row(&rows, "Docker WSL disk", &local.join("Docker").join("wsl"));
     assert_cache_row(&rows, "Playwright browsers", &local.join("ms-playwright"));
     assert_cache_row(&rows, "pip cache", &local.join("pip").join("Cache"));
+
+    let fallback = super::platform_caches_from(None, Some(home.path()));
+    let home_local = home.path().join("AppData").join("Local");
+    assert_cache_row(&fallback, "JetBrains caches", &home_local.join("JetBrains"));
+    assert!(super::platform_caches_from(None, None).is_empty());
 }

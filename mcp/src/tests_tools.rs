@@ -46,7 +46,7 @@ fn write_file_at(path: &Path, content: &str) {
     fs::write(path, content).expect("write fixture file");
 }
 
-fn make_dir_link_cross(target: &Path, link: &Path) {
+pub fn make_dir_link_cross(target: &Path, link: &Path) {
     #[cfg(unix)]
     std::os::unix::fs::symlink(target, link).unwrap();
     #[cfg(windows)]

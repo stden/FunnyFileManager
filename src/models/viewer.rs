@@ -15,10 +15,6 @@ use crate::scroll::{ScrollLeft, ScrollTop, Scrolled};
 const EMPTY_FILE: &str = "<empty file>";
 
 /// The file behind a viewer, when there is one — a report has none.
-///
-/// Recorded when the file is opened, like the editor's `FileFormat`: the
-/// status line redraws every frame, and re-reading the file to learn its size
-/// each time would be paying again for a fact we had.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ViewedFile {
     pub path: PathBuf,
@@ -28,10 +24,6 @@ pub struct ViewedFile {
 
 /// Where a viewer's lines came from: a file on disk, or a report the program
 /// composed (`:mcp`, the Windows diagnostics).
-///
-/// An enum rather than a title plus an optional file, so a report is
-/// structurally unable to carry a size or an encoding, and the status line
-/// has one exhaustive match to draw from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ViewSource {
     /// A report, named by its title.
@@ -70,17 +62,9 @@ impl Viewer {
     }
 
     /// A viewer over a file's bytes, decoded the way F4 decodes them.
-    ///
-    /// [`TextEncoding::detect`] is the editor's: a byte-order mark names UTF-8
-    /// or UTF-16, valid UTF-8 is UTF-8, and anything else is the single-byte
-    /// code page the editor falls back to. So F3 and F4 never show one file
-    /// two ways, and the status line names a code page that was really
-    /// applied. Lossy, because the viewer never writes back: a byte the code
-    /// page cannot map shows as a replacement mark instead of failing the view.
     #[must_use]
     pub fn file(path: PathBuf, bytes: &[u8]) -> Self {
-        let encoding = TextEncoding::detect(bytes);
-        let text = encoding.decode_lossy_cow(bytes);
+        let (encoding, text) = TextEncoding::detect_and_decode_lossy(bytes);
         let mut lines: Vec<String> = text.lines().map(str::to_owned).collect();
         if lines.is_empty() {
             lines.push(EMPTY_FILE.to_owned());

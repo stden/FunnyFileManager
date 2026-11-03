@@ -23,8 +23,11 @@ use windows_sys::Win32::UI::WindowsAndMessaging::SW_HIDE;
 use super::nul_terminated;
 
 /// Open a document using the registered Windows handler, without waiting for it.
-#[allow(unsafe_code, reason = "std has no Windows file association API")]
 pub fn open_associated(path: &Path) -> io::Result<()> {
+    open_associated_with(path, shell_execute)
+}
+
+fn open_associated_with(path: &Path, exec: fn(&mut SHELLEXECUTEINFOW) -> i32) -> io::Result<()> {
     let verb = nul_terminated(OsStr::new("open"))?;
     let file = nul_terminated(path.as_os_str())?;
     let mut info = SHELLEXECUTEINFOW {
@@ -35,12 +38,16 @@ pub fn open_associated(path: &Path) -> io::Result<()> {
         nShow: windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL,
         ..SHELLEXECUTEINFOW::default()
     };
-    // SAFETY: both strings are NUL-terminated and live through this call;
-    // info is sized correctly, and no process handle is requested.
-    if unsafe { ShellExecuteExW(&raw mut info) } == 0 {
+    if exec(&mut info) == 0 {
         return Err(io::Error::last_os_error());
     }
     Ok(())
+}
+
+#[allow(unsafe_code, reason = "ShellExecuteExW dispatches shell verbs")]
+fn shell_execute(info: &mut SHELLEXECUTEINFOW) -> i32 {
+    // SAFETY: `info` is sized and its string pointers live through this synchronous call.
+    unsafe { ShellExecuteExW(&raw mut *info) }
 }
 
 const ELEVATION_LAUNCH_MASK: u32 = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
@@ -50,11 +57,14 @@ const ELEVATION_LAUNCH_MASK: u32 = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC | 
 #[allow(unsafe_code, reason = "std cannot read the process token's elevation")]
 #[must_use]
 pub fn is_elevated() -> bool {
-    let mut token: HANDLE = std::ptr::null_mut();
     // SAFETY: takes nothing and returns a pseudo-handle that needs no closing.
-    let process = unsafe { GetCurrentProcess() };
-    // SAFETY: `process` is this process' pseudo-handle, and `token` a valid
-    // place for the handle the call opens.
+    is_process_elevated(unsafe { GetCurrentProcess() })
+}
+
+#[allow(unsafe_code, reason = "std cannot read the process token's elevation")]
+fn is_process_elevated(process: HANDLE) -> bool {
+    let mut token: HANDLE = std::ptr::null_mut();
+    // SAFETY: `process` is queried by Win32 and `token` receives any opened handle.
     if unsafe { OpenProcessToken(process, TOKEN_QUERY, &raw mut token) } == 0 {
         return false;
     }
@@ -118,19 +128,24 @@ impl ElevatedProcess {
 /// # Errors
 ///
 /// The OS error of a launch that did not happen, a refused prompt included.
+pub fn launch_as_administrator(program: &Path, parameters: &OsStr) -> io::Result<ElevatedProcess> {
+    launch_as_administrator_with(program, parameters, shell_execute)
+}
+
 #[allow(
     unsafe_code,
-    reason = "only ShellExecuteEx's \"runas\" verb asks Windows to elevate a program"
+    reason = "SEE_MASK_NOCLOSEPROCESS transfers ownership of hProcess to ElevatedProcess"
 )]
-pub fn launch_as_administrator(program: &Path, parameters: &OsStr) -> io::Result<ElevatedProcess> {
+fn launch_as_administrator_with(
+    program: &Path,
+    parameters: &OsStr,
+    exec: impl FnOnce(&mut SHELLEXECUTEINFOW) -> i32,
+) -> io::Result<ElevatedProcess> {
     let verb = nul_terminated(OsStr::new("runas"))?;
     let file = nul_terminated(program.as_os_str())?;
     let arguments = nul_terminated(parameters)?;
     let mut info = shell_execute_info(&verb, &file, &arguments);
-    // SAFETY: every string `info` points at is NUL-terminated UTF-16 that
-    // outlives the call; `info` itself is a valid, sized structure the call
-    // may write the process handle into.
-    if unsafe { ShellExecuteExW(&raw mut info) } == 0 {
+    if exec(&mut info) == 0 {
         return Err(io::Error::last_os_error());
     }
     if info.hProcess.is_null() {

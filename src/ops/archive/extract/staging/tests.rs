@@ -4,7 +4,7 @@ use std::fs;
 
 use tempfile::TempDir;
 
-use super::{plain_tree, settle};
+use super::{existing, plain_tree, settle};
 
 #[test]
 fn a_link_unpacked_into_the_staging_folder_is_refused() {
@@ -47,4 +47,5 @@ fn settle_merges_staged_directory_and_refuses_destination_link_clash() {
     crate::test_support::make_dir_link(dest.path(), &dest2.path().join("linked")).expect("link");
     let err = settle(staging2.path(), dest2.path()).expect_err("link clash");
     assert!(err.to_string().contains("is a link"), "{err}");
+    assert!(existing(std::path::Path::new("bad\0name")).is_err());
 }

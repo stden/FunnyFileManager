@@ -70,5 +70,39 @@ fn elevated_process_tracks_child_pid_and_exit_state() {
         }
         std::thread::sleep(std::time::Duration::from_millis(50));
     }
+    assert!(!is_process_elevated(std::ptr::null_mut()));
     assert!(wrapped_running.has_exited());
+}
+
+#[test]
+fn shell_execute_wrappers_cover_missing_targets_success_and_null_handles() {
+    use std::os::windows::io::IntoRawHandle;
+    use std::os::windows::process::CommandExt;
+    use std::process::Command;
+
+    let temp = tempfile::tempdir().unwrap();
+    let missing = temp.path().join("absent-target-file.noext");
+    assert!(open_associated(&missing).is_err());
+    open_associated_with(&missing, |_| 1).expect("stubbed open_associated");
+
+    assert!(launch_as_administrator(&missing, OsStr::new("")).is_err());
+    let no_proc = launch_as_administrator_with(&missing, OsStr::new(""), |_| 1)
+        .map(|_| ())
+        .unwrap_err();
+    assert_eq!(no_proc.to_string(), "Windows started no process");
+
+    let mut child = Command::new("cmd.exe")
+        .args(["/D", "/C", "exit /b 0"])
+        .creation_flags(0x0800_0000)
+        .spawn()
+        .unwrap();
+    let expected_pid = child.id();
+    child.wait().unwrap();
+    let raw = OwnedHandle::from(child).into_raw_handle();
+    let elevated = launch_as_administrator_with(&missing, OsStr::new(""), move |info| {
+        info.hProcess = raw;
+        1
+    })
+    .expect("owned process handle");
+    assert_eq!(elevated.id(), expected_pid);
 }

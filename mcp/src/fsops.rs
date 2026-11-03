@@ -29,12 +29,9 @@ pub use remove_moved::{remove_moved, FORCE_REMOVAL_REFUSAL};
 pub fn remove_entry(path: &Path, recursive: bool) -> io::Result<()> {
     let meta = fs::symlink_metadata(path)?;
 
-    if meta.is_symlink() {
-        #[cfg(windows)]
-        if std::os::windows::fs::FileTypeExt::is_symlink_dir(&meta.file_type()) {
-            return fs::remove_dir(path);
-        }
-        return fs::remove_file(path);
+    #[cfg(windows)]
+    if std::os::windows::fs::FileTypeExt::is_symlink_dir(&meta.file_type()) {
+        return fs::remove_dir(path);
     }
 
     if meta.is_dir() {
@@ -104,6 +101,16 @@ fn ensure_replaceable_regular_file(path: &Path) -> io::Result<fs::Metadata> {
         ));
     }
     Ok(meta)
+}
+
+/// Direct child file names currently occupying `dir`, or empty when unreadable.
+pub fn occupied_names(dir: &Path) -> std::collections::HashSet<std::ffi::OsString> {
+    fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.file_name())
+        .collect()
 }
 
 /// Set or clear the read-only flag without widening access.

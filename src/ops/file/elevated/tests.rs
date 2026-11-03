@@ -80,6 +80,7 @@ mod unsupported;
 fn retry_as_administrator_does_nothing_without_a_retry() {
     let dir = TempDir::new().unwrap();
     let mut app = app_in(dir.path());
+    assert_eq!(available(), cfg!(any(windows, target_os = "linux")));
     assert!(!session_active());
     retry_as_administrator(&mut app);
     assert!(matches!(app.overlay, Overlay::None));

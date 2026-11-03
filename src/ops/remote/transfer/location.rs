@@ -12,7 +12,7 @@ pub(in crate::ops::remote) fn metadata(
         FileLocation::Remote { link, path } => link.lock().stat(path),
         FileLocation::Local(path) => {
             let stat = fs::symlink_metadata(path)?;
-            let kind = if stat.is_symlink() {
+            let kind = if is_local_link(&stat) {
                 EntryKind::SymlinkToFile
             } else if stat.is_dir() {
                 EntryKind::Directory
@@ -64,13 +64,14 @@ pub(super) fn children(location: &FileLocation) -> Result<Vec<String>, RemoteErr
             })
             .collect(),
         FileLocation::Local(path) => fs::read_dir(path)?
-            .map(|entry| {
-                entry?.file_name().into_string().map_err(|_protocol_error| {
-                    RemoteError::InvalidInput("cannot transfer a non-UTF-8 name")
-                })
-            })
+            .map(|entry| utf8_name(entry?.file_name()))
             .collect(),
     }
+}
+
+pub(in crate::ops::remote) fn utf8_name(name: std::ffi::OsString) -> Result<String, RemoteError> {
+    name.into_string()
+        .map_err(|_protocol_error| RemoteError::InvalidInput("cannot transfer a non-UTF-8 name"))
 }
 
 #[cfg(unix)]
@@ -102,4 +103,16 @@ fn set_local_mode(path: &Path, mode: UnixMode) -> Result<(), RemoteError> {
 )]
 fn set_local_mode(_path: &Path, _mode: UnixMode) -> Result<(), RemoteError> {
     Ok(())
+}
+
+#[cfg(windows)]
+fn is_local_link(metadata: &fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt;
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+    metadata.is_symlink() || (metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0)
+}
+
+#[cfg(not(windows))]
+fn is_local_link(metadata: &fs::Metadata) -> bool {
+    metadata.is_symlink()
 }

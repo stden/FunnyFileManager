@@ -59,19 +59,19 @@ impl KdbxSession {
         if self.access == Access::View {
             return false;
         }
-        let result = {
+        let (id, result) = {
             let Some(vault) = self.vault() else {
                 return false;
             };
             let Some(form) = vault.form() else {
                 return false;
             };
-            save_form(&self.path, vault, form)
+            (form.origin_id(), save_form(&self.path, vault, form))
         };
         self.touch(now);
         match result {
             Ok(()) => {
-                self.finish_save(now);
+                self.finish_save(id, now);
                 self.undo = UndoState::Available;
                 true
             }
@@ -86,31 +86,17 @@ impl KdbxSession {
 
     /// After a successful write: close the form and re-derive the summaries,
     /// so the list shows what the file now says rather than a local patch.
-    fn finish_save(&mut self, now: Instant) {
-        let catalog = {
-            let Some(vault) = self.vault() else {
-                return;
-            };
-            keepass::read_catalog(&self.path, vault.master().expose(), vault.keyfile())
-        };
-        let Some(vault) = self.vault_mut() else {
-            return;
-        };
-        let Some(form) = vault.form() else {
-            return;
-        };
-        // The identity, taken before the form goes away. Reselecting by it —
-        // never by index, because the listing order is unstable across reads,
-        // and never by title, because a title can be shared.
-        let id = form.origin_id();
-        vault.clear_edit();
-        if let Ok(catalog) = catalog {
-            vault.replace_catalog(catalog.entries, catalog.groups, now);
-            vault.select_entry_by_id(id);
+    pub(in crate::kdbx) fn finish_save(&mut self, id: keepass::EntryId, now: Instant) {
+        let catalog = self
+            .vault()
+            .and_then(|v| keepass::read_catalog(&self.path, v.master().expose(), v.keyfile()).ok());
+        if let Some(vault) = self.vault_mut() {
+            vault.clear_edit();
+            if let Some(catalog) = catalog {
+                vault.replace_catalog(catalog.entries, catalog.groups, now);
+                vault.select_entry_by_id(id);
+            }
         }
-        // A failed re-list keeps the stale summaries: the save itself
-        // succeeded, and reporting a failure here would invite a second
-        // write. The next unlock re-reads the file anyway.
     }
 }
 
@@ -120,7 +106,7 @@ impl KdbxSession {
 /// may sit near logging code, so nothing derived from the credentials or the
 /// entry is allowed through. `Save` / `Io` texts are upstream or OS strings —
 /// a kdbx3 vault surfaces the writer's unsupported-version text here.
-fn save_error_message(error: &KeepassError) -> String {
+pub(in crate::kdbx) fn save_error_message(error: &KeepassError) -> String {
     match error {
         KeepassError::EntryNotFound => "Entry no longer exists in the vault".to_owned(),
         KeepassError::AlreadyExists => "An entry with that title already exists".to_owned(),

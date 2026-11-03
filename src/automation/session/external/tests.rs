@@ -77,5 +77,5 @@ fn failed_spawn_is_reported_without_a_fabricated_exit_code() {
     assert!(snapshot(&host)["code"].is_null());
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 mod process;

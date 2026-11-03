@@ -1,19 +1,17 @@
 //! Bounded filesystem search for menu commands.
 
-use crate::{
-    command::language::SettingsPage,
-    mask::Mask,
-    models::{App, MenuChoice, MenuPrompt},
-};
-use std::{
-    fs, io,
-    path::{Path, PathBuf},
-    time::{Duration, Instant},
-};
+use crate::command::language::SettingsPage;
+use crate::mask::Mask;
+use crate::models::{App, MenuChoice, MenuPrompt};
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
+use std::{fs, io};
 
 #[cfg(test)]
 mod deny_reads;
 mod results;
+#[cfg(test)]
+mod tests;
 mod text;
 use results::{add_result, report, Limit};
 use text::{file_contains, fold, Scan};
@@ -41,8 +39,7 @@ pub(super) fn find_within(
     time: Duration,
 ) {
     let root = app.get_active_panel_ref().path.clone();
-    let deadline = Instant::now() + time;
-    let mut search = Search::prepare(app, pattern, folders, containing, deadline);
+    let mut search = Search::prepare(app, pattern, folders, containing, Instant::now() + time);
     let _run = crate::progress::begin(
         crate::progress::Operation::Find,
         std::slice::from_ref(&root),
@@ -116,7 +113,7 @@ impl Search {
             if !self.take() {
                 return;
             }
-            self.consider(root, &entry, depth, pending);
+            self.consider(root, &entry, entry.file_type().ok(), depth, pending);
         }
     }
 
@@ -144,17 +141,16 @@ impl Search {
         &mut self,
         root: &Path,
         entry: &fs::DirEntry,
+        kind: Option<fs::FileType>,
         depth: usize,
         pending: &mut Vec<(PathBuf, usize)>,
     ) {
-        let Ok(kind) = entry.file_type() else {
-            return;
-        };
+        let Some(kind) = kind else { return };
         if kind.is_dir() && depth < self.depth_limit {
             pending.push((entry.path(), depth + 1));
         }
-        let name = entry.file_name();
-        if kind.is_dir() == self.folders && self.mask.matches(&name.to_string_lossy()) {
+        if kind.is_dir() == self.folders && self.mask.matches(&entry.file_name().to_string_lossy())
+        {
             let path = entry.path();
             if self.text_matches(&path) {
                 crate::progress::matched();

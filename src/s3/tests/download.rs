@@ -167,3 +167,18 @@ fn test_download_rejects_oversized_content_length_without_overwriting() -> io::R
     assert_eq!(fs::read_to_string(&dest)?, "intact");
     Ok(())
 }
+
+#[test]
+fn test_download_rejects_oversized_body_when_content_length_header_is_absent() -> io::Result<()> {
+    let dir = TempDir::new()?;
+    let dest = dir.path().join("keep.txt");
+    fs::write(&dest, "intact")?;
+
+    let client = build_test_client(vec![get_event("bucket", "stream.bin", "12345")]);
+    let err = client
+        .download_object_limited("bucket", "stream.bin", &dest, 4)
+        .expect_err("body exceeds configured limit");
+    assert!(err.to_string().contains("100 MiB"), "{err}");
+    assert_eq!(fs::read_to_string(&dest)?, "intact");
+    Ok(())
+}

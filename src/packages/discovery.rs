@@ -5,19 +5,19 @@ use std::path::{Path, PathBuf};
 use super::{Elevation, Manager, UpdatePlan};
 use crate::prompt::Privilege;
 
+#[cfg(windows)]
+const PLATFORM_MANAGERS: &[Manager] = &[Manager::Chocolatey];
+#[cfg(target_os = "macos")]
+const PLATFORM_MANAGERS: &[Manager] = &[Manager::Brew];
+#[cfg(not(any(windows, target_os = "macos")))]
+const PLATFORM_MANAGERS: &[Manager] = &[Manager::Apt, Manager::Brew];
+
 pub fn detect() -> Option<UpdatePlan> {
     let path = std::env::var_os("PATH")?;
     let directories: Vec<_> = std::env::split_paths(&path)
         .filter(|path| path.is_absolute())
         .collect();
-    let managers: &[Manager] = if cfg!(windows) {
-        &[Manager::Chocolatey]
-    } else if cfg!(target_os = "macos") {
-        &[Manager::Brew]
-    } else {
-        &[Manager::Apt, Manager::Brew]
-    };
-    discover(managers, &directories)
+    discover(PLATFORM_MANAGERS, &directories)
 }
 
 pub(super) fn discover(managers: &[Manager], directories: &[PathBuf]) -> Option<UpdatePlan> {

@@ -143,6 +143,8 @@ fn noop_terminal_ops_touch_neither_the_backend_nor_the_bytes() {
     ops.disable_mouse(&mut terminal).expect("disable mouse");
     ops.clear(&mut terminal).expect("clear");
     ops.show_cursor(&mut terminal).expect("show cursor");
+    ops.wait_for_key(&mut terminal, "Prompt")
+        .expect("wait for key");
     let pushed = ops.enable_keyboard(&mut terminal).expect("enable keyboard");
     let popped = ops
         .disable_keyboard(&mut terminal)
@@ -188,5 +190,8 @@ fn session_terminal_mut_hands_back_the_borrowed_terminal() {
 /// it is best-effort restoration after an abort.
 #[test]
 fn restore_after_abort_does_not_panic() {
+    restore_after_abort();
+    let host = headless::HeadlessHost::new();
+    let _scope = host.enter();
     restore_after_abort();
 }

@@ -69,3 +69,6 @@ where
     });
     receiver
 }
+
+#[cfg(test)]
+mod tests;

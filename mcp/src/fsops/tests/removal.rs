@@ -5,16 +5,15 @@ use crate::fsops::remove_entry;
 use std::fs;
 use tempfile::TempDir;
 
-#[cfg(unix)]
 #[test]
 fn deleting_a_link_to_a_directory_keeps_the_target() {
     let dir = TempDir::new().expect("temp dir");
-    let tree = dir.path().join("data/tree");
+    let tree = dir.path().join("data").join("tree");
     fs::create_dir_all(&tree).expect("mkdir");
     fs::write(tree.join("keep.txt"), "keep").expect("write");
 
     let link = dir.path().join("link_to_tree");
-    std::os::unix::fs::symlink(&tree, &link).expect("symlink");
+    crate::tests_tools::make_dir_link_cross(&tree, &link);
 
     remove_entry(&link, true).expect("removing the link must succeed");
 

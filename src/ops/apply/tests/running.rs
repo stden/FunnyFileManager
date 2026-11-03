@@ -78,3 +78,24 @@ fn commands_follow_panel_order_and_processed_marks_can_be_restored() {
     panel.restore_marks();
     assert_eq!(panel.marked, original);
 }
+
+#[test]
+fn empty_commands_succeed_preserve_name_noop_passes_and_cancellation_stops_remaining_batch() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut app = app_at(&dir);
+    let mut ctx = context::capture(&app, "a.txt");
+    ctx.left.entry = crate::models::apply::Names::same("");
+    assert!(super::super::run_entry(&mut app, "!+!", &ctx, dir.path(), dir.path()).unwrap());
+
+    let names = vec!["a.txt".to_owned(), "b.txt".to_owned()];
+    let failed = super::super::run_batch_with(
+        &mut app,
+        "echo !.",
+        &names,
+        dir.path(),
+        dir.path(),
+        |_, _| Err(super::super::ShellError::Cancelled),
+    )
+    .expect("batch");
+    assert_eq!(failed, 2);
+}

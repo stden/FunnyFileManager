@@ -166,3 +166,19 @@ fn colon_commands_open_stats_wsl_cleanup_and_sessions() {
     app.close_overlay();
     execute_command(&mut app, "sessions").expect("sessions");
 }
+
+#[test]
+fn bookmark_set_keeps_in_memory_slot_when_persistence_fails() {
+    let temp = TempDir::new().expect("tempdir");
+    let blocker = temp.path().join("not-a-directory");
+    fs::write(&blocker, b"file").expect("blocker file");
+    let _xdg = crate::test_support::EnvVarGuard::set("XDG_DATA_HOME", &blocker);
+
+    let mut app = make_app(&temp);
+    app.bookmarks = crate::models::Bookmarks::load();
+    execute_command(&mut app, "bookmark set 0").expect("set succeeds in memory");
+    assert_eq!(
+        app.bookmarks.get(BookmarkSlot::new(0).expect("slot")),
+        Some(temp.path())
+    );
+}

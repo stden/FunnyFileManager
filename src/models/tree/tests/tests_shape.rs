@@ -82,6 +82,9 @@ fn reveal_expands_every_ancestor_and_lands_the_cursor_on_the_path() {
         Some(Path::new("/home/bob")),
         "cursor stays"
     );
+
+    let mut scoped = FolderTree::rooted_at(PathBuf::from("/home"));
+    assert!(!scoped.reveal(Path::new("/etc/ssh"), &mut lister));
 }
 
 #[test]

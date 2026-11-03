@@ -39,29 +39,20 @@ struct Columns {
     free: String,
 }
 
-/// Column text for a disk row, or `None` for anything else.
+/// Column text for a disk row.
 ///
 /// A drive that will not report its size — an empty bay, a share that has gone
 /// away — leaves those columns blank rather than claiming zero bytes.
-fn columns(kind: &RowKind) -> Option<Columns> {
-    let RowKind::Disk {
-        label,
-        device,
-        space,
-    } = kind
-    else {
-        return None;
-    };
-    let name = device.label();
-    Some(Columns {
+fn columns(label: &str, name: &str, space: Option<(u64, u64)>) -> Columns {
+    Columns {
         label: if name.is_empty() {
-            label.clone()
+            label.to_owned()
         } else {
             format!("{label} {name}")
         },
-        total: space.map_or_else(String::new, |s| abbreviate_bytes(s.total)),
-        free: space.map_or_else(String::new, |s| abbreviate_bytes(s.available)),
-    })
+        total: space.map_or_else(String::new, |(total, _)| abbreviate_bytes(total)),
+        free: space.map_or_else(String::new, |(_, available)| abbreviate_bytes(available)),
+    }
 }
 
 /// How wide each column has to be for every row to fit without clipping.
@@ -84,13 +75,22 @@ impl Widths {
             disks: 0,
         };
         for row in rows {
-            if let Some(cols) = columns(&row.kind) {
-                widths.disks += 1;
-                widths.label = widths.label.max(Cells::of(&cols.label).get());
-                widths.total = widths.total.max(Cells::of(&cols.total).get());
-                widths.free = widths.free.max(Cells::of(&cols.free).get());
-            } else if let RowKind::Plugin { name } = &row.kind {
-                widths.plugin = widths.plugin.max(Cells::of(name).get() + HOTKEY_CELLS);
+            match &row.kind {
+                RowKind::Disk {
+                    label,
+                    device,
+                    space,
+                } => {
+                    let cols =
+                        columns(label, device.label(), space.map(|s| (s.total, s.available)));
+                    widths.disks += 1;
+                    widths.label = widths.label.max(Cells::of(&cols.label).get());
+                    widths.total = widths.total.max(Cells::of(&cols.total).get());
+                    widths.free = widths.free.max(Cells::of(&cols.free).get());
+                }
+                RowKind::Plugin { name } => {
+                    widths.plugin = widths.plugin.max(Cells::of(name).get() + HOTKEY_CELLS);
+                }
             }
         }
         widths

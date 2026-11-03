@@ -39,21 +39,28 @@ fn cmd_line(command: &ShellCommand) -> String {
     format!("cmd.exe /D /S /K \"{escaped}\"")
 }
 
+fn resolve_shell(
+    comspec: Option<std::ffi::OsString>,
+    system_root: Option<std::ffi::OsString>,
+) -> std::ffi::OsString {
+    comspec
+        .filter(|s| Path::new(s).is_absolute())
+        .unwrap_or_else(|| {
+            system_root
+                .map_or_else(
+                    || std::path::PathBuf::from(r"C:\Windows\System32\cmd.exe"),
+                    |r| std::path::PathBuf::from(r).join(r"System32\cmd.exe"),
+                )
+                .into_os_string()
+        })
+}
+
 fn spawn_with_startup(
     command: &ShellCommand,
     current_dir: &Path,
     startup: &STARTUPINFOW,
 ) -> io::Result<OwnedHandle> {
-    let shell = std::env::var_os("COMSPEC")
-        .filter(|s| Path::new(s).is_absolute())
-        .unwrap_or_else(|| {
-            std::env::var_os("SystemRoot")
-                .map_or_else(
-                    || std::path::PathBuf::from("C:\\Windows\\System32\\cmd.exe"),
-                    |r| std::path::PathBuf::from(r).join("System32\\cmd.exe"),
-                )
-                .into_os_string()
-        });
+    let shell = resolve_shell(std::env::var_os("COMSPEC"), std::env::var_os("SystemRoot"));
     let shell = wide(&shell)?;
     // /S strips only the outer quotes. Keep the user's argument quoting intact;
     // /K leaves errors (including a missing codex installation) visible.

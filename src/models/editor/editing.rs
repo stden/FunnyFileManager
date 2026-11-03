@@ -9,10 +9,9 @@ impl Editor {
         self.ensure_line();
         let line = self.cursor_line;
         let at = self.byte_col(self.cursor_col);
-        let Some(text) = self.line_mut() else {
-            return;
-        };
-        text.insert(at, ch);
+        if let Some(text) = self.line_mut() {
+            text.insert(at, ch);
+        }
         self.cursor_col += 1;
         self.note_dirty(line, line + 1);
         self.mark_modified();
@@ -23,10 +22,9 @@ impl Editor {
         self.ensure_line();
         let line = self.cursor_line;
         let at = self.byte_col(self.cursor_col);
-        let Some(text) = self.line_mut() else {
-            return;
-        };
-        let rest = text.split_off(at);
+        let rest = self
+            .line_mut()
+            .map_or_else(String::new, |text| text.split_off(at));
         self.lines.insert(line + 1, rest);
         self.cursor_line += 1;
         self.cursor_col = 0;
@@ -70,10 +68,9 @@ impl Editor {
         if self.cursor_col < self.line_char_len() {
             let line = self.cursor_line;
             let at = self.byte_col(self.cursor_col);
-            let Some(text) = self.line_mut() else {
-                return;
-            };
-            text.remove(at);
+            if let Some(text) = self.line_mut() {
+                text.remove(at);
+            }
             self.note_dirty(line, line + 1);
             self.mark_modified();
         } else if self.cursor_line + 1 < self.lines.len() {

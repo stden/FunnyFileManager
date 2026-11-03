@@ -66,3 +66,17 @@ fn a_write_failure_is_an_internal_error_and_preserves_the_original_bytes() {
 fn a_path_without_a_parent_needs_no_directory_creation() {
     create_parent(std::path::Path::new("")).unwrap();
 }
+
+#[test]
+fn create_file_maps_non_collision_open_errors_to_internal_error() {
+    let root = tempfile::tempdir().unwrap();
+    let server = server(&root);
+    let error = server
+        .create_file(Parameters(CreateFileParams {
+            path: "a".repeat(300),
+            content: Some("data".into()),
+        }))
+        .unwrap_err();
+    drop(server);
+    assert_eq!(error.code, rmcp::model::ErrorCode::INTERNAL_ERROR);
+}

@@ -68,7 +68,7 @@ pub(super) fn apply_command(app: &mut App, command: VaultCommand, now: Instant) 
     true
 }
 
-fn edit_form_input(app: &mut App, key: KeyEvent, now: Instant) {
+pub(super) fn edit_form_input(app: &mut App, key: KeyEvent, now: Instant) {
     let Some(session) = app.kdbx_session_mut() else {
         return;
     };
@@ -103,7 +103,7 @@ pub(super) fn confirm_edit_input(
     }
 }
 
-fn edit_key(session: &mut crate::kdbx::KdbxSession, key: KeyEvent, now: Instant) {
+pub(super) fn edit_key(session: &mut crate::kdbx::KdbxSession, key: KeyEvent, now: Instant) {
     let Some(form) = session.vault_mut().and_then(Vault::form_mut) else {
         return;
     };

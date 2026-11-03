@@ -78,3 +78,64 @@ fn a_root_replaced_after_validation_is_never_walked() {
     assert_eq!(scanned.bytes.bytes(), 0);
     assert_eq!(fs::read(path.join("keep")).unwrap(), b"new root");
 }
+
+#[test]
+fn scan_handles_unreadable_root_and_child_directories() {
+    let root = tempfile::TempDir::new().unwrap();
+    let sub = root.path().join("sub");
+    fs::create_dir(&sub).unwrap();
+
+    assert!(matches!(
+        scan_plan_with(plan(root.path()), MAX_ENTRIES, |_| {
+            Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+        }),
+        Err(TempError::Scan)
+    ));
+
+    let root_canon = plan(root.path()).root.path;
+    let partial = scan_plan_with(plan(root.path()), MAX_ENTRIES, |dir| {
+        if dir == root_canon {
+            fs::read_dir(dir)
+        } else {
+            Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+        }
+    })
+    .unwrap();
+    assert_eq!(partial.skipped, 1);
+}
+
+#[test]
+fn inspect_skips_snapshot_failures() {
+    let root = tempfile::TempDir::new().unwrap();
+    let old = root.path().join("old.tmp");
+    fs::write(&old, b"old").unwrap();
+    fs::File::options()
+        .write(true)
+        .open(&old)
+        .unwrap()
+        .set_modified(SystemTime::now() - std::time::Duration::from_hours(192))
+        .unwrap();
+
+    let mut snap_plan = plan(root.path());
+    let file_entry = fs::read_dir(root.path()).unwrap().next().unwrap();
+    inspect_with(file_entry, &mut snap_plan, &mut Vec::new(), |_, _| {
+        Err(std::io::Error::other("id error"))
+    })
+    .unwrap();
+    assert_eq!(snap_plan.skipped, 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn inspect_skips_cross_device_entries() {
+    let root = tempfile::TempDir::new().unwrap();
+    fs::write(root.path().join("old.tmp"), b"old").unwrap();
+    let mut dev_plan = plan(root.path());
+    dev_plan.root.identity = crate::models::temp_cleanup::FileIdentity(file_id::FileId::Inode {
+        device_id: u64::MAX,
+        inode_number: 1,
+    });
+    let entry = fs::read_dir(root.path()).unwrap().next().unwrap();
+    inspect(entry, &mut dev_plan, &mut Vec::new()).unwrap();
+    assert_eq!(dev_plan.skipped, 1);
+}

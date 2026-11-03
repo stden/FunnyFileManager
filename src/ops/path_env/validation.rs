@@ -40,19 +40,23 @@ pub(super) fn expand(text: &str, resolve: impl Fn(&str) -> Option<String>) -> Op
     Some(out)
 }
 
+#[cfg(windows)]
 fn variable(text: &str) -> Option<(&str, &str)> {
-    if cfg!(windows) {
-        windows_variable(text)
-    } else {
-        unix_variable(text)
-    }
+    windows_variable(text)
 }
 
+#[cfg(not(windows))]
+fn variable(text: &str) -> Option<(&str, &str)> {
+    unix_variable(text)
+}
+
+#[cfg(any(windows, test))]
 pub(super) fn windows_variable(text: &str) -> Option<(&str, &str)> {
     let rest = text.strip_prefix('%')?;
     rest.split_once('%')
 }
 
+#[cfg(any(not(windows), test))]
 pub(super) fn unix_variable(text: &str) -> Option<(&str, &str)> {
     let rest = text.strip_prefix('$')?;
     if let Some(rest) = rest.strip_prefix('{') {

@@ -131,10 +131,24 @@ fn modal_paste_labels_identify_the_context_without_recording_private_text() {
 #[test]
 fn the_language_servers_dialog_labels_its_own_actions() {
     let machine = crate::test_support::lsp_machine::LspMachine::new();
-    let app = machine.opened();
+    let mut app = machine.opened();
     assert_eq!(
         label(&app, &Event::Paste("private payload".into())),
         "LspEditor/Paste"
+    );
+    app.set_overlay(Overlay::PathEditor(Box::new(
+        crate::path_env::PathEditor::new(
+            crate::path_env::Scope::User,
+            crate::path_env::Snapshot {
+                value: String::new(),
+                revision: String::new(),
+                location: String::new(),
+            },
+        ),
+    )));
+    assert_eq!(
+        label(&app, &Event::Paste("private payload".into())),
+        "PathEditor/Paste"
     );
 }
 

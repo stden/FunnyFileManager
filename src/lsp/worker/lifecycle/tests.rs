@@ -145,3 +145,17 @@ fn an_invalid_executable_fails_after_explicit_workspace_approval() {
     ));
     assert!(matches!(host.session, Session::Closed));
 }
+
+#[test]
+fn document_path_rejects_uncanonicalizable_paths() {
+    let root = project_root();
+    #[cfg(unix)]
+    let uncanonical = {
+        let regular = root.path().join("regular.rs");
+        std::fs::write(&regular, "fn main() {}").unwrap();
+        regular.join("child")
+    };
+    #[cfg(windows)]
+    let uncanonical = root.path().join("bad*name.rs");
+    assert!(document_path(&uncanonical).is_err());
+}

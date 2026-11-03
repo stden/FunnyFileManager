@@ -6,7 +6,7 @@ use std::borrow::Cow;
 
 use crate::models::{CharColumn, TabSize};
 
-use super::{skip_cells, Cells};
+use super::Cells;
 
 /// Cells occupied by the first `column` characters of the editor line `text`,
 /// each TAB reaching the next stop of `tab`.
@@ -86,14 +86,28 @@ impl EditorLine<'_> {
     }
 
     /// The cells a window that starts `skip` cells in actually drops — see
-    /// [`skip_cells`] for why that can differ from `skip`.
+    /// [`super::skip_cells`] for why that can differ from `skip`.
     pub(in crate::ui) fn dropped(self, skip: Cells) -> Cells {
-        skip_cells(&expand_tabs(self.text, Cells::ZERO, self.tab), skip).1
+        if skip.is_zero() {
+            return Cells::ZERO;
+        }
+        if super::is_printable_ascii(self.text) {
+            return Cells(self.text.len().min(skip.0));
+        }
+        let mut used = Cells::ZERO;
+        for ch in self.text.chars() {
+            if used >= skip {
+                break;
+            }
+            let next = advance(used, ch, self.tab);
+            used = if ch == '\t' { next.min(skip) } else { next };
+        }
+        used
     }
 
     /// The width of the whole line.
     pub(in crate::ui) fn width(self) -> Cells {
-        Cells::of(&expand_tabs(self.text, Cells::ZERO, self.tab))
+        cells_before(self.text, CharColumn::new(usize::MAX), self.tab)
     }
 }
 

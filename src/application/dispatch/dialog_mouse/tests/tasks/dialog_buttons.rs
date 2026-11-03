@@ -148,4 +148,8 @@ fn network_tab_mouse_click_selects_adapter() {
     tasks.list().toggle_tab();
     click_text(&mut term, &mut tasks.app, "eth1");
     assert_eq!(tasks.list().net_cursor(), Some(1));
+    assert_eq!(
+        confirm_key(crate::models::ConfirmButton::Kill),
+        KeyCode::Char('k')
+    );
 }

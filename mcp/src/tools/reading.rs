@@ -18,8 +18,7 @@ use std::path::Path;
 mod tests;
 
 /// Bytes `read_line_range` will consume before it gives up, and the largest
-/// file `view_file` accepts. Without the cap, a `read_lines` call with no `to`
-/// — or a file with no newlines — would buffer without bound.
+/// file `view_file` accepts.
 pub const MAX_READ_BYTES: u64 = 10 * 1024 * 1024;
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -77,21 +76,17 @@ impl FfmServer {
             ));
         }
 
-        let content = fs::read_to_string(&path).map_err(crate::tools::io_error)?;
-        let lines: Vec<&str> = content.lines().collect();
-        let total_lines = lines.len();
-
+        let raw = fs::read_to_string(&path).map_err(crate::tools::io_error)?;
         let offset = params.offset.map_or(0, saturating_usize);
-        let limit = params.limit.map_or(total_lines, saturating_usize);
-
-        let selected: Vec<&str> = lines.into_iter().skip(offset).take(limit).collect();
+        let limit = params.limit.map_or(usize::MAX, saturating_usize);
+        let (total_lines, lines_returned, content) = slice_lines(&raw, offset, limit);
 
         let result = json!({
             "path": path.display().to_string(),
             "total_lines": total_lines,
             "offset": offset,
-            "lines_returned": selected.len(),
-            "content": selected.join("\n"),
+            "lines_returned": lines_returned,
+            "content": content,
         });
         Ok(json_response(&result))
     }
@@ -135,7 +130,6 @@ impl FfmServer {
                 None,
             ));
         }
-        // `to - from` cannot overflow after the guard above.
         let (lines, reached_end) =
             read_line_range(&path, from, to - from + 1).map_err(crate::tools::io_error)?;
 
@@ -150,13 +144,25 @@ impl FfmServer {
     }
 }
 
+fn slice_lines(raw: &str, offset: usize, limit: usize) -> (usize, usize, String) {
+    let mut total_lines = 0usize;
+    let mut returned = 0usize;
+    let mut out = String::with_capacity(raw.len().min(64 * 1024));
+    for line in raw.lines() {
+        if total_lines >= offset && returned < limit {
+            if returned > 0 {
+                out.push('\n');
+            }
+            out.push_str(line);
+            returned += 1;
+        }
+        total_lines += 1;
+    }
+    (total_lines, returned, out)
+}
+
 /// `count` lines starting at `start` (1-based), and whether the read consumed
 /// the file to its end.
-///
-/// Reads no further than it must: `head_file` and a window near the front of a
-/// large file both stop as soon as they have what they came for. Gives up past
-/// [`MAX_READ_BYTES`]: a request with no end — or a file with no newlines —
-/// would otherwise buffer the whole file, which no other reader here does.
 fn read_line_range(path: &Path, start: usize, count: usize) -> io::Result<(Vec<String>, bool)> {
     use io::BufRead;
 
@@ -164,9 +170,8 @@ fn read_line_range(path: &Path, start: usize, count: usize) -> io::Result<(Vec<S
     if count == 0 {
         return Ok((lines, false));
     }
-    // One byte past the cap, so a request satisfied at the cap exactly is
-    // distinguishable from one that needed more than it.
-    let mut reader = io::BufReader::new(fs::File::open(path)?).take(MAX_READ_BYTES + 1);
+    let mut reader =
+        io::BufReader::with_capacity(64 * 1024, fs::File::open(path)?).take(MAX_READ_BYTES + 1);
     for (number, line) in reader.by_ref().lines().enumerate() {
         let number = number + 1;
         if number < start {
@@ -183,9 +188,6 @@ fn read_line_range(path: &Path, start: usize, count: usize) -> io::Result<(Vec<S
             format_size(MAX_READ_BYTES)
         )));
     }
-    // `reached_end` must mean "the file was consumed to EOF", even when the
-    // count was satisfied on the file's last line — a paging client that is
-    // told `false` there asks for a page past the end.
     let reached_end = reader.fill_buf()?.is_empty();
     Ok((lines, reached_end))
 }

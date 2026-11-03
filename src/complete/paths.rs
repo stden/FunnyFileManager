@@ -1,6 +1,5 @@
 //! Purpose: `cd` path completion — the built-in directory scan, merged with fish's candidates and ranked by leaf.
 
-use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 
 use crate::command::expand_tilde;
@@ -22,10 +21,15 @@ pub(super) fn path_complete(syntax: PathSyntax, token: &str, cwd: &Path) -> Vec<
         return if listable { vec![root] } else { Vec::new() };
     }
     let (dir_part, leaf) = syntax.split_token(token);
-    let pool: Vec<String> = builtin_path_complete(syntax, dir_part, leaf, cwd)
-        .into_iter()
-        .map(|l| format!("{dir_part}{l}"))
-        .collect();
+    let builtins = builtin_path_complete(syntax, dir_part, leaf, cwd);
+    let pool: Vec<String> = if dir_part.is_empty() {
+        builtins
+    } else {
+        builtins
+            .into_iter()
+            .map(|l| format!("{dir_part}{l}"))
+            .collect()
+    };
     // fish completes the last shell *word*, so a token holding a name with
     // spaces would come back stripped of its prefix — skip fish for those.
     if token.contains(char::is_whitespace) {
@@ -50,29 +54,25 @@ pub(super) fn path_complete(syntax: PathSyntax, token: &str, cwd: &Path) -> Vec<
 /// `None` under [`matcher::score`]'s smartcase rule but are still real
 /// completions).
 pub(super) fn rank_by_leaf(syntax: PathSyntax, leaf: &str, candidates: Vec<String>) -> Vec<String> {
-    let (matching, mut rest): (Vec<String>, Vec<String>) = candidates
-        .into_iter()
-        .partition(|c| matcher::score(leaf, syntax.split_leaf(c).1).is_some());
-
-    // Rank by leaf text via `matcher::rank`, then look each ranked leaf back
-    // up to its original candidate — queued per leaf text, in first-seen
-    // order, in case two candidates happen to share a leaf name.
-    let mut by_leaf: HashMap<String, VecDeque<String>> = HashMap::new();
-    let mut leaves = Vec::with_capacity(matching.len());
-    for candidate in matching {
-        let leaf_text = syntax.split_leaf(&candidate).1.to_owned();
-        by_leaf
-            .entry(leaf_text.clone())
-            .or_default()
-            .push_back(candidate);
-        leaves.push(leaf_text);
+    let mut scored: Vec<(matcher::Score, usize, String)> = Vec::with_capacity(candidates.len());
+    let mut rest: Vec<String> = Vec::new();
+    for candidate in candidates {
+        let (dir_prefix, leaf_text) = syntax.split_leaf(&candidate);
+        if let Some(s) = matcher::score(leaf, leaf_text) {
+            scored.push((s, dir_prefix.len(), candidate));
+        } else {
+            rest.push(candidate);
+        }
     }
-
-    let mut ranked: Vec<String> = matcher::rank(leaf, leaves)
-        .into_iter()
-        .filter_map(|leaf_text| by_leaf.get_mut(&leaf_text)?.pop_front())
-        .collect();
-
+    scored.sort_by(|(sa, la, a), (sb, lb, b)| {
+        matcher::cmp_ranked(
+            *sa,
+            a.get(*la..).unwrap_or(a),
+            *sb,
+            b.get(*lb..).unwrap_or(b),
+        )
+    });
+    let mut ranked: Vec<String> = scored.into_iter().map(|(_, _, c)| c).collect();
     ranked.append(&mut rest);
     ranked
 }
@@ -99,14 +99,14 @@ pub(super) fn builtin_path_complete(
     entries
         .flatten()
         .filter_map(|e| {
-            let name = e.file_name().to_string_lossy().into_owned();
-            matcher::score(leaf, &name)?;
-            let is_dir = e.file_type().is_ok_and(|t| t.is_dir());
-            Some(if is_dir {
-                format!("{name}{suffix}")
-            } else {
-                name
-            })
+            let raw = e.file_name();
+            let lossy = raw.to_string_lossy();
+            matcher::score(leaf, &lossy)?;
+            let mut name = lossy.into_owned();
+            if e.file_type().is_ok_and(|t| t.is_dir()) {
+                name.push(suffix);
+            }
+            Some(name)
         })
         .collect()
 }

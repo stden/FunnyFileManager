@@ -12,6 +12,7 @@ mod copy_file;
 mod copy_tree;
 mod failed_at;
 mod keep_times;
+#[cfg(any(unix, test))]
 mod rewrite_file;
 mod unnamed_file;
 
@@ -29,6 +30,7 @@ pub(crate) use keep_times::timespec;
 pub use keep_times::Times;
 #[cfg(test)]
 pub(crate) use keep_times::FORCE_TIMES_FAILURE;
+#[cfg(any(unix, test))]
 pub(crate) use rewrite_file::rewrite_file;
 pub(crate) use unnamed_file::{name_unnamed, unnamed_file_in};
 

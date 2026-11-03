@@ -74,11 +74,7 @@ fn write_contents_reporting(
     // Read before the copy: reading the file moves its access time.
     let source = input.metadata()?;
     report_size(source.len());
-    if looks_sparse(&source) {
-        copy_keeping_holes(input, output)?;
-    } else {
-        copy_in_chunks(input, output)?;
-    }
+    copy_payload(&source, input, output)?;
     if rules.times == Times::Source {
         output.set_times(file_times(&source)?)?;
     }
@@ -88,6 +84,20 @@ fn write_contents_reporting(
         }
         FileMode::Source | FileMode::Fresh => Ok(()),
     }
+}
+
+#[cfg(unix)]
+fn copy_payload(source: &fs::Metadata, input: &fs::File, output: &mut fs::File) -> io::Result<()> {
+    if looks_sparse(source) {
+        copy_keeping_holes(input, output)
+    } else {
+        copy_in_chunks(input, output)
+    }
+}
+
+#[cfg(not(unix))]
+fn copy_payload(_source: &fs::Metadata, input: &fs::File, output: &mut fs::File) -> io::Result<()> {
+    copy_in_chunks(input, output)
 }
 
 /// How much of a file is copied between two progress reports. Small enough
@@ -119,12 +129,14 @@ fn copy_in_chunks(input: &fs::File, output: &mut fs::File) -> io::Result<()> {
 /// Whether every byte of `block` is zero. Folds instead of `all`, which stops
 /// at the first non-zero byte and so cannot be vectorised: this is the loop a
 /// multi-gigabyte image spends its time in.
+#[cfg(any(unix, test))]
 fn is_all_zeros(block: &[u8]) -> bool {
     block.iter().fold(0, |any, &byte| any | byte) == 0
 }
 
 /// How much is read at a time when looking for holes. A run of zeros shorter
 /// than this, or not aligned to it, is written out rather than skipped.
+#[cfg(any(unix, test))]
 const HOLE_BLOCK: u64 = 64 * 1024;
 
 /// Whether the filesystem holds fewer bytes for the file than it is long —
@@ -138,19 +150,13 @@ fn looks_sparse(metadata: &fs::Metadata) -> bool {
     metadata.blocks().saturating_mul(512) < metadata.len()
 }
 
-/// A Windows file only has holes once it is flagged sparse, which a copy made
-/// here never is; seeking over zeros would gain nothing there.
-#[cfg(not(unix))]
-const fn looks_sparse(_metadata: &fs::Metadata) -> bool {
-    false
-}
-
 /// Copy block by block, seeking over each block of zeros instead of writing
 /// it, so the copy has a hole wherever the source read as one
 /// (`cp --sparse=auto`).
 ///
 /// Driven by what the reads return, not by the length `stat` reported: a
 /// pseudo-file that claims 4 KiB and holds 50 bytes is copied as 50 bytes.
+#[cfg(any(unix, test))]
 fn copy_keeping_holes(mut input: &fs::File, output: &mut fs::File) -> io::Result<()> {
     use std::io::{Read, Seek, SeekFrom, Write};
 

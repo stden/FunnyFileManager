@@ -56,24 +56,21 @@ fn press(app: &mut App, focus: Option<FormField>) {
 /// with `AutoComplete` on, opens one; moving the caret closes the list, so a
 /// stale list cannot be accepted.
 fn type_key(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
+    let is_caret = matches!(
+        code,
+        KeyCode::Left | KeyCode::Right | KeyCode::Home | KeyCode::End
+    );
     let edited = crate::popup::text_field::with_clipboard(app, |app, clipboard| {
-        editor(app)
-            .and_then(LspEditor::form_mut)
-            .and_then(|form| form.focused_line_mut())
-            .map(|line| crate::popup::text_field::edit(line, code, modifiers, clipboard))
-    });
-    let Some(edited) = edited else {
-        return;
-    };
-    let Some(form) = editor(app).and_then(LspEditor::form_mut) else {
-        return;
-    };
-    match code {
-        KeyCode::Left | KeyCode::Right | KeyCode::Home | KeyCode::End => {
+        let form = editor(app).and_then(LspEditor::form_mut)?;
+        let changed =
+            crate::popup::text_field::edit(form.focused_line_mut()?, code, modifiers, clipboard);
+        if is_caret {
             form.set_completion(None);
         }
-        _ if edited => ops::refresh_completion(app, Trigger::Typed),
-        _ => {}
+        Some(changed)
+    });
+    if edited == Some(true) && !is_caret {
+        ops::refresh_completion(app, Trigger::Typed);
     }
 }
 

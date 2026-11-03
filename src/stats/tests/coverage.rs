@@ -28,7 +28,7 @@ fn an_unlisted_folder_inside_makes_the_totals_lower_bounds() {
     let mut budget = Budget::new(10, None);
     walk(
         Path::new("/definitely/not/here"),
-        "gone",
+        &mut String::from("gone"),
         &mut tally,
         &mut budget,
     );
@@ -108,4 +108,34 @@ fn the_budget_is_shared_with_the_subtrees() {
 
     let partial = analyse_within(dir.path(), Budget::new(4, None));
     assert_eq!(partial.coverage, Coverage::Partial);
+}
+
+#[test]
+fn links_are_skipped_and_special_entries_count_without_bytes() {
+    let dir = tree(&[("real/a.txt", 5)]);
+    crate::test_support::make_dir_link(&dir.path().join("real"), &dir.path().join("top_link"))
+        .expect("top link");
+    crate::test_support::make_dir_link(
+        &dir.path().join("real"),
+        &dir.path().join("real").join("sub_link"),
+    )
+    .expect("sub link");
+    #[cfg(unix)]
+    {
+        crate::test_support::make_fifo(&dir.path().join("top.fifo")).expect("top fifo");
+        crate::test_support::make_fifo(&dir.path().join("real/sub.fifo")).expect("sub fifo");
+    }
+    let stats = analyse(dir.path());
+    #[cfg(unix)]
+    assert_eq!(stats.files, 3);
+    #[cfg(not(unix))]
+    assert_eq!(stats.files, 1);
+    #[cfg(windows)]
+    {
+        let mut tally = Tally::default();
+        tally.record_leaf("pipe", None, (Shape::Special, 0));
+        let special = summarize(tally, Vec::new(), None);
+        assert_eq!(special.files, 1);
+        assert_eq!(special.total, FileSize::from_bytes(0));
+    }
 }

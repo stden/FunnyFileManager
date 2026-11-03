@@ -1,7 +1,7 @@
 //! Purpose: Cross-platform directory link and dangling-link fixtures without elevation on Windows.
 
+use std::io;
 use std::path::Path;
-use std::{fs, io};
 
 /// Create a directory symbolic link (or an NTFS junction when Windows symlink
 /// privileges are unavailable) at `link` pointing to `target`.
@@ -40,11 +40,11 @@ pub fn make_dangling_link(missing_target: &Path, link: &Path) -> io::Result<()> 
     {
         let created_temp = !missing_target.exists();
         if created_temp {
-            fs::create_dir_all(missing_target)?;
+            std::fs::create_dir_all(missing_target)?;
         }
         let linked = make_dir_link(missing_target, link);
         if created_temp {
-            drop(fs::remove_dir(missing_target));
+            drop(std::fs::remove_dir(missing_target));
         }
         linked
     }

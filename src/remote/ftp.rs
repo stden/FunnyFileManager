@@ -115,14 +115,14 @@ impl RemoteFs for FtpFs {
     }
 
     fn chmod(&mut self, path: &RemotePath, mode: UnixMode) -> Result<(), RemoteError> {
-        let response = self
+        match self
             .client
             .site(format!("CHMOD {mode} {}", argument(path)?))
-            .map_err(failed)?;
-        if response.status.code() / 100 != 2 {
-            return Err(RemoteError::Unsupported("SITE CHMOD"));
+        {
+            Ok(_) => Ok(()),
+            Err(error) if unsupported(&error) => Err(RemoteError::Unsupported("SITE CHMOD")),
+            Err(error) => Err(failed(error)),
         }
-        Ok(())
     }
 
     fn replace_file(
@@ -156,7 +156,11 @@ fn argument(path: &RemotePath) -> Result<&str, RemoteError> {
 }
 
 fn unsupported(error: &FtpError) -> bool {
-    matches!(error, FtpError::UnexpectedResponse(reply) if matches!(reply.status.code(), 500 | 501 | 502 | 504))
+    matches!(
+        error,
+        FtpError::UnexpectedResponse(reply)
+            if matches!(reply.status.code(), 202 | 500 | 501 | 502 | 504)
+    )
 }
 
 fn failed(error: FtpError) -> RemoteError {

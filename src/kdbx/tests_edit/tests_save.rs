@@ -115,6 +115,36 @@ fn rename_collision_reports_already_exists_text() {
     );
 }
 
+#[test]
+fn saving_deleted_entry_and_permission_denied_format_cleanly() {
+    let (_dir, mut s1, now) = unlocked_sample();
+    focus(&mut s1, "GitHub", now);
+    s1.begin_edit(now).expect("begin edit");
+    s1.type_char('x', now);
+
+    let mut s2 = KdbxSession::new(s1.path.clone());
+    type_password(&mut s2, VAULT_PASSWORD, now);
+    assert!(s2.unlock(now));
+    focus(&mut s2, "GitHub", now);
+    s2.request_delete(now).expect("request delete");
+    s2.confirm_delete(now).expect("confirm delete");
+
+    assert!(!s1.save_edit(now));
+    assert_eq!(
+        open_form(&s1).error(),
+        Some("Entry no longer exists in the vault")
+    );
+
+    let denied = crate::keepass::KeepassError::Io(std::io::Error::new(
+        std::io::ErrorKind::PermissionDenied,
+        "denied",
+    ));
+    assert_eq!(
+        crate::kdbx::persist::form::save_error_message(&denied),
+        "The vault file is read-only for you: nothing was saved"
+    );
+}
+
 /// A 0444 vault used to be replaced by the save (and left 0600). The save is
 /// now refused, and the form says why in words rather than as an I/O error.
 /// Root may write a read-only file, so the refusal is only observable without

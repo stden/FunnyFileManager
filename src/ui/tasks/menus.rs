@@ -104,8 +104,12 @@ fn signal_title(targets: &[Target]) -> String {
 
 /// One row per offered signal: its name, then what it asks.
 fn signal_rows() -> Vec<String> {
-    let width = widest(Signal::OFFERED.iter().map(|signal| signal.name()));
-    Signal::OFFERED
+    signal_rows_for(Signal::OFFERED)
+}
+
+pub(super) fn signal_rows_for(offered: &[Signal]) -> Vec<String> {
+    let width = widest(offered.iter().map(|signal| signal.name()));
+    offered
         .iter()
         .map(|signal| {
             format!(

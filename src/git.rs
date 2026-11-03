@@ -61,7 +61,7 @@ pub fn branch(directory: &Path) -> Option<String> {
 }
 
 fn read_branch(directory: &Path) -> Option<String> {
-    let git_dir = find_git_dir(directory)?;
+    let (_, git_dir) = find_repo(directory)?;
     let head = fs::read_to_string(git_dir.join("HEAD")).ok()?;
     head_label(head.trim())
 }
@@ -85,13 +85,15 @@ use dirty::inspect_dirty_repos;
 pub use dirty::is_dirty_repo;
 pub(crate) use dirty::{invalidate_repo_cache_for, load_dirty_repos, probe_child_repo};
 
-/// The `.git` directory governing `directory`, walking up from it.
+/// The repository root and `.git` directory governing `directory`, walking up from it.
 ///
 /// `.git` is not always a directory: in a worktree or a submodule it is a file
 /// holding `gitdir: <path>`, and following that is the difference between
 /// naming the branch and reporting no repository at all.
-fn find_git_dir(directory: &Path) -> Option<PathBuf> {
-    directory.ancestors().find_map(repo_git_dir)
+fn find_repo(directory: &Path) -> Option<(&Path, PathBuf)> {
+    directory
+        .ancestors()
+        .find_map(|ancestor| repo_git_dir(ancestor).map(|git_dir| (ancestor, git_dir)))
 }
 
 fn repo_git_dir(directory: &Path) -> Option<PathBuf> {
@@ -100,17 +102,21 @@ fn repo_git_dir(directory: &Path) -> Option<PathBuf> {
     if metadata.is_dir() {
         return Some(candidate);
     }
-    if metadata.is_file() {
-        let pointer = fs::read_to_string(&candidate).ok()?;
-        let target = pointer.trim().strip_prefix("gitdir:")?.trim();
-        let target = Path::new(target);
-        return Some(if target.is_absolute() {
-            target.to_path_buf()
-        } else {
-            directory.join(target)
-        });
-    }
-    None
+    metadata
+        .is_file()
+        .then(|| resolve_gitdir_file(directory, &candidate))
+        .flatten()
+}
+
+fn resolve_gitdir_file(directory: &Path, candidate: &Path) -> Option<PathBuf> {
+    let pointer = fs::read_to_string(candidate).ok()?;
+    let target = pointer.trim().strip_prefix("gitdir:")?.trim();
+    let target = Path::new(target);
+    Some(if target.is_absolute() {
+        target.to_path_buf()
+    } else {
+        directory.join(target)
+    })
 }
 
 /// What `HEAD`'s contents name.

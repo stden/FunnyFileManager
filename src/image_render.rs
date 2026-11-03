@@ -144,20 +144,33 @@ impl Drop for Worker {
 fn work(shared: &Shared, results: &ResultSlot) {
     while let Some((generation, key)) = next_request(shared) {
         let protocol = build::protocol(&key);
-        let Ok(queue) = shared.0.lock() else {
-            return;
-        };
-        if queue.stopped {
+        if publish_frame(shared, results, generation, key, protocol).is_break() {
             return;
         }
-        if queue.generation != generation {
-            continue;
-        }
-        let Ok(mut result) = results.lock() else {
-            return;
-        };
-        *result = Some((key, protocol));
     }
+}
+
+fn publish_frame(
+    shared: &Shared,
+    results: &ResultSlot,
+    generation: u64,
+    key: Key,
+    protocol: Option<Protocol>,
+) -> std::ops::ControlFlow<()> {
+    let Ok(queue) = shared.0.lock() else {
+        return std::ops::ControlFlow::Break(());
+    };
+    if queue.stopped {
+        return std::ops::ControlFlow::Break(());
+    }
+    if queue.generation != generation {
+        return std::ops::ControlFlow::Continue(());
+    }
+    let Ok(mut result) = results.lock() else {
+        return std::ops::ControlFlow::Break(());
+    };
+    *result = Some((key, protocol));
+    std::ops::ControlFlow::Continue(())
 }
 
 fn next_request(shared: &Shared) -> Option<(u64, Key)> {

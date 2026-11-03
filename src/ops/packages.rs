@@ -98,14 +98,18 @@ fn run_with<B: Backend + Write, O: crate::terminal::TerminalOps<B>>(
     let result = run(&plan, app);
     let interrupted = suspension.interrupted();
     let restored = suspension.resume();
-    let status = match result {
+    let status = outcome_status(result, interrupted);
+    app.record_run_outcome(status);
+    restored
+}
+
+fn outcome_status(result: io::Result<String>, interrupted: bool) -> Status {
+    match result {
         // Whatever sudo or apt-get then exited with, the user stopped it.
         _ if interrupted => Status::PackageUpdateCancelled,
         Ok(message) => Status::CommandOutput(message),
         Err(error) => Status::Error(error.to_string()),
-    };
-    app.record_run_outcome(status);
-    restored
+    }
 }
 
 #[cfg(test)]
@@ -139,7 +143,12 @@ const ELEVATED_UPGRADE_SCRIPT: &str = include_str!("packages/elevated_upgrade.ps
 const CHOCO_EXE_PLACEHOLDER: &str = "__FFM_EXECUTABLE__";
 
 #[cfg(windows)]
-fn command(_: &UpdatePlan, path: &std::path::Path, _args: &[&str]) -> Command {
+fn command(plan: &UpdatePlan, path: &std::path::Path, args: &[&str]) -> Command {
+    if plan.elevation == crate::packages::Elevation::CurrentUser {
+        let mut command = Command::new(path);
+        command.args(args);
+        return command;
+    }
     // Fixed arguments; quote the discovered executable as a PowerShell literal.
     let path = path
         .to_string_lossy()

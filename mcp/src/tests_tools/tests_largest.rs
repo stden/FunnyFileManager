@@ -37,7 +37,8 @@ fn largest_files_skips_what_is_under_the_floor() {
     let dir = TempDir::new().expect("temp dir");
     let (server, root) = server_at(&dir);
     write_file_at(&root.join("tiny"), "x");
-    write_file_at(&root.join("big"), &"y".repeat(100));
+    write_file_at(&root.join("big_b"), &"y".repeat(100));
+    write_file_at(&root.join("big_a"), &"z".repeat(100));
 
     let json = tool_json(
         &server
@@ -48,7 +49,10 @@ fn largest_files_skips_what_is_under_the_floor() {
             }))
             .expect("largest_files"),
     );
-    assert_eq!(json["files"].as_array().expect("files").len(), 1);
+    let files = json["files"].as_array().expect("files");
+    assert_eq!(files.len(), 2);
+    assert_eq!(files[0]["path"], "big_a");
+    assert_eq!(files[1]["path"], "big_b");
 }
 
 #[test]

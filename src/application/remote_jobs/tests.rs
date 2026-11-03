@@ -89,6 +89,26 @@ fn remote_edit_saves_to_host_and_delete_cannot_touch_hidden_local_files() {
 }
 
 #[test]
+fn remote_editor_overwrite_confirmation_saves_directly_to_host() {
+    let temp = tempfile::TempDir::new().expect("temporary directory");
+    let (mut app, link) = fixture(&temp);
+    let mut jobs = RemoteJobs::default();
+    assert!(crate::ops::remote::actions::handle(&mut app, Action::Edit));
+    finish(&mut jobs, &mut app);
+    app.get_editor_mut().expect("editor").insert_char('Y');
+    app.get_editor_mut().expect("editor").state = crate::models::EditState::ConfirmingOverwrite(
+        crate::models::OverwritePrompt::new(crate::models::AfterSave::Stay),
+    );
+    key(&mut app, KeyCode::Char('y'));
+    finish(&mut jobs, &mut app);
+    let mut bytes = Vec::new();
+    link.lock()
+        .download(&path("/file.txt"), &mut bytes)
+        .expect("saved remote");
+    assert_eq!(bytes, b"Yabc");
+}
+
+#[test]
 fn local_to_remote_copy_uses_the_visible_remote_destination() {
     let temp = tempfile::TempDir::new().expect("temporary directory");
     std::fs::write(temp.path().join("upload.txt"), b"uploaded").expect("local file");

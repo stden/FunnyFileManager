@@ -1,12 +1,12 @@
 //! Purpose: The bounded walk that measures a tree, and the running tally it
 //! folds each subtree into.
 
-use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
+use super::measure::leaf;
 use super::{
-    Budget, ChildSize, ContentKind, Coverage, DirectoryStats, KindTotal, LargeFile, Stop,
+    Budget, ChildSize, ContentKind, Coverage, DirectoryStats, KindTotal, LargeFile, Shape, Stop,
     CHILDREN_SHOWN, LARGEST_SHOWN,
 };
 use crate::values::entry::FileSize;
@@ -21,7 +21,7 @@ pub(super) struct Tally {
     pub(super) unread: usize,
     /// Entries named `.git`, files or folders, seen anywhere below.
     pub(super) git_entries: usize,
-    by_kind: BTreeMap<ContentKind, (u64, usize)>,
+    by_kind: [(u64, usize); ContentKind::COUNT],
     largest: Vec<LargeFile>,
 }
 
@@ -37,10 +37,9 @@ impl Tally {
         self.directories += other.directories;
         self.unread += other.unread;
         self.git_entries += other.git_entries;
-        for (kind, (size, files)) in other.by_kind {
-            let entry = self.by_kind.entry(kind).or_default();
-            entry.0 += size;
-            entry.1 += files;
+        for (dst, (size, files)) in self.by_kind.iter_mut().zip(other.by_kind) {
+            dst.0 += size;
+            dst.1 += files;
         }
         self.largest.extend(other.largest);
         keep_largest(&mut self.largest);
@@ -53,22 +52,25 @@ impl Tally {
             files: self.files,
         }
     }
+
+    /// Record a non-directory entry: regular files carry size and kind; a socket,
+    /// device node or FIFO counts as one file with no size; links are skipped.
+    pub(super) fn record_leaf(&mut self, name: &str, pfx: Option<&str>, leaf: (Shape, u64)) {
+        if leaf.0 == Shape::File {
+            record_file(self, name, pfx, leaf.1);
+        } else if leaf.0 == Shape::Special {
+            self.files += 1;
+        }
+    }
 }
 
 /// Trim a running list of large files back to what will be shown.
-///
-/// Done as the walk goes rather than at the end: a tree with a million files
-/// would otherwise be sorted whole to report eight of them.
 fn keep_largest(files: &mut Vec<LargeFile>) {
     files.sort_by_key(|file| std::cmp::Reverse(file.size));
     files.truncate(LARGEST_SHOWN);
 }
 
 /// The walk itself, with the budget passed in.
-///
-/// Split out so the exhausted case can be reached without building two hundred
-/// thousand files: "the numbers are a lower bound" is a distinct answer the
-/// panel prints, and one nothing could otherwise check.
 pub(super) fn analyse_within(directory: &Path, mut budget: Budget) -> DirectoryStats {
     let mut children = Vec::new();
     let mut total = Tally::default();
@@ -85,16 +87,14 @@ pub(super) fn analyse_within(directory: &Path, mut budget: Budget) -> DirectoryS
         let Ok(meta) = entry.metadata() else { continue };
         let name = entry.file_name();
         if meta.is_dir() {
-            let name = name.to_string_lossy().into_owned();
+            let mut name = name.to_string_lossy().into_owned();
             let mut sub = Tally::default();
-            walk(&entry.path(), &name, &mut sub, &mut budget);
+            walk(&entry.path(), &mut name, &mut sub, &mut budget);
             children.push(sub.child(name));
             total.directories += 1;
             total.absorb(sub);
-        } else if meta.is_file() {
-            record_file(&mut total, &name.to_string_lossy(), None, meta.len());
-        } else if is_special(&meta) {
-            total.files += 1;
+        } else {
+            total.record_leaf(&name.to_string_lossy(), None, leaf(&meta));
         }
     }
     summarize(total, children, budget.stop())
@@ -134,13 +134,14 @@ pub(super) const fn coverage(stop: Option<Stop>, unread: usize) -> Coverage {
 }
 
 fn kind_totals(total: &Tally) -> Vec<KindTotal> {
-    let mut by_kind: Vec<KindTotal> = total
-        .by_kind
-        .iter()
+    let mut by_kind: Vec<KindTotal> = ContentKind::ALL
+        .into_iter()
+        .zip(total.by_kind)
+        .filter(|(_, (_, files))| *files > 0)
         .map(|(kind, (size, files))| KindTotal {
-            kind: *kind,
-            size: FileSize::from_bytes(*size),
-            files: *files,
+            kind,
+            size: FileSize::from_bytes(size),
+            files,
         })
         .collect();
     by_kind.sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.kind.cmp(&b.kind)));
@@ -151,9 +152,10 @@ fn kind_totals(total: &Tally) -> Vec<KindTotal> {
 fn record_file(tally: &mut Tally, name: &str, prefix: Option<&str>, size: u64) {
     tally.size += size;
     tally.files += 1;
-    let entry = tally.by_kind.entry(ContentKind::of(name)).or_default();
-    entry.0 += size;
-    entry.1 += 1;
+    if let Some(slot) = tally.by_kind.get_mut(ContentKind::of(name).index()) {
+        slot.0 += size;
+        slot.1 += 1;
+    }
     let size = FileSize::from_bytes(size);
     if tally.largest.len() < LARGEST_SHOWN || tally.largest.last().is_none_or(|f| size > f.size) {
         let path = prefix.map_or_else(|| name.to_owned(), |dir| format!("{dir}/{name}"));
@@ -162,8 +164,8 @@ fn record_file(tally: &mut Tally, name: &str, prefix: Option<&str>, size: u64) {
     }
 }
 
-/// Walk one subtree, spending from the shared budget.
-pub(super) fn walk(directory: &Path, prefix: &str, tally: &mut Tally, budget: &mut Budget) {
+/// Walk one subtree, spending from the shared budget and reusing `prefix` across levels.
+pub(super) fn walk(directory: &Path, prefix: &mut String, tally: &mut Tally, budget: &mut Budget) {
     let Ok(entries) = fs::read_dir(directory) else {
         tally.unread += 1;
         return;
@@ -181,18 +183,13 @@ pub(super) fn walk(directory: &Path, prefix: &str, tally: &mut Tally, budget: &m
 
         if meta.is_dir() {
             tally.directories += 1;
-            walk(&entry.path(), &format!("{prefix}/{name}"), tally, budget);
-        } else if meta.is_file() {
-            record_file(tally, &name, Some(prefix), meta.len());
-        } else if is_special(&meta) {
-            tally.files += 1;
+            let base_len = prefix.len();
+            prefix.push('/');
+            prefix.push_str(&name);
+            walk(&entry.path(), prefix, tally, budget);
+            prefix.truncate(base_len);
+        } else {
+            tally.record_leaf(&name, Some(prefix.as_str()), leaf(&meta));
         }
     }
-}
-
-/// A socket, a device node or a FIFO: counted as a file, as the panel counts
-/// it, but with no data of its own for a size, a category or the largest
-/// files. A link is not one: its target is counted where it lives.
-fn is_special(meta: &fs::Metadata) -> bool {
-    !meta.is_dir() && !meta.is_file() && !meta.is_symlink()
 }

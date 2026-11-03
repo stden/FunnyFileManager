@@ -119,19 +119,25 @@ fn render_pieces(pieces: &[Piece<'_>]) -> String {
     let mut depth = 0_usize;
     let mut index = 0_usize;
     while let Some(&piece) = pieces.get(index) {
-        if let Piece::Open(open) = piece {
-            if let Some((line, consumed)) = try_inline_element(open, pieces, index, depth) {
-                lines.push(line);
-                index += consumed;
-                continue;
+        match piece {
+            Piece::Open(open) => {
+                if let Some((line, consumed)) = try_inline_element(open, pieces, index, depth) {
+                    lines.push(line);
+                    index += consumed;
+                    continue;
+                }
+                lines.push(indented(depth, open));
+                depth += 1;
             }
-            lines.push(indented(depth, open));
-            depth += 1;
-        } else if let Piece::Close(close) = piece {
-            depth = depth.saturating_sub(1);
-            lines.push(indented(depth, close));
-        } else {
-            lines.push(indented(depth, piece_text(piece)));
+            Piece::Close(close) => {
+                depth = depth.saturating_sub(1);
+                lines.push(indented(depth, close));
+            }
+            Piece::Decl(s)
+            | Piece::Comment(s)
+            | Piece::Cdata(s)
+            | Piece::SelfClose(s)
+            | Piece::Text(s) => lines.push(indented(depth, s)),
         }
         index += 1;
     }
@@ -150,18 +156,6 @@ fn try_inline_element(
             Some((indented(depth, &format!("{open}{body}{close}")), 3))
         }
         _ => None,
-    }
-}
-
-const fn piece_text(piece: Piece<'_>) -> &str {
-    match piece {
-        Piece::Decl(s)
-        | Piece::Comment(s)
-        | Piece::Cdata(s)
-        | Piece::Close(s)
-        | Piece::SelfClose(s)
-        | Piece::Open(s)
-        | Piece::Text(s) => s,
     }
 }
 

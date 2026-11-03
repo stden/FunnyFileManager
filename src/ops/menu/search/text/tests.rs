@@ -135,3 +135,12 @@ fn turkish_dotted_i_and_kelvin_sign_are_not_skipped_by_chunk_anchor_prefilter() 
     assert_eq!(scan(&bytes, "k"), Scan::Found);
     assert_eq!(scan(&bytes, "273k"), Scan::Found);
 }
+
+#[test]
+fn tail_cut_stops_at_zero_and_backs_up_over_utf8_continuation_bytes() {
+    assert_eq!(super::anchor::tail_cut(&[b'x'; 20], 1), None);
+    assert_eq!(
+        super::anchor::tail_cut(b"a\xF0\x9F\xA6\x80xxxxxxxxxxxxxxxxxx", 1),
+        Some(1)
+    );
+}

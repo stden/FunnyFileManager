@@ -133,4 +133,5 @@ fn another_kind_of_panel_is_not_the_remote_panels() {
     let dir = TempDir::new().expect("temp dir");
     let mut app = app_in(dir.path());
     assert!(!process(&mut app, bare(KeyCode::Enter)));
+    assert!(!apply(&mut app, NetboxCommand::Move(ListMotion::Down)));
 }

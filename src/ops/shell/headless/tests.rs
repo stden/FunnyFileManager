@@ -33,3 +33,13 @@ fn command_timeout_ends_without_reading_the_host_terminal() {
     assert!(matches!(error, ShellError::TimedOut(_)));
     assert_eq!(host.snapshot().state, ExternalState::Failed);
 }
+
+#[test]
+fn interrupted_headless_failure_maps_to_cancelled() {
+    let error = failure(
+        Path::new("."),
+        io::Error::from(io::ErrorKind::Interrupted),
+        None,
+    );
+    assert!(matches!(error, ShellError::Cancelled));
+}

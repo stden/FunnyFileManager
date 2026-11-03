@@ -41,10 +41,9 @@ pub(super) fn safe_parent(root: &TempRoot, path: &Path) -> bool {
             return false;
         };
         current.push(part);
-        if !directory(&current) {
-            return false;
-        }
-        if !fs::symlink_metadata(&current).is_ok_and(|metadata| owned(&metadata)) {
+        if !fs::symlink_metadata(&current)
+            .is_ok_and(|metadata| metadata.is_dir() && !linked(&metadata) && owned(&metadata))
+        {
             return false;
         }
     }
@@ -85,8 +84,4 @@ pub(super) fn linked(metadata: &fs::Metadata) -> bool {
 pub(super) fn on_root_device(metadata: &fs::Metadata, root: &TempRoot) -> bool {
     use std::os::unix::fs::MetadataExt;
     matches!(root.identity.0, file_id::FileId::Inode { device_id, .. } if metadata.dev() == device_id)
-}
-#[cfg(not(unix))]
-pub(super) const fn on_root_device(_metadata: &fs::Metadata, _root: &TempRoot) -> bool {
-    true
 }

@@ -37,4 +37,16 @@ fn older_probe_cannot_replace_a_newer_answer_after_invalidation() {
         fast_or_cached(repo.path(), stamp, Instant::now()),
         Some(false)
     );
+    assert!(!query_dirty(
+        &repo.path().join("missing-worktree"),
+        &git_dir
+    ));
+}
+
+#[cfg(unix)]
+#[test]
+fn non_regular_git_entry_is_ignored_without_blocking() {
+    let dir = TempDir::new().expect("temp dir");
+    crate::test_support::make_fifo(&dir.path().join(".git")).expect("fifo");
+    assert_eq!(repo_git_dir(dir.path()), None);
 }

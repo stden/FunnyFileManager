@@ -59,3 +59,9 @@ fn detach_shell_tree_preserves_backgrounded_child_across_many_subsequent_spawns(
     }
     assert!(marker.exists(), "backgrounded process was killed");
 }
+
+#[cfg(windows)]
+#[test]
+fn remember_job_result_ignores_failed_job_assignment() {
+    super::remember_job_result(u32::MAX, Err(std::io::Error::other("no job")));
+}

@@ -43,6 +43,11 @@ fn a_replay_samples_through_the_host_but_never_signals_or_renices() {
     let sample = host.reader().expect("a reader").sample().expect("a sample");
     assert_eq!(sample.processes.len(), 1);
     assert_eq!(fixture.readers_opened(), 1);
+    assert!(host.net_prober().is_none());
+
+    let bad = dir.path().join("corrupt.jsonl");
+    std::fs::write(&bad, "{invalid-json\n").expect("corrupt header");
+    assert!(Replay::load(&bad, (80, 24)).is_err());
 }
 
 #[test]

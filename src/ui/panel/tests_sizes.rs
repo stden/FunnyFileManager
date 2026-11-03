@@ -64,4 +64,18 @@ fn measured_directory_shows_its_byte_size_instead_of_folder_label() {
 
     dir.set_measured_size(FileSize::from_bytes(5_242_880));
     assert_eq!(size_field(&dir), "5.0 M");
+
+    let broken = DirEntry {
+        name: "dangling".to_owned(),
+        kind: EntryKind::BrokenSymlink,
+        ..DirEntry::default()
+    };
+    assert_eq!(size_field(&broken), "Broken");
+
+    let dir_link = DirEntry {
+        name: "to-docs".to_owned(),
+        kind: EntryKind::SymlinkToDirectory,
+        ..DirEntry::default()
+    };
+    assert_eq!(size_field(&dir_link), "Link");
 }

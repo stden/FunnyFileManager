@@ -2,11 +2,11 @@
 
 use std::path::Path;
 
-use super::{hash_of, Continuation, Document, Highlighter, Token};
+use super::{hash_of, Continuation, Document, Highlighter, LineSpans};
 
 mod step;
 
-fn lex_line(engine: &mut Highlighter, line: &str) -> Vec<(usize, usize, Token)> {
+fn lex_line(engine: &mut Highlighter, line: &str) -> LineSpans {
     let mut start = 0;
     engine
         .line(line)
@@ -46,6 +46,7 @@ impl Document {
     pub(super) fn reconcile(
         &mut self,
         lines: &[String],
+        top: usize,
         end: usize,
         initial: Continuation,
         dirty: Option<(usize, usize)>,
@@ -53,8 +54,8 @@ impl Document {
         if lines.len() != self.line_count {
             self.shift_line_count(lines, initial, dirty.map(|(from, _)| from));
         }
-        self.reconcile_in_place(lines, end, initial, dirty);
-        self.extend(lines, end);
+        self.reconcile_in_place(lines, top, end, initial, dirty);
+        self.ensure_window(lines, top, end);
     }
 
     fn shift_line_count(&mut self, lines: &[String], initial: Continuation, hint: Option<usize>) {
@@ -88,7 +89,7 @@ impl Document {
         let added = lines.len() - self.line_count;
         let state_at_prefix = self.state_before(prefix).unwrap_or(initial);
         self.spans
-            .splice(prefix..prefix, std::iter::repeat_with(Vec::new).take(added));
+            .splice(prefix..prefix, std::iter::repeat_n(None, added));
         self.states.splice(
             prefix..prefix,
             lines
@@ -114,32 +115,57 @@ impl Document {
             slot.0 = !hash_of(line);
         }
     }
-}
 
-impl Document {
     fn state_before(&self, idx: usize) -> Option<Continuation> {
         let init = self.initial?;
         idx.checked_sub(1)
             .map_or(Some(init), |prev| self.states.get(prev).map(|&(_, s)| s))
     }
 
-    pub(super) fn extend(&mut self, lines: &[String], end: usize) {
+    pub(super) fn ensure_window(&mut self, lines: &[String], top: usize, end: usize) {
         if !self.engine.is_active() {
             return;
         }
-        while self.spans.len() < end {
-            let idx = self.spans.len();
-            let Some(line) = lines.get(idx) else {
-                break;
-            };
+        let lex_from = if self.initial.is_some() { top } else { 0 };
+        for (idx, line) in lines.iter().enumerate().take(end).skip(self.spans.len()) {
             if let Some(prev) = self.state_before(idx) {
                 self.engine.resume(prev);
             }
-            let spans = lex_line(&mut self.engine, line);
+            let spans = if idx < lex_from {
+                self.engine.advance_only(line);
+                None
+            } else {
+                Some(lex_line(&mut self.engine, line))
+            };
             if let Some(after) = self.engine.continuation() {
                 self.states.push((hash_of(line), after));
             }
             self.spans.push(spans);
         }
+        self.fill_window_spans(lines, lex_from, end);
     }
+
+    fn fill_window_spans(&mut self, lines: &[String], lex_from: usize, end: usize) {
+        for (idx, slot) in self.spans.iter_mut().enumerate().take(end).skip(lex_from) {
+            if slot.is_none() {
+                *slot = compute_span(&mut self.engine, self.initial, &self.states, lines, idx);
+            }
+        }
+    }
+}
+
+fn compute_span(
+    engine: &mut Highlighter,
+    initial: Option<Continuation>,
+    states: &[(u64, Continuation)],
+    lines: &[String],
+    idx: usize,
+) -> Option<LineSpans> {
+    let line = lines.get(idx)?;
+    let init = initial?;
+    let prev = idx
+        .checked_sub(1)
+        .map_or(Some(init), |p| states.get(p).map(|&(_, s)| s))?;
+    engine.resume(prev);
+    Some(lex_line(engine, line))
 }

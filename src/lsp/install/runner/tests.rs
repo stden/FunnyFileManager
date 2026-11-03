@@ -85,6 +85,16 @@ fn failure_line_keeps_the_first_nonempty_installer_line() {
         Some("npm ERR! 404 not found".to_owned())
     );
     assert_eq!(failure_line(&mut Cursor::new(b"   \n\n".to_vec())), None);
+
+    let out = tempfile::tempfile().unwrap();
+    let mut err = tempfile::tempfile().unwrap();
+    std::io::Write::write_all(&mut err, b"installer failed loudly\n").unwrap();
+    out.set_len(OUTPUT_LIMIT + 1).unwrap();
+    assert_eq!(
+        check_output_size(&out, &mut err),
+        Err(InstallError::Command)
+    );
+    assert_eq!(noted(InstallError::Worker, &mut err), InstallError::Worker);
 }
 
 #[test]

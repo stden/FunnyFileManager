@@ -84,9 +84,20 @@ fn absent_managers_and_process_failures_have_visible_outcomes() {
 
 #[test]
 fn native_command_construction_does_not_execute_the_manager() {
-    let (_temp, _app, plan) = fixture();
-    let prepared = command(&plan, &plan.executable, &["update"]);
-    assert!(prepared.get_args().count() > 0);
+    let (_temp, _app, mut plan) = fixture();
+    assert!(
+        command(&plan, &plan.executable, &["update"])
+            .get_args()
+            .count()
+            > 0
+    );
+    plan.elevation = Elevation::Sudo;
+    assert!(
+        command(&plan, &plan.executable, &["update"])
+            .get_args()
+            .count()
+            > 0
+    );
 }
 
 #[test]

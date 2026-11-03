@@ -16,6 +16,8 @@ mod temp_cleanup;
 mod vault;
 
 pub(super) use editor::dialog_button_key_in_editor;
+#[cfg(test)]
+pub(super) use more::failed_button_key;
 use more::{
     archive_button_key, copy_button_key, extract_button_key, failed_button, mcp_install_button_key,
     more_button_key,

@@ -46,6 +46,31 @@ fn missing_root_and_cancellation_are_distinct_errors() {
     );
 }
 
+#[test]
+fn child_read_dir_and_entry_errors_are_counted_without_aborting_scan() {
+    let temp = tempfile::TempDir::new().expect("temporary directory");
+    let sub = temp.path().join("unreadable_sub");
+    fs::create_dir(&sub).expect("sub");
+    let scanned = scan_with(temp.path(), &|| false, |p| {
+        if p == sub {
+            Err(io::Error::from(io::ErrorKind::PermissionDenied))
+        } else {
+            fs::read_dir(p)
+        }
+    })
+    .expect("scan with child error");
+    assert_eq!(scanned.errors, 1);
+
+    let mut errors = 0;
+    descend(
+        Ok(vec![Err(io::Error::other("bad dir entry"))]),
+        &mut Vec::new(),
+        &mut errors,
+    )
+    .expect("descend tolerates entry error");
+    assert_eq!(errors, 1);
+}
+
 #[cfg(unix)]
 #[test]
 fn directory_links_cannot_escape_the_current_folder_or_create_a_cycle() {

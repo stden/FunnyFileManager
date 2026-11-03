@@ -91,12 +91,29 @@ fn show_processes_of_scopes_the_list_to_one_owner_or_all() {
 
 #[test]
 fn enter_on_constructed_signal_menu_handles_platform_offered_signals() {
-    use crate::models::{MenuCursor, Operation};
+    use crate::models::{KillOffer, MenuCursor, Operation, Signal};
     let mut tasks = TaskApp::open(vec![named(10, "vim")], Privilege::User);
     let targets = tasks.list().freeze_targets(Operation::Signal);
     tasks.list().set_modal(Modal::Menu(TaskMenu::Signal {
-        targets,
+        targets: targets.clone(),
         cursor: MenuCursor::at(0, 1).unwrap(),
     }));
     press(&mut tasks, KeyCode::Enter);
+
+    super::menus::choose_with(
+        tasks.list(),
+        TaskMenu::Signal {
+            targets,
+            cursor: MenuCursor::at(0, 1).unwrap(),
+        },
+        &[Signal::Terminate],
+    );
+    assert!(
+        matches!(tasks.list().modal(), Modal::Confirm(c) if c.offer() == KillOffer::Send(Signal::Terminate))
+    );
+    tasks.list().close_modal();
+    tasks.list().toggle_tab();
+    press(&mut tasks, KeyCode::Down);
+    press(&mut tasks, KeyCode::F(1));
+    assert!(matches!(tasks.list().modal(), Modal::Help(_)));
 }

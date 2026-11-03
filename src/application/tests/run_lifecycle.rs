@@ -146,3 +146,49 @@ fn event_loop_aborts_with_the_backend_message_when_the_draw_fails() -> io::Resul
     );
     Ok(())
 }
+
+#[cfg(feature = "keepass")]
+#[derive(Clone, Default)]
+struct MemoryClipboard(std::rc::Rc<std::cell::RefCell<String>>);
+
+#[cfg(feature = "keepass")]
+impl crate::clipboard::ClipboardBackend for MemoryClipboard {
+    fn get_native(&mut self) -> Result<String, String> {
+        Ok(self.0.borrow().clone())
+    }
+
+    fn set_native(&mut self, text: &str) -> Result<(), String> {
+        text.clone_into(&mut self.0.borrow_mut());
+        Ok(())
+    }
+
+    fn emit_osc52(&mut self, _payload: &str) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+#[cfg(feature = "keepass")]
+#[test]
+fn quitting_event_loop_disarms_and_clears_an_armed_clipboard() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let mut app = App::new()?;
+    app.left_panel = Panel::new(temp.path().to_path_buf())?;
+    app.right_panel = Panel::new(temp.path().to_path_buf())?;
+    let memory = MemoryClipboard::default();
+    memory.0.borrow_mut().push_str("secret");
+    app.clipboard.install(Box::new(memory.clone()));
+    app.clipboard.arm(Instant::now());
+    app.lifecycle = Lifecycle::Quitting;
+
+    let mut terminal = Terminal::new(WritableTestBackend::new(40, 8))?;
+    run_loop(
+        &mut terminal,
+        &mut app,
+        || -> io::Result<Option<Event>> { panic!("a quitting app must not read another event") },
+        Arc::new(crate::wsl::SystemWslBackend),
+    )?;
+
+    assert!(!app.clipboard.is_armed());
+    assert_eq!(memory.0.borrow().as_str(), "");
+    Ok(())
+}

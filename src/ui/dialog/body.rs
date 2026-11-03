@@ -25,13 +25,7 @@ pub(super) fn render_body(
     framed: Rect,
 ) -> Option<(u16, u16)> {
     let mut caret = None;
-    for (index, row) in rows.iter().enumerate() {
-        let Ok(offset) = u16::try_from(index) else {
-            break;
-        };
-        if offset >= body.height.saturating_sub(2) {
-            break;
-        }
+    for (offset, row) in (0..body.height.saturating_sub(2)).zip(rows) {
         let y = body.y + offset;
         // One past the last character: the caret sits where the next one will
         // go, which is where a text field's cursor belongs.

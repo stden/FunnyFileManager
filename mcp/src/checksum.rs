@@ -2,10 +2,11 @@
 //! comparison tools report it.
 
 use sha2::{Digest, Sha256};
-use std::fmt::Write as _;
 use std::fs;
 use std::io;
 use std::path::Path;
+
+const HEX_DIGITS: &[u8; 16] = b"0123456789abcdef";
 
 /// A file's SHA-256, or `None` if it cannot be read.
 pub fn checksum_of(path: &Path) -> Option<String> {
@@ -16,7 +17,7 @@ pub fn checksum_of(path: &Path) -> Option<String> {
 pub fn checksum_file(path: &Path) -> io::Result<String> {
     use io::BufRead;
 
-    let mut reader = io::BufReader::with_capacity(8192, fs::File::open(path)?);
+    let mut reader = io::BufReader::with_capacity(64 * 1024, fs::File::open(path)?);
     let mut hasher = Sha256::new();
     loop {
         let block = reader.fill_buf()?;
@@ -29,8 +30,17 @@ pub fn checksum_file(path: &Path) -> io::Result<String> {
     }
     let digest = hasher.finalize();
     let mut hex = String::with_capacity(digest.len() * 2);
-    for byte in &digest {
-        write!(hex, "{byte:02x}").map_err(io::Error::other)?;
+    for &byte in &digest {
+        let hi = HEX_DIGITS
+            .get(usize::from(byte >> 4))
+            .copied()
+            .unwrap_or(b'0');
+        let lo = HEX_DIGITS
+            .get(usize::from(byte & 0x0f))
+            .copied()
+            .unwrap_or(b'0');
+        hex.push(char::from(hi));
+        hex.push(char::from(lo));
     }
     Ok(hex)
 }

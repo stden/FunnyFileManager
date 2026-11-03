@@ -9,7 +9,9 @@ use std::fs;
 async fn sessions_default_to_the_server_root_when_no_initial_path_is_given() {
     let root = tempfile::tempdir().unwrap();
     let mut client = Client::spawn(root.path(), Access::Application).await;
-    let started = client.tool("ffm_session_start", json!({"profile":"isolated"})).await;
+    let started = client
+        .tool("ffm_session_start", json!({"profile":"isolated"}))
+        .await;
     assert!(started["session_id"].is_string());
     client.close().await;
 }
@@ -21,16 +23,27 @@ async fn production_moves_across_filesystems_remove_only_the_copied_tree() {
     use std::os::unix::fs::MetadataExt;
     let source = tempfile::tempdir().unwrap();
     let destination = tempfile::tempdir_in("/dev/shm").unwrap();
-    assert_ne!(source.path().metadata().unwrap().dev(), destination.path().metadata().unwrap().dev());
+    assert_ne!(
+        source.path().metadata().unwrap().dev(),
+        destination.path().metadata().unwrap().dev()
+    );
     let tree = source.path().join("tree");
     fs::create_dir(&tree).unwrap();
     fs::write(tree.join("kept"), b"payload").unwrap();
     let mut client = Client::spawn(std::path::Path::new("/"), Access::Disabled).await;
-    let moved = client.tool("batch_move", json!({"paths":[tree],"destination":destination.path()})).await;
+    let moved = client
+        .tool(
+            "batch_move",
+            json!({"paths":[tree],"destination":destination.path()}),
+        )
+        .await;
     assert_eq!(moved["total_moved"], 1);
     assert_eq!(moved["total_errors"], 0);
     assert!(!tree.exists());
-    assert_eq!(fs::read(destination.path().join("tree/kept")).unwrap(), b"payload");
+    assert_eq!(
+        fs::read(destination.path().join("tree/kept")).unwrap(),
+        b"payload"
+    );
     client.close().await;
 }
 

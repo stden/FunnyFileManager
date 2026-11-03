@@ -79,14 +79,7 @@ fn render_frame(f: &mut Frame<'_>, area: Rect, ground: Style) -> Rect {
 /// The rows and the rule, scrolled so the cursor row is always drawn.
 fn render_lines(f: &mut Frame<'_>, dialog: &SortMenu, body: Rect, ground: Style) {
     let first = first_line(dialog, body.height);
-    let shown = lines()
-        .into_iter()
-        .skip(first)
-        .take(usize::from(body.height));
-    for (offset, line) in shown.enumerate() {
-        let Ok(offset) = u16::try_from(offset) else {
-            break;
-        };
+    for (offset, line) in (0..body.height).zip(lines().into_iter().skip(first)) {
         let line_area = Rect {
             y: body.y + offset,
             height: 1,

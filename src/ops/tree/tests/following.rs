@@ -73,6 +73,10 @@ fn enter_on_a_folder_that_vanished_reports_and_keeps_the_old_listing() {
     expand_or_descend(&mut app);
     assert!(tree_mut(&mut app).expect("tree").find_first("gamma"));
     fs::remove_dir(root.path().join("gamma")).expect("remove gamma");
+    app.config.tree.auto_change_folder = true;
+    follow_cursor(&mut app);
+    assert!(app.status.to_string().contains("Cannot open folder:"));
+    app.config.tree.auto_change_folder = false;
     enter(&mut app);
     assert_eq!(
         app.left_panel.kind,

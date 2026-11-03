@@ -90,6 +90,19 @@ fn rank_by_leaf_orders_matches_before_non_matching_leftovers() {
 }
 
 #[test]
+fn rank_by_leaf_preserves_first_seen_order_when_distinct_paths_share_a_leaf() {
+    let ranked = rank_by_leaf(
+        PathSyntax::Posix,
+        "sha",
+        vec!["b_dir/shared/".to_owned(), "a_dir/shared/".to_owned()],
+    );
+    assert_eq!(
+        ranked,
+        vec!["b_dir/shared/".to_owned(), "a_dir/shared/".to_owned()]
+    );
+}
+
+#[test]
 fn fuzzy_leaf_matches_survive_fish_prefix_shadowing() {
     // fish only offers prefix matches: for "dwn" it returns "dwn-tools/" and
     // nothing else, shadowing the fuzzy match the design promises ("dwn"

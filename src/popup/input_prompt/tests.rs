@@ -105,5 +105,6 @@ fn another_overlay_is_not_this_dialogs() {
         KeyCode::Enter,
         KeyModifiers::NONE
     ));
+    super::submit(&mut app);
     assert!(!app.is_overlay_active());
 }

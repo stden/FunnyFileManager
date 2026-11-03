@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::{DirEntry, FileSize};
-use crate::remote::{RemoteFs, RemoteMetadata, UnixMode, WriteMode};
+use crate::remote::{RemoteMetadata, WriteMode};
 use std::io::Read;
 
 #[derive(Clone, Copy)]

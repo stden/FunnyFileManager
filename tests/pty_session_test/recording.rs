@@ -28,3 +28,21 @@ fn a_refused_recording_directory_is_reported_on_the_status_line() {
     assert_eq!(recorded, 0, "nothing is recorded through the link");
     assert!(ffm.quit().expect("ffm exits normally").success());
 }
+
+#[test]
+fn cli_error_routes_report_to_stderr_and_exit_with_failure() {
+    for args in [
+        &["--automation", "--unknown"][..],
+        &["--elevated-helper", "bad-pipe", "0"][..],
+        &["--invalid-flag"][..],
+    ] {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_ffm"));
+        cmd.args(args);
+        if let Some(prof) = std::env::var_os("LLVM_PROFILE_FILE") {
+            cmd.env("LLVM_PROFILE_FILE", prof);
+        }
+        let out = cmd.output().expect("run ffm");
+        assert!(!out.status.success(), "{args:?} unexpectedly succeeded");
+        assert!(String::from_utf8_lossy(&out.stderr).starts_with("ffm: "));
+    }
+}

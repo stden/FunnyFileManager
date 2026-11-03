@@ -67,6 +67,22 @@ fn path_add_opens_the_real_form_and_prevents_browse_actions_behind_it() {
     assert!(fixture.run("path_editor", "remove").is_err());
 }
 
+#[test]
+fn netbox_and_vault_executors_are_noops_outside_their_models() {
+    let mut fixture = Fixture::new();
+    execute(
+        &mut fixture.terminal,
+        &mut fixture.app,
+        Invocation::NetboxPanel(NetboxCommand::NewSession),
+    );
+    execute(
+        &mut fixture.terminal,
+        &mut fixture.app,
+        Invocation::Vault(VaultCommand::Close),
+    );
+    assert!(matches!(fixture.app.overlay, Overlay::None));
+}
+
 #[cfg(feature = "keepass")]
 #[test]
 fn vault_close_uses_its_own_context_without_opening_a_database() {

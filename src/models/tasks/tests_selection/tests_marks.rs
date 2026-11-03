@@ -47,6 +47,10 @@ fn c_marks_the_process_and_its_descendants() {
     list.select_index(1, PAGE);
     list.mark_family();
     assert_eq!(marked(&list), [2, 3, 4]);
+
+    let mut empty = TaskList::default();
+    empty.mark_family();
+    assert_eq!(empty.marked_count(), 0);
 }
 
 #[test]

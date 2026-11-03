@@ -27,3 +27,15 @@ fn clone_drops_the_backend_and_deadline_while_text_copy_disarms_the_original() {
     assert!(!slot.take_if_due(Instant::now()));
     assert!(!slot.is_armed());
 }
+
+#[test]
+fn take_if_due_clears_expired_deadline_once() {
+    let mut slot = ClipboardSlot::default();
+    let now = Instant::now();
+    slot.arm(now);
+    assert!(slot.is_armed());
+    assert!(!slot.take_if_due(now));
+    assert!(slot.take_if_due(now + CLEAR_DELAY));
+    assert!(!slot.is_armed());
+    assert!(!slot.take_if_due(now + CLEAR_DELAY));
+}

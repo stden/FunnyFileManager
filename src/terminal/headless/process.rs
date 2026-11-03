@@ -47,13 +47,11 @@ fn execute(
         .map_err(pty_error)?;
     let reader = pair.master.try_clone_reader().map_err(pty_error)?;
     let writer = pair.master.take_writer().map_err(pty_error)?;
-    let mut child = OwnedChild::new(
-        pair.slave
-            .spawn_command(builder(command))
-            .map_err(pty_error)?,
-        pair.master,
-        descendants,
-    )?;
+    let spawned = pair
+        .slave
+        .spawn_command(builder(command))
+        .map_err(pty_error)?;
+    let mut child = OwnedChild::new(spawned, pair.master, descendants)?;
     drop(pair.slave);
     let (replies, responses) = mpsc::sync_channel(8);
     let output = streams::read(reader, host.clone(), generation, replies, child.master())?;

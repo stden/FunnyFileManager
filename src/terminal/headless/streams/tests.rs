@@ -2,7 +2,6 @@
 
 use super::*;
 
-#[cfg(unix)]
 mod reader;
 
 fn output(result: Option<io::Result<()>>) -> io::Result<Output> {

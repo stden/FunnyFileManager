@@ -17,22 +17,7 @@ pub(super) fn is_pending(app: &App) -> bool {
 pub(super) fn capture(runtime: &Runtime) -> Value {
     let app = &runtime.app;
     let buffer = runtime.terminal.backend().buffer();
-    let redacted = secret_visible(&app.overlay);
-    let rows: Vec<String> = if redacted {
-        vec!["[Revealed secret omitted from passive screen state]".to_owned()]
-    } else {
-        buffer
-            .content
-            .chunks(usize::from(buffer.area.width).max(1))
-            .map(|row| {
-                row.iter()
-                    .map(ratatui::buffer::Cell::symbol)
-                    .collect::<String>()
-                    .trim_end()
-                    .to_owned()
-            })
-            .collect()
-    };
+    let (rows, redacted) = screen_rows(&app.overlay, buffer);
     json!({
         "running": app.lifecycle.is_running(),
         "panels": {"left": panels::describe(&app.left_panel), "right": panels::describe(&app.right_panel),
@@ -43,6 +28,37 @@ pub(super) fn capture(runtime: &Runtime) -> Value {
         "image": image::viewer(&app.overlay),
         "background_pending": pending::is_pending(app)
     })
+}
+
+fn buffer_rows(buffer: &ratatui::buffer::Buffer) -> Vec<String> {
+    buffer
+        .content
+        .chunks(usize::from(buffer.area.width).max(1))
+        .map(|row| {
+            row.iter()
+                .map(ratatui::buffer::Cell::symbol)
+                .collect::<String>()
+                .trim_end()
+                .to_owned()
+        })
+        .collect()
+}
+
+#[cfg(feature = "keepass")]
+fn screen_rows(overlay: &Overlay, buffer: &ratatui::buffer::Buffer) -> (Vec<String>, bool) {
+    if secret_visible(overlay) {
+        (
+            vec!["[Revealed secret omitted from passive screen state]".to_owned()],
+            true,
+        )
+    } else {
+        (buffer_rows(buffer), false)
+    }
+}
+
+#[cfg(not(feature = "keepass"))]
+fn screen_rows(_overlay: &Overlay, buffer: &ratatui::buffer::Buffer) -> (Vec<String>, bool) {
+    (buffer_rows(buffer), false)
 }
 
 fn editor(overlay: &Overlay) -> Value {
@@ -66,10 +82,6 @@ fn secret_visible(overlay: &Overlay) -> bool {
             .0
             .vault()
             .is_some_and(crate::kdbx::Vault::is_revealed)
-}
-#[cfg(not(feature = "keepass"))]
-const fn secret_visible(_overlay: &Overlay) -> bool {
-    false
 }
 
 #[cfg(test)]

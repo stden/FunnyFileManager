@@ -1,6 +1,8 @@
 //! Unit tests for the shared glob matcher.
 
-use super::{matches, max_depth, validate_pattern, MAX_PATTERN_COMPONENTS, MAX_PATTERN_LEN};
+use super::{
+    matches, max_depth, validate_pattern, CompiledGlob, MAX_PATTERN_COMPONENTS, MAX_PATTERN_LEN,
+};
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -10,6 +12,25 @@ fn single_star_stays_inside_one_component() {
     assert!(!matches("src/deep/a.rs", "src/*.rs"));
     // The directory part of the pattern is honoured, not discarded.
     assert!(!matches("build.rs", "src/*.rs"));
+}
+
+#[test]
+fn compiled_glob_handles_single_and_multi_component_candidates() {
+    let single = CompiledGlob::compile("*.rs").expect("valid single");
+    assert_eq!(single.max_depth(), Some(0));
+    assert!(single.matches("main.rs"));
+    assert!(!single.matches("src/main.rs"));
+    assert!(!single.matches(""));
+    assert!(!single.matches("."));
+
+    let wildcard_all = CompiledGlob::compile("**").expect("valid **");
+    assert_eq!(wildcard_all.max_depth(), None);
+    assert!(wildcard_all.matches("main.rs"));
+    assert!(wildcard_all.matches("a/b/main.rs"));
+
+    let nested = CompiledGlob::compile("src/**/*.rs").expect("valid nested");
+    assert_eq!(nested.max_depth(), None);
+    assert!(nested.matches("src/a/b.rs"));
 }
 
 #[test]

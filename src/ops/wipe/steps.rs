@@ -6,6 +6,7 @@ use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+#[cfg(any(test, tarpaulin))]
 use super::witness::{witness, Stage};
 use crate::utils::unique_destination;
 
@@ -48,11 +49,13 @@ pub fn wipe_path(path: &Path) -> io::Result<usize> {
         rename_then_remove(path, Removal::Dir)?;
         return Ok(shared);
     }
-    let shared = metadata.is_file() && crate::directory::link_count(&metadata) > 1;
+    let shared = metadata.is_file() && is_hard_linked(path, &metadata);
     if metadata.is_file() && !shared {
         clear_readonly(path);
         zero_fill(path)?;
-    } else if cfg!(windows) {
+    }
+    #[cfg(windows)]
+    if !metadata.is_file() || shared {
         clear_readonly(path);
     }
     rename_then_remove(path, Removal::File)?;
@@ -118,7 +121,7 @@ pub(super) fn zero_fill(path: &Path) -> io::Result<()> {
     options.write(true);
     let mut file = crate::fileload::open_regular(path, &options)?;
     let meta = file.metadata()?;
-    if crate::directory::link_count(&meta) > 1 {
+    if is_hard_linked(path, &meta) {
         return Err(io::Error::other(
             "Refusing to wipe a file with multiple hard links",
         ));
@@ -132,9 +135,25 @@ pub(super) fn zero_fill(path: &Path) -> io::Result<()> {
         remaining -= u64::try_from(zeros.len()).map_err(io::Error::other)?;
     }
     file.sync_all()?;
+    #[cfg(any(test, tarpaulin))]
     witness(Stage::Overwritten, path);
     file.set_len(0)?;
     file.sync_all()
+}
+
+#[cfg(unix)]
+fn is_hard_linked(_path: &Path, meta: &fs::Metadata) -> bool {
+    crate::directory::link_count(meta) > 1
+}
+
+#[cfg(windows)]
+fn is_hard_linked(path: &Path, _meta: &fs::Metadata) -> bool {
+    crate::ops::panel_details::windows::has_multiple_links(path)
+}
+
+#[cfg(not(any(unix, windows)))]
+const fn is_hard_linked(_path: &Path, _meta: &fs::Metadata) -> bool {
+    false
 }
 
 /// Steps three and four: the entry is removed under a temporary name, so the
@@ -142,6 +161,7 @@ pub(super) fn zero_fill(path: &Path) -> io::Result<()> {
 fn rename_then_remove(path: &Path, removal: Removal) -> io::Result<()> {
     let temporary = temporary_name(path)?;
     fs::rename(path, &temporary)?;
+    #[cfg(any(test, tarpaulin))]
     witness(Stage::Renamed, &temporary);
     removal.apply(&temporary).inspect_err(|_| {
         drop(fs::rename(&temporary, path));

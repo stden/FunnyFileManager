@@ -76,4 +76,43 @@ fn system_prober_loopback_and_silent_udp_dns_timeout_complete_boundedly() {
         udp_dns_probe(server, "", 42, Duration::from_millis(25)),
         ProbeOutcome::Unreachable
     );
+    drop(silent);
+    assert!(matches!(
+        udp_dns_probe(server, "example.com", 42, Duration::from_millis(25)),
+        ProbeOutcome::Unreachable | ProbeOutcome::Timeout
+    ));
+}
+
+#[test]
+fn udp_dns_probe_handles_bind_send_and_error_classification() {
+    use super::*;
+
+    let loopback = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 53);
+    let unassignable = SocketAddrV4::new(Ipv4Addr::new(203, 0, 113, 1), 0);
+    assert_eq!(
+        udp_dns_probe_from(
+            unassignable,
+            loopback,
+            "example.com",
+            42,
+            Duration::from_millis(25),
+        ),
+        ProbeOutcome::Unreachable
+    );
+    assert_eq!(
+        udp_dns_probe(
+            SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0),
+            "example.com",
+            42,
+            Duration::from_millis(25),
+        ),
+        ProbeOutcome::Unreachable
+    );
+    assert!(is_timeout_error(&io::Error::from(io::ErrorKind::TimedOut)));
+    assert!(is_timeout_error(&io::Error::from(
+        io::ErrorKind::WouldBlock
+    )));
+    assert!(!is_timeout_error(&io::Error::from(
+        io::ErrorKind::ConnectionReset
+    )));
 }

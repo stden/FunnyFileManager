@@ -6,7 +6,7 @@
 //! Every line naming a process is drawn as plain text: a process names
 //! itself, so an `&` in its name is shown, never taken for a hotkey mark.
 
-mod confirm;
+pub(super) mod confirm;
 mod info;
 mod net_info;
 

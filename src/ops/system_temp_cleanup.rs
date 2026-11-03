@@ -33,12 +33,14 @@ pub fn toggle(app: &mut App) {
     }
 }
 pub fn answer(app: &mut App, choice: Confirm) {
-    if let Overlay::TempCleanup(dialog) = &mut app.overlay {
-        if let TempCleanupState::Confirm { answer, .. } = &mut dialog.state {
-            *answer = choice;
-            accept(app);
-        }
-    }
+    let Overlay::TempCleanup(dialog) = &mut app.overlay else {
+        return;
+    };
+    let TempCleanupState::Confirm { answer, .. } = &mut dialog.state else {
+        return;
+    };
+    *answer = choice;
+    accept(app);
 }
 pub fn accept(app: &mut App) {
     let Overlay::TempCleanup(dialog) = &mut app.overlay else {

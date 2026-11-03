@@ -13,18 +13,8 @@ use super::{CopyRules, FileMode};
 pub fn rewrite_file(input: &fs::File, dst: &Path, rules: CopyRules) -> io::Result<()> {
     let mut output = open_for_writing(dst)?;
     let existing = output.metadata()?;
-    if !existing.is_file() {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "not a regular file",
-        ));
-    }
-    if same_open_file(input, &existing) {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "cannot copy or move onto itself",
-        ));
-    }
+    ensure_regular_file(existing.is_file())?;
+    ensure_distinct_open_file(input, &existing)?;
     if rules.times == Times::Source {
         output.set_times(file_times(&existing)?)?;
     }
@@ -35,17 +25,39 @@ pub fn rewrite_file(input: &fs::File, dst: &Path, rules: CopyRules) -> io::Resul
     write_contents(input, &mut output, rules)
 }
 
+fn ensure_regular_file(is_file: bool) -> io::Result<()> {
+    if is_file {
+        Ok(())
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "not a regular file",
+        ))
+    }
+}
+
 #[cfg(unix)]
-fn same_open_file(input: &fs::File, existing: &fs::Metadata) -> bool {
+fn ensure_distinct_open_file(input: &fs::File, existing: &fs::Metadata) -> io::Result<()> {
     use std::os::unix::fs::MetadataExt;
-    input
+    if input
         .metadata()
         .is_ok_and(|src| src.dev() == existing.dev() && src.ino() == existing.ino())
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "cannot copy or move onto itself",
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(not(unix))]
-const fn same_open_file(_input: &fs::File, _existing: &fs::Metadata) -> bool {
-    false
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "matches the Unix self-overwrite check signature"
+)]
+const fn ensure_distinct_open_file(_input: &fs::File, _existing: &fs::Metadata) -> io::Result<()> {
+    Ok(())
 }
 
 /// Open `dst` for writing, never waiting: something swapped in for the file

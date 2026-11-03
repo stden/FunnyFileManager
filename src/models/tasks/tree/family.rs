@@ -95,11 +95,11 @@ impl Family {
     pub(super) fn cycle_entry(&self, start: usize, visited: &Visited) -> usize {
         let mut walked = Visited::new(self.parents.len());
         let mut at = start;
-        while walked.insert(at) {
-            match self.parent(at) {
-                Some(up) if !visited.contains(up) => at = up,
-                _ => break,
-            }
+        while let Some(up) = self
+            .parent(at)
+            .filter(|&up| walked.insert(at) && !visited.contains(up))
+        {
+            at = up;
         }
         at
     }

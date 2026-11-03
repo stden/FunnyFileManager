@@ -135,10 +135,10 @@ impl FolderTree {
             branch,
             expansion,
         });
-        if expansion != Expansion::Expanded {
-            return;
-        }
-        let Some(kids) = self.children.get(path) else {
+        let Some(kids) = (expansion == Expansion::Expanded)
+            .then(|| self.children.get(path))
+            .flatten()
+        else {
             return;
         };
         let mut child_guides = guides.to_vec();

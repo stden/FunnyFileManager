@@ -3,10 +3,10 @@
 use std::collections::{BTreeSet, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock, PoisonError};
 use std::time::{Duration, Instant, SystemTime};
 
-use super::repo_git_dir;
+use super::{find_repo, repo_git_dir};
 use crate::models::{DirtyProbe, FileName, PanelMetadata};
 use crate::values::entry::DirEntry;
 
@@ -38,9 +38,11 @@ enum CacheSlot {
 }
 
 fn repo_cache() -> &'static Mutex<HashMap<PathBuf, CacheSlot>> {
-    static CACHE: OnceLock<Mutex<HashMap<PathBuf, CacheSlot>>> = OnceLock::new();
+    static CACHE: OnceLock<Mutex<HashMap<PathBuf, CachedRepoSlot>>> = OnceLock::new();
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
+
+type CachedRepoSlot = CacheSlot;
 
 impl RepoStamp {
     fn capture(repo_path: &Path, git_dir: &Path) -> Self {
@@ -131,15 +133,13 @@ fn fast_or_cached(repo_path: &Path, stamp: RepoStamp, now: Instant) -> Option<bo
 }
 
 fn store_cached(repo_path: PathBuf, stamp: RepoStamp, checked_at: Instant, dirty: bool) {
-    if let Ok(mut guard) = repo_cache().lock() {
-        let outdated = match guard.get(&repo_path) {
-            Some(CacheSlot::Invalidated(at)) => *at >= checked_at,
-            Some(CacheSlot::Answer(answer)) => answer.checked_at > checked_at,
-            None => false,
-        };
-        if outdated {
-            return;
-        }
+    let mut guard = repo_cache().lock().unwrap_or_else(PoisonError::into_inner);
+    let outdated = match guard.get(&repo_path) {
+        Some(CacheSlot::Invalidated(at)) => *at >= checked_at,
+        Some(CacheSlot::Answer(answer)) => answer.checked_at > checked_at,
+        None => false,
+    };
+    if !outdated {
         guard.insert(
             repo_path,
             CacheSlot::Answer(CachedRepo {
@@ -151,14 +151,16 @@ fn store_cached(repo_path: PathBuf, stamp: RepoStamp, checked_at: Instant, dirty
     }
 }
 
-/// Drop cached dirty status for the repository containing `path`.
+/// Drop cached dirty and ignored status for the repository containing `path`.
 pub fn invalidate_repo_cache_for(path: &Path) {
-    let Some(root) = path.ancestors().find(|dir| repo_git_dir(dir).is_some()) else {
+    let Some((root, _)) = find_repo(path) else {
         return;
     };
-    if let Ok(mut guard) = repo_cache().lock() {
-        guard.insert(root.to_path_buf(), CacheSlot::Invalidated(Instant::now()));
-    }
+    repo_cache()
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .insert(root.to_path_buf(), CacheSlot::Invalidated(Instant::now()));
+    super::ignored::invalidate_under(root);
 }
 
 #[cfg(test)]

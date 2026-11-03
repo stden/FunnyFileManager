@@ -59,7 +59,14 @@ impl TaskMenu {
     /// and `F9` does what `F8` does.
     #[must_use]
     pub fn signal(targets: FrozenTargets) -> Option<Self> {
-        let cursor = MenuCursor::at(0, Signal::OFFERED.len())?;
+        Self::signal_for(targets, Signal::OFFERED)
+    }
+
+    pub(in crate::models::tasks) fn signal_for(
+        targets: FrozenTargets,
+        offered: &[Signal],
+    ) -> Option<Self> {
+        let cursor = MenuCursor::at(0, offered.len())?;
         Some(Self::Signal { targets, cursor })
     }
 

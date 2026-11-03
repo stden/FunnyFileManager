@@ -149,4 +149,6 @@ fn every_key_is_taken_so_typing_and_function_keys_never_reach_the_panels() {
     assert!(matches!(app.overlay, Overlay::Things(_)));
     assert_eq!(catalog(&app).filter(), "q");
     assert!(app.lifecycle.is_running());
+    app.close_overlay();
+    assert!(!super::process(&mut app, KeyCode::Esc, KeyModifiers::NONE));
 }

@@ -112,7 +112,7 @@ fn fail(app: &mut App, archive: &Path, error: &std::io::Error) {
     app.set_status(Status::Error(text));
 }
 
-fn name_of(archive: &Path) -> String {
+pub(super) fn name_of(archive: &Path) -> String {
     archive.file_name().map_or_else(
         || archive.display().to_string(),
         |name| name.to_string_lossy().into_owned(),

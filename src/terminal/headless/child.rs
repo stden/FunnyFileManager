@@ -151,3 +151,6 @@ fn stop_group(child: &std::process::Child) -> io::Result<()> {
         result => result,
     }
 }
+
+#[cfg(test)]
+mod tests;

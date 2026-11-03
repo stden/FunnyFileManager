@@ -133,6 +133,17 @@ fn ctrl_u_is_ignored_while_a_panel_is_hidden() {
     assert!(!draw(&mut app).contains("right_side_dir"));
 }
 
+#[test]
+fn swap_panels_names_ctrl_f1_while_left_panel_is_hidden() {
+    let mut app = app();
+    app.panels_shown = PanelsShown::RightOnly;
+    swap_panels(&mut app);
+    assert_eq!(
+        app.status.to_string(),
+        "Panels are not swapped while one is hidden (Ctrl+F1 shows the left panel)"
+    );
+}
+
 /// With both panels on screen `Ctrl+U` swaps as it always has.
 #[test]
 fn ctrl_u_swaps_when_both_panels_are_shown() {

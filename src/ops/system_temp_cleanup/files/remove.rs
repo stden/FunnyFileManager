@@ -6,12 +6,20 @@ use crate::models::{
 };
 use std::{fs, io};
 pub fn remove(plan: &TempPlan) -> TempOutcome {
+    remove_with(plan, open, |p| fs::remove_file(p))
+}
+
+pub(super) fn remove_with(
+    plan: &TempPlan,
+    mut open_file: impl FnMut(&std::path::Path) -> io::Result<fs::File>,
+    mut unlink: impl FnMut(&std::path::Path) -> io::Result<()>,
+) -> TempOutcome {
     let mut outcome = TempOutcome {
         skipped: plan.skipped,
         ..TempOutcome::default()
     };
     for file in &plan.files {
-        match remove_one(plan, file) {
+        match remove_one(plan, file, &mut open_file, &mut unlink) {
             Ok(Some(bytes)) => {
                 outcome.removed += 1;
                 outcome.freed = FileSize::from_bytes(outcome.freed.bytes().saturating_add(bytes));
@@ -22,11 +30,16 @@ pub fn remove(plan: &TempPlan) -> TempOutcome {
     }
     outcome
 }
-fn remove_one(plan: &TempPlan, file: &PlannedTempFile) -> io::Result<Option<u64>> {
+fn remove_one(
+    plan: &TempPlan,
+    file: &PlannedTempFile,
+    open_file: &mut impl FnMut(&std::path::Path) -> io::Result<fs::File>,
+    unlink: &mut impl FnMut(&std::path::Path) -> io::Result<()>,
+) -> io::Result<Option<u64>> {
     if !unchanged(plan, file) {
         return Ok(None);
     }
-    let handle = match open(&file.path) {
+    let handle = match open_file(&file.path) {
         Ok(handle) => handle,
         Err(_error) => return Ok(None),
     };
@@ -40,7 +53,7 @@ fn remove_one(plan: &TempPlan, file: &PlannedTempFile) -> io::Result<Option<u64>
     {
         return Ok(None);
     }
-    fs::remove_file(&file.path)?;
+    unlink(&file.path)?;
     Ok(Some(file.size.bytes()))
 }
 fn unchanged(plan: &TempPlan, file: &PlannedTempFile) -> bool {

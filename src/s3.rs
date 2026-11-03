@@ -37,16 +37,7 @@ impl S3Client {
         let client = catch_unwind(AssertUnwindSafe(|| {
             runtime.block_on(async { configured_client(profile_name).await })
         }))
-        .map_err(|panic_payload| {
-            let message = if let Some(message) = panic_payload.downcast_ref::<&str>() {
-                (*message).to_owned()
-            } else if let Some(message) = panic_payload.downcast_ref::<String>() {
-                message.clone()
-            } else {
-                "unknown panic during S3 client initialization".to_owned()
-            };
-            io::Error::other(format!("failed to initialize S3 client: {message}"))
-        })?;
+        .map_err(init_panic_error)?;
 
         Ok(Self {
             client,
@@ -113,4 +104,15 @@ async fn configured_client(profile_name: &str) -> Client {
         .await;
 
     Client::new(&config)
+}
+
+fn init_panic_error(panic_payload: Box<dyn std::any::Any + Send>) -> io::Error {
+    let message = match panic_payload.downcast::<String>() {
+        Ok(message) => *message,
+        Err(panic_payload) => match panic_payload.downcast::<&str>() {
+            Ok(message) => (*message).to_owned(),
+            Err(_) => "unknown panic during S3 client initialization".to_owned(),
+        },
+    };
+    io::Error::other(format!("failed to initialize S3 client: {message}"))
 }

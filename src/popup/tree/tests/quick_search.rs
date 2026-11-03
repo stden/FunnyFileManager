@@ -29,7 +29,13 @@ fn typing_quick_searches_folder_names_and_restarts_when_nothing_matches() {
 #[test]
 fn backspace_shortens_the_search_and_esc_ends_it() {
     let (_root, mut app) = tree_app();
+    assert!(process(&mut app, key(KeyCode::Char('z'))));
+    tree_mut(&mut app).expect("tree").search.clear();
+
     process(&mut app, key(KeyCode::Char('b')));
+    process(&mut app, key(KeyCode::Char('e')));
+    assert!(process(&mut app, key(KeyCode::Backspace)));
+    assert_eq!(tree_mut(&mut app).expect("tree").search.query(), Some("b"));
     assert!(process(&mut app, key(KeyCode::Backspace)));
     assert!(tree_mut(&mut app).expect("tree").search.query().is_none());
     assert!(

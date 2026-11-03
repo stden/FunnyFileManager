@@ -58,3 +58,38 @@ fn system_clipboard_reports_a_missing_os_clipboard_instead_of_panicking() {
 fn system_clipboard_with_stdout_constructs_without_io_side_effects() {
     drop(SystemClipboard::with_stdout());
 }
+
+#[test]
+fn native_helpers_forward_values_and_stringify_backend_errors() {
+    use super::system::{read_native, write_native};
+
+    struct Slot(String);
+    fn get_ok(state: &mut Slot) -> Result<String, &'static str> {
+        Ok(state.0.clone())
+    }
+    fn get_err(_state: &mut Slot) -> Result<String, &'static str> {
+        Err("clipboard busy")
+    }
+    fn set_ok(state: &mut Slot, text: &str) -> Result<(), &'static str> {
+        text.clone_into(&mut state.0);
+        Ok(())
+    }
+    fn set_err(_state: &mut Slot, _text: &str) -> Result<(), &'static str> {
+        Err("selection locked")
+    }
+
+    let mut slot = Slot(String::new());
+    write_native(Some(&mut slot), "copied", set_ok).expect("set succeeds");
+    assert_eq!(
+        read_native(Some(&mut slot), get_ok).expect("get succeeds"),
+        "copied"
+    );
+    assert_eq!(
+        read_native(Some(&mut slot), get_err).expect_err("get error"),
+        "clipboard busy"
+    );
+    assert_eq!(
+        write_native(Some(&mut slot), "ignored", set_err).expect_err("set error"),
+        "selection locked"
+    );
+}

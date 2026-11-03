@@ -60,6 +60,26 @@ impl TextEncoding {
         }
     }
 
+    /// Detect encoding and lossily decode `bytes` in a single pass over valid UTF-8.
+    pub(crate) fn detect_and_decode_lossy(bytes: &[u8]) -> (Self, std::borrow::Cow<'_, str>) {
+        if let Some(stripped) = bytes.strip_prefix(b"\xef\xbb\xbf") {
+            return (
+                Self::Utf8Bom,
+                encoding_rs::UTF_8.decode_without_bom_handling(stripped).0,
+            );
+        }
+        if bytes.starts_with(b"\xff\xfe") {
+            return (Self::Utf16Le, Self::Utf16Le.decode_lossy_cow(bytes));
+        }
+        if bytes.starts_with(b"\xfe\xff") {
+            return (Self::Utf16Be, Self::Utf16Be.decode_lossy_cow(bytes));
+        }
+        if let Ok(valid) = std::str::from_utf8(bytes) {
+            return (Self::Utf8, std::borrow::Cow::Borrowed(valid));
+        }
+        (Self::Windows1251, Self::Windows1251.decode_lossy_cow(bytes))
+    }
+
     pub fn decode(self, bytes: &[u8]) -> io::Result<String> {
         let bytes = bytes.strip_prefix(self.bom()).unwrap_or(bytes);
         self.codec()
@@ -126,10 +146,6 @@ impl TextEncoding {
 }
 
 /// Whether `bytes` are binary rather than text.
-///
-/// A NUL is git's heuristic. Behind a UTF-16 byte-order mark a NUL byte is
-/// only the high half of an ASCII character, so there the test is a NUL
-/// *character*: a code unit of two zero bytes.
 pub fn is_binary(bytes: &[u8]) -> bool {
     let behind_utf16_bom = [TextEncoding::Utf16Le, TextEncoding::Utf16Be]
         .into_iter()

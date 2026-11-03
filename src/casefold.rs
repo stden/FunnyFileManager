@@ -3,34 +3,14 @@
 //! Every incremental search in this program runs its test once per candidate
 //! per keystroke: the vault filter over every entry's title, username, URL and
 //! group path; `Alt+letter` over every name in the panel; the same over every
-//! row of the folder tree. The obvious spelling,
-//! `candidate.to_lowercase().starts_with(&needle)`, allocates a `String` for
-//! every candidate on every key — work proportional to the listing, thrown
-//! away before the frame is drawn.
-//!
-//! Benchmarks on a 13th-gen desktop, before this module existed
-//! (`benches/kdbx_bench.rs`, `benches/panel_bench.rs`):
-//!
-//! | path | size | before |
-//! |---|---|---|
-//! | `vault/filter/none` | 5 000 entries | 360 µs |
-//! | `panel/quick_search/miss` | 10 000 entries | 117 µs |
-//!
-//! Both are per keystroke, both on the event loop, and neither draws anything
-//! until it returns.
+//! row of the folder tree.
 //!
 //! # Unicode
 //!
 //! The fast path is bytewise and therefore ASCII-only. Case folding is not a
 //! byte operation in general — lowercasing `İ` yields two chars, and Turkish
 //! `I` folds differently from English `I` — so anything non-ASCII falls back to
-//! the allocating expression these functions replace. The answer is then
-//! exactly what it was before, at exactly the old cost; only the common case
-//! gets faster.
-//!
-//! The needle is expected to be lowercased already where the caller can hoist
-//! that out of its loop (the vault does); these functions do not require it,
-//! because they compare case-insensitively in both directions.
+//! `to_lowercase()` once a safe ASCII anchor check cannot rule out a match.
 
 /// Whether `haystack` contains `needle`, ignoring case.
 ///
@@ -38,17 +18,7 @@
 /// `needle`, without the allocation. An empty needle matches everything, as
 /// `str::contains` does.
 pub fn contains_ignore_case(haystack: &str, needle: &str) -> bool {
-    if needle.is_empty() {
-        return true;
-    }
-    if !haystack.is_ascii() || !needle.is_ascii() {
-        return haystack.to_lowercase().contains(&needle.to_lowercase());
-    }
-    let (haystack, needle) = (haystack.as_bytes(), needle.as_bytes());
-    haystack.len() >= needle.len()
-        && haystack
-            .windows(needle.len())
-            .any(|window| window.eq_ignore_ascii_case(needle))
+    find_ignore_case(haystack, needle).is_some()
 }
 
 /// Lowercase form shared by ordering and prefix search.
@@ -68,19 +38,83 @@ pub(crate) fn folded_name(name: &str) -> String {
 ///
 /// The index is the one `haystack.to_lowercase().find(&needle.to_lowercase())`
 /// returns, including when lowercase expands a character. ASCII finds it with
-/// `eq_ignore_ascii_case` and does not build those strings.
+/// SIMD anchor scanning + `eq_ignore_ascii_case` and does not build strings.
 #[must_use]
 pub(crate) fn find_ignore_case(haystack: &str, needle: &str) -> Option<usize> {
     if needle.is_empty() {
         return Some(0);
     }
-    if !haystack.is_ascii() || !needle.is_ascii() {
-        return haystack.to_lowercase().find(&needle.to_lowercase());
+    if haystack.is_ascii() && needle.is_ascii() {
+        return find_ascii_ignore_case(haystack.as_bytes(), needle.as_bytes());
     }
-    let (haystack, needle) = (haystack.as_bytes(), needle.as_bytes());
-    haystack
-        .windows(needle.len())
-        .position(|window| window.eq_ignore_ascii_case(needle))
+    if let Some(anchor) = safe_unicode_ascii_anchor(needle.as_bytes()) {
+        if !has_ascii_anchor(haystack.as_bytes(), anchor) {
+            return None;
+        }
+    }
+    haystack.to_lowercase().find(&needle.to_lowercase())
+}
+
+fn find_ascii_ignore_case(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    let max_start = haystack.len().checked_sub(needle.len())?;
+    let (anchor_idx, anchor_low) = rarest_ascii_anchor(needle)?;
+    let search = haystack.get(anchor_idx..=max_start + anchor_idx)?;
+    if anchor_low.is_ascii_alphabetic() {
+        for offset in memchr::memchr2_iter(anchor_low, anchor_low.to_ascii_uppercase(), search) {
+            if haystack
+                .get(offset..offset + needle.len())
+                .is_some_and(|window| window.eq_ignore_ascii_case(needle))
+            {
+                return Some(offset);
+            }
+        }
+    } else {
+        for offset in memchr::memchr_iter(anchor_low, search) {
+            if haystack
+                .get(offset..offset + needle.len())
+                .is_some_and(|window| window.eq_ignore_ascii_case(needle))
+            {
+                return Some(offset);
+            }
+        }
+    }
+    None
+}
+
+fn rarest_ascii_anchor(needle: &[u8]) -> Option<(usize, u8)> {
+    let mut anchor_idx = 0usize;
+    let mut anchor_low = needle.first().copied()?.to_ascii_lowercase();
+    let mut best_rank = ascii_anchor_rank(anchor_low);
+    for (idx, &byte) in needle.iter().enumerate().skip(1) {
+        let low = byte.to_ascii_lowercase();
+        let rank = ascii_anchor_rank(low);
+        if rank < best_rank {
+            anchor_idx = idx;
+            anchor_low = low;
+            best_rank = rank;
+        }
+    }
+    Some((anchor_idx, anchor_low))
+}
+
+/// Rarest ASCII byte in `needle` that no non-ASCII Unicode scalar folds into
+/// (`İ` -> `i\u{307}` and `K` -> `k` are excluded).
+fn safe_unicode_ascii_anchor(needle: &[u8]) -> Option<u8> {
+    let mut best: Option<(u8, u8)> = None;
+    for &byte in needle {
+        if !byte.is_ascii() {
+            continue;
+        }
+        let low = byte.to_ascii_lowercase();
+        if matches!(low, b'i' | b'k') {
+            continue;
+        }
+        let rank = ascii_anchor_rank(low);
+        if best.is_none_or(|(prev_rank, _)| rank < prev_rank) {
+            best = Some((rank, low));
+        }
+    }
+    best.map(|(_, low)| low)
 }
 
 /// Whether `haystack` begins with `needle`, ignoring case.

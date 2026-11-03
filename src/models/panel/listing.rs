@@ -4,11 +4,18 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    ffi::OsStr,
+    path::{Path, PathBuf},
 };
 
 use super::sort::sort_entries;
 use super::{Cursor, DirectoryListing, Panel};
+
+pub(super) fn direct_child_name<'a>(base: &Path, target: &'a Path) -> Option<&'a OsStr> {
+    let mut comps = target.strip_prefix(base).ok()?.components();
+    let first = comps.next()?;
+    comps.next().is_none().then_some(first.as_os_str())
+}
 
 impl Panel {
     /// Commit a complete listing while preserving selection and valid marks.
@@ -123,18 +130,18 @@ impl Panel {
             .collect()
     }
 
-    pub(crate) fn set_directory_size_at(
-        &mut self,
-        target: &std::path::Path,
-        size: crate::models::FileSize,
-    ) {
-        let base = self.path.clone();
-        if let Some(entry) = self.entries.iter_mut().find(|entry| {
-            entry.kind.is_dir() && entry.name != ".." && base.join(entry.disk_name()) == target
-        }) {
+    pub(crate) fn set_directory_size_at(&mut self, target: &Path, size: crate::models::FileSize) {
+        let Some(child) = direct_child_name(&self.path, target) else {
+            return;
+        };
+        if let Some(entry) = self
+            .entries
+            .iter_mut()
+            .find(|entry| entry.kind.is_dir() && entry.name != ".." && entry.disk_name() == child)
+        {
             entry.set_measured_size(size);
+            self.resort_if_by_size();
         }
-        self.resort_if_by_size();
     }
 
     pub(crate) fn set_directory_sizes(&mut self, measured: &[(String, crate::models::FileSize)]) {

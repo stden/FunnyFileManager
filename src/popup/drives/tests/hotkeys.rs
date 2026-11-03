@@ -43,7 +43,7 @@ fn drive_menu_letter_opens_an_existing_local_drive() {
         "choosing a real drive letter closes the menu"
     );
     assert!(
-        app.left_panel.path.to_string_lossy().starts_with("C:"),
+        app.left_panel.path.starts_with("C:\\"),
         "panel should sit on the chosen drive, got {}",
         app.left_panel.path.display()
     );

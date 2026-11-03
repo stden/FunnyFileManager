@@ -110,9 +110,6 @@ pub fn hit(area: Rect, column: u16, row: u16, keys: usize, shown: PanelsShown) -
     let panels_height = area
         .height
         .saturating_sub(MENU_BAR_ROWS + BOTTOM_CHROME_ROWS);
-    if panel_row >= panels_height {
-        return Target::Nothing;
-    }
 
     let side = panel_side(area.width, column, shown);
     panel_target(side, panels_height, panel_row)

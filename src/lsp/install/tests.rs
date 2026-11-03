@@ -103,3 +103,16 @@ fn a_failed_installer_reports_failure_and_allows_an_explicit_retry() {
     .unwrap();
     assert!(wait(&retry).is_ok());
 }
+
+#[test]
+fn disconnected_worker_channel_and_panicked_installer_thread_are_handled() {
+    let (sender, result) = mpsc::sync_channel(1);
+    drop(sender);
+    let job = Job {
+        stop: Arc::new(AtomicBool::new(false)),
+        result,
+        thread: Some(thread::spawn(|| panic!("injected installer panic"))),
+    };
+    assert_eq!(job.poll(), Some(Err(InstallError::Worker)));
+    drop(job);
+}

@@ -12,12 +12,10 @@ use crate::models::App;
 ///
 /// Returns whether the overlay was opened, so the caller can skip its normal
 /// behaviour for that key.
-#[cfg(feature = "keepass")]
 pub fn open_vault_if_kdbx(app: &mut App) -> bool {
     open(app, crate::kdbx::Access::View)
 }
 
-#[cfg(feature = "keepass")]
 fn open(app: &mut App, access: crate::kdbx::Access) -> bool {
     let Some(path) = app.get_active_panel().selected_path() else {
         return false;
@@ -44,30 +42,8 @@ fn open(app: &mut App, access: crate::kdbx::Access) -> bool {
     true
 }
 
-#[cfg_attr(
-    not(feature = "keepass"),
-    expect(
-        clippy::needless_pass_by_ref_mut,
-        reason = "one signature for both builds; only the keepass build mutates the app"
-    )
-)]
 pub fn edit_vault_if_kdbx(app: &mut App) -> bool {
-    #[cfg(feature = "keepass")]
-    {
-        open(app, crate::kdbx::Access::Edit)
-    }
-    #[cfg(not(feature = "keepass"))]
-    {
-        let _ = app;
-        false
-    }
-}
-
-/// Without the `keepass` feature there is no vault browser, so every file keeps
-/// its ordinary open / view behaviour.
-#[cfg(not(feature = "keepass"))]
-pub fn open_vault_if_kdbx(_app: &mut App) -> bool {
-    false
+    open(app, crate::kdbx::Access::Edit)
 }
 
 /// Extensions that open the vault browser.
@@ -75,11 +51,9 @@ pub fn open_vault_if_kdbx(_app: &mut App) -> bool {
 /// `kbdx` is the common typo/transposition of `kdbx` and is accepted because
 /// users really do name files that way; both are matched case-insensitively, so
 /// `Vault.KDBX` from a Windows share opens like any other.
-#[cfg(feature = "keepass")]
 const VAULT_EXTENSIONS: [&str; 2] = ["kdbx", "kbdx"];
 
 /// Whether `path`'s extension names a `KeePass` database.
-#[cfg(feature = "keepass")]
 fn is_vault_file(path: &std::path::Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
@@ -91,32 +65,14 @@ fn is_vault_file(path: &std::path::Path) -> bool {
 }
 
 #[cfg(test)]
-#[cfg(feature = "keepass")]
 mod tests;
 #[cfg(test)]
-#[cfg(feature = "keepass")]
 mod tests_maintenance;
 
-#[cfg_attr(
-    not(feature = "keepass"),
-    expect(
-        clippy::needless_pass_by_ref_mut,
-        reason = "one signature for both builds; only the keepass build mutates the app"
-    )
-)]
 pub fn maintenance(app: &mut App) -> bool {
-    #[cfg(feature = "keepass")]
-    {
-        maintain_secrets(app, std::time::Instant::now())
-    }
-    #[cfg(not(feature = "keepass"))]
-    {
-        let _ = app;
-        false
-    }
+    maintain_secrets(app, std::time::Instant::now())
 }
 
-#[cfg(feature = "keepass")]
 fn maintain_secrets(app: &mut App, now: std::time::Instant) -> bool {
     app.vault_cache.expire(now);
     let locked = app

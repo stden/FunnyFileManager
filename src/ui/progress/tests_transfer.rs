@@ -160,6 +160,15 @@ fn the_rate_reads_zero_before_any_time_has_passed() {
     assert!(inner(&dialog(&idle)[10]).ends_with("Speed: 0 B/s"));
 }
 
+#[test]
+fn short_screens_switch_transfer_progress_to_compact_rows() {
+    let buffer = progress_dialog(Rect::new(0, 0, 60, 10), &moving());
+    assert!(buffer.area.height <= 10);
+    let text = rows(&buffer).join("\n");
+    assert!(text.contains("Rename/Move"), "{text}");
+    assert!(!text.contains("Moving the file"), "{text}");
+}
+
 /// A Windows verbatim path is shown as people type it.
 #[cfg(windows)]
 #[test]

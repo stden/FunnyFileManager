@@ -81,6 +81,10 @@ fn another_overlay_is_not_this_dialogs() {
         KeyModifiers::NONE
     ));
     assert!(!app.is_overlay_active());
+    super::run_selected(&mut app, PluginCommand::McpStatus, |_, _| {
+        Err(std::io::Error::other("plugin failed"))
+    });
+    assert!(app.status_text().contains("plugin failed"));
 }
 
 #[test]

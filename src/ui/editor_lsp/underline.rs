@@ -21,10 +21,9 @@ pub(in crate::ui) fn diagnostics(
         .saturating_add(usize::from(area.height))
         .min(editor.lines.len());
     for diagnostic in &editor.lsp.diagnostics {
-        for row in visible_rows(diagnostic, top, bottom) {
-            let Some(text) = editor.lines.get(row) else {
-                continue;
-            };
+        for (row, text) in visible_rows(diagnostic, top, bottom)
+            .filter_map(|row| Some((row, editor.lines.get(row)?)))
+        {
             let line = EditorLine {
                 text,
                 tab: editor.tab_size,
@@ -46,12 +45,8 @@ fn visible_rows(diagnostic: &Diagnostic, top: usize, bottom: usize) -> std::ops:
     if top >= bottom || diagnostic.range.start > diagnostic.range.end {
         return 0..0;
     }
-    let Ok(start) = usize::try_from(diagnostic.range.start.line) else {
-        return 0..0;
-    };
-    let Ok(end) = usize::try_from(diagnostic.range.end.line) else {
-        return 0..0;
-    };
+    let start = usize::try_from(diagnostic.range.start.line).unwrap_or(usize::MAX);
+    let end = usize::try_from(diagnostic.range.end.line).unwrap_or(usize::MAX);
     if end < top || start >= bottom {
         return 0..0;
     }

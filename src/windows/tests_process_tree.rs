@@ -78,3 +78,12 @@ fn private_terminal_job_owns_a_borrowed_portable_child_without_taking_its_handle
         "private job left its owned child alive"
     );
 }
+
+#[test]
+fn job_helpers_surface_errors_for_null_creation_assignment_and_limits() {
+    use super::process_tree::{create_anonymous_job, job_for_raw_handle_with, set_job_limit_flags};
+
+    assert!(job_for_raw_handle_with(std::ptr::null_mut(), std::ptr::null_mut).is_err());
+    assert!(job_for_raw_handle_with(std::ptr::null_mut(), create_anonymous_job).is_err());
+    assert!(set_job_limit_flags(std::ptr::null_mut(), 0).is_err());
+}

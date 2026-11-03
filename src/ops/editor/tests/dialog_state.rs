@@ -51,6 +51,11 @@ fn changed_on_disk_tells_another_programs_write_from_the_editors_own() -> io::Re
     assert!(!editor.changed_on_disk(), "the editor's own save is known");
     fs::remove_file(&path)?;
     assert!(editor.changed_on_disk(), "a file that is gone has changed");
+    fs::create_dir(&path)?;
+    assert!(
+        editor.changed_on_disk(),
+        "a folder in its place has changed"
+    );
     Ok(())
 }
 

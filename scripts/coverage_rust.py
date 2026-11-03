@@ -31,6 +31,25 @@ CONFIGURATIONS = (
 )
 
 
+WINDOWS_WRAPPER_SOURCE = (
+    "fn main() {\n"
+    "    let mut args = std::env::args_os().skip(1);\n"
+    '    let program = args.next().expect("compiler path");\n'
+    '    let status = std::process::Command::new(program).args(args).status().expect("spawn compiler");\n'
+    "    std::process::exit(status.code().unwrap_or(1));\n"
+    "}\n"
+)
+
+
+def build_windows_wrapper(directory: Path) -> Path:
+    """Compile a native pass-through binary so cmd.exe's 8191-char limit cannot truncate rustc."""
+    source = directory / "rustc-wrapper.rs"
+    wrapper = directory / "rustc-wrapper.exe"
+    source.write_text(WINDOWS_WRAPPER_SOURCE, encoding="utf-8")
+    execute(["rustc", str(source), "-o", str(wrapper)], os.environ)
+    return wrapper
+
+
 def compiler_environment(directory: Path) -> dict[str, str]:
     """Supply a working pass-through for Cargo's empty-wrapper configuration."""
     environment = {**os.environ, "PWD": str(lint_steps.ROOT)}
@@ -42,8 +61,7 @@ def compiler_environment(directory: Path) -> dict[str, str]:
     if environment.get("RUSTC_WRAPPER") or environment.get("CARGO_BUILD_RUSTC_WRAPPER"):
         return environment
     if os.name == "nt":
-        wrapper = directory / "rustc-wrapper.cmd"
-        wrapper.write_text("@echo off\n%*\n", encoding="utf-8")
+        wrapper = build_windows_wrapper(directory)
     else:
         wrapper = shell_path.find("env")
         if not wrapper:

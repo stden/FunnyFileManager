@@ -140,3 +140,33 @@ fn test_object_size_conversion_boundaries() {
         Some(FileSize::from_bytes(i64::MAX.unsigned_abs()))
     );
 }
+
+#[test]
+fn unsafe_object_names_and_degenerate_or_unbounded_continuations_stop_cleanly() -> io::Result<()> {
+    for key in ["..", ".", "sub/nested.txt", r"sub\nested.txt"] {
+        let obj = aws_sdk_s3::types::Object::builder()
+            .key(key)
+            .size(1)
+            .build();
+        assert!(file_from_object(&obj, "").is_none(), "{key}");
+    }
+
+    let empty_tok = r#"<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Name>b</Name><IsTruncated>true</IsTruncated><NextContinuationToken></NextContinuationToken><Contents><Key>a.txt</Key><Size>1</Size></Contents></ListBucketResult>"#;
+    let client = build_test_client(vec![replay_event(empty_tok)]);
+    assert_eq!(client.list_objects("b", "")?.len(), 1);
+
+    let repeated = r#"<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Name>b</Name><IsTruncated>true</IsTruncated><NextContinuationToken>stuck</NextContinuationToken><Contents><Key>a.txt</Key><Size>1</Size></Contents></ListBucketResult>"#;
+    let client = build_test_client(vec![replay_event(repeated), replay_event(repeated)]);
+    assert_eq!(client.list_objects("b", "")?.len(), 2);
+
+    let pages: Vec<_> = (0..100)
+        .map(|i| {
+            replay_event(&format!(
+                r#"<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Name>b</Name><IsTruncated>true</IsTruncated><NextContinuationToken>t{i}</NextContinuationToken><Contents><Key>f{i}.txt</Key><Size>1</Size></Contents></ListBucketResult>"#
+            ))
+        })
+        .collect();
+    let client = build_test_client(pages);
+    assert_eq!(client.list_objects("b", "")?.len(), 100);
+    Ok(())
+}

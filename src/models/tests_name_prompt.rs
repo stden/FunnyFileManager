@@ -44,6 +44,8 @@ fn the_mask_dialog_moves_between_its_two_buttons() {
 
     let mut prompt = MaskPrompt::new(MaskPurpose::Select, "*");
     assert!(!prompt.on_cancel(), "opens on OK");
+    prompt.push('a');
+    assert_eq!(prompt.mask(), "a");
     prompt.toggle_button();
     assert!(prompt.on_cancel());
     prompt.toggle_button();
@@ -86,4 +88,7 @@ fn name_purpose_and_link_type_expose_link_capabilities() {
     assert!(!LinkType::None.needs_target());
     assert!(LinkType::Symbolic.needs_target());
     assert!(LinkType::Hard.needs_target());
+    assert_eq!(LinkType::None.label(), "none");
+    assert_eq!(LinkType::Symbolic.label(), "symbolic link");
+    assert_eq!(LinkType::Hard.label(), "hard link");
 }

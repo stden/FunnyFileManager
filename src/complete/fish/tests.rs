@@ -3,7 +3,8 @@
 use std::path::Path;
 use tempfile::TempDir;
 
-use super::{fish_path_complete, FISH_PROGRAM_FOR_TESTS};
+use super::{fish_path_complete, wait_for_fish, FISH_PROGRAM_FOR_TESTS};
+use crate::complete::{paths::path_complete, PathSyntax};
 
 struct FishStubGuard;
 
@@ -29,7 +30,8 @@ fn write_stub(dir: &Path, name: &str, win_body: &str, _unix_body: &str) -> std::
 #[cfg(not(windows))]
 fn write_stub(dir: &Path, name: &str, _win_body: &str, unix_body: &str) -> std::path::PathBuf {
     let path = dir.join(name);
-    crate::test_support::write_executable(&path, &format!("#!/bin/sh\n{unix_body}\n")).unwrap();
+    crate::test_support::write_executable(&path, format!("#!/bin/sh\n{unix_body}\n").as_bytes())
+        .unwrap();
     path
 }
 
@@ -44,6 +46,11 @@ fn fish_path_complete_parses_stub_candidates_and_falls_back_on_error() {
     );
     let got = with_stub(&ok_stub, || fish_path_complete("a", dir.path()));
     assert_eq!(got, Some(vec!["alpha/".to_owned(), "beta/".to_owned()]));
+    let merged = with_stub(&ok_stub, || {
+        path_complete(PathSyntax::HOST, "a", dir.path())
+    });
+    assert!(merged.contains(&"alpha/".to_owned()));
+    assert!(merged.contains(&"beta/".to_owned()));
 
     let fail_stub = write_stub(dir.path(), "fish_fail", "exit /b 2", "exit 2");
     assert_eq!(
@@ -65,4 +72,19 @@ fn fish_path_complete_kills_hung_process_after_timeout() {
         with_stub(&slow_stub, || fish_path_complete("a", dir.path())),
         None
     );
+}
+
+#[test]
+fn wait_for_fish_logs_and_survives_unreadable_stdout_spool() {
+    let dir = TempDir::new().unwrap();
+    let ok_stub = write_stub(dir.path(), "fish_spool", "exit /b 0", "exit 0");
+    let spool_path = dir.path().join("write_only_spool.txt");
+    let write_only = std::fs::File::options()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&spool_path)
+        .unwrap();
+    let mut child = std::process::Command::new(&ok_stub).spawn().unwrap();
+    assert_eq!(wait_for_fish(&mut child, write_only), None);
 }

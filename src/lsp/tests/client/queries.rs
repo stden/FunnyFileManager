@@ -22,6 +22,8 @@ fn changing_a_document_cancels_queries_and_late_responses_do_nothing() {
         .receive(json!({"jsonrpc":"2.0","id":id,"result":[{"label":"stale"}]}))
         .unwrap();
     assert_eq!(client.events.len(), events);
+    client.answer(query, Ok(Value::Null));
+    assert_eq!(client.events.len(), events);
     assert!(client.query(query).is_err());
 }
 

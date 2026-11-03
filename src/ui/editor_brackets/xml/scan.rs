@@ -25,16 +25,16 @@ impl<'a> XmlScanner<'a> {
     pub(super) fn find_pair(
         mut self,
         lines: &'a [String],
-        cursor_line: usize,
-        cursor_col: usize,
+        line: usize,
+        col: usize,
     ) -> Option<[TagSpan; 2]> {
-        let limit = cursor_line.saturating_add(super::super::MAX_SCAN_LINES + 1);
-        let first = cursor_line.saturating_sub(super::super::MAX_SCAN_LINES);
-        for (idx, line) in lines.iter().enumerate().take(limit).skip(first) {
-            if idx > cursor_line && !self.has_cursor_open(lines, cursor_line, cursor_col) {
+        let limit = line.saturating_add(super::super::MAX_SCAN_LINES + 1);
+        let first = line.saturating_sub(super::super::MAX_SCAN_LINES);
+        for (idx, text) in lines.iter().enumerate().take(limit).skip(first) {
+            if idx > line && !self.has_cursor_open(lines, line, col) {
                 break;
             }
-            if let Some(pair) = self.scan_line(lines, idx, line, cursor_line, cursor_col) {
+            if let Some(pair) = self.scan_line(lines, idx, text, (line, col)) {
                 return Some(pair);
             }
         }
@@ -53,8 +53,7 @@ impl<'a> XmlScanner<'a> {
         lines: &'a [String],
         line_idx: usize,
         line: &'a str,
-        cursor_line: usize,
-        cursor_col: usize,
+        cur: (usize, usize),
     ) -> Option<[TagSpan; 2]> {
         let (mut byte_pos, mut char_pos) = (0, 0);
         while byte_pos < line.len() {
@@ -64,11 +63,8 @@ impl<'a> XmlScanner<'a> {
                 Mode::Until(closer) => Self::step_until(&mut self.mode, rest, closer),
                 Mode::OpenTag { .. } => self.step_open_tag(line_idx, char_pos, rest),
             };
-            if let Some(matched) = pair.filter(|[open, close]| {
-                open.matches_cursor(lines, cursor_line, cursor_col)
-                    || close.matches_cursor(lines, cursor_line, cursor_col)
-            }) {
-                return Some(matched);
+            if pair.is_some_and(|p| p.iter().any(|s| s.matches_cursor(lines, cur.0, cur.1))) {
+                return pair;
             }
             byte_pos += adv_bytes;
             char_pos += adv_chars;
@@ -80,17 +76,15 @@ impl<'a> XmlScanner<'a> {
         if let Some(pos) = rest.find(closer) {
             *mode = Mode::Text;
             let end = pos + closer.len();
-            let chars = rest.get(..end).map_or(closer.len(), |s| s.chars().count());
-            return (end, chars, None);
+            return (end, char_len_prefix(rest, end), None);
         }
-        (rest.len().max(1), rest.chars().count().max(1), None)
+        (rest.len().max(1), char_len_prefix(rest, rest.len()), None)
     }
 
     fn step_text(&mut self, line_idx: usize, char_pos: usize, rest: &'a str) -> Step {
         if !rest.starts_with('<') {
             let bytes = rest.find('<').unwrap_or(rest.len());
-            let chars = rest.get(..bytes).map_or(1, |s| s.chars().count()).max(1);
-            return (bytes.max(1), chars, None);
+            return (bytes.max(1), char_len_prefix(rest, bytes), None);
         }
         for (prefix, closer) in [
             ("<!--", "-->"),
@@ -181,11 +175,18 @@ impl<'a> XmlScanner<'a> {
     }
 }
 
-fn ascii_run(text: &str, keep: impl Fn(char) -> bool) -> usize {
-    text.chars()
-        .take_while(|&c| keep(c))
-        .map(char::len_utf8)
-        .sum()
+fn char_len_prefix(text: &str, bytes: usize) -> usize {
+    let s = text.get(..bytes).unwrap_or(text);
+    if s.is_ascii() {
+        return s.len().max(1);
+    }
+    s.chars().count().max(1)
+}
+
+fn ascii_run(text: &str, keep: fn(char) -> bool) -> usize {
+    text.bytes()
+        .take_while(|&b| b.is_ascii() && keep(char::from(b)))
+        .count()
 }
 
 pub(super) fn is_tag_name_char(ch: char) -> bool {

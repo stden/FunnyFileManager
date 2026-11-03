@@ -88,19 +88,46 @@ fn paint_span(
     }
 }
 
+enum TagHint<'a> {
+    SelfCloseOrClosing,
+    Opening(&'a str),
+}
+
 pub(super) fn matching_xml_pair(editor: &Editor) -> Option<[TagSpan; 2]> {
     let cursor_line = editor.cursor_line;
     let cursor_col = editor.cursor_column().chars();
     let current = editor.lines.get(cursor_line)?;
-    if !cursor_near_xml_tag(current, cursor_col) {
-        return None;
+    let hint = cursor_tag_hint(current, cursor_col)?;
+    if let TagHint::Opening(name) = hint {
+        let end = cursor_line
+            .saturating_add(super::MAX_SCAN_LINES + 1)
+            .min(editor.lines.len());
+        let window = editor.lines.get(cursor_line..end).unwrap_or_default();
+        if !window
+            .iter()
+            .any(|line| line.contains("/>") || contains_close_for(line, name))
+        {
+            return None;
+        }
     }
     XmlScanner::default().find_pair(&editor.lines, cursor_line, cursor_col)
 }
 
-fn cursor_near_xml_tag(line: &str, cursor_col: usize) -> bool {
+fn contains_close_for(line: &str, name: &str) -> bool {
+    let mut rest = line;
+    while let Some(pos) = rest.find("</") {
+        let after = rest.get(pos + 2..).unwrap_or_default();
+        if after.starts_with(name) {
+            return true;
+        }
+        rest = after;
+    }
+    false
+}
+
+fn cursor_tag_hint(line: &str, cursor_col: usize) -> Option<TagHint<'_>> {
     if !line.contains('<') && !line.contains("/>") {
-        return false;
+        return None;
     }
     let window_start = byte_at_char(line, cursor_col.saturating_sub(2));
     let window_end = byte_at_char(line, cursor_col.saturating_add(2));
@@ -109,22 +136,35 @@ fn cursor_near_xml_tag(line: &str, cursor_col: usize) -> bool {
         .unwrap_or_default()
         .contains("/>")
     {
-        return true;
+        return Some(TagHint::SelfCloseOrClosing);
     }
     let up_to_cursor = line
         .get(..byte_at_char(line, cursor_col.saturating_add(1)))
         .unwrap_or(line);
-    let Some(lt_pos) = up_to_cursor.rfind('<') else {
-        return false;
-    };
+    let lt_pos = up_to_cursor.rfind('<')?;
+    tag_hint_after_lt(line, lt_pos, cursor_col)
+}
+
+fn tag_hint_after_lt(line: &str, lt_pos: usize, cursor_col: usize) -> Option<TagHint<'_>> {
     let after_lt = line.get(lt_pos + 1..).unwrap_or_default();
-    let valid_start = after_lt
-        .chars()
-        .next()
-        .is_some_and(|ch| ch == '/' || scan::is_tag_name_char(ch));
     let before_prev = byte_at_char(line, cursor_col.saturating_sub(1));
     let between = line.get(lt_pos..before_prev).unwrap_or_default();
-    valid_start
-        && !between.contains('>')
-        && (after_lt.starts_with('/') || !between.contains(char::is_whitespace))
+    if between.contains('>') {
+        return None;
+    }
+    if after_lt.starts_with('/') {
+        return Some(TagHint::SelfCloseOrClosing);
+    }
+    if between.contains(char::is_whitespace) {
+        return None;
+    }
+    let name_len = after_lt
+        .chars()
+        .take_while(|&ch| scan::is_tag_name_char(ch))
+        .map(char::len_utf8)
+        .sum();
+    (name_len > 0)
+        .then(|| after_lt.get(..name_len))
+        .flatten()
+        .map(TagHint::Opening)
 }

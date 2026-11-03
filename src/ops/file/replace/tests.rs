@@ -146,8 +146,11 @@ fn a_failed_staged_rename_does_not_report_the_file_as_done() {
     );
 }
 
+#[cfg(unix)]
 #[test]
-fn write_through_replaces_existing_destination_bytes_in_place() {
+fn write_through_and_named_stage_preserve_mode_and_fallback_when_unnamed_is_unavailable() {
+    use std::os::unix::fs::PermissionsExt;
+
     let dir = TempDir::new().expect("tempdir");
     let src = dir.path().join("src.txt");
     let dst = dir.path().join("dst.txt");
@@ -157,7 +160,22 @@ fn write_through_replaces_existing_destination_bytes_in_place() {
     settings.rights = AccessRights::Default;
     write_through(&src, &dst, &settings).expect("write through");
     assert_eq!(fs::read(&dst).expect("read dst"), b"replacement");
+
+    let staged = stage::named_stage(
+        &src,
+        &dst,
+        dir.path(),
+        &settings,
+        Some(fs::Permissions::from_mode(0o600)),
+    )
+    .expect("named stage");
+    assert_eq!(
+        fs::metadata(staged.path()).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
 }
+
+mod tests_stage;
 
 #[test]
 fn overwriting_a_directory_link_with_a_file_removes_only_the_link() {

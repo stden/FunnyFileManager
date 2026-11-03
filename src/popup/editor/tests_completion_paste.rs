@@ -26,6 +26,13 @@ fn pasting_dismisses_completion_and_inserts_the_text_at_the_caret() {
     let editor = app.get_editor().expect("editor");
     assert!(editor.lsp.popup.is_none());
     assert_eq!(editor.content(), "help");
+
+    app.get_editor_mut().expect("editor").lsp.popup = Some(Dialog::Hover {
+        text: "docs".to_owned(),
+        scroll: 0,
+    });
+    paste_text(&mut app, "!");
+    assert_eq!(app.get_editor().expect("editor").content(), "help");
 }
 
 #[test]

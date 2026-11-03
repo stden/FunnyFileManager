@@ -39,15 +39,20 @@ pub fn ready() -> Option<&'static [String]> {
 pub fn warm() {
     static STARTED: Once = Once::new();
     STARTED.call_once(|| {
-        let spawned = std::thread::Builder::new()
-            .name("ffm-path-scan".to_owned())
-            .spawn(|| {
-                executables();
-            });
-        if let Err(error) = spawned {
-            crate::diagnostics::log_error(&format!("PATH scan: {error}"));
-        }
+        report_spawn_result(
+            std::thread::Builder::new()
+                .name("ffm-path-scan".to_owned())
+                .spawn(|| {
+                    executables();
+                }),
+        );
     });
+}
+
+fn report_spawn_result<T>(spawned: std::io::Result<T>) {
+    if let Err(error) = spawned {
+        crate::diagnostics::log_error(&format!("PATH scan: {error}"));
+    }
 }
 
 /// Executable names found in the `PATH`-shaped variable `path_var`.
@@ -97,12 +102,19 @@ fn collect_executables(dir: &Path, names: &mut BTreeSet<String>) {
 /// would call a dangling link runnable.
 fn is_executable(entry: &std::fs::DirEntry) -> bool {
     #[cfg(not(unix))]
-    if let Ok(kind) = entry.file_type() {
-        if !kind.is_symlink() {
-            return !kind.is_dir();
-        }
+    if let Some(runnable) = entry
+        .file_type()
+        .ok()
+        .filter(|kind| !kind.is_symlink())
+        .map(|kind| !kind.is_dir())
+    {
+        return runnable;
     }
-    let Ok(metadata) = std::fs::metadata(entry.path()) else {
+    is_executable_target(&entry.path())
+}
+
+fn is_executable_target(path: &Path) -> bool {
+    let Ok(metadata) = std::fs::metadata(path) else {
         return false;
     };
     if metadata.is_dir() {

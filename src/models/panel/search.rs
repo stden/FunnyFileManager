@@ -1,5 +1,6 @@
 //! Purpose: quick search and select-by-name over the panel's entries.
 
+use super::listing::direct_child_name;
 use super::search_index;
 use super::Panel;
 use crate::models::EntryKind;
@@ -36,9 +37,10 @@ impl Panel {
     /// listing does not hold.
     #[must_use]
     pub fn kind_of(&self, path: &std::path::Path) -> Option<EntryKind> {
+        let child = direct_child_name(&self.path, path)?;
         self.entries
             .iter()
-            .find(|entry| self.path.join(entry.disk_name()) == path)
+            .find(|entry| entry.disk_name() == child)
             .map(|entry| entry.kind)
     }
 }

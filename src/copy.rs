@@ -150,10 +150,6 @@ impl CopyPrompt {
         match self.field {
             CopyField::Timestamps => self.timestamps = !self.timestamps,
             CopyField::SymlinkContents => self.symlink_contents = !self.symlink_contents,
-            CopyField::MultipleDestinations => {
-                self.multiple_destinations = !self.multiple_destinations;
-            }
-            CopyField::Filter => self.filter = !self.filter,
             _ => {}
         }
     }

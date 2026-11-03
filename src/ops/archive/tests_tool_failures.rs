@@ -45,6 +45,30 @@ fn a_corrupt_archive_is_refused_and_nothing_is_unpacked() {
 
     assert!(extract_archive(&archive, &destination).is_err());
     assert_eq!(fs::read_dir(&destination).unwrap().count(), 0);
+
+    let clash_archive = root.path().join("clash.tar");
+    let work = root.path().join("work");
+    fs::create_dir_all(work.join("conflict")).unwrap();
+    fs::write(work.join("conflict").join("child.txt"), b"nested").unwrap();
+    assert!(std::process::Command::new("tar")
+        .args(["-cf"])
+        .arg(&clash_archive)
+        .arg("conflict/child.txt")
+        .current_dir(&work)
+        .status()
+        .unwrap()
+        .success());
+    fs::remove_dir_all(work.join("conflict")).unwrap();
+    fs::write(work.join("conflict"), b"file").unwrap();
+    assert!(std::process::Command::new("tar")
+        .args(["-rf"])
+        .arg(&clash_archive)
+        .arg("conflict")
+        .current_dir(&work)
+        .status()
+        .unwrap()
+        .success());
+    assert!(extract_archive(&clash_archive, &destination).is_err());
 }
 
 #[test]

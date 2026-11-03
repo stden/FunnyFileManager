@@ -64,6 +64,15 @@ fn raw_system_times() -> io::Result<(u64, u64, u64)> {
     let (mut idle, mut kernel, mut user) = (zero, zero, zero);
     // SAFETY: all three pointers address valid writable `FILETIME` locals.
     let ok = unsafe { GetSystemTimes(&raw mut idle, &raw mut kernel, &raw mut user) };
+    decode_system_times(ok, idle, kernel, user)
+}
+
+fn decode_system_times(
+    ok: i32,
+    idle: FILETIME,
+    kernel: FILETIME,
+    user: FILETIME,
+) -> io::Result<(u64, u64, u64)> {
     if ok == 0 {
         return Err(io::Error::last_os_error());
     }
@@ -116,3 +125,6 @@ fn uptime_millis() -> u64 {
     // SAFETY: `GetTickCount64` takes no arguments and reads no memory.
     unsafe { GetTickCount64() }
 }
+
+#[cfg(test)]
+mod tests;

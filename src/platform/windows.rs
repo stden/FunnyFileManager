@@ -83,11 +83,15 @@ const BROADCAST_TIMEOUT_MS: u32 = 1000;
 
 /// Tell every top-level window that the environment changed, as `setx` and
 /// the System Properties dialog do, so Explorer starts new programs with it.
+pub fn broadcast_environment_change() -> io::Result<()> {
+    broadcast_to(HWND_BROADCAST)
+}
+
 #[allow(
     unsafe_code,
     reason = "std cannot send a window message; WM_SETTINGCHANGE is how Windows announces a new environment"
 )]
-pub fn broadcast_environment_change() -> io::Result<()> {
+pub(super) fn broadcast_to(target: windows_sys::Win32::Foundation::HWND) -> io::Result<()> {
     let environment = nul_terminated(OsStr::new("Environment"))?;
     let section = isize::try_from(environment.as_ptr().expose_provenance())
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
@@ -97,7 +101,7 @@ pub fn broadcast_environment_change() -> io::Result<()> {
     // the result.
     let sent = unsafe {
         SendMessageTimeoutW(
-            HWND_BROADCAST,
+            target,
             WM_SETTINGCHANGE,
             0,
             section,

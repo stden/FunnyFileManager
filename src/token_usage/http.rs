@@ -46,6 +46,17 @@ impl UsageHttp for Client {
         provider: Provider,
         page: Option<&str>,
     ) -> Result<serde_json::Value, UsageError> {
+        let (url, query) = request(provider, page, self.end);
+        self.get_url(provider, url, &query)
+    }
+}
+impl Client {
+    pub(super) fn get_url(
+        &self,
+        provider: Provider,
+        url: &str,
+        query: &[(&str, String)],
+    ) -> Result<serde_json::Value, UsageError> {
         if provider != self.provider {
             return Err(UsageError::InvalidResponse);
         }
@@ -53,12 +64,11 @@ impl UsageHttp for Client {
             .deadline
             .checked_duration_since(Instant::now())
             .ok_or(UsageError::Limit)?;
-        let (url, query) = request(provider, page, self.end);
         let response = self
             .inner
             .get(url)
             .headers(headers(provider, &self.key)?)
-            .query(&query)
+            .query(query)
             .timeout(remaining.min(Duration::from_secs(15)))
             .send()
             .map_err(|_http_error| UsageError::Network)?;

@@ -6,6 +6,8 @@ use crate::models::{AfterSave, App, Editor, Fingerprint, Panel, RemotePath};
 use crate::remote::fake::FakeRemoteFs;
 use crate::remote::{RemoteError, RemoteFs, RemoteLink, UnixMode};
 
+mod commit;
+
 #[test]
 fn save_rejects_local_or_directory_sources_and_preserves_remote_mode() {
     let local = FileLocation::Local("a.txt".into());
@@ -125,4 +127,24 @@ fn saved_handles_blocked_local_working_copy_and_closes_on_after_save_close() {
     };
     saved(&mut app, &task);
     assert!(!app.is_overlay_active());
+}
+
+#[test]
+fn update_saved_ignores_plain_editors_and_nameless_paths() {
+    let temp = tempfile::TempDir::new().unwrap();
+    let panel = Panel::from_entries(temp.path().to_owned(), Vec::new());
+    let mut app = App::with_panels(panel.clone(), panel);
+
+    let mut plain = Editor::from_content("a.txt".into(), "a.txt".into(), "hi");
+    super::update_saved(&mut plain, b"hi", false);
+
+    let link2 = RemoteLink::new(Box::new(FakeRemoteFs::with_files(&[("/g.txt", 3)])));
+    let src2 = FileLocation::Remote {
+        link: link2,
+        path: RemotePath::parse("/g.txt").unwrap(),
+    };
+    super::super::open(&mut app, src2, b"abc", true).unwrap();
+    let nameless = app.get_editor_mut().unwrap();
+    nameless.path = std::path::PathBuf::new();
+    super::update_saved(nameless, b"xyz", true);
 }

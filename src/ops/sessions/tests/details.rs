@@ -52,7 +52,11 @@ fn f3_says_how_a_session_logs_in_and_what_it_leaves_unset() {
     let mut by_agent = session("b.test", None);
     by_agent.auth = Auth::Agent;
     app.sessions.upsert(by_agent);
-    app.sessions.upsert(session("c.test", None));
+    let mut from_things = session("c.test", None);
+    from_things.origin = Origin::Things {
+        machine: "m-1".to_owned(),
+    };
+    app.sessions.upsert(from_things);
     let agent = viewed(&mut app, "b.test");
     for line in [
         "Login:     SSH agent",
@@ -64,4 +68,5 @@ fn f3_says_how_a_session_logs_in_and_what_it_leaves_unset() {
     }
     let password = viewed(&mut app, "c.test");
     assert!(password.contains("Login:     password, asked for when connecting"));
+    assert!(password.contains("Origin:    imported from the Things catalog"));
 }

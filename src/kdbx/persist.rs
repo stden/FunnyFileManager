@@ -6,7 +6,7 @@ use std::time::Instant;
 use super::{Access, KdbxError, KdbxSession, UndoState};
 use crate::keepass;
 
-mod form;
+pub(super) mod form;
 
 impl KdbxSession {
     pub fn request_delete(&mut self, now: Instant) -> Result<(), KdbxError> {

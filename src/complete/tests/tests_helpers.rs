@@ -81,6 +81,7 @@ fn a_directory_candidate_is_finished_without_a_space_under_its_own_syntax() {
 fn longest_common_prefix_is_char_safe() {
     let v = vec!["caña".to_owned(), "cañon".to_owned()];
     assert_eq!(longest_common_prefix(&v), "cañ");
+    assert_eq!(longest_common_prefix(&[]), "");
     assert_eq!(common_prefix_len("caña", "cañon"), "cañ".len());
 }
 

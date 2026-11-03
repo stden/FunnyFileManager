@@ -153,11 +153,20 @@ fn measure(root: &Path, operation: Operation) {
     }
 }
 
+#[cfg(test)]
+thread_local! {
+    pub(in crate::progress) static FORCE_MEASURE_ENTRY_ERROR: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 /// A delete only needs entry types, usually available without a metadata lookup.
 fn measure_entry(
     entry: &fs::DirEntry,
     operation: Operation,
 ) -> std::io::Result<(fs::FileType, u64)> {
+    #[cfg(test)]
+    if FORCE_MEASURE_ENTRY_ERROR.get() {
+        return Err(std::io::Error::other("injected measure_entry error"));
+    }
     if operation == Operation::Delete {
         return Ok((entry.file_type()?, 0));
     }

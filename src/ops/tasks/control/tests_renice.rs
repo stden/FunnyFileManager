@@ -175,3 +175,13 @@ fn the_priority_form_for_nothing_is_a_notice() {
     answer_renice(&mut tasks.app, ReniceButton::Renice);
     assert_eq!(tasks.host.controls().len(), 0);
 }
+
+#[test]
+fn priority_actions_do_nothing_when_the_task_list_is_closed() {
+    let mut tasks = TaskApp::open(Vec::new(), Privilege::User);
+    tasks.app.close_overlay();
+    set_nice(&mut tasks.app);
+    step_nice(&mut tasks.app, NiceStep::Raise);
+    answer_renice(&mut tasks.app, ReniceButton::Cancel);
+    assert!(!tasks.app.is_overlay_active());
+}

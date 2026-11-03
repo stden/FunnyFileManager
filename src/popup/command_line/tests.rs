@@ -7,6 +7,7 @@
 //! of those guards is a branch, and a helper that acted anyway would write into
 //! an overlay that is no longer there.
 
+use crate::action::command_line::search::LineSearchCommand;
 use crate::command::language::SettingsPage;
 use tempfile::TempDir;
 
@@ -89,9 +90,29 @@ fn every_helper_does_nothing_once_the_command_line_has_closed() {
     complete_at_cursor(&mut app);
     refresh_menu(&mut app);
     accept_ghost(&mut app);
+    completion::accept_candidate(&mut app);
+    search::apply(&mut app, LineSearchCommand::Cancel);
     refresh_ghost(&mut app);
 
     assert!(matches!(app.overlay, Overlay::Help), "still the help page");
+}
+
+#[test]
+fn open_command_line_ignores_idle_completion_search_and_empty_clipboard() {
+    let dir = TempDir::new().expect("temp");
+    let mut app = app_at(&dir);
+    app.set_overlay(Overlay::CommandLine("abc".into()));
+    completion::accept_candidate(&mut app);
+    search::apply(&mut app, LineSearchCommand::Cancel);
+    process(
+        &mut app,
+        KeyEvent::new(KeyCode::Insert, KeyModifiers::CONTROL),
+    );
+    process(
+        &mut app,
+        KeyEvent::new(KeyCode::Insert, KeyModifiers::SHIFT),
+    );
+    assert_eq!(typed(&app), "abc");
 }
 
 #[test]

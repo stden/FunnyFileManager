@@ -60,15 +60,12 @@ pub(super) fn save_with(
 
 /// Where to write and what, or why nothing is written.
 fn prepare(editor: &mut LspEditor) -> Result<(PathBuf, patch::Edit), SaveOutcome> {
-    if let Some(refusal) = editor.read_only_notice() {
-        editor.set_notice(refusal);
-        return Err(SaveOutcome::Refused);
-    }
-    // Only a read-only dialog, refused above, has no file.
-    let Access::Writable { path } = editor.access() else {
+    let Access::Writable { path } = editor.access().clone() else {
+        if let Some(refusal) = editor.read_only_notice() {
+            editor.set_notice(refusal);
+        }
         return Err(SaveOutcome::Refused);
     };
-    let path = path.clone();
     let blocking = editor
         .problems()
         .into_iter()

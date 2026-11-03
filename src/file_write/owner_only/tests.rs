@@ -141,18 +141,12 @@ fn missing_folders_are_made_owner_only_and_existing_ones_keep_their_mode() -> io
 }
 
 #[test]
-fn write_owner_only_replaces_file_skips_sync_when_asked_and_formats_takeovers() -> io::Result<()> {
+fn write_owner_only_replaces_file_skips_sync_and_rejects_dangling_target() -> io::Result<()> {
     let dir = TempDir::new()?;
     let path = dir.path().join("secret.yaml");
     crate::file_write::write_owner_only(&path, "one\n")?;
     replace_owner_only(&path, "secret.yaml", "two\n", SyncPolicy::Skip)?;
     assert_eq!(fs::read_to_string(&path)?, "two\n");
-    assert!(super::Takeover::HardLinked
-        .to_string()
-        .contains("hard link"));
-    assert!(super::Takeover::NotOwned
-        .to_string()
-        .contains("another user"));
     super::create_dirs_owner_only(&dir.path().join("nested").join("cfg"))?;
     let dangling = dir.path().join("dangling_cfg");
     crate::test_support::make_dangling_link(&dir.path().join("missing_dir"), &dangling)?;
@@ -163,4 +157,27 @@ fn write_owner_only_replaces_file_skips_sync_when_asked_and_formats_takeovers() 
         io::ErrorKind::NotFound
     );
     Ok(())
+}
+
+#[test]
+fn takeover_checks_and_messages_describe_hard_links_and_foreign_owners() {
+    assert!(super::Takeover::HardLinked
+        .to_string()
+        .contains("hard link"));
+    assert!(super::Takeover::NotOwned
+        .to_string()
+        .contains("another user"));
+    assert!(super::check_takeover(false, true, "cfg").is_ok());
+    assert_eq!(
+        super::check_takeover(true, true, "cfg")
+            .unwrap_err()
+            .to_string(),
+        "cfg has other hard links; FFM will not replace it"
+    );
+    assert_eq!(
+        super::check_takeover(false, false, "cfg")
+            .unwrap_err()
+            .to_string(),
+        "cfg belongs to another user; FFM will not replace it"
+    );
 }

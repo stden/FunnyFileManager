@@ -116,4 +116,10 @@ fn signal_menu_view_titles_single_and_multiple_targets_on_every_platform() {
         MenuView::of(multi.list(), &many).title,
         "Send signal to 2 processes"
     );
+    let rows = super::menus::signal_rows_for(&[
+        crate::models::Signal::Terminate,
+        crate::models::Signal::WindowChange,
+    ]);
+    assert_eq!(rows[0], "SIGTERM    ask to terminate");
+    assert_eq!(rows[1], "SIGWINCH   terminal size changed");
 }

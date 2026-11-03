@@ -105,7 +105,10 @@ fn disconnected_pipes_preserve_unsent_payloads_and_cleanup_survives_task_panics(
     process
         .threads
         .push(thread::spawn(|| panic!("injected task failure")));
+    drop(process.stderr_task.take().map(JoinHandle::join));
+    process.stderr_task = Some(thread::spawn(|| panic!("injected stderr drop failure")));
     drop(process); // A failed I/O task must not abort shutdown or leak the child.
+    group::log_reap_result(&Err(io::Error::other("injected reap failure")));
 }
 
 #[cfg(unix)]

@@ -17,6 +17,9 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct CompareFilesParams {
     /// Absolute path to the first file
@@ -103,13 +106,8 @@ impl FfmServer {
             "right_size": right_size,
             "identical": difference.is_none(),
         });
-        append_comparison_hashes(
-            &mut result,
-            &left,
-            &right,
-            difference,
-            left_size == right_size,
-        )?;
+        let equal_size = left_size == right_size;
+        append_comparison_hashes(&mut result, &left, &right, difference, equal_size)?;
         Ok(json_response(&result))
     }
 }

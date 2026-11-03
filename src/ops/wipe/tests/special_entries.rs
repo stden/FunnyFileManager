@@ -133,7 +133,6 @@ fn a_directory_wipe_leaves_the_data_of_files_linked_from_outside() {
     assert_eq!(fs::read(&outside).expect("read"), b"forty lines");
 }
 
-#[cfg(unix)]
 #[test]
 fn run_says_when_a_hard_linked_file_was_only_unlinked() {
     let dir = TempDir::new().expect("temp dir");

@@ -4,8 +4,12 @@
 
 use std::{fs, io, path::Path};
 
-use crate::copy::{AccessRights, CopyPrompt, Purpose};
+#[cfg(unix)]
+use crate::copy::AccessRights;
+use crate::copy::{CopyPrompt, Purpose};
+#[cfg(unix)]
 use crate::utils::FailedAt;
+#[cfg(unix)]
 use crate::utils::FileMode;
 
 mod stage;
@@ -19,10 +23,7 @@ pub(super) enum Replacement {
     Staged,
     /// Written through it, keeping its inode, owner, mode and other names;
     /// see [`crate::utils::rewrite_file`] for what that costs.
-    #[cfg_attr(
-        not(unix),
-        expect(dead_code, reason = "Windows has no identity a rename could lose")
-    )]
+    #[cfg(unix)]
     InPlace,
 }
 
@@ -40,6 +41,7 @@ pub(super) fn entry(source: &Path, dest: &Path, settings: &CopyPrompt) -> io::Re
         return Ok(());
     }
     match replacement(source, dest, settings) {
+        #[cfg(unix)]
         Replacement::InPlace => write_through(source, dest, settings)?,
         Replacement::Staged => stage::stage(source, dest, settings)?,
     }
@@ -110,14 +112,14 @@ pub(super) fn folder_of(dest: &Path) -> &Path {
 /// An overwrite keeps the mode of the file it replaces, as `cp` does, unless
 /// "Access rights: Copy" asks for the source's. A move brings its own, and
 /// on Windows the read-only attribute comes from the source, as Far has it.
+#[cfg(unix)]
 pub(super) const fn keeps_replaced_mode(settings: &CopyPrompt) -> bool {
-    cfg!(unix)
-        && matches!(settings.purpose, Purpose::Copy)
-        && !matches!(settings.rights, AccessRights::Copy)
+    matches!(settings.purpose, Purpose::Copy) && !matches!(settings.rights, AccessRights::Copy)
 }
 
 /// [`Replacement::InPlace`]: the source is opened — its own failures are its
 /// own — and the rest happens at the destination.
+#[cfg(unix)]
 fn write_through(source: &Path, dest: &Path, settings: &CopyPrompt) -> io::Result<()> {
     let input = crate::utils::open_regular_file(source)?;
     let mut rules = settings.rules();
@@ -146,15 +148,6 @@ fn ensure_room(input: &fs::File, dest: &Path) -> io::Result<()> {
         )),
         _ => Ok(()),
     }
-}
-
-#[cfg(not(unix))]
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "shares the Unix signature, where the check can refuse"
-)]
-const fn ensure_room(_input: &fs::File, _dest: &Path) -> io::Result<()> {
-    Ok(())
 }
 
 /// Canonical paths cannot identify separate hard links. A Unix rename

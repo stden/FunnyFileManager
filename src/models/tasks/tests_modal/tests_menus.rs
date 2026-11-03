@@ -35,6 +35,13 @@ fn the_user_menu_opens_on_the_scope_in_force() {
     );
 }
 
+#[test]
+fn signal_for_builds_menu_when_signals_are_offered_and_none_when_empty() {
+    let menu = TaskMenu::signal_for(vim(), &[Signal::Terminate, Signal::Kill]).expect("non-empty");
+    assert_eq!(menu.cursor().index(), 0);
+    assert_eq!(TaskMenu::signal_for(vim(), &[]), None);
+}
+
 #[cfg(unix)]
 #[test]
 fn the_signal_menu_opens_on_sigterm() {

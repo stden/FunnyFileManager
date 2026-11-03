@@ -114,4 +114,12 @@ fn crossterm_ops_disable_raw_leaves_raw_mode_off() {
         !crossterm::terminal::is_raw_mode_enabled().expect("query raw mode"),
         "raw mode is still on after disable_raw"
     );
+    #[cfg(windows)]
+    {
+        let mut terminal = spy_terminal();
+        assert_eq!(
+            ops.enable_keyboard(&mut terminal).expect("enable keyboard"),
+            KeyboardProtocol::Legacy
+        );
+    }
 }

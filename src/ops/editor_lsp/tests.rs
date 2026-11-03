@@ -114,3 +114,16 @@ fn empty_definition_targets_keep_the_configured_encoding() {
         crate::encoding::TextEncoding::Windows1251
     );
 }
+
+#[cfg(windows)]
+#[test]
+fn unc_definition_target_from_local_file_is_refused() {
+    let root = TempDir::new().unwrap();
+    let (mut app, mut target) = fixture(&root);
+    target.path = std::path::PathBuf::from(r"\\server\share\target.rs");
+    definition(&mut app, &target);
+    assert_eq!(
+        app.get_editor().unwrap().notice.as_deref(),
+        Some("Cannot read definition target")
+    );
+}

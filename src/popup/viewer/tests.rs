@@ -84,4 +84,8 @@ fn arrow_keys_while_loading_do_not_accumulate_hidden_pan() {
     assert_eq!(viewer.image_pan, (0, 0));
     assert!(image_key(&mut viewer, KeyCode::Right));
     assert_eq!(viewer.image_pan, (0, 0));
+
+    let mut closed = App::new().expect("app");
+    apply(&mut closed, ViewerCommand::Close);
+    assert!(closed.get_viewer().is_none());
 }

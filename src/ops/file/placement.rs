@@ -176,11 +176,19 @@ pub(super) fn is_case_only_rename(source: &Path, dest: &Path) -> bool {
             (source.canonicalize(), dest.canonicalize()),
             (Ok(real_src), Ok(real_dst)) if real_src == real_dst
         )
-        || (cfg!(windows)
-            && fs::symlink_metadata(source).is_ok()
-            && fs::symlink_metadata(dest).is_ok());
+        || same_windows_entry(source, dest);
     same_entry
         && fs::read_dir(folder).is_ok_and(|mut entries| {
             !entries.any(|entry| entry.is_ok_and(|e| e.file_name() == dst_name))
         })
+}
+
+#[cfg(windows)]
+fn same_windows_entry(source: &Path, dest: &Path) -> bool {
+    fs::symlink_metadata(source).is_ok() && fs::symlink_metadata(dest).is_ok()
+}
+
+#[cfg(not(windows))]
+const fn same_windows_entry(_source: &Path, _dest: &Path) -> bool {
+    false
 }

@@ -46,5 +46,6 @@ fn typed_list_commands_leave_forms_and_exit_questions_untouched() {
     assert_eq!(editor(&app).draft(), &draft);
     app.close_overlay();
     apply(&mut app, LspListCommand::Close);
+    super::super::edit_selected(&mut app);
     assert!(matches!(app.overlay, Overlay::None));
 }

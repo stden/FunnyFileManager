@@ -122,22 +122,20 @@ impl Host {
     }
 
     pub(super) fn installation(&mut self, events: &SyncSender<Envelope>) {
-        let Session::Preparing(preparing) = &self.session else {
-            return;
-        };
-        let Some(result) = preparing.job.poll() else {
-            return;
-        };
-        let Session::Preparing(preparing) = std::mem::take(&mut self.session) else {
-            return;
-        };
-        let mut start = preparing.start;
-        match result {
-            Ok(settings) => {
-                start.settings = settings;
-                self.start(start, events);
-            }
-            Err(error) => self.fail_install(&start, start.snapshot.stamp.id, error, events),
+        match std::mem::take(&mut self.session) {
+            Session::Preparing(preparing) => match preparing.job.poll() {
+                Some(Ok(settings)) => {
+                    let mut start = preparing.start;
+                    start.settings = settings;
+                    self.start(start, events);
+                }
+                Some(Err(error)) => {
+                    let start = preparing.start;
+                    self.fail_install(&start, start.snapshot.stamp.id, error, events);
+                }
+                None => self.session = Session::Preparing(preparing),
+            },
+            other => self.session = other,
         }
     }
 

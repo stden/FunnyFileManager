@@ -67,11 +67,22 @@ fn run_batch(
     cwd: &Path,
     list_dir: &Path,
 ) -> io::Result<usize> {
+    run_batch_with(app, template, names, cwd, list_dir, run_shell_command)
+}
+
+fn run_batch_with(
+    app: &mut App,
+    template: &str,
+    names: &[String],
+    cwd: &Path,
+    list_dir: &Path,
+    mut shell: impl FnMut(&str, &Path) -> Result<std::process::Output, ShellError>,
+) -> io::Result<usize> {
     let mut context = context::capture(app, names.first().map_or("", String::as_str));
     let mut failed = 0;
     for (idx, name) in names.iter().enumerate() {
         context::select(&mut context, app, name);
-        let outcome = run_entry_step(app, template, &context, cwd, list_dir)?;
+        let outcome = run_entry_step(app, template, &context, cwd, list_dir, &mut shell)?;
         if outcome == StepOutcome::Cancelled {
             failed += names.len() - idx;
             break;
@@ -97,8 +108,15 @@ fn run_entry(
     cwd: &Path,
     list_dir: &Path,
 ) -> io::Result<bool> {
-    run_entry_step(app, template, context, cwd, list_dir)
-        .map(|outcome| outcome == StepOutcome::Succeeded)
+    run_entry_step(
+        app,
+        template,
+        context,
+        cwd,
+        list_dir,
+        &mut run_shell_command,
+    )
+    .map(|outcome| outcome == StepOutcome::Succeeded)
 }
 
 fn run_entry_step(
@@ -107,6 +125,7 @@ fn run_entry_step(
     context: &Context,
     cwd: &Path,
     list_dir: &Path,
+    shell: &mut impl FnMut(&str, &Path) -> Result<std::process::Output, ShellError>,
 ) -> io::Result<StepOutcome> {
     let mut lists = lists::Lists::new(list_dir);
     let command = expand(template, context, |panel, options| {
@@ -115,7 +134,7 @@ fn run_entry_step(
     let outcome = if command.is_empty() {
         StepOutcome::Succeeded
     } else {
-        run_one(app, cwd, &command)
+        run_one(app, cwd, &command, shell)
     };
     if Tokens::new(template).any(|token| token == Token::Symbol(Symbol::PreserveName)) {
         let entry = &context.panel(context.active).entry;
@@ -131,9 +150,14 @@ fn run_entry_step(
 }
 
 /// One run, echoed and recorded like a `:` command.
-fn run_one(app: &mut App, cwd: &Path, command: &str) -> StepOutcome {
+fn run_one(
+    app: &mut App,
+    cwd: &Path,
+    command: &str,
+    shell: &mut impl FnMut(&str, &Path) -> Result<std::process::Output, ShellError>,
+) -> StepOutcome {
     app.console.record_command(cwd, command);
-    match run_shell_command(command, cwd) {
+    match shell(command, cwd) {
         Ok(output) => {
             app.console
                 .record_output(&String::from_utf8_lossy(&output.stdout));

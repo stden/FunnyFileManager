@@ -8,18 +8,14 @@ use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc};
 
 use super::Redraw;
-use crate::models::{App, DecodedImage, ImageState, Overlay, PanelKind, PanelSide, Preview};
+use crate::models::{App, DecodedImage, ImageState};
+#[cfg(test)]
+use crate::models::{Overlay, PanelKind, Preview};
 
 mod visibility;
-use visibility::has_ready_image;
+use visibility::{has_ready_image, next_request, state_for, Target};
 
 type Decoder = dyn Fn(&Path) -> Result<DecodedImage, String> + Send + Sync;
-
-#[derive(Clone, Copy)]
-enum Target {
-    Viewer,
-    Panel(PanelSide),
-}
 
 struct Running {
     id: u64,
@@ -77,44 +73,37 @@ impl ImagePreviewJobs {
         if self.running.is_some() {
             return redraw;
         }
-        let Some((target, path)) = next_request(app) else {
+        let Some((target, path, state)) = next_request(app) else {
             return redraw;
         };
         self.next_id = self.next_id.wrapping_add(1);
         let id = self.next_id;
         let (sender, receiver) = mpsc::channel();
-        let worker_path = path.clone();
-        let decoder = Arc::clone(&self.decoder);
-        let spawned = std::thread::Builder::new()
-            .name("ffm-image-preview".to_owned())
-            .spawn(move || drop(sender.send(decoder(&worker_path))));
-        if let Some(state) = state_for(app, target, &path) {
-            if spawned.is_ok() {
-                *state = ImageState::Loading(id);
-                self.running = Some(Running {
-                    id,
-                    target,
-                    path,
-                    receiver,
-                });
-            } else {
-                *state = ImageState::Failed("Cannot start image worker".to_owned());
-            }
+        if spawn_decoder(path.clone(), Arc::clone(&self.decoder), sender).is_ok() {
+            *state = ImageState::Loading(id);
+            self.running = Some(Running {
+                id,
+                target,
+                path,
+                receiver,
+            });
+        } else {
+            *state = ImageState::Failed("Cannot start image worker".to_owned());
         }
         Redraw::Needed
     }
 
     fn collect(&mut self, app: &mut App) -> Redraw {
-        let Some(running) = &self.running else {
+        let Some(running) = self.running.take() else {
             return Redraw::Unchanged;
         };
         let result = match running.receiver.try_recv() {
             Ok(result) => result,
-            Err(mpsc::TryRecvError::Empty) => return Redraw::Unchanged,
+            Err(mpsc::TryRecvError::Empty) => {
+                self.running = Some(running);
+                return Redraw::Unchanged;
+            }
             Err(mpsc::TryRecvError::Disconnected) => Err("Image worker stopped".to_owned()),
-        };
-        let Some(running) = self.running.take() else {
-            return Redraw::Unchanged;
         };
         let Some(state) = state_for(app, running.target, &running.path) else {
             return Redraw::Unchanged;
@@ -127,55 +116,23 @@ impl ImagePreviewJobs {
     }
 }
 
-/// Full-screen viewer has priority, then the visible quick-view panels.
-fn next_request(app: &App) -> Option<(Target, PathBuf)> {
-    if let Overlay::Viewer(viewer) = &app.overlay {
-        if viewer.image == Some(ImageState::Pending) {
-            if let Some(file) = viewer.viewed_file() {
-                return Some((Target::Viewer, file.path.clone()));
-            }
-        }
-    }
-    [PanelSide::Left, PanelSide::Right]
-        .into_iter()
-        .find_map(|side| {
-            if !visibility::panel_visible(app, side) {
-                return None;
-            }
-            let PanelKind::QuickView(view) = &app.panel(side).kind else {
-                return None;
-            };
-            if view.preview != Preview::Image(ImageState::Pending) {
-                return None;
-            }
-            view.shown.clone().map(|path| (Target::Panel(side), path))
-        })
+#[cfg(test)]
+thread_local! {
+    pub(super) static FORCE_SPAWN_FAILURE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
-fn state_for<'a>(app: &'a mut App, target: Target, path: &Path) -> Option<&'a mut ImageState> {
-    match target {
-        Target::Viewer => {
-            let Overlay::Viewer(viewer) = &mut app.overlay else {
-                return None;
-            };
-            if viewer.viewed_file().is_none_or(|file| file.path != path) {
-                return None;
-            }
-            viewer.image.as_mut()
-        }
-        Target::Panel(side) => {
-            let PanelKind::QuickView(view) = &mut app.panel_mut(side).kind else {
-                return None;
-            };
-            if view.shown.as_deref() != Some(path) {
-                return None;
-            }
-            let Preview::Image(state) = &mut view.preview else {
-                return None;
-            };
-            Some(state)
-        }
+fn spawn_decoder(
+    path: PathBuf,
+    decoder: Arc<Decoder>,
+    sender: mpsc::Sender<Result<DecodedImage, String>>,
+) -> std::io::Result<std::thread::JoinHandle<()>> {
+    #[cfg(test)]
+    if FORCE_SPAWN_FAILURE.get() {
+        return Err(std::io::Error::other("forced spawn failure"));
     }
+    std::thread::Builder::new()
+        .name("ffm-image-preview".to_owned())
+        .spawn(move || drop(sender.send(decoder(&path))))
 }
 
 #[cfg(test)]

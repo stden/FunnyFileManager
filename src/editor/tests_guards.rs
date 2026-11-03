@@ -137,3 +137,29 @@ fn test_mode_editor_ignores_an_entry_without_a_path() -> io::Result<()> {
     assert_eq!(app.status_text().len(), 0);
     Ok(())
 }
+
+#[test]
+fn builtin_editor_refuses_a_path_that_turned_into_a_non_regular_entry() -> io::Result<()> {
+    let temp_dir = TempDir::new().expect("temp dir");
+    std::fs::create_dir(temp_dir.path().join("turned_into_dir"))?;
+    let mut app = build_app(&temp_dir);
+    *app.left_panel.entries = vec![DirEntry {
+        name: "turned_into_dir".to_owned(),
+        kind: EntryKind::File,
+        size: FileSize::from_bytes(0),
+        modified: Modified::UNKNOWN,
+        executable: false,
+        ..DirEntry::default()
+    }];
+    app.left_panel.select(Some(0));
+
+    handle_edit_builtin(&mut app)?;
+
+    assert!(app.get_editor().is_none());
+    assert!(
+        app.status_text().ends_with("not a regular file"),
+        "status was {:?}",
+        app.status_text()
+    );
+    Ok(())
+}

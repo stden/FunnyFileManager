@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 
 mod document;
 
+type LineSpans = Vec<(usize, usize, Token)>;
+
 #[derive(Debug, Default)]
 pub struct HighlightCache(Option<Box<Document>>);
 
@@ -18,7 +20,7 @@ struct Document {
     engine: Highlighter,
     initial: Option<Continuation>,
     states: Vec<(u64, Continuation)>,
-    spans: Vec<Vec<(usize, usize, Token)>>,
+    spans: Vec<Option<LineSpans>>,
 }
 
 // Cloning editor content starts a fresh cache; cached presentation is not document state.
@@ -50,21 +52,22 @@ impl HighlightCache {
         let fingerprint = hash_of(lines);
         if let Some(doc) = self.0.as_mut().filter(|doc| doc.path == path) {
             if doc.fingerprint == fingerprint && doc.line_count == lines.len() {
-                doc.extend(lines, end);
+                doc.ensure_window(lines, 0, end);
                 return;
             }
             if let Some(initial) = doc.initial {
                 doc.fingerprint = fingerprint;
                 doc.revision = None;
-                doc.reconcile(lines, end, initial, None);
+                doc.reconcile(lines, 0, end, initial, None);
                 return;
             }
         }
         let mut doc = Document::new(path, lines, fingerprint, None);
-        doc.extend(lines, end);
+        doc.ensure_window(lines, 0, end);
         self.0 = Some(Box::new(doc));
     }
 
+    #[cfg(test)]
     pub(crate) fn prepare_revision(
         &mut self,
         path: &Path,
@@ -72,12 +75,13 @@ impl HighlightCache {
         end: usize,
         revision: u64,
     ) {
-        self.prepare_hinted(path, lines, end, revision, None);
+        self.prepare_window(path, lines, 0, end, revision, None);
     }
 
     /// `dirty` is `(first changed line, first unchanged line)` when the editor
     /// knows it. `None` hashes from line 0, which stays correct if `lines`
     /// was edited directly.
+    #[cfg(test)]
     pub(crate) fn prepare_hinted(
         &mut self,
         path: &Path,
@@ -86,33 +90,46 @@ impl HighlightCache {
         revision: u64,
         dirty: Option<(usize, usize)>,
     ) {
+        self.prepare_window(path, lines, 0, end, revision, dirty);
+    }
+
+    /// Prepare token spans for visible lines `top..end`, fast-forwarding
+    /// continuation state over `0..top` without allocating off-screen token vectors.
+    pub(crate) fn prepare_window(
+        &mut self,
+        path: &Path,
+        lines: &[String],
+        top: usize,
+        end: usize,
+        revision: u64,
+        dirty: Option<(usize, usize)>,
+    ) {
         let end = end.min(lines.len());
+        let top = top.min(end);
         if let Some(doc) = self.0.as_mut().filter(|doc| doc.path == path) {
             if doc.revision == Some(revision) && doc.line_count == lines.len() {
-                doc.extend(lines, end);
+                doc.ensure_window(lines, top, end);
                 return;
             }
             if let Some(initial) = doc.initial {
                 doc.revision = Some(revision);
-                doc.reconcile(lines, end, initial, dirty);
+                doc.reconcile(lines, top, end, initial, dirty);
                 return;
             }
         }
         let mut doc = Document::new(path, lines, 0, Some(revision));
-        doc.extend(lines, end);
+        doc.ensure_window(lines, top, end);
         self.0 = Some(Box::new(doc));
     }
 
     pub(crate) fn runs<'a>(&self, index: usize, line: &'a str) -> Vec<(&'a str, Token)> {
-        let Some(spans) = self
+        let Some(Some(spans)) = self
             .0
             .as_ref()
             .and_then(|document| document.spans.get(index))
         else {
             return vec![(line, Token::Normal)];
         };
-        // Spans are byte ranges of the line they were computed from; a line
-        // they do not fit is drawn plain rather than cut mid-character.
         spans
             .iter()
             .map(|&(start, end, token)| line.get(start..end).map(|text| (text, token)))

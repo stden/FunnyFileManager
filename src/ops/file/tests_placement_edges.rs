@@ -83,3 +83,23 @@ fn a_case_variant_that_is_not_there_is_not_a_rename_of_the_source() {
 
     assert!(!is_case_only_rename(&source, &root.path().join("DATA.txt")));
 }
+
+#[cfg(windows)]
+#[test]
+fn windows_case_only_rename_handles_dangling_dir_link_and_missing_entry() {
+    let root = TempDir::new().unwrap();
+    let target = root.path().join("target_dir");
+    let link = root.path().join("dangling_link");
+    fs::create_dir(&target).unwrap();
+    crate::test_support::make_dir_link(&target, &link).unwrap();
+    fs::remove_dir(&target).unwrap();
+
+    assert!(is_case_only_rename(
+        &link,
+        &root.path().join("DANGLING_LINK")
+    ));
+    assert!(!is_case_only_rename(
+        &root.path().join("absent"),
+        &root.path().join("ABSENT")
+    ));
+}

@@ -19,4 +19,9 @@ fn keep_typed_tilde_leaves_untouched_a_match_that_does_not_start_with_a_tilde() 
     // candidate that merely contains a tilde partway through (e.g. `escape`
     // never touches a non-leading `~`) — there is nothing here to unwrap.
     assert_eq!(keep_typed_tilde("abc~def".to_owned(), true), "abc~def");
+    assert_eq!(
+        keep_typed_tilde("\\~/Documents".to_owned(), true),
+        "~/Documents"
+    );
+    assert_eq!(keep_typed_tilde("\\~backup".to_owned(), false), "\\~backup");
 }

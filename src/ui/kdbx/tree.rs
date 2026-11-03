@@ -47,10 +47,11 @@ fn append_group_entries(
     group: &[String],
     selected: Option<usize>,
 ) {
-    for &index in vault.matches() {
-        let Some(entry) = vault.entries().get(index) else {
-            continue;
-        };
+    for (index, entry) in vault
+        .matches()
+        .iter()
+        .filter_map(|&index| Some((index, vault.entries().get(index)?)))
+    {
         if entry.group_path == group {
             let active = Some(index) == selected;
             let marker = if active { "► " } else { "  " };

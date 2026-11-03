@@ -43,17 +43,25 @@ fn remove_source(path: &Path, archive: &Path) -> io::Result<()> {
         return remove_file_or_link(path, file_type);
     }
     if contains_archive(path, archive) {
-        clear_readonly(path);
-        let mut first_error = None;
-        for entry in fs::read_dir(path)? {
-            let result = entry.and_then(|e| remove_source(&e.path(), archive));
-            if let Err(err) = result {
-                first_error.get_or_insert(err);
-            }
-        }
-        return first_error.map_or(Ok(()), Err);
+        return remove_siblings_of_archive(path, archive, remove_source);
     }
     remove_dir_tree(path)
+}
+
+fn remove_siblings_of_archive(
+    path: &Path,
+    archive: &Path,
+    mut remove: impl FnMut(&Path, &Path) -> io::Result<()>,
+) -> io::Result<()> {
+    clear_readonly(path);
+    let mut first_error = None;
+    for entry in fs::read_dir(path)? {
+        let result = entry.and_then(|e| remove(&e.path(), archive));
+        if let Err(err) = result {
+            first_error.get_or_insert(err);
+        }
+    }
+    first_error.map_or(Ok(()), Err)
 }
 
 fn remove_dir_tree(dir: &Path) -> io::Result<()> {

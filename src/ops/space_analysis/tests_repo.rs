@@ -96,3 +96,30 @@ fn a_folder_inside_a_git_directory_keeps_everything() {
         dialog.note
     );
 }
+
+#[test]
+fn a_repository_with_missing_head_commit_objects_fails_status_and_marks_unreadable() {
+    let dir = TempDir::new().expect("temp dir");
+    git(dir.path(), &["init", "-q"]);
+    write(dir.path(), "tracked.txt", 8);
+    git(dir.path(), &["add", "tracked.txt"]);
+    git(
+        dir.path(),
+        &[
+            "-c",
+            "user.name=T",
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-q",
+            "-m",
+            "init",
+        ],
+    );
+    fs::remove_dir_all(dir.path().join(".git/objects")).expect("corrupt objects");
+    fs::create_dir_all(dir.path().join(".git/objects")).expect("recreate empty objects");
+    let dialog = scan(dir.path(), ROOMY).expect("scan unreadable");
+    assert!(dialog.note.contains("could not list"), "{}", dialog.note);
+}

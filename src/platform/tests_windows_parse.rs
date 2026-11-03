@@ -73,6 +73,9 @@ fn memory_and_swap_separate_commit_limit_into_ram_and_pagefile() {
     assert_eq!(mem.free.bytes(), 6 * gib);
     assert_eq!(swap.total.bytes(), 4 * gib);
     assert_eq!(swap.free.bytes(), 3 * gib);
+
+    let (clamped, _) = memory_and_swap(4 * gib, 8 * gib, 8 * gib, 4 * gib);
+    assert_eq!(clamped.free.bytes(), 4 * gib);
 }
 
 #[test]

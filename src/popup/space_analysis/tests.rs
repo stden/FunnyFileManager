@@ -102,4 +102,10 @@ fn esc_and_f10_close_and_other_keys_are_consumed() {
     let (_dir, mut app) = opened();
     press(&mut app, KeyCode::F(10));
     assert!(!app.overlay.is_active(), "F10 closes too");
+    assert!(!super::process(
+        &mut app,
+        KeyCode::Esc,
+        crossterm::event::KeyModifiers::NONE
+    ));
+    super::select_in_panel(&mut app);
 }

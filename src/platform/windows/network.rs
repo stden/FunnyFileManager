@@ -30,15 +30,19 @@ impl Drop for MibTable {
 }
 
 /// Reads every non-filter network interface and its cumulative traffic counters.
-#[allow(
-    unsafe_code,
-    reason = "GetIfTable2Ex enumerates NDIS interface counters"
-)]
 #[must_use]
 pub fn read_network_adapters(ipv4_by_index: &HashMap<u32, Ipv4>) -> Vec<AdapterSample> {
+    read_network_adapters_level(ipv4_by_index, MibIfTableNormal)
+}
+
+#[allow(unsafe_code, reason = "GetIfTable2Ex enumerates NDIS counters")]
+fn read_network_adapters_level(
+    ipv4_by_index: &HashMap<u32, Ipv4>,
+    level: i32,
+) -> Vec<AdapterSample> {
     let mut table_ptr: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
     // SAFETY: `table_ptr` receives the `MIB_IF_TABLE2` allocated by IP Helper.
-    if unsafe { GetIfTable2Ex(MibIfTableNormal, &raw mut table_ptr) } != 0 || table_ptr.is_null() {
+    if unsafe { GetIfTable2Ex(level, &raw mut table_ptr) } != 0 || table_ptr.is_null() {
         return Vec::new();
     }
     let guard = MibTable(table_ptr);
@@ -114,14 +118,15 @@ impl Drop for IcmpHandle {
 }
 
 /// Sends one unprivileged `ICMPv4` echo request to `target`.
-#[allow(
-    unsafe_code,
-    reason = "IcmpSendEcho performs unprivileged ICMP echo on Windows"
-)]
+#[allow(unsafe_code, reason = "IcmpCreateFile opens an ICMP echo handle")]
 #[must_use]
 pub fn icmp_ping(target: Ipv4, timeout: Duration) -> ProbeOutcome {
     // SAFETY: `IcmpCreateFile` takes no parameters.
-    let raw = unsafe { IcmpCreateFile() };
+    icmp_ping_handle(unsafe { IcmpCreateFile() }, target, timeout)
+}
+
+#[allow(unsafe_code, reason = "IcmpSendEcho performs unprivileged ICMP echo")]
+fn icmp_ping_handle(raw: HANDLE, target: Ipv4, timeout: Duration) -> ProbeOutcome {
     if raw == INVALID_HANDLE_VALUE || raw.is_null() {
         return ProbeOutcome::Unreachable;
     }
@@ -146,18 +151,19 @@ pub fn icmp_ping(target: Ipv4, timeout: Duration) -> ProbeOutcome {
             timeout_ms,
         )
     };
-    decode_icmp_reply(count, &reply_buf, start.elapsed())
+    let last_err = std::io::Error::last_os_error().raw_os_error();
+    decode_icmp_reply(count, &reply_buf, start.elapsed(), last_err)
 }
 
-#[allow(
-    unsafe_code,
-    reason = "Reads ICMP_ECHO_REPLY populated by IcmpSendEcho"
-)]
-fn decode_icmp_reply(count: u32, reply_buf: &[u64; 16], wall: Duration) -> ProbeOutcome {
+#[allow(unsafe_code, reason = "Reads ICMP_ECHO_REPLY from IcmpSendEcho")]
+fn decode_icmp_reply(
+    count: u32,
+    reply_buf: &[u64; 16],
+    wall: Duration,
+    last_error: Option<i32>,
+) -> ProbeOutcome {
     if count == 0 {
-        let code = std::io::Error::last_os_error()
-            .raw_os_error()
-            .and_then(|c| u32::try_from(c).ok());
+        let code = last_error.and_then(|c| u32::try_from(c).ok());
         return if code == Some(IP_REQ_TIMED_OUT) {
             ProbeOutcome::Timeout
         } else {

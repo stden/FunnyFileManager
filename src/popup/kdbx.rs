@@ -78,15 +78,15 @@ fn apply_at(app: &mut App, command: VaultCommand, now: Instant) {
     if form::apply_command(app, command, now) || dialogs::apply_command(app, command, now) {
         return;
     }
-    let Some(session) = app.kdbx_session() else {
-        return;
-    };
-    if session.vault().is_some_and(|vault| {
-        vault.form().is_some() || !matches!(vault.page, crate::kdbx::vault::Page::Browse(_))
-    }) {
-        return;
+    if app
+        .kdbx_session()
+        .and_then(crate::kdbx::KdbxSession::vault)
+        .is_none_or(|vault| {
+            vault.form().is_none() && matches!(vault.page, crate::kdbx::vault::Page::Browse(_))
+        })
+    {
+        browse_command(app, command, now);
     }
-    browse_command(app, command, now);
 }
 
 fn toggle_view(app: &mut App) {

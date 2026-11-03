@@ -23,22 +23,31 @@ pub(super) fn copy_file(
     staged.seek(SeekFrom::Start(0))?;
     match destination {
         FileLocation::Local(path) => {
-            let mut output = fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(path)?;
-            if let Err(error) =
-                std::io::copy(&mut staged, &mut output).and_then(|_| output.sync_all())
-            {
-                drop(output);
-                drop(fs::remove_file(path)); // Only the file exclusively created above is cleaned up.
-                return Err(error.into());
-            }
+            write_created_local(path, &mut staged, |src, dst| {
+                std::io::copy(src, dst).and_then(|_| dst.sync_all())
+            })?;
         }
         FileLocation::Remote { link, path } => {
             link.lock()
                 .upload(path, &mut staged, WriteMode::CreateNew)?;
         }
+    }
+    Ok(())
+}
+
+pub(in crate::ops::remote) fn write_created_local(
+    path: &std::path::Path,
+    staged: &mut fs::File,
+    flush_copy: impl FnOnce(&mut fs::File, &mut fs::File) -> std::io::Result<()>,
+) -> Result<(), RemoteError> {
+    let mut output = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)?;
+    if let Err(error) = flush_copy(staged, &mut output) {
+        drop(output);
+        drop(fs::remove_file(path)); // Only the file exclusively created above is cleaned up.
+        return Err(error.into());
     }
     Ok(())
 }

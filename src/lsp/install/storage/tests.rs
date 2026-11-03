@@ -157,4 +157,8 @@ fn lock_polls_contended_file_until_cancelled() {
     stop.store(true, Ordering::Relaxed);
     assert_eq!(handle.join().unwrap().unwrap_err(), InstallError::Cancelled);
     drop(held);
+    assert!(matches!(
+        check_try_lock(Err(TryLockError::Error(std::io::Error::other("io"))), true),
+        Err(InstallError::Io(_))
+    ));
 }

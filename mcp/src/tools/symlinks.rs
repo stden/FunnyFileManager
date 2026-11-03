@@ -9,6 +9,15 @@ use rmcp::{
 use serde::Deserialize;
 use serde_json::json;
 use std::fs;
+use std::path::Path;
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(all(test, windows))]
+thread_local! {
+    static JUNCTION_FALLBACK: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct SymlinkParams {
@@ -30,21 +39,7 @@ impl FfmServer {
         let target = self.safe_path(&params.target)?;
         let link = self.safe_path_create(&params.link)?;
 
-        #[cfg(unix)]
-        {
-            std::os::unix::fs::symlink(&target, &link).map_err(crate::tools::io_error)?;
-        }
-
-        #[cfg(windows)]
-        {
-            if target.is_dir() {
-                std::os::windows::fs::symlink_dir(&target, &link)
-                    .map_err(crate::tools::io_error)?;
-            } else {
-                std::os::windows::fs::symlink_file(&target, &link)
-                    .map_err(crate::tools::io_error)?;
-            }
-        }
+        create_os_symlink(&target, &link).map_err(crate::tools::io_error)?;
 
         let result = json!({
             "link": link.display().to_string(),
@@ -77,5 +72,23 @@ impl FfmServer {
             "target_exists": target_exists,
         });
         Ok(json_response(&result))
+    }
+}
+
+fn create_os_symlink(target: &Path, link: &Path) -> std::io::Result<()> {
+    #[cfg(all(test, windows))]
+    if JUNCTION_FALLBACK.get() && target.is_dir() {
+        crate::tests_tools::make_dir_link_cross(target, link);
+        return Ok(());
+    }
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(target, link)
+    }
+    #[cfg(windows)]
+    if target.is_dir() {
+        std::os::windows::fs::symlink_dir(target, link)
+    } else {
+        std::os::windows::fs::symlink_file(target, link)
     }
 }

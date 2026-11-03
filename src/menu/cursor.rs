@@ -16,11 +16,11 @@ impl Menu {
     ///
     #[must_use]
     pub fn open(heading: Heading) -> Self {
-        let mut menu = Self { heading, row: 0 };
-        if !menu.entry().is_some_and(Entry::is_selectable) {
-            menu.step(true);
+        let entries = Self { heading, row: 0 }.entries();
+        Self {
+            heading,
+            row: open_row(entries),
         }
-        menu
     }
 
     /// Whether any row of this drop-down can be chosen.
@@ -65,20 +65,7 @@ impl Menu {
 
     /// Move the cursor one usable row, stepping over separators.
     pub fn step(&mut self, down: bool) {
-        let len = self.entries().len();
-        if len == 0 {
-            return;
-        }
-        for _ in 0..len {
-            self.row = if down {
-                (self.row + 1) % len
-            } else {
-                (self.row + len - 1) % len
-            };
-            if self.entry().is_some_and(Entry::is_selectable) {
-                return;
-            }
-        }
+        self.row = step_row(self.entries(), self.row, down);
     }
 
     /// The row whose hotkey letter is `ch`, if the open drop-down has one.
@@ -98,4 +85,30 @@ impl Menu {
             .into_iter()
             .find(|heading| hotkey_of(heading.label()) == Some(wanted))
     }
+}
+
+pub(super) fn open_row(entries: &[Entry]) -> usize {
+    if entries.first().is_some_and(Entry::is_selectable) {
+        0
+    } else {
+        step_row(entries, 0, true)
+    }
+}
+
+pub(super) fn step_row(entries: &[Entry], mut row: usize, down: bool) -> usize {
+    let len = entries.len();
+    if len == 0 {
+        return row;
+    }
+    for _ in 0..len {
+        row = if down {
+            (row + 1) % len
+        } else {
+            (row + len - 1) % len
+        };
+        if entries.get(row).is_some_and(Entry::is_selectable) {
+            return row;
+        }
+    }
+    row
 }

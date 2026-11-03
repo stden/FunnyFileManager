@@ -106,6 +106,25 @@ fn flush_of_unchanged_panels_after_the_session_file_is_gone_writes_nothing() -> 
     Ok(())
 }
 
+#[test]
+fn parentless_path_and_non_missing_sync_failure_report_errors() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    let mut parentless = PanelSession::load(Persistence::File(std::path::PathBuf::new()));
+    assert!(parentless
+        .save(temp.path(), temp.path(), SyncPolicy::Skip)
+        .is_err());
+
+    let file = temp.path().join("panel-session.json");
+    let mut session = PanelSession::load(Persistence::File(file.clone()));
+    session.save(temp.path(), temp.path(), SyncPolicy::Skip)?;
+    fs::remove_file(&file)?;
+    fs::create_dir(&file)?;
+    assert!(session
+        .save(temp.path(), temp.path(), SyncPolicy::Always)
+        .is_err());
+    Ok(())
+}
+
 #[cfg(unix)]
 #[test]
 fn flush_refuses_a_fifo_without_waiting_for_a_reader() -> io::Result<()> {

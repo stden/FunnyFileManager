@@ -62,7 +62,7 @@ fn entry_size_for_type(
         Ok(_) => entry.metadata().map_or(0, |metadata| metadata.len()),
         // Keep best-effort support for filesystems that supply metadata but no type.
         Err(_) => {
-            let Ok(metadata) = entry.metadata() else {
+            let Ok(metadata) = fs::symlink_metadata(entry.path()) else {
                 return 0;
             };
             if metadata.is_dir() {

@@ -53,19 +53,11 @@ impl SystemClipboard {
 
 impl ClipboardBackend for SystemClipboard {
     fn get_native(&mut self) -> Result<String, String> {
-        let clipboard = self
-            .native
-            .as_mut()
-            .ok_or_else(|| "no OS clipboard available".to_owned())?;
-        clipboard.get_text().map_err(|error| error.to_string())
+        read_native(self.native.as_mut(), arboard::Clipboard::get_text)
     }
 
     fn set_native(&mut self, text: &str) -> Result<(), String> {
-        let clipboard = self
-            .native
-            .as_mut()
-            .ok_or_else(|| "no OS clipboard available".to_owned())?;
-        clipboard.set_text(text).map_err(|error| error.to_string())
+        write_native(self.native.as_mut(), text, arboard::Clipboard::set_text)
     }
 
     fn emit_osc52(&mut self, payload: &str) -> Result<(), String> {
@@ -77,4 +69,21 @@ impl ClipboardBackend for SystemClipboard {
             .and_then(|()| self.sink.flush())
             .map_err(|error| error.to_string())
     }
+}
+
+pub(super) fn read_native<T, E: std::fmt::Display>(
+    native: Option<&mut T>,
+    get: fn(&mut T) -> Result<String, E>,
+) -> Result<String, String> {
+    let clipboard = native.ok_or_else(|| "no OS clipboard available".to_owned())?;
+    get(clipboard).map_err(|error| error.to_string())
+}
+
+pub(super) fn write_native<'a, T, E: std::fmt::Display>(
+    native: Option<&mut T>,
+    text: &'a str,
+    set: fn(&mut T, &'a str) -> Result<(), E>,
+) -> Result<(), String> {
+    let clipboard = native.ok_or_else(|| "no OS clipboard available".to_owned())?;
+    set(clipboard, text).map_err(|error| error.to_string())
 }

@@ -37,3 +37,22 @@ fn an_error_with_a_fixed_message_is_described_by_that_message() {
 
     assert_eq!(error.describe(), "invalid digit found in string");
 }
+
+#[test]
+fn io_and_eof_json_errors_and_stopped_label_are_described_without_payloads() {
+    struct FailingRead;
+    impl std::io::Read for FailingRead {
+        fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::other("io failure"))
+        }
+    }
+
+    let io_err = serde_json::from_reader::<_, serde_json::Value>(FailingRead).unwrap_err();
+    assert_eq!(io_err.describe(), "JSON I/O error");
+    let eof_err = serde_json::from_slice::<serde_json::Value>(b"{").unwrap_err();
+    assert_eq!(
+        eof_err.describe(),
+        "JSON end-of-input error at line 1, column 1"
+    );
+    assert_eq!(crate::lsp::types::ServerState::Stopped.label(), "LSP off");
+}

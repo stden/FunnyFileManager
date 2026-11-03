@@ -64,3 +64,20 @@ fn a_request_already_running_does_not_start_a_second_worker() {
     assert!(jobs.pending.is_none());
     assert!(app.remote_requests.finish(request.id));
 }
+
+#[test]
+fn spawn_failure_finishes_request_and_reports_error() {
+    let dir = tempfile::TempDir::new().expect("temporary directory");
+    let (mut app, _link) = fixture(&dir);
+    assert!(crate::ops::remote::actions::handle(&mut app, Action::Edit));
+    let mut jobs = RemoteJobs::default();
+    FORCE_SPAWN_FAILURE.set(true);
+    let redraw = jobs.pump(&mut app);
+    FORCE_SPAWN_FAILURE.set(false);
+    assert!(matches!(redraw, Redraw::Needed));
+    assert!(jobs.pending.is_none());
+    assert!(app.remote_requests.is_idle());
+    assert!(
+        matches!(&app.status, Status::Error(msg) if msg.contains("Cannot start remote worker"))
+    );
+}

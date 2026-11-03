@@ -166,7 +166,8 @@ class RustCoverageTests(SandboxTestCase):
         matched = self.sandbox.execute(["grep", "-E", pattern], input=paths)
         self.assertEqual(matched.stdout.splitlines(), ["/checkout/src/tests.rs", "/checkout/examples/snapshot.rs"])
 
-    def test_windows_uses_a_temporary_cmd_pass_through(self):
+    def test_windows_compiles_a_native_pass_through_wrapper(self):
+        self.sandbox.fake("rustc", effect='open(args[args.index("-o") + 1], "wb").close()')
         self.sandbox.write("windows_wrapper.py", '''
 from pathlib import Path
 import sys
@@ -178,14 +179,15 @@ directory.mkdir()
 with patch("coverage_rust.os.name", "nt"):
     environment = coverage_rust.compiler_environment(directory)
 wrapper = Path(environment["CARGO_BUILD_RUSTC_WRAPPER"])
-assert wrapper.parent == directory
-assert wrapper.suffix == ".cmd"
-assert wrapper.read_text() == "@echo off\\n%*\\n"
+assert wrapper == directory / "rustc-wrapper.exe"
+assert wrapper.is_file()
+assert (directory / "rustc-wrapper.rs").is_file()
 assert "RUSTC_WRAPPER" not in environment
 assert environment["FFM_APPLICATION_TEST_BINARY"] == str(directory / "target/debug/ffm.exe")
 ''')
         result = self.sandbox.run("windows_wrapper.py", env={"RUSTC_WRAPPER": ""})
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(self.sandbox.calls("rustc")), 1)
 
 
 if __name__ == "__main__":

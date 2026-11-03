@@ -9,6 +9,16 @@ const MAX_S3_OBJECT_BYTES: u64 = 100 * 1024 * 1024;
 impl S3Client {
     /// Download an object to a local path
     pub fn download_object(&self, bucket: &str, key: &str, local_path: &Path) -> io::Result<()> {
+        self.download_object_limited(bucket, key, local_path, MAX_S3_OBJECT_BYTES)
+    }
+
+    pub(super) fn download_object_limited(
+        &self,
+        bucket: &str,
+        key: &str,
+        local_path: &Path,
+        max_bytes: u64,
+    ) -> io::Result<()> {
         let target = crate::file_write::real_target(local_path)
             .map_err(crate::file_write::DanglingLink::into_io_error)?;
         crate::file_write::ensure_writable(&target)?;
@@ -24,7 +34,7 @@ impl S3Client {
 
             if resp
                 .content_length()
-                .is_some_and(|len| u64::try_from(len).unwrap_or(u64::MAX) > MAX_S3_OBJECT_BYTES)
+                .is_some_and(|len| u64::try_from(len).unwrap_or(u64::MAX) > max_bytes)
             {
                 return Err(io::Error::other("S3 object exceeds 100 MiB download limit"));
             }
@@ -36,7 +46,7 @@ impl S3Client {
                 .map_err(|e| io::Error::other(e.to_string()))?;
 
             let bytes = data.into_bytes();
-            if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_S3_OBJECT_BYTES {
+            if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > max_bytes {
                 return Err(io::Error::other("S3 object exceeds 100 MiB download limit"));
             }
             persist_download(local_path, &bytes)

@@ -86,14 +86,22 @@ fn lock_until(
     .map_err(InstallError::cache)?;
     loop {
         check_cancel(stop)?;
-        match lock.try_lock() {
-            Ok(()) => return Ok(lock),
-            Err(TryLockError::WouldBlock) if Instant::now() < deadline => {
-                wait();
-            }
-            Err(TryLockError::WouldBlock) => return Err(InstallError::Timeout),
-            Err(TryLockError::Error(error)) => return Err(error.into()),
+        if check_try_lock(lock.try_lock(), Instant::now() < deadline)? {
+            return Ok(lock);
         }
+        wait();
+    }
+}
+
+fn check_try_lock(
+    attempt: Result<(), TryLockError>,
+    before_deadline: bool,
+) -> Result<bool, InstallError> {
+    match attempt {
+        Ok(()) => Ok(true),
+        Err(TryLockError::WouldBlock) if before_deadline => Ok(false),
+        Err(TryLockError::WouldBlock) => Err(InstallError::Timeout),
+        Err(TryLockError::Error(error)) => Err(error.into()),
     }
 }
 

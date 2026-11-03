@@ -80,3 +80,55 @@ fn edits_before_initialization_preserve_the_open_document_path() {
     assert_eq!(pending.path, original);
     assert_eq!(pending.text, "updated");
 }
+
+#[test]
+fn pre_ready_crash_without_hint_reports_disconnected() {
+    let root = tempfile::TempDir::new().unwrap();
+    let crash_cfg = ServerSettings {
+        command: "python".into(),
+        args: vec!["-c".into(), "raise SystemExit(1)".into()],
+        ..ServerSettings::default()
+    };
+    let snap = silent_connection(root.path()).pending.clone().unwrap();
+    let mut crashed = Connection::start("rust".into(), &crash_cfg, snap, root.path()).unwrap();
+    let (events, _rx) = mpsc::sync_channel(8);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        if let Err(err) = crashed.pump(&events) {
+            assert_eq!(err, PumpError::Disconnected("LSP disconnected"));
+            break;
+        }
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(TICK);
+    }
+}
+
+#[test]
+fn broken_shutdown_flushes_terminate_cleanly() {
+    let root = tempfile::TempDir::new().unwrap();
+    let init = json!({"jsonrpc":"2.0","id":1,"result":{"capabilities":{}}});
+    let mut fail_first = silent_connection(root.path());
+    fail_first.client.receive(init.clone()).unwrap();
+    fail_first.process.set_outgoing(None);
+    drop(fail_first);
+
+    let mut fail_exit = silent_connection(root.path());
+    fail_exit.client.receive(init.clone()).unwrap();
+    fail_exit.client.shutdown_complete = true;
+    let (full_tx, _full_rx) = mpsc::sync_channel(0);
+    fail_exit.process.set_outgoing(Some(full_tx));
+    fail_exit.client.rpc.outbox.resize(1023, json!(0));
+    drop(fail_exit);
+
+    let mut fail_loop = silent_connection(root.path());
+    fail_loop.client.receive(init).unwrap();
+    fail_loop.client.shutdown_complete = true;
+    let (tx, rx) = mpsc::sync_channel(1);
+    tx.send(json!(0)).unwrap();
+    fail_loop.process.set_outgoing(Some(tx));
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(5));
+        drop(rx);
+    });
+    drop(fail_loop);
+}
