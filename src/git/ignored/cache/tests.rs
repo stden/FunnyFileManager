@@ -50,9 +50,15 @@ fn invalidate_under_clears_subdirectory_entries() {
     let sub = repo.path().join("sub");
     let s = stamp(3, 4);
     store(&sub, s, &["out".to_owned()]);
-    assert!(lookup(&sub, s).is_some(), "must be cached before invalidation");
+    assert!(
+        lookup(&sub, s).is_some(),
+        "must be cached before invalidation"
+    );
     invalidate_under(repo.path());
-    assert!(lookup(&sub, s).is_none(), "must be evicted after invalidation");
+    assert!(
+        lookup(&sub, s).is_none(),
+        "must be evicted after invalidation"
+    );
 }
 
 #[test]

@@ -28,7 +28,7 @@ fn remove_created_link_is_silent_for_missing_path() {
 /// dir-link and file-link branches without `SeCreateSymbolicLinkPrivilege`.
 #[cfg(all(windows, test))]
 mod windows_fallback {
-    use super::*;
+    use super::super::{create_windows_link, TEST_LINK_FALLBACK};
 
     fn with_fallback<F: FnOnce()>(as_dir: bool, f: F) {
         TEST_LINK_FALLBACK.with(|cell| cell.set(Some(as_dir)));
