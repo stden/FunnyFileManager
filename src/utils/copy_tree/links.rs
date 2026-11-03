@@ -59,3 +59,6 @@ pub(super) fn remove_created_link(dst: &Path) {
         drop(fs::remove_dir(dst));
     }
 }
+
+#[cfg(test)]
+mod tests;

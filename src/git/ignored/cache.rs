@@ -112,3 +112,6 @@ pub(in crate::git) fn invalidate_under(repo_root: &Path) {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .retain(|dir, _| !dir.starts_with(repo_root));
 }
+
+#[cfg(test)]
+mod tests;

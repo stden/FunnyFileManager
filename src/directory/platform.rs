@@ -54,3 +54,6 @@ pub(super) fn is_hidden(metadata: &fs::Metadata) -> bool {
 pub(super) const fn is_hidden(_metadata: &fs::Metadata) -> bool {
     false
 }
+
+#[cfg(test)]
+mod tests;
