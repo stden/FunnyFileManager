@@ -60,6 +60,10 @@ impl Owners {
     /// `user:group` by name, for the File owners column; an id without a
     /// passwd or group entry shows as its number. `None` off Unix.
     #[cfg(unix)]
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "matches the non-Unix signature where Owners returns None"
+    )]
     pub fn user_and_group(&mut self, metadata: &std::fs::Metadata) -> Option<String> {
         let (Uid(uid), Gid(gid)) = identifiers(metadata);
         let user = self.of(metadata).unwrap_or_else(|| uid.to_string());

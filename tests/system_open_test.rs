@@ -49,24 +49,17 @@ fn opening_a_document_passes_its_path_and_reports_handler_failure() {
     let document = document_dir.join("hello world.txt");
     fs::write(&document, "test document").expect("document");
     let handler = handler_dir.join("xdg-open");
-    fs::write(
-        &handler,
-        "#!/bin/sh\nprintf '%s' \"$1\" > \"${0%/*}/opened\"\n",
-    )
-    .expect("fake handler");
+    let script = "#!/bin/sh\nprintf '%s' \"$1\" > \"${0%/*}/opened\"\n";
+    fs::write(&handler, script).expect("fake handler");
     fs::set_permissions(&handler, fs::Permissions::from_mode(0o755)).expect("executable");
     let _path = EnvVarGuard::set("PATH", &handler_dir);
     let panel = Panel::new(document_dir).expect("panel");
     drop(open_first_entry(panel.clone()));
-    assert_eq!(
-        fs::read_to_string(handler_dir.join("opened")).expect("handler invocation"),
-        document.to_string_lossy()
-    );
+    let opened = fs::read_to_string(handler_dir.join("opened")).expect("handler invocation");
+    assert_eq!(opened, document.to_string_lossy());
 
     fs::write(&handler, "#!/bin/sh\nexit 1\n").expect("failing handler");
-    let terminal = open_first_entry(panel);
-    let screen = screen_text(&terminal);
-    assert!(screen.contains("Cannot run"), "{screen}");
+    assert!(screen_text(&open_first_entry(panel)).contains("Cannot run"));
 }
 
 #[cfg(windows)]

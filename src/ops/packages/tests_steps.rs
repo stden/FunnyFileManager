@@ -1,10 +1,13 @@
 //! Purpose: Direct unit tests for `run_step`, `execute`, and `outcome_status`.
 
-use super::{execute, outcome_status, run_step};
+#[cfg(windows)]
+use super::execute;
+use super::{outcome_status, run_step};
+use crate::status::Status;
+#[cfg(windows)]
 use crate::{
     models::{App, Panel},
     packages::{Elevation, Manager, UpdatePlan},
-    status::Status,
 };
 use std::{io, process::Command};
 
