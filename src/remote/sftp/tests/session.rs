@@ -157,10 +157,17 @@ fn authenticate_and_verify_host_cover_unencrypted_keys_and_bad_known_hosts() {
 }
 
 #[test]
-fn real_ssh2_session_rejects_unconnected_password_and_agent_auth() {
+fn real_ssh2_session_rejects_unconnected_password_agent_and_short_known_hosts() {
     let real = ssh2::Session::new().expect("ssh2 session");
     for auth in [Auth::Password, Auth::Agent] {
         let s = fixture_session(auth);
         assert!(authenticate(&SSH2_CLIENT_OPS, &real, &s, &Credentials::default(), "u").is_err());
     }
+    let dir = TempDir::new().expect("tempdir");
+    let kh_path = dir.path().join("known_hosts");
+    fs::write(&kh_path, "[127.0.0.1]:2222 ssh-ed25519 short\n").expect("write");
+    let mut kh = (SSH2_CLIENT_OPS.known_hosts)(&real).expect("known_hosts");
+    assert!(
+        (SSH2_CLIENT_OPS.read_known_hosts)(&mut kh, &kh_path, KnownHostFileKind::OpenSSH).is_err()
+    );
 }
