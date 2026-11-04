@@ -120,6 +120,8 @@ fn debug_prints_neither_the_address_nor_the_token() {
 fn refusal_messages_name_the_variable_and_never_the_value() {
     let shown = ConfigError::NotHttps.to_string();
     assert!(shown.contains(URL_VARIABLE), "{shown}");
+    let shown = ConfigError::Address.to_string();
+    assert!(shown.contains(URL_VARIABLE), "{shown}");
     let shown = ConfigError::Token.to_string();
     assert!(shown.contains(TOKEN_VARIABLE), "{shown}");
 }

@@ -12,6 +12,7 @@ fn missing_dir_directory_sidecar_and_oversized_sidecar_are_handled() -> io::Resu
     let names = default_names();
     assert!(read(&temp.path().join("missing"), &names).is_empty());
     assert_eq!(text_of(&temp.path().join("missing"))?, "");
+    assert!(text_of(std::path::Path::new("bad\0name")).is_err());
 
     let sidecar = temp.path().join("Descript.ion");
     fs::create_dir(&sidecar)?;

@@ -12,6 +12,9 @@ use serde_json::json;
 use std::fs;
 use std::path::Path;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct PermissionsParams {
     /// Path to the file or directory
@@ -77,19 +80,13 @@ fn permissions_report(path: &Path) -> Result<serde_json::Value, McpError> {
         .map_err(crate::tools::io_error)?
         .permissions();
 
-    #[cfg(unix)]
-    let reported_mode = {
-        use std::os::unix::fs::PermissionsExt;
-        Some(format!("{:o}", perms.mode()))
-    };
-    #[cfg(not(unix))]
-    let reported_mode: Option<String> = None;
-
     let mut result = serde_json::Map::new();
     result.insert("path".to_owned(), json!(path.display().to_string()));
     result.insert("readonly".to_owned(), json!(perms.readonly()));
-    if let Some(mode) = reported_mode {
-        result.insert("mode".to_owned(), json!(mode));
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        result.insert("mode".to_owned(), json!(format!("{:o}", perms.mode())));
     }
 
     Ok(serde_json::Value::Object(result))

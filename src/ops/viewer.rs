@@ -69,6 +69,7 @@ pub fn handle_view(app: &mut App) -> io::Result<()> {
         image::open(app, path);
         return Ok(());
     }
+    #[cfg(feature = "keepass")]
     if crate::ops::vault::open_vault_if_kdbx(app) {
         return Ok(());
     }
@@ -98,6 +99,14 @@ fn measure_panel_directories(panel: &mut crate::models::Panel) {
 }
 
 pub fn view_path(app: &mut App, selected: PathBuf) -> io::Result<()> {
+    view_path_with(app, selected, read_for_text_ui)
+}
+
+fn view_path_with(
+    app: &mut App,
+    selected: PathBuf,
+    load: fn(&std::path::Path) -> io::Result<Loaded>,
+) -> io::Result<()> {
     // Far measures a directory in-place in the panel's Size column rather than
     // opening a viewer or modal dialog.
     if selected.is_dir() {
@@ -115,22 +124,18 @@ pub fn view_path(app: &mut App, selected: PathBuf) -> io::Result<()> {
     // `File::open`, /dev/zero would be read until the OOM killer fires — both
     // report `len() == 0`, so the size check alone never saw them), and it
     // bounds the read itself.
-    let loaded = read_for_text_ui(&selected);
-    let bytes = match loaded.map_err(crate::utils::FailedAt::for_path(&selected))? {
-        Loaded::Bytes(bytes) => bytes,
+    match load(&selected).map_err(crate::utils::FailedAt::for_path(&selected))? {
+        Loaded::Bytes(bytes) => show_file_bytes(app, selected, &bytes),
         Loaded::NotRegular => {
             app.set_status(Status::NotRegularFile(selected.display().to_string()));
-            return Ok(());
         }
         Loaded::TooLarge(size) => {
             app.set_status(Status::FileTooLarge {
                 megabytes: FileSize::from_bytes(size).megabytes(),
                 limit_megabytes: MAX_FILE_SIZE.megabytes(),
             });
-            return Ok(());
         }
-    };
-    show_file_bytes(app, selected, &bytes);
+    }
     Ok(())
 }
 

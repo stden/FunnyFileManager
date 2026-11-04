@@ -125,3 +125,20 @@ fn the_note_joins_what_limited_the_answer() {
     assert!(both.contains("2 folder(s) could not be read"), "{both}");
     assert!(both.contains("Not inside a git repository"), "{both}");
 }
+
+#[test]
+fn open_validates_panel_folder_and_scan_classifies_directory_links() {
+    let dir = TempDir::new().expect("temp dir");
+    let target = dir.path().join("target_dir");
+    fs::create_dir(&target).expect("target");
+    crate::test_support::make_dir_link(&target, &dir.path().join("link_dir")).expect("link");
+    let dialog = scan(dir.path(), ROOMY).expect("scan with link");
+    assert_eq!(dialog.rows.len(), 2);
+
+    let panel = crate::models::Panel::new(dir.path().to_path_buf()).expect("panel");
+    let mut app = App::with_panels(panel.clone(), panel);
+    open(&mut app).expect("open valid");
+    assert!(matches!(app.overlay, Overlay::SpaceAnalysis(_)));
+    app.left_panel.path = dir.path().join("missing");
+    assert!(open(&mut app).is_err());
+}

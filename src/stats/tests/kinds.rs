@@ -6,6 +6,7 @@ use super::*;
 fn a_file_is_categorised_by_its_extension() {
     assert_eq!(ContentKind::of("main.rs"), ContentKind::Source);
     assert_eq!(ContentKind::of("notes.md"), ContentKind::Document);
+    assert_eq!(ContentKind::of("README.MARKDOWN"), ContentKind::Document);
     assert_eq!(ContentKind::of("photo.JPG"), ContentKind::Image);
     assert_eq!(ContentKind::of("song.flac"), ContentKind::Audio);
     assert_eq!(ContentKind::of("clip.mkv"), ContentKind::Video);
@@ -19,6 +20,10 @@ fn a_file_is_categorised_by_its_extension() {
 fn an_unknown_or_absent_extension_is_other() {
     assert_eq!(ContentKind::of("Makefile"), ContentKind::Other);
     assert_eq!(ContentKind::of("archive.zzzz"), ContentKind::Other);
+    assert_eq!(
+        ContentKind::of("archive.verylongextension"),
+        ContentKind::Other
+    );
     assert_eq!(ContentKind::of(""), ContentKind::Other);
     // A leading dot is a hidden file, not an extension.
     assert_eq!(ContentKind::of(".gitignore"), ContentKind::Other);
@@ -55,6 +60,7 @@ fn the_categories_account_for_every_byte() {
     let dir = tree(&[
         ("a.rs", 100),
         ("b.png", 250),
+        ("song.flac", 30),
         ("c.unknown", 7),
         ("sub/d.zip", 1000),
     ]);

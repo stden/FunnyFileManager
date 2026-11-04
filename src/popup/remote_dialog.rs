@@ -78,3 +78,6 @@ pub(super) fn paste(app: &mut App, text: &str) {
         _ => {}
     }
 }
+
+#[cfg(test)]
+mod tests;

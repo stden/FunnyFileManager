@@ -40,3 +40,18 @@ fn lost_worker_fails_the_editor_and_discards_the_queued_commands() {
         ServerState::Failed
     );
 }
+
+#[test]
+fn failed_manager_spawn_marks_editor_lsp_failed() {
+    let root = TempDir::new().expect("temp");
+    let mut app = fixture(&root);
+    let mut controller = EditorLspController::default();
+    FORCE_SPAWN_FAILURE.set(true);
+    controller.open_editor(app.get_editor_mut().expect("editor"));
+    FORCE_SPAWN_FAILURE.set(false);
+    assert!(controller.manager.is_none());
+    assert_eq!(
+        app.get_editor().expect("editor").lsp.state,
+        ServerState::Failed
+    );
+}

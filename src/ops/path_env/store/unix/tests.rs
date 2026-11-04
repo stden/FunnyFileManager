@@ -75,6 +75,7 @@ fn system_files_round_trip_without_losing_other_settings() {
             initial
         );
     }
+    drop(read(Scope::System));
 }
 
 #[test]

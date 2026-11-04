@@ -34,10 +34,13 @@ fn keys_typed_during_a_long_copy_are_thrown_away() {
     ffm.type_keys(b":mkdir probe\r");
     let probed = ffm.wait_for(PATIENCE, |ffm| ffm.work().join("probe").is_dir());
     assert!(probed.is_some(), "a key typed after the copy was lost");
+    ffm.type_keys(b":sleep 0.2\rz");
+    std::thread::sleep(Duration::from_millis(300));
     assert_eq!(
         fs::read(ffm.work().join("a-keep.txt")).expect("kept"),
         b"precious"
     );
     let copy = fs::metadata(ffm.work().join("out/big.img")).expect("copied");
     assert_eq!(copy.len(), size);
+    assert!(ffm.quit().expect("ffm exits normally").success());
 }

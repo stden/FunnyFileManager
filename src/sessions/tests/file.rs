@@ -170,3 +170,12 @@ fn why_a_file_did_not_load_reads_as_one_line() {
     let text = parse.to_string();
     assert_eq!(LoadError::Parse(parse).to_string(), text);
 }
+
+#[test]
+fn saving_a_parentless_file_path_reports_the_write_error() {
+    let mut store = SessionStore {
+        sessions: vec![session("a.test")],
+        backing: crate::sessions::Backing::File(std::path::PathBuf::new()),
+    };
+    assert!(matches!(store.save(), Err(StoreError::Write(_))));
+}

@@ -14,6 +14,20 @@ pub enum ConfirmButton {
     Cancel,
 }
 
+impl ConfirmButton {
+    pub(in crate::models::tasks) const fn signal_for_offer(
+        self,
+        offer: KillOffer,
+    ) -> Option<Signal> {
+        match (self, offer) {
+            (Self::Terminate, _) => Some(Signal::Terminate),
+            (Self::Kill, _) => Some(Signal::Kill),
+            (Self::Send, KillOffer::Send(signal)) => Some(signal),
+            (Self::Send, KillOffer::TerminateOrKill) | (Self::Cancel, _) => None,
+        }
+    }
+}
+
 /// F8 and Del's buttons: Terminate focused, then Kill where signals exist.
 #[cfg(unix)]
 const TERMINATE_OR_KILL: &[ConfirmButton] = &[
@@ -94,14 +108,9 @@ impl KillConfirm {
     /// this confirmation does not have.
     #[must_use]
     pub fn signal(&self, button: ConfirmButton) -> Option<Signal> {
-        if !self.buttons().contains(&button) {
-            return None;
-        }
-        match (button, self.offer) {
-            (ConfirmButton::Terminate, _) => Some(Signal::Terminate),
-            (ConfirmButton::Kill, _) => Some(Signal::Kill),
-            (ConfirmButton::Send, KillOffer::Send(signal)) => Some(signal),
-            (ConfirmButton::Send, KillOffer::TerminateOrKill) | (ConfirmButton::Cancel, _) => None,
-        }
+        self.buttons()
+            .contains(&button)
+            .then(|| button.signal_for_offer(self.offer))
+            .flatten()
     }
 }

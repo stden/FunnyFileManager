@@ -111,3 +111,82 @@ fn zero_width_insertions_at_identical_offset_are_rejected_as_overlapping() {
     );
     assert_eq!(ed.lines[0], "abc");
 }
+
+#[test]
+fn multi_edit_preserves_highlight_cache_and_merges_same_line_edits() {
+    let root = TempDir::new().unwrap();
+    let mut ed = editor(&root, "fn keep() {}\nprefix_call(fo)\nfn stay() {}\n");
+    ed.highlights
+        .borrow_mut()
+        .prepare_window(&ed.path, &ed.lines, 0, 3, ed.lsp.revision.0, None);
+    assert!(ed.highlights.borrow().span_slice(2).is_some());
+    ed.cursor_line = 1;
+    ed.cursor_col = 14;
+    let item = completion(json!({
+        "label": "foo_bar",
+        "textEdit": {
+            "range": {"start": {"line": 1, "character": 12}, "end": {"line": 1, "character": 14}},
+            "newText": "foo_bar"
+        },
+        "additionalTextEdits": [
+            {"range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 0}}, "newText": "use demo;\n"},
+            {"range": {"start": {"line": 1, "character": 0}, "end": {"line": 1, "character": 6}}, "newText": "p"}
+        ]
+    }));
+    ed.complete_lsp(query(&ed), &item).unwrap();
+    assert_eq!(
+        ed.lsp_text(),
+        "use demo;\nfn keep() {}\np_call(foo_bar)\nfn stay() {}\n"
+    );
+    assert_eq!((ed.cursor_line, ed.cursor_col), (2, 14));
+    assert!(ed.highlights.borrow().span_slice(3).is_some());
+}
+
+#[test]
+fn virtual_eof_edit_trims_empty_trailing_slot() {
+    let root = TempDir::new().unwrap();
+    let mut ed = editor(&root, "alpha\nbeta\n");
+    ed.highlights
+        .borrow_mut()
+        .prepare_window(&ed.path, &ed.lines, 0, 2, ed.lsp.revision.0, None);
+    ed.cursor_col = 5;
+    let eof_item = completion(json!({
+        "label": "alpha_ok",
+        "textEdit": {
+            "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 5}},
+            "newText": "alpha_ok"
+        },
+        "additionalTextEdits": [
+            {"range": {"start": {"line": 2, "character": 0}, "end": {"line": 2, "character": 0}}, "newText": "// eof\n"}
+        ]
+    }));
+    ed.complete_lsp(query(&ed), &eof_item).unwrap();
+    assert_eq!(ed.lines.len(), 3);
+    assert_eq!(ed.lsp_text(), "alpha_ok\nbeta\n// eof\n");
+}
+
+#[test]
+fn unterminated_last_line_and_reversed_multi_edit_are_handled() {
+    let root = TempDir::new().unwrap();
+    let mut no_nl = editor(&root, "head\ntail");
+    no_nl.cursor_line = 1;
+    no_nl.cursor_col = 4;
+    let bad = completion(json!({
+        "label": "tail_end",
+        "additionalTextEdits": [
+            {"range": {"start": {"line": 0, "character": 3}, "end": {"line": 0, "character": 1}}, "newText": "x"}
+        ]
+    }));
+    assert_eq!(
+        no_nl.complete_lsp(query(&no_nl), &bad),
+        Err("Invalid completion range")
+    );
+    let ok = completion(json!({
+        "label": "tail_end",
+        "additionalTextEdits": [
+            {"range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 0}}, "newText": "// top\n"}
+        ]
+    }));
+    no_nl.complete_lsp(query(&no_nl), &ok).unwrap();
+    assert_eq!(no_nl.lsp_text(), "// top\nhead\ntail_end");
+}

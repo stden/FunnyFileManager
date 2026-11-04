@@ -37,7 +37,7 @@ async fn output_contains(world: &mut SessionWorld, marker: String) {
             Instant::now() < deadline,
             "missing shell output {marker}: {state}"
         );
-        tokio::task::yield_now().await;
+        tokio::time::sleep(Duration::from_millis(10)).await;
     }
 }
 
@@ -80,5 +80,7 @@ fn cancelled(world: &mut SessionWorld) {
 }
 
 fn output(state: &Value) -> &str {
-    state["external_process"]["output"].as_str().unwrap()
+    state["external_process"]["output"]
+        .as_str()
+        .unwrap_or_default()
 }

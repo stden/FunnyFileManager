@@ -24,3 +24,6 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> 
     }
     true
 }
+
+#[cfg(test)]
+mod tests;

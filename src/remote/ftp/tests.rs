@@ -56,6 +56,17 @@ fn ftp_rejects_command_injection_before_sending_a_path() {
             .name,
         "a file.txt"
     );
+    let entries = super::listing::parse(
+        &[
+            "drwxr-x--- 2 1000 1000 4096 Nov 5 2025 subdir".to_owned(),
+            "lrwxrwxrwx 1 1000 1000 4 Nov 5 2025 link -> real".to_owned(),
+        ],
+        false,
+    )
+    .expect("Unix dir and symlink LIST");
+    assert_eq!(entries.len(), 2);
+    assert!(entries[0].kind.is_dir());
+    assert!(entries[1].kind.is_symlink());
 }
 
 fn connection(server: &server::Server) -> Box<dyn crate::remote::RemoteFs> {

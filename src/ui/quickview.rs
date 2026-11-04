@@ -91,7 +91,7 @@ fn render_body(f: &mut Frame<'_>, view: &QuickView, body: Rect) {
 }
 
 /// The visible window of the file, coloured as the viewer would colour it.
-fn text_lines(view: &QuickView, text: &TextPreview, body: Rect) -> Vec<Line<'static>> {
+fn text_lines<'a>(view: &QuickView, text: &'a TextPreview, body: Rect) -> Vec<Line<'a>> {
     highlighted_window(
         &text.highlights,
         &text.path,

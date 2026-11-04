@@ -82,4 +82,8 @@ fn a_local_drive_turns_a_netbox_panel_back_into_files() {
         "{status:?}"
     );
     assert_eq!(app.left_panel.kind, crate::models::PanelKind::Files);
+    assert_eq!(
+        super::super::process_list_status(Err(std::io::Error::other("unavailable"))),
+        Status::Error("unavailable".to_owned())
+    );
 }

@@ -189,10 +189,10 @@ fn link_count_counts_every_name_of_a_file() -> io::Result<()> {
     assert_eq!(link_count(&fs::symlink_metadata(&file)?), 1);
 
     fs::hard_link(&file, temp.path().join("hl-b"))?;
-
     assert_eq!(link_count(&fs::symlink_metadata(&file)?), 2);
     Ok(())
 }
 
 #[cfg(unix)]
 mod parent_row;
+mod symlinks;

@@ -150,12 +150,13 @@ impl Connection {
     }
 
     fn closed_error(&mut self) -> PumpError {
-        if !self.client.is_ready() {
-            if let Some(hint) = self.process.take_toolchain_hint() {
-                return PumpError::MissingComponent(hint);
-            }
-        }
-        PumpError::Disconnected("LSP disconnected")
+        (!self.client.is_ready())
+            .then(|| self.process.take_toolchain_hint())
+            .flatten()
+            .map_or(
+                PumpError::Disconnected("LSP disconnected"),
+                PumpError::MissingComponent,
+            )
     }
 
     fn query(&mut self, events: &SyncSender<Envelope>) {

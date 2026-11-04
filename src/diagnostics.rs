@@ -36,12 +36,6 @@ fn enabled(setting: Option<&str>, by_default: bool) -> bool {
 }
 
 /// Directory the logs are written to, or `None` when logging is off.
-///
-/// The file manager logs by default and `FFM_LOG=0` turns it off; elsewhere
-/// it is off unless `FFM_LOG=1`. Key and action labels redact typed
-/// characters, but diagnostics may still describe user paths. Logs use the
-/// OS temporary directory rather than the working directory. The setting is
-/// read once and stays fixed for the process lifetime.
 fn log_dir() -> Option<&'static Path> {
     static DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
     DIR.get_or_init(|| {
@@ -54,15 +48,20 @@ fn log_dir() -> Option<&'static Path> {
 /// Append one timestamped line to `path`, creating it owner-only where the OS
 /// supports it. Failures are ignored on purpose: logging must never be able to
 /// break the file manager.
+#[cfg(test)]
 fn append_log_line_at(path: &Path, line: &str, captured: std::time::SystemTime) {
     let Some(mut file) = open_log_file(path) else {
         return;
     };
+    write_log_line(&mut file, line, captured);
+}
+
+fn write_log_line(writer: &mut impl Write, line: &str, captured: std::time::SystemTime) {
     let timestamp = captured
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_millis());
     // A failed write is ignored on purpose, as the doc comment says.
-    drop(writeln!(file, "[{timestamp}] {line}"));
+    drop(writeln!(writer, "[{timestamp}] {line}"));
 }
 
 fn open_log_file(path: &Path) -> Option<std::fs::File> {
@@ -80,13 +79,13 @@ fn open_log_file(path: &Path) -> Option<std::fs::File> {
         options.mode(0o600);
     }
     let file = crate::fileload::open_regular(path, &options).ok()?;
-    let meta = file.metadata().ok()?;
-    if crate::directory::link_count(&meta) > 1 || !crate::file_write::owned_by_us(path) {
-        return None;
-    }
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
+        let meta = file.metadata().ok()?;
+        if crate::directory::link_count(&meta) > 1 || !crate::file_write::owned_by_us(path) {
+            return None;
+        }
         drop(file.set_permissions(std::fs::Permissions::from_mode(0o600)));
     }
     Some(file)
@@ -105,10 +104,6 @@ pub fn log_error(error: &str) {
 }
 
 /// Describe a key for the log *without* its payload.
-///
-/// `KeyCode::Char` is rendered payload-free on purpose: keys are logged before
-/// an overlay gets to consume them, so printing the character would write every
-/// password typed into the built-in editor straight to the log file.
 pub fn key_label(code: KeyCode) -> String {
     match code {
         KeyCode::Char(_) => "Char".to_owned(),

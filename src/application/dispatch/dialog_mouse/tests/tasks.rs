@@ -147,3 +147,5 @@ fn no_click_on_the_list_sends_a_signal_even_twice_in_one_place() {
         assert_eq!(sent.len(), 0, "{width}x{height}: {sent:?}");
     }
 }
+
+mod size_error;

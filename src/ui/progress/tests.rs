@@ -77,6 +77,12 @@ fn a_small_screen_gets_a_small_dialog() {
         &snapshot(Operation::Copy, Phase::Working, "x"),
     );
     assert_eq!(buffer.area, Rect::new(1, 0, 28, 5));
+
+    let find = progress_dialog(
+        Rect::new(0, 0, 30, 5),
+        &snapshot(Operation::Find, Phase::Working, "x"),
+    );
+    assert_eq!(find.area, Rect::new(1, 0, 28, 5));
 }
 
 /// A search has no total to fill a bar with: it says where it is, how many

@@ -35,11 +35,11 @@ fn command(path: &Path) -> Command {
 
 #[cfg(not(windows))]
 fn command(path: &Path) -> Command {
-    let mut command = Command::new(if cfg!(target_os = "macos") {
-        "open"
-    } else {
-        "xdg-open"
-    });
+    #[cfg(target_os = "macos")]
+    const OPENER: &str = "open";
+    #[cfg(not(target_os = "macos"))]
+    const OPENER: &str = "xdg-open";
+    let mut command = Command::new(OPENER);
     command.arg(path);
     command
 }

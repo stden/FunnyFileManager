@@ -17,7 +17,12 @@ impl Privilege {
     /// The privilege of the process actually running.
     #[must_use]
     pub fn current() -> Self {
-        if crate::platform::is_root() {
+        Self::from_root_flag(crate::platform::is_root())
+    }
+
+    #[must_use]
+    pub(super) const fn from_root_flag(is_root: bool) -> Self {
+        if is_root {
             Self::Root
         } else {
             Self::User

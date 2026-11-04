@@ -27,29 +27,51 @@ fn adapter_from_row_filters_flag_bits_and_falls_back_to_description() {
 }
 
 #[test]
+fn network_fallbacks_handle_invalid_mib_level_and_null_icmp_handle() {
+    let ips = HashMap::new();
+    assert_eq!(read_network_adapters_level(&ips, 99), []);
+    assert_eq!(
+        icmp_ping_handle(
+            std::ptr::null_mut(),
+            Ipv4::new(127, 0, 0, 1),
+            Duration::from_millis(50),
+        ),
+        ProbeOutcome::Unreachable
+    );
+}
+
+#[test]
 fn decode_icmp_reply_maps_zero_count_timeout_and_unreachable_statuses() {
     let zero_buf = [0_u64; 16];
-    let zero_out = decode_icmp_reply(0, &zero_buf, Duration::from_millis(5));
-    assert!(matches!(
-        zero_out,
-        ProbeOutcome::Unreachable | ProbeOutcome::Timeout
-    ));
+    assert_eq!(
+        decode_icmp_reply(
+            0,
+            &zero_buf,
+            Duration::from_millis(5),
+            Some(i32::try_from(IP_REQ_TIMED_OUT).unwrap()),
+        ),
+        ProbeOutcome::Timeout
+    );
+    assert_eq!(
+        decode_icmp_reply(0, &zero_buf, Duration::from_millis(5), Some(5)),
+        ProbeOutcome::Unreachable
+    );
 
     let mut ok_buf = [0_u64; 16];
     assert!(matches!(
-        decode_icmp_reply(1, &ok_buf, Duration::from_millis(3)),
+        decode_icmp_reply(1, &ok_buf, Duration::from_millis(3), None),
         ProbeOutcome::Ok(_)
     ));
 
     ok_buf[0] = u64::from(IP_REQ_TIMED_OUT) << 32;
     assert_eq!(
-        decode_icmp_reply(1, &ok_buf, Duration::from_millis(3)),
+        decode_icmp_reply(1, &ok_buf, Duration::from_millis(3), None),
         ProbeOutcome::Timeout
     );
 
     ok_buf[0] = 11_003_u64 << 32;
     assert_eq!(
-        decode_icmp_reply(1, &ok_buf, Duration::from_millis(3)),
+        decode_icmp_reply(1, &ok_buf, Duration::from_millis(3), None),
         ProbeOutcome::Unreachable
     );
 }

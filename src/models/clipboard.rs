@@ -1,8 +1,13 @@
 //! Session-owned clipboard backend and optional secret-clear deadline.
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::clipboard::ClipboardBackend;
+
+#[cfg(feature = "keepass")]
+const CLEAR_DELAY: Duration = crate::CLIPBOARD_CLEAR;
+#[cfg(not(feature = "keepass"))]
+const CLEAR_DELAY: Duration = Duration::from_secs(15);
 
 /// The session clipboard, plus an optional deadline for clearing a secret.
 ///
@@ -52,9 +57,8 @@ impl ClipboardSlot {
     /// Re-arming *replaces* the previous deadline instead of queueing a second
     /// one: an older timer left running would fire part-way through the newer
     /// secret's countdown and wipe a password the user had not pasted yet.
-    #[cfg(feature = "keepass")]
     pub fn arm(&mut self, now: Instant) {
-        self.clear_at = Some(now + crate::CLIPBOARD_CLEAR);
+        self.clear_at = Some(now + CLEAR_DELAY);
     }
 
     /// Whether the countdown has expired — and if so, disarm it.

@@ -92,10 +92,10 @@ impl Search {
         let caret = from.column.chars();
         for step in 0..=count {
             let line = self.line_at_step(from.line.get(), step, count);
-            let Some(text) = lines.get(line) else {
-                continue;
-            };
-            if let Some(col) = self.find_on_line(text, &mut prepared, step, count, caret) {
+            if let Some(col) = lines
+                .get(line)
+                .and_then(|text| self.find_on_line(text, &mut prepared, step, count, caret))
+            {
                 return Some(Caret::new(line, col));
             }
         }

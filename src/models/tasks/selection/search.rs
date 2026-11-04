@@ -1,7 +1,7 @@
 //! Purpose: Finding a row of the task list: the search bar's query over the
 //! last column, from the cursor and wrapping, and the jump to a PID.
 
-use crate::casefold::contains_ignore_case;
+use crate::casefold::CaseNeedle;
 
 use super::super::modal::Found;
 use super::super::{Pid, TaskList};
@@ -25,14 +25,13 @@ impl TaskList {
             SearchFrom::Cursor => here,
             SearchFrom::AfterCursor => here.saturating_add(1),
         };
+        let needle = CaseNeedle::new(query);
         let rows = self.rows();
         let found = (0..len).map(|step| (first + step) % len).find(|&at| {
             self.view
                 .get(at)
                 .and_then(|shown| rows.get(shown.row()))
-                .is_some_and(|row| {
-                    contains_ignore_case(self.command_view.text(row.sample()), query)
-                })
+                .is_some_and(|row| needle.contains_in(self.command_view.text(row.sample())))
         });
         self.select_found(found, page)
     }

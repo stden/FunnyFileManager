@@ -44,12 +44,12 @@ impl Panel {
 
     /// Re-read the directory, preserving the last complete snapshot on error.
     pub fn load_entries(&mut self) -> io::Result<()> {
-        let listing = directory::read(&self.path, self.active_description_names())?;
-        let mut updated = self.clone();
-        updated.apply_listing(listing);
-        let view = updated.view;
-        super::panel_details::set_view(&mut updated, view)?;
-        *self = updated;
+        let names = self.active_description_names();
+        let listing = directory::read(&self.path, names)?;
+        let entries = listing.parent.iter().chain(&listing.entries);
+        let details = super::panel_details::details_for(&self.path, entries, self.view, names)?;
+        self.apply_listing(listing);
+        self.details = details;
         Ok(())
     }
 
@@ -71,11 +71,15 @@ impl Panel {
                 return Err(crate::utils::FailedAt::wrap(&path, error));
             }
         };
-        let mut updated = self.clone();
-        updated.apply_navigation(path, listing);
-        let view = updated.view;
-        super::panel_details::set_view(&mut updated, view)?;
-        *self = updated;
+        let entries = listing.parent.iter().chain(&listing.entries);
+        let details = super::panel_details::details_for(
+            &path,
+            entries,
+            self.view,
+            self.active_description_names(),
+        )?;
+        self.apply_navigation(path, listing);
+        self.details = details;
         Ok(())
     }
 

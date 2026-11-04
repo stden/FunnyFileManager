@@ -20,3 +20,25 @@ fn a_delete_confirmation_takes_the_place_of_the_browser() {
     let screen = draw(&session);
     assert!(screen.contains("Delete"), "{screen}");
 }
+
+#[test]
+fn entry_form_renders_validation_error_banner() {
+    let (_dir, mut session, now) = unlocked_sample();
+    session
+        .vault_mut()
+        .expect("unlocked")
+        .set_filter("GitHub", now);
+    session.begin_edit(now).expect("edit form");
+    for _ in "GitHub".chars() {
+        session.backspace(now);
+    }
+    for ch in "Gmail".chars() {
+        session.type_char(ch, now);
+    }
+    assert!(!session.save_edit(now));
+    let screen = draw(&session);
+    assert!(
+        screen.contains("An entry with that title already exists"),
+        "{screen}"
+    );
+}

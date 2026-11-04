@@ -13,6 +13,10 @@ const NO_HOME: &str = "No home folder: HOME is not set to an absolute path";
 enum Format {
     Profile,
     Environment,
+    #[cfg_attr(
+        not(any(target_os = "macos", test)),
+        allow(dead_code, reason = "macOS /etc/paths format")
+    )]
     Paths,
 }
 
@@ -78,15 +82,21 @@ fn write_expanded_at(
 
 fn location(scope: Scope) -> io::Result<(PathBuf, Format)> {
     if scope == Scope::System {
-        return Ok(if cfg!(target_os = "macos") {
-            ("/etc/paths".into(), Format::Paths)
-        } else {
-            ("/etc/environment".into(), Format::Environment)
-        });
+        return Ok(system_location());
     }
     let user_home = crate::config::user_home().ok_or_else(|| io::Error::other(NO_HOME))?;
     let shell = std::env::var("SHELL").unwrap_or_default();
     Ok((user_profile(&user_home, &shell), Format::Profile))
+}
+
+#[cfg(target_os = "macos")]
+fn system_location() -> (PathBuf, Format) {
+    ("/etc/paths".into(), Format::Paths)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn system_location() -> (PathBuf, Format) {
+    ("/etc/environment".into(), Format::Environment)
 }
 
 fn user_profile(user_home: &Path, shell: &str) -> PathBuf {

@@ -29,6 +29,11 @@ pub(crate) fn invoke<B: Backend + Write>(
     invocation: Invocation,
 ) -> io::Result<()> {
     context::validate(app, invocation)?;
+    execute(terminal, app, invocation);
+    Ok(())
+}
+
+fn execute<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut App, invocation: Invocation) {
     match invocation {
         Invocation::Panels(action) => super::dispatch::dispatch_action(terminal, app, action),
         Invocation::TreePanel(command) => {
@@ -53,7 +58,6 @@ pub(crate) fn invoke<B: Backend + Write>(
         Invocation::PathEditor(command) => popup::path_env::apply(app, command),
         Invocation::Vault(command) => apply_vault(app, command),
     }
-    Ok(())
 }
 
 fn apply_netbox(app: &mut App, command: NetboxCommand) {

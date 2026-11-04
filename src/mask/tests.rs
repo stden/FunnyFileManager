@@ -94,6 +94,12 @@ fn an_empty_mask_takes_nothing() {
 #[test]
 fn a_bare_star_takes_everything_including_a_dotfile() {
     let mask = Mask::parse("*");
+    assert!(mask.matches_all());
+    assert!(Mask::parse("*.rs, **").matches_all());
+    assert!(!Mask::parse("*.rs").matches_all());
+    assert!(!Mask::parse("*.*").matches_all());
+    assert!(!Mask::parse("*|*.tmp").matches_all());
+    assert!(!Mask::parse("").matches_all());
     assert!(mask.matches("main.rs"));
     assert!(mask.matches(".gitignore"));
     assert!(mask.matches(""));

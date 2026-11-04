@@ -89,8 +89,7 @@ pub fn complete_with(input: &str, ctx: &CompletionContext<'_>) -> Option<Complet
         finish_word(&only.text, only.kind)
     } else {
         // Ambiguous: advance to the longest common prefix only (no trailing space).
-        let texts: Vec<String> = candidates.iter().map(|c| c.text.clone()).collect();
-        let lcp = longest_common_prefix(&texts);
+        let lcp = longest_common_prefix(candidates.iter().map(|c| c.text.as_str()));
         if lcp.len() <= token.len() {
             // Already at the common prefix — nothing to insert, just report options.
             return Some(Completion {
@@ -146,12 +145,12 @@ fn finish_word_for(syntax: PathSyntax, candidate: &str, kind: CandidateKind) -> 
 }
 
 /// Longest common prefix of a non-empty candidate list, on `char` boundaries.
-fn longest_common_prefix(candidates: &[String]) -> String {
-    let Some((first, others)) = candidates.split_first() else {
+fn longest_common_prefix<'a>(candidates: impl IntoIterator<Item = &'a str>) -> String {
+    let mut iter = candidates.into_iter();
+    let Some(mut prefix) = iter.next() else {
         return String::new();
     };
-    let mut prefix = first.as_str();
-    for other in others {
+    for other in iter {
         // `common_prefix_len` ends on a char boundary of `prefix`, so `get`
         // always succeeds.
         prefix = prefix
@@ -159,6 +158,11 @@ fn longest_common_prefix(candidates: &[String]) -> String {
             .unwrap_or_default();
     }
     prefix.to_owned()
+}
+
+pub(super) fn os_into_string(raw: std::ffi::OsString) -> String {
+    raw.into_string()
+        .unwrap_or_else(|os| os.to_string_lossy().into_owned())
 }
 
 /// Byte length of the shared leading run of characters in `a` and `b`.

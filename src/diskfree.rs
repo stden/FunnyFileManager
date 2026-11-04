@@ -121,17 +121,21 @@ pub fn capacity(_path: &Path) -> Option<Capacity> {
     reason = "std cannot tell a network or removable drive from a fixed one"
 )]
 pub fn drive_kind(path: &Path) -> DriveKind {
-    use windows_sys::Win32::{
-        Storage::FileSystem::GetDriveTypeW,
-        System::WindowsProgramming::{
-            DRIVE_CDROM, DRIVE_FIXED, DRIVE_RAMDISK, DRIVE_REMOTE, DRIVE_REMOVABLE,
-        },
-    };
+    use windows_sys::Win32::Storage::FileSystem::GetDriveTypeW;
 
     let wide = wide_path(path);
     // SAFETY: `wide` is NUL-terminated and outlives the call, which only reads
     // it. The function has no failure mode beyond the codes matched below.
     let kind = unsafe { GetDriveTypeW(wide.as_ptr()) };
+    classify_drive_type(kind)
+}
+
+#[cfg(windows)]
+const fn classify_drive_type(kind: u32) -> DriveKind {
+    use windows_sys::Win32::System::WindowsProgramming::{
+        DRIVE_CDROM, DRIVE_FIXED, DRIVE_RAMDISK, DRIVE_REMOTE, DRIVE_REMOVABLE,
+    };
+
     match kind {
         DRIVE_FIXED => DriveKind::Fixed,
         DRIVE_REMOVABLE => DriveKind::Removable,

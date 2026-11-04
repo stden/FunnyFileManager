@@ -92,3 +92,90 @@ fn followed_walk_rejects_links_into_ancestor_or_output_tree() {
     let into_err = copy_dir_all_with(&src_into, &out2, follow).unwrap_err();
     assert!(into_err.to_string().contains("leads into the copy itself"));
 }
+
+struct TimesFailureGuard;
+
+impl Drop for TimesFailureGuard {
+    fn drop(&mut self) {
+        crate::utils::keep_times::FORCE_TIMES_FAILURE.set(false);
+        #[cfg(windows)]
+        super::links::TEST_LINK_FALLBACK.set(None);
+    }
+}
+
+#[test]
+fn copy_file_checked_preserves_destination_error_or_prefixes_source_path() {
+    let temp = tempfile::TempDir::new().unwrap();
+    let src = temp.path().join("src.txt");
+    let taken = temp.path().join("taken.txt");
+    fs::write(&src, b"a").unwrap();
+    fs::write(&taken, b"b").unwrap();
+
+    let dst_err =
+        super::steps::copy_file_checked(&src, &taken, super::CopyRules::PLAIN).unwrap_err();
+    assert!(crate::utils::FailedAt::of(&dst_err).is_some());
+
+    let missing = temp.path().join("missing.txt");
+    let fresh = temp.path().join("fresh.txt");
+    let src_err =
+        super::steps::copy_file_checked(&missing, &fresh, super::CopyRules::PLAIN).unwrap_err();
+    assert!(crate::utils::FailedAt::of(&src_err).is_none());
+    assert!(src_err.to_string().contains("missing.txt"));
+}
+
+#[test]
+fn recreate_links_keep_times_and_classify_windows_reparse_points() {
+    use super::{copy_dir_all_with, copy_link, CopyRules};
+    let _reset = TimesFailureGuard;
+    let temp = tempfile::TempDir::new().unwrap();
+    let target_dir = temp.path().join("target_dir");
+    fs::create_dir(&target_dir).unwrap();
+    let file = target_dir.join("note.txt");
+    fs::write(&file, b"hi").unwrap();
+    let tree_src = temp.path().join("tree_src");
+    fs::create_dir(&tree_src).unwrap();
+    let link = tree_src.join("dir_link");
+    crate::test_support::make_dir_link(&target_dir, &link).unwrap();
+    #[cfg(windows)]
+    {
+        assert!(super::links::is_windows_dir_link(&link));
+        assert!(super::links::is_windows_dir_link(&target_dir));
+        assert!(!super::links::is_windows_dir_link(&file));
+        let (d_try, f_try) = (temp.path().join("d_try"), temp.path().join("f_try"));
+        drop(super::links::create_windows_link(&target_dir, &d_try, true));
+        drop(fs::remove_dir(&d_try));
+        drop(super::links::create_windows_link(&file, &f_try, false));
+        drop(fs::remove_file(&f_try));
+        super::links::TEST_LINK_FALLBACK.set(Some(true));
+    }
+    copy_link(&link, &temp.path().join("fresh_link"), CopyRules::PLAIN).unwrap();
+    copy_link(&link, &temp.path().join("timed_link"), CopyRules::MOVE).unwrap();
+    copy_dir_all_with(&tree_src, &temp.path().join("tree_out"), CopyRules::PLAIN).unwrap();
+}
+
+#[test]
+fn recreate_links_roll_back_on_timestamp_failure() {
+    use super::{copy_dir_all_with, copy_link, CopyRules};
+    let _reset = TimesFailureGuard;
+    let temp = tempfile::TempDir::new().unwrap();
+    let target_dir = temp.path().join("target_dir");
+    fs::create_dir(&target_dir).unwrap();
+    let tree_src = temp.path().join("tree_src");
+    fs::create_dir(&tree_src).unwrap();
+    let link = tree_src.join("dir_link");
+    crate::test_support::make_dir_link(&target_dir, &link).unwrap();
+    #[cfg(windows)]
+    super::links::TEST_LINK_FALLBACK.set(Some(true));
+    crate::utils::keep_times::FORCE_TIMES_FAILURE.set(true);
+    let rollback_dir = temp.path().join("rollback_dir");
+    assert!(copy_link(&link, &rollback_dir, CopyRules::MOVE).is_err());
+    assert!(fs::symlink_metadata(&rollback_dir).is_err());
+    assert!(copy_dir_all_with(&tree_src, &temp.path().join("tree_fail"), CopyRules::MOVE).is_err());
+    #[cfg(windows)]
+    {
+        super::links::TEST_LINK_FALLBACK.set(Some(false));
+        let rollback_file = temp.path().join("rollback_file");
+        assert!(copy_link(&link, &rollback_file, CopyRules::MOVE).is_err());
+        assert!(fs::symlink_metadata(&rollback_file).is_err());
+    }
+}

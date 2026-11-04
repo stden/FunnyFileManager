@@ -59,7 +59,7 @@ fn kill_buttons(confirm: &KillConfirm) -> Vec<Button<'static>> {
         .collect()
 }
 
-const fn confirm_label(button: ConfirmButton) -> &'static str {
+pub(in crate::ui::tasks) const fn confirm_label(button: ConfirmButton) -> &'static str {
     match button {
         ConfirmButton::Terminate => "&Terminate",
         ConfirmButton::Kill => "&Kill",
@@ -115,18 +115,23 @@ fn the(count: usize) -> String {
 
 /// A refused target: `Skipped: 1 init (init)`; FFM itself by that name.
 fn skipped(skipped: &Skipped) -> String {
-    let target = skipped.target();
-    let why = match skipped.refusal() {
-        ControlRefusal::OwnProcess => return "Skipped: FFM itself".to_owned(),
-        ControlRefusal::Init => "init",
-        ControlRefusal::KernelThread => "kernel thread",
-        ControlRefusal::Unverifiable => "identity unknown",
-        ControlRefusal::AtLimit(_) | ControlRefusal::ClassAtLimit => "at its limit",
-        ControlRefusal::RealtimeClass => "realtime",
-        ControlRefusal::UnknownPriority => "priority unknown",
-        ControlRefusal::NoTarget => "no process",
+    let Some(why) = refusal_reason(skipped.refusal()) else {
+        return "Skipped: FFM itself".to_owned();
     };
-    format!("Skipped: {} ({why})", who(target))
+    format!("Skipped: {} ({why})", who(skipped.target()))
+}
+
+pub(in crate::ui::tasks) const fn refusal_reason(refusal: ControlRefusal) -> Option<&'static str> {
+    match refusal {
+        ControlRefusal::OwnProcess => None,
+        ControlRefusal::Init => Some("init"),
+        ControlRefusal::KernelThread => Some("kernel thread"),
+        ControlRefusal::Unverifiable => Some("identity unknown"),
+        ControlRefusal::AtLimit(_) | ControlRefusal::ClassAtLimit => Some("at its limit"),
+        ControlRefusal::RealtimeClass => Some("realtime"),
+        ControlRefusal::UnknownPriority => Some("priority unknown"),
+        ControlRefusal::NoTarget => Some("no process"),
+    }
 }
 
 /// The warning that ending (or pausing) a process FFM runs inside ends (or

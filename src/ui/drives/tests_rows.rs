@@ -5,7 +5,6 @@
 use super::columns;
 use super::tests::{disk, empty_bay, plugin, text};
 use crate::diskfree::DriveKind;
-use crate::models::RowKind;
 
 /// A plugin row shows its key, and it is wide enough that the box still closes.
 #[test]
@@ -35,20 +34,13 @@ fn a_drive_with_no_answer_shows_blank_columns_not_zero() {
 /// A kind the platform would not name contributes nothing to the label.
 #[test]
 fn an_unknown_kind_leaves_the_label_bare() {
-    let cols = columns(&RowKind::Disk {
-        label: "X:".to_owned(),
-        device: DriveKind::Unknown,
-        space: None,
-    })
-    .expect("a disk row has columns");
+    let cols = columns("X:", DriveKind::Unknown.label(), None);
     assert_eq!(cols.label, "X:");
     assert_eq!(cols.total.len(), 0);
 }
 
 #[test]
 fn a_plugin_row_has_no_columns() {
-    assert!(columns(&RowKind::Plugin {
-        name: "S3: work".to_owned()
-    })
-    .is_none());
+    let widths = super::Widths::of(&[plugin('2', "S3: work")]);
+    assert_eq!(widths.disks, 0);
 }

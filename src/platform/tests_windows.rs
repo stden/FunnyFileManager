@@ -48,3 +48,10 @@ fn set_file_attributes_refuses_what_it_cannot_name() {
         std::io::ErrorKind::InvalidInput
     );
 }
+
+#[cfg(windows)]
+#[test]
+fn broadcast_environment_change_succeeds_for_broadcast_and_rejects_invalid_window() {
+    super::broadcast_environment_change().expect("broadcast WM_SETTINGCHANGE");
+    assert!(super::windows::broadcast_to(std::ptr::dangling_mut()).is_err());
+}

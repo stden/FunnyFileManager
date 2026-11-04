@@ -1,6 +1,6 @@
 //! Purpose: Measures, clips and pads text in terminal cells, and replaces the characters a terminal would not draw.
 
-mod clip;
+pub(super) mod clip;
 mod editor_line;
 
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
@@ -9,7 +9,12 @@ use std::borrow::Cow;
 
 pub use clip::fit_name;
 pub(super) use clip::{fit_path, fit_quoting_path, head_cells, middle_cells, tail_cells};
-pub(super) use editor_line::{expand_tabs, is_unsafe_code_char, EditorLine};
+#[cfg(test)]
+use editor_line::expand_tabs;
+use editor_line::is_bidi_formatting;
+#[cfg(test)]
+pub(super) use editor_line::is_unsafe_code_char;
+pub(super) use editor_line::{expand_tabs_to, EditorLine};
 
 /// What a name shows where the terminal would draw nothing.
 ///
@@ -51,7 +56,11 @@ pub fn printable_name(name: &str) -> Cow<'_, str> {
 /// A name is data, so all of them are shown rather than obeyed.
 fn invisible(ch: char) -> bool {
     ch.is_control()
-        || matches!(ch, '\u{00AD}' | '\u{061C}' | '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2060}'..='\u{2064}' | '\u{2066}'..='\u{2069}' | '\u{FEFF}')
+        || is_bidi_formatting(ch)
+        || matches!(
+            ch,
+            '\u{00AD}' | '\u{200B}'..='\u{200D}' | '\u{2060}'..='\u{2064}' | '\u{FEFF}'
+        )
 }
 
 /// A width in terminal **cells** — the unit ratatui spends a row's budget in
@@ -143,21 +152,8 @@ impl std::iter::Sum for Cells {
 /// can come up one cell short of `width`; callers pad from the returned count,
 /// never from a char count.
 pub(super) fn take_cells(text: &str, width: Cells) -> (String, Cells) {
-    if is_printable_ascii(text) {
-        let len = text.len().min(width.0);
-        return (text.get(..len).unwrap_or(text).to_owned(), Cells(len));
-    }
-    let mut taken = String::new();
-    let mut used = Cells::ZERO;
-    for ch in text.chars() {
-        let ch_cells = Cells::of_char(ch);
-        if used + ch_cells > width {
-            break;
-        }
-        taken.push(ch);
-        used = used + ch_cells;
-    }
-    (taken, used)
+    let (taken, used) = clip::take_cells_str(text, width);
+    (taken.to_owned(), used)
 }
 
 /// `text` with its leading `width` cells dropped, and the cells actually

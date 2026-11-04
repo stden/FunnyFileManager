@@ -8,6 +8,7 @@ use std::{
 use super::keep_times::{keep_times, Times};
 use super::FileMode;
 
+mod links;
 mod steps;
 mod walk;
 
@@ -25,34 +26,27 @@ use walk::{copy_tree, Walk};
 /// caller's "pick another name and retry" loop keeps working.
 pub fn copy_symlink(src: &Path, dst: &Path) -> io::Result<()> {
     let target = fs::read_link(src)?;
+    links::create_platform_link(src, &target, dst).map_err(super::FailedAt::for_path(dst))
+}
 
-    #[cfg(unix)]
-    {
-        std::os::unix::fs::symlink(target, dst).map_err(super::FailedAt::for_path(dst))
+/// [`copy_symlink`], and the link's own times when the rules keep them.
+///
+/// A link whose times could not be set is removed again: the name was
+/// claimed by this copy, and callers count on a failed copy leaving nothing.
+pub fn copy_link(src: &Path, dst: &Path, rules: CopyRules) -> io::Result<()> {
+    crate::progress::sending(src, dst, 0);
+    copy_symlink(src, dst)?;
+    if rules.times == Times::Fresh {
+        crate::progress::file_copied();
+        return Ok(());
     }
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::FileTypeExt;
-        // Windows picks the link flavour at creation time, and creating one may
-        // need privileges — best effort, the error is reported like any other.
-        let is_dir_link = fs::symlink_metadata(src)
-            .is_ok_and(|meta| meta.file_type().is_symlink_dir())
-            || src.is_dir();
-        let created = if is_dir_link {
-            std::os::windows::fs::symlink_dir(target, dst)
-        } else {
-            std::os::windows::fs::symlink_file(target, dst)
-        };
-        created.map_err(super::FailedAt::for_path(dst))
+    let kept = fs::symlink_metadata(src).and_then(|source| keep_times(dst, &source));
+    if kept.is_err() {
+        links::remove_created_link(dst);
+    } else {
+        crate::progress::file_copied();
     }
-    #[cfg(not(any(unix, windows)))]
-    {
-        let _ = target;
-        Err(io::Error::new(
-            io::ErrorKind::Unsupported,
-            "symlinks are not supported on this platform",
-        ))
-    }
+    kept
 }
 
 /// Canonical form of the closest existing ancestor of `path`.
@@ -116,30 +110,6 @@ impl CopyRules {
         folder_modes: FileMode::Source,
         times: Times::Source,
     };
-}
-
-/// [`copy_symlink`], and the link's own times when the rules keep them.
-///
-/// A link whose times could not be set is removed again: the name was
-/// claimed by this copy, and callers count on a failed copy leaving nothing.
-pub fn copy_link(src: &Path, dst: &Path, rules: CopyRules) -> io::Result<()> {
-    crate::progress::sending(src, dst, 0);
-    copy_symlink(src, dst)?;
-    if rules.times == Times::Fresh {
-        crate::progress::file_copied();
-        return Ok(());
-    }
-    let kept = fs::symlink_metadata(src).and_then(|source| keep_times(dst, &source));
-    if kept.is_err() {
-        // Best effort: the times' error is the one worth reporting. On Windows a
-        // directory symlink requires `remove_dir` rather than `remove_file`.
-        if fs::remove_file(dst).is_err() {
-            drop(fs::remove_dir(dst));
-        }
-    } else {
-        crate::progress::file_copied();
-    }
-    kept
 }
 
 /// [`copy_dir_all`], with the caller's rules about links and modes.

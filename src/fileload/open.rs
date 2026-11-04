@@ -16,24 +16,46 @@ use std::path::Path;
 /// because the name can be replaced between the two, and the open itself
 /// cannot wait, so even that race ends in a refusal.
 pub fn open_regular(path: &Path, options: &OpenOptions) -> io::Result<File> {
+    open_regular_with_metadata(path, options).map(|(file, _)| file)
+}
+
+/// Like [`open_regular`], returning the already-queried handle metadata so
+/// callers such as file copy do not issue a second `fstat` on the same handle.
+pub fn open_regular_with_metadata(
+    path: &Path,
+    options: &OpenOptions,
+) -> io::Result<(File, fs::Metadata)> {
     #[cfg(unix)]
+    reject_existing_non_regular(path)?;
+
+    #[cfg(unix)]
+    let file = open_without_waiting(path, options)?;
+    #[cfg(not(unix))]
+    let file = open_without_waiting(path, options)
+        .map_err(|error| prefer_non_regular_error(path, error))?;
+
+    let metadata = file.metadata()?;
+    ensure_regular(&metadata)?;
+    Ok((file, metadata))
+}
+
+#[cfg(unix)]
+fn reject_existing_non_regular(path: &Path) -> io::Result<()> {
     match fs::metadata(path) {
-        Ok(metadata) => ensure_regular(&metadata)?,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-        Err(error) => return Err(error),
+        Ok(metadata) => ensure_regular(&metadata),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error),
     }
-    let file = match open_without_waiting(path, options) {
-        Ok(file) => file,
-        Err(error) => {
-            #[cfg(not(unix))]
-            if let Ok(metadata) = fs::metadata(path) {
-                ensure_regular(&metadata)?;
-            }
-            return Err(error);
+}
+
+#[cfg(not(unix))]
+fn prefer_non_regular_error(path: &Path, open_error: io::Error) -> io::Error {
+    if let Ok(metadata) = fs::metadata(path) {
+        if let Err(non_regular) = ensure_regular(&metadata) {
+            return non_regular;
         }
-    };
-    ensure_regular(&file.metadata()?)?;
-    Ok(file)
+    }
+    open_error
 }
 
 fn ensure_regular(metadata: &fs::Metadata) -> io::Result<()> {

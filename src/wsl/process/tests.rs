@@ -139,24 +139,51 @@ fn interrupted_reads_are_retried() {
     // Dropping the receiver also stops a reader whose bounded queue fills.
 }
 
+struct OversizedReader;
+
+impl Read for OversizedReader {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        Ok(buffer.len() + 1)
+    }
+}
+
+#[test]
+fn oversized_pipe_read_length_is_rejected() {
+    let pipe = read_pipe(OversizedReader).unwrap();
+    let error = pipe
+        .recv_timeout(Duration::from_secs(1))
+        .unwrap()
+        .unwrap_err();
+    assert!(error.contains("more bytes than it read"), "{error}");
+}
+
+#[test]
+fn inherited_open_pipe_reports_unclosed_output_after_drain_grace() {
+    let (_sender, receiver) = mpsc::sync_channel(1);
+    let mut child = FakeProcess(Ok(Some(Exit::Success)));
+    let error = capture(
+        &mut child,
+        &receiver,
+        &closed_pipe(b""),
+        DRAIN_GRACE + Duration::from_secs(2),
+    )
+    .unwrap_err();
+    assert_eq!(error, "WSL output did not close after the command exited");
+}
+
 #[cfg(windows)]
 #[test]
 fn command_uses_absolute_windows_executable_and_preserves_argument_boundaries() {
-    use super::launch::command;
+    use super::launch::{command, SYSTEM_DIRECTORY};
 
     let directory = tempfile::tempdir().unwrap();
     let args = ["--distribution", "Ubuntu; echo text", "--list"];
     let command = command(directory.path(), &args);
-    let system_directory = if cfg!(target_pointer_width = "32") {
-        "Sysnative"
-    } else {
-        "System32"
-    };
     assert_eq!(
         command.get_program(),
         directory
             .path()
-            .join(system_directory)
+            .join(SYSTEM_DIRECTORY)
             .join("wsl.exe")
             .as_os_str()
     );

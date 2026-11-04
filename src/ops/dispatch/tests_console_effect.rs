@@ -17,11 +17,15 @@ fn console_effect_launches_in_the_active_directory_and_records_success() {
     let mut app = app(&root);
     app.active_panel = PanelSide::Right;
     let command = ShellCommand::new("codex --help").unwrap();
-    cmd_new_console(&mut app, &command, |received, directory| {
-        assert_eq!(received.as_str(), command.as_str());
-        assert_eq!(directory, root.path().join("right"));
-        Ok(())
-    })
+    dispatch_parsed_with_console(
+        &mut app,
+        Command::NewConsole(command.clone()),
+        |received, directory| {
+            assert_eq!(received.as_str(), command.as_str());
+            assert_eq!(directory, root.path().join("right"));
+            Ok(())
+        },
+    )
     .unwrap();
     assert_eq!(app.status, Status::ConsoleStarted(command));
     assert_eq!(

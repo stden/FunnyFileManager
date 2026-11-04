@@ -55,6 +55,7 @@ fn automatic_trust_starts_restarts_and_opens_another_workspace_without_confirmat
     let mut app = automatic_app(&root);
     let mut controller = EditorLspController::default();
     ready_without_a_trust_prompt(&mut controller, &mut app);
+    assert!(!controller.pump(&mut app));
     app.get_editor_mut().unwrap().lsp.intent = Intent::Restart;
     controller.pump(&mut app);
     ready_without_a_trust_prompt(&mut controller, &mut app);

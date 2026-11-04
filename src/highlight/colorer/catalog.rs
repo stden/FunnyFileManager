@@ -26,6 +26,12 @@ const HOME_CANDIDATES: [&str; 2] = [
 /// The one scheme database this process loads.
 static SHARED: OnceLock<Option<Colorer>> = OnceLock::new();
 
+#[cfg(test)]
+thread_local! {
+    pub(super) static TEST_SHARED: std::cell::Cell<Option<&'static Colorer>> =
+        const { std::cell::Cell::new(None) };
+}
+
 impl Colorer {
     /// Load the catalog named by `COLORER_CATALOG`, or the first of
     /// [`CATALOG_CANDIDATES`] that exists.
@@ -38,16 +44,32 @@ impl Colorer {
     /// schemes, and re-reading them every time a file is opened would be felt.
     #[must_use]
     pub fn shared() -> Option<&'static Self> {
+        #[cfg(test)]
+        if let Some(override_shared) = TEST_SHARED.with(std::cell::Cell::get) {
+            return Some(override_shared);
+        }
         SHARED.get_or_init(Self::discover).as_ref()
     }
 
     #[must_use]
-    fn discover() -> Option<Self> {
-        let catalog = std::env::var_os("COLORER_CATALOG")
-            .map(PathBuf::from)
+    pub(super) fn discover() -> Option<Self> {
+        Self::discover_in(
+            std::env::var_os("COLORER_CATALOG").map(PathBuf::from),
+            &CATALOG_CANDIDATES,
+            crate::config::user_home(),
+        )
+    }
+
+    #[must_use]
+    pub(super) fn discover_in(
+        env_catalog: Option<PathBuf>,
+        candidates: &[&str],
+        home: Option<PathBuf>,
+    ) -> Option<Self> {
+        let catalog = env_catalog
             .filter(|path| path.is_file())
             .or_else(|| {
-                CATALOG_CANDIDATES
+                candidates
                     .iter()
                     .map(PathBuf::from)
                     .find(|path| path.is_file())
@@ -55,7 +77,7 @@ impl Colorer {
             .or_else(|| {
                 // The installer scripts put the schemes under the same tail
                 // of the home on every platform.
-                let home = crate::config::user_home()?;
+                let home = home?;
                 HOME_CANDIDATES
                     .iter()
                     .map(|tail| home.join(tail))

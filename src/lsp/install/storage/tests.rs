@@ -145,16 +145,21 @@ fn invalid_storage_and_absent_recipes_fail_before_installation() {
 
 #[test]
 fn lock_polls_contended_file_until_cancelled() {
-    use std::sync::Arc;
-
     let root = TempDir::new().unwrap();
     let lock_path = root.path().join(".install.lock");
     let stop = Arc::new(AtomicBool::new(false));
     let held = lock(&lock_path, &stop).unwrap();
+    let before = LOCK_WAITS.load(Ordering::Acquire);
     let worker_stop = Arc::clone(&stop);
     let handle = std::thread::spawn(move || lock(&lock_path, &worker_stop));
-    std::thread::sleep(Duration::from_millis(35));
-    stop.store(true, Ordering::Relaxed);
+    while LOCK_WAITS.load(Ordering::Acquire) == before {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    stop.store(true, Ordering::Release);
     assert_eq!(handle.join().unwrap().unwrap_err(), InstallError::Cancelled);
     drop(held);
+    assert!(matches!(
+        check_try_lock(Err(TryLockError::Error(std::io::Error::other("io"))), true),
+        Err(InstallError::Io(_))
+    ));
 }

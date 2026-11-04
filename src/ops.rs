@@ -49,8 +49,7 @@ pub(crate) mod system_temp_cleanup;
 pub mod tasks;
 pub mod tree;
 pub mod usermenu;
-// Unconditional: the file carries its own `#[cfg(feature = "keepass")]` pair,
-// so the `Enter` and `F3` call sites stay feature-free.
+#[cfg(feature = "keepass")]
 pub(crate) mod vault;
 pub mod videomode;
 pub mod view_history;

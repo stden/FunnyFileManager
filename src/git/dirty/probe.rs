@@ -11,8 +11,9 @@ use crate::git::command::{git_command, stop_child};
 /// process cannot freeze directory navigation.
 const STATUS_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// Poll interval while waiting for `git status` to emit a byte or exit.
-const POLL_INTERVAL: Duration = Duration::from_millis(5);
+/// Initial and maximum poll intervals while waiting for `git status`.
+const POLL_START: Duration = Duration::from_micros(250);
+const POLL_MAX: Duration = Duration::from_millis(5);
 
 /// State files inside `.git` that mark an unfinished operation.
 pub(super) const IN_PROGRESS: [&str; 4] = [
@@ -26,17 +27,14 @@ pub(super) fn query_dirty(directory: &Path, git_dir: &Path) -> bool {
     if IN_PROGRESS.iter().any(|name| git_dir.join(name).exists()) {
         return true;
     }
-    let Ok(stdout) = tempfile::tempfile() else {
-        return false;
-    };
-    let Ok(stdout_writer) = stdout.try_clone() else {
-        return false;
-    };
-    let mut command = status_command(directory, stdout_writer);
-    let Ok(mut child) = command.spawn() else {
-        return false;
-    };
-    wait_for_status(&mut child, &stdout, STATUS_TIMEOUT)
+    run_status_probe(directory).unwrap_or(false)
+}
+
+fn run_status_probe(directory: &Path) -> Option<bool> {
+    let stdout = tempfile::tempfile().ok()?;
+    let stdout_writer = stdout.try_clone().ok()?;
+    let mut child = status_command(directory, stdout_writer).spawn().ok()?;
+    Some(wait_for_status(&mut child, &stdout, STATUS_TIMEOUT))
 }
 
 pub(super) fn status_command(directory: &Path, stdout: File) -> Command {
@@ -52,6 +50,7 @@ pub(super) fn wait_for_status(child: &mut Child, stdout: &File, timeout: Duratio
     #[cfg(windows)]
     let job = crate::windows::process_tree_job(child).ok();
     let deadline = Instant::now() + timeout;
+    let mut poll = POLL_START;
     loop {
         if has_output(stdout) {
             stop_child(child);
@@ -62,7 +61,8 @@ pub(super) fn wait_for_status(child: &mut Child, stdout: &File, timeout: Duratio
         match child.try_wait() {
             Ok(Some(_)) => return has_output(stdout),
             Ok(None) if Instant::now() < deadline => {
-                std::thread::sleep(POLL_INTERVAL);
+                std::thread::sleep(poll);
+                poll = (poll * 2).min(POLL_MAX);
             }
             Ok(None) | Err(_) => {
                 stop_child(child);

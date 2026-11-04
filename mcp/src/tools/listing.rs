@@ -28,6 +28,12 @@ fn default_sort_mode() -> String {
     "name".to_owned()
 }
 
+struct ListedItem {
+    name: String,
+    is_dir: bool,
+    size: u64,
+}
+
 #[tool_router(router = listing_tools, vis = "pub(super)")]
 impl FfmServer {
     /// List files and directories at the given path.
@@ -40,27 +46,19 @@ impl FfmServer {
         Parameters(params): Parameters<PathParam>,
     ) -> Result<CallToolResult, McpError> {
         let path = self.safe_dir(&params.path)?;
-
-        let mut entries = Vec::new();
-        for entry in fs::read_dir(&path).map_err(crate::tools::io_error)? {
-            let entry = entry.map_err(crate::tools::io_error)?;
-            let meta = entry.metadata().map_err(crate::tools::io_error)?;
-            let entry_path = entry.path();
-            let is_dir = meta.is_dir()
-                || (meta.file_type().is_symlink()
-                    && self
-                        .safe_path(&entry_path.to_string_lossy())
-                        .is_ok_and(|target| target.is_dir()));
-            let name = entry.file_name().to_string_lossy().to_string();
-            entries.push(json!({
-                "name": name,
-                "type": if is_dir { "dir" } else { "file" },
-                "size": meta.len(),
-                "size_human": format_size(meta.len()),
-            }));
-        }
-
-        sort_listing(&mut entries);
+        let mut items = self.collect_listing(&path)?;
+        sort_listing(&mut items);
+        let entries: Vec<serde_json::Value> = items
+            .into_iter()
+            .map(|item| {
+                json!({
+                    "name": item.name,
+                    "type": if item.is_dir { "dir" } else { "file" },
+                    "size": item.size,
+                    "size_human": format_size(item.size),
+                })
+            })
+            .collect();
 
         let result = json!({
             "path": path.display().to_string(),
@@ -68,6 +66,25 @@ impl FfmServer {
             "entries": entries,
         });
         Ok(json_response(&result))
+    }
+
+    fn collect_listing(&self, path: &Path) -> Result<Vec<ListedItem>, McpError> {
+        let mut items = Vec::new();
+        for entry in fs::read_dir(path).map_err(crate::tools::io_error)? {
+            let entry = entry.map_err(crate::tools::io_error)?;
+            let meta = entry.metadata().map_err(crate::tools::io_error)?;
+            let is_dir = meta.is_dir()
+                || (meta.file_type().is_symlink()
+                    && self
+                        .safe_path(&entry.path().to_string_lossy())
+                        .is_ok_and(|target| target.is_dir()));
+            items.push(ListedItem {
+                name: entry.file_name().to_string_lossy().into_owned(),
+                is_dir,
+                size: meta.len(),
+            });
+        }
+        Ok(items)
     }
 
     /// List directory sorted by name, extension, or size (like Panel sort modes).
@@ -89,8 +106,6 @@ impl FfmServer {
         &self,
         Parameters(params): Parameters<PathParam>,
     ) -> Result<CallToolResult, McpError> {
-        // Keep a final symlink unresolved, otherwise a link is reported as its
-        // target: type "file", the target's path, and no symlink_target field.
         let path = self.safe_path_nofollow(&params.path)?;
         let meta = fs::symlink_metadata(&path).map_err(crate::tools::io_error)?;
 
@@ -122,17 +137,8 @@ impl FfmServer {
     }
 }
 
-fn sort_listing(entries: &mut [serde_json::Value]) {
-    entries.sort_by(|a, b| {
-        let a_is_dir = a["type"] == "dir";
-        let b_is_dir = b["type"] == "dir";
-        b_is_dir.cmp(&a_is_dir).then_with(|| {
-            a["name"]
-                .as_str()
-                .unwrap_or("")
-                .cmp(b["name"].as_str().unwrap_or(""))
-        })
-    });
+fn sort_listing(entries: &mut [ListedItem]) {
+    entries.sort_by(|a, b| b.is_dir.cmp(&a.is_dir).then_with(|| a.name.cmp(&b.name)));
 }
 
 fn append_file_metadata(
@@ -148,14 +154,12 @@ fn append_file_metadata(
         info["extension"] = json!(ext.to_string_lossy());
     }
 
-    // Unix permissions
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         info["mode"] = json!(format!("{:o}", meta.permissions().mode()));
     }
 
-    // Symlink target
     if meta.is_symlink() {
         if let Ok(target) = fs::read_link(path) {
             info["symlink_target"] = json!(target.display().to_string());

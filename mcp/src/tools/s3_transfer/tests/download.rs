@@ -7,7 +7,13 @@ fn downloading_creates_parent_directories_and_replaces_existing_bytes() {
             response(200, b"first\0payload"),
             response(200, b"replacement"),
         ]);
-        let path = fixture.root.path().join("nested/download.bin");
+        let path = fixture
+            .root
+            .path()
+            .canonicalize()
+            .unwrap()
+            .join("nested")
+            .join("download.bin");
         for expected in [b"first\0payload".as_slice(), b"replacement".as_slice()] {
             let value = fixture::json(
                 &fixture

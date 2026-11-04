@@ -8,7 +8,7 @@ use windows_sys::Win32::Storage::FileSystem::{
 };
 
 pub(super) fn owners(directory: &Path) -> io::Result<BTreeMap<String, String>> {
-    let script = "$result=@{}; Get-ChildItem -LiteralPath $env:FFM_OWNER_DIRECTORY -Force | ForEach-Object { $result[$_.Name]=(Get-Acl -LiteralPath $_.FullName -ErrorAction Stop).Owner }; ConvertTo-Json -InputObject $result -Compress";
+    let script = "$result=@{}; Get-ChildItem -LiteralPath $env:FFM_OWNER_DIRECTORY -Force -ErrorAction Stop | ForEach-Object { $result[$_.Name]=(Get-Acl -LiteralPath $_.FullName -ErrorAction Stop).Owner }; ConvertTo-Json -InputObject $result -Compress";
     let mut command = Command::new("powershell.exe");
     command
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
@@ -41,7 +41,6 @@ pub(super) fn link_count(path: &Path) -> String {
         .unwrap_or_default()
 }
 
-#[cfg(test)]
 pub fn has_multiple_links(path: &Path) -> bool {
     file_info(path).is_some_and(|info| info.nNumberOfLinks > 1)
 }
@@ -50,7 +49,7 @@ pub fn are_same_hard_link(a: &Path, b: &Path) -> bool {
     let (Ok(meta_a), Ok(meta_b)) = (fs::symlink_metadata(a), fs::symlink_metadata(b)) else {
         return false;
     };
-    if meta_a.is_symlink() || meta_b.is_symlink() {
+    if !meta_a.is_file() || !meta_b.is_file() {
         return false;
     }
     let (Some(info_a), Some(info_b)) = (file_info(a), file_info(b)) else {

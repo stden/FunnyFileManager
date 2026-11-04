@@ -40,28 +40,34 @@ impl Key {
     /// when there is none. The data is read as UTF-16 units, the form of a
     /// string value; an odd last byte is dropped.
     fn query(&self, name: &[u16]) -> io::Result<Option<(REG_VALUE_TYPE, Vec<u16>)>> {
-        let mut units: Vec<u16> = Vec::new();
-        for _ in 0..READ_ATTEMPTS {
-            let answer = self.query_into(name, &mut units)?;
-            // An empty buffer asked for the size only.
-            let fetched = !units.is_empty() || answer.bytes == 0;
-            match answer.status {
-                ERROR_SUCCESS if fetched => {
-                    units.truncate(units_in(answer.bytes / 2)?);
-                    return Ok(Some((answer.kind, units)));
-                }
-                ERROR_SUCCESS | ERROR_MORE_DATA => {
-                    units.resize(units_in(answer.bytes.div_ceil(2))?, 0);
-                }
-                ERROR_FILE_NOT_FOUND => return Ok(None),
-                error => return Err(os_error(error)),
-            }
-        }
-        Err(io::Error::new(
-            io::ErrorKind::Interrupted,
-            "the value kept changing while it was read",
-        ))
+        query_with(|units| self.query_into(name, units))
     }
+}
+
+pub(super) fn query_with(
+    mut query_into: impl FnMut(&mut [u16]) -> io::Result<super::key::Answer>,
+) -> io::Result<Option<(REG_VALUE_TYPE, Vec<u16>)>> {
+    let mut units: Vec<u16> = Vec::new();
+    for _ in 0..READ_ATTEMPTS {
+        let answer = query_into(&mut units)?;
+        // An empty buffer asked for the size only.
+        let fetched = !units.is_empty() || answer.bytes == 0;
+        match answer.status {
+            ERROR_SUCCESS if fetched => {
+                units.truncate(units_in(answer.bytes / 2)?);
+                return Ok(Some((answer.kind, units)));
+            }
+            ERROR_SUCCESS | ERROR_MORE_DATA => {
+                units.resize(units_in(answer.bytes.div_ceil(2))?, 0);
+            }
+            ERROR_FILE_NOT_FOUND => return Ok(None),
+            error => return Err(os_error(error)),
+        }
+    }
+    Err(io::Error::new(
+        io::ErrorKind::Interrupted,
+        "the value kept changing while it was read",
+    ))
 }
 
 /// A count of UTF-16 units the registry API gave, as a length.

@@ -87,6 +87,8 @@ fn failed_root_navigation_preserves_the_current_panel_and_reports_error() {
     assert!(
         matches!(&app.status, Status::Error(message) if message.contains("Cannot open WSL root"))
     );
+    app.close_overlay();
+    show(&mut app, WslActivity::Ready, Status::Cleared);
 }
 
 fn assert_update_outcome(

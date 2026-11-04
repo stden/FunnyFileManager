@@ -37,6 +37,7 @@ fn another_owners_metadata_is_distinguished_from_account_rights() {
     };
     assert_eq!(refused(&path, Some(&metadata)), Denial::OtherOwner);
     assert_eq!(refused(&path, None), Denial::Rights);
+    assert_eq!(refused(Path::new("bare_name"), None), Denial::Rights);
     assert_eq!(fs::read(&path).unwrap(), b"keep");
 }
 
@@ -59,4 +60,12 @@ fn windows_distinguishes_sharing_violations_and_readonly_files() {
         classify(&path, &io::ErrorKind::PermissionDenied.into()),
         Some(Denial::ReadOnly)
     );
+    assert_eq!(refused_for_elevation(true), Denial::NotEvenAdministrator);
+    assert_eq!(refused_for_elevation(false), Denial::NeedsAdministrator);
+    let plain = root.path().join("plain");
+    fs::write(&plain, b"x").unwrap();
+    assert!(matches!(
+        classify(&plain, &io::ErrorKind::PermissionDenied.into()),
+        Some(Denial::NeedsAdministrator | Denial::NotEvenAdministrator)
+    ));
 }

@@ -23,16 +23,15 @@ fn plain_tree(staging: &Path) -> io::Result<()> {
 #[cfg(unix)]
 fn ensure_owner_rwx(dir: &Path) {
     use std::os::unix::fs::PermissionsExt;
-    if let Ok(meta) = fs::symlink_metadata(dir) {
-        if meta.is_dir() {
-            let mode = meta.permissions().mode() & 0o7777;
-            if mode & 0o700 != 0o700 {
-                drop(fs::set_permissions(
-                    dir,
-                    fs::Permissions::from_mode(mode | 0o700),
-                ));
-            }
-        }
+    let Ok(meta) = fs::symlink_metadata(dir) else {
+        return;
+    };
+    let mode = meta.permissions().mode() & 0o7777;
+    if meta.is_dir() && mode & 0o700 != 0o700 {
+        drop(fs::set_permissions(
+            dir,
+            fs::Permissions::from_mode(mode | 0o700),
+        ));
     }
 }
 

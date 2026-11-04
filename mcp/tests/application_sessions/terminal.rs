@@ -8,10 +8,11 @@ use std::time::{Duration, Instant};
 #[ignore = "requires FFM_APPLICATION_TEST_BINARY pointing to a separately built ffm executable"]
 async fn shell_output_stays_in_state_while_protocol_calls_and_cancellation_stay_responsive() {
     let root = tempfile::tempdir().unwrap();
+    let cmd = command(root.path());
     let mut client = Client::spawn(root.path(), Access::Application).await;
     let id = client.start(root.path()).await;
     client.action(&id, "panels", "command_line").await;
-    client.text(&id, command()).await;
+    client.text(&id, &cmd).await;
     let accepted = client
         .session("ffm_session_input", &id, json!({"keys":["Enter"]}))
         .await;
@@ -42,7 +43,9 @@ fn assert_cancelled(state: &Value, accepted_id: &Value) {
     );
     assert_eq!(state["job"]["status"], "finished");
     assert_eq!(state["external_process"]["state"], "cancelled");
-    let output = state["external_process"]["output"].as_str().unwrap();
+    let output = state["external_process"]["output"]
+        .as_str()
+        .unwrap_or_default();
     assert!(!output.contains("ffm-e2e-after"));
 }
 
@@ -52,7 +55,7 @@ async fn wait_for_output(client: &mut Client, id: &SessionId) -> Value {
         let state = client.state(id).await;
         if state["external_process"]["output"]
             .as_str()
-            .unwrap()
+            .unwrap_or_default()
             .contains("not_protocol")
         {
             return state;
@@ -61,16 +64,23 @@ async fn wait_for_output(client: &mut Client, id: &SessionId) -> Value {
             Instant::now() < deadline,
             "private shell did not produce its fixture output: {state}"
         );
-        tokio::task::yield_now().await;
+        tokio::time::sleep(Duration::from_millis(10)).await;
     }
 }
 
 #[cfg(windows)]
-fn command() -> &'static str {
-    "echo ffm-e2e-start & echo {\"not_protocol\":true} & powershell.exe -NoLogo -NoProfile -NonInteractive -Command \"Start-Sleep -Seconds 30\" & echo ffm-e2e-after"
+fn command(root: &std::path::Path) -> String {
+    let path = root.join("terminal-fixture.cmd");
+    std::fs::write(&path, WINDOWS_SCRIPT).unwrap();
+    format!("\"{}\"", path.display())
 }
 
+#[cfg(windows)]
+const WINDOWS_SCRIPT: &str =
+    "@echo off\r\necho ffm-e2e-start\r\necho {\"not_protocol\":true}\r\nping.exe -n 30 127.0.0.1 >nul\r\necho ffm-e2e-after\r\n";
+
 #[cfg(not(windows))]
-fn command() -> &'static str {
+fn command(_root: &std::path::Path) -> String {
     "printf 'ffm-e2e-start\\n{\"not_protocol\":true}\\n'; sleep 30; printf 'ffm-e2e-after\\n'"
+        .to_owned()
 }

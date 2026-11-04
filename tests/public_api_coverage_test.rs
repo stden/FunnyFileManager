@@ -45,8 +45,6 @@ use corpus::{is_exercised, public_functions, test_corpus};
 /// This list may only shrink — [`the_baseline_has_no_stale_entries`] fails when
 /// an entry becomes testable and is left here.
 const UNEXERCISED: &[&str] = &[
-    // Windows: sends WM_SETTINGCHANGE to every window on the machine.
-    "broadcast_environment_change",
     // Stores a process-wide flag and would turn logging on for every later test.
     "log_by_default",
     // Installs process-wide SIGHUP/SIGTERM handlers, which would let the test

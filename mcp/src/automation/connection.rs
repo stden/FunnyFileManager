@@ -74,8 +74,15 @@ impl Connection {
         ) {
             return;
         }
-        if let Err(error) = child.kill().await {
-            tracing::debug!(%error, "FFM child already stopped while closing");
-        }
+        log_kill_outcome(child.kill().await);
     }
 }
+
+fn log_kill_outcome(outcome: std::io::Result<()>) {
+    if let Err(error) = outcome {
+        tracing::debug!(%error, "FFM child already stopped while closing");
+    }
+}
+
+#[cfg(test)]
+mod tests;

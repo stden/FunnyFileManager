@@ -31,7 +31,12 @@ fn a_parentless_destination_needs_no_directory_creation() {
 fn deleting_the_server_root_is_refused_without_removing_it() {
     let root = tempfile::tempdir().unwrap();
     let server = FfmServer::with_config(root.path().canonicalize().unwrap(), false, false);
-    let error = server.delete(Parameters(DeleteParams { path: ".".into(), recursive: true })).unwrap_err();
+    let error = server
+        .delete(Parameters(DeleteParams {
+            path: ".".into(),
+            recursive: true,
+        }))
+        .unwrap_err();
     assert_eq!(error.message, "cannot delete or move root directory");
     assert!(root.path().is_dir());
     drop(server);

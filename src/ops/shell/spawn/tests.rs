@@ -59,3 +59,20 @@ fn detach_shell_tree_preserves_backgrounded_child_across_many_subsequent_spawns(
     }
     assert!(marker.exists(), "backgrounded process was killed");
 }
+
+#[cfg(windows)]
+#[test]
+fn remember_job_result_ignores_failed_job_assignment() {
+    super::remember_job_result(u32::MAX, Err(std::io::Error::other("no job")));
+}
+
+#[cfg(unix)]
+#[test]
+fn kill_shell_tree_handles_child_without_its_own_process_group() {
+    let mut child = std::process::Command::new("sh")
+        .args(["-c", "exit 0"])
+        .spawn()
+        .expect("spawn plain sh");
+    drop(child.wait());
+    kill_shell_tree(&mut child);
+}

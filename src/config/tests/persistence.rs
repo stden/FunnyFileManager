@@ -146,3 +146,35 @@ fn load_survives_an_unreadable_settings_file() -> io::Result<()> {
     assert_eq!(Settings::load(), Settings::default());
     Ok(())
 }
+
+#[test]
+fn load_and_save_handle_absent_configuration_home() {
+    struct ClearConfigHome {
+        saved: Vec<(&'static str, Option<std::ffi::OsString>)>,
+        _lock: std::sync::MutexGuard<'static, ()>,
+    }
+    impl Drop for ClearConfigHome {
+        fn drop(&mut self) {
+            for (name, value) in &self.saved {
+                match value {
+                    Some(val) => std::env::set_var(name, val),
+                    None => std::env::remove_var(name),
+                }
+            }
+        }
+    }
+    let vars = ["APPDATA", "XDG_CONFIG_HOME", "HOME", "USERPROFILE"];
+    let _guard = ClearConfigHome {
+        _lock: crate::test_support::env_lock(),
+        saved: vars.into_iter().map(|k| (k, std::env::var_os(k))).collect(),
+    };
+    for key in vars {
+        std::env::set_var(key, "");
+    }
+    assert_eq!(Settings::path(), None);
+    assert_eq!(Settings::load(), Settings::default());
+    assert_eq!(
+        Settings::default().save().unwrap_err().kind(),
+        io::ErrorKind::NotFound
+    );
+}

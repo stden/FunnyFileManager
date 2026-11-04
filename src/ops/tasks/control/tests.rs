@@ -20,3 +20,13 @@ fn firefox() -> TaskApp {
 mod mixed_outcome;
 mod refused_targets;
 mod terminating;
+
+#[test]
+fn signal_modal_falls_back_to_terminate_confirm_when_no_menu_is_offered() {
+    let mut task = firefox();
+    let targets = task.list().freeze_targets(crate::models::Operation::Signal);
+    assert!(matches!(
+        super::signal_modal(targets, None),
+        Modal::Confirm(_)
+    ));
+}

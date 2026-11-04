@@ -10,7 +10,6 @@ use rmcp::{
 };
 use serde::Deserialize;
 use serde_json::json;
-use std::fs;
 use std::time::{Duration, SystemTime};
 
 /// A JSON `days` value is unbounded; the window is capped at a century.
@@ -134,23 +133,12 @@ impl FfmServer {
 
         let mut files = Vec::new();
         collect_files(&root, &root, &mut files, WALK_BUDGET);
-        // The same signal analyse_directory gives: a walk the budget stopped
-        // early is a partial ranking, and a silent one misleads the caller.
         // Judged before the size filter, which hides how far the walk got.
         let truncated = files.len() >= WALK_BUDGET;
         files.retain(|file| file.size >= min_size);
-        // Biggest first, and by path within a size so the answer is stable
-        // between runs over the same tree.
-        files.sort_by(|a, b| {
-            b.size
-                .cmp(&a.size)
-                .then_with(|| a.relative.cmp(&b.relative))
-        });
         let total: u64 = files.iter().map(|file| file.size).sum();
-        // Both counted before the truncation, so the caller can tell a top-20
-        // of twenty files from a top-20 of twenty thousand.
         let considered = files.len();
-        files.truncate(limit);
+        select_largest(&mut files, limit);
 
         let result = json!({
             "path": root.display().to_string(),
@@ -170,6 +158,19 @@ impl FfmServer {
     }
 }
 
+fn select_largest(files: &mut Vec<CollectedFile>, limit: usize) {
+    let cmp = |a: &CollectedFile, b: &CollectedFile| {
+        b.size
+            .cmp(&a.size)
+            .then_with(|| a.relative.cmp(&b.relative))
+    };
+    if files.len() > limit && limit > 0 {
+        files.select_nth_unstable_by(limit - 1, cmp);
+    }
+    files.truncate(limit);
+    files.sort_by(cmp);
+}
+
 fn recent_entries(
     files: &[CollectedFile],
     cutoff: SystemTime,
@@ -178,7 +179,7 @@ fn recent_entries(
     let mut recent: Vec<(SystemTime, &CollectedFile)> = files
         .iter()
         .filter_map(|file| {
-            let modified = fs::metadata(&file.path).ok()?.modified().ok()?;
+            let modified = file.modified?;
             (modified >= cutoff).then_some((modified, file))
         })
         .collect();

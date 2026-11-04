@@ -40,13 +40,9 @@ fn render_drop_down_entries(f: &mut Frame<'_>, app: &App, menu: &Menu, ground: S
     let first = menu
         .row
         .saturating_sub(usize::from(body.height.saturating_sub(1)));
-    for (index, entry) in menu.entries().iter().enumerate().skip(first) {
-        let Ok(offset) = u16::try_from(index - first) else {
-            break;
-        };
-        if offset >= body.height {
-            break;
-        }
+    for (offset, (index, entry)) in
+        (0..body.height).zip(menu.entries().iter().enumerate().skip(first))
+    {
         let row = Rect {
             y: body.y + offset,
             height: 1,

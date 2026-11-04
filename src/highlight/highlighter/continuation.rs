@@ -1,6 +1,6 @@
 //! Purpose: Cross-line continuation state checkpoints for incremental highlighting.
 
-use super::{dotenv, markup, BlockState, Highlighter, Scanner};
+use super::{dotenv, markup, tokenize, BlockState, Highlighter, Scanner};
 
 /// Compact cross-line state carried between adjacent lines by the built-in scanner.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,4 +50,52 @@ impl Highlighter {
             _ => {}
         }
     }
+
+    /// Fast-forward cross-line continuation state across an off-screen line without
+    /// building token runs when the line cannot alter cross-line state.
+    pub(in crate::highlight) fn advance_only(&mut self, line: &str) {
+        match &mut self.scanner {
+            Scanner::Plain => {}
+            Scanner::Tokens { syntax, block } => advance_tokens(line, *syntax, block),
+            Scanner::Markdown { in_fence } => {
+                let trimmed = line.trim_start();
+                if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+                    *in_fence = !*in_fence;
+                }
+            }
+            Scanner::Dotenv(state) => {
+                if !matches!(*state, dotenv::State::Unquoted)
+                    || line.contains('\'')
+                    || line.contains('"')
+                {
+                    drop(state.line(line));
+                }
+            }
+            Scanner::Markup(state) => state.advance(line),
+        }
+    }
+}
+
+fn advance_tokens(line: &str, syntax: super::Syntax, block: &mut BlockState) {
+    if syntax.block_comments.is_empty() {
+        return;
+    }
+    let might_change = match *block {
+        BlockState::Inside { closing_delimiter } => has_delimiter(line, closing_delimiter),
+        BlockState::Outside => syntax
+            .block_comments
+            .iter()
+            .any(|&(open, _)| has_delimiter(line, open)),
+    };
+    if might_change {
+        drop(tokenize(line, syntax, block));
+    }
+}
+
+fn has_delimiter(line: &str, delim: &str) -> bool {
+    delim
+        .as_bytes()
+        .first()
+        .is_some_and(|&b| memchr::memchr(b, line.as_bytes()).is_some())
+        && line.contains(delim)
 }

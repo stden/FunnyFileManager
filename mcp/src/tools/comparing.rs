@@ -2,8 +2,6 @@
 //! for byte.
 
 use super::json_response;
-use crate::checksum::checksum_file;
-use crate::conversions::saturating_u64;
 use crate::walk::{collect_files, WALK_BUDGET};
 use crate::FfmServer;
 use rmcp::{
@@ -16,6 +14,19 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::Path;
+#[cfg(test)]
+use stream::PairDigests;
+use stream::{compare_streams, ComparisonOutcome};
+
+mod stream;
+#[cfg(test)]
+mod tests;
+
+pub(super) struct FilePairComparison {
+    left_size: u64,
+    right_size: u64,
+    outcome: ComparisonOutcome,
+}
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct CompareFilesParams {
@@ -87,63 +98,50 @@ impl FfmServer {
     ) -> Result<CallToolResult, McpError> {
         let left = self.safe_file(&params.left)?;
         let right = self.safe_file(&params.right)?;
-        let left_size = fs::metadata(&left).map_err(crate::tools::io_error)?.len();
-        let right_size = fs::metadata(&right).map_err(crate::tools::io_error)?.len();
 
         // A size difference settles "identical" without hashing — but not
         // where the difference is. "short" and "much longer content" disagree
         // at byte 0, so the offset is read from the bytes, never guessed from
-        // the sizes.
-        let difference = first_difference(&left, &right).map_err(crate::tools::io_error)?;
+        // the sizes. Equal-size files fold SHA-256 into the same single read.
+        let comparison = compare_file_pair(&left, &right).map_err(crate::tools::io_error)?;
 
         let mut result = json!({
             "left": left.display().to_string(),
             "right": right.display().to_string(),
-            "left_size": left_size,
-            "right_size": right_size,
-            "identical": difference.is_none(),
+            "left_size": comparison.left_size,
+            "right_size": comparison.right_size,
+            "identical": matches!(comparison.outcome, ComparisonOutcome::Identical(_)),
         });
-        append_comparison_hashes(
-            &mut result,
-            &left,
-            &right,
-            difference,
-            left_size == right_size,
-        )?;
+        record_outcome(&mut result, comparison.outcome);
         Ok(json_response(&result))
     }
 }
 
-/// The offset of the first byte at which two files differ, or `None` when they
-/// are identical. Streams both rather than loading either.
-///
-/// When one file is a prefix of the other, the difference is at the shorter
-/// file's length — the first offset where only one of them still has a byte.
-fn first_difference(left: &Path, right: &Path) -> io::Result<Option<u64>> {
-    use io::BufRead;
+fn compare_file_pair(left: &Path, right: &Path) -> io::Result<FilePairComparison> {
+    let left_file = fs::File::open(left)?;
+    let right_file = fs::File::open(right)?;
+    let left_size = left_file.metadata()?.len();
+    let right_size = right_file.metadata()?.len();
+    let outcome = compare_streams(left_file, right_file, left_size, right_size)?;
+    Ok(FilePairComparison {
+        left_size,
+        right_size,
+        outcome,
+    })
+}
 
-    const BLOCK: usize = 64 * 1024;
-    let mut left = io::BufReader::with_capacity(BLOCK, fs::File::open(left)?);
-    let mut right = io::BufReader::with_capacity(BLOCK, fs::File::open(right)?);
-    let mut offset = 0u64;
-
-    loop {
-        let left_block = left.fill_buf()?;
-        let right_block = right.fill_buf()?;
-        if left_block.is_empty() && right_block.is_empty() {
-            return Ok(None);
+fn record_outcome(result: &mut serde_json::Value, outcome: ComparisonOutcome) {
+    match outcome {
+        ComparisonOutcome::Identical(sha256) => {
+            result["sha256"] = json!(sha256);
         }
-        if left_block.is_empty() || right_block.is_empty() {
-            return Ok(Some(offset));
+        ComparisonOutcome::Different { offset, digests } => {
+            result["first_difference_at"] = json!(offset);
+            if let Some(digests) = digests {
+                result["left_sha256"] = json!(digests.left_sha256);
+                result["right_sha256"] = json!(digests.right_sha256);
+            }
         }
-        let step = left_block.len().min(right_block.len());
-        // `zip` stops at the shorter block, so it compares exactly `step` bytes.
-        if let Some(at) = left_block.iter().zip(right_block).position(|(a, b)| a != b) {
-            return Ok(Some(offset + saturating_u64(at)));
-        }
-        left.consume(step);
-        right.consume(step);
-        offset += saturating_u64(step);
     }
 }
 
@@ -154,27 +152,4 @@ fn directory_sizes(root: &Path) -> BTreeMap<String, u64> {
         .into_iter()
         .map(|file| (file.relative, file.size))
         .collect::<BTreeMap<_, _>>()
-}
-
-fn append_comparison_hashes(
-    result: &mut serde_json::Value,
-    left: &Path,
-    right: &Path,
-    difference: Option<u64>,
-    equal_size: bool,
-) -> Result<(), McpError> {
-    match difference {
-        None => {
-            result["sha256"] = json!(checksum_file(left).map_err(crate::tools::io_error)?);
-        }
-        Some(offset) => {
-            result["first_difference_at"] = json!(offset);
-            if equal_size {
-                result["left_sha256"] = json!(checksum_file(left).map_err(crate::tools::io_error)?);
-                result["right_sha256"] =
-                    json!(checksum_file(right).map_err(crate::tools::io_error)?);
-            }
-        }
-    }
-    Ok(())
 }

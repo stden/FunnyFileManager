@@ -173,3 +173,5 @@ fn worker_stops_when_result_receiver_is_gone() {
     requests.send(Vec::new()).expect("request");
     serve_probes(Box::new(EmptyProber), &incoming, &outgoing);
 }
+
+mod spawn_failure;

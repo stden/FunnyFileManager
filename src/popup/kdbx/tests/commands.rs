@@ -46,8 +46,18 @@ fn typed_vault_commands_without_a_session_leave_application_running() {
     let mut app = App::new().expect("app");
     let status = app.status_text();
     super::super::apply(&mut app, VaultCommand::LockAndQuit);
+    super::super::remember_and_close(&mut app);
     assert!(app.lifecycle.is_running());
     assert_eq!(app.status_text(), status);
+
+    let (_dir, mut unlocked) = app_with_unlocked_vault();
+    super::super::apply(&mut unlocked, VaultCommand::Save);
+    super::super::browse::browse_command(
+        &mut unlocked,
+        VaultCommand::Lock,
+        std::time::Instant::now(),
+    );
+    assert!(matches!(unlocked.overlay, Overlay::None));
 }
 
 #[test]

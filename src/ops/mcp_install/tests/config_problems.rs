@@ -61,3 +61,10 @@ fn the_mcp_screen_names_every_config_it_cannot_use() {
         "{screen}"
     );
 }
+
+#[test]
+fn load_reports_unreadable_when_open_fails_with_other_error() {
+    let err = survey::load(std::path::Path::new("bad\0config.json"))
+        .expect_err("NUL path fails with InvalidInput");
+    assert!(matches!(err, crate::mcp_clients::Blocker::Unreadable(_)));
+}

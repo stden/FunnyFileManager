@@ -80,6 +80,10 @@ mod unsupported;
 fn retry_as_administrator_does_nothing_without_a_retry() {
     let dir = TempDir::new().unwrap();
     let mut app = app_in(dir.path());
+    #[cfg(windows)]
+    assert_eq!(available(), !crate::platform::is_elevated());
+    #[cfg(not(windows))]
+    assert!(!available());
     assert!(!session_active());
     retry_as_administrator(&mut app);
     assert!(matches!(app.overlay, Overlay::None));
@@ -90,4 +94,16 @@ fn retry_as_administrator_does_nothing_without_a_retry() {
     app.set_overlay(Overlay::OperationFailed(Box::new(failure)));
     retry_as_administrator(&mut app);
     assert!(matches!(app.overlay, Overlay::OperationFailed(_)));
+
+    let retry = delete_of(vec![dir.path().join("a.txt")], dir.path());
+    run_with(&mut app, 0, &retry, |_| {
+        Ok(Outcome {
+            done: 1,
+            skipped: 0,
+            renamed: 0,
+            left: 0,
+            failed: None,
+        })
+    });
+    assert!(matches!(app.status, Status::Deleted { count: 1 }));
 }

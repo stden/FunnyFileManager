@@ -27,17 +27,25 @@ pub(super) fn read_process_owner(process: HANDLE, cache: &mut HashMap<Vec<u8>, S
     let Some(token) = open_token(process) else {
         return Owner::Unknown;
     };
-    let Some(sid_bytes) = token_user_sid(token.as_raw_handle()) else {
+    let sid = token_user_sid(token.as_raw_handle());
+    resolve_owner_sid(sid, cache, lookup_sid_name)
+}
+
+fn resolve_owner_sid(
+    sid_bytes: Option<Vec<u8>>,
+    cache: &mut HashMap<Vec<u8>, String>,
+    lookup: fn(&[u8]) -> Option<String>,
+) -> Owner {
+    let Some(sid_bytes) = sid_bytes else {
         return Owner::Unknown;
     };
     if let Some(cached) = cache.get(&sid_bytes) {
         return Owner::Named(cached.clone());
     }
-    let Some(name) = lookup_sid_name(&sid_bytes) else {
-        return Owner::Unknown;
-    };
-    cache.insert(sid_bytes, name.clone());
-    Owner::Named(name)
+    lookup(&sid_bytes).map_or(Owner::Unknown, |name| {
+        cache.insert(sid_bytes, name.clone());
+        Owner::Named(name)
+    })
 }
 
 #[allow(unsafe_code, reason = "Win32 OpenProcessToken query")]
@@ -60,11 +68,16 @@ fn token_user_sid(token: HANDLE) -> Option<Vec<u8>> {
     if unsafe { GetTokenInformation(token, TokenUser, ptr, cap, &raw mut needed) } == 0 {
         return None;
     }
-    // SAFETY: `GetTokenInformation` wrote a `TOKEN_USER` at the start of `buf`.
+    decode_token_user_sid(&buf)
+}
+
+#[allow(unsafe_code, reason = "Win32 TOKEN_USER SID validation")]
+fn decode_token_user_sid(buf: &[u8; 128]) -> Option<Vec<u8>> {
+    // SAFETY: `buf` is at least `sizeof(TOKEN_USER)` readable bytes on the stack.
     let psid = unsafe { buf.as_ptr().cast::<TOKEN_USER>().read_unaligned() }
         .User
         .Sid;
-    // SAFETY: `psid` points inside `buf` and was populated by `GetTokenInformation`.
+    // SAFETY: `psid` is checked for null before `IsValidSid`.
     if psid.is_null() || unsafe { IsValidSid(psid) } == 0 {
         return None;
     }
@@ -102,10 +115,14 @@ fn lookup_sid_name(sid: &[u8]) -> Option<String> {
 pub fn terminate_process(key: ProcessKey, signal: Signal, own: Pid) -> Result<(), ControlError> {
     let (pid, expected) = validate_terminate(key, signal, own)?;
     let handle = open_verified(pid, expected, PROCESS_TERMINATE)?;
-    if is_critical(handle.as_raw_handle()) {
-        return Err(ControlError::Critical);
-    }
-    do_terminate(handle.as_raw_handle())
+    terminate_verified(handle.as_raw_handle(), is_critical)
+}
+
+fn terminate_verified(handle: HANDLE, critical: fn(HANDLE) -> bool) -> Result<(), ControlError> {
+    (!critical(handle))
+        .then_some(())
+        .ok_or(ControlError::Critical)?;
+    do_terminate(handle)
 }
 
 /// Updates the priority class of `key` after confirming its `StartTime`.
@@ -138,15 +155,15 @@ fn check_handle_identity(handle: HANDLE, expected: StartTime) -> Result<(), Cont
     if actual != expected {
         return Err(ControlError::Replaced);
     }
-    still_active(handle).then_some(()).ok_or(ControlError::Gone)
+    let active = exit_code(handle).is_some_and(|code| i32::try_from(code) == Ok(STILL_ACTIVE));
+    active.then_some(()).ok_or(ControlError::Gone)
 }
 
 #[allow(unsafe_code, reason = "Win32 GetExitCodeProcess liveness check")]
-fn still_active(handle: HANDLE) -> bool {
+fn exit_code(handle: HANDLE) -> Option<u32> {
     let mut code = 0_u32;
     // SAFETY: `handle` has limited query rights and `code` is writable.
-    let ok = unsafe { GetExitCodeProcess(handle, &raw mut code) };
-    ok != 0 && i32::try_from(code) == Ok(STILL_ACTIVE)
+    (unsafe { GetExitCodeProcess(handle, &raw mut code) } != 0).then_some(code)
 }
 
 #[allow(unsafe_code, reason = "Win32 IsProcessCritical check")]
@@ -159,10 +176,14 @@ fn is_critical(handle: HANDLE) -> bool {
 #[allow(unsafe_code, reason = "Win32 TerminateProcess verified handle")]
 fn do_terminate(handle: HANDLE) -> Result<(), ControlError> {
     // SAFETY: `handle` has `PROCESS_TERMINATE` and verified `StartTime`.
-    if unsafe { TerminateProcess(handle, 1) } != 0 || !still_active(handle) {
+    if unsafe { TerminateProcess(handle, 1) } != 0 {
         return Ok(());
     }
-    Err(map_win32_error(&io::Error::last_os_error()))
+    let error = io::Error::last_os_error();
+    if exit_code(handle).is_some_and(|c| i32::try_from(c) != Ok(STILL_ACTIVE)) {
+        return Ok(());
+    }
+    Err(map_win32_error(&error))
 }
 
 #[allow(unsafe_code, reason = "Win32 SetPriorityClass verified handle")]

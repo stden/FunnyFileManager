@@ -109,8 +109,12 @@ fn menu_row_label(action: crate::action::Action) -> Option<String> {
 }
 
 fn command_label(text: &str) -> String {
+    command_label_for(&crate::command::Command::parse(text))
+}
+
+fn command_label_for(command: &crate::command::Command) -> String {
     use crate::command::Command;
-    let kind = match Command::parse(text) {
+    let kind = match command {
         Command::Shell(_) => "Shell",
         Command::NewConsole(_) => "NewConsole",
         Command::Cd(_) => "Cd",

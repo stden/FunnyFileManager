@@ -114,3 +114,11 @@ fn a_machine_with_a_wrong_type_fails_the_read_rather_than_being_guessed() {
         Some(ThingsError::Response)
     );
 }
+
+#[test]
+fn status_labels_spell_every_machine_state() {
+    assert_eq!(Status::Online.label(), "online");
+    assert_eq!(Status::Offline.label(), "offline");
+    assert_eq!(Status::Maintenance.label(), "maintenance");
+    assert_eq!(Status::Unknown.label(), "unknown");
+}

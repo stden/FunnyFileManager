@@ -1,7 +1,8 @@
 use super::*;
 
 fn params() -> DeleteByPatternParams {
-    serde_json::from_value(json!({"path":".","pattern":"*","recursive":false,"include_dirs":true})).unwrap()
+    serde_json::from_value(json!({"path":".","pattern":"*","recursive":false,"include_dirs":true}))
+        .unwrap()
 }
 
 #[test]
@@ -12,8 +13,20 @@ fn a_nonrecursive_delete_removes_empty_directories_but_reports_nonempty_ones() {
     fs::create_dir(&empty).unwrap();
     fs::create_dir(&full).unwrap();
     fs::write(full.join("keep"), b"preserved").unwrap();
+    let compiled = CompiledGlob::compile("*").unwrap();
+    let mut files_only = params();
+    files_only.include_dirs = false;
+    assert_eq!(
+        delete_pattern_recursive(
+            root.path(),
+            &compiled,
+            &files_only,
+            &mut DeleteRun::default()
+        ),
+        0
+    );
     let mut run = DeleteRun::default();
-    delete_pattern_recursive(root.path(), &params(), &mut run);
+    delete_pattern_recursive(root.path(), &compiled, &params(), &mut run);
     assert!(!empty.exists());
     assert_eq!(fs::read(full.join("keep")).unwrap(), b"preserved");
     assert_eq!(run.deleted.len(), 1);
@@ -26,12 +39,22 @@ fn missing_directories_and_exhausted_walk_budgets_do_not_delete_entries() {
     let root = tempfile::tempdir().unwrap();
     fs::write(root.path().join("one"), b"one").unwrap();
     fs::write(root.path().join("two"), b"two").unwrap();
-    let mut run = DeleteRun { visited: WALK_BUDGET, ..DeleteRun::default() };
-    assert_eq!(delete_pattern_recursive(root.path(), &params(), &mut run), 0);
+    let compiled = CompiledGlob::compile("*").unwrap();
+    let mut run = DeleteRun {
+        visited: WALK_BUDGET,
+        ..DeleteRun::default()
+    };
+    assert_eq!(
+        delete_pattern_recursive(root.path(), &compiled, &params(), &mut run),
+        0
+    );
     run.visited = 0;
-    assert_eq!(delete_pattern_recursive(&root.path().join("missing"), &params(), &mut run), 0);
+    assert_eq!(
+        delete_pattern_recursive(&root.path().join("missing"), &compiled, &params(), &mut run),
+        0
+    );
     run.visited = WALK_BUDGET - 1;
-    delete_pattern_recursive(root.path(), &params(), &mut run);
+    delete_pattern_recursive(root.path(), &compiled, &params(), &mut run);
     assert_eq!(run.deleted.len(), 1);
     assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
 }

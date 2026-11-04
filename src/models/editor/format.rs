@@ -28,19 +28,22 @@ impl LineEnding {
     /// minority lines were rewritten although nobody had touched them.
     fn detect(content: &str) -> Self {
         let bytes = content.as_bytes();
-        let mut iter = memchr::memchr_iter(b'\n', bytes);
-        let Some(first) = iter.next() else {
+        let mut newlines = memchr::memchr_iter(b'\n', bytes);
+        let Some(first) = newlines.next() else {
             return Self::Lf;
         };
-        if first > 0
-            && bytes.get(first - 1) == Some(&b'\r')
-            && iter.all(|at| at > 0 && bytes.get(at - 1) == Some(&b'\r'))
-        {
+        if has_preceding_cr(bytes, first) && newlines.all(|at| has_preceding_cr(bytes, at)) {
             Self::Crlf
         } else {
             Self::Lf
         }
     }
+}
+
+fn has_preceding_cr(bytes: &[u8], lf_index: usize) -> bool {
+    lf_index
+        .checked_sub(1)
+        .is_some_and(|prev| bytes.get(prev) == Some(&b'\r'))
 }
 
 /// How a file is written on disk, so saving can put it back the way it came.
@@ -130,4 +133,20 @@ impl Default for TabSize {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+pub(super) fn join_lines(lines: &[String], eol: &str, trailing_newline: bool) -> String {
+    let text_bytes: usize = lines.iter().map(String::len).sum();
+    let eols = lines.len().saturating_sub(1) + usize::from(trailing_newline);
+    let mut out = String::with_capacity(text_bytes + eols * eol.len());
+    for (idx, line) in lines.iter().enumerate() {
+        if idx > 0 {
+            out.push_str(eol);
+        }
+        out.push_str(line);
+    }
+    if trailing_newline {
+        out.push_str(eol);
+    }
+    out
 }

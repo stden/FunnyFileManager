@@ -38,11 +38,15 @@ pub fn open_signal_menu(list: &mut TaskList) {
     let Some(targets) = freeze(list, Operation::Signal) else {
         return;
     };
-    let modal = TaskMenu::signal(targets.clone()).map_or_else(
+    let menu = TaskMenu::signal(targets.clone());
+    list.set_modal(signal_modal(targets, menu));
+}
+
+fn signal_modal(targets: FrozenTargets, menu: Option<TaskMenu>) -> Modal {
+    menu.map_or_else(
         || Modal::Confirm(KillConfirm::new(targets, KillOffer::TerminateOrKill)),
         Modal::Menu,
-    );
-    list.set_modal(modal);
+    )
 }
 
 /// The targets `operation` has now, or `None` after a notice saying why

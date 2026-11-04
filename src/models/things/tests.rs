@@ -58,6 +58,10 @@ fn space_marks_the_row_under_the_cursor_and_a_second_press_unmarks_it() {
     assert_eq!(marked_names(&catalog), ["b"]);
     catalog.toggle_mark();
     assert_eq!(marked_names(&catalog), Vec::<&str>::new());
+
+    let mut empty = ThingsCatalog::new(Listing::new(Vec::new(), None));
+    empty.toggle_mark();
+    assert_eq!(marked_names(&empty), Vec::<&str>::new());
 }
 
 #[test]

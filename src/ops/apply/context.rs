@@ -120,6 +120,7 @@ pub(super) fn display_path(path: &Path) -> String {
 
 fn drive(path: &Path) -> String {
     match path.components().next() {
+        #[cfg(windows)]
         Some(Component::Prefix(prefix)) => display_path(Path::new(prefix.as_os_str())),
         Some(Component::RootDir) => std::path::MAIN_SEPARATOR.to_string(),
         _ => String::new(),
@@ -130,30 +131,30 @@ fn drive(path: &Path) -> String {
 mod tests;
 
 #[cfg(windows)]
-#[allow(unsafe_code, reason = "GetShortPathNameW has no safe wrapper in std")]
 pub(super) fn short_path(path: &Path) -> PathBuf {
+    short_path_capped(path, u32::MAX)
+}
+
+#[cfg(windows)]
+#[allow(unsafe_code, reason = "GetShortPathNameW has no safe wrapper in std")]
+fn short_path_capped(path: &Path, max_buffer: u32) -> PathBuf {
     use std::os::windows::ffi::{OsStrExt, OsStringExt};
     use windows_sys::Win32::Storage::FileSystem::GetShortPathNameW;
 
     let source: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
     // SAFETY: source is NUL-terminated; a null output requests the buffer size.
     let size = unsafe { GetShortPathNameW(source.as_ptr(), std::ptr::null_mut(), 0) };
-    if size == 0 {
+    let cap = size.min(max_buffer);
+    if cap == 0 {
         return path.to_owned();
     }
-    let Ok(capacity) = usize::try_from(size) else {
-        return path.to_owned();
-    };
-    let mut buffer = vec![0; capacity];
+    let mut buffer = vec![0; usize::try_from(cap).unwrap_or(0)];
     // SAFETY: the writable buffer has the exact capacity passed to Windows.
-    let written = unsafe { GetShortPathNameW(source.as_ptr(), buffer.as_mut_ptr(), size) };
-    if written == 0 || written >= size {
+    let written = unsafe { GetShortPathNameW(source.as_ptr(), buffer.as_mut_ptr(), cap) };
+    if written == 0 || written >= cap {
         return path.to_owned();
     }
-    let Ok(length) = usize::try_from(written) else {
-        return path.to_owned();
-    };
-    buffer.truncate(length);
+    buffer.truncate(usize::try_from(written).unwrap_or(0));
     PathBuf::from(std::ffi::OsString::from_wide(&buffer))
 }
 

@@ -159,3 +159,14 @@ fn data_file_joins_name_under_xdg_data_home() {
         );
     });
 }
+
+#[test]
+fn save_handles_parentless_file_path_without_panicking() {
+    let mut history = History {
+        session: VecDeque::new(),
+        durable: VecDeque::new(),
+        persistence: Persistence::File(std::path::PathBuf::new()),
+    };
+    history.record("pwd");
+    assert_eq!(history.suggest("pw"), Some("pwd"));
+}

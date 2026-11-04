@@ -22,12 +22,12 @@ pub fn discard_queued() -> bool {
         return cancelled;
     }
     let mut cancel = false;
-    while crossterm::event::poll(Duration::ZERO).unwrap_or(false) {
-        let Ok(event) = crossterm::event::read() else {
-            break;
-        };
-        cancel |= super::is_cancel_event(&event);
-    }
+    while crossterm::event::poll(Duration::ZERO).unwrap_or(false)
+        && crossterm::event::read().is_ok_and(|event| {
+            cancel |= super::is_cancel_event(&event);
+            true
+        })
+    {}
     cancel
 }
 

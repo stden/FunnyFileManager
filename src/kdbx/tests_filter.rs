@@ -157,3 +157,31 @@ fn vault_push_and_pop_filter_char_narrow_and_restore_matches() {
     assert_eq!(vault.filter(), "g");
     assert_ne!(vault.matches().len(), 0);
 }
+
+#[test]
+fn push_filter_char_rebuilds_when_contextual_sigma_folding_changes_prefix() {
+    use super::tests_support::{type_password, vault_file, Fixture, VAULT_PASSWORD};
+    use super::KdbxSession;
+    use std::time::Instant;
+
+    let fixtures = [Fixture {
+        group: &[],
+        title: "ασα",
+        username: "u",
+        url: "",
+        password: "pw",
+    }];
+    let (_dir, path) = vault_file(&fixtures, VAULT_PASSWORD, None);
+    let now = Instant::now();
+    let mut session = KdbxSession::new(path);
+    type_password(&mut session, VAULT_PASSWORD, now);
+    assert!(session.unlock(now));
+
+    let vault = session.vault_mut().expect("unlocked");
+    vault.push_filter_char('Α', now);
+    vault.push_filter_char('Σ', now);
+    // "ΑΣ".to_lowercase() == "ας", whereas appending 'Α' shifts final sigma to
+    // medial "ασα" so `needle.starts_with(&prev)` is false and triggers `refilter`.
+    vault.push_filter_char('Α', now);
+    assert_eq!(vault.matches().len(), 1);
+}

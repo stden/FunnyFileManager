@@ -54,20 +54,18 @@ fn copy(app: &mut App, text: &str, copied: &str) -> String {
 }
 
 pub fn paste_into_editor(app: &mut App) {
-    if app.get_editor().is_none() {
+    let crate::models::Overlay::Editor(editor) = &mut app.overlay else {
         return;
-    }
+    };
     let result = app
         .clipboard
         .backend_mut()
         .ok_or_else(|| "no clipboard available".to_owned())
         .and_then(crate::clipboard::ClipboardBackend::get_native);
-    if let Some(editor) = app.get_editor_mut() {
-        match result {
-            Ok(text) => editor.insert_text(&text),
-            Err(_) => {
-                editor.notice = Some("Paste failed: clipboard text is unavailable".to_owned());
-            }
+    match result {
+        Ok(text) => editor.insert_text(&text),
+        Err(_) => {
+            editor.notice = Some("Paste failed: clipboard text is unavailable".to_owned());
         }
     }
 }

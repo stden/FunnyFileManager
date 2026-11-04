@@ -5,8 +5,10 @@ mod column;
 
 use crate::models::{DirEntry, Panel, PanelView};
 
-use super::super::{center_cells, clip_name, pad_cells, Cells};
+use super::super::{center_cells, pad_cells, pad_clipped_name, Cells};
 use column::{columns, Column};
+
+const MIN_NAME_WIDTH: Cells = Cells::new(8);
 
 struct Placed {
     column: Column,
@@ -20,13 +22,15 @@ pub(super) struct Layout {
 
 impl Layout {
     pub(super) fn new(view: PanelView, width: Cells) -> Self {
-        let wanted = columns(view);
-        (1..=wanted.len())
-            .rev()
-            .filter_map(|taken| wanted.get(..taken))
-            .map(|columns| Self::fit(view, columns, width))
-            .find(|layout| layout.name >= Cells::new(8))
-            .unwrap_or_else(|| Self::fit(view, &[], width))
+        let mut active = columns(view);
+        while let Some((_, shorter)) = active.split_last() {
+            let layout = Self::fit(view, active, width);
+            if layout.name >= MIN_NAME_WIDTH {
+                return layout;
+            }
+            active = shorter;
+        }
+        Self::fit(view, &[], width)
     }
 
     fn fit(view: PanelView, columns: &[Column], width: Cells) -> Self {
@@ -35,7 +39,7 @@ impl Layout {
             .map(|column| column.width().unwrap_or(Cells::ZERO) + Cells::new(1))
             .sum();
         let remaining = width.saturating_sub(fixed);
-        let name = if columns.iter().any(|column| column.width().is_none()) {
+        let name = if columns.iter().copied().any(Column::is_flexible) {
             let divisor = if view == PanelView::LongDescriptions {
                 3
             } else {
@@ -64,13 +68,10 @@ impl Layout {
     }
 
     pub(super) fn row(&self, panel: &Panel, entry: &DirEntry, name: &str) -> String {
-        self.line(
-            pad_cells(&clip_name(name, self.name), self.name),
-            |placed| {
-                let cell = placed.column.cell(panel, entry);
-                placed.column.align(&cell, placed.width)
-            },
-        )
+        self.line(pad_clipped_name(name, self.name), |placed| {
+            let cell = placed.column.cell(panel, entry);
+            placed.column.align(&cell, placed.width)
+        })
     }
 
     /// A row below the last entry: nothing but the column lines, which run on
@@ -83,7 +84,13 @@ impl Layout {
 
     /// `name`, then each column's `cell` behind its line.
     fn line(&self, name: String, cell: impl Fn(&Placed) -> String) -> String {
+        let extra: usize = self
+            .columns
+            .iter()
+            .map(|p| '│'.len_utf8() + p.width.get())
+            .sum();
         let mut text = name;
+        text.reserve(extra);
         for placed in &self.columns {
             text.push('│');
             text.push_str(&cell(placed));

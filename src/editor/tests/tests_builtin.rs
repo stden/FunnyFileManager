@@ -132,3 +132,27 @@ fn zz_probe_windows1252_setting_selects_windows1252() -> io::Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn empty_file_honours_utf8_utf16be_and_windows1251_code_page_settings() -> io::Result<()> {
+    let temp_dir = TempDir::new().expect("temp dir");
+    fs::write(temp_dir.path().join("empty.txt"), b"").expect("write file");
+
+    for (code_page, expected) in [
+        ("UTF-8", crate::encoding::TextEncoding::Utf8),
+        ("UTF-16BE", crate::encoding::TextEncoding::Utf16Be),
+        ("Windows-1251", crate::encoding::TextEncoding::Windows1251),
+    ] {
+        let mut app = build_app(&temp_dir);
+        app.settings
+            .set(SettingsPage::CodePages, code_page)
+            .expect("valid code page");
+        assert!(select_entry(&mut app.left_panel, "empty.txt"));
+        handle_edit_builtin(&mut app)?;
+        assert_eq!(
+            app.get_editor().expect("editor overlay").format.encoding,
+            expected
+        );
+    }
+    Ok(())
+}

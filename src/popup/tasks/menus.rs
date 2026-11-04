@@ -53,6 +53,10 @@ pub(super) fn process(app: &mut App, key: KeyEvent) {
 
 /// Acts on the row under `menu`'s cursor; the menu is already closed.
 fn choose(list: &mut TaskList, menu: TaskMenu) {
+    choose_with(list, menu, Signal::OFFERED);
+}
+
+pub(super) fn choose_with(list: &mut TaskList, menu: TaskMenu, offered: &[Signal]) {
     let row = menu.cursor().index();
     match menu {
         TaskMenu::Sort(_) => match SortKey::ALL.get(row) {
@@ -60,7 +64,7 @@ fn choose(list: &mut TaskList, menu: TaskMenu) {
             None => list.invert_order(),
         },
         TaskMenu::Signal { targets, .. } => {
-            if let Some(&signal) = Signal::OFFERED.get(row) {
+            if let Some(&signal) = offered.get(row) {
                 let confirm = KillConfirm::new(targets, KillOffer::Send(signal));
                 list.set_modal(Modal::Confirm(confirm));
             }

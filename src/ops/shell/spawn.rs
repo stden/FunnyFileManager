@@ -63,14 +63,19 @@ pub(super) fn spawn_shell(command: &str, current_dir: &Path) -> io::Result<Child
 
 #[cfg(windows)]
 fn remember_job(child: &Child) {
-    if let Ok(job) = crate::windows::process_tree_job(child) {
-        let id = child.id();
-        ACTIVE_JOBS.with(|jobs| {
-            let mut jobs = jobs.borrow_mut();
-            jobs.retain(|(existing_id, _)| *existing_id != id);
-            jobs.push((id, job));
-        });
-    }
+    remember_job_result(child.id(), crate::windows::process_tree_job(child));
+}
+
+#[cfg(windows)]
+fn remember_job_result(id: u32, job: io::Result<std::os::windows::io::OwnedHandle>) {
+    let Ok(job) = job else {
+        return;
+    };
+    ACTIVE_JOBS.with(|jobs| {
+        let mut jobs = jobs.borrow_mut();
+        jobs.retain(|(existing_id, _)| *existing_id != id);
+        jobs.push((id, job));
+    });
 }
 
 /// Disarm kill-on-close when a shell exits normally so any backgrounded child

@@ -113,5 +113,50 @@ fn repeated_single_marks_build_the_name_index_only_once_per_listing() {
         panel.toggle_mark_selected();
         let _ = panel.marked_totals();
     }
+    panel.mark_all();
+    assert_eq!(panel.marked_totals(), (0, 200, 2000));
     assert_eq!(panel.totals.index_builds.get(), 1);
+}
+
+#[test]
+fn single_toggle_deltas_handle_incremental_marks_unmarks_saturation_and_edits() {
+    let entries = (0..10)
+        .map(|idx| DirEntry {
+            name: format!("item-{idx}.txt"),
+            size: FileSize::from_bytes(10),
+            ..DirEntry::default()
+        })
+        .collect();
+    let mut panel = Panel::from_entries(PathBuf::from("/dir"), entries);
+    assert_eq!(panel.marked_totals(), (0, 0, 0));
+
+    panel.select(Some(0));
+    assert!(panel.toggle_mark_selected());
+    assert_eq!(panel.marked_totals(), (0, 1, 10));
+
+    panel.select(Some(1));
+    assert!(panel.toggle_mark_selected());
+    assert_eq!(panel.marked_totals(), (0, 2, 20));
+
+    assert!(panel.toggle_mark_selected());
+    assert_eq!(panel.marked_totals(), (0, 1, 10));
+    assert_eq!(panel.totals.index_builds.get(), 1);
+
+    // Entry mutation after a toggle invalidates the delta and rebuilds cleanly.
+    panel.select(Some(1));
+    assert!(panel.toggle_mark_selected());
+    panel.entries[0].size = FileSize::from_bytes(u64::MAX);
+    assert_eq!(panel.marked_totals(), (0, 2, u64::MAX));
+
+    // Unmarking when saturated falls back to full sum instead of subtracting from u64::MAX.
+    assert!(panel.toggle_mark_selected());
+    assert_eq!(panel.marked_totals(), (0, 1, u64::MAX));
+
+    // Stale mark name not present in entries contributes zero; revision token invalidates on edit.
+    panel.marked.insert(FileName::from("ghost.txt"));
+    assert_eq!(panel.marked_totals(), (0, 1, u64::MAX));
+    let before = std::sync::Arc::clone(panel.entries.revision());
+    assert!(std::sync::Arc::ptr_eq(&before, panel.entries.revision()));
+    panel.entries[1].size = FileSize::from_bytes(5);
+    assert!(!std::sync::Arc::ptr_eq(&before, panel.entries.revision()));
 }

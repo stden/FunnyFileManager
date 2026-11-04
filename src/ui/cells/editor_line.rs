@@ -6,7 +6,7 @@ use std::borrow::Cow;
 
 use crate::models::{CharColumn, TabSize};
 
-use super::{skip_cells, Cells};
+use super::Cells;
 
 /// Cells occupied by the first `column` characters of the editor line `text`,
 /// each TAB reaching the next stop of `tab`.
@@ -24,18 +24,19 @@ fn cells_before(text: &str, column: CharColumn, tab: TabSize) -> Cells {
         .fold(Cells::ZERO, |at, ch| advance(at, ch, tab))
 }
 
+/// Unicode bidirectional formatting marks and overrides (ALM, LRM/RLM,
+/// LRE..RLO, LRI..PDI) that can visually reorder text on a terminal row.
+pub(super) const fn is_bidi_formatting(ch: char) -> bool {
+    matches!(
+        ch,
+        '\u{061C}' | '\u{200E}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}'
+    )
+}
+
 /// Whether `ch` is a control character (other than TAB) or bidi formatting
 /// character that the editor replaces with [`super::UNPRINTABLE`] when drawing.
 pub(in crate::ui) fn is_unsafe_code_char(ch: char) -> bool {
-    (ch.is_control() && ch != '\t')
-        || matches!(
-            ch,
-            '\u{061c}'
-                | '\u{200e}'
-                | '\u{200f}'
-                | '\u{202a}'..='\u{202e}'
-                | '\u{2066}'..='\u{2069}'
-        )
+    (ch.is_control() && ch != '\t') || is_bidi_formatting(ch)
 }
 
 /// `text` as the editor draws it when it starts at cell `start`: every TAB
@@ -45,11 +46,23 @@ pub(in crate::ui) fn is_unsafe_code_char(ch: char) -> bool {
 /// Borrowed when there is no TAB or unsafe character, which is almost every
 /// line. A TAB used to reach the screen as itself; ratatui drops control
 /// characters, so it drew as nothing and everything after it slid left.
+#[cfg(test)]
 pub(in crate::ui) fn expand_tabs(text: &str, start: Cells, tab: TabSize) -> Cow<'_, str> {
-    if super::is_printable_ascii(text)
-        || (!text.contains('\t') && !text.chars().any(is_unsafe_code_char))
-    {
-        return Cow::Borrowed(text);
+    expand_tabs_to(text, start, tab).0
+}
+
+/// Expand TABs and sanitize unsafe code characters starting at cell `start`,
+/// returning both the drawn run and the cell position reached after it.
+pub(in crate::ui) fn expand_tabs_to(
+    text: &str,
+    start: Cells,
+    tab: TabSize,
+) -> (Cow<'_, str>, Cells) {
+    if super::is_printable_ascii(text) {
+        return (Cow::Borrowed(text), start + Cells::new(text.len()));
+    }
+    if !text.contains('\t') && !text.chars().any(is_unsafe_code_char) {
+        return (Cow::Borrowed(text), start + Cells::of(text));
     }
     let mut drawn = String::with_capacity(text.len() + tab.columns());
     let mut at = start;
@@ -64,7 +77,7 @@ pub(in crate::ui) fn expand_tabs(text: &str, start: Cells, tab: TabSize) -> Cow<
         }
         at = next;
     }
-    Cow::Owned(drawn)
+    (Cow::Owned(drawn), at)
 }
 
 /// One line of the editor as it is drawn: its characters, and the tab stops
@@ -86,23 +99,41 @@ impl EditorLine<'_> {
     }
 
     /// The cells a window that starts `skip` cells in actually drops — see
-    /// [`skip_cells`] for why that can differ from `skip`.
+    /// [`super::skip_cells`] for why that can differ from `skip`.
     pub(in crate::ui) fn dropped(self, skip: Cells) -> Cells {
-        skip_cells(&expand_tabs(self.text, Cells::ZERO, self.tab), skip).1
+        if skip.is_zero() {
+            return Cells::ZERO;
+        }
+        if super::is_printable_ascii(self.text) {
+            return Cells(self.text.len().min(skip.0));
+        }
+        let mut used = Cells::ZERO;
+        for ch in self.text.chars() {
+            if used >= skip {
+                break;
+            }
+            let next = advance(used, ch, self.tab);
+            used = if ch == '\t' { next.min(skip) } else { next };
+        }
+        used
     }
 
     /// The width of the whole line.
     pub(in crate::ui) fn width(self) -> Cells {
-        Cells::of(&expand_tabs(self.text, Cells::ZERO, self.tab))
+        cells_before(self.text, CharColumn::new(usize::MAX), self.tab)
     }
+}
+
+fn next_tab_stop(at: Cells, tab: TabSize) -> Cells {
+    let columns = tab.columns();
+    Cells((at.0 / columns + 1) * columns)
 }
 
 /// The cell after `ch` when it is drawn at `at`: a TAB runs to the next stop,
 /// and an unsafe code character draws as the 1-cell [`super::UNPRINTABLE`].
 fn advance(at: Cells, ch: char, tab: TabSize) -> Cells {
     if ch == '\t' {
-        let columns = tab.columns();
-        Cells((at.0 / columns + 1) * columns)
+        next_tab_stop(at, tab)
     } else if is_unsafe_code_char(ch) {
         at + Cells(1)
     } else {

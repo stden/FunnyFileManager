@@ -1,7 +1,18 @@
 //! Purpose: Panel collections invalidate cached facts before mutable access.
 
 use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct Revision(u64);
+
+impl Revision {
+    fn next() -> Self {
+        static NEXT: AtomicU64 = AtomicU64::new(1);
+        Self(NEXT.fetch_add(1, Ordering::Relaxed))
+    }
+}
 
 /// A panel collection with an identity for its current contents.
 ///
@@ -11,12 +22,19 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct PanelCollection<T> {
     value: T,
-    revision: Arc<()>,
+    rev: Revision,
+    token: OnceLock<Arc<()>>,
 }
 
 impl<T> PanelCollection<T> {
+    /// Monotonic `Copy` stamp (`u64`) for `Cell`-stored caches such as [`super::totals::PanelTotals`].
+    pub(super) fn rev(&self) -> Revision {
+        self.rev
+    }
+
+    /// Lazily allocated pointer-identity token (`Arc<()>`) for `RefCell` caches (`short_names`, `name_index`).
     pub(super) fn revision(&self) -> &Arc<()> {
-        &self.revision
+        self.token.get_or_init(Arc::default)
     }
 }
 
@@ -24,7 +42,8 @@ impl<T> From<T> for PanelCollection<T> {
     fn from(value: T) -> Self {
         Self {
             value,
-            revision: Arc::new(()),
+            rev: Revision::next(),
+            token: OnceLock::new(),
         }
     }
 }
@@ -71,10 +90,8 @@ impl<T> Deref for PanelCollection<T> {
 
 impl<T> DerefMut for PanelCollection<T> {
     fn deref_mut(&mut self) -> &mut T {
-        // An unobserved identity can be reused until a cache or clone sees it.
-        if Arc::strong_count(&self.revision) > 1 {
-            self.revision = Arc::new(());
-        }
+        self.rev = Revision::next();
+        self.token.take();
         &mut self.value
     }
 }

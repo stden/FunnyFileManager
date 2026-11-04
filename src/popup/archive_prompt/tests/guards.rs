@@ -3,6 +3,7 @@
 
 use super::super::submit;
 use super::*;
+use crate::models::ArchivePrompt;
 
 #[test]
 fn submitting_with_no_archive_dialog_open_writes_nothing() {
@@ -16,4 +17,14 @@ fn submitting_with_no_archive_dialog_open_writes_nothing() {
 
     assert!(matches!(app.overlay, Overlay::None));
     assert_eq!(fs::read_dir(root.path()).expect("listing").count(), 0);
+
+    app.set_overlay(Overlay::ArchivePrompt(Box::new(ArchivePrompt::new(
+        vec!["a.txt".into()],
+        "a",
+        root.path(),
+        vec![ArchiveFormat::Zip],
+    ))));
+    process_popup_input(&mut app, key(KeyCode::Tab));
+    process_popup_input(&mut app, key(KeyCode::Home));
+    assert!(matches!(app.overlay, Overlay::ArchivePrompt(_)));
 }

@@ -23,6 +23,9 @@ impl super::Panel {
     }
 
     pub(super) fn filter_listing(&self, listing: &mut super::DirectoryListing) {
+        if !self.options.hide_hidden && self.options.filter.is_empty() {
+            return;
+        }
         let filter = crate::mask::Mask::parse(&self.options.filter);
         listing.entries.retain(|entry| {
             let hidden = entry.name.starts_with('.')

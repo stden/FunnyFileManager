@@ -96,7 +96,7 @@ pub(crate) use sortmenu::row_at as sort_row_at;
 #[cfg(test)]
 pub(crate) use cells::UNPRINTABLE;
 use cells::{
-    expand_tabs, fit_path, fit_quoting_path, head_cells, screen_u16, skip_cells, tail_cells,
+    expand_tabs_to, fit_path, fit_quoting_path, head_cells, screen_u16, skip_cells, tail_cells,
     take_cells, EditorLine,
 };
 pub(crate) use cells::{fit_name, printable_name, Cells};

@@ -40,3 +40,22 @@ fn test_s3_client_with_bucket_and_prefix() {
     assert_eq!(client.current_bucket, Some("my-data-bucket".to_owned()));
     assert_eq!(client.current_prefix, "logs/2024/");
 }
+
+#[test]
+fn init_panic_error_formats_str_string_and_non_string_payloads() {
+    use crate::s3::init_panic_error;
+
+    let from_str = catch_unwind(|| panic!("str boom")).unwrap_err();
+    assert!(init_panic_error(from_str).to_string().contains("str boom"));
+
+    let from_string =
+        catch_unwind(|| std::panic::panic_any(String::from("owned boom"))).unwrap_err();
+    assert!(init_panic_error(from_string)
+        .to_string()
+        .contains("owned boom"));
+
+    let from_other = catch_unwind(|| std::panic::panic_any(42_i32)).unwrap_err();
+    assert!(init_panic_error(from_other)
+        .to_string()
+        .contains("unknown panic during S3 client initialization"));
+}

@@ -2,11 +2,12 @@
 //! shell command ended: its drawable output, a cancel, a timeout, a missing
 //! folder.
 
-use super::shell_commands::record_cancel;
+use super::shell_commands::cmd_shell_with;
 use super::tests::make_app;
 use super::*;
 #[cfg(unix)]
 use crate::command::language::SettingsPage;
+use crate::ops::shell::ShellError;
 use tempfile::TempDir;
 
 fn transcript(app: &App) -> Vec<String> {
@@ -42,7 +43,8 @@ fn a_cancelled_command_says_so_in_the_status_and_the_transcript() {
     let temp = TempDir::new().expect("temp dir");
     let mut app = make_app(&temp);
 
-    record_cancel(&mut app, "sleep 30; echo done");
+    let cmd = ShellCommand::new("sleep 30; echo done").expect("command");
+    cmd_shell_with(&mut app, &cmd, |_, _, _| Err(ShellError::Cancelled)).expect("cancel");
 
     assert_eq!(app.status_text(), "cancelled: sleep 30; echo done");
     assert_eq!(

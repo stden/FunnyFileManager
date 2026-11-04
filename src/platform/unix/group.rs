@@ -54,7 +54,11 @@ fn signal_group(leader: &Child, signal: SystemSignal) -> io::Result<()> {
 /// Stop the foreground job of an owned private terminal, including a shell's
 /// job-control group, whose identity comes from that terminal's kernel state.
 pub fn kill_terminal_foreground(master: &dyn portable_pty::MasterPty) -> io::Result<()> {
-    let Some(pid) = master.process_group_leader().and_then(SystemPid::from_raw) else {
+    kill_foreground_group(master.process_group_leader())
+}
+
+pub(super) fn kill_foreground_group(leader: Option<libc::pid_t>) -> io::Result<()> {
+    let Some(pid) = leader.and_then(SystemPid::from_raw) else {
         return Ok(());
     };
     match rustix::process::kill_process_group(pid, SystemSignal::KILL) {

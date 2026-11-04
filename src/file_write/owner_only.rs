@@ -77,9 +77,13 @@ pub fn replace_owner_only_bytes(
 /// Refuse to replace `target` when a rename would damage it (see
 /// [`Takeover`]).
 fn refuse_takeover(target: &Path, name: &str) -> io::Result<()> {
-    let takeover = if has_other_names(target) {
+    check_takeover(has_other_names(target), owned_by_us(target), name)
+}
+
+fn check_takeover(has_other_names: bool, owned_by_us: bool, name: &str) -> io::Result<()> {
+    let takeover = if has_other_names {
         Takeover::HardLinked
-    } else if owned_by_us(target) {
+    } else if owned_by_us {
         return Ok(());
     } else {
         Takeover::NotOwned

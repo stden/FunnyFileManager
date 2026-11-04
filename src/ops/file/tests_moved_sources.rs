@@ -162,3 +162,27 @@ fn a_source_that_vanished_before_removal_keeps_the_complete_copy() {
     assert_eq!(left.moved_to, copy);
     assert_eq!(fs::read(&copy).expect("copy stays"), b"payload");
 }
+
+#[test]
+fn remove_contents_and_forced_dir_refusal_record_first_error() {
+    use super::remove_moved::{remove_contents, remove_entries};
+
+    let root = TempDir::new().expect("test folder");
+    let missing = root.path().join("missing");
+    let copy = root.path().join("copy");
+    let mut first = None;
+    remove_contents(&missing, &copy, &mut first);
+    assert_eq!(first.take().expect("read_dir error").0, missing);
+
+    let iter_err = Ok(std::iter::once(Err(io::Error::other("entry fault"))));
+    remove_entries(&missing, &copy, &mut first, iter_err);
+    assert_eq!(first.take().expect("entry error").0, missing);
+
+    let folder = root.path().join("locked_dir");
+    fs::create_dir_all(&folder).expect("dir");
+    fs::create_dir_all(&copy).expect("copy");
+    FORCE_REMOVAL_REFUSAL.set(Some("locked_dir"));
+    let err = remove_moved(&folder, &copy).expect_err("dir refused");
+    FORCE_REMOVAL_REFUSAL.set(None);
+    assert_eq!(LeftBehind::of(&err).expect("left").path, folder);
+}

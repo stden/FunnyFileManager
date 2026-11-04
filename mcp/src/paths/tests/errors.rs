@@ -15,3 +15,13 @@ fn current_directory_components_are_folded_before_new_parent_resolution() {
         Path::new("missing")
     );
 }
+
+#[test]
+fn non_existent_path_ending_in_dot_component_is_rejected_without_new_parents() {
+    let root = tempfile::tempdir().unwrap();
+    let canon = super::root_of(&root);
+    let err = super::super::sanitize_path(&canon, "missing/.").unwrap_err();
+    assert!(err.contains("invalid path"), "got: {err}");
+    let parent_err = super::super::sanitize_path(&canon, "missing1/missing2/..").unwrap_err();
+    assert!(parent_err.contains("invalid path"), "got: {parent_err}");
+}

@@ -30,16 +30,22 @@ impl Reader {
         self.poll
             .registry()
             .reregister(&mut SourceFd(&self.fd), Token(0), Interest::READABLE)?;
-        match self
+        let result = self
             .poll
-            .poll(&mut self.events, Some(Duration::from_millis(10)))
-        {
-            Err(error) if error.kind() == io::ErrorKind::Interrupted => Ok(false),
-            Err(error) => Err(error),
-            Ok(()) => Ok(self
-                .events
-                .iter()
-                .any(|event| event.is_readable() || event.is_read_closed() || event.is_error())),
-        }
+            .poll(&mut self.events, Some(Duration::from_millis(10)));
+        interpret_poll(result, &self.events)
     }
 }
+
+fn interpret_poll(result: io::Result<()>, events: &Events) -> io::Result<bool> {
+    match result {
+        Err(error) if error.kind() == io::ErrorKind::Interrupted => Ok(false),
+        Err(error) => Err(error),
+        Ok(()) => Ok(events
+            .iter()
+            .any(|event| event.is_readable() || event.is_read_closed() || event.is_error())),
+    }
+}
+
+#[cfg(test)]
+mod tests;

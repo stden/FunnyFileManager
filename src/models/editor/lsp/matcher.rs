@@ -3,61 +3,84 @@
 
 use crate::lsp::features::Completion;
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum MatchTier {
+    ExactCasePrefix,
+    IgnoreCasePrefix,
+    CamelHumps,
+    ExactCaseSubstring,
+    IgnoreCaseSubstring,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct MatchRank {
+    tier: MatchTier,
+    penalty: usize,
+    original_index: usize,
+}
+
 pub fn filter_and_rank(items: &[Completion], prefix: &str) -> Vec<Completion> {
     if prefix.is_empty() {
         return items.to_vec();
     }
-    let mut scored: Vec<((u8, usize, usize), Completion)> = items
+    let mut ranks: Vec<MatchRank> = items
         .iter()
         .enumerate()
-        .filter_map(|(index, item)| {
-            let (tier, gap) =
+        .filter_map(|(original_index, item)| {
+            let (tier, penalty) =
                 score(&item.label, prefix).or_else(|| score(&item.insert_text, prefix))?;
-            Some(((tier, gap, index), item.clone()))
+            Some(MatchRank {
+                tier,
+                penalty,
+                original_index,
+            })
         })
         .collect();
-    scored.sort_by_key(|(rank, _)| *rank);
-    scored.into_iter().map(|(_, item)| item).collect()
+    ranks.sort_unstable();
+    ranks
+        .into_iter()
+        .filter_map(|rank| items.get(rank.original_index).cloned())
+        .collect()
 }
 
-fn score(candidate: &str, prefix: &str) -> Option<(u8, usize)> {
+fn score(candidate: &str, prefix: &str) -> Option<(MatchTier, usize)> {
     let stem = identifier_stem(candidate);
     if stem.is_empty() {
         return None;
     }
-    let len = stem.chars().count();
     if stem.starts_with(prefix) {
-        return Some((0, usize::from(stem != prefix)));
+        return Some((MatchTier::ExactCasePrefix, usize::from(stem != prefix)));
     }
     if starts_with_ignore_case(stem, prefix) {
-        return Some((1, usize::from(len != prefix.chars().count())));
+        let exact_len = stem.chars().count() == prefix.chars().count();
+        return Some((MatchTier::IgnoreCasePrefix, usize::from(!exact_len)));
     }
     if let Some(skipped) = camel_humps(stem, prefix) {
-        return Some((2, skipped));
+        return Some((MatchTier::CamelHumps, skipped));
     }
     if let Some(pos) = stem.find(prefix) {
-        return Some((3, pos));
+        return Some((MatchTier::ExactCaseSubstring, pos));
     }
-    find_ignore_case(stem, prefix).map(|pos| (4, pos))
+    find_ignore_case(stem, prefix).map(|pos| (MatchTier::IgnoreCaseSubstring, pos))
 }
 
 fn identifier_stem(candidate: &str) -> &str {
     let trimmed = candidate.trim_start();
-    let end = trimmed
+    let len = trimmed
         .find(|ch: char| !super::is_identifier_char(ch))
         .unwrap_or(trimmed.len());
-    (end > 0)
-        .then(|| trimmed.get(..end))
-        .flatten()
-        .unwrap_or(trimmed)
+    if len == 0 {
+        trimmed
+    } else {
+        trimmed.get(..len).unwrap_or(trimmed)
+    }
 }
 
 fn starts_with_ignore_case(text: &str, prefix: &str) -> bool {
-    text.chars().count() >= prefix.chars().count()
-        && text
-            .chars()
-            .zip(prefix.chars())
-            .all(|(a, b)| chars_eq(a, b))
+    let mut text_chars = text.chars();
+    prefix
+        .chars()
+        .all(|expected| text_chars.next().is_some_and(|ch| chars_eq(ch, expected)))
 }
 
 fn find_ignore_case(text: &str, needle: &str) -> Option<usize> {
@@ -103,95 +126,38 @@ fn split_words(stem: &str) -> Vec<Vec<char>> {
     words
 }
 
-fn match_humps(words: &[Vec<char>], query: &[char], multi_word: bool) -> Option<usize> {
-    let first = words.first()?;
-    if !chars_eq(*first.first()?, *query.first()?) {
-        return None;
-    }
-    let max_take = first
+fn match_humps(words: &[Vec<char>], query: &[char], used_multiple_words: bool) -> Option<usize> {
+    let first_word = words.first()?;
+    let max_take = first_word
         .iter()
         .zip(query.iter())
         .take_while(|(&a, &b)| chars_eq(a, b))
         .count();
-    (1..=max_take).rev().find_map(|take| {
+    for take in (1..=max_take).rev() {
         if take == query.len() {
-            return multi_word.then_some(0);
+            if used_multiple_words {
+                return Some(0);
+            }
+            continue;
         }
-        let rem_query = query.get(take..)?;
-        (0..words.len().saturating_sub(1)).find_map(|skip| {
-            match_humps(words.get(1 + skip..)?, rem_query, true).map(|rest| skip + rest)
-        })
-    })
+        let rem_query = query.get(take..).unwrap_or_default();
+        if let Some(skipped) = match_remaining_words(words, rem_query) {
+            return Some(skipped);
+        }
+    }
+    None
+}
+
+fn match_remaining_words(words: &[Vec<char>], rem_query: &[char]) -> Option<usize> {
+    for next_idx in 1..words.len() {
+        let tail_words = words.get(next_idx..).unwrap_or_default();
+        if let Some(skipped) = match_humps(tail_words, rem_query, true) {
+            return Some((next_idx - 1) + skipped);
+        }
+    }
+    None
 }
 
 fn chars_eq(a: char, b: char) -> bool {
     a.eq_ignore_ascii_case(&b) || a.to_lowercase().eq(b.to_lowercase())
-}
-
-impl super::Editor {
-    pub(super) fn open_completion_popup(
-        &mut self,
-        query: crate::lsp::types::Query,
-        items: Vec<Completion>,
-        trigger: super::CompletionTrigger,
-    ) {
-        self.lsp.completions = Some(Box::new(super::CompletionPool(items.clone())));
-        let filtered = filter_and_rank(&items, &self.completion_prefix());
-        if filtered.is_empty() && trigger == super::CompletionTrigger::AutoWhileTyping {
-            self.lsp.popup = None;
-            return;
-        }
-        let shown = if filtered.is_empty() { items } else { filtered };
-        self.lsp.popup = Some(super::Dialog::Completion {
-            query,
-            items: shown,
-            selected: 0,
-        });
-    }
-
-    pub(crate) fn update_live_completion(
-        &mut self,
-        old_query: crate::lsp::types::Query,
-        fallback: Vec<Completion>,
-    ) {
-        let Some(position) = self.lsp_position() else {
-            return;
-        };
-        let prefix = self.completion_prefix();
-        let pool = self
-            .lsp
-            .completions
-            .get_or_insert_with(|| Box::new(super::CompletionPool(fallback)));
-        for edit in pool
-            .0
-            .iter_mut()
-            .filter_map(|item| item.edit.as_mut())
-            .filter(|edit| edit.range.end == old_query.position)
-        {
-            edit.range.end = position;
-        }
-        let items = filter_and_rank(&pool.0, &prefix);
-        self.lsp.popup = (!items.is_empty()).then(|| super::Dialog::Completion {
-            query: crate::lsp::types::Query {
-                stamp: self.lsp_stamp(),
-                position,
-                feature: old_query.feature,
-            },
-            items,
-            selected: 0,
-        });
-        if self.lsp.popup.is_none() {
-            self.lsp.completions = None;
-        }
-    }
-
-    pub(crate) fn maybe_trigger_completion(&mut self, ch: char) {
-        if self.lsp.state == super::ServerState::Ready {
-            let before: String = self.line().chars().take(self.cursor_col).collect();
-            self.lsp.auto_complete = super::is_identifier_char(ch)
-                || ch == '.'
-                || before.ends_with("::")
-                || before.ends_with("->");
-        }
-    }
 }

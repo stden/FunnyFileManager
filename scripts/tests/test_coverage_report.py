@@ -107,6 +107,38 @@ class CoverageReportTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.check("python", report)
 
+    def check_rust_pair(self, regions=None, raw_json=None):
+        self.path.unlink(missing_ok=True)
+        lcov = self.path.with_suffix(".lcov")
+        lcov.write_text("SF:src/main.rs\nDA:1,1\nend_of_record\n", encoding="utf-8")
+        if raw_json is not None:
+            self.path.write_text(json.dumps(raw_json), encoding="utf-8")
+        elif regions is not None:
+            self.path.write_text(
+                json.dumps({"data": [{"totals": {"regions": regions}}]}),
+                encoding="utf-8",
+            )
+        with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+            return self.checker.check_rust(lcov)
+
+    def test_rust_companion_regions_enforce_subline_floor_when_present(self):
+        self.assertTrue(self.check_rust_pair())
+        self.assertTrue(self.check_rust_pair(raw_json={"data": [{}]}))
+        self.assertTrue(self.check_rust_pair(raw_json={"data": [{"totals": {"lines": {}}}]}))
+        self.assertTrue(self.check_rust_pair(regions={"covered": 95, "count": 100}))
+        self.assertFalse(self.check_rust_pair(regions={"covered": 94, "count": 100}))
+
+    def test_invalid_rust_companion_region_payloads_fail(self):
+        bad_payloads = (
+            {"data": []},
+            {"data": ["not-an-object"]},
+            {"data": [{"totals": {"regions": {"covered": 0, "count": 0}}}]},
+            {"data": [{"totals": {"regions": {"covered": 3, "count": 2}}}]},
+        )
+        for payload in bad_payloads:
+            with self.subTest(payload=payload), self.assertRaises(ValueError):
+                self.check_rust_pair(raw_json=payload)
+
 
 if __name__ == "__main__":
     unittest.main()

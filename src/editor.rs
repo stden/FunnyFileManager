@@ -20,19 +20,18 @@ pub use scripted::{handle_edit_test_mode, TestEditorBehavior};
 /// Fallback when `$EDITOR` is unset.
 const DEFAULT_EDITOR: &str = "nano";
 
-#[cfg(all(windows, not(any(test, coverage))))]
+#[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-#[cfg(all(windows, not(any(test, coverage))))]
+#[cfg(windows)]
 fn configure_background_command(command: &mut std::process::Command) {
     use std::os::windows::process::CommandExt;
     command.creation_flags(CREATE_NO_WINDOW);
 }
 
-#[cfg(all(not(windows), not(any(test, coverage))))]
+#[cfg(not(windows))]
 const fn configure_background_command(_command: &mut std::process::Command) {}
 
-#[cfg(not(any(test, coverage)))]
 fn command_succeeds_in_background(program: &str, args: &[&str]) -> bool {
     let mut command = std::process::Command::new(program);
     configure_background_command(&mut command);
@@ -79,12 +78,23 @@ fn split_editor_command(env_editor: &str) -> (String, Vec<String>) {
     (program, parts.map(str::to_owned).collect())
 }
 
+#[cfg(test)]
+thread_local! {
+    static VSCODE_PROBE_OVERRIDE: std::cell::Cell<Option<bool>> =
+        const { std::cell::Cell::new(Some(false)) };
+}
+
+fn vscode_installed() -> bool {
+    #[cfg(test)]
+    if let Some(installed) = VSCODE_PROBE_OVERRIDE.get() {
+        return installed;
+    }
+    command_succeeds_in_background("code", &["--version"])
+}
+
 /// Pick the editor to launch: VS Code when installed, else `$EDITOR`.
 fn resolve_editor() -> (String, Vec<String>) {
-    // Keep test builds deterministic and side-effect free by skipping the VS
-    // Code probe there; the $EDITOR path stays shared so it is actually tested.
-    #[cfg(not(any(test, coverage)))]
-    if command_succeeds_in_background("code", &["--version"]) {
+    if vscode_installed() {
         return ("code".to_owned(), vec!["-w".to_owned(), "-n".to_owned()]);
     }
     split_editor_command(&std::env::var("EDITOR").unwrap_or_else(|_| DEFAULT_EDITOR.to_owned()))

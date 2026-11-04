@@ -98,3 +98,17 @@ fn a_tree_with_the_same_parents_is_kept_and_a_new_parent_is_rebuilt() {
     assert_ne!(parentless, lines);
     assert!(builds() > before);
 }
+
+#[test]
+fn mismatched_parent_stamp_length_rejects_reuse() {
+    let mut list = listing(vec![process(1, "parent"), child_of(1, process(2, "child"))]);
+    list.toggle_tree();
+    let mut view = list.view.clone();
+    let empty_stamp = view::stamp(&[], list.table.rows(), &list.options);
+    assert!(!view::try_reuse(
+        &mut view,
+        list.table.rows(),
+        &list.options,
+        &empty_stamp,
+    ));
+}

@@ -46,13 +46,15 @@ fn symlink_dir_links_existing_and_dangling_targets() -> io::Result<()> {
     fs::write(target.join("inside.txt"), b"ok")?;
 
     let live_link = dir.path().join("live_link");
+    #[cfg(windows)]
     if let Err(err) = symlink_dir(&target.to_string_lossy(), &live_link) {
-        #[cfg(windows)]
         if err.kind() == io::ErrorKind::PermissionDenied || err.raw_os_error() == Some(1314) {
             return Ok(());
         }
         return Err(err);
     }
+    #[cfg(not(windows))]
+    symlink_dir(&target.to_string_lossy(), &live_link)?;
     assert!(fs::symlink_metadata(&live_link)?.file_type().is_symlink());
     assert_eq!(fs::read(live_link.join("inside.txt"))?, b"ok");
 

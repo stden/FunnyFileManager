@@ -50,7 +50,11 @@ fn reap(child: &mut Child) {
         // The job/group may have terminated the process between try_wait and kill.
         drop(child.kill());
     }
-    if child.wait().is_err() {
+    log_reap_result(&child.wait());
+}
+
+pub(super) fn log_reap_result(result: &std::io::Result<std::process::ExitStatus>) {
+    if result.is_err() {
         crate::diagnostics::log_error("LSP process reap failed");
     }
 }

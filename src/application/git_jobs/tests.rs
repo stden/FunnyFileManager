@@ -99,6 +99,7 @@ fn navigating_away_cancels_queued_probes_and_ignores_in_flight_stale_results() {
     assert_eq!(jobs.pump(&mut app), Redraw::Unchanged);
     assert!(!app.left_panel.is_dirty_repo("first"));
     assert_eq!(*seen.lock().expect("seen"), vec!["first".to_owned()]);
+    assert_eq!(GitDirtyJobs::default().collect(&mut app), Redraw::Unchanged);
 }
 
 fn gated_single_worker(

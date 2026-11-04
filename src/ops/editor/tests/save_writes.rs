@@ -68,3 +68,28 @@ fn a_save_that_cannot_be_written_leaves_the_buffer_modified() {
     assert!(editor.save().is_err());
     assert_ne!(editor.state, EditState::Clean, "still unsaved");
 }
+
+#[test]
+fn write_file_with_handles_in_place_and_permission_denied_temp_fallback() {
+    let dir = TempDir::new().expect("test setup");
+    let path = dir.path().join("notes.txt");
+    fs::write(&path, "old\n").expect("seed");
+
+    crate::ops::editor::write_file_with(
+        &path,
+        b"in-place\n",
+        |_| true,
+        crate::file_write::temp_beside,
+    )
+    .expect("in-place write");
+    assert_eq!(fs::read(&path).expect("read"), b"in-place\n");
+
+    crate::ops::editor::write_file_with(
+        &path,
+        b"fallback\n",
+        |_| false,
+        |_| Err(io::Error::from(io::ErrorKind::PermissionDenied)),
+    )
+    .expect("permission denied temp fallback");
+    assert_eq!(fs::read(&path).expect("read"), b"fallback\n");
+}

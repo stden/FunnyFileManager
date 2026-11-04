@@ -20,6 +20,32 @@ pub(super) enum State {
     InComment,
 }
 
+struct TagOpen {
+    bracket_len: usize,
+    name_len: usize,
+    enters_tag: bool,
+}
+
+/// Inspect a `<` prefix (`<tag`, `</tag`, `<?pi`, `<!DOCTYPE`, or a lone `<`).
+fn parse_tag_open(at_lt: &[u8]) -> TagOpen {
+    let bracket_len = if matches!(at_lt.get(1), Some(b'/' | b'?' | b'!')) {
+        2
+    } else {
+        1
+    };
+    let after_bracket = at_lt.get(bracket_len..).unwrap_or_default();
+    let name_len = after_bracket
+        .iter()
+        .take_while(|&&b| is_tag_name_byte(b))
+        .count();
+    let enters_tag = !(bracket_len == 1 && name_len == 0);
+    TagOpen {
+        bracket_len,
+        name_len,
+        enters_tag,
+    }
+}
+
 impl State {
     pub(super) fn line<'a>(&mut self, line: &'a str) -> Vec<(&'a str, Token)> {
         let mut runs = Vec::new();
@@ -49,28 +75,79 @@ impl State {
     }
 
     fn scan_tag_open<'a>(&mut self, rest: &'a str, runs: &mut Vec<(&'a str, Token)>) -> &'a str {
-        let bracket_len =
-            if rest.starts_with("</") || rest.starts_with("<?") || rest.starts_with("<!") {
-                2
-            } else {
-                1
-            };
-        let (bracket, after_bracket) = rest.split_at(bracket_len);
-        let name_len = run_length(after_bracket, is_tag_name_char);
-        if name_len == 0 && bracket == "<" {
-            push(runs, bracket, Token::Punctuation);
+        let open = parse_tag_open(rest.as_bytes());
+        let (bracket, after_bracket) = rest.split_at(open.bracket_len);
+        push(runs, bracket, Token::Punctuation);
+        if !open.enters_tag {
             return after_bracket;
         }
-        let (name, after_name) = after_bracket.split_at(name_len);
-        push(runs, bracket, Token::Punctuation);
+        let (name, after_name) = after_bracket.split_at(open.name_len);
         push(runs, name, Token::Tag);
         *self = Self::InTag;
         after_name
     }
+
+    /// Fast-forward markup continuation state across `line` without allocating token runs.
+    pub(super) fn advance(&mut self, line: &str) {
+        let bytes = line.as_bytes();
+        let mut pos = 0;
+        while let Some(rest) = bytes.get(pos..) {
+            if rest.is_empty() {
+                break;
+            }
+            pos += match self {
+                Self::Outside => advance_outside(rest, self),
+                Self::InTag => advance_tag(rest, self),
+                Self::InComment => advance_comment(rest, self),
+            };
+        }
+    }
+}
+
+fn advance_outside(bytes: &[u8], state: &mut State) -> usize {
+    let Some(lt) = memchr::memchr(b'<', bytes) else {
+        return bytes.len();
+    };
+    let at_lt = bytes.get(lt..).unwrap_or_default();
+    if at_lt.starts_with(b"<!--") {
+        *state = State::InComment;
+        return lt;
+    }
+    let open = parse_tag_open(at_lt);
+    if open.enters_tag {
+        *state = State::InTag;
+    }
+    lt + open.bracket_len + open.name_len
+}
+
+fn advance_tag(bytes: &[u8], state: &mut State) -> usize {
+    let Some(hit) = memchr::memchr3(b'"', b'\'', b'>', bytes) else {
+        return bytes.len();
+    };
+    if bytes.get(hit) == Some(&b'>') {
+        *state = State::Outside;
+        return hit + 1;
+    }
+    let quote = bytes.get(hit).copied().unwrap_or(b'"');
+    let after_open_quote = hit + 1;
+    let quoted_tail = bytes.get(after_open_quote..).unwrap_or_default();
+    memchr::memchr(quote, quoted_tail).map_or(bytes.len(), |close| after_open_quote + close + 1)
+}
+
+fn advance_comment(bytes: &[u8], state: &mut State) -> usize {
+    if let Some(end) = memchr::memmem::find(bytes, b"-->") {
+        *state = State::Outside;
+        return end + 3;
+    }
+    bytes.len()
+}
+
+const fn is_tag_name_byte(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.' | b':')
 }
 
 pub(super) fn is_tag_name_char(ch: char) -> bool {
-    ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.' | ':')
+    u8::try_from(ch).is_ok_and(is_tag_name_byte)
 }
 
 pub(super) fn push<'a>(runs: &mut Vec<(&'a str, Token)>, text: &'a str, token: Token) {

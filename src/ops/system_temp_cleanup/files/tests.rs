@@ -58,6 +58,8 @@ fn changed_and_new_files_after_preview_are_preserved() {
 
 mod safety;
 
+#[cfg(unix)]
+mod permissions;
 mod policy;
 
 #[test]
@@ -88,4 +90,57 @@ fn safe_parent_verifies_nested_directories_and_rejects_escaped_or_non_dir_parent
     fs::remove_dir_all(&nested).unwrap();
     fs::write(&nested, b"not-a-dir").unwrap();
     assert_eq!(remove(&plan).removed, 0);
+}
+
+#[test]
+fn remove_skips_unopenable_or_retargeted_handles() {
+    let temp = tempfile::TempDir::new().unwrap();
+    let now = SystemTime::now();
+    let victim = temp.path().join("old.bin");
+    let other = temp.path().join("other.bin");
+    old_file(&victim, b"old", now);
+    old_file(&other, b"different-len", now);
+    let mut plan = scan(&source(temp.path()), now).unwrap();
+    plan.files.retain(|f| f.path.ends_with("old.bin"));
+    assert_eq!(plan.files.len(), 1);
+
+    assert_eq!(
+        remove::remove_with(
+            &plan,
+            |_| Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied)),
+            |p| fs::remove_file(p),
+        )
+        .skipped,
+        1
+    );
+    assert_eq!(
+        remove::remove_with(
+            &plan,
+            |_| fs::File::options().read(true).write(true).open(&other),
+            |p| fs::remove_file(p),
+        )
+        .skipped,
+        1
+    );
+}
+
+#[test]
+fn remove_counts_unlink_failures_and_vanished_files() {
+    let temp = tempfile::TempDir::new().unwrap();
+    let now = SystemTime::now();
+    let victim = temp.path().join("old.bin");
+    old_file(&victim, b"old", now);
+    let plan = scan(&source(temp.path()), now).unwrap();
+
+    assert_eq!(
+        remove::remove_with(
+            &plan,
+            |p| fs::File::options().read(true).write(true).open(p),
+            |_| Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied)),
+        )
+        .failures,
+        1
+    );
+    fs::remove_file(&victim).unwrap();
+    assert_eq!(remove(&plan).skipped, 1);
 }

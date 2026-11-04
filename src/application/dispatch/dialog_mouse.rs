@@ -34,12 +34,16 @@ use button_keys::dialog_button_key;
 // The tests module reaches these through `super::*`.
 #[cfg(test)]
 use button_keys::dialog_button_key_in_editor;
+#[cfg(test)]
+use button_keys::failed_button_key;
 #[cfg(all(test, feature = "keepass"))]
 use button_keys::kdbx_button_key;
 #[cfg(feature = "keepass")]
 use button_keys::vault_prompt_button;
 use menus::{click_choice_menu, click_in_menu, click_plugin_commands, click_sort_menu};
 use rows::click_dialog_row;
+#[cfg(test)]
+use tasks::confirm_key;
 
 /// The pointer, while a dialog owns the screen.
 ///

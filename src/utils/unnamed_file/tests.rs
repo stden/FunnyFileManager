@@ -12,5 +12,11 @@ fn unnamed_file_fallback_returns_none_and_unsupported_on_non_linux() {
         assert_eq!(err.kind(), std::io::ErrorKind::Unsupported);
     }
     #[cfg(target_os = "linux")]
-    drop(file);
+    {
+        drop(file);
+        assert!(
+            super::unnamed_file_in_with_proc(temp.path(), &temp.path().join("absent-proc"))
+                .is_none()
+        );
+    }
 }

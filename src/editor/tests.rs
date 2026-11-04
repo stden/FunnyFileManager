@@ -4,28 +4,15 @@ use super::{
     handle_edit_builtin, handle_edit_impl, handle_edit_test_mode, handle_edit_with,
     TestEditorBehavior,
 };
-use crate::models::EntryKind;
-use crate::models::FileSize;
-use crate::models::Modified;
-
-use crate::models::{App, DirEntry, Panel, PanelSide};
-
+use crate::models::{App, DirEntry, EntryKind, FileSize, Modified, Panel, PanelSide};
 use crate::terminal::TerminalOps;
-
 use crate::test_support::{editor_env_lock, restore_editor_env, EditorEnvGuard};
-
 use crate::WritableTestBackend;
-
 use ratatui::Terminal;
-
 use std::ffi::OsString;
-
 use std::fs;
-
 use std::io;
-
 use std::path::{Path, PathBuf};
-
 use tempfile::TempDir;
 
 #[cfg(test)]
@@ -104,6 +91,38 @@ pub fn failure_exit_status() -> std::process::ExitStatus {
 /// fail the reloads of every other test running beside this one.
 fn unreachable_folder() -> PathBuf {
     PathBuf::from("no-such-folder-for-an-editor-test")
+}
+
+#[test]
+fn background_command_probe_covers_success_failure_and_missing_binary() {
+    #[cfg(windows)]
+    let (shell, ok_args, err_args) = ("cmd", ["/c", "exit", "0"], ["/c", "exit", "1"]);
+    #[cfg(not(windows))]
+    let (shell, ok_args, err_args) = ("sh", ["-c", "exit 0"], ["-c", "exit 1"]);
+    assert!(super::command_succeeds_in_background(shell, &ok_args));
+    assert!(!super::command_succeeds_in_background(shell, &err_args));
+    assert!(!super::command_succeeds_in_background(
+        "ffm-no-such-background-probe-b7f19c4e",
+        &["--version"]
+    ));
+}
+
+#[test]
+fn vscode_resolution_honors_override_and_probes_default() {
+    struct ProbeGuard(Option<bool>);
+    impl Drop for ProbeGuard {
+        fn drop(&mut self) {
+            super::VSCODE_PROBE_OVERRIDE.set(self.0);
+        }
+    }
+    let _guard = ProbeGuard(super::VSCODE_PROBE_OVERRIDE.get());
+    super::VSCODE_PROBE_OVERRIDE.set(Some(true));
+    assert_eq!(
+        super::resolve_editor(),
+        ("code".to_owned(), vec!["-w".to_owned(), "-n".to_owned()])
+    );
+    super::VSCODE_PROBE_OVERRIDE.set(None);
+    let _ = super::vscode_installed();
 }
 
 #[test]

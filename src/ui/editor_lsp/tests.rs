@@ -4,6 +4,7 @@
 
 use super::*;
 use crate::lsp::positions::{Position, Range};
+use crate::ui::Cells;
 use ratatui::{backend::TestBackend, Terminal};
 use tempfile::TempDir;
 
@@ -142,6 +143,11 @@ fn language_server_status_precedes_the_path_on_narrow_editor_headers() {
         label(&editor, " *"),
         format!(" {} *", crate::path_display::label(&editor.path))
     );
+    assert_eq!(
+        fitted_label(&editor, " *", Cells::new(200)),
+        label(&editor, " *")
+    );
+    assert_eq!(fitted_label(&editor, " *", Cells::new(4)), " source.rs *");
     for state in [
         ServerState::Starting,
         ServerState::Initializing,
@@ -152,6 +158,7 @@ fn language_server_status_precedes_the_path_on_narrow_editor_headers() {
     ] {
         editor.lsp.state = state;
         assert!(label(&editor, "").starts_with(&format!(" {}", editor.lsp.state.label())));
+        assert!(fitted_label(&editor, "", Cells::new(4)).ends_with(" | source.rs"));
     }
 }
 

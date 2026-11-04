@@ -149,12 +149,14 @@ impl PathEditor {
     }
 }
 
+#[cfg(windows)]
 pub(crate) const fn separator() -> char {
-    if cfg!(windows) {
-        ';'
-    } else {
-        ':'
-    }
+    ';'
+}
+
+#[cfg(not(windows))]
+pub(crate) const fn separator() -> char {
+    ':'
 }
 
 #[cfg(test)]

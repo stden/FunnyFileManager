@@ -57,12 +57,6 @@ impl NamePrompt {
             return;
         }
         self.link = crate::cycle::step(self.purpose.link_choices(), self.link, forward);
-        // The Target field may have just been greyed out from under the
-        // cursor. It cannot be, in fact — the cursor is on the drop-down — but
-        // the invariant is worth holding rather than reasoning about.
-        if !self.allows(self.field) {
-            self.field = NameField::Name;
-        }
     }
 
     /// Which control the dialog draws on body row `row`.

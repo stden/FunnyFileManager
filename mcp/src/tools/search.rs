@@ -150,24 +150,36 @@ fn search_recursive(
             return;
         }
         *visited += 1;
-        let Some(file_type) = crate::walk::walkable_type(&entry) else {
-            continue;
-        };
-        let name = entry.file_name().to_string_lossy().to_string();
-        let is_dir = file_type.is_dir();
+        visit_search_entry(&entry, scan, results, visited);
+    }
+}
 
-        if name.to_lowercase().contains(scan.pattern) {
-            let include = (!scan.files_only || !is_dir) && (!scan.dirs_only || is_dir);
-            if include {
-                results.push(json!({
-                    "path": entry.path().display().to_string(),
-                    "name": name,
-                    "type": if is_dir { "dir" } else { "file" },
-                }));
-            }
-        }
-        if is_dir {
-            search_recursive(&entry.path(), scan, results, visited);
-        }
+fn visit_search_entry(
+    entry: &fs::DirEntry,
+    scan: &SearchScan<'_>,
+    results: &mut Vec<serde_json::Value>,
+    visited: &mut usize,
+) {
+    let Some(file_type) = crate::walk::walkable_type(entry) else {
+        return;
+    };
+    let is_dir = file_type.is_dir();
+    let include = (!scan.files_only || !is_dir) && (!scan.dirs_only || is_dir);
+    let raw_name = entry.file_name();
+    let name = raw_name.to_string_lossy();
+    let matched = include && content_search::contains_lowercased(&name, scan.pattern);
+    if !matched && !is_dir {
+        return;
+    }
+    let entry_path = entry.path();
+    if matched {
+        results.push(json!({
+            "path": entry_path.display().to_string(),
+            "name": name.as_ref(),
+            "type": if is_dir { "dir" } else { "file" },
+        }));
+    }
+    if is_dir {
+        search_recursive(&entry_path, scan, results, visited);
     }
 }

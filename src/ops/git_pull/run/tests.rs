@@ -1,6 +1,6 @@
 //! Purpose: Keep bulk pulls useful after an individual failure or cancellation.
 
-use super::super::fixtures::Fixture;
+use super::super::tests_fixtures::{git, text, Fixture};
 use super::*;
 
 #[test]
@@ -80,4 +80,56 @@ fn cancellation_stops_before_the_next_repository_changes() {
         std::fs::read_to_string(second.join("data.txt")).expect("unchanged file"),
         "original\n"
     );
+}
+
+#[test]
+fn root_repository_up_to_date_and_skipped_submodule_are_reported() {
+    let fixture = Fixture::new();
+    let parent = fixture.clone_repo("parent");
+    git(
+        &parent,
+        &[
+            "-c",
+            "protocol.file.allow=always",
+            "submodule",
+            "add",
+            text(&fixture.remote),
+            "child",
+        ],
+    );
+    let mut lines = Vec::new();
+    let root_summary = execute(
+        &parent,
+        |line| {
+            lines.push(line.to_owned());
+            Ok(())
+        },
+        &|| false,
+    )
+    .expect("execute on repo root");
+    assert_eq!(root_summary.current, 1);
+    assert_eq!(root_summary.skipped, 1);
+    let joined = lines.join("\n");
+    assert!(joined.contains(".: Already up to date"), "{joined}");
+    assert!(joined.contains("child: Skipped"), "{joined}");
+}
+
+#[test]
+fn mid_update_emit_error_aborts_run() {
+    let fixture = Fixture::new();
+    let parent = fixture.clone_repo("parent");
+    let err = execute(
+        &parent,
+        |line| {
+            if line.starts_with("[1/") {
+                Err(io::Error::other("mid-run emit failure"))
+            } else {
+                Ok(())
+            }
+        },
+        &|| false,
+    )
+    .err()
+    .expect("mid-run emit error");
+    assert!(err.to_string().contains("mid-run emit failure"));
 }

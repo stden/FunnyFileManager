@@ -133,3 +133,21 @@ fn the_changed_on_disk_question_maps_overwrite_and_cancel() {
     assert_eq!(code(&mut app, 0), KeyCode::Char('y'));
     assert_eq!(code(&mut app, 1), KeyCode::Esc);
 }
+
+#[test]
+fn editor_search_caption_row_is_ignored_and_lsp_modal_has_no_buttons() {
+    let dir = TempDir::new().expect("temp");
+    let mut app = app_at(&dir);
+    let mut editor = Editor::default();
+    editor.search.prompt = Some(SearchPrompt::default());
+    app.set_overlay(Overlay::Editor(editor));
+    assert!(click_dialog_row(&mut app, 0).is_none());
+    assert_eq!(prompt(&app).field, SearchField::Query);
+
+    let mut lsp_editor = Editor::default();
+    lsp_editor.lsp.popup = Some(crate::models::lsp::Dialog::Hover {
+        text: "hover".into(),
+        scroll: 0,
+    });
+    assert!(dialog_button_key_in_editor(&mut lsp_editor, 0).is_none());
+}

@@ -92,6 +92,7 @@ fn serve(
         stream
             .set_read_timeout(Some(Duration::from_secs(3)))
             .unwrap();
+        stream.set_nonblocking(false).unwrap();
         requests.lock().unwrap().push(read_request(&mut stream));
         let reply = replies
             .lock()

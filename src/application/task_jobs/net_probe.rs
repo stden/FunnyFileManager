@@ -141,7 +141,16 @@ impl NetProbeRunner {
     }
 }
 
+#[cfg(test)]
+thread_local! {
+    pub(super) static FORCE_SPAWN_FAILURE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 fn spawn_prober(prober: Box<dyn NetProber>, session: TaskSession) -> std::io::Result<ProbeWorker> {
+    #[cfg(test)]
+    if FORCE_SPAWN_FAILURE.get() {
+        return Err(std::io::Error::other("forced spawn failure"));
+    }
     let (requests, incoming) = mpsc::sync_channel(1);
     let (outgoing, results) = mpsc::sync_channel(1);
     let handle = thread::Builder::new()

@@ -54,10 +54,7 @@ fn run_session(
     // to restore the host terminal before the process terminates. Install it
     // before setup mutates terminal state because setup itself may panic.
     let previous_hook = std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |info| {
-        crate::terminal::restore_after_abort();
-        previous_hook(info);
-    }));
+    std::panic::set_hook(panic_restore_hook(previous_hook));
 
     // Only a live session has a terminal to lose; a replay ends on its own.
     #[cfg(unix)]
@@ -127,11 +124,21 @@ fn load_app() -> io::Result<App> {
         });
     // The launch directory may have been deleted before ffm started; then
     // `getcwd` fails and the start falls back instead of aborting.
-    let start = crate::ops::panel_session::start_directory(
+    load_app_from(
         std::env::current_dir(),
         std::env::var_os("PWD").map(PathBuf::from),
         crate::config::user_home(),
-    )?;
+        persistence,
+    )
+}
+
+fn load_app_from(
+    cwd: io::Result<PathBuf>,
+    pwd: Option<PathBuf>,
+    home: Option<PathBuf>,
+    persistence: crate::history::Persistence,
+) -> io::Result<App> {
+    let start = crate::ops::panel_session::start_directory(cwd, pwd, home)?;
     crate::ops::panel_session::load(&start, persistence)
 }
 
@@ -150,6 +157,15 @@ fn load_persisted(app: &mut App) {
     app.folder_history = crate::models::FolderHistory::load();
     app.bookmarks = crate::models::Bookmarks::load();
     crate::ops::sessions::install(app, crate::sessions::SessionStore::load());
+}
+
+type PanicHook = Box<dyn Fn(&std::panic::PanicHookInfo<'_>) + Sync + Send + 'static>;
+
+fn panic_restore_hook(previous_hook: PanicHook) -> PanicHook {
+    Box::new(move |info| {
+        crate::terminal::restore_after_abort();
+        previous_hook(info);
+    })
 }
 
 mod at_exit;

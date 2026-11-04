@@ -45,3 +45,36 @@ fn cpu_of(snapshot: &Snapshot) -> Vec<CpuUsage> {
 fn measured_share(hundredths: u32) -> CpuUsage {
     CpuUsage::Measured(Percent::from_hundredths(hundredths))
 }
+
+#[test]
+fn record_priority_ignores_missing_keys_and_mismatched_platforms() {
+    use super::{KernelPriority, Niceness, Priority, PriorityChange, PriorityClass, SettableClass};
+
+    let unix_proc = ProcessSample {
+        priority: Priority::Unix {
+            kernel: KernelPriority::new(20),
+            nice: Niceness::NORMAL,
+        },
+        ..process(1, "unix")
+    };
+    let win_proc = ProcessSample {
+        priority: Priority::Windows {
+            class: PriorityClass::Normal,
+        },
+        ..process(2, "win")
+    };
+    let (mut snap, _) = Snapshot::derive(&Baselines::default(), first(vec![unix_proc, win_proc]));
+    snap.record_priority(
+        key(99, 1),
+        PriorityChange::Class(SettableClass::AboveNormal),
+    );
+    snap.record_priority(key(1, 1), PriorityChange::Class(SettableClass::AboveNormal));
+    snap.record_priority(key(2, 2), PriorityChange::Nice(Niceness::NORMAL));
+    snap.record_priority(key(2, 2), PriorityChange::Class(SettableClass::AboveNormal));
+    assert_eq!(
+        snap.rows()[1].sample().priority,
+        Priority::Windows {
+            class: PriorityClass::AboveNormal
+        }
+    );
+}

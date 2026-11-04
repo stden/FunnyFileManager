@@ -131,6 +131,7 @@ where
     let result = state.run(terminal, app, &mut BufferedInput::new(read_event));
     let finished = Instant::now();
     state.finish(app, finished, finished);
+    #[cfg(feature = "keepass")]
     if app.clipboard.is_armed() {
         app.clipboard.disarm();
         if let Some(backend) = app.clipboard.backend_mut() {

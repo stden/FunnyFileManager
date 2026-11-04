@@ -83,3 +83,8 @@ thread_local! {
 pub fn stopped_reason() -> Option<String> {
     STOPPED.with(|slot| slot.borrow_mut().take())
 }
+
+#[cfg(test)]
+pub fn set_stopped_for_test(reason: &str) {
+    STOPPED.with(|slot| *slot.borrow_mut() = Some(reason.to_owned()));
+}

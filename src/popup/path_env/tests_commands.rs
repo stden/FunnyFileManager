@@ -32,3 +32,17 @@ fn typed_browse_commands_leave_entry_fields_and_questions_untouched() {
     apply(&mut app, PathCommand::Save);
     assert!(matches!(app.overlay, Overlay::None));
 }
+
+#[test]
+fn popup_dispatcher_routes_down_cursor_movement_in_path_editor() {
+    let (_temp, mut app) = fixture();
+    add(&mut app, "/first");
+    add(&mut app, "/second");
+    apply(&mut app, PathCommand::CursorUp);
+    assert_eq!(dialog(&app).selected, 0);
+    assert!(crate::popup::process_popup_input(
+        &mut app,
+        KeyEvent::new(KeyCode::Down, KeyModifiers::NONE),
+    ));
+    assert_eq!(dialog(&app).selected, 1);
+}

@@ -131,6 +131,11 @@ impl Process {
         exited(&mut self.child)
     }
 
+    #[cfg(test)]
+    pub(in crate::lsp) fn set_outgoing(&mut self, outgoing: Option<SyncSender<Value>>) {
+        self.outgoing = outgoing;
+    }
+
     pub fn take_toolchain_hint(&mut self) -> Option<&'static str> {
         self.terminate_once();
         if let Ok(hint) = self.stderr_task.take()?.join() {

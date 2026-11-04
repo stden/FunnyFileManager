@@ -38,6 +38,7 @@ fn exercise(root: &Path) -> io::Result<()> {
     assert!(session.live.elevation);
     assert!(session.clipboard.backend_mut().is_some());
     session.config.system.auto_save_setup = true;
+    session.clipboard.arm(std::time::Instant::now());
     let settings = crate::config::Settings::path().expect("private settings path");
     assert!(settings.starts_with(root));
     finish(&mut session, Profile::System);

@@ -21,6 +21,12 @@ fn filter_rows_and_buttons_set_their_own_focus() {
     assert_eq!(app.filter_input.field, FilterField::Cancel);
     assert_eq!(code(&mut app, 0), KeyCode::Enter);
     assert_eq!(app.filter_input.field, FilterField::Apply);
+
+    app.filter_input.additional = Some(crate::lineedit::LineEditor::new(""));
+    click_dialog_row(&mut app, 1);
+    assert_eq!(app.filter_input.field, FilterField::Additional);
+    click_dialog_row(&mut app, 99);
+    assert_eq!(app.filter_input.field, FilterField::Additional);
 }
 
 #[test]

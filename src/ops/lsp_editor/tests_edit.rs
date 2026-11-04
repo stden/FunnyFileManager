@@ -74,6 +74,16 @@ fn del_checks_the_reset_server_again() {
     select(&mut app, "python");
     delete_selected(&mut app);
     assert_eq!(tag(&app), Some("auto"));
+
+    let empty = crate::models::LspEditor::new(
+        crate::models::lsp_editor::Access::Writable {
+            path: machine.settings(),
+        },
+        crate::config::LspSettings(std::collections::BTreeMap::new()),
+    );
+    app.set_overlay(crate::models::Overlay::LspEditor(Box::new(empty)));
+    delete_selected(&mut app);
+    assert!(editor(&app).notice().is_none());
 }
 
 /// OK rechecks the server it changed: a command put on the fake `PATH` is

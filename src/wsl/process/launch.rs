@@ -41,19 +41,44 @@ impl ManagedProcess for ChildGuard {
     }
 }
 
+#[cfg(target_pointer_width = "32")]
+pub(super) const SYSTEM_DIRECTORY: &str = "Sysnative";
+#[cfg(not(target_pointer_width = "32"))]
+pub(super) const SYSTEM_DIRECTORY: &str = "System32";
+
+#[cfg(test)]
+thread_local! {
+    static WIN_DIR_OVERRIDE: std::cell::RefCell<Option<std::path::PathBuf>> =
+        const { std::cell::RefCell::new(None) };
+}
+
 #[allow(
     unsafe_code,
     reason = "std cannot locate the Windows directory, and a PATH lookup could run another wsl.exe"
 )]
 fn windows_directory() -> Result<std::path::PathBuf, String> {
-    use std::os::windows::ffi::OsStringExt;
     use windows_sys::Win32::System::SystemInformation::GetWindowsDirectoryW;
 
-    let mut buffer = vec![0; 260];
-    loop {
-        let capacity = u32::try_from(buffer.len()).map_err(|error| error.to_string())?;
+    #[cfg(test)]
+    if let Some(dir) = WIN_DIR_OVERRIDE.with(|slot| slot.borrow().clone()) {
+        return Ok(dir);
+    }
+    windows_directory_with(260, |buffer| {
+        let capacity = u32::try_from(buffer.len()).unwrap_or(u32::MAX);
         // SAFETY: the buffer is writable for the exact capacity passed to Win32.
-        let length = unsafe { GetWindowsDirectoryW(buffer.as_mut_ptr(), capacity) };
+        unsafe { GetWindowsDirectoryW(buffer.as_mut_ptr(), capacity) }
+    })
+}
+
+fn windows_directory_with(
+    initial_capacity: usize,
+    mut fill: impl FnMut(&mut [u16]) -> u32,
+) -> Result<std::path::PathBuf, String> {
+    use std::os::windows::ffi::OsStringExt;
+
+    let mut buffer = vec![0; initial_capacity];
+    loop {
+        let length = fill(&mut buffer);
         if length == 0 {
             return Err(format!(
                 "Cannot locate Windows: {}",
@@ -61,9 +86,8 @@ fn windows_directory() -> Result<std::path::PathBuf, String> {
             ));
         }
         let length = usize::try_from(length).map_err(|error| error.to_string())?;
-        if length < buffer.len() {
-            buffer.truncate(length);
-            return Ok(std::ffi::OsString::from_wide(&buffer).into());
+        if let Some(slice) = buffer.get(..length) {
+            return Ok(std::ffi::OsString::from_wide(slice).into());
         }
         if length > 32_768 {
             return Err("Windows installation path is too long".to_owned());
@@ -76,12 +100,7 @@ pub(super) fn command(windows_directory: &std::path::Path, args: &[&str]) -> std
     use std::os::windows::process::CommandExt;
     use std::process::{Command, Stdio};
 
-    let system_directory = if cfg!(target_pointer_width = "32") {
-        "Sysnative"
-    } else {
-        "System32"
-    };
-    let mut command = Command::new(windows_directory.join(system_directory).join("wsl.exe"));
+    let mut command = Command::new(windows_directory.join(SYSTEM_DIRECTORY).join("wsl.exe"));
     command
         .args(args)
         .stdin(Stdio::null())

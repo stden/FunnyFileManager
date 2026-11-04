@@ -7,6 +7,7 @@ use std::cell::RefCell;
 use std::ffi::{OsStr, OsString};
 use std::fs::File;
 use std::io::{self, BufReader};
+use std::path::Path;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
@@ -39,10 +40,17 @@ pub(super) fn active() -> bool {
 /// Send `retry` to the helper — started first, which asks the user, when
 /// the session has none — and wait for its outcome, drawing its progress.
 pub(super) fn exchange(retry: &ElevatedRetry) -> io::Result<Outcome> {
+    exchange_with(retry, platform::launch_as_administrator)
+}
+
+fn exchange_with(
+    retry: &ElevatedRetry,
+    launch: impl FnOnce(&Path, &OsStr) -> io::Result<ElevatedProcess>,
+) -> io::Result<Outcome> {
     SESSION.with(|session| {
         let mut session = session.borrow_mut();
         if session.is_none() {
-            *session = Some(start()?);
+            *session = Some(start_with(launch)?);
         }
         let link = session
             .as_mut()
@@ -79,12 +87,13 @@ fn talk(link: &mut Link, retry: &ElevatedRetry) -> io::Result<Outcome> {
 
 /// Create the pipe, start the helper as an administrator, and let it in
 /// only if the process that connects is the one Windows started.
-fn start() -> io::Result<Link> {
+fn start_with(
+    launch: impl FnOnce(&Path, &OsStr) -> io::Result<ElevatedProcess>,
+) -> io::Result<Link> {
     let name = pipe_name();
     let pipe = platform::create_pipe(&name)?;
     let parameters = format!("{HELPER_FLAG} {name} {}", std::process::id());
-    let helper =
-        platform::launch_as_administrator(&std::env::current_exe()?, OsStr::new(&parameters))?;
+    let helper = launch(&std::env::current_exe()?, OsStr::new(&parameters))?;
     wait_for_helper(&pipe, &helper, &name)?;
     if platform::client_process_id(&pipe)? != helper.id() {
         return Err(io::Error::new(
@@ -109,12 +118,10 @@ fn wait_for_helper(pipe: &File, helper: &ElevatedProcess, name: &str) -> io::Res
     loop {
         match connected.recv_timeout(Duration::from_millis(100)) {
             Ok(result) => return result,
-            Err(RecvTimeoutError::Timeout) if helper.has_exited() || Instant::now() >= deadline => {
-                drop(platform::open_pipe(name, Duration::from_secs(1)));
-                return Err(io::Error::other("the administrator helper did not start"));
+            Err(RecvTimeoutError::Timeout) if !helper.has_exited() && Instant::now() < deadline => {
             }
-            Err(RecvTimeoutError::Timeout) => {}
-            Err(RecvTimeoutError::Disconnected) => {
+            Err(RecvTimeoutError::Timeout | RecvTimeoutError::Disconnected) => {
+                drop(platform::open_pipe(name, Duration::from_secs(1)));
                 return Err(io::Error::other("the administrator helper did not start"));
             }
         }

@@ -37,6 +37,28 @@ fn editor_line_counts_unsafe_control_and_bidi_chars_as_one_cell_replacement() {
 }
 
 #[test]
+fn editor_line_dropped_and_width_match_expanded_tabs_on_ascii_tabs_and_cjk() {
+    let ascii = EditorLine {
+        text: "abcdef",
+        tab: TabSize::DEFAULT,
+    };
+    assert_eq!(ascii.width(), Cells::new(6));
+    assert_eq!(ascii.dropped(Cells::ZERO), Cells::ZERO);
+    assert_eq!(ascii.dropped(Cells::new(3)), Cells::new(3));
+    assert_eq!(ascii.dropped(Cells::new(99)), Cells::new(6));
+
+    let mixed = EditorLine {
+        text: "\t界x",
+        tab: TabSize::new(4),
+    };
+    assert_eq!(mixed.width(), Cells::new(7));
+    assert_eq!(mixed.dropped(Cells::ZERO), Cells::ZERO);
+    assert_eq!(mixed.dropped(Cells::new(2)), Cells::new(2));
+    assert_eq!(mixed.dropped(Cells::new(5)), Cells::new(6));
+    assert_eq!(mixed.dropped(Cells::new(20)), Cells::new(7));
+}
+
+#[test]
 fn skip_cells_drops_combining_marks_attached_to_skipped_base_char() {
     assert_eq!(
         skip_cells("e\u{0301}\u{0302}x", Cells::new(1)),
@@ -73,13 +95,13 @@ fn middle_cells_keeps_the_start_and_the_end_around_an_ellipsis() {
 #[test]
 fn highlighted_window_expands_tabs_to_tab_stops() {
     let cache = std::cell::RefCell::new(crate::highlight::cache::HighlightCache::default());
-    let lines = vec!["a\tb".to_owned(), "ab\tc".to_owned()];
+    let lines = vec!["a\tb".to_owned(), "ab\tc".to_owned(), String::new()];
     let rendered = super::super::code::highlighted_window(
         &cache,
         std::path::Path::new("sample.txt"),
         &lines,
         0,
-        2,
+        3,
         Cells::ZERO,
         Cells::new(20),
     );
@@ -95,4 +117,22 @@ fn highlighted_window_expands_tabs_to_tab_stops() {
         .collect();
     assert_eq!(first, "a   b");
     assert_eq!(second, "ab  c");
+    assert_eq!(rendered[2].spans.len(), 0);
+}
+
+#[test]
+fn take_cells_str_and_clip_runs_handle_wide_boundaries() {
+    assert_eq!(
+        super::clip::take_cells_str("界x", Cells::new(5)),
+        ("界x", Cells::new(3))
+    );
+    let dropped_wide = super::super::code::clip_runs(
+        vec![
+            ("abcd", crate::highlight::Token::Normal),
+            ("中", crate::highlight::Token::Str),
+        ],
+        Cells::ZERO,
+        Cells::new(5),
+    );
+    assert_eq!(dropped_wide.spans.len(), 1);
 }

@@ -32,7 +32,17 @@ fn pump(
     host: &HeadlessHost,
     generation: Generation,
 ) -> io::Result<()> {
-    let mut starting = cfg!(windows);
+    pump_with_startup(writer, input, replies, host, generation, cfg!(windows))
+}
+
+fn pump_with_startup(
+    writer: &mut dyn Write,
+    input: &Receiver<Vec<u8>>,
+    replies: &Receiver<Reply>,
+    host: &HeadlessHost,
+    generation: Generation,
+    mut starting: bool,
+) -> io::Result<()> {
     while host.active(generation) && !host.is_cancelled() {
         if matches!(replies.try_recv(), Ok(Reply::CursorPosition)) {
             deliver(writer, Reply::bytes(), host, generation)?;

@@ -130,5 +130,5 @@ fn regular_files_cannot_become_session_roots() {
     assert_eq!(result.err().unwrap().kind(), io::ErrorKind::InvalidInput);
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 mod external;

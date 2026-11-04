@@ -41,6 +41,46 @@ class RustLineExportTests(SandboxTestCase):
         self.assertEqual(result.returncode, 42, result.stderr)
         self.assertEqual([call.args[1] for call in self.sandbox.calls("cargo")], ["test", "report"])
 
+    def test_suite_selection_runs_requested_configurations_in_canonical_order(self):
+        result = self.sandbox.run(
+            "run_coverage.py",
+            env={"FFM_COVERAGE_SUITES": "colorer-sys-all, root-all"},
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = [call for call in self.sandbox.calls("cargo") if call.args[1] == "report"]
+        self.assertEqual(
+            [call.args[-1].split("/")[-1] for call in calls],
+            ["rust-root-all.lcov", "rust-colorer-sys-all.lcov"],
+        )
+
+    def test_unknown_suite_selection_fails_before_cargo(self):
+        result = self.sandbox.run(
+            "run_coverage.py",
+            env={"FFM_COVERAGE_SUITES": "root-all,bogus"},
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unknown FFM_COVERAGE_SUITES: bogus", result.stderr)
+        self.assertEqual(self.sandbox.calls("cargo"), [])
+
+    def test_prepare_target_writes_cachedir_tag_and_removes_stale_bdd_binaries(self):
+        target = self.sandbox.root / "cached-target"
+        deps = target / "debug" / "deps"
+        deps.mkdir(parents=True)
+        stale_bdd = deps / "bdd-deadbeef"
+        keep_lib = deps / "librmcp-1234.rlib"
+        stale_bdd.write_bytes(b"stale")
+        keep_lib.write_bytes(b"cached")
+        result = self.sandbox.run(
+            "run_coverage.py",
+            env={"CARGO_LLVM_COV_TARGET_DIR": str(target)},
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        tag = target / "CACHEDIR.TAG"
+        self.assertTrue(tag.is_file())
+        self.assertTrue(tag.read_text(encoding="utf-8").startswith("Signature: 8a477f597d28d172789f06886806bc55"))
+        self.assertFalse(stale_bdd.exists())
+        self.assertTrue(keep_lib.is_file())
+
 
 if __name__ == "__main__":
     unittest.main()

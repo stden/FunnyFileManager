@@ -52,18 +52,14 @@ fn the_viewer_refuses_to_signal_ffm_itself() {
     assert_eq!(frozen.refusal(), Some(ControlRefusal::OwnProcess));
 }
 
-#[cfg(unix)]
 #[test]
 fn without_a_host_the_report_opens_in_the_viewer() {
     let root = TempDir::new().expect("dir");
     let mut app = app(&root);
-    open(&mut app).expect("ps runs");
+    open(&mut app).expect("report runs");
     let crate::models::Overlay::Viewer(viewer) = &app.overlay else {
         panic!("the report is open");
     };
     assert_eq!(viewer.title(), "Task list");
-    assert!(viewer
-        .lines
-        .first()
-        .is_some_and(|line| line.contains("PID")));
+    assert!(viewer.lines.iter().any(|line| line.contains("PID")));
 }

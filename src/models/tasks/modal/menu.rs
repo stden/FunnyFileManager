@@ -59,7 +59,14 @@ impl TaskMenu {
     /// and `F9` does what `F8` does.
     #[must_use]
     pub fn signal(targets: FrozenTargets) -> Option<Self> {
-        let cursor = MenuCursor::at(0, Signal::OFFERED.len())?;
+        Self::signal_for(targets, Signal::OFFERED)
+    }
+
+    pub(in crate::models::tasks) fn signal_for(
+        targets: FrozenTargets,
+        offered: &[Signal],
+    ) -> Option<Self> {
+        let cursor = MenuCursor::at(0, offered.len())?;
         Some(Self::Signal { targets, cursor })
     }
 
@@ -98,12 +105,11 @@ impl TaskMenu {
 
     /// Moves the cursor to row `index`, clamped to the menu.
     pub fn select(&mut self, index: usize) {
-        let Some(moved) = MenuCursor::at(index, self.row_count()) else {
-            return;
-        };
+        let current = self.cursor();
+        let next = MenuCursor::at(index, self.row_count()).unwrap_or(current);
         match self {
             Self::Sort(cursor) | Self::Signal { cursor, .. } | Self::User { cursor, .. } => {
-                *cursor = moved;
+                *cursor = next;
             }
         }
     }

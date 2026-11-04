@@ -49,3 +49,31 @@ fn place_failure_messages_and_stale_user_write_do_not_mutate_registry() {
     let err = write(Scope::User, &stale, r"C:\unused").expect_err("stale revision refused");
     assert!(err.to_string().contains(CHANGED_OUTSIDE), "{err}");
 }
+
+#[test]
+fn write_with_updates_matching_revision_and_logs_broadcast_errors() {
+    use crate::platform::{RegistryString, RegistryStringKind};
+
+    let initial = RegistryString {
+        kind: RegistryStringKind::Expandable,
+        text: r"C:\Old".to_owned(),
+    };
+    let snap = Snapshot {
+        revision: revision(&initial),
+        value: initial.text.clone(),
+        location: Place::of(Scope::User).location(),
+    };
+    let mut written = None;
+    write_with(
+        Scope::User,
+        &snap,
+        r"C:\New",
+        |_, _, _, update| {
+            written = Some(update(Some(initial.clone()))?);
+            Ok(())
+        },
+        || Err(io::Error::other("broadcast timeout")),
+    )
+    .expect("saved despite broadcast failure");
+    assert_eq!(written.unwrap().text, r"C:\New");
+}

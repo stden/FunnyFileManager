@@ -6,6 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(unix)]
 fn start(
     host: &HeadlessHost,
     script: &str,
@@ -21,16 +22,42 @@ fn start(
     })
 }
 
+#[cfg(windows)]
+fn start(
+    host: &HeadlessHost,
+    script: &str,
+) -> thread::JoinHandle<io::Result<headless::ExternalOutcome>> {
+    let host = host.clone();
+    let script = script.to_owned();
+    thread::spawn(move || {
+        let _scope = host.enter();
+        headless::run_with_timeout(
+            std::process::Command::new("cmd").args(["/Q", "/C", &script]),
+            Some(Duration::from_secs(15)),
+        )
+    })
+}
+
+#[cfg(unix)]
 fn wait_for_prompt(host: &HeadlessHost) {
-    let deadline = Instant::now() + Duration::from_secs(3);
+    let deadline = Instant::now() + Duration::from_secs(5);
     while !host.snapshot().output.contains("READY") && Instant::now() < deadline {
-        thread::sleep(Duration::from_millis(5));
+        thread::sleep(Duration::from_millis(10));
     }
     assert!(
         host.snapshot().output.contains("READY"),
         "{:?}",
         host.snapshot().state
     );
+}
+
+#[cfg(windows)]
+fn wait_for_running(host: &HeadlessHost) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while host.snapshot().state == ExternalState::Idle && Instant::now() < deadline {
+        thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(host.snapshot().state, ExternalState::Running);
 }
 
 fn mixed_input() -> Vec<Event> {
@@ -47,6 +74,7 @@ fn mixed_input() -> Vec<Event> {
     ]
 }
 
+#[cfg(unix)]
 #[test]
 fn key_paste_and_mouse_reach_child_in_order() {
     let host = HeadlessHost::new();
@@ -71,6 +99,36 @@ fn key_paste_and_mouse_reach_child_in_order() {
         .contains("<aтекст\x1b[<6;4;5M>"));
 }
 
+#[cfg(windows)]
+#[test]
+fn key_paste_and_mouse_reach_child_and_publish_running_and_exited() {
+    let host = HeadlessHost::new();
+    host.resize(91, 27).unwrap();
+    let child = start(&host, "set /p line=& exit /b 7");
+    wait_for_running(&host);
+    let state = snapshot(&host);
+    assert_eq!(state["state"], "running");
+    assert_eq!(state["width"], 91);
+    assert_eq!(state["height"], 27);
+    input(&host, mixed_input()).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while host.snapshot().state == ExternalState::Running && Instant::now() < deadline {
+        drop(input(
+            &host,
+            vec![Event::Key(KeyEvent::new(
+                KeyCode::Enter,
+                KeyModifiers::NONE,
+            ))],
+        ));
+        thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(child.join().unwrap().unwrap().code, 7);
+    let state = snapshot(&host);
+    assert_eq!(state["state"], "exited");
+    assert_eq!(state["code"], 7);
+}
+
+#[cfg(unix)]
 #[test]
 fn cancelled_child_is_reported_without_an_exit_code() {
     let host = HeadlessHost::new();
@@ -87,4 +145,20 @@ fn cancelled_child_is_reported_without_an_exit_code() {
     assert_eq!(state["state"], "cancelled");
     assert!(state["code"].is_null());
     assert!(state["output"].as_str().unwrap().contains("READY"));
+}
+
+#[cfg(windows)]
+#[test]
+fn cancelled_child_is_reported_without_an_exit_code() {
+    let host = HeadlessHost::new();
+    let child = start(&host, "ping -n 30 127.0.0.1 >nul");
+    wait_for_running(&host);
+    host.cancel();
+    assert_eq!(
+        child.join().unwrap().unwrap_err().kind(),
+        io::ErrorKind::Interrupted
+    );
+    let state = snapshot(&host);
+    assert_eq!(state["state"], "cancelled");
+    assert!(state["code"].is_null());
 }

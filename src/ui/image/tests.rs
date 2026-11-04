@@ -80,12 +80,21 @@ fn empty_image_area_does_not_start_a_worker() {
 
 #[test]
 fn worker_start_failure_gives_an_actionable_message() {
-    RENDERER.with_borrow_mut(|renderer| renderer.failed = true);
+    let previous = RENDERER.with_borrow_mut(|renderer| {
+        let previous = renderer.worker.take();
+        renderer.failed = false;
+        renderer.start_worker_with(|| Err(std::io::Error::other("spawn failed")));
+        assert!(renderer.failed);
+        previous
+    });
     let source = image(1, 1, &[255, 0, 0, 255]);
     let mut terminal = Terminal::new(TestBackend::new(72, 2)).expect("terminal");
     draw_image(&mut terminal, Rect::new(0, 0, 72, 2), &source);
     assert!(row(&terminal, 0).contains("Enter to open externally"));
-    RENDERER.with_borrow_mut(|renderer| renderer.failed = false);
+    RENDERER.with_borrow_mut(|renderer| {
+        renderer.worker = previous;
+        renderer.failed = false;
+    });
 }
 
 #[test]

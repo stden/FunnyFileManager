@@ -55,10 +55,45 @@ def verdict(label, totals, rows):
     return passed
 
 
+MIN_RUST_REGION_BASIS_POINTS = 9500
+
+
+def rust_regions(path):
+    companion = Path(path).with_suffix(".json")
+    if not companion.is_file():
+        return None
+    data = read_report(companion).get("data")
+    if not isinstance(data, list) or not data or not isinstance(data[0], dict):
+        raise ValueError("invalid Rust JSON coverage data")
+    totals = data[0].get("totals")
+    if not isinstance(totals, dict) or "regions" not in totals:
+        return None
+    return companion.name, counts(totals.get("regions"), ("covered", "count"))
+
+
+def check_rust_regions(path):
+    measured = rust_regions(path)
+    if measured is None:
+        return True
+    name, (covered, count) = measured
+    if count == 0:
+        raise ValueError("Rust region report measured no regions")
+    hundredths = covered * 10000 // count
+    passed = hundredths >= MIN_RUST_REGION_BASIS_POINTS
+    share = f"{hundredths // 100}.{hundredths % 100:02d}%"
+    floor = f"{MIN_RUST_REGION_BASIS_POINTS // 100}.{MIN_RUST_REGION_BASIS_POINTS % 100:02d}%"
+    mark = "✓" if passed else "✗"
+    message = f"{mark} Rust regions ({name}): {share} region coverage ({covered}/{count}); >={floor} required"
+    print(message, file=sys.stdout if passed else sys.stderr)
+    return passed
+
+
 def check_rust(path):
     rows = coverage_lcov.rows(path)
     totals = sum(row[1] for row in rows), sum(row[2] for row in rows)
-    return verdict(f"Rust ({Path(path).name})", totals, rows)
+    lines_ok = verdict(f"Rust ({Path(path).name})", totals, rows)
+    regions_ok = check_rust_regions(path)
+    return lines_ok and regions_ok
 
 
 def missing_lines(entry, uncovered):

@@ -140,10 +140,12 @@ fn build_candidates() -> Vec<CleanupCandidate> {
 
 #[cfg(windows)]
 fn platform_caches(home: Option<&Path>) -> Vec<CleanupCandidate> {
-    let Some(local) = std::env::var_os("LOCALAPPDATA")
-        .map(PathBuf::from)
-        .or_else(|| Some(home?.join("AppData").join("Local")))
-    else {
+    platform_caches_from(std::env::var_os("LOCALAPPDATA").map(PathBuf::from), home)
+}
+
+#[cfg(windows)]
+fn platform_caches_from(local: Option<PathBuf>, home: Option<&Path>) -> Vec<CleanupCandidate> {
+    let Some(local) = local.or_else(|| Some(home?.join("AppData").join("Local"))) else {
         return Vec::new();
     };
     vec![

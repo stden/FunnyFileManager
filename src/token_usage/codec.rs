@@ -12,19 +12,17 @@ pub(super) fn parse(provider: Provider, body: &Value) -> Result<Page, UsageError
         ..UsageTotals::default()
     };
     for row in array(body, "data")? {
-        if provider == Provider::OpenAi {
-            for result in array(row, "results")? {
-                merge(&mut totals, &openai(result)?)?;
-            }
-        } else {
-            let value = match provider {
-                Provider::Anthropic => {
-                    anthropic(row.get("usage").ok_or(UsageError::InvalidResponse)?)?
+        match provider {
+            Provider::OpenAi => {
+                for result in array(row, "results")? {
+                    merge(&mut totals, &openai(result)?)?;
                 }
-                Provider::OpenRouter => router(row)?,
-                Provider::OpenAi => return Err(UsageError::InvalidResponse),
-            };
-            merge(&mut totals, &value)?;
+            }
+            Provider::Anthropic => {
+                let usage = row.get("usage").ok_or(UsageError::InvalidResponse)?;
+                merge(&mut totals, &anthropic(usage)?)?;
+            }
+            Provider::OpenRouter => merge(&mut totals, &router(row)?)?,
         }
     }
     let next = if provider == Provider::OpenRouter {

@@ -18,7 +18,17 @@ pub(super) fn end_session(
     run_result: io::Result<()>,
     cleanup_result: io::Result<()>,
 ) -> Result<(), Box<dyn Error>> {
-    if crate::recording::wait_for_terminal(std::time::Duration::ZERO).is_err() {
+    let lost = crate::recording::wait_for_terminal(std::time::Duration::ZERO).is_err();
+    end_session_after_wait(app, run_result, cleanup_result, lost)
+}
+
+pub(super) fn end_session_after_wait(
+    app: &App,
+    run_result: io::Result<()>,
+    cleanup_result: io::Result<()>,
+    terminal_lost: bool,
+) -> Result<(), Box<dyn Error>> {
+    if terminal_lost {
         report_at_exit(app, &Ok(()));
         return Ok(());
     }

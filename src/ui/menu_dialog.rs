@@ -69,9 +69,7 @@ fn caption_lines(caption: &str, width: Cells) -> Vec<String> {
                 .rfind(' ')
                 .filter(|index| *index > 0)
                 .unwrap_or(head.len());
-            let Some((line, rest)) = remaining.split_at_checked(split) else {
-                break;
-            };
+            let (line, rest) = remaining.split_at_checked(split).unwrap_or((remaining, ""));
             lines.push(line.to_owned());
             remaining = rest.trim_start();
         }

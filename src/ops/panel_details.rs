@@ -1,52 +1,87 @@
 //! Capture metadata for extended panel views outside rendering.
 
-use std::{fs, io, path::Path};
+use std::{collections::BTreeMap, fs, io, path::Path};
 
-use crate::models::{Panel, PanelDetails, PanelView};
+use crate::models::{DirEntry, Panel, PanelDetails, PanelView};
 
 #[cfg(windows)]
 pub mod windows;
 
 pub fn set_view(panel: &mut Panel, view: PanelView) -> io::Result<()> {
-    let mut details = PanelDetails::default();
-    if matches!(view, PanelView::Descriptions | PanelView::LongDescriptions) {
-        details.descriptions = panel_descriptions(panel)?;
-    }
-    if matches!(view, PanelView::Owners | PanelView::Links) {
-        let mut names = crate::directory::owner::Owners::default();
-        for entry in &panel.entries {
-            let path = panel.path.join(entry.disk_name());
-            if let Ok(metadata) = fs::symlink_metadata(&path) {
-                let owner = names.user_and_group(&metadata).unwrap_or_default();
-                details.owners.insert(entry.name.clone(), owner);
-                details
-                    .links
-                    .insert(entry.name.clone(), links(&path, &metadata));
-            }
-        }
-    }
-    #[cfg(windows)]
-    if view == PanelView::Owners {
-        details.owners = windows::owners(&panel.path)?;
-    }
-    panel.details = details;
+    panel.details = details_for(
+        &panel.path,
+        panel.entries.iter(),
+        view,
+        panel.active_description_names(),
+    )?;
     panel.view = view;
     Ok(())
 }
 
-/// The Descriptions views read the file named in Options > File descriptions,
-/// or the panel's own search list, by the same rule as the listing and
-/// Ctrl+Z.
-fn panel_descriptions(panel: &Panel) -> io::Result<std::collections::BTreeMap<String, String>> {
-    let chosen = &panel.options.description_file;
-    let names = if chosen.is_empty() {
-        panel.description_names.as_slice()
-    } else {
-        std::slice::from_ref(chosen)
-    };
-    Ok(crate::description::try_read(&panel.path, names)?
-        .into_iter()
-        .collect())
+/// Capture view-specific details before mutating the panel snapshot.
+pub(super) fn details_for<'a>(
+    path: &Path,
+    entries: impl IntoIterator<Item = &'a DirEntry>,
+    view: PanelView,
+    description_names: &[String],
+) -> io::Result<PanelDetails> {
+    let mut details = PanelDetails::default();
+    match view {
+        PanelView::Descriptions | PanelView::LongDescriptions => {
+            details.descriptions = crate::description::try_read(path, description_names)?
+                .into_iter()
+                .collect();
+        }
+        PanelView::Owners => {
+            details.owners = collect_owners(path, entries)?;
+        }
+        PanelView::Links => {
+            for entry in entries {
+                let entry_path = path.join(entry.disk_name());
+                if let Ok(metadata) = fs::symlink_metadata(&entry_path) {
+                    details
+                        .links
+                        .insert(entry.name.clone(), links(&entry_path, &metadata));
+                }
+            }
+        }
+        PanelView::Brief
+        | PanelView::Medium
+        | PanelView::Full
+        | PanelView::Wide
+        | PanelView::Detailed
+        | PanelView::Alternative => {}
+    }
+    Ok(details)
+}
+
+#[cfg(windows)]
+fn collect_owners<'a>(
+    path: &Path,
+    _entries: impl IntoIterator<Item = &'a DirEntry>,
+) -> io::Result<BTreeMap<String, String>> {
+    windows::owners(path)
+}
+
+#[cfg(unix)]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "matches the fallible Windows ACL lookup signature"
+)]
+fn collect_owners<'a>(
+    path: &Path,
+    entries: impl IntoIterator<Item = &'a DirEntry>,
+) -> io::Result<BTreeMap<String, String>> {
+    let mut owners = BTreeMap::new();
+    let mut names = crate::directory::owner::Owners::default();
+    for entry in entries {
+        let entry_path = path.join(entry.disk_name());
+        if let Ok(metadata) = fs::symlink_metadata(&entry_path) {
+            let owner = names.user_and_group(&metadata).unwrap_or_default();
+            owners.insert(entry.name.clone(), owner);
+        }
+    }
+    Ok(owners)
 }
 
 fn links(path: &Path, metadata: &fs::Metadata) -> String {

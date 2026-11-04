@@ -69,6 +69,25 @@ fn detection_recognizes_unicode_boms_and_legacy_fallback() {
 }
 
 #[test]
+fn detect_and_decode_lossy_borrows_utf8_and_decodes_boms_and_legacy() {
+    let (enc, text) = TextEncoding::detect_and_decode_lossy(b"plain utf8");
+    assert_eq!(enc, TextEncoding::Utf8);
+    assert!(matches!(text, std::borrow::Cow::Borrowed("plain utf8")));
+
+    for expected in [
+        TextEncoding::Utf8Bom,
+        TextEncoding::Utf16Le,
+        TextEncoding::Utf16Be,
+        TextEncoding::Windows1251,
+    ] {
+        let encoded = expected.encode("Привет").expect("encode");
+        let (detected, decoded) = TextEncoding::detect_and_decode_lossy(&encoded);
+        assert_eq!(detected, expected);
+        assert_eq!(decoded, "Привет");
+    }
+}
+
+#[test]
 fn unsupported_characters_and_malformed_unicode_are_errors() {
     for encoding in [
         TextEncoding::Windows1251,

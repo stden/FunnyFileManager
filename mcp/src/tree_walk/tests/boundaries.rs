@@ -16,11 +16,31 @@ fn unreadable_subdirectories_contribute_no_bytes() {
         let denied = root.path().join("denied");
         fs::create_dir(&denied).unwrap();
         fs::write(denied.join("private"), b"unreadable").unwrap();
-        fs::set_permissions(&denied, fs::Permissions::from_mode(0)).unwrap();
+        fs::set_permissions(&denied, fs::Permissions::from_mode(0o000)).unwrap();
         let size = directory_size(root.path());
         fs::set_permissions(&denied, fs::Permissions::from_mode(0o700)).unwrap();
         assert_eq!(size, 0);
     });
+}
+
+#[cfg(windows)]
+#[test]
+fn exclusively_locked_subdirectories_contribute_no_bytes() {
+    use std::os::windows::fs::OpenOptionsExt;
+
+    let root = TempDir::new().unwrap();
+    let denied = root.path().join("denied");
+    fs::create_dir(&denied).unwrap();
+    fs::write(denied.join("private"), b"unreadable").unwrap();
+    let lock = fs::OpenOptions::new()
+        .read(true)
+        .share_mode(0)
+        .custom_flags(0x0200_0000)
+        .open(&denied)
+        .unwrap();
+    let size = directory_size(root.path());
+    drop(lock);
+    assert_eq!(size, 0);
 }
 
 #[test]

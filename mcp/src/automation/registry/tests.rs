@@ -29,8 +29,15 @@ async fn requests_to_a_retired_connection_return_unknown_session() {
 async fn closing_a_retired_connection_still_forgets_its_session_id() {
     let manager = SessionManager::default();
     let id = SessionId("retired-session".into());
-    manager.sessions.lock().await.insert(id.clone(), session(None).await);
-    assert!(matches!(manager.close(&id).await, Err(Error::UnknownSession)));
+    manager
+        .sessions
+        .lock()
+        .await
+        .insert(id.clone(), session(None).await);
+    assert!(matches!(
+        manager.close(&id).await,
+        Err(Error::UnknownSession)
+    ));
     assert!(manager.sessions.lock().await.is_empty());
     drop(manager);
 }

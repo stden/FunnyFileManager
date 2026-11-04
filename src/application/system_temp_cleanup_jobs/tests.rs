@@ -95,3 +95,24 @@ fn disconnected_worker_shows_failure_once_without_polling_forever() {
     ));
     assert_eq!(jobs.pump(&mut app), Redraw::Unchanged);
 }
+#[test]
+fn spawn_failure_and_empty_mailbox_keep_dialog_state_consistent() {
+    let (_temp, mut app, _plan) = fixture();
+    let (mut waiting, _sender) = pending(Arc::new(()));
+    assert_eq!(waiting.collect(&mut app), Redraw::Unchanged);
+    assert!(waiting.pending.is_some());
+
+    crate::ops::system_temp_cleanup::open(&mut app);
+    let mut jobs = TempCleanupJobs::default();
+    FORCE_SPAWN_FAILURE.set(true);
+    let redraw = jobs.pump(&mut app);
+    FORCE_SPAWN_FAILURE.set(false);
+    assert_eq!(redraw, Redraw::Needed);
+    let Overlay::TempCleanup(dialog) = &app.overlay else {
+        panic!("dialog");
+    };
+    assert!(matches!(
+        dialog.state,
+        TempCleanupState::Failed(TempError::Worker)
+    ));
+}

@@ -1,13 +1,29 @@
 //! Purpose: Stateful XML/HTML tag-pair scanner across lines for [`super::matching_xml_pair`].
 
+mod attr;
+
+use attr::ascii_run;
+pub(super) use attr::tag_name_len;
+
 use super::TagSpan;
 
-type Step = (usize, usize, Option<[TagSpan; 2]>);
+#[derive(Debug, Clone, Copy)]
+pub(super) struct OpenTag<'a> {
+    pub(super) name: &'a str,
+    pub(super) span: TagSpan,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(super) struct ScanStep {
+    pub(super) bytes: usize,
+    pub(super) chars: usize,
+    pub(super) pair: Option<[TagSpan; 2]>,
+}
 
 #[derive(Debug, Default)]
 pub(super) struct XmlScanner<'a> {
     mode: Mode<'a>,
-    stack: Vec<(&'a str, TagSpan)>,
+    stack: Vec<OpenTag<'a>>,
 }
 
 #[derive(Debug, Default)]
@@ -16,8 +32,8 @@ enum Mode<'a> {
     Text,
     Until(&'static str),
     OpenTag {
-        pending: (&'a str, TagSpan),
-        quote: Option<char>,
+        pending: OpenTag<'a>,
+        quote: Option<u8>,
     },
 }
 
@@ -25,16 +41,16 @@ impl<'a> XmlScanner<'a> {
     pub(super) fn find_pair(
         mut self,
         lines: &'a [String],
-        cursor_line: usize,
-        cursor_col: usize,
+        line: usize,
+        col: usize,
     ) -> Option<[TagSpan; 2]> {
-        let limit = cursor_line.saturating_add(super::super::MAX_SCAN_LINES + 1);
-        let first = cursor_line.saturating_sub(super::super::MAX_SCAN_LINES);
-        for (idx, line) in lines.iter().enumerate().take(limit).skip(first) {
-            if idx > cursor_line && !self.has_cursor_open(lines, cursor_line, cursor_col) {
+        let limit = line.saturating_add(super::super::MAX_SCAN_LINES + 1);
+        let first = line.saturating_sub(super::super::MAX_SCAN_LINES);
+        for (idx, text) in lines.iter().enumerate().take(limit).skip(first) {
+            if idx > line && !self.has_cursor_open(lines, line, col) {
                 break;
             }
-            if let Some(pair) = self.scan_line(lines, idx, line, cursor_line, cursor_col) {
+            if let Some(pair) = self.scan_line(lines, idx, text, (line, col)) {
                 return Some(pair);
             }
         }
@@ -44,8 +60,11 @@ impl<'a> XmlScanner<'a> {
     fn has_cursor_open(&self, lines: &[String], line: usize, col: usize) -> bool {
         self.stack
             .iter()
-            .any(|(_, s)| s.matches_cursor(lines, line, col))
-            || matches!(self.mode, Mode::OpenTag { pending: (_, s), .. } if s.matches_cursor(lines, line, col))
+            .any(|open| open.span.matches_cursor(lines, line, col))
+            || matches!(
+                self.mode,
+                Mode::OpenTag { pending, .. } if pending.span.matches_cursor(lines, line, col)
+            )
     }
 
     fn scan_line(
@@ -53,44 +72,39 @@ impl<'a> XmlScanner<'a> {
         lines: &'a [String],
         line_idx: usize,
         line: &'a str,
-        cursor_line: usize,
-        cursor_col: usize,
+        cur: (usize, usize),
     ) -> Option<[TagSpan; 2]> {
         let (mut byte_pos, mut char_pos) = (0, 0);
         while byte_pos < line.len() {
             let rest = line.get(byte_pos..).unwrap_or_default();
-            let (adv_bytes, adv_chars, pair) = match self.mode {
+            let step = match self.mode {
                 Mode::Text => self.step_text(line_idx, char_pos, rest),
                 Mode::Until(closer) => Self::step_until(&mut self.mode, rest, closer),
                 Mode::OpenTag { .. } => self.step_open_tag(line_idx, char_pos, rest),
             };
-            if let Some(matched) = pair.filter(|[open, close]| {
-                open.matches_cursor(lines, cursor_line, cursor_col)
-                    || close.matches_cursor(lines, cursor_line, cursor_col)
-            }) {
-                return Some(matched);
+            if step
+                .pair
+                .is_some_and(|pair| pair.iter().any(|s| s.matches_cursor(lines, cur.0, cur.1)))
+            {
+                return step.pair;
             }
-            byte_pos += adv_bytes;
-            char_pos += adv_chars;
+            byte_pos += step.bytes;
+            char_pos += step.chars;
         }
         None
     }
 
-    fn step_until(mode: &mut Mode<'a>, rest: &'a str, closer: &str) -> Step {
+    fn step_until(mode: &mut Mode<'a>, rest: &'a str, closer: &str) -> ScanStep {
         if let Some(pos) = rest.find(closer) {
             *mode = Mode::Text;
-            let end = pos + closer.len();
-            let chars = rest.get(..end).map_or(closer.len(), |s| s.chars().count());
-            return (end, chars, None);
+            return ScanStep::utf8(rest, pos + closer.len());
         }
-        (rest.len().max(1), rest.chars().count().max(1), None)
+        ScanStep::utf8(rest, rest.len())
     }
 
-    fn step_text(&mut self, line_idx: usize, char_pos: usize, rest: &'a str) -> Step {
+    fn step_text(&mut self, line_idx: usize, char_pos: usize, rest: &'a str) -> ScanStep {
         if !rest.starts_with('<') {
-            let bytes = rest.find('<').unwrap_or(rest.len());
-            let chars = rest.get(..bytes).map_or(1, |s| s.chars().count()).max(1);
-            return (bytes.max(1), chars, None);
+            return ScanStep::utf8(rest, rest.find('<').unwrap_or(rest.len()));
         }
         for (prefix, closer) in [
             ("<!--", "-->"),
@@ -100,7 +114,7 @@ impl<'a> XmlScanner<'a> {
         ] {
             if rest.starts_with(prefix) {
                 self.mode = Mode::Until(closer);
-                return (prefix.len(), prefix.len(), None);
+                return ScanStep::ascii(prefix.len());
             }
         }
         if rest.starts_with("</") {
@@ -109,87 +123,51 @@ impl<'a> XmlScanner<'a> {
         self.step_open_tag_start(line_idx, char_pos, rest)
     }
 
-    fn step_close_tag(&mut self, line_idx: usize, char_pos: usize, rest: &'a str) -> Step {
+    fn step_close_tag(&mut self, line_idx: usize, char_pos: usize, rest: &'a str) -> ScanStep {
         let after_slash = rest.get(2..).unwrap_or_default();
-        let name_len = ascii_run(after_slash, is_tag_name_char);
+        let name_len = tag_name_len(after_slash);
         let after_name = after_slash.get(name_len..).unwrap_or_default();
         let ws_len = ascii_run(after_name, |c| c.is_ascii_whitespace());
         if name_len > 0 && after_name.get(ws_len..).is_some_and(|s| s.starts_with('>')) {
             let name = after_slash.get(..name_len).unwrap_or_default();
             let total = 2 + name_len + ws_len + 1;
             let close_span = TagSpan::new(line_idx, char_pos, char_pos + total);
-            return (total, total, self.pop_matching(name, close_span));
+            return ScanStep {
+                bytes: total,
+                chars: total,
+                pair: self.pop_matching(name, close_span),
+            };
         }
-        (2, 2, None)
+        ScanStep::ascii(2)
     }
 
-    fn step_open_tag_start(&mut self, line_idx: usize, char_pos: usize, rest: &'a str) -> Step {
+    fn step_open_tag_start(&mut self, line_idx: usize, char_pos: usize, rest: &'a str) -> ScanStep {
         let after_lt = rest.get(1..).unwrap_or_default();
-        let name_len = ascii_run(after_lt, is_tag_name_char);
+        let name_len = tag_name_len(after_lt);
         if name_len == 0 {
-            return (1, 1, None);
+            return ScanStep::ascii(1);
         }
         let name = after_lt.get(..name_len).unwrap_or_default();
         if after_lt.get(name_len..).is_some_and(|s| s.starts_with('>')) {
             let total = 1 + name_len + 1;
-            self.stack
-                .push((name, TagSpan::new(line_idx, char_pos, char_pos + total)));
-            return (total, total, None);
+            let span = TagSpan::new(line_idx, char_pos, char_pos + total);
+            self.stack.push(OpenTag { name, span });
+            return ScanStep::ascii(total);
         }
-        let open_span = TagSpan::new(line_idx, char_pos, char_pos + 1 + name_len);
+        let span = TagSpan::new(line_idx, char_pos, char_pos + 1 + name_len);
         self.mode = Mode::OpenTag {
-            pending: (name, open_span),
+            pending: OpenTag { name, span },
             quote: None,
         };
-        (1 + name_len, 1 + name_len, None)
-    }
-
-    fn step_open_tag(&mut self, line_idx: usize, char_pos: usize, rest: &'a str) -> Step {
-        let Mode::OpenTag {
-            pending,
-            ref mut quote,
-        } = self.mode
-        else {
-            return (1, 1, None);
-        };
-        let ch = rest.chars().next().unwrap_or(' ');
-        if quote.is_some() {
-            if *quote == Some(ch) {
-                *quote = None;
-            }
-            return (ch.len_utf8(), 1, None);
-        }
-        if rest.starts_with("/>") {
-            let close = TagSpan::new(line_idx, char_pos, char_pos + 2);
-            self.mode = Mode::Text;
-            return (2, 2, Some([pending.1, close]));
-        }
-        if ch == '>' {
-            self.stack.push(pending);
-            self.mode = Mode::Text;
-            return (1, 1, None);
-        }
-        *quote = (ch == '"' || ch == '\'').then_some(ch);
-        (ch.len_utf8(), 1, None)
+        ScanStep::ascii(1 + name_len)
     }
 
     fn pop_matching(&mut self, name: &str, close_span: TagSpan) -> Option<[TagSpan; 2]> {
-        let idx = self.stack.iter().rposition(|(open, _)| *open == name)?;
-        let (_, open_span) = self.stack.get(idx).copied()?;
+        let idx = self.stack.iter().rposition(|open| open.name == name)?;
+        let open = *self.stack.get(idx)?;
         self.stack.truncate(idx);
-        Some([open_span, close_span])
+        Some([open.span, close_span])
     }
-}
-
-fn ascii_run(text: &str, keep: impl Fn(char) -> bool) -> usize {
-    text.chars()
-        .take_while(|&c| keep(c))
-        .map(char::len_utf8)
-        .sum()
-}
-
-pub(super) fn is_tag_name_char(ch: char) -> bool {
-    ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.' | ':')
 }
 
 #[cfg(test)]

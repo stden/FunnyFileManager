@@ -50,7 +50,7 @@ fn the_read_is_bounded_even_for_an_endless_file() {
     }
 
     let read = crate::test_support::run_with_timeout(GUARD_TIMEOUT, || {
-        read_bounded(File::open("/dev/zero")?, MAX_FILE_SIZE.bytes()).map(|bytes| bytes.len())
+        read_bounded(File::open("/dev/zero")?, 0, MAX_FILE_SIZE.bytes()).map(|bytes| bytes.len())
     })
     .expect("a bounded read of /dev/zero must finish promptly");
 

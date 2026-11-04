@@ -1,8 +1,8 @@
 //! Pattern deletion with post-order directory handling and dry-run reports.
 
 use super::{
-    format_size, globmatch, json_response, walkable_type, DeleteByPatternParams, FfmServer,
-    WALK_BUDGET,
+    format_size, globmatch::CompiledGlob, json_response, walkable_type, DeleteByPatternParams,
+    FfmServer, WALK_BUDGET,
 };
 use ffm_mcp::tree_walk::directory_size;
 use rmcp::{model::CallToolResult, ErrorData as McpError};
@@ -23,11 +23,12 @@ pub fn delete_by_pattern(
             None,
         ));
     }
-    globmatch::validate_pattern(&params.pattern).map_err(|e| McpError::invalid_params(e, None))?;
+    let compiled =
+        CompiledGlob::compile(&params.pattern).map_err(|e| McpError::invalid_params(e, None))?;
 
     let mut run = DeleteRun::default();
 
-    delete_pattern_recursive(&root, params, &mut run);
+    delete_pattern_recursive(&root, &compiled, params, &mut run);
 
     let total_size: u64 = run.deleted.iter().filter_map(|d| d["size"].as_u64()).sum();
 
@@ -55,21 +56,21 @@ struct DeleteRun {
 #[derive(Clone, Copy)]
 enum DeleteKind {
     Directory,
-    File,
+    File(u64),
 }
 
 impl DeleteKind {
     fn label(self) -> &'static str {
         match self {
             Self::Directory => "dir",
-            Self::File => "file",
+            Self::File(_) => "file",
         }
     }
 
     fn size(self, path: &Path) -> u64 {
         match self {
             Self::Directory => directory_size(path),
-            Self::File => fs::metadata(path).map_or(0, |meta| meta.len()),
+            Self::File(size) => size,
         }
     }
 
@@ -82,13 +83,14 @@ impl DeleteKind {
                     fs::remove_dir(path)
                 }
             }
-            Self::File => fs::remove_file(path),
+            Self::File(_) => fs::remove_file(path),
         }
     }
 }
 
 fn delete_pattern_recursive(
     dir: &Path,
+    pattern: &CompiledGlob<'_>,
     params: &DeleteByPatternParams,
     run: &mut DeleteRun,
 ) -> u64 {
@@ -103,13 +105,14 @@ fn delete_pattern_recursive(
         if run.visited >= WALK_BUDGET {
             break;
         }
-        claimed += delete_pattern_entry(&entry, params, run);
+        claimed += delete_pattern_entry(&entry, pattern, params, run);
     }
     claimed
 }
 
 fn delete_pattern_entry(
     entry: &fs::DirEntry,
+    pattern: &CompiledGlob<'_>,
     params: &DeleteByPatternParams,
     run: &mut DeleteRun,
 ) -> u64 {
@@ -118,11 +121,15 @@ fn delete_pattern_entry(
         return 0;
     };
     run.visited += 1;
-    let path = entry.path();
-    let matched = globmatch::matches(&entry.file_name().to_string_lossy(), &params.pattern);
+    let matched = pattern.matches(&entry.file_name().to_string_lossy());
     if file_type.is_dir() {
+        let need_path = params.recursive || (params.include_dirs && matched);
+        if !need_path {
+            return 0;
+        }
+        let path = entry.path();
         let mut claimed = if params.recursive {
-            delete_pattern_recursive(&path, params, run)
+            delete_pattern_recursive(&path, pattern, params, run)
         } else {
             0
         };
@@ -131,7 +138,8 @@ fn delete_pattern_entry(
         }
         claimed
     } else if matched {
-        delete_match(&path, DeleteKind::File, 0, params, run)
+        let size = entry.metadata().map_or(0, |meta| meta.len());
+        delete_match(&entry.path(), DeleteKind::File(size), 0, params, run)
     } else {
         0
     }

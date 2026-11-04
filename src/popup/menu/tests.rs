@@ -30,4 +30,7 @@ fn alt_letters_select_every_heading_from_every_drop_down() {
             }
         }
     }
+    app.set_menu(Menu::open(Heading::Left));
+    assert!(process(&mut app, KeyCode::Enter, KeyModifiers::ALT));
+    assert!(matches!(&app.overlay, Overlay::Menu(menu) if menu.heading == Heading::Left));
 }

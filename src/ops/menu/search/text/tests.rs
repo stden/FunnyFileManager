@@ -29,6 +29,7 @@ fn padded(pad: usize, rest: &str) -> Vec<u8> {
 fn finds_the_needle_whatever_its_case() {
     assert_eq!(scan(b"alpha TODO beta", "todo"), Scan::Found);
     assert_eq!(scan("Привет, МИР".as_bytes(), "мир"), Scan::Found);
+    assert_eq!(scan("привет".as_bytes(), "мир"), Scan::Absent);
     assert_eq!(scan(b"nothing here", "todo"), Scan::Absent);
 }
 
@@ -134,4 +135,13 @@ fn turkish_dotted_i_and_kelvin_sign_are_not_skipped_by_chunk_anchor_prefilter() 
     assert_eq!(scan(&bytes, "i"), Scan::Found);
     assert_eq!(scan(&bytes, "k"), Scan::Found);
     assert_eq!(scan(&bytes, "273k"), Scan::Found);
+}
+
+#[test]
+fn tail_cut_stops_at_zero_and_backs_up_over_utf8_continuation_bytes() {
+    assert_eq!(super::anchor::tail_cut(&[b'x'; 20], 1), None);
+    assert_eq!(
+        super::anchor::tail_cut(b"a\xF0\x9F\xA6\x80xxxxxxxxxxxxxxxxxx", 1),
+        Some(1)
+    );
 }

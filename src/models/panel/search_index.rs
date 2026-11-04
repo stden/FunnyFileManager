@@ -25,12 +25,8 @@ pub(super) fn select_prefixed(panel: &mut Panel, prefix: &str, next: bool) -> bo
     if panel.entries.is_empty() || prefix.is_empty() {
         return false;
     }
-    ensure(panel);
-    let found = panel
-        .name_index
-        .borrow()
-        .as_ref()
-        .and_then(|index| choose(index, prefix, panel.selected().unwrap_or(0), next));
+    let current = panel.selected().unwrap_or(0);
+    let found = with_index(panel, |index| choose(index, prefix, current, next));
     if let Some(index) = found {
         panel.select(Some(index));
         return true;
@@ -40,38 +36,35 @@ pub(super) fn select_prefixed(panel: &mut Panel, prefix: &str, next: bool) -> bo
 
 /// Exact directory membership shares quick search's index across Git replies.
 pub(super) fn contains_directory(panel: &Panel, name: &str) -> bool {
-    ensure(panel);
-    let index = panel.name_index.borrow();
-    let Some(index) = index.as_ref() else {
-        return false;
-    };
     let folded = folded_name(name);
-    let start = index.rows.partition_point(|(key, _)| key < &folded);
-    index
-        .rows
-        .get(start..)
-        .unwrap_or(&[])
-        .iter()
-        .take_while(|(key, _)| key == &folded)
-        .any(|(_, row)| {
-            panel
-                .entries
-                .get(*row)
-                .is_some_and(|entry| entry.kind.is_dir() && entry.name == name)
-        })
+    with_index(panel, |index| {
+        let start = index.rows.partition_point(|(key, _)| key < &folded);
+        index
+            .rows
+            .get(start..)
+            .unwrap_or(&[])
+            .iter()
+            .take_while(|(key, _)| key == &folded)
+            .any(|(_, row)| {
+                panel
+                    .entries
+                    .get(*row)
+                    .is_some_and(|entry| entry.kind.is_dir() && entry.name == name)
+            })
+    })
 }
 
-fn ensure(panel: &Panel) {
+fn with_index<R>(panel: &Panel, f: impl FnOnce(&NameIndex) -> R) -> R {
     let key = panel.entries.revision();
-    let fresh = panel
-        .name_index
-        .borrow()
+    let mut guard = panel.name_index.borrow_mut();
+    if guard
         .as_ref()
-        .is_some_and(|index| Arc::ptr_eq(&index.key, key));
-    if fresh {
-        return;
+        .is_none_or(|index| !Arc::ptr_eq(&index.key, key))
+    {
+        *guard = None;
     }
-    *panel.name_index.borrow_mut() = Some(NameIndex::build(&panel.entries, Arc::clone(key)));
+    let index = guard.get_or_insert_with(|| NameIndex::build(&panel.entries, Arc::clone(key)));
+    f(index)
 }
 
 impl NameIndex {

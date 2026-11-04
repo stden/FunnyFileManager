@@ -54,4 +54,8 @@ fn typed_search_commands_reject_the_table_and_its_other_dialogs() {
     }
     tasks.app.close_overlay();
     assert!(!invoke_search(&mut tasks.app, TaskSearchCommand::FindNext));
+    super::bars::search_command(&mut tasks.app, TaskSearchCommand::FindNext);
+
+    let mut browse_tasks = TaskApp::open(vec![named(10, "vim")], Privilege::User);
+    super::bars::search_command(&mut browse_tasks.app, TaskSearchCommand::FindNext);
 }

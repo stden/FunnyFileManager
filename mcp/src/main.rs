@@ -52,9 +52,7 @@ use tools::listing::SortDirectoryParams;
 use tools::patterns::{DeleteByPatternParams, GlobParams, ReplaceParams};
 use tools::search::GrepParams;
 use tools::{json_response, system::dirs_home};
-use walk::{
-    collect_files, content_kind, relative_slash_path, walkable_type, CollectedFile, WALK_BUDGET,
-};
+use walk::{collect_files, content_kind, walkable_type, CollectedFile, WALK_BUDGET};
 
 #[cfg(test)]
 mod tests;

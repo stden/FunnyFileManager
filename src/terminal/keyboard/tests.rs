@@ -79,10 +79,23 @@ fn a_kitty_terminals_keys_are_already_what_was_pressed() {
     for key in [ctrl('4'), ctrl('\\'), ctrl('5'), ctrl(']')] {
         assert_eq!(KeyboardProtocol::Kitty.decode(key), key);
     }
+    assert_eq!(protocol_from_query(&Ok(true)), KeyboardProtocol::Kitty);
+    assert_eq!(protocol_from_query(&Ok(false)), KeyboardProtocol::Legacy);
+    assert_eq!(
+        protocol_from_query(&Err(io::Error::other("no tty"))),
+        KeyboardProtocol::Legacy
+    );
 }
 
 #[test]
 fn events_other_than_keys_pass_through_decode_input() {
     let resize = Event::Resize(80, 24);
     assert_eq!(decode_input(resize.clone()), resize);
+    let _ = host_protocol();
+    let _ = known_protocol();
+    #[cfg(windows)]
+    {
+        assert!(push(&mut Vec::new(), KeyboardProtocol::Kitty).is_err());
+        assert!(pop(&mut Vec::new(), KeyboardProtocol::Kitty).is_err());
+    }
 }

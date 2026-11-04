@@ -31,28 +31,44 @@ pub fn toggle_video_mode() -> io::Result<VideoMode> {
             });
         }
     }
-    let (width, height) = crossterm::terminal::size()?;
+    toggle_video_mode_with(&mut io::stdout(), terminal_size, RESIZE_WAIT)
+}
+
+fn terminal_size() -> io::Result<(u16, u16)> {
+    #[cfg(test)]
+    if SIMULATE_NO_TTY.with(std::cell::Cell::get) {
+        return Err(io::Error::other("simulated headless"));
+    }
+    crossterm::terminal::size()
+}
+
+fn toggle_video_mode_with(
+    out: &mut impl io::Write,
+    mut read_size: impl FnMut() -> io::Result<(u16, u16)>,
+    wait: std::time::Duration,
+) -> io::Result<VideoMode> {
+    let (width, height) = read_size()?;
     let requested_rows = if height > 30 { 25 } else { 50 };
-    execute!(
-        io::stdout(),
-        crossterm::terminal::SetSize(width, requested_rows)
-    )?;
+    execute!(out, crossterm::terminal::SetSize(width, requested_rows))?;
     Ok(VideoMode {
         requested_rows,
-        rows: settled_rows(height),
+        rows: settled_rows_with(height, wait, RESIZE_POLL, read_size),
     })
 }
 
-/// The terminal's height once it changed from `before`, or `before` when it
-/// did not change within [`RESIZE_WAIT`].
-fn settled_rows(before: u16) -> u16 {
-    let deadline = std::time::Instant::now() + RESIZE_WAIT;
+fn settled_rows_with(
+    before: u16,
+    wait: std::time::Duration,
+    poll: std::time::Duration,
+    mut read_size: impl FnMut() -> io::Result<(u16, u16)>,
+) -> u16 {
+    let deadline = std::time::Instant::now() + wait;
     loop {
-        let rows = crossterm::terminal::size().map_or(before, |(_, rows)| rows);
+        let rows = read_size().map_or(before, |(_, rows)| rows);
         if rows != before || std::time::Instant::now() >= deadline {
             return rows;
         }
-        std::thread::sleep(RESIZE_POLL);
+        std::thread::sleep(poll);
     }
 }
 
@@ -96,3 +112,11 @@ impl Drop for VideoModeGuard {
         SKIP_VIDEO_MODE_RESIZE.store(false, std::sync::atomic::Ordering::SeqCst);
     }
 }
+
+#[cfg(test)]
+thread_local! {
+    static SIMULATE_NO_TTY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+#[cfg(test)]
+mod tests;

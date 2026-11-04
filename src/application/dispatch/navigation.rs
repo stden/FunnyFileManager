@@ -93,6 +93,7 @@ fn panel_page<B: Backend>(terminal: &Terminal<B>) -> usize {
 
 fn open_panel_entry<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut App) {
     // Vault interpretation takes priority over executable flags on FAT mounts.
+    #[cfg(feature = "keepass")]
     if ops::vault::open_vault_if_kdbx(app) {
         return;
     }

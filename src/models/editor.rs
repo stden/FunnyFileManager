@@ -9,6 +9,7 @@ mod editing;
 mod format;
 pub mod lsp;
 mod movement;
+pub mod pairs;
 mod pretty;
 mod remote;
 pub use remote::RemoteDocument;
@@ -59,6 +60,8 @@ pub struct Editor {
     pub highlights: std::cell::RefCell<crate::highlight::cache::HighlightCache>,
     /// Lines edited since the last paint. Stays empty when `lines` is written directly.
     pub(crate) dirty_span: std::cell::Cell<Option<(usize, usize)>>,
+    /// Cached matching bracket and XML/HTML tag coordinates at the caret.
+    pub(crate) pair_cache: Box<std::cell::Cell<Option<pairs::CachedPairs>>>,
     pub(crate) remote: Option<Box<RemoteDocument>>,
 }
 
@@ -175,11 +178,10 @@ impl Editor {
     /// Full file content as it would be written to disk.
     #[must_use]
     pub fn content(&self) -> String {
-        let eol = self.format.line_ending.as_str();
-        let mut content = self.lines.join(eol);
-        if self.format.trailing_newline {
-            content.push_str(eol);
-        }
-        content
+        format::join_lines(
+            &self.lines,
+            self.format.line_ending.as_str(),
+            self.format.trailing_newline,
+        )
     }
 }

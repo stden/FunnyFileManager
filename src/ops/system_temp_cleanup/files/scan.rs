@@ -14,7 +14,15 @@ pub fn scan(source: &TempSource, now: SystemTime) -> Result<TempPlan, TempError>
     scan_plan(new_plan(source, now)?, MAX_ENTRIES)
 }
 
-fn scan_plan(mut plan: TempPlan, max_entries: usize) -> Result<TempPlan, TempError> {
+fn scan_plan(plan: TempPlan, max_entries: usize) -> Result<TempPlan, TempError> {
+    scan_plan_with(plan, max_entries, |p| fs::read_dir(p))
+}
+
+fn scan_plan_with(
+    mut plan: TempPlan,
+    max_entries: usize,
+    mut read_dir: impl FnMut(&Path) -> std::io::Result<fs::ReadDir>,
+) -> Result<TempPlan, TempError> {
     let mut pending = vec![plan.root.path.clone()];
     let mut visited = 0;
     while let Some(directory) = pending.pop() {
@@ -22,7 +30,7 @@ fn scan_plan(mut plan: TempPlan, max_entries: usize) -> Result<TempPlan, TempErr
             plan.skipped += 1;
             continue;
         }
-        let entries = match fs::read_dir(&directory) {
+        let entries = match read_dir(&directory) {
             Ok(entries) => entries,
             Err(_error) if directory == plan.root.path => return Err(TempError::Scan),
             Err(_error) => {
@@ -45,19 +53,28 @@ fn inspect(
     plan: &mut TempPlan,
     pending: &mut Vec<PathBuf>,
 ) -> Result<(), TempError> {
+    inspect_with(entry, plan, pending, snapshot)
+}
+fn inspect_with(
+    entry: std::io::Result<fs::DirEntry>,
+    plan: &mut TempPlan,
+    pending: &mut Vec<PathBuf>,
+    snap: fn(&Path, &fs::Metadata) -> std::io::Result<PlannedTempFile>,
+) -> Result<(), TempError> {
     let result = entry.and_then(|entry| Ok((entry.path(), entry.metadata()?)));
     let Ok((path, metadata)) = result else {
         plan.skipped += 1;
         return Ok(());
     };
+    #[cfg(unix)]
     if !policy::on_root_device(&metadata, &plan.root) {
         plan.skipped += 1;
         return Ok(());
     }
     if metadata.is_dir() && !policy::linked(&metadata) && policy::owned(&metadata) {
         pending.push(path);
-    } else if policy::eligible(&metadata, plan.cutoff) && policy::safe_parent(&plan.root, &path) {
-        match snapshot(&path, &metadata) {
+    } else if policy::eligible(&metadata, plan.cutoff) {
+        match snap(&path, &metadata) {
             Ok(file) => {
                 let bytes = plan
                     .bytes

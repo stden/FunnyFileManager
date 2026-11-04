@@ -1,6 +1,6 @@
 //! Results from an obsolete preview must never replace the current image.
 use super::*;
-use crate::models::Viewer;
+use crate::models::{PanelSide, Viewer};
 
 fn in_flight(
     target: Target,

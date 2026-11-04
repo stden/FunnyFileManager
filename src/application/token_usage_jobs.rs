@@ -96,10 +96,19 @@ fn errors(error: UsageError) -> Reports {
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+thread_local! {
+    pub(super) static FORCE_SPAWN_FAILURE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 fn spawn(
     sender: mpsc::Sender<Reports>,
     fetch: impl FnOnce() -> Reports + Send + 'static,
 ) -> std::io::Result<std::thread::JoinHandle<()>> {
+    #[cfg(test)]
+    if FORCE_SPAWN_FAILURE.get() {
+        return Err(std::io::Error::other("forced spawn failure"));
+    }
     std::thread::Builder::new()
         .name("ffm-token-usage".to_owned())
         .spawn(move || {

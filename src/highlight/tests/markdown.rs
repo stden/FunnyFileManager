@@ -21,6 +21,8 @@ fn a_markdown_bullet_is_marked_without_swallowing_the_text() {
     let out = runs("a.md", "- an item");
     assert_eq!(out[0].1, Token::Meta);
     assert_eq!(out[1].0, " an item");
+    let star = runs("a.md", "  * another");
+    assert_eq!(star[0], ("  *".to_owned(), Token::Meta));
 }
 
 /// Prose that is not a heading, quote, fence, or bullet is the common case for

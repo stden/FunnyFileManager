@@ -19,12 +19,14 @@ pub fn grep(server: &FfmServer, params: &GrepParams) -> Result<CallToolResult, M
     }
     let pattern_lower = params.pattern.to_lowercase();
     let mut results = Vec::new();
+    let mut scratch = String::new();
     let mut visited = 0usize;
 
     grep_recursive(
         &path,
         &pattern_lower,
         params.extension.as_deref(),
+        &mut scratch,
         &mut results,
         params.max_results,
         &mut visited,
@@ -43,6 +45,7 @@ fn grep_recursive(
     dir: &Path,
     pattern: &str,
     ext_filter: Option<&str>,
+    scratch: &mut String,
     results: &mut Vec<serde_json::Value>,
     max: usize,
     visited: &mut usize,
@@ -55,78 +58,123 @@ fn grep_recursive(
             return;
         }
         *visited += 1;
-        // A link is never opened: `File::open` below would follow it out
-        // of the server root (see `walkable_type`).
         let Some(file_type) = walkable_type(&entry) else {
             continue;
         };
-        let path = entry.path();
         if file_type.is_dir() {
-            grep_recursive(&path, pattern, ext_filter, results, max, visited);
+            grep_recursive(
+                &entry.path(),
+                pattern,
+                ext_filter,
+                scratch,
+                results,
+                max,
+                visited,
+            );
             continue;
         }
-        #[expect(
-            clippy::filetype_is_file,
-            reason = "skip FIFOs, sockets and device nodes"
-        )]
-        if file_type.is_file() && searchable_file(&path, ext_filter) {
-            grep_file(&path, pattern, results, max);
+        if searchable_entry(&entry, file_type, ext_filter) {
+            grep_file(&entry.path(), pattern, scratch, results, max);
         }
     }
 }
 
 /// Append matches from one file, stopping on a decoding error or result limit.
-fn grep_file(path: &Path, pattern: &str, results: &mut Vec<serde_json::Value>, max: usize) {
+fn grep_file(
+    path: &Path,
+    pattern: &str,
+    scratch: &mut String,
+    results: &mut Vec<serde_json::Value>,
+    max: usize,
+) {
     use std::io::BufRead;
 
     let Ok(file) = fs::File::open(path) else {
         return;
     };
     let mut reader = io::BufReader::new(file);
-    let mut line = String::new();
     let mut line_num = 0usize;
+    let mut display_path: Option<String> = None;
     while results.len() < max {
-        line.clear();
-        let Ok(bytes) = reader.read_line(&mut line) else {
+        scratch.clear();
+        let Ok(bytes) = reader.read_line(scratch) else {
             break;
         };
         if bytes == 0 {
             break;
         }
         line_num += 1;
-        if contains_lowercased(&line, pattern) {
+        if contains_lowercased(scratch, pattern) {
+            let file_label = display_path.get_or_insert_with(|| path.display().to_string());
             results.push(json!({
-                "file": path.display().to_string(),
+                "file": file_label.as_str(),
                 "line": line_num,
-                "content": line.trim(),
+                "content": scratch.trim(),
             }));
         }
     }
 }
 
-fn contains_lowercased(haystack: &str, needle_lower: &str) -> bool {
+pub fn contains_lowercased(haystack: &str, needle_lower: &str) -> bool {
     if needle_lower.is_empty() {
         return true;
     }
     if haystack.is_ascii() && needle_lower.is_ascii() {
-        let (haystack, needle) = (haystack.as_bytes(), needle_lower.as_bytes());
-        return haystack.len() >= needle.len()
-            && haystack
-                .windows(needle.len())
-                .any(|window| window.eq_ignore_ascii_case(needle));
+        return contains_ascii_lowercased(haystack.as_bytes(), needle_lower.as_bytes());
+    }
+    if let Some(anchor) = safe_ascii_anchor(needle_lower.as_bytes()) {
+        let up = anchor.to_ascii_uppercase();
+        if !haystack.as_bytes().iter().any(|&b| b == anchor || b == up) {
+            return false;
+        }
     }
     haystack.to_lowercase().contains(needle_lower)
 }
 
-fn searchable_file(path: &Path, extension: Option<&str>) -> bool {
-    if extension.is_some_and(|ext| {
-        !path
+fn contains_ascii_lowercased(haystack: &[u8], needle_lower: &[u8]) -> bool {
+    let Some(max_start) = haystack.len().checked_sub(needle_lower.len()) else {
+        return false;
+    };
+    let first = needle_lower.first().copied().unwrap_or_default();
+    let upper = first.to_ascii_uppercase();
+    let search = haystack.get(..=max_start).unwrap_or_default();
+    for (idx, &byte) in search.iter().enumerate() {
+        if (byte == first || byte == upper)
+            && haystack
+                .get(idx..idx + needle_lower.len())
+                .is_some_and(|w| w.eq_ignore_ascii_case(needle_lower))
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn safe_ascii_anchor(needle_lower: &[u8]) -> Option<u8> {
+    needle_lower
+        .iter()
+        .copied()
+        .find(|&b| b.is_ascii() && !matches!(b, b'i' | b'k'))
+}
+
+#[expect(
+    clippy::filetype_is_file,
+    reason = "skip FIFOs, sockets and device nodes"
+)]
+fn searchable_entry(
+    entry: &fs::DirEntry,
+    file_type: fs::FileType,
+    extension: Option<&str>,
+) -> bool {
+    if let Some(ext) = extension {
+        let name = entry.file_name();
+        let matches_ext = Path::new(&name)
             .extension()
             .and_then(|value| value.to_str())
-            .unwrap_or("")
-            .eq_ignore_ascii_case(ext)
-    }) {
-        return false;
+            .is_some_and(|value| value.eq_ignore_ascii_case(ext));
+        if !matches_ext {
+            return false;
+        }
     }
-    fs::metadata(path).map_or(0, |meta| meta.len()) <= 10 * 1024 * 1024
+    file_type.is_file() && entry.metadata().map_or(0, |meta| meta.len()) <= 10 * 1024 * 1024
 }

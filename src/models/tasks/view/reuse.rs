@@ -76,11 +76,11 @@ fn still_sorted(
             return false;
         };
         if let Some(before) = previous {
-            let ordered = rows.get(before).zip(rows.get(index));
-            let Some((left, right)) = ordered else {
-                return false;
-            };
-            if options.sort.compare(left, right) == Ordering::Greater {
+            if rows
+                .get(before)
+                .zip(rows.get(index))
+                .is_none_or(|(left, right)| options.sort.compare(left, right) == Ordering::Greater)
+            {
                 return false;
             }
         }

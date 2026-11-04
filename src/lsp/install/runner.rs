@@ -94,13 +94,22 @@ fn run_until(
     if let Err(error) = process.finish() {
         return Err(noted(error, &mut errors));
     }
-    if output.metadata()?.len() > OUTPUT_LIMIT || errors.metadata()?.len() > OUTPUT_LIMIT {
-        return Err(reject(&mut errors));
-    }
+    check_output_size(&output, &mut errors)?;
     read_output(&mut output)
 }
 
 const OUTPUT_LIMIT: u64 = 1_048_576;
+
+fn check_output_size(
+    output: &std::fs::File,
+    errors: &mut std::fs::File,
+) -> Result<(), InstallError> {
+    if output.metadata()?.len() > OUTPUT_LIMIT || errors.metadata()?.len() > OUTPUT_LIMIT {
+        Err(reject(errors))
+    } else {
+        Ok(())
+    }
+}
 
 fn wait_for(
     process: &mut ChildTree,
@@ -114,9 +123,7 @@ fn wait_for(
         if Instant::now() >= deadline {
             return Err(InstallError::Timeout);
         }
-        if output.metadata()?.len() > OUTPUT_LIMIT || errors.metadata()?.len() > OUTPUT_LIMIT {
-            return Err(reject(errors));
-        }
+        check_output_size(output, errors)?;
         std::thread::sleep(Duration::from_millis(20));
     }
     Ok(())

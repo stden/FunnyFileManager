@@ -57,6 +57,18 @@ fn refuses_a_file_that_grows_past_the_limit_during_the_read() -> io::Result<()> 
     Ok(())
 }
 
+#[test]
+fn refuses_file_grown_between_metadata_and_open() {
+    let temp = TempDir::new().expect("temp");
+    let path = temp.path().join("grown.bin");
+    fs::write(&path, b"").expect("empty");
+    let loaded = super::super::read_regular_after_stat(&path, 4, || {
+        fs::write(&path, b"12345").expect("grow");
+    })
+    .expect("read_regular_after_stat");
+    assert!(matches!(loaded, Loaded::TooLarge(5)));
+}
+
 fn spawn_growth_writer(
     path_writer: std::path::PathBuf,
     barrier_w: std::sync::Arc<std::sync::Barrier>,

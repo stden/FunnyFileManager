@@ -154,3 +154,15 @@ fn input_row_refocuses_text_and_cancel_button_refocuses_cancel() {
     assert!(popup::process_popup_input(&mut app, KeyCode::Enter.into()));
     assert!(matches!(app.overlay, Overlay::None));
 }
+
+#[test]
+fn login_cancel_button_focuses_cancel_field() {
+    let temp = TempDir::new().unwrap();
+    let mut app = app_at(&temp);
+    show(&mut app, RemoteDialog::Login(login()));
+    assert_eq!(code(&mut app, 1), KeyCode::Enter);
+    assert!(matches!(
+        remote(&app),
+        RemoteDialog::Login(login) if login.field == LoginField::Cancel
+    ));
+}

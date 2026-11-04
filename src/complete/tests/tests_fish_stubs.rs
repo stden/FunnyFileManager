@@ -23,6 +23,7 @@ fn fish_path_complete_times_out_on_a_hung_fish() {
         new_path.push(rest);
     }
     std::env::set_var("PATH", &new_path);
+    fish::reset_fish_unavailable();
 
     let started = Instant::now();
     let result = fish_path_complete("al", tmp.path());
@@ -31,6 +32,7 @@ fn fish_path_complete_times_out_on_a_hung_fish() {
         Some(p) => std::env::set_var("PATH", p),
         None => std::env::remove_var("PATH"),
     }
+    fish::reset_fish_unavailable();
 
     assert!(
         result.is_none(),
@@ -62,6 +64,7 @@ fn fish_path_complete_returns_none_when_fish_exits_nonzero() {
         new_path.push(rest);
     }
     std::env::set_var("PATH", &new_path);
+    fish::reset_fish_unavailable();
 
     let result = fish_path_complete("al", tmp.path());
 
@@ -69,6 +72,7 @@ fn fish_path_complete_returns_none_when_fish_exits_nonzero() {
         Some(p) => std::env::set_var("PATH", p),
         None => std::env::remove_var("PATH"),
     }
+    fish::reset_fish_unavailable();
 
     assert!(
         result.is_none(),

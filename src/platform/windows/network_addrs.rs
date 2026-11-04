@@ -25,7 +25,11 @@ pub struct NetEndpoints {
 /// Queries IPv4 unicast, gateway and DNS addresses in one `GetAdaptersAddresses` pass.
 #[must_use]
 pub fn read_net_endpoints() -> NetEndpoints {
-    let Some(buf) = fetch_adapter_buffer() else {
+    read_net_endpoints_from(fetch_adapter_buffer())
+}
+
+fn read_net_endpoints_from(buf: Option<Vec<u64>>) -> NetEndpoints {
+    let Some(buf) = buf else {
         return NetEndpoints::default();
     };
     let mut out = NetEndpoints::default();
@@ -62,21 +66,25 @@ fn record_up_adapter(
     );
 }
 
-#[allow(
-    unsafe_code,
-    reason = "GetAdaptersAddresses fills a caller-allocated byte buffer"
-)]
+#[allow(unsafe_code, reason = "GetAdaptersAddresses fills a byte buffer")]
 fn fetch_adapter_buffer() -> Option<Vec<u64>> {
     let flags = GAA_FLAG_INCLUDE_GATEWAYS | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST;
     let family = u32::from(AF_INET);
-    let mut size = 32_768_u32;
+    fetch_adapter_buffer_with(32_768, |buf, size| {
+        let ptr = buf.as_mut_ptr().cast::<IP_ADAPTER_ADDRESSES_LH>();
+        // SAFETY: `buf` is 8-byte aligned and holds at least `*size` writable bytes.
+        unsafe { GetAdaptersAddresses(family, flags, std::ptr::null(), ptr, &raw mut *size) }
+    })
+}
+
+fn fetch_adapter_buffer_with(
+    mut size: u32,
+    mut query: impl FnMut(&mut [u64], &mut u32) -> u32,
+) -> Option<Vec<u64>> {
     for _ in 0..3 {
         let words = usize::try_from(size).ok()?.div_ceil(8).max(1);
         let mut buf = vec![0_u64; words];
-        let ptr = buf.as_mut_ptr().cast::<IP_ADAPTER_ADDRESSES_LH>();
-        // SAFETY: `buf` is 8-byte aligned and holds at least `size` writable bytes.
-        let rc =
-            unsafe { GetAdaptersAddresses(family, flags, std::ptr::null(), ptr, &raw mut size) };
+        let rc = query(&mut buf, &mut size);
         if rc == 0 {
             return Some(buf);
         }
@@ -105,52 +113,41 @@ fn adapter_if_index(item: &IP_ADAPTER_ADDRESSES_LH) -> u32 {
     unsafe { item.Anonymous1.Anonymous.IfIndex }
 }
 
-#[allow(
-    unsafe_code,
-    reason = "Walks IP_ADAPTER_UNICAST_ADDRESS_LH linked list"
-)]
+#[allow(unsafe_code, reason = "Walks IP_ADAPTER_UNICAST_ADDRESS_LH list")]
 fn first_unicast_ipv4(mut ptr: *const IP_ADAPTER_UNICAST_ADDRESS_LH) -> Option<Ipv4> {
     while !ptr.is_null() {
         // SAFETY: `ptr` is a valid node in `GetAdaptersAddresses`'s buffer.
         let node = unsafe { *ptr };
-        if let Some(ip) = sockaddr_ipv4(node.Address) {
-            if !ip.is_unspecified() {
-                return Some(ip);
-            }
+        if let Some(ip) = sockaddr_ipv4(node.Address).filter(|ip| !ip.is_unspecified()) {
+            return Some(ip);
         }
         ptr = node.Next.cast_const();
     }
     None
 }
 
-#[allow(
-    unsafe_code,
-    reason = "Walks IP_ADAPTER_GATEWAY_ADDRESS_LH linked list"
-)]
+#[allow(unsafe_code, reason = "Walks IP_ADAPTER_GATEWAY_ADDRESS_LH list")]
 fn first_gateway_ipv4(mut ptr: *const IP_ADAPTER_GATEWAY_ADDRESS_LH) -> Option<Ipv4> {
     while !ptr.is_null() {
         // SAFETY: `ptr` is a valid node in `GetAdaptersAddresses`'s buffer.
         let node = unsafe { *ptr };
-        if let Some(ip) = sockaddr_ipv4(node.Address) {
-            if !ip.is_unspecified() && !ip.is_loopback() {
-                return Some(ip);
-            }
+        if let Some(ip) =
+            sockaddr_ipv4(node.Address).filter(|ip| !ip.is_unspecified() && !ip.is_loopback())
+        {
+            return Some(ip);
         }
         ptr = node.Next.cast_const();
     }
     None
 }
 
-#[allow(
-    unsafe_code,
-    reason = "Walks IP_ADAPTER_DNS_SERVER_ADDRESS_XP linked list"
-)]
+#[allow(unsafe_code, reason = "Walks IP_ADAPTER_DNS_SERVER_ADDRESS_XP list")]
 fn collect_dns(mut ptr: *const IP_ADAPTER_DNS_SERVER_ADDRESS_XP, out: &mut Vec<Ipv4>) {
     while !ptr.is_null() {
         // SAFETY: `ptr` is a valid node in `GetAdaptersAddresses`'s buffer.
         let node = unsafe { *ptr };
-        if let Some(ip) = sockaddr_ipv4(node.Address) {
-            if !ip.is_unspecified() && !out.contains(&ip) {
+        if let Some(ip) = sockaddr_ipv4(node.Address).filter(|ip| !ip.is_unspecified()) {
+            if !out.contains(&ip) {
                 out.push(ip);
             }
         }

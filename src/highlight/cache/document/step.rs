@@ -1,44 +1,96 @@
-//! Purpose: re-lex a dirty span and stop once the continuation matches again.
+//! Purpose: Re-lex dirty lines and stop once the outgoing continuation state converges.
 
-use super::super::{hash_of, Continuation, Highlighter, Token};
-use super::Document;
+use super::super::{hash_of, Continuation, Highlighter, LineSpans};
+use super::{Document, LineState};
 
-struct Pass<'a> {
-    incoming: &'a mut Continuation,
-    old_incoming: &'a mut Continuation,
+impl LineState {
+    pub(in crate::highlight::cache) fn clean(line: &str, after: Continuation) -> Self {
+        Self {
+            hash: hash_of(line),
+            after,
+        }
+    }
+
+    /// Store `!hash_of(line)` so reconciliation sees a mismatch and re-lexes
+    /// even when the line's real hash is `0` (e.g. zero-padded input).
+    pub(in crate::highlight::cache) fn stale(line: &str, after: Continuation) -> Self {
+        Self {
+            hash: !hash_of(line),
+            after,
+        }
+    }
+
+    pub(in crate::highlight::cache) fn matches_hash(self, line: &str) -> bool {
+        self.hash == hash_of(line)
+    }
+}
+
+#[derive(Clone, Copy)]
+struct ReconcilePass {
+    incoming: Continuation,
+    prev_incoming: Continuation,
+    visible_top: usize,
+    visible_end: usize,
+    dirty_until: usize,
 }
 
 struct Slot<'a> {
+    idx: usize,
     line: &'a str,
-    spans: &'a mut Vec<(usize, usize, Token)>,
-    state: &'a mut (u64, Continuation),
+    spans: &'a mut Option<LineSpans>,
+    state: &'a mut LineState,
 }
 
-enum Step {
-    Done,
-    Cut,
-    Continue,
+enum LineOutcome {
+    NextLine,
+    Converged,
+    TruncateOffscreenTail,
 }
 
 impl Document {
     pub(super) fn reconcile_in_place(
         &mut self,
         lines: &[String],
-        end: usize,
+        visible_top: usize,
+        visible_end: usize,
         initial: Continuation,
         dirty: Option<(usize, usize)>,
     ) {
         let limit = self.spans.len().min(lines.len());
-        let (start, until) = bounds(dirty, limit);
-        let mut incoming = self.state_before(start).unwrap_or(initial);
-        let mut old_incoming = incoming;
-        let mut pass = Pass {
-            incoming: &mut incoming,
-            old_incoming: &mut old_incoming,
+        let (start, dirty_until) = bounds(dirty, limit);
+        let incoming = self.state_before(start).unwrap_or(initial);
+        let mut pass = ReconcilePass {
+            incoming,
+            prev_incoming: incoming,
+            visible_top,
+            visible_end,
+            dirty_until,
         };
-        if let Some(idx) = self.walk(lines, start, limit, end, until, &mut pass) {
+        if let Some(idx) = self.walk(lines, start, limit, &mut pass) {
             self.spans.truncate(idx);
             self.states.truncate(idx);
+        }
+    }
+
+    pub(in crate::highlight::cache) fn splice_lines(
+        &mut self,
+        start: usize,
+        old_end: usize,
+        added: &[String],
+    ) {
+        self.line_count = self.line_count - (old_end - start) + added.len();
+        self.revision = None;
+        if let Some(init) = self.initial.filter(|_| old_end < self.spans.len()) {
+            let state_at = self.state_before(start).unwrap_or(init);
+            self.spans
+                .splice(start..old_end, std::iter::repeat_n(None, added.len()));
+            self.states.splice(
+                start..old_end,
+                added.iter().map(|line| LineState::stale(line, state_at)),
+            );
+        } else if start < self.spans.len() {
+            self.spans.truncate(start);
+            self.states.truncate(start);
         }
     }
 
@@ -47,9 +99,7 @@ impl Document {
         lines: &[String],
         start: usize,
         limit: usize,
-        end: usize,
-        until: usize,
-        pass: &mut Pass<'_>,
+        pass: &mut ReconcilePass,
     ) -> Option<usize> {
         for (idx, ((line, state_slot), span_slot)) in lines
             .iter()
@@ -60,14 +110,15 @@ impl Document {
             .skip(start)
         {
             let mut slot = Slot {
+                idx,
                 line,
                 spans: span_slot,
                 state: state_slot,
             };
-            match consider(&mut self.engine, idx, until, end, &mut slot, pass) {
-                Step::Done => return None,
-                Step::Cut => return Some(idx),
-                Step::Continue => {}
+            match pass.step_line(&mut self.engine, &mut slot) {
+                LineOutcome::NextLine => {}
+                LineOutcome::Converged => return None,
+                LineOutcome::TruncateOffscreenTail => return Some(idx),
             }
         }
         None
@@ -75,40 +126,40 @@ impl Document {
 }
 
 fn bounds(dirty: Option<(usize, usize)>, limit: usize) -> (usize, usize) {
-    let (start, until) = dirty.unwrap_or((0, usize::MAX));
-    (start.min(limit), until)
+    let (start, dirty_until) = dirty.unwrap_or((0, usize::MAX));
+    (start.min(limit), dirty_until)
 }
 
-fn consider(
-    engine: &mut Highlighter,
-    idx: usize,
-    until: usize,
-    end: usize,
-    slot: &mut Slot<'_>,
-    pass: &mut Pass<'_>,
-) -> Step {
-    let (old_hash, old_after) = *slot.state;
-    if *pass.incoming == *pass.old_incoming && hash_of(slot.line) == old_hash {
-        if idx >= until {
-            return Step::Done;
+impl ReconcilePass {
+    fn step_line(&mut self, engine: &mut Highlighter, slot: &mut Slot<'_>) -> LineOutcome {
+        let prev = *slot.state;
+        if self.incoming == self.prev_incoming && prev.matches_hash(slot.line) {
+            if slot.idx >= self.dirty_until {
+                return LineOutcome::Converged;
+            }
+            self.incoming = prev.after;
+            self.prev_incoming = prev.after;
+            return LineOutcome::NextLine;
         }
-        *pass.incoming = old_after;
-        *pass.old_incoming = old_after;
-        return Step::Continue;
+        if slot.idx >= self.visible_end {
+            return LineOutcome::TruncateOffscreenTail;
+        }
+        self.relex(engine, slot);
+        LineOutcome::NextLine
     }
-    if idx >= end {
-        return Step::Cut;
-    }
-    relex(engine, slot, pass);
-    Step::Continue
-}
 
-fn relex(engine: &mut Highlighter, slot: &mut Slot<'_>, pass: &mut Pass<'_>) {
-    let old_after = slot.state.1;
-    engine.resume(*pass.incoming);
-    *slot.spans = super::lex_line(engine, slot.line);
-    let new_after = engine.continuation().unwrap_or(*pass.incoming);
-    *slot.state = (hash_of(slot.line), new_after);
-    *pass.incoming = new_after;
-    *pass.old_incoming = old_after;
+    fn relex(&mut self, engine: &mut Highlighter, slot: &mut Slot<'_>) {
+        let old_after = slot.state.after;
+        engine.resume(self.incoming);
+        if slot.idx < self.visible_top {
+            engine.advance_only(slot.line);
+            *slot.spans = None;
+        } else {
+            *slot.spans = Some(super::lex_line(engine, slot.line));
+        }
+        let new_after = engine.continuation().unwrap_or(self.incoming);
+        *slot.state = LineState::clean(slot.line, new_after);
+        self.incoming = new_after;
+        self.prev_incoming = old_after;
+    }
 }

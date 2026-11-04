@@ -54,19 +54,28 @@ impl Command {
         }
     }
 
-    fn parse_external(input: &str, verb: &str) -> Self {
+    pub(super) fn parse_external(input: &str, verb: &str) -> Self {
         let Some(command) = ShellCommand::new(input) else {
             return Self::Empty;
         };
-        if cfg!(windows)
-            && ["codex", "codex.exe", "codex.cmd"]
-                .iter()
-                .any(|name| verb.eq_ignore_ascii_case(name))
+        Self::external_command(verb, command)
+    }
+
+    #[cfg(windows)]
+    fn external_command(verb: &str, command: ShellCommand) -> Self {
+        if ["codex", "codex.exe", "codex.cmd"]
+            .iter()
+            .any(|name| verb.eq_ignore_ascii_case(name))
         {
             Self::NewConsole(command)
         } else {
             Self::Shell(command)
         }
+    }
+
+    #[cfg(not(windows))]
+    const fn external_command(_verb: &str, command: ShellCommand) -> Self {
+        Self::Shell(command)
     }
 
     fn parse_mark(input: &str, argument: Option<&str>) -> Self {

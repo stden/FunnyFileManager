@@ -99,10 +99,10 @@ fn the_hostname_is_trimmed() {
 
 #[test]
 fn the_current_privilege_is_the_process_effective_user() {
-    let expected = if crate::platform::is_root() {
-        Privilege::Root
-    } else {
-        Privilege::User
-    };
-    assert_eq!(Privilege::current(), expected);
+    assert_eq!(Privilege::from_root_flag(true), Privilege::Root);
+    assert_eq!(Privilege::from_root_flag(false), Privilege::User);
+    assert_eq!(
+        Privilege::current(),
+        Privilege::from_root_flag(crate::platform::is_root())
+    );
 }

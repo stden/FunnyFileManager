@@ -79,9 +79,21 @@ fn a_directory_candidate_is_finished_without_a_space_under_its_own_syntax() {
 
 #[test]
 fn longest_common_prefix_is_char_safe() {
-    let v = vec!["caña".to_owned(), "cañon".to_owned()];
-    assert_eq!(longest_common_prefix(&v), "cañ");
+    assert_eq!(longest_common_prefix(["caña", "cañon"]), "cañ");
+    assert_eq!(longest_common_prefix(std::iter::empty()), "");
     assert_eq!(common_prefix_len("caña", "cañon"), "cañ".len());
+    assert_eq!(os_into_string(std::ffi::OsString::from("utf8")), "utf8");
+    #[cfg(unix)]
+    let invalid = {
+        use std::os::unix::ffi::OsStringExt;
+        std::ffi::OsString::from_vec(vec![b'a', 0xFF])
+    };
+    #[cfg(windows)]
+    let invalid = {
+        use std::os::windows::ffi::OsStringExt;
+        std::ffi::OsString::from_wide(&[u16::from(b'a'), 0xD800])
+    };
+    assert_eq!(os_into_string(invalid), "a\u{FFFD}");
 }
 
 #[test]

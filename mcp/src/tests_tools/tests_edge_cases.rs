@@ -4,9 +4,25 @@ use super::{server_at, tool_json, write_file_at, Parameters, TempDir};
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use std::fs;
+use std::path::Path;
 
 fn p<T: DeserializeOwned>(val: Value) -> Parameters<T> {
     Parameters(serde_json::from_value(val).expect("params"))
+}
+
+fn set_locked_state(dir: &Path, file: &Path, lock: bool) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = file;
+        let mode = if lock { 0o555 } else { 0o755 };
+        fs::set_permissions(dir, fs::Permissions::from_mode(mode)).unwrap();
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = dir;
+        drop(crate::fsops::apply_readonly(file, lock));
+    }
 }
 
 #[test]
@@ -15,11 +31,14 @@ fn replace_recurses_and_records_size_and_readonly_errors() {
     let (server, root) = server_at(&dir);
     write_file_at(&root.join("sub/nested.txt"), "swap_me");
     write_file_at(&root.join("huge.txt"), &"x".repeat(10_240));
-    let locked = root.join("locked.txt");
+    let no_write = root.join("no_write");
+    fs::create_dir_all(&no_write).unwrap();
+    let locked = no_write.join("locked.txt");
     write_file_at(&locked, "swap_me");
-    crate::fsops::apply_readonly(&locked, true).unwrap();
+    set_locked_state(&no_write, &locked, true);
     let req1 = json!({"path": root.display().to_string(), "find": "swap_me", "replace": "done"});
     let out1 = tool_json(&server.replace(p(req1)).unwrap());
+    set_locked_state(&no_write, &locked, false);
     assert_eq!(out1["total_replacements"], 1);
     assert_eq!(out1["errors"], 1);
     let req2 =
@@ -30,7 +49,6 @@ fn replace_recurses_and_records_size_and_readonly_errors() {
         .as_str()
         .unwrap()
         .contains("10 MiB"));
-    drop(crate::fsops::apply_readonly(&locked, false));
 }
 
 #[test]

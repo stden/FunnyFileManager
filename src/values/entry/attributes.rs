@@ -105,9 +105,12 @@ fn execute_letter(executable: bool, special: bool, letter: char) -> char {
 
 impl std::fmt::Display for Attributes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if cfg!(windows) {
+        #[cfg(windows)]
+        {
             f.write_str(&self.flag_letters())
-        } else {
+        }
+        #[cfg(not(windows))]
+        {
             f.write_str(&self.mode_string())
         }
     }

@@ -63,8 +63,11 @@ fn remove_held(source: &Path, copy: &Path, first: &mut Kept) {
     }
     // A file or a link is unlinked; a folder goes once it is empty — and it
     // is not, if something inside it stayed.
-    let removed = forced_refusal(source).and_then(|()| super::remove_entry(source, false));
-    if let Err(reason) = removed {
+    #[cfg(test)]
+    if let Err(reason) = forced_refusal(source) {
+        return keep(first, source, reason);
+    }
+    if let Err(reason) = super::remove_entry(source, false) {
         keep(first, source, reason);
     }
 }
@@ -119,14 +122,5 @@ fn forced_refusal(path: &Path) -> io::Result<()> {
             "forced removal refusal",
         ));
     }
-    Ok(())
-}
-
-#[cfg(not(test))]
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "outside tests the seam never refuses, but its callers are the same"
-)]
-const fn forced_refusal(_path: &Path) -> io::Result<()> {
     Ok(())
 }

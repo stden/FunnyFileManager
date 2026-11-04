@@ -40,13 +40,21 @@ fn command_launch_error(app: &mut App, command: &str, error: &ShellError) -> io:
 /// screen. The status bar keeps its one-line summary, so the common case —
 /// glance at the result, keep working — costs no keystrokes at all.
 pub(super) fn cmd_shell(app: &mut App, command: &ShellCommand) -> io::Result<()> {
+    cmd_shell_with(app, command, run_shell_command_with_timeout)
+}
+
+pub(super) fn cmd_shell_with(
+    app: &mut App,
+    command: &ShellCommand,
+    run: impl FnOnce(&str, &Path, std::time::Duration) -> Result<std::process::Output, ShellError>,
+) -> io::Result<()> {
     // No emptiness check: `ShellCommand` cannot be constructed from blank text,
     // so "run nothing" is not a state this function can be called in.
     let command = command.as_str();
     let panel_path = app.get_active_panel().path.clone();
     let seconds = app.settings.number(SettingsPage::PluginManager);
     let timeout = std::time::Duration::from_secs(u64::try_from(seconds).unwrap_or(u64::MAX));
-    match run_shell_command_with_timeout(command, &panel_path, timeout) {
+    match run(command, &panel_path, timeout) {
         Ok(output) => record_shell_output(app, command, &output),
         Err(ShellError::Cancelled) => record_cancel(app, command),
         // A shell that would not start is still part of the transcript: the

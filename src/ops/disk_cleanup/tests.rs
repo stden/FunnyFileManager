@@ -74,6 +74,27 @@ fn cleanup_reports_failure_when_contents_candidate_is_not_a_directory() {
 }
 
 #[test]
+fn remove_owned_counts_dir_entry_errors_and_foreign_entries() {
+    let mut outcome = super::files::CleanupOutcome::default();
+    assert!(!outcome.remove_owned(Err(std::io::Error::other("entry read error"))));
+    assert_eq!(outcome.failures, 1);
+    #[cfg(unix)]
+    if rustix::process::geteuid().as_raw() != 0 {
+        use std::os::unix::fs::MetadataExt;
+        if let Ok(mut dir) = fs::read_dir("/etc") {
+            if let Some(Ok(entry)) = dir.find(|e| {
+                e.as_ref()
+                    .ok()
+                    .and_then(|d| d.metadata().ok())
+                    .is_some_and(|m| m.uid() != rustix::process::geteuid().as_raw())
+            }) {
+                assert!(!outcome.remove_owned(Ok(entry)));
+            }
+        }
+    }
+}
+
+#[test]
 fn measure_and_cleanup_handle_symlink_targets() {
     use crate::models::{CandidateState, CleanupCandidate, CleanupKind};
     let temp = TempDir::new().unwrap();

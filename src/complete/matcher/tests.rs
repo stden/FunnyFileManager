@@ -97,6 +97,12 @@ fn a_unicode_word_still_scores_as_a_prefix() {
     let scored = score("str", "straße").expect("prefix");
     assert_eq!(scored.tier, Tier::Prefix);
     assert_eq!(scored.points, 28);
+    assert!(score("äpf", "äpfel").is_some());
+    assert!(score("Äpf", "Äpfel").is_some());
+    assert_eq!(score("Äpf", "äpfel"), None);
+    assert_eq!(score("äz", "äpfel"), None);
+    assert_eq!(score("abcd", "ab"), None);
+    assert!(score("a_b", "a_x_b").is_some());
 }
 
 #[test]

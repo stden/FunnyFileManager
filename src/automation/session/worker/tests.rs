@@ -126,3 +126,13 @@ fn completed_operation_survives_failed_status_publication() {
     assert_eq!(runtime.terminal.backend().buffer().area.width, 88);
     assert!(shared.snapshot().is_err());
 }
+
+#[test]
+fn idle_refresh_reports_failure_when_runtime_pump_errors() {
+    let directory = tempfile::TempDir::new().unwrap();
+    let mut runtime = Runtime::new(directory.path(), Size::new(80, 24), Profile::Isolated).unwrap();
+    let shared = Shared::default();
+    assert!(!refresh_idle_with(&mut runtime, &shared, false, |_| {
+        Err(io::Error::other("pump failed"))
+    }));
+}

@@ -117,18 +117,16 @@ impl Host {
     pub fn pump(&mut self, events: &SyncSender<Envelope>) {
         self.installation(events);
         self.idle.retain_mut(|conn| conn.pump(events).is_ok());
-        let pump_result = if let Session::Running(active) = &mut self.session {
-            active.pump(events).err()
-        } else {
-            return;
+        let failure = match &mut self.session {
+            Session::Running(active) => match active.pump(events) {
+                Ok(()) => return,
+                Err(failure) => failure,
+            },
+            _ => return,
         };
-        let Some(failure) = pump_result else {
-            return;
-        };
-        let Session::Running(active) = std::mem::take(&mut self.session) else {
-            return;
-        };
-        self.fail_running(&active, failure, events);
+        if let Session::Running(active) = std::mem::take(&mut self.session) {
+            self.fail_running(&active, failure, events);
+        }
     }
 }
 

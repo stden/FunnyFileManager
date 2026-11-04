@@ -163,3 +163,34 @@ fn all_markup_extensions_route_through_markup_mode() {
         assert_eq!(token_of(&out, "2.0"), Token::Normal, "{file}");
     }
 }
+
+#[test]
+fn advance_only_matches_full_markup_line_scanner_across_all_states() {
+    let mut fast = Highlighter::new(Path::new("pom.xml"));
+    let mut full = Highlighter::new(Path::new("pom.xml"));
+    for line in [
+        "",
+        "plain text",
+        "a < b",
+        "<!-->",
+        "<?xml version='1.0'?>",
+        "<!DOCTYPE html>",
+        "<!-- open comment",
+        "x",
+        "still inside comment",
+        "a > b not closed yet",
+        "closed --> <project",
+        "attr=1",
+        "unterminated=\"val",
+        "a=\"1>2\" b='3>4'>",
+        "<leaf>done</leaf>",
+    ] {
+        fast.advance_only(line);
+        drop(full.line(line));
+        assert_eq!(
+            fast.continuation(),
+            full.continuation(),
+            "mismatch on {line:?}"
+        );
+    }
+}

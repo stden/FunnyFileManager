@@ -110,3 +110,22 @@ fn the_editor_bar_is_black_on_teal_like_the_viewers() {
         assert_eq!(buffer[(x, 0)].fg, palette::STATUS_BAR_FG, "column {x}");
     }
 }
+
+#[test]
+fn deleting_a_single_symlink_asks_about_the_link() {
+    let mut app = App::new().expect("app");
+    let link_path = app.get_active_panel_ref().path.join("dangling-link");
+    app.get_active_panel()
+        .entries
+        .push(crate::models::DirEntry {
+            name: "dangling-link".to_owned(),
+            kind: crate::models::EntryKind::BrokenSymlink,
+            ..crate::models::DirEntry::default()
+        });
+    app.set_overlay(Overlay::DeleteConfirm(vec![link_path]));
+    let screen = drawn(&mut app);
+    assert!(
+        screen.contains("Do you wish to delete the link?"),
+        "{screen}"
+    );
+}

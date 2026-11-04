@@ -50,6 +50,7 @@ fn unreadable_text_and_oversized_sources_are_not_modified() {
         .set_len(10 * 1024 * 1024 + 1)
         .unwrap();
     let mut run = ReplaceRun::default();
+    replace_recursive(&root.path().join("missing"), &options(false), &mut run);
     replace_recursive(root.path(), &options(false), &mut run);
     assert_eq!(run.visited, 3);
     assert_eq!(run.changed, Vec::<serde_json::Value>::new());
@@ -78,6 +79,13 @@ fn exhausted_walk_budgets_do_not_visit_or_change_another_file() {
     for name in ["first", "second"] {
         assert_eq!(fs::read_to_string(root.path().join(name)).unwrap(), "xxx");
     }
+    let mut live = ReplaceRun::default();
+    replace_recursive(root.path(), &options(false), &mut live);
+    assert_eq!(
+        fs::read_to_string(root.path().join("first")).unwrap(),
+        "yyy"
+    );
+    assert_eq!(live.total, 6);
 }
 
 #[cfg(unix)]

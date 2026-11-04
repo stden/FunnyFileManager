@@ -179,4 +179,7 @@ fn copy_link_removes_a_link_whose_times_it_could_not_keep() {
     assert!(fs::symlink_metadata(&dest).is_err(), "no link is left");
     copy_link(&link, &dest, rules).expect("kept this time");
     assert_eq!(fs::read_link(&dest).unwrap(), Path::new("target"));
+    let pre_epoch = timespec(std::time::UNIX_EPOCH - std::time::Duration::from_secs(60))
+        .expect("pre-1970 timespec");
+    assert_eq!(pre_epoch.tv_sec, -60);
 }

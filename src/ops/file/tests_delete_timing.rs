@@ -76,6 +76,35 @@ fn a_delete_that_stops_still_records_both_rows() {
     assert_eq!(recorded(&app, "Delete/Refresh"), Some(1));
 }
 
+#[test]
+fn unconfirmed_delete_and_inactive_clash_guards_and_missing_cross_fs_move() {
+    use crate::command::language::SettingsPage;
+    use crate::models::{ClashAnswer, FileName};
+
+    let dir = TempDir::new().expect("test setup");
+    let victim = dir.path().join("auto.txt");
+    fs::write(&victim, b"x").expect("write");
+    let mut app = app_between(dir.path(), dir.path());
+    app.get_active_panel()
+        .marked
+        .insert(FileName::from("auto.txt"));
+    app.settings
+        .set(SettingsPage::Confirmations, "off")
+        .unwrap();
+    answer_existing(&mut app, ClashAnswer::Skip);
+    cancel_existing(&mut app);
+    handle_delete_confirm(&mut app).expect("delete without confirm");
+    assert!(!victim.exists());
+
+    let _guard = RENAME_TEST_MUTEX
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    FORCE_RENAME_FAILURE.store(true, Ordering::SeqCst);
+    let err = transfer::move_into(&dir.path().join("missing"), dir.path()).unwrap_err();
+    FORCE_RENAME_FAILURE.store(false, Ordering::SeqCst);
+    assert_eq!(err.kind(), io::ErrorKind::NotFound);
+}
+
 #[cfg(unix)]
 #[test]
 fn a_delete_counts_a_link_as_one_entry_and_never_its_target() {

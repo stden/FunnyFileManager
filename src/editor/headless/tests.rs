@@ -18,6 +18,13 @@ fn absent_selection_and_directories_do_not_start_a_program() {
     assert!(select_entry(&mut app.left_panel, "folder"));
     edit(&mut app).unwrap();
     assert_eq!(app.status_text(), "Editing directories is not supported");
+    *app.left_panel.entries = vec![crate::models::DirEntry {
+        name: "..".to_owned(),
+        kind: crate::models::EntryKind::File,
+        ..crate::models::DirEntry::default()
+    }];
+    app.left_panel.select(Some(0));
+    edit(&mut app).unwrap();
     assert_eq!(host.snapshot().state, ExternalState::Idle);
 }
 

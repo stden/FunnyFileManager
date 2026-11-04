@@ -21,6 +21,14 @@ pub(super) struct Scan {
 }
 
 pub(super) fn scan(root: &Path, cancelled: &dyn Fn() -> bool) -> io::Result<Scan> {
+    scan_with(root, cancelled, |p| fs::read_dir(p))
+}
+
+fn scan_with(
+    root: &Path,
+    cancelled: &dyn Fn() -> bool,
+    mut read_dir: impl FnMut(&Path) -> io::Result<fs::ReadDir>,
+) -> io::Result<Scan> {
     let mut result = Scan::default();
     let mut pending = vec![root.to_owned()];
     while let Some(path) = pending.pop() {
@@ -35,7 +43,7 @@ pub(super) fn scan(root: &Path, cancelled: &dyn Fn() -> bool) -> io::Result<Scan
             result.repositories.push(path.clone());
             crate::progress::examined();
         }
-        if let Err(error) = descend(&path, &mut pending, &mut result.errors) {
+        if let Err(error) = descend(read_dir(&path), &mut pending, &mut result.errors) {
             if path == root {
                 return Err(error);
             }
@@ -51,8 +59,15 @@ fn is_repository(path: &Path) -> bool {
         .is_ok_and(|metadata| metadata.is_file() || metadata.is_dir())
 }
 
-fn descend(path: &Path, pending: &mut Vec<PathBuf>, errors: &mut usize) -> io::Result<()> {
-    for entry in fs::read_dir(path)? {
+fn descend<I>(
+    entries: io::Result<I>,
+    pending: &mut Vec<PathBuf>,
+    errors: &mut usize,
+) -> io::Result<()>
+where
+    I: IntoIterator<Item = io::Result<fs::DirEntry>>,
+{
+    for entry in entries? {
         match entry.and_then(|entry| child_directory(&entry)) {
             Ok(Some(path)) => pending.push(path),
             Ok(None) => {}

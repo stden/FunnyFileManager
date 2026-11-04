@@ -30,6 +30,8 @@ mod tty;
 
 pub use args::RecordingDisabled;
 use recorder::record_live;
+#[cfg(test)]
+pub use recorder::set_stopped_for_test;
 pub use recorder::{stopped_reason, Recorder};
 pub use replay::Replay;
 use storage::{default_path, default_root};

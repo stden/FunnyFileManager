@@ -63,5 +63,15 @@ fn an_image_starts_loading_without_decoding_on_the_input_thread() {
     assert!(preview.contains("Image(Pending)"), "{preview}");
 }
 
+#[test]
+fn refresh_shows_nothing_when_opposite_panel_has_no_local_path() {
+    let dir = fixture();
+    let mut app = app_in(&dir);
+    app.left_panel.kind = PanelKind::QuickView(Box::default());
+    app.right_panel.kind = PanelKind::QuickView(Box::default());
+    refresh(&mut app);
+    assert!(matches!(preview(&app, PanelSide::Right), Preview::Nothing));
+}
+
 mod content;
 mod toggling;

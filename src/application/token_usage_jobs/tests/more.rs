@@ -154,3 +154,20 @@ fn viewer_scroll_is_captured_by_open_usage_panel() {
     };
     assert_eq!(panel.viewer.scroll.lines(), 1);
 }
+
+#[test]
+fn spawn_failure_publishes_worker_error_without_keeping_pending_job() {
+    let temp = tempfile::TempDir::new().expect("temp");
+    let mut app = app(&temp);
+    crate::ops::token_usage::open(&mut app);
+    let mut jobs = UsageJobs::default();
+    FORCE_SPAWN_FAILURE.set(true);
+    let redraw = jobs.pump_with(&mut app, Vec::new);
+    FORCE_SPAWN_FAILURE.set(false);
+    assert_eq!(redraw, Redraw::Needed);
+    assert!(jobs.pending.is_none());
+    let Overlay::TokenUsage(panel) = &app.overlay else {
+        panic!("panel");
+    };
+    assert_eq!(panel.state, UsageState::Ready);
+}

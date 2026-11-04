@@ -1,10 +1,7 @@
 //! Purpose: Provides shared pure utilities for sizes, unique paths, copies, and refreshes.
 //!
 use crate::models::FileSize;
-use std::{
-    fs, io,
-    path::{Path, PathBuf},
-};
+use std::{fs, io, path::Path};
 
 use crate::models::App;
 
@@ -12,11 +9,15 @@ mod copy_file;
 mod copy_tree;
 mod failed_at;
 mod keep_times;
+#[cfg(any(unix, test))]
 mod rewrite_file;
+mod unique_destination;
 mod unnamed_file;
 
 pub use copy_file::FileMode;
-pub(crate) use copy_file::{copy_file, open_regular_file, write_contents};
+pub(crate) use copy_file::{
+    copy_file, open_regular_file, open_regular_file_with_metadata, write_contents,
+};
 #[cfg(test)]
 use copy_tree::copy_symlink;
 pub(crate) use copy_tree::{
@@ -29,7 +30,9 @@ pub(crate) use keep_times::timespec;
 pub use keep_times::Times;
 #[cfg(test)]
 pub(crate) use keep_times::FORCE_TIMES_FAILURE;
+#[cfg(any(unix, test))]
 pub(crate) use rewrite_file::rewrite_file;
+pub use unique_destination::unique_destination;
 pub(crate) use unnamed_file::{name_unnamed, unnamed_file_in};
 
 #[cfg(any(test, tarpaulin))]
@@ -76,54 +79,6 @@ pub const MAX_FILE_SIZE: FileSize = FileSize::from_bytes(10 * 1024 * 1024);
 #[must_use]
 pub fn name_is_taken(path: &Path) -> bool {
     fs::symlink_metadata(path).is_ok()
-}
-
-/// Generate a unique file path to avoid overwriting existing files.
-/// If "test.txt" already exists, returns "`test_1.txt`", "`test_2.txt`", etc.
-pub fn unique_destination(base: &Path, file_name: &std::ffi::OsStr) -> io::Result<PathBuf> {
-    const MAX_UNIQUE_ATTEMPTS: u32 = 9999;
-    probe_unique_destination(base, file_name, MAX_UNIQUE_ATTEMPTS).ok_or_else(|| {
-        io::Error::new(
-            io::ErrorKind::AlreadyExists,
-            format!(
-                "could not find unique name for {} after {MAX_UNIQUE_ATTEMPTS} attempts",
-                file_name.display()
-            ),
-        )
-    })
-}
-
-fn probe_unique_destination(base: &Path, file_name: &std::ffi::OsStr, max: u32) -> Option<PathBuf> {
-    let dest = base.join(file_name);
-    if !name_is_taken(&dest) {
-        return Some(dest);
-    }
-    let stem = Path::new(file_name)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("");
-    let ext = Path::new(file_name).extension().and_then(|e| e.to_str());
-    let candidate = |n: u32| match ext.filter(|e| !e.is_empty()) {
-        Some(ext) => format!("{stem}_{n}.{ext}"),
-        None => format!("{stem}_{n}"),
-    };
-    if let Some(p) = (1..=4)
-        .map(|n| base.join(candidate(n)))
-        .find(|p| !name_is_taken(p))
-    {
-        return Some(p);
-    }
-    let set: Option<std::collections::HashSet<_>> = fs::read_dir(base)
-        .ok()
-        .map(|entries| entries.flatten().map(|e| e.file_name()).collect());
-    (5..=max)
-        .map(candidate)
-        .filter(|n| {
-            !set.as_ref()
-                .is_some_and(|s| s.contains(std::ffi::OsStr::new(n)))
-        })
-        .map(|n| base.join(n))
-        .find(|p| !name_is_taken(p))
 }
 
 /// Make a symbolic link at `link` pointing at `target`.

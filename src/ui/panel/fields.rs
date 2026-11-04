@@ -2,19 +2,29 @@
 //! split at its extension and clipped with Far's `}`, padding and alignment,
 //! and the Size column's words and compact byte counts.
 
-use super::super::{head_cells, take_cells, Cells};
-use super::columns::SIZE_COLUMN_WIDTH;
-use crate::models::{divide_rounded, DirEntry, EntryKind};
+mod size;
+
+use super::super::cells::clip::take_cells_str;
+use super::super::Cells;
+use crate::models::DirEntry;
+
+pub(in crate::ui) use size::{abbreviate_bytes, group_digits, size_field};
+pub(in crate::ui::panel) use size::{fitted_bytes, non_numeric_size_label};
 
 /// The row that leads out of a directory, which the Size column labels "Up".
 const PARENT_DIR: &str = "..";
+const SPACES: &str = "                                                                ";
+
+pub(super) fn push_spaces(out: &mut String, mut count: usize) {
+    while count > 0 {
+        let chunk = count.min(SPACES.len());
+        out.push_str(SPACES.get(..chunk).unwrap_or(""));
+        count -= chunk;
+    }
+}
 
 /// Far splits a file's name at its final dot and right-aligns the extension
 /// against the Size column, so a listing lines up by type without sorting.
-///
-/// Directories are never split — `.cargo` is a name, not an extension — and
-/// neither is a leading dot, which starts a hidden file rather than ending an
-/// empty one.
 pub(in crate::ui) fn split_extension(entry: &DirEntry) -> (&str, &str) {
     if entry.kind.is_dir() {
         return (&entry.name, "");
@@ -25,132 +35,118 @@ pub(in crate::ui) fn split_extension(entry: &DirEntry) -> (&str, &str) {
     }
 }
 
+struct ClippedText<'a> {
+    prefix: &'a str,
+    truncation_mark: &'static str,
+    used: Cells,
+}
+
+impl<'a> ClippedText<'a> {
+    fn fit(text: &'a str, width: Cells, truncation_mark: &'static str) -> Self {
+        let cells = Cells::of(text);
+        if cells <= width {
+            return Self {
+                prefix: text,
+                truncation_mark: "",
+                used: cells,
+            };
+        }
+        if width.is_zero() {
+            return Self {
+                prefix: "",
+                truncation_mark: "",
+                used: Cells::ZERO,
+            };
+        }
+        let (prefix, used) = take_cells_str(text, width.saturating_sub(Cells::new(1)));
+        Self {
+            prefix,
+            truncation_mark,
+            used: used + Cells::new(1),
+        }
+    }
+
+    const fn byte_len(&self) -> usize {
+        self.prefix.len() + self.truncation_mark.len()
+    }
+
+    fn push_to(&self, out: &mut String) {
+        out.push_str(self.prefix);
+        out.push_str(self.truncation_mark);
+    }
+}
+
+fn pad_clipped(text: &str, width: Cells, truncation_mark: &'static str) -> String {
+    let clipped = ClippedText::fit(text, width, truncation_mark);
+    let pad = width.saturating_sub(clipped.used).get();
+    let mut out = String::with_capacity(clipped.byte_len() + pad);
+    clipped.push_to(&mut out);
+    push_spaces(&mut out, pad);
+    out
+}
+
 /// First `width` cells of a panel name, marked with Far's `}` when cut.
-///
-/// A distinct marker from [`head_cells`]' ellipsis on purpose: `}` cannot
-/// occur mid-name often enough to be mistaken for one, and it is the glyph a
-/// Far user already reads as "there is more here".
 pub(in crate::ui) fn clip_name(name: &str, width: Cells) -> String {
-    if Cells::of(name) <= width {
-        return name.to_owned();
-    }
-    if width.is_zero() {
-        return String::new();
-    }
-    let (mut cut, _) = take_cells(name, width.saturating_sub(Cells(1)));
-    cut.push('}');
-    cut
+    let clipped = ClippedText::fit(name, width, "}");
+    let mut out = String::with_capacity(clipped.byte_len());
+    clipped.push_to(&mut out);
+    out
+}
+
+/// `name` clipped with Far's `}` and padded with spaces to `width` in one allocation.
+pub(in crate::ui) fn pad_clipped_name(name: &str, width: Cells) -> String {
+    pad_clipped(name, width, "}")
+}
+
+/// `text` clipped with `…` and padded with spaces to `width` in one allocation.
+pub(in crate::ui) fn pad_head_cells(text: &str, width: Cells) -> String {
+    pad_clipped(text, width, "…")
 }
 
 /// `text` padded with blanks to exactly `width` cells.
 pub(in crate::ui) fn pad_cells(text: &str, width: Cells) -> String {
-    let padding = " ".repeat(width.saturating_sub(Cells::of(text)).get());
-    format!("{text}{padding}")
+    let pad = width.saturating_sub(Cells::of(text)).get();
+    let mut out = String::with_capacity(text.len() + pad);
+    out.push_str(text);
+    push_spaces(&mut out, pad);
+    out
 }
 
-/// `text` right-aligned in exactly `width` cells, as every column but the name
-/// is. `pub(super)` because the drive dialog aligns its size columns the same
-/// way rather than keeping a copy.
+/// `text` right-aligned in exactly `width` cells.
 pub(in crate::ui) fn right_cells(text: &str, width: Cells) -> String {
-    let fitted = head_cells(text, width);
-    let padding = " ".repeat(width.saturating_sub(Cells::of(&fitted)).get());
-    format!("{padding}{fitted}")
+    let clipped = ClippedText::fit(text, width, "…");
+    let pad = width.saturating_sub(clipped.used).get();
+    let mut out = String::with_capacity(pad + clipped.byte_len());
+    push_spaces(&mut out, pad);
+    clipped.push_to(&mut out);
+    out
 }
 
 /// `text` centred in exactly `width` cells — the column headers' alignment.
 pub(in crate::ui) fn center_cells(text: &str, width: Cells) -> String {
-    let fitted = head_cells(text, width);
-    let slack = width.saturating_sub(Cells::of(&fitted)).get();
+    let clipped = ClippedText::fit(text, width, "…");
+    let slack = width.saturating_sub(clipped.used).get();
     let left = slack / 2;
-    format!("{}{fitted}{}", " ".repeat(left), " ".repeat(slack - left))
+    let mut out = String::with_capacity(slack + clipped.byte_len());
+    push_spaces(&mut out, left);
+    clipped.push_to(&mut out);
+    push_spaces(&mut out, slack - left);
+    out
 }
 
 /// The name column for one row: base name left, extension right.
 pub(in crate::ui) fn name_field(entry: &DirEntry, width: Cells) -> String {
     let (base, extension) = split_extension(entry);
     let extension_width = Cells::of(extension);
-    // Splitting costs the extension plus at least one blank column. Where the
-    // panel cannot pay that, the undivided name keeps the room instead: a bare
-    // right-aligned "rs" identifies a file far less than a truncated name does.
-    if extension.is_empty() || extension_width + Cells(2) > width {
-        return pad_cells(&clip_name(&entry.name, width), width);
+    if extension.is_empty() || extension_width + Cells::new(2) > width {
+        return pad_clipped_name(&entry.name, width);
     }
-    let base_room = width.saturating_sub(extension_width + Cells(1));
-    let base = clip_name(base, base_room);
-    let gap = width
-        .saturating_sub(Cells::of(&base) + extension_width)
-        .get();
-    format!("{base}{}{extension}", " ".repeat(gap))
-}
-
-/// The Size column's text: Far names what a row *is* before it measures it.
-pub(in crate::ui) fn size_field(entry: &DirEntry) -> String {
-    if entry.name == PARENT_DIR {
-        return "Up".to_owned();
-    }
-    // A link to a folder is entered like one, but it is not one: it says so
-    // where a folder says "Folder". A link to a file shows its target's size.
-    match (entry.kind, entry.directory_size) {
-        (EntryKind::SymlinkToDirectory, crate::models::DirectorySize::Unmeasured) => {
-            return "Link".to_owned()
-        }
-        (EntryKind::BrokenSymlink, _) => return "Broken".to_owned(),
-        (EntryKind::Directory, crate::models::DirectorySize::Unmeasured) => {
-            return "Folder".to_owned()
-        }
-        (
-            EntryKind::Directory | EntryKind::SymlinkToDirectory,
-            crate::models::DirectorySize::Measured(_),
-        )
-        | (EntryKind::File | EntryKind::SymlinkToFile, _) => {}
-    }
-    let bytes = entry.size.bytes();
-    let exact = bytes.to_string();
-    // Far prints the byte count itself and only abbreviates what will not fit,
-    // so the common case stays a number the user can compare digit by digit.
-    if Cells::of(&exact) <= SIZE_COLUMN_WIDTH {
-        exact
-    } else {
-        abbreviate_bytes(bytes)
-    }
-}
-
-/// Far's compact byte count — "381 K", "49.4 G": the largest unit that keeps
-/// the value under 1000, carrying a decimal only while there is room for one.
-pub(in crate::ui) fn abbreviate_bytes(bytes: u64) -> String {
-    const UNITS: [&str; 4] = ["K", "M", "G", "T"];
-
-    // Integer maths, exact for every u64: the value shown is `bytes / scale`.
-    let bytes = u128::from(bytes);
-    let mut scale = 1;
-    let mut unit = None;
-    for next in UNITS {
-        if divide_rounded(bytes, scale) < 1000 {
-            break;
-        }
-        scale *= 1024;
-        unit = Some(next);
-    }
-    let Some(unit) = unit else {
-        return bytes.to_string();
-    };
-    let tenths = divide_rounded(bytes * 10, scale);
-    if tenths >= 1000 {
-        format!("{} {unit}", divide_rounded(bytes, scale))
-    } else {
-        format!("{}.{} {unit}", tenths / 10, tenths % 10)
-    }
-}
-
-/// `value` with Far's thousands separators: `5,368,709,120`.
-pub(in crate::ui) fn group_digits(value: u64) -> String {
-    let digits = value.to_string();
-    let mut grouped = String::new();
-    for (index, digit) in digits.chars().enumerate() {
-        if index > 0 && (digits.len() - index).is_multiple_of(3) {
-            grouped.push(',');
-        }
-        grouped.push(digit);
-    }
-    grouped
+    let base_room = width.saturating_sub(extension_width + Cells::new(1));
+    let clipped = ClippedText::fit(base, base_room, "}");
+    let gap = width.saturating_sub(clipped.used + extension_width).get();
+    let mut out = String::with_capacity(clipped.byte_len() + gap + extension.len());
+    clipped.push_to(&mut out);
+    push_spaces(&mut out, gap);
+    out.push_str(extension);
+    out
 }

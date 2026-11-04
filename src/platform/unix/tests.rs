@@ -32,3 +32,15 @@ fn every_offered_signal_has_a_number() {
         .iter()
         .all(|signal| rustix_signal(*signal).as_raw() > 0));
 }
+
+#[test]
+fn reaped_child_has_exited_errors_and_missing_foreground_group_is_ignored() {
+    let mut child = std::process::Command::new("sh")
+        .args(["-c", "exit 0"])
+        .spawn()
+        .expect("spawn");
+    child.wait().expect("reap");
+    assert!(super::has_exited(&child).is_err());
+    super::group::kill_foreground_group(None).expect("no leader");
+    super::group::kill_foreground_group(Some(i32::MAX)).expect("missing group");
+}

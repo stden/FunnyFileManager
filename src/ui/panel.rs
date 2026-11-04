@@ -36,7 +36,8 @@ pub(super) use columns::COLUMN_SEPARATOR;
 use columns::{info_columns, table_columns};
 pub(super) use fields::group_digits;
 pub(super) use fields::{
-    abbreviate_bytes, center_cells, clip_name, pad_cells, right_cells, size_field,
+    abbreviate_bytes, center_cells, clip_name, pad_cells, pad_clipped_name, pad_head_cells,
+    right_cells, size_field,
 };
 #[cfg(test)]
 pub(super) use fields::{name_field, split_extension};

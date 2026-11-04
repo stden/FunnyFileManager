@@ -7,6 +7,8 @@ use crate::lsp::{
 };
 use crate::models::{lsp::Intent, App, ServerState};
 
+pub(super) type CursorKey = (Stamp, usize, usize, u64);
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) struct Context {
     pub stamp: Stamp,
@@ -21,6 +23,25 @@ impl Context {
             position: editor.lsp_position(),
             saved: editor.lsp.saved,
         }
+    }
+
+    pub(super) fn cursor_key(editor: &crate::models::Editor) -> CursorKey {
+        (
+            editor.lsp_stamp(),
+            editor.cursor_line,
+            editor.cursor_col,
+            editor.lsp.saved,
+        )
+    }
+
+    pub(super) fn next_cursor_key(
+        editor: &crate::models::Editor,
+        prev: Option<CursorKey>,
+        sent: Option<(Stamp, u64)>,
+    ) -> Option<CursorKey> {
+        let key = Self::cursor_key(editor);
+        (editor.lsp.intent != Intent::None || prev != Some(key) || sent != Some((key.0, key.3)))
+            .then_some(key)
     }
 }
 

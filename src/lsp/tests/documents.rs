@@ -58,8 +58,13 @@ fn full_sync_increments_versions_only_when_text_changes() {
 
 #[test]
 fn incremental_changes_reconstruct_unicode_insertions_deletions_and_replacements() {
+    let tail = "s".repeat(256);
+    let long_old = format!("head_old_{tail}");
+    let long_new = format!("head_new_{tail}");
     for (old, new) in [
         ("a😀б\nrest", "a🚀б\nrest"),
+        ("x\u{0080}", "x\u{00C0}"),
+        ("x\u{1F600}", "x\u{1F640}"),
         ("abc", "ac"),
         ("", "Я😀\nx"),
         ("a\nb", ""),
@@ -67,6 +72,7 @@ fn incremental_changes_reconstruct_unicode_insertions_deletions_and_replacements
         ("a\r\nb", "a\nb"),
         ("a\r\nb", "a\rX\nb"),
         ("a\nb", "a\r\nb"),
+        (long_old.as_str(), long_new.as_str()),
     ] {
         let mut rpc = Session::default();
         let mut doc = Document::open(snapshot(old), "file:///test.rs".into(), "rust", &mut rpc);

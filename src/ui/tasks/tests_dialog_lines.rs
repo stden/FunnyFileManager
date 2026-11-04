@@ -153,3 +153,15 @@ fn send_signal_confirmation_renders_send_button_and_ancestor_pause_or_harmless_n
     )));
     assert!(!screen(&mut app).contains("session"));
 }
+
+#[test]
+fn confirm_label_and_refusal_reason_cover_kill_and_no_target() {
+    assert_eq!(
+        super::dialogs::confirm::confirm_label(crate::models::ConfirmButton::Kill),
+        "&Kill"
+    );
+    assert_eq!(
+        super::dialogs::confirm::refusal_reason(crate::models::ControlRefusal::NoTarget),
+        Some("no process")
+    );
+}

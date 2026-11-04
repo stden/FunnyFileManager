@@ -89,8 +89,12 @@ fn unavailable(frame: &mut Frame<'_>, area: Rect) {
 
 impl Renderer {
     fn start_worker(&mut self) {
+        self.start_worker_with(Worker::start);
+    }
+
+    fn start_worker_with(&mut self, start: impl FnOnce() -> std::io::Result<Worker>) {
         if self.worker.is_none() && !self.failed {
-            match Worker::start() {
+            match start() {
                 Ok(worker) => self.worker = Some(worker),
                 Err(_) => self.failed = true,
             }

@@ -23,7 +23,7 @@ mod drive_entry;
 mod drives;
 mod editor;
 pub use crate::values::entry;
-pub(crate) use editor::{lsp, RemoteDocument};
+pub(crate) use editor::{lsp, pairs, RemoteDocument};
 mod file_name;
 mod filter;
 mod findfile;

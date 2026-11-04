@@ -31,6 +31,25 @@ CONFIGURATIONS = (
 )
 
 
+WINDOWS_WRAPPER_SOURCE = (
+    "fn main() {\n"
+    "    let mut args = std::env::args_os().skip(1);\n"
+    '    let program = args.next().expect("compiler path");\n'
+    '    let status = std::process::Command::new(program).args(args).status().expect("spawn compiler");\n'
+    "    std::process::exit(status.code().unwrap_or(1));\n"
+    "}\n"
+)
+
+
+def build_windows_wrapper(directory: Path) -> Path:
+    """Compile a native pass-through binary so cmd.exe's 8191-char limit cannot truncate rustc."""
+    source = directory / "rustc-wrapper.rs"
+    wrapper = directory / "rustc-wrapper.exe"
+    source.write_text(WINDOWS_WRAPPER_SOURCE, encoding="utf-8")
+    execute(["rustc", str(source), "-o", str(wrapper)], os.environ)
+    return wrapper
+
+
 def compiler_environment(directory: Path) -> dict[str, str]:
     """Supply a working pass-through for Cargo's empty-wrapper configuration."""
     environment = {**os.environ, "PWD": str(lint_steps.ROOT)}
@@ -42,8 +61,7 @@ def compiler_environment(directory: Path) -> dict[str, str]:
     if environment.get("RUSTC_WRAPPER") or environment.get("CARGO_BUILD_RUSTC_WRAPPER"):
         return environment
     if os.name == "nt":
-        wrapper = directory / "rustc-wrapper.cmd"
-        wrapper.write_text("@echo off\n%*\n", encoding="utf-8")
+        wrapper = build_windows_wrapper(directory)
     else:
         wrapper = shell_path.find("env")
         if not wrapper:
@@ -53,13 +71,44 @@ def compiler_environment(directory: Path) -> dict[str, str]:
     return environment
 
 
+def selected_configurations(environment):
+    """Return requested FFM_COVERAGE_SUITES in canonical order, or all suites."""
+    raw = environment.get("FFM_COVERAGE_SUITES", "")
+    wanted = {name.strip() for name in raw.split(",") if name.strip()}
+    if not wanted:
+        return CONFIGURATIONS
+    unknown = sorted(wanted - {item[0] for item in CONFIGURATIONS})
+    if unknown:
+        raise OSError(f"coverage: unknown FFM_COVERAGE_SUITES: {', '.join(unknown)}")
+    return tuple(item for item in CONFIGURATIONS if item[0] in wanted)
+
+
+CACHEDIR_TAG = (
+    "Signature: 8a477f597d28d172789f06886806bc55\n"
+    "# This file is a cache directory tag created by cargo.\n"
+)
+
+
+def prepare_target(environment: dict[str, str]) -> None:
+    """Ensure CACHEDIR.TAG for Cargo 1.99+ clean and drop cross-crate bdd binaries."""
+    target = lint_steps.ROOT / environment["CARGO_LLVM_COV_TARGET_DIR"]
+    target.mkdir(parents=True, exist_ok=True)
+    tag = target / "CACHEDIR.TAG"
+    if not tag.is_file():
+        tag.write_text(CACHEDIR_TAG, encoding="utf-8")
+    for stale in (target / "debug" / "deps").glob("bdd-*"):
+        stale.unlink()
+
+
 def run(directory: Path) -> list[Path]:
     """Export each configuration with fresh profiles; failed tests stop collection."""
     directory = directory.resolve()
     directory.mkdir(parents=True, exist_ok=True)
     environment = compiler_environment(directory)
+    suites = selected_configurations(environment)
     reports = []
-    for name, manifest, features in CONFIGURATIONS:
+    for name, manifest, features in suites:
+        prepare_target(environment)
         report = directory / f"rust-{name}.json"
         command = [
             "cargo", "llvm-cov", "test",

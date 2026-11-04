@@ -10,6 +10,7 @@ use crate::lsp::{
 
 mod completion;
 pub mod matcher;
+mod popup;
 
 pub fn is_identifier_char(ch: char) -> bool {
     ch.is_alphanumeric() || ch == '_'
@@ -72,6 +73,7 @@ impl Editor {
     pub(crate) fn mark_modified(&mut self) {
         self.state = EditState::Modified;
         self.lsp.revision.0 = self.lsp.revision.0.saturating_add(1);
+        self.pair_cache.set(None);
         self.lsp.popup = None;
         self.lsp.diagnostics.clear();
     }
@@ -92,11 +94,7 @@ impl Editor {
     }
 
     pub(crate) fn lsp_text(&self) -> String {
-        let mut text = self.lines.join("\n");
-        if self.format.trailing_newline {
-            text.push('\n');
-        }
-        text
+        super::format::join_lines(&self.lines, "\n", self.format.trailing_newline)
     }
 
     pub(crate) fn lsp_snapshot(&self) -> Snapshot {

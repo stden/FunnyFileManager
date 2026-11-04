@@ -60,19 +60,18 @@ fn ping_endpoint(ip: Ipv4, timeout: Duration) -> ProbeOutcome {
 fn ping_socket(addr: std::net::SocketAddr, timeout: Duration) -> ProbeOutcome {
     use std::net::TcpStream;
     let start = Instant::now();
-    match TcpStream::connect_timeout(&addr, timeout) {
-        Ok(_) => ProbeOutcome::Ok(start.elapsed()),
-        Err(err) if err.kind() == io::ErrorKind::ConnectionRefused => {
-            ProbeOutcome::Ok(start.elapsed())
-        }
-        Err(err)
-            if matches!(
-                err.kind(),
-                io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
-            ) =>
-        {
-            ProbeOutcome::Timeout
-        }
+    classify_tcp_connect(
+        TcpStream::connect_timeout(&addr, timeout).map(drop),
+        start.elapsed(),
+    )
+}
+
+#[cfg(any(not(windows), test))]
+fn classify_tcp_connect(result: io::Result<()>, elapsed: Duration) -> ProbeOutcome {
+    match result {
+        Ok(()) => ProbeOutcome::Ok(elapsed),
+        Err(err) if err.kind() == io::ErrorKind::ConnectionRefused => ProbeOutcome::Ok(elapsed),
+        Err(err) if is_timeout_error(&err) => ProbeOutcome::Timeout,
         Err(_) => ProbeOutcome::Unreachable,
     }
 }
@@ -84,10 +83,26 @@ pub(super) fn udp_dns_probe(
     txid: u16,
     timeout: Duration,
 ) -> ProbeOutcome {
+    udp_dns_probe_from(
+        SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0),
+        server,
+        domain,
+        txid,
+        timeout,
+    )
+}
+
+pub(super) fn udp_dns_probe_from(
+    bind_addr: SocketAddrV4,
+    server: SocketAddrV4,
+    domain: &str,
+    txid: u16,
+    timeout: Duration,
+) -> ProbeOutcome {
     let Some(query) = build_dns_a_query(domain, txid) else {
         return ProbeOutcome::Unreachable;
     };
-    let Ok(sock) = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0)) else {
+    let Ok(sock) = UdpSocket::bind(bind_addr) else {
         return ProbeOutcome::Unreachable;
     };
     drop(sock.set_read_timeout(Some(timeout)));
@@ -99,16 +114,16 @@ pub(super) fn udp_dns_probe(
     let mut reply = [0_u8; 512];
     match sock.recv_from(&mut reply) {
         Ok((n, _)) if is_matching_dns_reply(&reply, n, txid) => ProbeOutcome::Ok(start.elapsed()),
-        Err(err)
-            if matches!(
-                err.kind(),
-                io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
-            ) =>
-        {
-            ProbeOutcome::Timeout
-        }
+        Err(err) if is_timeout_error(&err) => ProbeOutcome::Timeout,
         Ok(_) | Err(_) => ProbeOutcome::Unreachable,
     }
+}
+
+fn is_timeout_error(err: &io::Error) -> bool {
+    matches!(
+        err.kind(),
+        io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
+    )
 }
 
 pub(super) fn build_dns_a_query(domain: &str, txid: u16) -> Option<Vec<u8>> {

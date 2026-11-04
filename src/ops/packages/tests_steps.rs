@@ -1,7 +1,15 @@
-//! Purpose: Direct unit tests for `run_step` process spawning and stderr capture.
+//! Purpose: Direct unit tests for `run_step`, `execute`, and `outcome_status`.
 
-use super::run_step;
-use std::process::Command;
+#[cfg(windows)]
+use super::execute;
+use super::{outcome_status, run_step};
+use crate::status::Status;
+#[cfg(windows)]
+use crate::{
+    models::{App, Panel},
+    packages::{Elevation, Manager, UpdatePlan},
+};
+use std::{io, process::Command};
 
 #[test]
 fn run_step_captures_stderr_and_reports_spawn_failure() {
@@ -24,4 +32,27 @@ fn run_step_captures_stderr_and_reports_spawn_failure() {
     let missing = Command::new("definitely-missing-ffm-binary-xyz");
     let err = run_step(missing).expect_err("missing binary");
     assert!(err.to_string().contains("cannot start"));
+    assert_eq!(
+        outcome_status(Err(io::Error::other("aborted")), true),
+        Status::PackageUpdateCancelled
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn execute_runs_current_user_fixture_script_on_windows() {
+    let temp = tempfile::TempDir::new().expect("tempdir");
+    let script = temp.path().join("fake-mgr.cmd");
+    std::fs::write(&script, "@echo off\r\nexit /b 0\r\n").expect("write cmd");
+    let mut app = App::with_panels(
+        Panel::new(temp.path().to_owned()).expect("left"),
+        Panel::new(temp.path().to_owned()).expect("right"),
+    );
+    let plan = UpdatePlan {
+        manager: Manager::Brew,
+        executable: script,
+        elevation: Elevation::CurrentUser,
+    };
+    let summary = execute(&plan, &mut app).expect("execute cmd");
+    assert!(summary.contains("completed"), "{summary}");
 }

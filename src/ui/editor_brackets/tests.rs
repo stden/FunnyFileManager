@@ -140,4 +140,28 @@ fn columns_count_characters_not_bytes_in_both_directions() {
     assert_eq!(highlighted(&editor(text, 0, 4), 0, 0), [(2, 0), (4, 0)]);
 }
 
+#[test]
+fn pair_cache_reuses_warm_coordinates_and_invalidates_on_cursor_or_edit() {
+    let mut ed = editor("a(bc)d", 0, 1);
+    assert_eq!(highlighted(&ed, 0, 0), [(1, 0), (4, 0)]);
+    // Warm redraw at identical (revision, cursor_line, cursor_col) reads pair_cache.
+    assert_eq!(highlighted(&ed, 0, 0), [(1, 0), (4, 0)]);
+    ed.cursor_col = 0;
+    assert_eq!(highlighted(&ed, 0, 0).len(), 0);
+    ed.cursor_col = 1;
+    ed.insert_char('x');
+    assert!(ed.pair_cache.get().is_none());
+    assert_eq!(highlighted(&ed, 0, 0), [(2, 0), (5, 0)]);
+    assert!(ed.pair_cache.get().is_some());
+
+    let mut xml_ed = Editor::from_content("a.xml".into(), "a.xml".into(), "<p>x</p>");
+    xml_ed.cursor_col = 1;
+    drop(highlighted(&xml_ed, 0, 0));
+    drop(highlighted(&xml_ed, 0, 0));
+    assert!(xml_ed
+        .pair_cache
+        .get()
+        .is_some_and(|c| c.xml_tags.is_some()));
+}
+
 mod xml;

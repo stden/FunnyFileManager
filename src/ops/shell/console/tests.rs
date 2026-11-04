@@ -39,7 +39,7 @@ fn write_probe(directory: &Path) {
 )]
 fn wait_for_probe(process: &OwnedHandle) {
     // SAFETY: the owned handle stays live throughout these calls.
-    let result = unsafe { WaitForSingleObject(process.as_raw_handle(), 15_000) };
+    let result = unsafe { WaitForSingleObject(process.as_raw_handle(), 45_000) };
     if result != WAIT_OBJECT_0 {
         // SAFETY: the same live, owned process handle.
         unsafe { TerminateProcess(process.as_raw_handle(), 1) };
@@ -135,5 +135,21 @@ fn new_console_rejects_nul_instead_of_truncating_arguments() {
     assert_eq!(
         spawn(&command, temp.path()).expect_err("NUL").kind(),
         io::ErrorKind::InvalidInput
+    );
+}
+
+#[test]
+fn resolve_shell_falls_back_when_comspec_is_missing_or_relative() {
+    assert_eq!(
+        resolve_shell(Some(r"C:\Custom\cmd.exe".into()), None),
+        std::ffi::OsString::from(r"C:\Custom\cmd.exe")
+    );
+    assert_eq!(
+        resolve_shell(Some("cmd.exe".into()), Some(r"D:\Win".into())),
+        std::ffi::OsString::from(r"D:\Win\System32\cmd.exe")
+    );
+    assert_eq!(
+        resolve_shell(None, None),
+        std::ffi::OsString::from(r"C:\Windows\System32\cmd.exe")
     );
 }

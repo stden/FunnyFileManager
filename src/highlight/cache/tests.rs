@@ -159,3 +159,21 @@ fn single_line_insert_and_delete_in_large_file_converge_in_constant_passes() {
         .runs(999, &lines[999])
         .contains(&("let", Token::Keyword)));
 }
+
+#[test]
+fn documents_without_continuation_rebuild_cleanly_on_edits() {
+    let path = Path::new("whole_file.rs");
+    let lines = vec!["let a = 1;".to_owned()];
+    let edited = vec!["fn b() {}".to_owned()];
+    let mut cache = HighlightCache::default();
+
+    cache.prepare(path, &lines, 1);
+    cache.0.as_mut().expect("doc").initial = None;
+    cache.prepare(path, &edited, 1);
+    assert!(cache.runs(0, &edited[0]).contains(&("fn", Token::Keyword)));
+
+    cache.prepare_revision(path, &lines, 1, 1);
+    cache.0.as_mut().expect("doc").initial = None;
+    cache.prepare_revision(path, &edited, 1, 2);
+    assert!(cache.runs(0, &edited[0]).contains(&("fn", Token::Keyword)));
+}

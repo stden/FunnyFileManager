@@ -105,15 +105,16 @@ impl RemoteRequests {
     }
 
     pub(crate) fn take(&mut self) -> Option<RemoteRequest> {
-        let WorkState::Queued(_) = self.state else {
-            return None;
-        };
-        let WorkState::Queued(request) =
-            std::mem::replace(&mut self.state, WorkState::Running(self.next))
-        else {
-            return None;
-        };
-        Some(*request)
+        match std::mem::take(&mut self.state) {
+            WorkState::Queued(request) => {
+                self.state = WorkState::Running(self.next);
+                Some(*request)
+            }
+            other => {
+                self.state = other;
+                None
+            }
+        }
     }
 
     pub(crate) fn finish(&mut self, id: u64) -> bool {

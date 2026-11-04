@@ -102,6 +102,10 @@ fn tab_and_arrows_walk_the_controls() {
     assert_eq!(prompt(&app).field, ExtractField::Destination);
     process_popup_input(&mut app, key(KeyCode::Down));
     assert_eq!(prompt(&app).field, ExtractField::Extract);
+    process_popup_input(&mut app, key(KeyCode::Home));
+    assert_eq!(prompt(&app).field, ExtractField::Extract);
+    process_popup_input(&mut app, key(KeyCode::Left));
+    assert_eq!(prompt(&app).field, ExtractField::Destination);
 }
 
 #[test]

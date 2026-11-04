@@ -1,6 +1,6 @@
 //! Purpose: Exercise fast-forward pulls and failure cases against local bare remotes.
 
-use super::super::fixtures::{commit, git, text, Fixture};
+use super::super::tests_fixtures::{commit, git, text, Fixture};
 use super::*;
 use std::fs;
 

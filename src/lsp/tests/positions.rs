@@ -30,6 +30,7 @@ fn surrogate_interiors_and_invalid_ranges_are_rejected() {
     assert_eq!(from_chars(0, "A😀Б", 2).unwrap().character, 3);
     assert_eq!(to_chars("A😀Б", 2), None);
     assert_eq!(from_chars(0, "x", 2), None);
+    assert_eq!(from_chars(0, "Привет", 99), None);
     assert_eq!(at_byte("😀", 1), None);
     assert_eq!(
         byte_offset(
@@ -105,6 +106,8 @@ fn file_uris_round_trip_spaces_unicode_and_reserved_characters() {
     ] {
         assert!(uri::to_path(invalid).is_none(), "{invalid}");
     }
+    #[cfg(not(windows))]
+    assert!(uri::to_path("file://remotehost/tmp/a.rs").is_none());
     assert!(uri::from_path(std::path::Path::new("relative.rs")).is_none());
 }
 

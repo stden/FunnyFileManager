@@ -17,22 +17,23 @@ use super::columns::{PanelColumn, COLUMN_SEPARATOR};
 use super::fields::name_field;
 use super::layout::PanelLayout;
 use super::modes;
-use super::styles::{cursor_style, entry_colour, entry_style, mark_of, separator_style, Mark};
+use super::styles::{cursor_style, row_facts, separator_style, Mark};
 use crate::models::{DirEntry, Panel, ShortNames};
 use crate::scroll::visible_window;
 
 /// A stripe with no entry left to show: nothing in it but the column rules.
-///
-/// What makes the panel read as a table below the last file: Far's rules run
-/// to the divider, and a rule that stops where the data stops leaves the frame
-/// looking broken in every directory with fewer files than rows.
-fn empty_cell(name: Cells, columns: &[PanelColumn]) -> Span<'static> {
-    let mut cell = " ".repeat(name.get());
+fn empty_cell_text(name: Cells, columns: &[PanelColumn]) -> String {
+    let extra: usize = columns
+        .iter()
+        .map(|col| COLUMN_SEPARATOR.len() + col.width().get())
+        .sum();
+    let mut cell = String::with_capacity(name.get() + extra);
+    super::fields::push_spaces(&mut cell, name.get());
     for column in columns {
         cell.push_str(COLUMN_SEPARATOR);
-        cell.push_str(&" ".repeat(column.width().get()));
+        super::fields::push_spaces(&mut cell, column.width().get());
     }
-    Span::styled(cell, separator_style())
+    cell
 }
 
 /// One entry in one stripe: the name, then each column behind its rule.
@@ -42,32 +43,20 @@ fn entry_cell(
     entry: &DirEntry,
     name: Cells,
     columns: &[PanelColumn],
-) -> Vec<Span<'static>> {
-    let mark = mark_of(panel, entry);
-    let hidden = panel.is_hidden(&entry.name);
-    let ignored = panel.is_ignored(&entry.name);
+) -> (Mark, Vec<Span<'static>>) {
+    let facts = row_facts(panel, entry);
     let displayed = displayed_entry(short_names, entry);
-    let name_style = entry_style(panel, entry, mark);
-    // Marked, hidden, ignored and executable rows paint their whole row — name,
-    // extension, size, date and time — in the entry's colour, as Far's file
-    // highlighting does while keeping the `│` rules cyan.
-    let whole_row =
-        mark == Mark::Marked || hidden || ignored || (entry.executable && !entry.kind.is_dir());
-    let data_style = Style::default().fg(if whole_row {
-        entry_colour(panel, entry, mark)
-    } else {
-        palette::DATA
-    });
-
-    let mut spans = vec![Span::styled(name_field(&displayed, name), name_style)];
+    let mut spans = Vec::with_capacity(1 + columns.len() * 2);
+    spans.push(Span::styled(name_field(&displayed, name), facts.name_style));
+    let sep_style = separator_style();
     for column in columns {
-        spans.push(Span::styled(COLUMN_SEPARATOR, separator_style()));
+        spans.push(Span::styled(COLUMN_SEPARATOR, sep_style));
         spans.push(Span::styled(
-            column.lay_out(&column.cell(&displayed)),
-            data_style,
+            column.lay_out(column.cell(&displayed)),
+            facts.data_style,
         ));
     }
-    spans
+    (facts.mark, spans)
 }
 
 pub(super) fn render_entries(
@@ -92,19 +81,42 @@ pub(super) fn render_entries(
     let cursor = panel.selected().filter(|_| is_active);
     let panel = &*panel;
     let short_names = modes::short_names(panel);
-    let lines: Vec<Line<'_>> = (0..rows)
-        .map(|row| {
-            let cells = (0..layout.stripes).map(|stripe| {
-                Some(window.start + stripe * rows + row).filter(|index| window.contains(index))
-            });
-            body_line(panel, short_names.as_ref(), layout, cells, cursor)
-        })
+    let empty_cells: Vec<String> = (0..layout.stripes)
+        .map(|stripe| empty_cell_text(layout.name_width(stripe), layout.columns))
         .collect();
+    let lines = build_body_lines(
+        panel,
+        short_names.as_ref(),
+        layout,
+        rows,
+        &window,
+        &empty_cells,
+        cursor,
+    );
     f.render_widget(
         Paragraph::new(lines).style(Style::default().bg(FAR_BLUE)),
         body,
     );
     render_empty_hint(f, panel, body);
+}
+
+fn build_body_lines<'a>(
+    panel: &'a Panel,
+    short_names: Option<&'a ShortNames>,
+    layout: PanelLayout,
+    rows: usize,
+    window: &std::ops::Range<usize>,
+    empty_cells: &'a [String],
+    cursor: Option<usize>,
+) -> Vec<Line<'a>> {
+    (0..rows)
+        .map(|row| {
+            let cells = (0..layout.stripes).map(|stripe| {
+                Some(window.start + stripe * rows + row).filter(|index| window.contains(index))
+            });
+            body_line(panel, short_names, layout, empty_cells, cells, cursor)
+        })
+        .collect()
 }
 
 /// Give an empty listing a useful action without covering its parent row.
@@ -133,30 +145,32 @@ fn render_empty_hint(f: &mut Frame<'_>, panel: &Panel, body: Rect) {
     );
 }
 
-/// One body row: the entry each stripe shows on it, or — where the listing
-/// has run out — just the column rules, which run the full height of the body.
-fn body_line(
+/// One body row: the entry each stripe shows on it, or bare column rules below the last entry.
+fn body_line<'a>(
     panel: &Panel,
     short_names: Option<&ShortNames>,
     layout: PanelLayout,
+    empty_cells: &'a [String],
     cells: impl Iterator<Item = Option<usize>>,
     cursor: Option<usize>,
-) -> Line<'static> {
-    let mut spans = Vec::new();
+) -> Line<'a> {
+    let mut spans = Vec::with_capacity(layout.stripes * (2 + layout.columns.len() * 2));
+    let sep_style = separator_style();
     for (stripe, index) in cells.enumerate() {
         if stripe > 0 {
-            spans.push(Span::styled(COLUMN_SEPARATOR, separator_style()));
+            spans.push(Span::styled(COLUMN_SEPARATOR, sep_style));
         }
         let name = layout.name_width(stripe);
         let entry = index.and_then(|index| panel.entries.get(index));
         let (Some(index), Some(entry)) = (index, entry) else {
-            spans.push(empty_cell(name, layout.columns));
+            if let Some(blank) = empty_cells.get(stripe) {
+                spans.push(Span::styled(blank.as_str(), sep_style));
+            }
             continue;
         };
-        let cell = entry_cell(panel, short_names, entry, name, layout.columns);
-        // The cursor covers its own stripe only, never the rule beside it.
+        let (mark, cell) = entry_cell(panel, short_names, entry, name, layout.columns);
         if cursor == Some(index) {
-            let style = cursor_style(mark_of(panel, entry));
+            let style = cursor_style(mark);
             spans.extend(cell.into_iter().map(|span| span.patch_style(style)));
         } else {
             spans.extend(cell);
@@ -165,10 +179,7 @@ fn body_line(
     Line::from(spans)
 }
 
-/// The entry as the row shows it: itself, or a copy under its 8.3 name while
-/// the panel shows short names, with anything the terminal will not draw
-/// replaced. Only the name changes — marks, hiding and every operation still
-/// go by the real one.
+/// The entry as the row shows it.
 fn displayed_entry<'a>(short_names: Option<&ShortNames>, entry: &'a DirEntry) -> Cow<'a, DirEntry> {
     let short = short_names.and_then(|table| table.get(&entry.name));
     let shown = short.map_or(entry.name.as_str(), crate::models::ShortName::as_str);

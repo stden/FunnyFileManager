@@ -174,7 +174,7 @@ fn with_screen<T>(act: impl FnOnce(&mut Screen) -> T) -> Option<T> {
     SCREEN.with(|screen| screen.borrow_mut().as_mut().map(act))
 }
 
-mod report;
+pub(super) mod report;
 mod transfer;
 
 pub use report::{

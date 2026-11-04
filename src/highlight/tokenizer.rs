@@ -1,5 +1,7 @@
 //! Purpose: The per-line tokenizer: comments, strings, numbers, words, switches and variables.
 
+mod scan;
+
 use super::{Syntax, Token};
 
 /// Whether the tokenizer is inside a multi-line block comment across lines.
@@ -12,29 +14,60 @@ pub(super) enum BlockState {
     },
 }
 
+#[derive(Clone, Copy)]
+struct TokenStep {
+    byte_len: usize,
+    token: Token,
+}
+
+impl TokenStep {
+    const fn new(byte_len: usize, token: Token) -> Self {
+        Self { byte_len, token }
+    }
+}
+
 /// Split one line into token runs, updating `block` for the next line.
 pub(super) fn tokenize<'a>(
     line: &'a str,
     syntax: Syntax,
     block: &mut BlockState,
 ) -> Vec<(&'a str, Token)> {
+    if line.is_empty() {
+        return Vec::new();
+    }
     if let Some(token) = whole_line_token(line, syntax, *block) {
         return vec![(line, token)];
     }
-    let mut runs = Vec::new();
+    let mut runs = Vec::with_capacity((line.len() / 6).clamp(4, 64));
     let mut rest = line;
-    while let Some(first) = rest.chars().next() {
-        let (length, token) = comment_length(rest, syntax, block).map_or_else(
-            || next_token(rest, first, syntax),
-            |length| (length, Token::Comment),
-        );
-        // Every length is counted in whole characters, so the split succeeds;
-        // were one ever off, the rest of the line stays in this run.
-        let (run, tail) = rest.split_at_checked(length).unwrap_or((rest, ""));
-        runs.push((run, token));
+    while let Some(&byte) = rest.as_bytes().first() {
+        let step = step_token(rest, byte, syntax, block);
+        let (run, tail) = rest.split_at_checked(step.byte_len).unwrap_or((rest, ""));
+        runs.push((run, step.token));
         rest = tail;
     }
     runs
+}
+
+fn step_token(rest: &str, byte: u8, syntax: Syntax, block: &mut BlockState) -> TokenStep {
+    if let BlockState::Inside { closing_delimiter } = *block {
+        let byte_len = rest.find(closing_delimiter).map_or(rest.len(), |offset| {
+            *block = BlockState::Outside;
+            offset + closing_delimiter.len()
+        });
+        return TokenStep::new(byte_len, Token::Comment);
+    }
+    if scan::is_ascii_ws(byte) {
+        return TokenStep::new(scan::scan_whitespace(rest), Token::Normal);
+    }
+    if let Some(byte_len) = open_comment_length(rest, syntax, block) {
+        return TokenStep::new(byte_len, Token::Comment);
+    }
+    if byte.is_ascii() {
+        ascii_token(rest, byte, syntax)
+    } else {
+        unicode_token(rest, syntax)
+    }
 }
 
 /// Sections and directives take precedence over individual tokens.
@@ -56,13 +89,7 @@ fn whole_line_token(line: &str, syntax: Syntax, block: BlockState) -> Option<Tok
         .map(|_| Token::Meta)
 }
 
-fn comment_length(rest: &str, syntax: Syntax, block: &mut BlockState) -> Option<usize> {
-    if let BlockState::Inside { closing_delimiter } = *block {
-        return Some(rest.find(closing_delimiter).map_or(rest.len(), |offset| {
-            *block = BlockState::Outside;
-            offset + closing_delimiter.len()
-        }));
-    }
+fn open_comment_length(rest: &str, syntax: Syntax, block: &mut BlockState) -> Option<usize> {
     if syntax
         .line_comments
         .iter()
@@ -90,36 +117,38 @@ fn block_comment_length(rest: &str, syntax: Syntax, block: &mut BlockState) -> O
     })
 }
 
-/// Read one non-comment token from `rest`, whose first character is `ch`.
-fn next_token(rest: &str, ch: char, syntax: Syntax) -> (usize, Token) {
+fn ascii_token(rest: &str, byte: u8, syntax: Syntax) -> TokenStep {
+    let ch = char::from(byte);
     if syntax.quotes.contains(&ch) {
-        return (string_length(rest, ch), Token::Str);
+        return TokenStep::new(scan::string_length(rest, byte), Token::Str);
     }
-
-    if let Some(token) = prefixed_token(rest, syntax, ch) {
-        return token;
+    if let Some(step) = prefixed_token(rest, syntax, ch) {
+        return step;
     }
-
-    if ch.is_ascii_digit() {
-        return (
-            run_length(rest, |c| c.is_alphanumeric() || c == '.' || c == '_'),
-            Token::Number,
-        );
+    if byte.is_ascii_digit() {
+        return TokenStep::new(scan::scan_number(rest), Token::Number);
     }
+    if byte.is_ascii_alphabetic() || byte == b'_' {
+        let byte_len = scan::scan_word(rest, syntax.word_hyphens);
+        let token = word_token(rest.get(..byte_len).unwrap_or(rest), syntax);
+        return TokenStep::new(byte_len, token);
+    }
+    TokenStep::new(1, Token::Punctuation)
+}
 
-    if ch.is_alphabetic() || ch == '_' {
-        let length = run_length(rest, |c| {
+fn unicode_token(rest: &str, syntax: Syntax) -> TokenStep {
+    let ch = rest.chars().next().unwrap_or(' ');
+    if ch.is_alphabetic() {
+        let byte_len = run_length(rest, |c| {
             c.is_alphanumeric() || c == '_' || (syntax.word_hyphens && c == '-')
         });
-        let token = word_token(rest.get(..length).unwrap_or(rest), syntax);
-        return (length, token);
+        let token = word_token(rest.get(..byte_len).unwrap_or(rest), syntax);
+        return TokenStep::new(byte_len, token);
     }
-
-    // Retain whitespace in a single run so indentation does not multiply spans.
     if ch.is_whitespace() {
-        return (run_length(rest, char::is_whitespace), Token::Normal);
+        return TokenStep::new(run_length(rest, char::is_whitespace), Token::Normal);
     }
-    (ch.len_utf8(), Token::Punctuation)
+    TokenStep::new(ch.len_utf8(), Token::Punctuation)
 }
 
 fn word_token(word: &str, syntax: Syntax) -> Token {
@@ -132,10 +161,10 @@ fn word_token(word: &str, syntax: Syntax) -> Token {
     }
 }
 
-fn prefixed_token(rest: &str, syntax: Syntax, ch: char) -> Option<(usize, Token)> {
+fn prefixed_token(rest: &str, syntax: Syntax, ch: char) -> Option<TokenStep> {
     let tail = rest.strip_prefix(ch).unwrap_or_default();
     if syntax.switch_prefix == Some(ch) && tail.chars().next().is_some_and(char::is_alphanumeric) {
-        return Some((
+        return Some(TokenStep::new(
             ch.len_utf8() + run_length(tail, char::is_alphanumeric),
             Token::Switch,
         ));
@@ -143,29 +172,10 @@ fn prefixed_token(rest: &str, syntax: Syntax, ch: char) -> Option<(usize, Token)
     if syntax.variable_prefix == Some(ch) {
         let name = run_length(tail, |c| c.is_alphanumeric() || c == '_' || c == ':');
         if name > 0 {
-            return Some((ch.len_utf8() + name, Token::Type));
+            return Some(TokenStep::new(ch.len_utf8() + name, Token::Type));
         }
     }
     None
-}
-
-/// Byte length of the quoted string starting at `text[0]`, including both
-/// quotes — or the rest of the line when the closing quote is missing, which
-/// an editor sees constantly because the user is still typing it.
-fn string_length(text: &str, quote: char) -> usize {
-    let mut escaped = false;
-    for (offset, ch) in text.char_indices().skip(1) {
-        if escaped {
-            escaped = false;
-            continue;
-        }
-        if ch == '\\' {
-            escaped = true;
-        } else if ch == quote {
-            return offset + ch.len_utf8();
-        }
-    }
-    text.len()
 }
 
 /// Byte length of the leading run of characters satisfying `keep`.

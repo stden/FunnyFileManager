@@ -153,3 +153,45 @@ fn clearing_discards_old_work_without_blocking_the_next_image() {
     }
     panic!("new image was not delivered");
 }
+
+fn poison<T>(mutex: &Mutex<T>) {
+    drop(std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+        || {
+            let _guard = mutex.lock().unwrap();
+            panic!("poison mutex");
+        },
+    )));
+}
+
+#[test]
+fn poisoned_locks_and_stale_or_stopped_frames_stop_cleanly() {
+    let mut worker = Worker::start().expect("worker");
+    poison(&worker.results);
+    worker.clear();
+    poison(&worker.shared.0);
+    worker.clear();
+
+    let sample = key(Mode::Halfblocks, &[1, 2, 3, 255]);
+    let empty_queue = || Queue {
+        next: None,
+        generation: 0,
+        stopped: false,
+    };
+    let shared = Arc::new((Mutex::new(empty_queue()), Condvar::new()));
+    let results: ResultSlot = Arc::new(Mutex::new(None));
+    shared.0.lock().unwrap().generation = 2;
+    assert!(publish_frame(&shared, &results, 1, sample.clone(), None).is_continue());
+    assert!(results.lock().unwrap().is_none());
+
+    shared.0.lock().unwrap().stopped = true;
+    assert!(publish_frame(&shared, &results, 2, sample.clone(), None).is_break());
+
+    let shared_for_work = Arc::new((Mutex::new(empty_queue()), Condvar::new()));
+    shared_for_work.0.lock().unwrap().next = Some((0, sample.clone()));
+    let poisoned_results: ResultSlot = Arc::new(Mutex::new(None));
+    poison(&poisoned_results);
+    work(&shared_for_work, &poisoned_results);
+
+    poison(&shared.0);
+    assert!(publish_frame(&shared, &results, 2, sample, None).is_break());
+}

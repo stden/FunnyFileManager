@@ -105,3 +105,34 @@ fn accept_entry_and_open_handle_browse_separator_new_row_and_scopes() {
     let mut app = App::with_panels(left, right);
     drop(open(&mut app, Scope::User));
 }
+
+#[test]
+fn save_round_trips_user_scope_through_isolated_store() {
+    let temp = TempDir::new().expect("tempdir");
+    let dir_str = temp.path().to_string_lossy().into_owned();
+
+    #[cfg(unix)]
+    {
+        let _home = crate::test_support::EnvVarGuard::set("HOME", temp.path());
+        let snap = store::read(Scope::User).expect("read");
+        let mut editor = PathEditor::new(Scope::User, snap);
+        editor.entries = vec![PathEntry {
+            text: dir_str.clone(),
+            validation: Validation::Directory,
+        }];
+        save(&mut editor).expect("save user path");
+        assert_eq!(editor.snapshot.value, dir_str);
+    }
+
+    #[cfg(windows)]
+    store::with_fake_user(None, || {
+        let snap = store::read(Scope::User).expect("read fake");
+        let mut editor = PathEditor::new(Scope::User, snap);
+        editor.entries = vec![PathEntry {
+            text: dir_str.clone(),
+            validation: Validation::Directory,
+        }];
+        save(&mut editor).expect("save fake user path");
+        assert_eq!(editor.snapshot.value, dir_str);
+    });
+}

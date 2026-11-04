@@ -9,7 +9,7 @@ use std::{
 use super::entry::copy_entry;
 use super::merge::Shape;
 use super::{merge, remove_moved, rename_within, replace, Renamed};
-use crate::copy::{ExistingFiles, Purpose};
+use crate::copy::{CopyPrompt, ExistingFiles, Purpose};
 use crate::utils::unique_destination;
 
 /// Where one entry of a dialog transfer ended up.
@@ -47,9 +47,18 @@ impl Placed {
 pub(super) fn place_over_existing(
     source: &Path,
     dest: &Path,
-    settings: &crate::copy::CopyPrompt,
+    settings: &CopyPrompt,
 ) -> io::Result<Placed> {
-    if settings.purpose == Purpose::Move && is_case_only_rename(source, dest) {
+    place_over_existing_with(source, dest, settings, is_case_only_rename)
+}
+
+pub(super) fn place_over_existing_with(
+    source: &Path,
+    dest: &Path,
+    settings: &CopyPrompt,
+    case_only: impl FnOnce(&Path, &Path) -> bool,
+) -> io::Result<Placed> {
+    if settings.purpose == Purpose::Move && case_only(source, dest) {
         fs::rename(source, dest).map_err(crate::utils::FailedAt::for_path(source))?;
         return Ok(Placed::AsSent(dest.to_path_buf()));
     }
@@ -84,11 +93,7 @@ pub(super) fn place_over_existing(
 /// "Ask" (see [`crate::models::ClashAnswer::policy`]) — as does a name taken
 /// after the question was answered: nothing already there is touched, and the
 /// new one lands beside it under a free name.
-fn place_beside(
-    source: &Path,
-    dest: &Path,
-    settings: &crate::copy::CopyPrompt,
-) -> io::Result<Placed> {
+fn place_beside(source: &Path, dest: &Path, settings: &CopyPrompt) -> io::Result<Placed> {
     let parent = dest.parent().unwrap_or(dest);
     let beside = unique_destination(parent, dest.file_name().unwrap_or_default())?;
     place(source, &beside, settings)?;
@@ -124,11 +129,7 @@ pub(super) fn reject_transfer_onto_itself(source: &Path, dest: &Path) -> io::Res
 /// operation and it is atomic. Across filesystems `rename` fails, and the only
 /// thing left is to copy and then remove, which is what every mover does. A
 /// rename refused for any other reason fails the move; see [`rename_within`].
-pub(super) fn place(
-    source: &Path,
-    dest: &Path,
-    settings: &crate::copy::CopyPrompt,
-) -> io::Result<()> {
+pub(super) fn place(source: &Path, dest: &Path, settings: &CopyPrompt) -> io::Result<()> {
     if settings.purpose == Purpose::Move && rename_within(source, dest)? == Renamed::Moved {
         return Ok(());
     }
@@ -176,11 +177,19 @@ pub(super) fn is_case_only_rename(source: &Path, dest: &Path) -> bool {
             (source.canonicalize(), dest.canonicalize()),
             (Ok(real_src), Ok(real_dst)) if real_src == real_dst
         )
-        || (cfg!(windows)
-            && fs::symlink_metadata(source).is_ok()
-            && fs::symlink_metadata(dest).is_ok());
+        || same_windows_entry(source, dest);
     same_entry
         && fs::read_dir(folder).is_ok_and(|mut entries| {
             !entries.any(|entry| entry.is_ok_and(|e| e.file_name() == dst_name))
         })
+}
+
+#[cfg(windows)]
+fn same_windows_entry(source: &Path, dest: &Path) -> bool {
+    fs::symlink_metadata(source).is_ok() && fs::symlink_metadata(dest).is_ok()
+}
+
+#[cfg(not(windows))]
+const fn same_windows_entry(_source: &Path, _dest: &Path) -> bool {
+    false
 }

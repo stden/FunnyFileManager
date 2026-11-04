@@ -140,33 +140,41 @@ fn mcp_install_buttons_name_register_and_cancel_before_enter() {
     assert_eq!(field(&app), McpInstallField::Scope);
 }
 
+fn claude_status(presence: crate::mcp_clients::Presence) -> crate::mcp_clients::ClientStatus {
+    crate::mcp_clients::ClientStatus {
+        client: crate::mcp_clients::ClientId::ClaudeCode,
+        presence,
+        config: None,
+        state: crate::mcp_clients::ConfigState::NotConfigured,
+    }
+}
+
 #[test]
 fn mcp_install_rows_focus_scope_and_clients() {
-    use crate::mcp_clients::{
-        ClientId, ClientStatus, ConfigState, Presence, Scope, ServerBinary, ServerState, Survey,
-    };
+    use crate::mcp_clients::{ClientId, Presence, Scope, ServerBinary, ServerState, Survey};
     use crate::models::{McpInstallDialog, McpInstallField, McpInstallProgress};
     let dir = TempDir::new().expect("temp");
     let mut app = app_at(&dir);
-    let client = ClientStatus {
-        client: ClientId::ClaudeCode,
-        presence: Presence::Detected,
-        config: None,
-        state: ConfigState::NotConfigured,
-    };
     let s = Survey {
         server: ServerState::Found(ServerBinary::new(dir.path().join("m")).expect("bin")),
         folder: None,
         scope: Scope::AllProjects,
-        clients: vec![client],
+        clients: vec![
+            claude_status(Presence::Detected),
+            claude_status(Presence::NotDetected),
+        ],
     };
     let n = crate::mcp_clients::server_lines(&s.server).len();
     app.set_overlay(Overlay::McpInstall(Box::new(McpInstallDialog::new(s))));
-    click_dialog_row(&mut app, n + 4);
-    assert!(
-        matches!(&app.overlay, Overlay::McpInstall(d) if d.field == McpInstallField::Client(ClientId::ClaudeCode))
-    );
+    for row in [n + 4, n + 5] {
+        click_dialog_row(&mut app, row);
+        assert!(
+            matches!(&app.overlay, Overlay::McpInstall(d) if d.field == McpInstallField::Client(ClientId::ClaudeCode))
+        );
+    }
     click_dialog_row(&mut app, n + 1);
+    assert!(matches!(&app.overlay, Overlay::McpInstall(d) if d.field == McpInstallField::Scope));
+    click_dialog_row(&mut app, 0);
     assert!(matches!(&app.overlay, Overlay::McpInstall(d) if d.field == McpInstallField::Scope));
     if let Overlay::McpInstall(d) = &mut app.overlay {
         d.progress = McpInstallProgress::Registering("run".into());

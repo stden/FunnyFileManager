@@ -33,7 +33,10 @@ fn fixture() -> io::Result<Fixture> {
         .openpty(host.pty_size())
         .map_err(io::Error::other)?;
     let master = Master::new(pair.master);
+    #[cfg(unix)]
     let ready = readiness::Reader::new(readiness::Lease::new(&master))?;
+    #[cfg(not(unix))]
+    let ready = readiness::Lease::new(&master);
     drop(pair.slave); // Its closed peer makes only this private master readable.
     Ok(Fixture {
         capture: Capture::new(host.clone(), generation, Arc::clone(&captured), replies),
@@ -65,13 +68,15 @@ fn transient_read_errors_retry_without_losing_later_output() {
 
 #[test]
 fn non_pty_read_failure_is_reported_and_pty_eio_is_normal_eof() {
-    for (error, expected) in [
+    let cases = [
         (
             io::Error::from(io::ErrorKind::PermissionDenied),
             Some(io::ErrorKind::PermissionDenied),
         ),
+        #[cfg(unix)]
         (io::Error::from_raw_os_error(5), None),
-    ] {
+    ];
+    for (error, expected) in cases {
         let mut fixture = fixture().unwrap();
         let mut reader = ScriptedRead(VecDeque::from([Err(error)]));
         let result = read_all(

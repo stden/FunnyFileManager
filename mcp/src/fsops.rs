@@ -29,12 +29,9 @@ pub use remove_moved::{remove_moved, FORCE_REMOVAL_REFUSAL};
 pub fn remove_entry(path: &Path, recursive: bool) -> io::Result<()> {
     let meta = fs::symlink_metadata(path)?;
 
-    if meta.is_symlink() {
-        #[cfg(windows)]
-        if std::os::windows::fs::FileTypeExt::is_symlink_dir(&meta.file_type()) {
-            return fs::remove_dir(path);
-        }
-        return fs::remove_file(path);
+    #[cfg(windows)]
+    if std::os::windows::fs::FileTypeExt::is_symlink_dir(&meta.file_type()) {
+        return fs::remove_dir(path);
     }
 
     if meta.is_dir() {
@@ -106,18 +103,28 @@ fn ensure_replaceable_regular_file(path: &Path) -> io::Result<fs::Metadata> {
     Ok(meta)
 }
 
+/// Visit each direct child file name in `dir`, doing nothing when unreadable.
+pub fn visit_child_names(dir: &Path, mut visit: impl FnMut(std::ffi::OsString)) {
+    for entry in fs::read_dir(dir).into_iter().flatten().flatten() {
+        visit(entry.file_name());
+    }
+}
+
 /// Set or clear the read-only flag without widening access.
 pub fn apply_readonly(path: &Path, readonly: bool) -> io::Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
+        const ALL_WRITE_BITS: u32 = 0o222;
+        const OWNER_WRITE_BIT: u32 = 0o200;
+
         // `Permissions::set_readonly(false)` ORs in 0o222 — it would hand group
         // and world write access to a 0600 file. Touch the owner bit only.
         let mode = fs::metadata(path)?.permissions().mode();
         let new_mode = if readonly {
-            mode & !0o222
+            mode & !ALL_WRITE_BITS
         } else {
-            mode | 0o200
+            mode | OWNER_WRITE_BIT
         };
         fs::set_permissions(path, fs::Permissions::from_mode(new_mode))
     }

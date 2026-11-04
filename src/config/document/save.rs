@@ -96,9 +96,17 @@ fn locked<R>(path: &Path, save: impl FnOnce() -> io::Result<R>) -> io::Result<R>
 
 /// Hold `lock`, waiting up to [`LOCK_PATIENCE`] for whoever holds it now.
 fn take_lock(lock: &File, path: &Path, lock_path: &Path) -> io::Result<()> {
+    take_lock_with(|| lock.try_lock(), path, lock_path)
+}
+
+pub(super) fn take_lock_with(
+    mut try_lock: impl FnMut() -> Result<(), TryLockError>,
+    path: &Path,
+    lock_path: &Path,
+) -> io::Result<()> {
     let deadline = Instant::now() + LOCK_PATIENCE;
     loop {
-        match lock.try_lock() {
+        match try_lock() {
             Ok(()) => return Ok(()),
             Err(TryLockError::WouldBlock) if Instant::now() < deadline => thread::sleep(LOCK_RETRY),
             Err(TryLockError::WouldBlock) => {

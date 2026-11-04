@@ -150,3 +150,25 @@ fn hiding_a_quick_view_does_not_clear_a_visible_fullscreen_image() {
         "last visible view releases cache"
     );
 }
+
+#[test]
+fn refresh_requests_redraw_when_shared_image_renderer_finishes_preparing() {
+    crate::ui::image::clear();
+    let dir = tempfile::tempdir().expect("directory");
+    let panel = Panel::new(dir.path().to_path_buf()).expect("panel");
+    let mut app = App::with_panels(panel.clone(), panel);
+    let pixels: Arc<[u8]> = Arc::from([255, 0, 0, 255]);
+    let ready = image(&pixels);
+    show_viewer(&mut app, dir.path().join("image.png"), &ready);
+    let mut jobs = ImagePreviewJobs::default();
+    let mut terminal = Terminal::new(TestBackend::new(40, 10)).expect("terminal");
+    terminal
+        .draw(|frame| crate::ui::image::render(frame, frame.area(), &ready, 1, (0, 0)))
+        .expect("draw");
+    let until = Instant::now() + Duration::from_secs(5);
+    while matches!(jobs.refresh(&mut app), Redraw::Unchanged) {
+        assert!(Instant::now() < until, "image renderer never pumped");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    crate::ui::image::clear();
+}

@@ -30,11 +30,14 @@ pub fn edit(app: &mut App, command: MenuCommand) -> io::Result<()> {
         MenuCommand::Associations => ("associations.txt", "# One association per line: extension<TAB>command\n# Use {} for the quoted selected filename.\n# Example: txt\tmy-editor {}\n"),
         _ => return Err(io::Error::other("Not an editable command file")),
     };
-    let path = config_path(app, filename)
+    let dir = app
+        .settings
+        .persistence
+        .file()
+        .and_then(Path::parent)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, NO_CONFIG_DIR))?;
-    if let Some(parent) = path.parent() {
-        crate::file_write::create_dirs_owner_only(parent)?;
-    }
+    crate::file_write::create_dirs_owner_only(dir)?;
+    let path = dir.join(filename);
     if !path.exists() {
         fs::write(&path, template)?;
     }

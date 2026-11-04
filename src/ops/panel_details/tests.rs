@@ -37,15 +37,15 @@ fn an_unreadable_description_file_is_an_error() -> io::Result<()> {
     Ok(())
 }
 
-#[cfg(unix)]
 #[test]
 fn a_symlink_shows_its_target_in_the_links_view() -> io::Result<()> {
     let directory = TempDir::new()?;
-    fs::write(directory.path().join("real.txt"), "x")?;
-    std::os::unix::fs::symlink("real.txt", directory.path().join("link.txt"))?;
+    let real_dir = directory.path().join("real_dir");
+    fs::create_dir(&real_dir)?;
+    crate::test_support::make_dir_link(&real_dir, &directory.path().join("link_dir"))?;
     let mut panel = Panel::new(directory.path().to_owned())?;
     set_view(&mut panel, PanelView::Links)?;
-    let target = &panel.details.links["link.txt"];
+    let target = &panel.details.links["link_dir"];
     assert!(target.contains('→'), "{target}");
     Ok(())
 }
@@ -148,5 +148,52 @@ fn has_multiple_links_counts_hard_links() -> io::Result<()> {
     fs::hard_link(&file, &two)?;
     assert!(windows::has_multiple_links(&file));
     assert!(windows::are_same_hard_link(&file, &two));
+    assert!(!windows::are_same_hard_link(dir.path(), &file));
+    assert!(!windows::are_same_hard_link(
+        &dir.path().join("missing"),
+        &file
+    ));
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        let _exclusive = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(0)
+            .open(&other)?;
+        assert!(!windows::are_same_hard_link(&other, &file));
+    }
+    assert!(windows::owners(&dir.path().join("missing-dir")).is_err());
+    Ok(())
+}
+
+#[test]
+fn owners_and_links_views_populate_only_their_own_column_data() -> io::Result<()> {
+    let directory = TempDir::new()?;
+    fs::write(directory.path().join("sample.txt"), "x")?;
+    let mut panel = Panel::new(directory.path().to_owned())?;
+
+    set_view(&mut panel, PanelView::Owners)?;
+    #[cfg(unix)]
+    assert!(!panel.details.owners.is_empty());
+    assert!(panel.details.links.is_empty());
+
+    set_view(&mut panel, PanelView::Links)?;
+    assert!(!panel.details.links.is_empty());
+    assert!(panel.details.owners.is_empty());
+    Ok(())
+}
+
+#[test]
+fn navigate_to_preserves_original_panel_when_destination_details_fail() -> io::Result<()> {
+    let origin = TempDir::new()?;
+    fs::write(origin.path().join("keep.txt"), "x")?;
+    let broken = TempDir::new()?;
+    fs::write(broken.path().join("dest.txt"), "y")?;
+    fs::create_dir(broken.path().join("descript.ion"))?;
+
+    let mut panel = Panel::new(origin.path().to_owned())?;
+    set_view(&mut panel, PanelView::Descriptions)?;
+    assert!(panel.navigate_to(broken.path().to_owned()).is_err());
+    assert_eq!(panel.path, origin.path());
+    assert!(panel.entries.iter().any(|e| e.name == "keep.txt"));
     Ok(())
 }

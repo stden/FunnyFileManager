@@ -33,6 +33,11 @@ fn typing_goes_to_the_focused_field_and_sets_dirty() {
     assert_eq!(open_form(&session).focus(), EditField::Username);
     session.type_char('!', now);
     assert_eq!(open_form(&session).username(), "alice!");
+
+    open_form_mut(&mut session).focus_next();
+    assert_eq!(open_form(&session).focus(), EditField::Url);
+    session.type_char('/', now);
+    assert!(open_form(&session).url().ends_with('/'));
 }
 
 #[test]
@@ -50,6 +55,11 @@ fn password_keystrokes_stay_in_the_focused_secret_field() {
     assert_eq!(open_form(&session).password_masked(), "•".repeat(6));
     session.backspace(now);
     assert_eq!(open_form(&session).password_masked(), "•".repeat(5));
+    assert!(open_form_mut(&mut session).undo());
+    for _ in 0..7 {
+        session.backspace(now);
+    }
+    assert_eq!(open_form(&session).password_masked(), "");
     assert_eq!(
         open_form(&session).title(),
         "GitHub",

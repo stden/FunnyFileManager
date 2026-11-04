@@ -1,11 +1,12 @@
 //! Purpose: Windows `ProcessHost` and `ProcessReader` backed by `src/platform`.
 
+use std::io;
 use std::time::Instant;
 
 use crate::models::tasks::{NetProber, NetworkSample};
 use crate::models::{
-    ControlError, Pid, PriorityChange, ProcessHost, ProcessKey, ProcessReader, Sample, SampleError,
-    Signal, SystemPart,
+    ControlError, Pid, PriorityChange, ProcessHost, ProcessKey, ProcessReader, ProcessSample,
+    Sample, SampleError, Signal, SystemPart, SystemSample,
 };
 use crate::platform::{
     list_processes, read_net_endpoints, read_network_adapters, read_system_sample,
@@ -49,6 +50,8 @@ struct WindowsReader {
     started: Instant,
 }
 
+type ProcListReader = fn(&mut WinOwnerCache) -> io::Result<(Vec<ProcessSample>, u32)>;
+
 impl WindowsReader {
     fn new() -> Self {
         Self {
@@ -56,16 +59,18 @@ impl WindowsReader {
             started: Instant::now(),
         }
     }
-}
 
-impl ProcessReader for WindowsReader {
-    fn sample(&mut self) -> Result<Sample, SampleError> {
-        let system = read_system_sample().map_err(|err| SampleError::Unreadable {
+    fn sample_with(
+        &mut self,
+        read_sys: fn() -> io::Result<SystemSample>,
+        read_procs: ProcListReader,
+    ) -> Result<Sample, SampleError> {
+        let system = read_sys().map_err(|err| SampleError::Unreadable {
             part: SystemPart::CpuTimes,
             kind: err.kind(),
         })?;
         let (processes, unreadable) =
-            list_processes(&mut self.owners).map_err(|err| SampleError::Unreadable {
+            read_procs(&mut self.owners).map_err(|err| SampleError::Unreadable {
                 part: SystemPart::ProcessList,
                 kind: err.kind(),
             })?;
@@ -85,3 +90,12 @@ impl ProcessReader for WindowsReader {
         })
     }
 }
+
+impl ProcessReader for WindowsReader {
+    fn sample(&mut self) -> Result<Sample, SampleError> {
+        self.sample_with(read_system_sample, list_processes)
+    }
+}
+
+#[cfg(test)]
+mod tests;

@@ -109,7 +109,7 @@ fn info_text(entry: &DirEntry, details: &[PanelColumn], width: Cells) -> String 
     let mut columns = String::new();
     for column in details {
         columns.push(' ');
-        columns.push_str(&column.lay_out(&column.cell(entry)));
+        columns.push_str(&column.lay_out(column.cell(entry)));
     }
     let name = width.saturating_sub(Cells::of(&columns));
     if columns.is_empty() || name < MIN_NAME_WIDTH {

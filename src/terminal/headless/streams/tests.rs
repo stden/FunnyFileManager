@@ -2,7 +2,6 @@
 
 use super::*;
 
-#[cfg(unix)]
 mod reader;
 
 fn output(result: Option<io::Result<()>>) -> io::Result<Output> {
@@ -34,4 +33,19 @@ fn collecting_a_failed_worker_preserves_the_read_error() {
     let error = collect(output(Some(result)).unwrap()).unwrap_err();
     assert_eq!(error.kind(), io::ErrorKind::BrokenPipe);
     assert_eq!(error.to_string(), "fixture read failed");
+}
+
+#[test]
+fn collecting_a_lingering_worker_returns_captured_bytes_after_timeout() {
+    let (_sender, finished) = mpsc::channel();
+    let captured = Arc::new(Mutex::new(Captured::default()));
+    captured.lock().unwrap().append(b"lingering-output");
+    let task = task::Task::spawn(|_| {}).unwrap();
+    let bytes = collect(Output {
+        finished,
+        captured,
+        task,
+    })
+    .unwrap();
+    assert_eq!(bytes, b"lingering-output");
 }

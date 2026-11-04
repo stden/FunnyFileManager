@@ -105,3 +105,24 @@ fn an_import_with_nothing_to_take_closes_the_dialog_and_says_so() {
         Status::Error("Things: no machines to import".to_owned())
     );
 }
+
+#[test]
+fn publish_and_submit_handle_closed_overlay_and_store_save_failure() {
+    let dir = TempDir::new().expect("temp");
+    let mut app = app(&dir, Vec::new());
+    super::super::publish(
+        &mut app,
+        &std::sync::Arc::new(()),
+        Ok(crate::things::Listing::new(Vec::new(), None)),
+    );
+    submit(&mut app);
+    assert!(!app.overlay.is_active());
+
+    loaded(&mut app, two_machines(), None);
+    let store_path = dir.path().join(FILE_NAME);
+    drop(std::fs::remove_file(&store_path));
+    std::fs::create_dir(&store_path).expect("directory blocks store save");
+    submit(&mut app);
+    assert!(app.overlay.is_active());
+    assert!(matches!(&app.status, Status::Error(msg) if msg.starts_with("Things: ")));
+}

@@ -80,3 +80,6 @@ pub(super) fn run_search(app: &mut App, search: crate::search::Search) {
     // checks after editing the file.
     editor.search.last = Some(search);
 }
+
+#[cfg(test)]
+mod tests;

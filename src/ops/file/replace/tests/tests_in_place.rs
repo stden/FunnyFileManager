@@ -142,3 +142,11 @@ fn a_refusal_before_writing_keeps_the_old_contents_and_names_the_file() {
     let status = app.status.to_string();
     assert!(status.ends_with("dest: forced times failure"), "{status}");
 }
+
+#[test]
+fn check_available_room_refuses_when_free_plus_freed_cannot_fit_needed() {
+    let err = check_available_room(1024, 512, Some(0)).unwrap_err();
+    assert_eq!(err.kind(), io::ErrorKind::StorageFull);
+    assert!(check_available_room(1024, 512, Some(512)).is_ok());
+    assert!(check_available_room(1024, 0, None).is_ok());
+}

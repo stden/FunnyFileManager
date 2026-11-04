@@ -4,16 +4,13 @@ use std::path::Path;
 
 #[cfg(windows)]
 pub(super) fn command(root: &Path) -> String {
-    let path = root.join("private-shell-fixture.ps1");
+    let path = root.join("private-shell-fixture.cmd");
     std::fs::write(&path, WINDOWS_SCRIPT).unwrap();
-    format!(
-        "powershell.exe -NoLogo -NoProfile -NonInteractive -File \"{}\"",
-        path.display()
-    )
+    format!("\"{}\"", path.display())
 }
 
 #[cfg(windows)]
-const WINDOWS_SCRIPT: &str = "Write-Output 'ffm-ready'\n$line=[Console]::ReadLine()\nWrite-Output ('reply:'+$line)\nStart-Sleep -Seconds 30\nWrite-Output 'ffm-e2e-after'\n";
+const WINDOWS_SCRIPT: &str = "@echo off\r\nsetlocal EnableDelayedExpansion\r\necho ffm-ready\r\nset /p line=\r\necho reply:!line!\r\nping.exe -n 30 127.0.0.1 >nul\r\necho ffm-e2e-after\r\n";
 
 #[cfg(not(windows))]
 pub(super) fn command(_root: &Path) -> String {

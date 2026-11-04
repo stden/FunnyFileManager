@@ -2,6 +2,8 @@
 //! Time — with their widths and titles, which of them each table view shows,
 //! and which the info row adds instead.
 
+use std::borrow::Cow;
+
 use super::super::Cells;
 use super::fields::{right_cells, size_field};
 use crate::models::{DirEntry, PanelView};
@@ -11,7 +13,7 @@ use crate::models::{DirEntry, PanelView};
 /// Exactly six cells, because that is the width of the word `Folder` — the
 /// column is sized to its widest label, so "Folder" fills it edge to edge with
 /// no stray leading blank, and every number right-aligns against the same edge.
-pub(super) const SIZE_COLUMN_WIDTH: Cells = Cells(6);
+const SIZE_COLUMN_WIDTH: Cells = Cells(6);
 
 /// Width of the Date column, which is exactly `MM/DD/YY`.
 const DATE_COLUMN_WIDTH: Cells = Cells(8);
@@ -53,11 +55,11 @@ impl PanelColumn {
     }
 
     /// This column's text for one row.
-    pub(super) fn cell(self, entry: &DirEntry) -> String {
+    pub(super) fn cell(self, entry: &DirEntry) -> Cow<'static, str> {
         match self {
             Self::Size => size_field(entry),
-            Self::Date => entry.modified.date(),
-            Self::Time => entry.modified.time(),
+            Self::Date => Cow::Owned(entry.modified.date()),
+            Self::Time => Cow::Owned(entry.modified.time()),
         }
     }
 
@@ -67,8 +69,11 @@ impl PanelColumn {
     /// nothing carries a stray blank: `Folder` and `MM/DD/YY` and `HH:MM` each
     /// fill their column exactly, and a byte count lines its digits up against
     /// the same right edge.
-    pub(super) fn lay_out(self, cell: &str) -> String {
-        right_cells(cell, self.width())
+    pub(super) fn lay_out(self, cell: Cow<'static, str>) -> Cow<'static, str> {
+        if cell.is_ascii() && cell.len() == self.width().get() {
+            return cell;
+        }
+        Cow::Owned(right_cells(&cell, self.width()))
     }
 }
 

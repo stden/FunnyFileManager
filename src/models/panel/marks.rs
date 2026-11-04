@@ -9,20 +9,24 @@ use super::Panel;
 
 impl Panel {
     pub fn toggle_mark_selected(&mut self) -> bool {
-        let Some(selected_name) = self.get_selected_entry().map(|entry| entry.name.clone()) else {
+        let Some(entry_idx) = self.selected() else {
             return false;
         };
-
-        if selected_name == ".." {
+        let Some(entry) = self.entries.get(entry_idx).filter(|e| e.name != "..") else {
             return false;
+        };
+        let prev_marks = self.marked.rev();
+        let added = self.marked.is_empty() || !self.marked.remove(entry.name.as_str());
+        if added {
+            self.marked.insert(FileName::new(entry.name.clone()));
         }
-
-        if self.marked.contains(selected_name.as_str()) {
-            self.marked.remove(selected_name.as_str());
-        } else {
-            self.marked.insert(FileName::new(selected_name));
-        }
-
+        self.totals.record_mark_toggle(
+            self.entries.rev(),
+            prev_marks,
+            self.marked.rev(),
+            entry_idx,
+            added,
+        );
         true
     }
 
@@ -138,15 +142,9 @@ impl Panel {
                 .collect();
         }
 
-        self.get_selected_entry()
-            .and_then(|entry| {
-                if entry.name == ".." {
-                    None
-                } else {
-                    Some(entry.name.clone())
-                }
-            })
-            .into_iter()
-            .collect()
+        match self.get_selected_entry() {
+            Some(entry) if entry.name != ".." => vec![entry.name.clone()],
+            Some(_) | None => Vec::new(),
+        }
     }
 }

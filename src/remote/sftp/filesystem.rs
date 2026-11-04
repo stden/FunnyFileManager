@@ -6,14 +6,24 @@ use crate::values::entry::{DirEntry, EntryKind};
 use crate::values::remote_path::RemotePath;
 use ssh2::{OpenFlags, OpenType, RenameFlags};
 use std::{
-    io::{Read, Write},
-    path::Path,
+    io::{BufReader, BufWriter, Read, Write},
+    path::{Path, PathBuf},
 };
 
-impl RemoteFs for SftpFs {
+const SFTP_IO_BUFFER_BYTES: usize = 256 * 1024;
+const POSIX_FILE_TYPE_MASK: u32 = 0o170_000;
+const POSIX_REGULAR_FILE: u32 = 0o100_000;
+const NEW_FILE_MODE: i32 = 0o600;
+const NEW_DIR_MODE: i32 = 0o755;
+const SFTP_OP_UNSUPPORTED: i32 = 8;
+
+fn is_special_posix_mode(mode: u32) -> bool {
+    mode & POSIX_FILE_TYPE_MASK != POSIX_REGULAR_FILE
+}
+
+impl<S: Send + 'static, F: Read + Write + 'static> RemoteFs for SftpFs<S, F> {
     fn list(&mut self, dir: &RemotePath) -> Result<Vec<DirEntry>, RemoteError> {
-        self.sftp
-            .readdir(dir.as_str())
+        (self.ops.readdir)(&self.sftp, PathBuf::from(dir.as_str()))
             .map_err(|error| at(&error, dir))?
             .into_iter()
             .map(|(path, stat)| self.entry(&path, &stat))
@@ -21,23 +31,21 @@ impl RemoteFs for SftpFs {
     }
 
     fn stat(&mut self, path: &RemotePath) -> Result<RemoteMetadata, RemoteError> {
-        self.sftp
-            .lstat(Path::new(path.as_str()))
+        (self.ops.lstat)(&self.sftp, Path::new(path.as_str()))
             .map(|stat| metadata::metadata(&stat))
             .map_err(|error| at(&error, path))
     }
 
     fn download(&mut self, path: &RemotePath, output: &mut dyn Write) -> Result<u64, RemoteError> {
-        let mut input = self
-            .sftp
-            .open(path.as_str())
+        let mut input = (self.ops.open)(&self.sftp, PathBuf::from(path.as_str()))
             .map_err(|error| at(&error, path))?;
-        let facts = input.stat().map_err(|error| at(&error, path))?;
-        if facts.perm.is_some_and(|mode| mode & 0o170_000 != 0o100_000) {
+        let facts = (self.ops.file_stat)(&mut input).map_err(|error| at(&error, path))?;
+        if facts.perm.is_some_and(is_special_posix_mode) {
             return Err(RemoteError::Unsupported("reading special files"));
         }
-        let bytes = std::io::copy(&mut input, output)?;
-        input.close().map_err(|error| at(&error, path))?;
+        let mut reader = BufReader::with_capacity(SFTP_IO_BUFFER_BYTES, &mut input);
+        let bytes = std::io::copy(&mut reader, output)?;
+        (self.ops.file_close)(&mut input).map_err(|error| at(&error, path))?;
         Ok(bytes)
     }
 
@@ -53,53 +61,52 @@ impl RemoteFs for SftpFs {
                 WriteMode::CreateNew => OpenFlags::EXCLUSIVE,
                 WriteMode::Overwrite => OpenFlags::TRUNCATE,
             };
-        let mut output = self
-            .sftp
-            .open_mode(path.as_str(), flags, 0o600, OpenType::File)
-            .map_err(|error| at(&error, path))?;
-        let bytes = std::io::copy(input, &mut output)?;
-        output.close().map_err(|error| at(&error, path))?;
+        let mut output = (self.ops.open_mode)(
+            &self.sftp,
+            PathBuf::from(path.as_str()),
+            flags,
+            NEW_FILE_MODE,
+            OpenType::File,
+        )
+        .map_err(|error| at(&error, path))?;
+        let bytes = {
+            let mut buffered = BufWriter::with_capacity(SFTP_IO_BUFFER_BYTES, &mut output);
+            let copied = std::io::copy(input, &mut buffered)?;
+            buffered.flush()?;
+            copied
+        };
+        (self.ops.file_close)(&mut output).map_err(|error| at(&error, path))?;
         Ok(bytes)
     }
 
     fn mkdir(&mut self, path: &RemotePath) -> Result<(), RemoteError> {
-        self.sftp
-            .mkdir(Path::new(path.as_str()), 0o755)
+        (self.ops.mkdir)(&self.sftp, Path::new(path.as_str()), NEW_DIR_MODE)
             .map_err(|error| at(&error, path))
     }
 
     fn remove_file(&mut self, path: &RemotePath) -> Result<(), RemoteError> {
-        self.sftp
-            .unlink(Path::new(path.as_str()))
-            .map_err(|error| at(&error, path))
+        (self.ops.unlink)(&self.sftp, Path::new(path.as_str())).map_err(|error| at(&error, path))
     }
 
     fn rmdir(&mut self, path: &RemotePath) -> Result<(), RemoteError> {
-        self.sftp
-            .rmdir(Path::new(path.as_str()))
-            .map_err(|error| at(&error, path))
+        (self.ops.rmdir)(&self.sftp, Path::new(path.as_str())).map_err(|error| at(&error, path))
     }
 
     fn rename(&mut self, from: &RemotePath, to: &RemotePath) -> Result<(), RemoteError> {
-        match self.stat(to) {
-            Ok(_) => return Err(RemoteError::AlreadyExists(to.clone())),
-            Err(RemoteError::NotFound(_)) => {}
-            Err(error) => return Err(error),
-        }
-        self.sftp
-            .rename(
-                Path::new(from.as_str()),
-                Path::new(to.as_str()),
-                Some(RenameFlags::empty()),
-            )
-            .map_err(|error| at(&error, from))
+        self.require_missing(to)?;
+        (self.ops.rename)(
+            &self.sftp,
+            Path::new(from.as_str()),
+            Path::new(to.as_str()),
+            Some(RenameFlags::empty()),
+        )
+        .map_err(|error| at(&error, from))
     }
 
     fn chmod(&mut self, path: &RemotePath, mode: UnixMode) -> Result<(), RemoteError> {
         let mut stat = metadata::empty_stat();
         stat.perm = Some(mode.bits());
-        self.sftp
-            .setstat(Path::new(path.as_str()), stat)
+        (self.ops.setstat)(&self.sftp, Path::new(path.as_str()), stat)
             .map_err(|error| at(&error, path))
     }
 
@@ -110,7 +117,9 @@ impl RemoteFs for SftpFs {
     ) -> Result<(), RemoteError> {
         let from = Path::new(temporary.as_str());
         let to = Path::new(target.as_str());
-        replace_with(target, |flags| self.sftp.rename(from, to, Some(flags)))
+        replace_with(target, |flags| {
+            (self.ops.rename)(&self.sftp, from, to, Some(flags))
+        })
     }
 }
 
@@ -120,7 +129,7 @@ fn replace_with(
 ) -> Result<(), RemoteError> {
     let flags = RenameFlags::OVERWRITE | RenameFlags::ATOMIC | RenameFlags::NATIVE;
     match rename(flags) {
-        Err(error) if error.code() == ssh2::ErrorCode::SFTP(8) => {
+        Err(error) if error.code() == ssh2::ErrorCode::SFTP(SFTP_OP_UNSUPPORTED) => {
             rename(RenameFlags::OVERWRITE).map_err(|error| at(&error, path))
         }
         result => result.map_err(|error| at(&error, path)),
@@ -128,9 +137,21 @@ fn replace_with(
 }
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
+#[cfg(test)]
+pub(super) mod tests_fake;
 
-impl SftpFs {
+impl<S: Send + 'static, F: Read + Write + 'static> SftpFs<S, F> {
+    fn require_missing(&mut self, path: &RemotePath) -> Result<(), RemoteError> {
+        match self.stat(path) {
+            Err(RemoteError::NotFound(_)) => Ok(()),
+            Ok(_) => Err(RemoteError::AlreadyExists(path.clone())),
+            Err(error) => Err(error),
+        }
+    }
+}
+
+impl<S: 'static, F: 'static> SftpFs<S, F> {
     fn entry(&self, path: &Path, stat: &ssh2::FileStat) -> Result<DirEntry, RemoteError> {
         let name = path
             .file_name()
@@ -138,7 +159,7 @@ impl SftpFs {
             .ok_or(RemoteError::Failed("SFTP returned a non-UTF-8 file name"))?;
         let mut entry = metadata::entry(name.to_owned(), stat);
         if entry.kind.is_symlink() {
-            entry.kind = match self.sftp.stat(path) {
+            entry.kind = match (self.ops.stat)(&self.sftp, path) {
                 Ok(target) if target.is_dir() => EntryKind::SymlinkToDirectory,
                 Ok(_) => EntryKind::SymlinkToFile,
                 Err(_) => EntryKind::BrokenSymlink,

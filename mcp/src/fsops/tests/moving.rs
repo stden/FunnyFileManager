@@ -1,11 +1,26 @@
 //! Purpose: Pins `move_entry` on a real second filesystem, and the rule of
 //! `remove_moved` that only what the copy holds leaves the source.
 
-use crate::fsops::{copy_entry, remove_moved, Moved, Purpose, FORCE_REMOVAL_REFUSAL};
+use crate::fsops::{copy_entry, move_entry, remove_moved, Moved, Purpose, FORCE_REMOVAL_REFUSAL};
 use std::fs;
 use std::path::Path;
 use std::time::{Duration, SystemTime};
 use tempfile::TempDir;
+
+#[test]
+fn a_move_within_one_filesystem_renames_in_place() {
+    let root = TempDir::new().expect("temp dir");
+    let old = SystemTime::UNIX_EPOCH + Duration::from_secs(1_000_000_000);
+    let source = tree_under(root.path(), old);
+    let dest = root.path().join("renamed");
+
+    let moved = move_entry(&source, &dest).expect("same-filesystem move succeeds");
+
+    assert!(matches!(moved, Moved::Whole));
+    assert!(fs::symlink_metadata(&source).is_err());
+    assert_eq!(fs::read_to_string(dest.join("a.txt")).unwrap(), "a");
+    assert_eq!(fs::read_to_string(dest.join("sub/b.txt")).unwrap(), "b");
+}
 
 /// `<base>/tree/{a.txt, sub/b.txt}`, its files and folders stamped `old`.
 fn tree_under(base: &Path, old: SystemTime) -> std::path::PathBuf {
@@ -37,8 +52,6 @@ fn two_filesystems() -> Option<(TempDir, TempDir)> {
 #[cfg(unix)]
 #[test]
 fn a_move_between_two_filesystems_copies_then_removes() {
-    use crate::fsops::move_entry;
-
     let Some((from, to)) = two_filesystems() else {
         return;
     };

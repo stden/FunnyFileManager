@@ -172,3 +172,22 @@ fn a_status_is_a_missing_entry_only_when_the_manual_says_so() {
         assert_eq!(unnamed(status), Lookup::Failed, "status {status}");
     }
 }
+
+#[cfg(unix)]
+#[test]
+fn lookup_doubles_its_buffer_on_erange_before_settling() {
+    let seen = std::cell::RefCell::new(Vec::new());
+    let outcome = lookup::<std::ffi::c_char>(
+        |_record, _buf, len, _found| {
+            seen.borrow_mut().push(len);
+            if len == 1024 {
+                libc::ERANGE
+            } else {
+                0
+            }
+        },
+        std::ptr::from_ref,
+    );
+    assert_eq!(outcome, Lookup::NoEntry);
+    assert_eq!(*seen.borrow(), [1024, 2048]);
+}

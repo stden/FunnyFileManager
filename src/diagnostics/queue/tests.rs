@@ -8,8 +8,8 @@ fn a_blocked_log_sink_cannot_block_the_input_thread() {
     let (entered, waiting) = mpsc::channel();
     let (release, gate) = mpsc::channel::<()>();
     let logger = LogQueue::with_sink(move |_| {
-        let _ = entered.send(()); // Only the first write has a waiting observer.
-        let _ = gate.recv();
+        entered.send(()).unwrap_or(()); // Only the first write has a waiting observer.
+        gate.recv().unwrap_or(());
     })
     .unwrap();
     logger.record(Destination::Action, "first");
@@ -64,13 +64,37 @@ fn flush_reports_queue_overflow_without_losing_accepted_records() {
     let losses = Arc::clone(&logger.dropped);
     let flusher = thread::spawn(move || logger.flush());
     let mut records = Vec::new();
-    write_messages(receiver, &losses, |record| records.push(record));
+    write_messages(&receiver, &losses, |record| records.push(record));
     flusher.join().unwrap();
     assert_eq!(records.len(), 3);
     assert_eq!(records[0].line, "first");
     assert_eq!(records[1].line, "second");
     assert_eq!(records[2].destination, Destination::Error);
     assert!(records[2].line.contains("1 records omitted"));
+}
+
+#[test]
+fn start_reuses_buffered_log_files_and_skips_unwritable_targets() {
+    let root = tempfile::TempDir::new().unwrap();
+    let logger = LogQueue::start(root.path()).unwrap();
+    logger.record(Destination::Action, "first action");
+    logger.record(Destination::Action, "second action");
+    logger.record(Destination::Error, "ERROR: first problem");
+    logger.record(Destination::Error, "ERROR: second problem");
+    logger.flush();
+    let actions = std::fs::read_to_string(root.path().join("ffm_actions.log")).unwrap();
+    let errors = std::fs::read_to_string(root.path().join("ffm_errors.log")).unwrap();
+    assert!(actions.contains("first action") && actions.contains("second action"));
+    assert!(errors.contains("first problem") && errors.contains("second problem"));
+
+    let blocked = tempfile::TempDir::new().unwrap();
+    std::fs::create_dir(blocked.path().join("ffm_actions.log")).unwrap();
+    std::fs::create_dir(blocked.path().join("ffm_errors.log")).unwrap();
+    let blocked_logger = LogQueue::start(blocked.path()).unwrap();
+    blocked_logger.record(Destination::Action, "ignored");
+    blocked_logger.record(Destination::Error, "ERROR: ignored");
+    blocked_logger.flush();
+    assert!(blocked.path().join("ffm_actions.log").is_dir());
 }
 
 #[test]

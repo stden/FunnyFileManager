@@ -24,11 +24,18 @@ use crate::platform::windows_parse::{filetime_ticks, priority_from_win32, ticks_
 
 /// Enumerates all processes in a Toolhelp snapshot.
 pub fn list_processes(owners: &mut WinOwnerCache) -> io::Result<(Vec<ProcessSample>, u32)> {
-    let snap = open_snapshot()?;
+    let snap = open_snapshot(TH32CS_SNAPPROCESS, 0)?;
+    Ok(collect_snapshot_processes(snap.as_raw_handle(), owners))
+}
+
+fn collect_snapshot_processes(
+    snap: HANDLE,
+    owners: &mut WinOwnerCache,
+) -> (Vec<ProcessSample>, u32) {
     let now_ticks = now_filetime_ticks();
     let mut entry = blank_entry();
-    if !step_snapshot(snap.as_raw_handle(), &mut entry, true) {
-        return Ok((Vec::new(), 0));
+    if !step_snapshot(snap, &mut entry, true) {
+        return (Vec::new(), 0);
     }
     let mut out = Vec::with_capacity(256);
     loop {
@@ -45,11 +52,11 @@ pub fn list_processes(owners: &mut WinOwnerCache) -> io::Result<(Vec<ProcessSamp
             out.push(sample);
         }
         entry = blank_entry();
-        if !step_snapshot(snap.as_raw_handle(), &mut entry, false) {
+        if !step_snapshot(snap, &mut entry, false) {
             break;
         }
     }
-    Ok((out, 0))
+    (out, 0)
 }
 
 fn blank_entry() -> PROCESSENTRY32W {
@@ -60,9 +67,9 @@ fn blank_entry() -> PROCESSENTRY32W {
 }
 
 #[allow(unsafe_code, reason = "Toolhelp32 snapshot requires Win32 FFI")]
-fn open_snapshot() -> io::Result<OwnedHandle> {
-    // SAFETY: `TH32CS_SNAPPROCESS` with pid 0 snapshots the system process list.
-    let raw = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+fn open_snapshot(flags: u32, pid: u32) -> io::Result<OwnedHandle> {
+    // SAFETY: `CreateToolhelp32Snapshot` snapshots system or `pid` state for `flags`.
+    let raw = unsafe { CreateToolhelp32Snapshot(flags, pid) };
     if raw == INVALID_HANDLE_VALUE || raw.is_null() {
         return Err(io::Error::last_os_error());
     }
@@ -70,10 +77,7 @@ fn open_snapshot() -> io::Result<OwnedHandle> {
     Ok(unsafe { OwnedHandle::from_raw_handle(raw) })
 }
 
-#[allow(
-    unsafe_code,
-    reason = "Process32FirstW/NextW iterate a Toolhelp snapshot"
-)]
+#[allow(unsafe_code, reason = "Process32FirstW/NextW iterate a snapshot")]
 fn step_snapshot(snap: HANDLE, entry: &mut PROCESSENTRY32W, first: bool) -> bool {
     if first {
         // SAFETY: `snap` is live and `entry` has `dwSize` initialized.
@@ -149,10 +153,7 @@ pub(super) fn query_times(
     ))
 }
 
-#[allow(
-    unsafe_code,
-    reason = "K32GetProcessMemoryInfo reads working set and commit"
-)]
+#[allow(unsafe_code, reason = "K32GetProcessMemoryInfo reads working set")]
 fn query_memory(handle: HANDLE) -> Option<MemoryUsage> {
     let mut mem = PROCESS_MEMORY_COUNTERS::default();
     let cb = u32::try_from(size_of::<PROCESS_MEMORY_COUNTERS>()).unwrap_or(0);
@@ -169,10 +170,7 @@ fn query_memory(handle: HANDLE) -> Option<MemoryUsage> {
     })
 }
 
-#[allow(
-    unsafe_code,
-    reason = "QueryFullProcessImageNameW reads the image path"
-)]
+#[allow(unsafe_code, reason = "QueryFullProcessImageNameW reads image path")]
 fn query_image_path(handle: HANDLE) -> Option<String> {
     let mut buf = vec![0_u16; 1024];
     let mut len = u32::try_from(buf.len()).unwrap_or(0);
@@ -182,11 +180,11 @@ fn query_image_path(handle: HANDLE) -> Option<String> {
     (ok != 0 && written > 0).then(|| String::from_utf16_lossy(buf.get(..written).unwrap_or(&[])))
 }
 
-#[allow(
-    unsafe_code,
-    reason = "GetPriorityClass reads the process priority class"
-)]
+#[allow(unsafe_code, reason = "GetPriorityClass reads priority class")]
 fn query_priority(handle: HANDLE) -> Priority {
     // SAFETY: `handle` has `PROCESS_QUERY_LIMITED_INFORMATION`.
     priority_from_win32(unsafe { GetPriorityClass(handle) })
 }
+
+#[cfg(test)]
+mod tests;

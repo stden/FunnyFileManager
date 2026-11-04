@@ -48,10 +48,15 @@ pub fn measure_entries(directory: &Path, budget: &mut Budget) -> io::Result<Vec<
     Ok(measured)
 }
 
-fn measure_one(path: &Path, name: String, meta: &fs::Metadata, budget: &mut Budget) -> Measured {
+pub(super) fn measure_one(
+    path: &Path,
+    mut name: String,
+    meta: &fs::Metadata,
+    budget: &mut Budget,
+) -> Measured {
     if meta.is_dir() {
         let mut tally = Tally::default();
-        walk(path, &name, &mut tally, budget);
+        walk(path, &mut name, &mut tally, budget);
         return Measured {
             name,
             shape: Shape::Folder,
@@ -60,18 +65,26 @@ fn measure_one(path: &Path, name: String, meta: &fs::Metadata, budget: &mut Budg
             git_entries: tally.git_entries,
         };
     }
-    let (shape, bytes) = if meta.is_file() {
-        (Shape::File, meta.len())
-    } else if meta.is_symlink() {
-        (Shape::Link, 0)
-    } else {
-        (Shape::Special, 0)
-    };
+    let (shape, bytes) = leaf(meta);
     Measured {
         name,
         shape,
         bytes,
         unread: 0,
         git_entries: 0,
+    }
+}
+
+pub(super) fn leaf(meta: &fs::Metadata) -> (Shape, u64) {
+    leaf_shape(meta.is_file(), meta.is_symlink(), meta.len())
+}
+
+pub(super) const fn leaf_shape(is_file: bool, is_symlink: bool, len: u64) -> (Shape, u64) {
+    if is_file {
+        (Shape::File, len)
+    } else if is_symlink {
+        (Shape::Link, 0)
+    } else {
+        (Shape::Special, 0)
     }
 }

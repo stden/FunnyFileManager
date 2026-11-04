@@ -152,3 +152,15 @@ fn normalize_does_not_touch_device_or_volume_paths() {
         assert_eq!(normalize(PathBuf::from(raw)), PathBuf::from(raw), "{raw}");
     }
 }
+
+#[cfg(windows)]
+#[test]
+fn ill_formed_utf16_verbatim_paths_strip_prefix_lossily() {
+    use std::ffi::OsString;
+    use std::os::windows::ffi::OsStringExt;
+
+    let mut units: Vec<u16> = r"\\?\C:\".encode_utf16().collect();
+    units.push(0xD800);
+    let path = PathBuf::from(OsString::from_wide(&units));
+    assert_eq!(label(&path), "C:\\\u{FFFD}");
+}

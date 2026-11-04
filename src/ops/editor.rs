@@ -59,11 +59,25 @@ impl Editor {
 /// it, unless replacing the file would lose something (see
 /// [`rewrite_in_place`]) or its directory cannot hold a temp file.
 fn write_file(target: &Path, content: &[u8]) -> io::Result<()> {
-    if rewrite_in_place(target) {
+    write_file_with(
+        target,
+        content,
+        rewrite_in_place,
+        crate::file_write::temp_beside,
+    )
+}
+
+fn write_file_with(
+    target: &Path,
+    content: &[u8],
+    in_place: impl FnOnce(&Path) -> bool,
+    make_temp: impl FnOnce(&Path) -> io::Result<tempfile::NamedTempFile>,
+) -> io::Result<()> {
+    if in_place(target) {
         // See `rewrite_in_place`: atomicity is the lesser thing to lose.
         return fs::write(target, content);
     }
-    match crate::file_write::temp_beside(target) {
+    match make_temp(target) {
         Ok(temp) => crate::file_write::persist_over(temp, target, content),
         // A directory the user may not add to can still hold a file they may
         // write — `ensure_writable` has just said so. Write through it, as vim

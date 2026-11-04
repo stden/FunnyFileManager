@@ -57,12 +57,17 @@ pub(super) fn prepare_with(
     launch.settings(settings, &destination, workspace, environment, stop)
 }
 
+#[cfg(test)]
+static LOCK_WAITS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
 fn lock(path: &Path, stop: &AtomicBool) -> Result<File, InstallError> {
     lock_until(
         path,
         stop,
         Instant::now() + Duration::from_secs(600),
         || {
+            #[cfg(test)]
+            LOCK_WAITS.fetch_add(1, std::sync::atomic::Ordering::Release);
             std::thread::sleep(Duration::from_millis(20));
         },
     )
@@ -86,14 +91,22 @@ fn lock_until(
     .map_err(InstallError::cache)?;
     loop {
         check_cancel(stop)?;
-        match lock.try_lock() {
-            Ok(()) => return Ok(lock),
-            Err(TryLockError::WouldBlock) if Instant::now() < deadline => {
-                wait();
-            }
-            Err(TryLockError::WouldBlock) => return Err(InstallError::Timeout),
-            Err(TryLockError::Error(error)) => return Err(error.into()),
+        if check_try_lock(lock.try_lock(), Instant::now() < deadline)? {
+            return Ok(lock);
         }
+        wait();
+    }
+}
+
+fn check_try_lock(
+    attempt: Result<(), TryLockError>,
+    before_deadline: bool,
+) -> Result<bool, InstallError> {
+    match attempt {
+        Ok(()) => Ok(true),
+        Err(TryLockError::WouldBlock) if before_deadline => Ok(false),
+        Err(TryLockError::WouldBlock) => Err(InstallError::Timeout),
+        Err(TryLockError::Error(error)) => Err(error.into()),
     }
 }
 

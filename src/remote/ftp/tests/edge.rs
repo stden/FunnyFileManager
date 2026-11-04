@@ -64,6 +64,30 @@ fn refused_directory_operations_return_a_sanitized_error() {
 }
 
 #[test]
+fn denied_listing_propagates_to_list_and_create_new_upload_and_pending_chmod() {
+    let server = server::Server::start(false);
+    let mut fs = connection(&server);
+    let refused = RemoteError::Failed("FTP server refused the operation");
+    assert_eq!(fs.list(&path("/forbidden")), Err(refused.clone()));
+    assert_eq!(
+        fs.upload(
+            &path("/forbidden/new.txt"),
+            &mut b"x".as_slice(),
+            WriteMode::CreateNew,
+        ),
+        Err(refused.clone())
+    );
+    let mode = crate::remote::UnixMode::parse("0644").expect("mode");
+    assert_eq!(
+        fs.chmod(&path("/pending.txt"), mode),
+        Err(RemoteError::Unsupported("SITE CHMOD"))
+    );
+    assert_eq!(fs.chmod(&path("/forbidden"), mode), Err(refused));
+    drop(fs);
+    drop(server.finish());
+}
+
+#[test]
 fn unsupported_reply_codes_and_transport_failures_are_distinguished() {
     for status in [
         Status::BadCommand,

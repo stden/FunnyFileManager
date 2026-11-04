@@ -142,4 +142,7 @@ fn enter_cancels_until_the_cursor_is_moved_to_overwrite() {
     press(&mut app, KeyCode::Left);
     press(&mut app, KeyCode::Enter);
     assert_eq!(fs::read_to_string(&path).expect("file"), "EDIT original\n");
+
+    app.close_overlay();
+    save::write_buffer(&mut app, crate::models::AfterSave::Stay);
 }

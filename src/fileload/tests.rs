@@ -110,3 +110,16 @@ fn read_regular_holds_to_the_limit_it_is_given() {
         Ok(Loaded::NotRegular)
     ));
 }
+
+#[test]
+fn open_regular_with_metadata_returns_file_and_matching_size() {
+    let dir = TempDir::new().expect("temp dir");
+    let path = dir.path().join("meta.txt");
+    fs::write(&path, b"seven77").expect("write");
+    let (_file, meta) =
+        super::open_regular_with_metadata(&path, fs::OpenOptions::new().read(true)).expect("open");
+    assert_eq!(meta.len(), 7);
+    assert!(
+        super::open_regular_with_metadata(dir.path(), fs::OpenOptions::new().read(true)).is_err()
+    );
+}

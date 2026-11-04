@@ -4,10 +4,11 @@
 //! completer only knew the handful of built-in verbs — so `car<Tab>` could not
 //! reach `cargo`. This is the source that fixes that.
 
-use std::collections::BTreeSet;
 use std::ffi::OsString;
 use std::path::Path;
 use std::sync::{Once, OnceLock};
+
+use super::os_into_string;
 
 /// The memoized scan of the process `$PATH`, shared by [`executables`],
 /// [`ready`] and [`warm`].
@@ -39,38 +40,45 @@ pub fn ready() -> Option<&'static [String]> {
 pub fn warm() {
     static STARTED: Once = Once::new();
     STARTED.call_once(|| {
-        let spawned = std::thread::Builder::new()
-            .name("ffm-path-scan".to_owned())
-            .spawn(|| {
-                executables();
-            });
-        if let Err(error) = spawned {
-            crate::diagnostics::log_error(&format!("PATH scan: {error}"));
-        }
+        report_spawn_result(
+            std::thread::Builder::new()
+                .name("ffm-path-scan".to_owned())
+                .spawn(|| {
+                    executables();
+                }),
+        );
     });
+}
+
+fn report_spawn_result<T>(spawned: std::io::Result<T>) {
+    if let Err(error) = spawned {
+        crate::diagnostics::log_error(&format!("PATH scan: {error}"));
+    }
 }
 
 /// Executable names found in the `PATH`-shaped variable `path_var`.
 ///
 /// A directory that cannot be read contributes nothing and does not stop the
 /// scan — the same rule the rest of completion follows, because a broken entry
-/// on `$PATH` must not cost the user their `Tab` key. The `BTreeSet` both
-/// de-duplicates (the same name usually appears in several directories) and
-/// gives a deterministic order for the ranker to work from.
+/// on `$PATH` must not cost the user their `Tab` key. Sorting and deduplicating
+/// collapse repeated names across directories into a deterministic order for
+/// binary-search prefix lookup.
 #[must_use]
 pub fn scan(path_var: Option<&std::ffi::OsStr>) -> Vec<String> {
     let Some(path_var) = path_var else {
         return Vec::new();
     };
-    let mut names = BTreeSet::new();
+    let mut names = Vec::new();
     for dir in std::env::split_paths(path_var) {
         collect_executables(&dir, &mut names);
     }
-    names.into_iter().collect()
+    names.sort_unstable();
+    names.dedup();
+    names
 }
 
 /// Add every executable file directly inside `dir` to `names`.
-fn collect_executables(dir: &Path, names: &mut BTreeSet<String>) {
+fn collect_executables(dir: &Path, names: &mut Vec<String>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
@@ -80,7 +88,7 @@ fn collect_executables(dir: &Path, names: &mut BTreeSet<String>) {
         }
         // Lossy is right here: a name we cannot render is a name the user
         // cannot type either, so an approximation beats dropping it.
-        names.insert(entry.file_name().to_string_lossy().into_owned());
+        names.push(os_into_string(entry.file_name()));
     }
 }
 
@@ -96,13 +104,16 @@ fn collect_executables(dir: &Path, names: &mut BTreeSet<String>) {
 /// would pass every one of them, including links pointing at directories, and
 /// would call a dangling link runnable.
 fn is_executable(entry: &std::fs::DirEntry) -> bool {
-    #[cfg(not(unix))]
-    if let Ok(kind) = entry.file_type() {
-        if !kind.is_symlink() {
-            return !kind.is_dir();
-        }
+    match entry.file_type() {
+        Ok(kind) if kind.is_dir() => false,
+        #[cfg(not(unix))]
+        Ok(kind) if !kind.is_symlink() => true,
+        _ => is_executable_target(&entry.path()),
     }
-    let Ok(metadata) = std::fs::metadata(entry.path()) else {
+}
+
+fn is_executable_target(path: &Path) -> bool {
+    let Ok(metadata) = std::fs::metadata(path) else {
         return false;
     };
     if metadata.is_dir() {
@@ -111,7 +122,8 @@ fn is_executable(entry: &std::fs::DirEntry) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        metadata.permissions().mode() & 0o111 != 0
+        const ANY_EXECUTE_BIT: u32 = 0o111;
+        metadata.permissions().mode() & ANY_EXECUTE_BIT != 0
     }
     #[cfg(not(unix))]
     {

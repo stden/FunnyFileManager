@@ -1,7 +1,7 @@
 //! Purpose: Which processes the view admits by owner and by text: the user
 //! scope `u` chooses and the live filter `F4` edits.
 
-use crate::casefold::contains_ignore_case;
+use crate::casefold::CaseNeedle;
 
 use super::super::{Owner, ProcessSample};
 
@@ -30,8 +30,8 @@ impl UserScope {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FilterTerms {
     line: String,
-    /// Trimmed, lowercased and never empty.
-    terms: Vec<String>,
+    /// Trimmed, precomputed case-insensitive needles and never empty.
+    terms: Vec<CaseNeedle>,
 }
 
 impl FilterTerms {
@@ -43,7 +43,7 @@ impl FilterTerms {
             .split('|')
             .map(str::trim)
             .filter(|term| !term.is_empty())
-            .map(str::to_lowercase);
+            .map(CaseNeedle::new);
         Self {
             line: line.to_owned(),
             terms: terms.collect(),
@@ -66,9 +66,9 @@ impl FilterTerms {
     #[must_use]
     pub fn matches(&self, sample: &ProcessSample) -> bool {
         self.is_empty()
-            || self.terms.iter().any(|term| {
-                contains_ignore_case(&sample.name, term)
-                    || contains_ignore_case(&sample.command, term)
-            })
+            || self
+                .terms
+                .iter()
+                .any(|term| term.contains_in(&sample.name) || term.contains_in(&sample.command))
     }
 }

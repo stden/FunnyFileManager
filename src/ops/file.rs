@@ -94,7 +94,7 @@ fn stop(app: &mut App, stop: &Stop<'_>) {
         elevated::remember_context(&[], 0, 0);
     }
     let retry = elevated::retry_for(
-        app.live.elevation && elevated::available(),
+        (app.live.elevation && elevated::available()) || elevated::session_active(),
         stop.operation,
         stop.denial.as_ref(),
         stop.remaining,
@@ -102,6 +102,7 @@ fn stop(app: &mut App, stop: &Stop<'_>) {
         stop.selected,
         stop.settings,
     );
+    #[cfg(windows)]
     if let Some(retry) = retry.as_ref().filter(|_| elevated::session_active()) {
         elevated::run(app, stop.done, retry);
         return;

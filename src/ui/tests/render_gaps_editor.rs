@@ -55,7 +55,7 @@ fn test_editor_highlights_rust_keywords_types_strings_comments_and_numbers() {
     // Longer than the 80-column screen and built from several runs, so the
     // renderer's per-run budget reaches zero *before* every run is consumed —
     // the only way `clip_runs` takes its `room.is_zero()` early exit.
-    let line2 = format!("let {} {}", "a".repeat(90), "b".repeat(10));
+    let line2 = format!("let {} {} = 1;", "a".repeat(90), "b".repeat(10));
 
     let content = format!("{line0}\n{line1}\n{line2}");
     let editor = unscrolled_rust_editor(&content);
@@ -165,7 +165,7 @@ fn test_editor_highlights_xml_tag_url_and_uri_tokens() {
 
     let clipped = code::clip_runs(
         vec![
-            ("a\x01b", crate::highlight::Token::Normal),
+            ("a\x01bc", crate::highlight::Token::Normal),
             ("tail", crate::highlight::Token::Normal),
         ],
         Cells::ZERO,

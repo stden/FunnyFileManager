@@ -121,3 +121,33 @@ fn record_up_adapter_picks_lowest_metric_gateway_and_deduplicates_dns() {
     assert_eq!(out.gateway, Some(Ipv4::new(10, 0, 0, 2)));
     assert_eq!(out.dns_servers, vec![Ipv4::new(8, 8, 8, 8)]);
 }
+
+#[test]
+fn fetch_adapter_buffer_and_walkers_handle_overflow_failure_and_null_addresses() {
+    let empty = read_net_endpoints_from(None);
+    assert!(empty.ipv4_by_index.is_empty());
+    assert_eq!(empty.gateway, None);
+    assert_eq!(empty.dns_servers, []);
+    assert!(fetch_adapter_buffer_with(8, |_, _| 87).is_none());
+    assert!(fetch_adapter_buffer_with(8, |_, size| {
+        *size = 64;
+        ERROR_BUFFER_OVERFLOW
+    })
+    .is_none());
+    let resized = fetch_adapter_buffer_with(8, |buf, size| {
+        *size = 32;
+        if buf.len() < 4 {
+            ERROR_BUFFER_OVERFLOW
+        } else {
+            0
+        }
+    })
+    .expect("resized buffer");
+    assert_eq!(resized.len(), 4);
+    let null_dns = IP_ADAPTER_DNS_SERVER_ADDRESS_XP::default();
+    let mut dns_out = Vec::new();
+    collect_dns(&raw const null_dns, &mut dns_out);
+    assert_eq!(dns_out, []);
+    let null_uni = IP_ADAPTER_UNICAST_ADDRESS_LH::default();
+    assert_eq!(first_unicast_ipv4(&raw const null_uni), None);
+}

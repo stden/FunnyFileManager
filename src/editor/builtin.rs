@@ -15,6 +15,7 @@ use crate::utils::MAX_FILE_SIZE;
 /// status line; `Err` is reserved for failures
 /// outside the file itself, matching `handle_view`.
 pub fn handle_edit_builtin(app: &mut App) -> io::Result<()> {
+    #[cfg(feature = "keepass")]
     if crate::ops::vault::edit_vault_if_kdbx(app) {
         return Ok(());
     }

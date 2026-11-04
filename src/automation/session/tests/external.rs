@@ -2,6 +2,7 @@
 use super::*;
 use std::thread;
 
+#[cfg(unix)]
 #[test]
 fn transport_input_and_resize_bypass_the_blocked_application_queue() {
     let (session, receiver) = queued_session();
@@ -30,6 +31,39 @@ fn transport_input_and_resize_bypass_the_blocked_application_queue() {
         .unwrap();
     assert_eq!(child.join().unwrap().unwrap().code, 0);
     assert!(session.host.snapshot().output.contains("<private input>"));
+    assert!(receiver.try_recv().is_err());
+    assert_eq!(session.state().unwrap()["busy"], true);
+}
+
+#[cfg(windows)]
+#[test]
+fn transport_input_and_resize_bypass_the_blocked_application_queue() {
+    let (session, receiver) = queued_session();
+    session.shared.reserve().unwrap();
+    let host = session.host.clone();
+    let child = thread::spawn(move || {
+        let _scope = host.enter();
+        crate::terminal::headless::run_with_timeout(
+            std::process::Command::new("cmd").args(["/Q", "/C", "set /p line=& exit /b 0"]),
+            Some(Duration::from_secs(15)),
+        )
+    });
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while session.host.snapshot().state == ExternalState::Idle && Instant::now() < deadline {
+        thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(session.host.snapshot().state, ExternalState::Running);
+    let resized = session.resize(99, 31).unwrap();
+    assert_eq!(resized["state"]["external_process"]["width"], 99);
+    assert_eq!(resized["state"]["external_process"]["height"], 31);
+    session
+        .input(vec![], Some("private input\r\n".into()), None)
+        .unwrap();
+    while session.host.snapshot().state == ExternalState::Running && Instant::now() < deadline {
+        drop(session.input(vec!["Enter".into()], None, None));
+        thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(child.join().unwrap().unwrap().code, 0);
     assert!(receiver.try_recv().is_err());
     assert_eq!(session.state().unwrap()["busy"], true);
 }

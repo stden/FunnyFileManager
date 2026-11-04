@@ -108,7 +108,12 @@ fn refusal(path: &Path) -> Option<WriteRefusal> {
     let Err(error) = crate::platform::check_write_access(path) else {
         return None;
     };
-    match error.raw_os_error() {
+    refusal_for_errno(error.raw_os_error())
+}
+
+#[cfg(unix)]
+const fn refusal_for_errno(errno: Option<i32>) -> Option<WriteRefusal> {
+    match errno {
         Some(libc::EROFS) => Some(WriteRefusal::ReadOnlyFileSystem),
         Some(libc::EACCES | libc::EPERM) => Some(WriteRefusal::PermissionDenied),
         _ => None,

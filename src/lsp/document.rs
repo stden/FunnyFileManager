@@ -72,13 +72,7 @@ fn incremental(old: &str, new: &str) -> Option<Value> {
     }
     let (_, old_rest) = old.split_at_checked(prefix)?;
     let (_, new_rest) = new.split_at_checked(prefix)?;
-    let mut suffix: usize = old_rest
-        .chars()
-        .rev()
-        .zip(new_rest.chars().rev())
-        .take_while(|(a, b)| a == b)
-        .map(|(a, _)| a.len_utf8())
-        .sum();
+    let mut suffix = common_suffix_len(old_rest, new_rest);
     if inside_crlf(old, old.len() - suffix) || inside_crlf(new, new.len() - suffix) {
         suffix -= 1;
     }
@@ -87,6 +81,20 @@ fn incremental(old: &str, new: &str) -> Option<Value> {
     let end = positions::at_byte(old, old.len() - suffix)?;
     let text = new.get(prefix..new.len() - suffix)?;
     Some(json!({"range":{"start":start,"end":end}, "text":text}))
+}
+
+fn common_suffix_len(a: &str, b: &str) -> usize {
+    let mut suffix = a
+        .as_bytes()
+        .iter()
+        .rev()
+        .zip(b.as_bytes().iter().rev())
+        .take_while(|(left, right)| left == right)
+        .count();
+    while !a.is_char_boundary(a.len() - suffix) {
+        suffix -= 1;
+    }
+    suffix
 }
 
 fn inside_crlf(text: &str, offset: usize) -> bool {

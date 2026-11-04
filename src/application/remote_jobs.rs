@@ -32,13 +32,7 @@ impl RemoteJobs {
         };
         let id = request.id;
         let (sender, receiver) = mpsc::channel();
-        let spawned = std::thread::Builder::new()
-            .name("ffm-remote".to_owned())
-            .spawn(move || {
-                let answer = crate::ops::remote::jobs::execute(&request.task);
-                drop(sender.send((request, answer))); // The app can close before a connection times out.
-            });
-        if spawned.is_err() {
+        if spawn_worker(request, sender).is_err() {
             app.remote_requests.finish(id);
             app.set_status(crate::status::Status::Error(
                 "Cannot start remote worker".to_owned(),
@@ -73,6 +67,27 @@ impl RemoteJobs {
             }
         }
     }
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(super) static FORCE_SPAWN_FAILURE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+fn spawn_worker(
+    request: RemoteRequest,
+    sender: mpsc::Sender<Answer>,
+) -> std::io::Result<std::thread::JoinHandle<()>> {
+    #[cfg(test)]
+    if FORCE_SPAWN_FAILURE.get() {
+        return Err(std::io::Error::other("forced spawn failure"));
+    }
+    std::thread::Builder::new()
+        .name("ffm-remote".to_owned())
+        .spawn(move || {
+            let answer = crate::ops::remote::jobs::execute(&request.task);
+            drop(sender.send((request, answer))); // The app can close before a connection times out.
+        })
 }
 
 #[cfg(test)]

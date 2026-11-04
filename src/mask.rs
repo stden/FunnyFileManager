@@ -69,15 +69,15 @@ impl Mask {
     pub fn parse(line: &str) -> Self {
         let bar = unquoted(line).find(|&(_, ch)| ch == '|');
         // `at` is a character boundary and `|` one byte, so both halves exist.
-        let (take, drop) = bar.map_or((line, ""), |(at, _)| {
+        let (include_text, exclude_text) = bar.map_or((line, ""), |(at, _)| {
             (
                 line.get(..at).unwrap_or_default(),
                 line.get(at + 1..).unwrap_or_default(),
             )
         });
         Self {
-            include: patterns(take),
-            exclude: patterns(drop),
+            include: patterns(include_text),
+            exclude: patterns(exclude_text),
             source: line.to_owned(),
         }
     }
@@ -105,9 +105,7 @@ impl Mask {
                 .any(|p| p.matches(name, &mut lower_chars))
     }
 
-    /// Whether this mask would let anything through at all. An empty line
-    /// selects nothing rather than everything: the user who cleared the field
-    /// did not mean "all files".
+    /// Whether this mask would let anything through at all.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.include.is_empty() && self.exclude.is_empty()
@@ -139,12 +137,13 @@ fn patterns(half: &str) -> Vec<Pattern> {
 /// offsets. The quotes themselves are left out, so a separator between them is
 /// never seen and cannot split the mask.
 fn unquoted(text: &str) -> impl Iterator<Item = (usize, char)> + '_ {
-    let mut quoted = false;
+    let mut in_quotes = false;
     text.char_indices().filter(move |&(_, ch)| {
         if ch == '"' {
-            quoted = !quoted;
+            in_quotes = !in_quotes;
+            return false;
         }
-        !quoted && ch != '"'
+        !in_quotes
     })
 }
 
@@ -156,37 +155,33 @@ fn glob_slice<T: Copy>(
     is_star: impl Fn(T) -> bool,
     matches_one: impl Fn(T, T) -> bool,
 ) -> bool {
-    let (mut at_pattern, mut at_name) = (0, 0);
-    let mut star: Option<usize> = None;
-    let mut swallowed = 0;
+    let (mut pat_idx, mut name_idx) = (0, 0);
+    let mut last_star_idx: Option<usize> = None;
+    let mut star_match_end = 0;
 
-    while let Some(&current) = name.get(at_name) {
-        match pattern.get(at_pattern).copied() {
+    while let Some(&current) = name.get(name_idx) {
+        match pattern.get(pat_idx).copied() {
             Some(ch) if is_star(ch) => {
-                star = Some(at_pattern);
-                swallowed = at_name;
-                at_pattern += 1;
+                last_star_idx = Some(pat_idx);
+                star_match_end = name_idx;
+                pat_idx += 1;
             }
             Some(ch) if matches_one(ch, current) => {
-                at_pattern += 1;
-                at_name += 1;
+                pat_idx += 1;
+                name_idx += 1;
             }
-            _ => match star {
-                Some(at) => {
-                    at_pattern = at + 1;
-                    swallowed += 1;
-                    at_name = swallowed;
-                }
-                None => return false,
-            },
+            _ => {
+                let Some(star_idx) = last_star_idx else {
+                    return false;
+                };
+                pat_idx = star_idx + 1;
+                star_match_end += 1;
+                name_idx = star_match_end;
+            }
         }
     }
-    pattern
-        .get(at_pattern..)
-        .unwrap_or_default()
-        .iter()
-        .copied()
-        .all(is_star)
+    let rest = pattern.get(pat_idx..).unwrap_or_default();
+    rest.iter().copied().all(is_star)
 }
 
 #[cfg(test)]

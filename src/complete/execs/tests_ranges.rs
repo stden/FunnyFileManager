@@ -92,28 +92,40 @@ fn warm_with_private_path() {
     );
 }
 
+#[test]
+fn spawn_error_reporting_logs_without_panicking() {
+    super::report_spawn_result::<()>(Err(std::io::Error::other("thread limit")));
+}
+
 #[cfg(windows)]
 #[test]
-fn windows_scan_follows_file_symlinks_and_skips_dir_or_dangling_symlinks() {
+fn windows_scan_skips_live_and_broken_junctions_and_checks_target_files() {
     let temp = tempfile::TempDir::new().unwrap();
     let bin = temp.path().join("bin");
     let target_dir = temp.path().join("sub");
+    let doomed_dir = temp.path().join("doomed");
     std::fs::create_dir_all(&bin).unwrap();
     std::fs::create_dir_all(&target_dir).unwrap();
+    std::fs::create_dir_all(&doomed_dir).unwrap();
     let real_exe = temp.path().join("real.exe");
     std::fs::write(&real_exe, b"MZ").unwrap();
+    assert!(super::is_executable_target(&real_exe));
 
-    if std::os::windows::fs::symlink_file(&real_exe, bin.join("linked.exe")).is_err() {
-        return;
+    for (link, target) in [
+        (bin.join("linked_dir.exe"), &target_dir),
+        (bin.join("dangling.exe"), &doomed_dir),
+    ] {
+        let status = std::process::Command::new("cmd")
+            .args(["/c", "mklink", "/J"])
+            .arg(&link)
+            .arg(target)
+            .output()
+            .unwrap()
+            .status;
+        assert!(status.success());
     }
-    drop(std::os::windows::fs::symlink_dir(
-        &target_dir,
-        bin.join("linked_dir.exe"),
-    ));
-    drop(std::os::windows::fs::symlink_file(
-        temp.path().join("missing.exe"),
-        bin.join("dangling.exe"),
-    ));
+    std::fs::remove_dir(&doomed_dir).unwrap();
+
     let path_var = super::join_paths([bin.as_path()]).unwrap();
-    assert_eq!(super::scan(Some(&path_var)), vec!["linked.exe"]);
+    assert_eq!(super::scan(Some(&path_var)), Vec::<String>::new());
 }

@@ -151,4 +151,5 @@ fn shell_command_rejects_blank_text() {
 fn shell_command_displays_as_its_text() {
     let command = ShellCommand::new("grep -r needle .").expect("non-empty");
     assert_eq!(command.to_string(), "grep -r needle .");
+    assert_eq!(Command::parse_external("   ", ""), Command::Empty);
 }

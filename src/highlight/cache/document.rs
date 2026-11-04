@@ -2,22 +2,33 @@
 
 use std::path::Path;
 
-use super::{hash_of, Continuation, Document, Highlighter, Token};
+use super::{Continuation, Document, Highlighter, LineSpans, Span};
 
 mod step;
 
-fn lex_line(engine: &mut Highlighter, line: &str) -> Vec<(usize, usize, Token)> {
+#[derive(Debug, Clone, Copy)]
+pub(super) struct LineState {
+    pub(super) hash: u64,
+    pub(super) after: Continuation,
+}
+
+fn lex_line(engine: &mut Highlighter, line: &str) -> LineSpans {
+    let raw = engine.line(line);
+    let mut spans = Vec::with_capacity(raw.len());
     let mut start = 0;
-    engine
-        .line(line)
-        .into_iter()
-        .map(|(text, token)| {
-            let end = start + text.len();
-            let span = (start, end, token);
-            start = end;
-            span
-        })
-        .collect()
+    for (text, token) in raw {
+        let end = start + text.len();
+        if let Some(last) = spans
+            .last_mut()
+            .filter(|last: &&mut Span| last.token == token && last.end == start)
+        {
+            last.end = end;
+        } else {
+            spans.push(Span { start, end, token });
+        }
+        start = end;
+    }
+    spans
 }
 
 impl Document {
@@ -46,6 +57,7 @@ impl Document {
     pub(super) fn reconcile(
         &mut self,
         lines: &[String],
+        top: usize,
         end: usize,
         initial: Continuation,
         dirty: Option<(usize, usize)>,
@@ -53,8 +65,8 @@ impl Document {
         if lines.len() != self.line_count {
             self.shift_line_count(lines, initial, dirty.map(|(from, _)| from));
         }
-        self.reconcile_in_place(lines, end, initial, dirty);
-        self.extend(lines, end);
+        self.reconcile_in_place(lines, top, end, initial, dirty);
+        self.ensure_window(lines, top, end);
     }
 
     fn shift_line_count(&mut self, lines: &[String], initial: Continuation, hint: Option<usize>) {
@@ -79,7 +91,7 @@ impl Document {
             .iter()
             .skip(skip)
             .zip(lines.iter().skip(skip))
-            .take_while(|(&(old_hash, _), line)| old_hash == hash_of(line))
+            .take_while(|(state, line)| state.matches_hash(line))
             .count();
         skip + matched
     }
@@ -87,15 +99,14 @@ impl Document {
     fn splice_inserted_lines(&mut self, lines: &[String], prefix: usize, initial: Continuation) {
         let added = lines.len() - self.line_count;
         let state_at_prefix = self.state_before(prefix).unwrap_or(initial);
+        let inserted = lines.get(prefix..prefix + added).unwrap_or_default();
         self.spans
-            .splice(prefix..prefix, std::iter::repeat_with(Vec::new).take(added));
+            .splice(prefix..prefix, std::iter::repeat_n(None, added));
         self.states.splice(
             prefix..prefix,
-            lines
-                .get(prefix..prefix + added)
-                .into_iter()
-                .flatten()
-                .map(|line| (!hash_of(line), state_at_prefix)),
+            inserted
+                .iter()
+                .map(|line| LineState::stale(line, state_at_prefix)),
         );
     }
 
@@ -105,41 +116,68 @@ impl Document {
         let new_in = self.state_before(prefix).unwrap_or(initial);
         self.spans.drain(prefix..prefix + removed);
         self.states.drain(prefix..prefix + removed);
-        if let Some((slot, line)) = self
-            .states
-            .get_mut(prefix)
-            .zip(lines.get(prefix))
-            .filter(|_| old_in != new_in)
-        {
-            slot.0 = !hash_of(line);
+        if old_in != new_in {
+            if let Some((slot, line)) = self.states.get_mut(prefix).zip(lines.get(prefix)) {
+                *slot = LineState::stale(line, slot.after);
+            }
+        }
+    }
+
+    fn state_before(&self, idx: usize) -> Option<Continuation> {
+        incoming_state(self.initial, &self.states, idx)
+    }
+
+    pub(super) fn ensure_window(&mut self, lines: &[String], top: usize, end: usize) {
+        if !self.engine.is_active() {
+            return;
+        }
+        let lex_from = if self.initial.is_some() { top } else { 0 };
+        let missing = end.saturating_sub(self.spans.len());
+        self.states.reserve(missing);
+        self.spans.reserve(missing);
+        for (idx, line) in lines.iter().enumerate().take(end).skip(self.spans.len()) {
+            if let Some(prev) = self.state_before(idx) {
+                self.engine.resume(prev);
+            }
+            let spans = if idx < lex_from {
+                self.engine.advance_only(line);
+                None
+            } else {
+                Some(lex_line(&mut self.engine, line))
+            };
+            if let Some(after) = self.engine.continuation() {
+                self.states.push(LineState::clean(line, after));
+            }
+            self.spans.push(spans);
+        }
+        self.fill_window_spans(lines, lex_from, end);
+    }
+
+    fn fill_window_spans(&mut self, lines: &[String], lex_from: usize, end: usize) {
+        for (idx, slot) in self.spans.iter_mut().enumerate().take(end).skip(lex_from) {
+            if slot.is_none() {
+                let prev = incoming_state(self.initial, &self.states, idx);
+                *slot = compute_span(&mut self.engine, prev, lines.get(idx));
+            }
         }
     }
 }
 
-impl Document {
-    fn state_before(&self, idx: usize) -> Option<Continuation> {
-        let init = self.initial?;
-        idx.checked_sub(1)
-            .map_or(Some(init), |prev| self.states.get(prev).map(|&(_, s)| s))
-    }
+fn incoming_state(
+    init: Option<Continuation>,
+    states: &[LineState],
+    idx: usize,
+) -> Option<Continuation> {
+    let first = init?;
+    idx.checked_sub(1)
+        .map_or(Some(first), |prev| states.get(prev).map(|s| s.after))
+}
 
-    pub(super) fn extend(&mut self, lines: &[String], end: usize) {
-        if !self.engine.is_active() {
-            return;
-        }
-        while self.spans.len() < end {
-            let idx = self.spans.len();
-            let Some(line) = lines.get(idx) else {
-                break;
-            };
-            if let Some(prev) = self.state_before(idx) {
-                self.engine.resume(prev);
-            }
-            let spans = lex_line(&mut self.engine, line);
-            if let Some(after) = self.engine.continuation() {
-                self.states.push((hash_of(line), after));
-            }
-            self.spans.push(spans);
-        }
-    }
+fn compute_span(
+    engine: &mut Highlighter,
+    prev: Option<Continuation>,
+    line: Option<&String>,
+) -> Option<LineSpans> {
+    engine.resume(prev?);
+    Some(lex_line(engine, line?))
 }

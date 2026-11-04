@@ -12,7 +12,7 @@ use crate::lsp::{
 };
 
 impl Client {
-    pub(super) fn answer(&mut self, query: Query, result: Result<Value, ResponseError>) {
+    pub(in crate::lsp) fn answer(&mut self, query: Query, result: Result<Value, ResponseError>) {
         if !self
             .document
             .as_ref()

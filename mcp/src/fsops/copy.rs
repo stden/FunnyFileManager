@@ -4,10 +4,13 @@
 
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
+mod payload;
 #[cfg(test)]
 mod tests;
+
+use payload::{copy_bytes, reject_copy_into_itself};
 
 /// What a copy is for, which decides what it keeps of the source.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,12 +44,25 @@ pub enum Purpose {
 /// as a link is also what keeps a dangling link copyable at all.
 pub fn copy_entry(src: &Path, dst: &Path, purpose: Purpose) -> io::Result<()> {
     let meta = fs::symlink_metadata(src)?;
+    copy_entry_with_meta(src, dst, &meta, purpose)
+}
+
+fn copy_entry_with_meta(
+    src: &Path,
+    dst: &Path,
+    meta: &fs::Metadata,
+    purpose: Purpose,
+) -> io::Result<()> {
     if meta.is_symlink() {
+        #[cfg(unix)]
         return copy_symlink(src, dst);
+        #[cfg(windows)]
+        return copy_symlink(src, dst, meta);
     }
     if meta.is_dir() {
-        return copy_dir(src, dst, &meta, purpose);
+        return copy_dir(src, dst, meta, purpose);
     }
+    #[cfg(unix)]
     if !meta.is_file() {
         // A FIFO would block until a writer appeared, a device would copy
         // until the disk filled: only a regular file is opened.
@@ -55,7 +71,7 @@ pub fn copy_entry(src: &Path, dst: &Path, purpose: Purpose) -> io::Result<()> {
             format!("not a regular file, cannot copy: {}", src.display()),
         ));
     }
-    copy_file(src, dst, &meta, purpose)
+    copy_file(src, dst, meta, purpose)
 }
 
 /// Recreate `src` at `dst` as a link to the same target, without reading it.
@@ -67,12 +83,17 @@ fn copy_symlink(src: &Path, dst: &Path) -> io::Result<()> {
 /// Same, for Windows — where the link itself carries the file/directory
 /// distinction, so the kind has to be chosen from what the link reaches.
 #[cfg(windows)]
-fn copy_symlink(src: &Path, dst: &Path) -> io::Result<()> {
-    let target = fs::read_link(src)?;
-    if std::os::windows::fs::FileTypeExt::is_symlink_dir(&fs::symlink_metadata(src)?.file_type()) {
-        std::os::windows::fs::symlink_dir(&target, dst)
+fn copy_symlink(src: &Path, dst: &Path, meta: &fs::Metadata) -> io::Result<()> {
+    use std::os::windows::fs::FileTypeExt;
+    create_windows_symlink(&fs::read_link(src)?, dst, meta.file_type().is_symlink_dir())
+}
+
+#[cfg(windows)]
+fn create_windows_symlink(target: &Path, dst: &Path, is_dir: bool) -> io::Result<()> {
+    if is_dir {
+        std::os::windows::fs::symlink_dir(target, dst)
     } else {
-        std::os::windows::fs::symlink_file(&target, dst)
+        std::os::windows::fs::symlink_file(target, dst)
     }
 }
 
@@ -82,12 +103,12 @@ fn copy_symlink(src: &Path, dst: &Path) -> io::Result<()> {
 fn copy_dir(src: &Path, dst: &Path, meta: &fs::Metadata, purpose: Purpose) -> io::Result<()> {
     reject_copy_into_itself(src, dst)?;
     fs::create_dir(dst)?;
-    let filled = fill_dir(src, dst, meta, purpose);
-    if filled.is_err() {
+    if let Err(error) = fill_dir(src, dst, meta, purpose) {
         // Best effort: the copy's own error is the one worth reporting.
         drop(fs::remove_dir_all(dst));
+        return Err(error);
     }
-    filled
+    Ok(())
 }
 
 /// Copy the contents, then give the folder what the purpose keeps — its
@@ -96,36 +117,15 @@ fn copy_dir(src: &Path, dst: &Path, meta: &fs::Metadata, purpose: Purpose) -> io
 fn fill_dir(src: &Path, dst: &Path, meta: &fs::Metadata, purpose: Purpose) -> io::Result<()> {
     for entry in fs::read_dir(src)? {
         let entry = entry?;
-        copy_entry(&entry.path(), &dst.join(entry.file_name()), purpose)?;
+        let child_meta = entry.metadata()?;
+        let child_dst = dst.join(entry.file_name());
+        copy_entry_with_meta(&entry.path(), &child_dst, &child_meta, purpose)?;
     }
     if purpose == Purpose::Move {
         keep_times(&open_folder(dst)?, meta)?;
         fs::set_permissions(dst, meta.permissions())?;
     }
     Ok(())
-}
-
-/// Refuse to copy a folder into itself or into one of its children: the
-/// walk would descend into the copy it is writing and duplicate the tree
-/// until the path length gave out. The destination does not exist yet, so
-/// its closest existing ancestor stands in for it.
-fn reject_copy_into_itself(src: &Path, dst: &Path) -> io::Result<()> {
-    let (Ok(real_src), Some(real_dst)) = (src.canonicalize(), canonical_existing_ancestor(dst))
-    else {
-        return Ok(()); // an unreadable path fails with its own error further down
-    };
-    if real_dst.starts_with(&real_src) {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("cannot copy a directory into itself: {}", src.display()),
-        ));
-    }
-    Ok(())
-}
-
-fn canonical_existing_ancestor(path: &Path) -> Option<PathBuf> {
-    path.ancestors()
-        .find_map(|ancestor| ancestor.canonicalize().ok())
 }
 
 /// Claim the file name and copy the bytes. A copy that fails half-way is
@@ -137,10 +137,12 @@ fn copy_file(src: &Path, dst: &Path, meta: &fs::Metadata, purpose: Purpose) -> i
         .create_new(true)
         .open(dst)?;
     let written = write_copy(&mut input, &mut output, meta, purpose);
-    if written.is_err() {
+    drop(output);
+    if let Err(error) = written {
         drop(fs::remove_file(dst));
+        return Err(error);
     }
-    written
+    Ok(())
 }
 
 /// The bytes, then the times a move keeps — through the handle, before the
@@ -151,7 +153,7 @@ fn write_copy(
     meta: &fs::Metadata,
     purpose: Purpose,
 ) -> io::Result<()> {
-    io::copy(input, output)?;
+    copy_bytes(input, output, meta.len())?;
     if purpose == Purpose::Move {
         keep_times(output, meta)?;
     }

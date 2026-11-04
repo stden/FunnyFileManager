@@ -96,7 +96,16 @@ pub fn retry_as_administrator(app: &mut App) {
 /// first if there is none — and report the whole operation: `done` entries
 /// went before it stopped.
 pub(super) fn run(app: &mut App, done: usize, retry: &ElevatedRetry) {
-    match exchange(retry) {
+    run_with(app, done, retry, exchange);
+}
+
+fn run_with(
+    app: &mut App,
+    done: usize,
+    retry: &ElevatedRetry,
+    run_exchange: impl FnOnce(&ElevatedRetry) -> io::Result<Outcome>,
+) {
+    match run_exchange(retry) {
         Ok(outcome) => finish(app, done, retry, &outcome),
         Err(error) => report_error(app, &error),
     }

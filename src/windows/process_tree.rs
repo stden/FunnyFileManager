@@ -23,26 +23,42 @@ pub fn private_terminal_job(
     job_for_process(handle)
 }
 
+fn job_for_process(
+    process: std::os::windows::io::RawHandle,
+) -> io::Result<std::os::windows::io::OwnedHandle> {
+    job_for_raw_handle_with(process, create_anonymous_job)
+}
+
 #[allow(
     unsafe_code,
     reason = "Windows process trees require owned job objects"
 )]
-fn job_for_process(
+pub(super) fn create_anonymous_job() -> windows_sys::Win32::Foundation::HANDLE {
+    use windows_sys::Win32::System::JobObjects::CreateJobObjectW;
+    // SAFETY: null security/name create a private, non-inherited job handle.
+    unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) }
+}
+
+#[allow(
+    unsafe_code,
+    reason = "Windows process trees require owned job objects"
+)]
+pub(super) fn job_for_raw_handle_with(
     process: std::os::windows::io::RawHandle,
+    create_job: fn() -> windows_sys::Win32::Foundation::HANDLE,
 ) -> io::Result<std::os::windows::io::OwnedHandle> {
     use std::os::windows::io::{FromRawHandle, OwnedHandle};
     use windows_sys::Win32::System::JobObjects::{
-        AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        AssignProcessToJobObject, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
     };
-    // SAFETY: null security/name create a private, non-inherited job handle.
-    let raw = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
+    let raw = create_job();
     if raw.is_null() {
         return Err(io::Error::last_os_error());
     }
-    // SAFETY: CreateJobObjectW returned a unique live handle; ownership transfers once.
+    // SAFETY: `create_job` returned a unique live handle; ownership transfers once.
     let job = unsafe { OwnedHandle::from_raw_handle(raw) };
     set_job_limit_flags(raw, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE)?;
-    // SAFETY: both handles remain live throughout the call; the child is owned by the caller.
+    // SAFETY: `raw` is a live job handle; Win32 rejects invalid `process` handles cleanly.
     if unsafe { AssignProcessToJobObject(raw, process) } == 0 {
         return Err(io::Error::last_os_error());
     }
@@ -60,7 +76,7 @@ pub fn disarm_kill_on_close(job: &std::os::windows::io::OwnedHandle) -> io::Resu
     unsafe_code,
     reason = "std has no job objects, the only way to end a process tree with its handle"
 )]
-fn set_job_limit_flags(
+pub(super) fn set_job_limit_flags(
     handle: windows_sys::Win32::Foundation::HANDLE,
     flags: u32,
 ) -> io::Result<()> {

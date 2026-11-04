@@ -53,3 +53,26 @@ fn failed_spawn_keeps_queued_task_and_retry_delivers_it() {
     assert_eq!(result.expect("outcome"), (parent, name, true));
     assert_eq!(state, (0, 0));
 }
+
+#[test]
+fn worker_loop_exits_cleanly_when_receiver_is_dropped() {
+    let pool = Pool::new();
+    let parent = PathBuf::from("/work");
+    let name = FileName::from("repo");
+    let prober: Prober = Arc::new(|_, _| true);
+    let batch = Some((parent, vec![name]));
+    assert_eq!(
+        pool.update_queue([Path::new("/work"), Path::new("/work")], [batch, None]),
+        1
+    );
+    let Pool {
+        shared,
+        sender,
+        outcomes,
+        ..
+    } = pool;
+    drop(outcomes);
+    worker_loop(&shared, &sender, &prober);
+    let queue = shared.0.lock().expect("queue");
+    assert_eq!((queue.tasks.len(), queue.busy), (0, 0));
+}

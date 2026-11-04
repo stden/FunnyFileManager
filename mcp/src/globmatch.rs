@@ -1,165 +1,159 @@
-//! One glob matcher for every tool that takes a pattern.
+//! Purpose: One glob matcher for every tool that takes a pattern.
 //!
 //! `**` spans any number of path components; `*` and `?` stay inside a single
 //! component, so `src/*.rs` never matches `src/deep/a.rs`. Matching is
 //! case-insensitive, as the per-tool matchers this replaces were.
-//!
-//! Patterns arrive verbatim from the client, so matching has to stay cheap for
-//! hostile input: both levels backtrack iteratively (O(text × pattern), constant
-//! stack) rather than recursing, `**` runs are collapsed, and an absurdly large
-//! pattern is refused outright.
 
+mod segment;
 #[cfg(test)]
 mod tests;
 
-/// Upper bound on the components of a pattern. Real trees are nowhere near this
-/// deep, so refusing more costs nothing — and it caps the work a single client
-/// string can impose on every entry of a scanned tree.
+use segment::match_segment;
+
+/// Upper bound on the components of a pattern.
 pub const MAX_PATTERN_COMPONENTS: usize = 64;
 
-/// Upper bound on a pattern in bytes, for the same reason: a single component
-/// may be arbitrarily long, and each one is matched against every candidate.
+/// Upper bound on a pattern in bytes.
 pub const MAX_PATTERN_LEN: usize = 4096;
 
+/// Pre-validated, collapsed glob pattern reused across an entire directory walk.
+pub struct CompiledGlob<'a> {
+    parts: Vec<&'a str>,
+    first_double_star: Option<usize>,
+}
+
+impl<'a> CompiledGlob<'a> {
+    pub fn compile(pattern: &'a str) -> Result<Self, String> {
+        if pattern.len() > MAX_PATTERN_LEN {
+            return Err(format!(
+                "glob pattern is {} bytes, the limit is {MAX_PATTERN_LEN}",
+                pattern.len()
+            ));
+        }
+        let parts = pattern_components(pattern);
+        if parts.len() > MAX_PATTERN_COMPONENTS {
+            return Err(format!(
+                "glob pattern has {} components, the limit is {MAX_PATTERN_COMPONENTS}",
+                parts.len()
+            ));
+        }
+        let first_double_star = parts.iter().position(|&part| part == "**");
+        Ok(Self {
+            parts,
+            first_double_star,
+        })
+    }
+
+    /// How deep below the search root this pattern can match, or `None` when `**` makes it unbounded.
+    pub fn max_depth(&self) -> Option<usize> {
+        self.first_double_star
+            .is_none()
+            .then(|| self.parts.len().saturating_sub(1))
+    }
+
+    /// Whether a directory named `segment` at `depth` (0-based from root) can
+    /// contain any matching descendants, assuming ancestors `0..depth` matched.
+    pub fn can_descend(&self, depth: usize, segment: &str) -> bool {
+        if self
+            .first_double_star
+            .is_some_and(|star_idx| depth >= star_idx)
+        {
+            return true;
+        }
+        if self.max_depth().is_some_and(|max| depth >= max) {
+            return false;
+        }
+        self.parts
+            .get(depth)
+            .is_some_and(|wanted| match_segment(segment, wanted))
+    }
+
+    pub fn matches(&self, candidate: &str) -> bool {
+        if let [single_part] = self.parts.as_slice() {
+            if is_single_component(candidate) {
+                return *single_part == "**" || match_segment(candidate, single_part);
+            }
+        }
+        match_components(candidate, &self.parts)
+    }
+}
+
+fn is_single_component(candidate: &str) -> bool {
+    !candidate.is_empty() && candidate != "." && !candidate.contains('/')
+}
+
 /// Match a `/`-separated candidate against a glob pattern.
-/// A bare file name is simply a one-component path.
-///
-/// An oversized pattern never matches: this is the fail-closed half of
-/// [`validate_pattern`], so a caller that skipped validation cannot turn a
-/// hostile string into unbounded scanning work.
+#[cfg(test)]
 pub fn matches(candidate: &str, pattern: &str) -> bool {
-    if validate_pattern(pattern).is_err() {
-        return false;
-    }
-    match_components(&components(candidate), &pattern_components(pattern))
+    CompiledGlob::compile(pattern).is_ok_and(|glob| glob.matches(candidate))
 }
 
-/// Reject a pattern too large to be meaningful, so a tool can report a clean
-/// error instead of silently matching nothing.
+/// Reject a pattern too large to be meaningful.
+#[cfg(test)]
 pub fn validate_pattern(pattern: &str) -> Result<(), String> {
-    if pattern.len() > MAX_PATTERN_LEN {
-        return Err(format!(
-            "glob pattern is {} bytes, the limit is {MAX_PATTERN_LEN}",
-            pattern.len()
-        ));
-    }
-    let count = pattern_components(pattern).len();
-    if count > MAX_PATTERN_COMPONENTS {
-        return Err(format!(
-            "glob pattern has {count} components, the limit is {MAX_PATTERN_COMPONENTS}"
-        ));
-    }
-    Ok(())
+    CompiledGlob::compile(pattern).map(|_| ())
 }
 
-/// How deep below the search root a pattern can still match, or `None` when
-/// `**` makes it unbounded. Lets callers stop descending early.
+/// How deep below the search root a pattern can still match, or `None` when `**` makes it unbounded.
+#[cfg(test)]
 pub fn max_depth(pattern: &str) -> Option<usize> {
     let parts = pattern_components(pattern);
-    if parts.contains(&"**") {
-        return None;
-    }
-    Some(parts.len().saturating_sub(1))
-}
-
-fn components(path: &str) -> Vec<&str> {
-    path.split('/')
-        .filter(|part| !part.is_empty() && *part != ".")
-        .collect()
+    (!parts.contains(&"**")).then(|| parts.len().saturating_sub(1))
 }
 
 /// Pattern components with consecutive `**` runs collapsed.
-///
-/// `**/**` matches exactly what `**` matches, so folding the run away is
-/// semantics-preserving — and it is what stops `"**/"` repeated N times from
-/// handing the matcher N independent backtrack points.
 fn pattern_components(pattern: &str) -> Vec<&str> {
-    let mut parts = components(pattern);
+    let mut parts: Vec<&str> = pattern
+        .split('/')
+        .filter(|part| !part.is_empty() && *part != ".")
+        .collect();
     parts.dedup_by(|current, previous| *current == "**" && *previous == "**");
     parts
 }
 
-/// Match component-by-component, where `**` consumes zero or more components.
-///
-/// The same greedy scan with a single backtrack point as [`match_segment`], one
-/// level up. It replaces a double recursion that had no memoization: each `**`
-/// multiplied the search space, so a few dozen bytes of pattern took seconds and
-/// a few kilobytes overflowed the stack.
-fn match_components(candidate: &[&str], pattern: &[&str]) -> bool {
-    let (mut ci, mut pi) = (0usize, 0usize);
-    let mut star: Option<usize> = None;
-    let mut star_ci = 0usize;
+fn next_component(mut rest: &str) -> Option<(&str, &str)> {
+    loop {
+        let (part, tail) = rest.split_once('/').unwrap_or((rest, ""));
+        rest = tail;
+        if !part.is_empty() && part != "." {
+            return Some((part, rest));
+        }
+        if rest.is_empty() {
+            return None;
+        }
+    }
+}
 
-    while let Some(&part) = candidate.get(ci) {
-        let current = pattern.get(pi).copied();
+/// Saved backtrack point for the most recent `**` component across path segments.
+#[derive(Clone, Copy)]
+struct DoubleStarCheckpoint<'a> {
+    pattern_idx: usize,
+    remaining_path: &'a str,
+}
+
+/// Match component-by-component without allocating a `Vec<&str>` per candidate.
+fn match_components(mut rest: &str, pattern: &[&str]) -> bool {
+    let mut pattern_idx = 0usize;
+    let mut checkpoint = None;
+
+    while let Some((part, after_part)) = next_component(rest) {
+        let current = pattern.get(pattern_idx).copied();
         if current == Some("**") {
-            star = Some(pi);
-            star_ci = ci;
-            pi += 1;
+            checkpoint = Some(DoubleStarCheckpoint {
+                pattern_idx,
+                remaining_path: after_part,
+            });
+            pattern_idx += 1;
         } else if current.is_some_and(|segment| match_segment(part, segment)) {
-            ci += 1;
-            pi += 1;
-        } else if let Some(star_pi) = star {
-            // Let the last `**` swallow one more component and retry.
-            star_ci += 1;
-            ci = star_ci;
-            pi = star_pi + 1;
+            rest = after_part;
+            pattern_idx += 1;
+        } else if let Some(saved) = checkpoint.take() {
+            rest = saved.remaining_path;
+            pattern_idx = saved.pattern_idx;
         } else {
             return false;
         }
     }
 
-    pattern.iter().skip(pi).all(|part| *part == "**")
-}
-
-/// Wildcard match within a single path component: `*` matches any run of
-/// characters, `?` exactly one. Backtracks on the last `*` seen.
-fn match_segment(text: &str, pattern: &str) -> bool {
-    if text.is_ascii() && pattern.is_ascii() {
-        return match_slice(
-            text.as_bytes(),
-            pattern.as_bytes(),
-            |b| b == b'*',
-            |t, p| p == b'?' || t.eq_ignore_ascii_case(&p),
-        );
-    }
-    let text: Vec<char> = text.chars().flat_map(char::to_lowercase).collect();
-    let pattern: Vec<char> = pattern.chars().flat_map(char::to_lowercase).collect();
-    match_slice(&text, &pattern, |c| c == '*', |t, p| p == '?' || t == p)
-}
-
-fn match_slice<T: Copy>(
-    text: &[T],
-    pattern: &[T],
-    is_star: impl Fn(T) -> bool,
-    matches_one: impl Fn(T, T) -> bool,
-) -> bool {
-    let (mut ti, mut pi) = (0usize, 0usize);
-    let mut star: Option<usize> = None;
-    let mut star_ti = 0usize;
-
-    while let Some(&character) = text.get(ti) {
-        let current = pattern.get(pi).copied();
-        if current.is_some_and(|wanted| matches_one(character, wanted)) {
-            ti += 1;
-            pi += 1;
-        } else if current.is_some_and(&is_star) {
-            star = Some(pi);
-            star_ti = ti;
-            pi += 1;
-        } else if let Some(star_pi) = star {
-            star_ti += 1;
-            ti = star_ti;
-            pi = star_pi + 1;
-        } else {
-            return false;
-        }
-    }
-
-    pattern
-        .get(pi..)
-        .unwrap_or_default()
-        .iter()
-        .copied()
-        .all(is_star)
+    pattern.iter().skip(pattern_idx).all(|part| *part == "**")
 }

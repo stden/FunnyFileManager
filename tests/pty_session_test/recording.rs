@@ -28,3 +28,44 @@ fn a_refused_recording_directory_is_reported_on_the_status_line() {
     assert_eq!(recorded, 0, "nothing is recorded through the link");
     assert!(ffm.quit().expect("ffm exits normally").success());
 }
+
+#[test]
+fn cli_error_routes_report_to_stderr_and_exit_with_failure() {
+    for args in [
+        &["--automation", "--unknown"][..],
+        &["--elevated-helper", "bad-pipe", "0"][..],
+        &["--invalid-flag"][..],
+    ] {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_ffm"));
+        cmd.args(args);
+        if let Some(prof) = std::env::var_os("LLVM_PROFILE_FILE") {
+            cmd.env("LLVM_PROFILE_FILE", prof);
+        }
+        let out = cmd.output().expect("run ffm");
+        assert!(!out.status.success(), "{args:?} unexpectedly succeeded");
+        assert!(String::from_utf8_lossy(&out.stderr).starts_with("ffm: "));
+    }
+}
+
+#[test]
+fn replay_session_runs_to_clean_completion_without_live_hangup_watcher() {
+    use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+
+    let sandbox = TempDir::new().expect("sandbox");
+    let replay_path = sandbox.path().join("session.jsonl");
+    let header = r#"{"version":1,"executable":"ffm","directory":".","size":[80,24]}"#;
+    let warmup = serde_json::json!({
+        "delay_ms": 0,
+        "event": Event::Resize(80, 24),
+    });
+    let quit = serde_json::json!({
+        "delay_ms": 500,
+        "event": Event::Key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)),
+    });
+    fs::write(&replay_path, format!("{header}\n{warmup}\n{quit}\n")).expect("write replay");
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    let replay_arg = replay_path.to_str().expect("utf8 path").to_owned();
+
+    let mut ffm = Ffm::start_in(sandbox, &path, &["--replay", &replay_arg]);
+    assert!(ffm.wait_for_exit().expect("replay exits").success());
+}

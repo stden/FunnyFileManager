@@ -84,4 +84,8 @@ fn activate_row_selects_the_panel_of_a_left_or_right_row_that_is_on_screen() {
         PanelSide::Left,
         "Files rows keep the panel"
     );
+
+    app.set_overlay(Overlay::Help);
+    activate_selected_row(&mut app, Heading::Files, None);
+    assert!(!app.overlay.is_active());
 }

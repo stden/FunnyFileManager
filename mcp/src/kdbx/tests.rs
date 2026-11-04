@@ -10,12 +10,24 @@ use tempfile::TempDir;
 fn vault_and_keyfile_type_and_size_limits_precede_decryption() {
     use super::{export, open_database, ExportError, OutputFormat, MAX_DATABASE_BYTES};
     let root = tempfile::tempdir().unwrap();
-    assert!(matches!(export(root.path(), None, None, OutputFormat::Env), Err(ExportError::Decrypt)));
+    assert!(matches!(
+        export(root.path(), None, None, OutputFormat::Env),
+        Err(ExportError::Decrypt)
+    ));
     let absent = root.path().join("absent");
-    assert!(matches!(open_database(&absent, None, Some(root.path())), Err(ExportError::InvalidKeyFile)));
+    assert!(matches!(
+        open_database(&absent, None, Some(root.path())),
+        Err(ExportError::InvalidKeyFile)
+    ));
     let large = root.path().join("large.key");
-    std::fs::File::create(&large).unwrap().set_len(MAX_DATABASE_BYTES + 1).unwrap();
-    assert!(matches!(open_database(&absent, None, Some(&large)), Err(ExportError::DatabaseTooLarge(_))));
+    fs::File::create(&large)
+        .unwrap()
+        .set_len(MAX_DATABASE_BYTES + 1)
+        .unwrap();
+    assert!(matches!(
+        open_database(&absent, None, Some(&large)),
+        Err(ExportError::DatabaseTooLarge(_))
+    ));
 }
 
 #[test]
@@ -24,8 +36,15 @@ fn a_small_compressed_vault_cannot_expand_beyond_the_text_output_limit() {
     let root = tempfile::tempdir().unwrap();
     let path = root.path().join("expanded.kdbx");
     let mut database = crate::tests_kdbx::cheap_database();
-    database.root_mut().add_entry().set_unprotected(keepass::db::fields::PASSWORD, "a".repeat(MAX_OUTPUT_BYTES + 1));
-    crate::tests_kdbx::save_database(&path, &database, keepass::DatabaseKey::new().with_password("synthetic"));
+    database
+        .root_mut()
+        .add_entry()
+        .set_unprotected(fields::PASSWORD, "a".repeat(MAX_OUTPUT_BYTES + 1));
+    crate::tests_kdbx::save_database(
+        &path,
+        &database,
+        keepass::DatabaseKey::new().with_password("synthetic"),
+    );
     drop(database);
     let error = export(&path, Some("synthetic"), None, OutputFormat::Env).unwrap_err();
     assert!(matches!(error, ExportError::OutputTooLarge(size) if size > MAX_OUTPUT_BYTES));

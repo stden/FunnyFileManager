@@ -40,10 +40,11 @@ impl TaskList {
     /// `c`: marks the cursor's process and everything descending from it in
     /// the snapshot.
     pub fn mark_family(&mut self) {
-        let Some(cursor) = self.selection.cursor else {
-            return;
-        };
-        let Some(shown) = self.view.get(cursor.index) else {
+        let Some(shown) = self
+            .selection
+            .cursor
+            .and_then(|cursor| self.view.get(cursor.index))
+        else {
             return;
         };
         let rows = self.rows();

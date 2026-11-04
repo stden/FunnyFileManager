@@ -20,8 +20,15 @@ exclude_globs = [
     # Windows CI job runs their tests. Find them with
     # `rg -B1 '^mod windows;' src`; src/windows.rs is built everywhere.
     "src/platform/windows.rs",
+    "src/platform/windows/**/*.rs",
+    "src/process_table/windows.rs",
     "src/ops/path_env/store/windows.rs",
     "src/ops/panel_details/windows.rs",
+    # Feature-gated S3 code (`#[cfg(feature = "s3")]`) requires `s3` to compile,
+    # which also enables cucumber `bdd` targets (`harness = false`) incompatible
+    # with `test_tool = "nextest"`. CI mutates `src/s3*` in a dedicated step.
+    "src/s3.rs",
+    "src/s3/**/*.rs",
 ]
 
 # Copy .git so tests that depend on git repo presence pass

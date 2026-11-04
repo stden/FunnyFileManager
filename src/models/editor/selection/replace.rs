@@ -1,6 +1,8 @@
 //! Purpose: Replacing the editor's selection: deleting it, and pasting text in
 //! its place with the line endings normalized.
 
+use std::borrow::Cow;
+
 use super::{byte_at, Editor, EditorSelection};
 
 impl Editor {
@@ -22,11 +24,10 @@ impl Editor {
             .and_then(|line| line.get(byte_at(line, range.end.column.chars())..))
             .unwrap_or_default()
             .to_owned();
-        let Some(line) = self.lines.get_mut(first) else {
-            return false;
-        };
-        line.truncate(byte_at(line, range.start.column.chars()));
-        line.push_str(&suffix);
+        if let Some(line) = self.lines.get_mut(first) {
+            line.truncate(byte_at(line, range.start.column.chars()));
+            line.push_str(&suffix);
+        }
         self.lines.drain(first + 1..=last);
         self.cursor_line = first;
         self.cursor_col = range.start.column.chars();
@@ -60,12 +61,11 @@ impl Editor {
         let normalized = self.prepare_insert(text);
         let line_at = self.cursor_line;
         let at = self.byte_col(self.cursor_col);
-        let Some(line) = self.line_mut() else {
-            return;
-        };
-        let suffix = line.split_off(at);
+        let suffix = self
+            .line_mut()
+            .map_or_else(String::new, |line| line.split_off(at));
         let mut parts = normalized.split('\n');
-        if let Some(first) = parts.next() {
+        if let (Some(first), Some(line)) = (parts.next(), self.line_mut()) {
             line.push_str(first);
             self.cursor_col += first.chars().count();
         }
@@ -84,18 +84,35 @@ impl Editor {
         self.mark_modified();
     }
 
-    fn prepare_insert(&mut self, text: &str) -> String {
+    fn prepare_insert<'a>(&mut self, text: &'a str) -> Cow<'a, str> {
         let strip_trailing = self.selection == EditorSelection::All && self.format.trailing_newline;
         self.delete_selection();
         if strip_trailing {
             self.format.trailing_newline = true;
         }
         self.ensure_line();
-        let mut normalized = text.replace("\r\n", "\n").replace('\r', "\n");
-        if strip_trailing && normalized.ends_with('\n') {
-            normalized.pop();
+        if !text.contains('\r') {
+            let trimmed = if strip_trailing {
+                text.strip_suffix('\n').unwrap_or(text)
+            } else {
+                text
+            };
+            return Cow::Borrowed(trimmed);
         }
-        normalized
+        let mut out = String::with_capacity(text.len());
+        let mut chars = text.chars().peekable();
+        while let Some(ch) = chars.next() {
+            if ch == '\r' {
+                chars.next_if_eq(&'\n');
+                out.push('\n');
+            } else {
+                out.push(ch);
+            }
+        }
+        if strip_trailing && out.ends_with('\n') {
+            out.pop();
+        }
+        Cow::Owned(out)
     }
 }
 

@@ -78,11 +78,9 @@ fn remove_entry(source: &Path, copy: &Path, first: &mut Kept) {
     let removed = match fs::symlink_metadata(source).map(|meta| meta.file_type()) {
         Ok(kind) if kind.is_dir() => {
             remove_contents(source, copy, first);
-            forced_refusal(source).and_then(|()| fs::remove_dir(source))
+            remove_dir(source)
         }
-        Ok(kind) => {
-            forced_refusal(source).and_then(|()| super::entry::remove_link_or_file(source, kind))
-        }
+        Ok(kind) => remove_file(source, kind),
         Err(error) => Err(error),
     };
     match removed {
@@ -91,14 +89,41 @@ fn remove_entry(source: &Path, copy: &Path, first: &mut Kept) {
     }
 }
 
-fn remove_contents(folder: &Path, copy: &Path, first: &mut Kept) {
-    let entries = match fs::read_dir(folder) {
+fn remove_dir(source: &Path) -> io::Result<()> {
+    #[cfg(any(test, tarpaulin))]
+    forced_refusal(source)?;
+    fs::remove_dir(source)
+}
+
+fn remove_file(source: &Path, kind: fs::FileType) -> io::Result<()> {
+    #[cfg(any(test, tarpaulin))]
+    forced_refusal(source)?;
+    super::entry::remove_link_or_file(source, kind)
+}
+
+pub(super) fn remove_contents(folder: &Path, copy: &Path, first: &mut Kept) {
+    remove_entries(
+        folder,
+        copy,
+        first,
+        fs::read_dir(folder)
+            .map(|entries| entries.map(|entry| entry.map(|e| (e.path(), e.file_name())))),
+    );
+}
+
+pub(super) fn remove_entries(
+    folder: &Path,
+    copy: &Path,
+    first: &mut Kept,
+    entries: io::Result<impl Iterator<Item = io::Result<(PathBuf, std::ffi::OsString)>>>,
+) {
+    let entries = match entries {
         Ok(entries) => entries,
         Err(reason) => return keep(first, folder, reason),
     };
     for entry in entries {
         match entry {
-            Ok(entry) => remove_entry(&entry.path(), &copy.join(entry.file_name()), first),
+            Ok((path, name)) => remove_entry(&path, &copy.join(name), first),
             Err(reason) => keep(first, folder, reason),
         }
     }
@@ -128,14 +153,5 @@ fn forced_refusal(path: &Path) -> io::Result<()> {
             "forced removal refusal",
         ));
     }
-    Ok(())
-}
-
-#[cfg(not(any(test, tarpaulin)))]
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "outside tests the seam never refuses, but its callers are the same"
-)]
-const fn forced_refusal(_path: &Path) -> io::Result<()> {
     Ok(())
 }

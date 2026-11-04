@@ -125,10 +125,19 @@ fn a_block_comment_opened_and_closed_on_one_line_does_not_leak() {
 /// Non-ASCII must not split a byte offset mid-character.
 #[test]
 fn multibyte_text_is_never_cut_mid_character() {
-    let out = runs("a.rs", r#"let имя = "значение"; // комментарий"#);
+    let out = runs(
+        "a.rs",
+        "let\u{00A0}foo_имя = 123абв — \u{00A0}\"a\\🦀b\"; // комментарий",
+    );
     assert_eq!(token_of(&out, "let"), Token::Keyword);
-    assert_eq!(token_of(&out, r#""значение""#), Token::Str);
+    assert_eq!(token_of(&out, "foo_имя"), Token::Normal);
+    assert_eq!(token_of(&out, "123абв"), Token::Number);
+    assert_eq!(token_of(&out, "—"), Token::Punctuation);
+    assert_eq!(token_of(&out, "\"a\\🦀b\""), Token::Str);
     assert_eq!(token_of(&out, "// комментарий"), Token::Comment);
+    let trailing_escape = runs("a.rs", " \u{00A0}let имя = \"abc\\");
+    assert_eq!(token_of(&trailing_escape, "имя"), Token::Normal);
+    assert_eq!(token_of(&trailing_escape, "\"abc\\"), Token::Str);
 
     // And in Markdown, whose bullet arm slices by byte length too.
     runs("a.md", "- пункт списка");
@@ -142,6 +151,8 @@ fn an_empty_line_is_handled() {
     assert_eq!(highlighter.line("").len(), 0);
     #[cfg(feature = "colorer")]
     {
+        assert_eq!(regions::utf16_to_char_idx("abc", 2), 2);
+        assert_eq!(regions::utf16_to_char_idx("abc", 9), 3);
         assert_eq!(regions::utf16_to_char_idx("a🦀b", 0), 0);
         assert_eq!(regions::utf16_to_char_idx("a🦀b", 3), 2);
         assert_eq!(regions::utf16_to_char_idx("a🦀b", 99), 3);

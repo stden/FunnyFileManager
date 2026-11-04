@@ -46,17 +46,30 @@ fn a_git_entry_anywhere_below_is_counted_on_its_entry() {
     assert_eq!(by_name(&measured, "plain").git_entries, 0);
 }
 
-#[cfg(unix)]
 #[test]
-fn a_link_is_reported_as_a_link_and_measures_nothing() {
+fn a_link_and_a_special_entry_measure_nothing() {
     let dir = tree(&[("real/a.bin", 50)]);
-    std::os::unix::fs::symlink(dir.path().join("real"), dir.path().join("link")).expect("link");
+    crate::test_support::make_dir_link(&dir.path().join("real"), &dir.path().join("link"))
+        .expect("link");
+    #[cfg(unix)]
+    crate::test_support::make_fifo(&dir.path().join("pipe")).expect("fifo");
     let mut budget = Budget::new(100, None);
     let measured = measure_entries(dir.path(), &mut budget).expect("listed");
     let link = by_name(&measured, "link");
     assert_eq!(link.shape, Shape::Link);
     assert_eq!(link.bytes, 0, "the target is not measured through the link");
     assert_eq!(by_name(&measured, "real").bytes, 50);
+    #[cfg(unix)]
+    {
+        let pipe = by_name(&measured, "pipe");
+        assert_eq!(pipe.shape, Shape::Special);
+        assert_eq!(pipe.bytes, 0);
+    }
+    #[cfg(windows)]
+    assert_eq!(
+        crate::stats::measure::leaf_shape(false, false, 99),
+        (Shape::Special, 0)
+    );
 }
 
 #[test]

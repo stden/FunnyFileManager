@@ -167,3 +167,28 @@ fn server_terminates_after_fatal_read_error() {
     assert_eq!(lines[0]["ok"].as_bool(), Some(true));
     assert_eq!(lines[1]["ok"].as_bool(), Some(false));
 }
+
+struct FailingWriter;
+
+impl std::io::Write for FailingWriter {
+    fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::BrokenPipe,
+            "write closed",
+        ))
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+fn server_propagates_initial_greeting_write_failure() {
+    let root = tempfile::TempDir::new().unwrap();
+    let options =
+        Options::parse(&["--root".into(), root.path().into(), "--isolated".into()]).unwrap();
+    let err = super::server::serve(options, std::io::Cursor::new(b""), &mut FailingWriter)
+        .expect_err("greeting write must fail");
+    assert!(err.to_string().contains("write closed"));
+}

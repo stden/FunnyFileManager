@@ -64,27 +64,13 @@ fn cached<Id: Copy + Eq + Hash>(
 }
 
 #[cfg(unix)]
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "shares the signature of the non-Unix variant, which has no ids to return"
-)]
-fn identifiers(metadata: &std::fs::Metadata) -> Option<(Uid, Gid)> {
+fn identifiers(metadata: &std::fs::Metadata) -> (Uid, Gid) {
     use std::os::unix::fs::MetadataExt;
-    Some((Uid(metadata.uid()), Gid(metadata.gid())))
-}
-
-#[cfg(not(unix))]
-fn identifiers(_metadata: &std::fs::Metadata) -> Option<(Uid, Gid)> {
-    None
+    (Uid(metadata.uid()), Gid(metadata.gid()))
 }
 
 #[cfg(not(unix))]
 const fn user_name(_uid: Uid) -> Lookup {
-    Lookup::NoEntry
-}
-
-#[cfg(not(unix))]
-const fn group_name(_gid: Gid) -> Lookup {
     Lookup::NoEntry
 }
 

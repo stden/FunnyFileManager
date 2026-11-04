@@ -1,26 +1,23 @@
 //! Bounded filesystem search for menu commands.
 
-use crate::{
-    command::language::SettingsPage,
-    mask::Mask,
-    models::{App, MenuChoice, MenuPrompt},
-};
-use std::{
-    fs, io,
-    path::{Path, PathBuf},
-    time::{Duration, Instant},
-};
+use crate::command::language::SettingsPage;
+use crate::mask::Mask;
+use crate::models::{App, MenuChoice, MenuPrompt};
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
+use std::{fs, io};
 
 #[cfg(test)]
 mod deny_reads;
 mod results;
+#[cfg(test)]
+mod tests;
 mod text;
 use results::{add_result, report, Limit};
-use text::{file_contains, fold, Scan};
+use text::{fold, Scan, Scanner};
 /// How long one search may take. The walk blocks the event loop, and a
 /// file's text is now read to its end however large it is, so this is what
-/// keeps a search over a disk of big logs from freezing the screen. While it
-/// runs, the progress dialog shows the folder it is in and what it found.
+/// keeps a search over a disk of big logs from freezing the screen.
 const TIME_LIMIT: Duration = Duration::from_secs(10);
 
 #[cfg(test)]
@@ -41,8 +38,7 @@ pub(super) fn find_within(
     time: Duration,
 ) {
     let root = app.get_active_panel_ref().path.clone();
-    let deadline = Instant::now() + time;
-    let mut search = Search::prepare(app, pattern, folders, containing, deadline);
+    let mut search = Search::prepare(app, pattern, folders, containing, Instant::now() + time);
     let _run = crate::progress::begin(
         crate::progress::Operation::Find,
         std::slice::from_ref(&root),
@@ -56,7 +52,7 @@ pub(super) fn find_within(
 struct Search {
     mask: Mask,
     folders: bool,
-    needle: String,
+    scanner: Scanner,
     depth_limit: usize,
     budget: usize,
     deadline: Instant,
@@ -77,7 +73,7 @@ impl Search {
         Self {
             mask: Mask::parse(pattern),
             folders,
-            needle: fold(containing.trim()),
+            scanner: Scanner::new(fold(containing.trim())),
             depth_limit: app.settings.number(SettingsPage::Tree),
             budget: app.settings.number(SettingsPage::System),
             deadline,
@@ -113,15 +109,15 @@ impl Search {
             return;
         };
         for entry in entries.flatten() {
-            if !self.take() {
+            if !self.consume_budget() {
                 return;
             }
-            self.consider(root, &entry, depth, pending);
+            self.consider(root, &entry, entry.file_type().ok(), depth, pending);
         }
     }
 
     /// Spend one entry of the budget, unless a limit has ended the search.
-    fn take(&mut self) -> bool {
+    fn consume_budget(&mut self) -> bool {
         if self.limit_reached() {
             return false;
         }
@@ -144,31 +140,31 @@ impl Search {
         &mut self,
         root: &Path,
         entry: &fs::DirEntry,
+        kind: Option<fs::FileType>,
         depth: usize,
         pending: &mut Vec<(PathBuf, usize)>,
     ) {
-        let Ok(kind) = entry.file_type() else {
-            return;
-        };
+        let Some(kind) = kind else { return };
         if kind.is_dir() && depth < self.depth_limit {
             pending.push((entry.path(), depth + 1));
         }
-        let name = entry.file_name();
-        if kind.is_dir() == self.folders && self.mask.matches(&name.to_string_lossy()) {
+        let matches_name =
+            self.mask.matches_all() || self.mask.matches(&entry.file_name().to_string_lossy());
+        if kind.is_dir() == self.folders && matches_name {
             let path = entry.path();
-            if self.text_matches(&path) {
+            if self.text_matches(&path, Some(kind)) {
                 crate::progress::matched();
                 add_result(root, path, self.folders, &mut self.rows);
             }
         }
     }
 
-    fn text_matches(&mut self, path: &Path) -> bool {
-        if self.folders || self.needle.is_empty() {
+    fn text_matches(&mut self, path: &Path, kind: Option<fs::FileType>) -> bool {
+        if self.folders || self.scanner.is_empty() {
             return true;
         }
         crate::progress::entering(path);
-        match file_contains(path, &self.needle, self.deadline) {
+        match self.scanner.file_contains(path, kind, self.deadline) {
             Scan::Found => true,
             Scan::Absent => false,
             Scan::OutOfTime => {

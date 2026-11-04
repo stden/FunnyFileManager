@@ -51,3 +51,15 @@ fn stored(path: &Path) -> Stored {
 fn save(path: &Path, counter: u32) -> io::Result<()> {
     update(path, &Counter::default(), &Counter { counter })
 }
+
+#[test]
+fn save_handles_parentless_paths_and_hard_lock_errors() {
+    assert!(save(Path::new(""), 1).is_err());
+    let err = save::take_lock_with(
+        || Err(fs::TryLockError::Error(io::Error::other("lock fault"))),
+        Path::new("settings.yaml"),
+        Path::new("settings.yaml.lock"),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("settings.yaml.lock: lock fault"));
+}

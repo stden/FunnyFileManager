@@ -133,14 +133,50 @@ fn java_versions_distinguish_current_runtimes_from_java_eight_and_invalid_output
 #[test]
 fn a_directory_named_like_a_java_launcher_is_rejected() {
     let root = TempDir::new().unwrap();
-    fs::create_dir_all(
-        root.path()
-            .join("plugins/org.eclipse.equinox.launcher_1.jar"),
-    )
-    .unwrap();
+    let jar = root
+        .path()
+        .join("plugins/org.eclipse.equinox.launcher_1.jar");
+    fs::create_dir_all(jar).unwrap();
     assert_eq!(
         java_launcher(root.path()).unwrap_err(),
         InstallError::Recipe
+    );
+    let bad_cmd = InstallRecipe::Command {
+        steps: vec![],
+        executable: "missing".into(),
+    };
+    let bad_py = InstallRecipe::Python {
+        package: "pylsp".into(),
+        module: "pylsp".into(),
+    };
+    for bad in [bad_cmd, bad_py] {
+        let res = for_recipe(&bad, root.path(), &AtomicBool::new(false), &System);
+        assert!(matches!(res, Err(InstallError::Recipe)));
+    }
+}
+
+#[test]
+fn java_probe_skips_broken_binaries_and_propagates_timeouts() {
+    struct BrokenJavas(PathBuf, PathBuf);
+    impl Environment for BrokenJavas {
+        fn program(&self, _: &[&str], m: &'static str) -> Result<PathBuf, InstallError> {
+            Err(InstallError::Missing(m))
+        }
+        fn run(&self, cmd: &mut Command, _: &AtomicBool) -> Result<Vec<u8>, InstallError> {
+            if cmd.get_program() == self.0 {
+                Err(InstallError::Command)
+            } else {
+                Err(InstallError::Timeout)
+            }
+        }
+        fn runtimes(&self, _: &[&str]) -> Vec<PathBuf> {
+            vec![self.0.clone(), self.1.clone()]
+        }
+    }
+    let env = BrokenJavas(PathBuf::from("broken-java"), PathBuf::from("slow-java"));
+    assert_eq!(
+        java(&AtomicBool::new(false), &env),
+        Err(InstallError::Timeout)
     );
 }
 

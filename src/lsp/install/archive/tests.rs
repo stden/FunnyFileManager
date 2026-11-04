@@ -134,3 +134,38 @@ fn curl_must_bound_downloads_without_a_content_length() {
         .all(|args| args == &["--version"]));
     assert!(!root.path().join("server.tar.gz").exists());
 }
+
+#[test]
+fn directory_entries_extract_and_oversized_archives_are_rejected() {
+    let root = TempDir::new().unwrap();
+    let stop = AtomicBool::new(false);
+
+    let mut dir_tar = tar::Builder::new(Vec::new());
+    let mut dir_hdr = tar::Header::new_gnu();
+    dir_hdr.set_size(0);
+    dir_hdr.set_mode(0o755);
+    dir_hdr.set_entry_type(tar::EntryType::Directory);
+    dir_hdr.set_cksum();
+    dir_tar
+        .append_data(&mut dir_hdr, "nested/dir", &b""[..])
+        .unwrap();
+    let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    gz.write_all(&dir_tar.into_inner().unwrap()).unwrap();
+    unpack(&*gz.finish().unwrap(), root.path(), &stop).unwrap();
+    assert!(root.path().join("nested/dir").is_dir());
+
+    let mut raw = vec![0u8; 1536];
+    let mut huge = tar::Header::new_gnu();
+    huge.set_path("huge.bin").unwrap();
+    huge.set_size(2_147_483_649);
+    huge.set_mode(0o644);
+    huge.set_entry_type(tar::EntryType::Regular);
+    huge.set_cksum();
+    raw[..512].copy_from_slice(huge.as_bytes());
+    let mut huge_gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    huge_gz.write_all(&raw).unwrap();
+    assert_eq!(
+        unpack(&*huge_gz.finish().unwrap(), root.path(), &stop),
+        Err(InstallError::Archive)
+    );
+}

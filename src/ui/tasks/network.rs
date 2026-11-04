@@ -28,11 +28,7 @@ pub(super) fn adapter_body_rows(body_height: u16, probe_count: usize) -> usize {
     }
     let min_adapters = (total / 2).max(3);
     let max_diag = total.saturating_sub(min_adapters);
-    let diag_rows = if max_diag >= 3 {
-        probe_count.saturating_add(2).min(max_diag)
-    } else {
-        0
-    };
+    let diag_rows = probe_count.saturating_add(2).min(max_diag);
     total.saturating_sub(diag_rows)
 }
 

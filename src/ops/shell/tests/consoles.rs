@@ -42,3 +42,12 @@ fn a_failed_headless_console_names_its_launch_directory() {
     assert!(error.to_string().contains("removed"));
     assert!(!missing.exists());
 }
+
+#[cfg(windows)]
+#[test]
+fn a_windows_console_without_headless_host_rejects_embedded_nul() {
+    let root = TempDir::new().unwrap();
+    let command = ShellCommand::new("codex before\0after").unwrap();
+    let error = spawn_console(&command, root.path()).unwrap_err();
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+}

@@ -55,6 +55,7 @@ fn an_empty_report_and_an_unwritable_destination_are_explicit() {
         .iter()
         .any(|line| line.contains("No actions")));
     assert!(stats.save_to(temp.path()).is_err());
+    assert!(stats.save_to(Path::new("")).is_err());
 }
 
 #[test]

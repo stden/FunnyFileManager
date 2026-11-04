@@ -2,9 +2,9 @@
 //! the folder still lists, a destination the folder cannot be inspected through,
 //! and a keep-both copy whose source has gone.
 
-use super::placement::is_case_only_rename;
+use super::placement::{is_case_only_rename, place_over_existing_with, Placed};
 use super::*;
-use crate::copy::{CopyPrompt, ExistingFiles};
+use crate::copy::{CopyPrompt, ExistingFiles, Purpose};
 use tempfile::TempDir;
 
 #[test]
@@ -23,6 +23,13 @@ fn case_variants_in_different_folders_are_not_a_rename() {
         &first.path().join("data.txt"),
         &second.path().join("DATA.txt"),
     ));
+
+    let src = first.path().join("data.txt");
+    let dst = first.path().join("renamed.txt");
+    let prompt = CopyPrompt::for_purpose(Purpose::Move, "data.txt", first.path());
+    let placed = place_over_existing_with(&src, &dst, &prompt, |_, _| true).unwrap();
+    assert!(matches!(placed, Placed::AsSent(path) if path == dst));
+    assert_eq!(fs::read(&dst).unwrap(), b"a");
 }
 
 #[cfg(target_os = "linux")]
@@ -82,4 +89,24 @@ fn a_case_variant_that_is_not_there_is_not_a_rename_of_the_source() {
     fs::write(&source, b"payload").unwrap();
 
     assert!(!is_case_only_rename(&source, &root.path().join("DATA.txt")));
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_case_only_rename_handles_dangling_dir_link_and_missing_entry() {
+    let root = TempDir::new().unwrap();
+    let target = root.path().join("target_dir");
+    let link = root.path().join("dangling_link");
+    fs::create_dir(&target).unwrap();
+    crate::test_support::make_dir_link(&target, &link).unwrap();
+    fs::remove_dir(&target).unwrap();
+
+    assert!(is_case_only_rename(
+        &link,
+        &root.path().join("DANGLING_LINK")
+    ));
+    assert!(!is_case_only_rename(
+        &root.path().join("absent"),
+        &root.path().join("ABSENT")
+    ));
 }

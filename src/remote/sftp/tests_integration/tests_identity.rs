@@ -78,7 +78,7 @@ fn reject_malformed_record(session: &Session, credentials: &Credentials, known_h
     fs::write(
         known_hosts,
         format!(
-            "[{}]:{} ssh-ed25519 invalid-key-data!\n",
+            "[{}]:{} ssh-ed25519 short\n",
             session.host,
             session.port.get()
         ),

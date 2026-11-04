@@ -113,6 +113,9 @@ fn vault_structure_transitions_between_tree_and_password_generator() {
     assert!(vault.is_tree());
     vault.open_password();
     assert!(!vault.is_tree());
+    vault.toggle_structure();
+    assert!(vault.is_tree());
+    vault.open_password();
     vault.close_dialog();
     assert!(vault.is_tree());
 }

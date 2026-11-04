@@ -5,6 +5,8 @@ use super::tests::*;
 
 use super::*;
 
+#[cfg(unix)]
+use std::path::PathBuf;
 use tempfile::TempDir;
 
 /// Regression: the walk used to descend into the copy it was writing, nesting

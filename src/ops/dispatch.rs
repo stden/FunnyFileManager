@@ -118,7 +118,14 @@ fn execute_command_with_console(
     // output impossible to place.
     let cwd = app.get_active_panel().path.clone();
     app.console.record_command(&cwd, command);
+    dispatch_parsed_with_console(app, parsed, spawn_console)
+}
 
+fn dispatch_parsed_with_console(
+    app: &mut App,
+    parsed: Command,
+    spawn_console: impl FnOnce(&ShellCommand, &Path) -> io::Result<()>,
+) -> io::Result<()> {
     match parsed {
         Command::Cd(path) => return cmd_cd_path(app, &path),
         Command::Sort(mode) => return cmd_sort_mode(app, mode),

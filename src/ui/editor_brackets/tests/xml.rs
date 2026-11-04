@@ -103,6 +103,14 @@ fn cursor_outside_tag_on_line_with_angle_brackets_skips_full_scan() {
 }
 
 #[test]
+fn rust_generic_angle_brackets_without_closing_tags_return_none() {
+    let mut lines = vec!["let items: Vec<String> = Vec::new();".to_owned()];
+    lines.extend((0..120).map(|i| format!("let x_{i} = items.len();")));
+    let code = lines.join("\n");
+    assert_eq!(matching_xml_pair(&xml_editor(&code, 0, 15)), None);
+}
+
+#[test]
 fn xml_scanner_bounds_search_window_around_cursor_line() {
     let mut lines = vec!["<far>".to_owned()];
     lines.extend((0..1_050).map(|_| "  <item>ok</item>".to_owned()));
@@ -115,4 +123,19 @@ fn xml_scanner_bounds_search_window_around_cursor_line() {
         matching_xml_pair(&xml_editor(&text, 1_050, 3)),
         Some([TagSpan::new(1_050, 2, 8), TagSpan::new(1_050, 10, 17)])
     );
+    // Non-ASCII prefix and intervening sibling close tag on one line still pair outer tag.
+    assert_eq!(
+        matching_xml_pair(&xml_editor("é<a><b></b></a>", 0, 2)),
+        Some([TagSpan::new(0, 1, 4), TagSpan::new(0, 11, 15)])
+    );
+}
+
+#[test]
+fn multiline_quoted_and_unquoted_attributes_and_warm_xml_cache_pair_accurately() {
+    let xml = "<root\n  bare=1\n  msg=\"line1>\nline2>\"\n  é=\"v\"/>";
+    let ed = xml_editor(xml, 0, 1);
+    let expected = Some([TagSpan::new(0, 0, 5), TagSpan::new(4, 7, 9)]);
+    assert_eq!(matching_xml_pair(&ed), expected);
+    // Second call hits warm `pair_cache` (`TagSpan::pair_from_raw`).
+    assert_eq!(matching_xml_pair(&ed), expected);
 }

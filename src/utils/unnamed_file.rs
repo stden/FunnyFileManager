@@ -15,9 +15,14 @@ use std::{fs, io, path::Path};
 #[cfg(target_os = "linux")]
 #[must_use]
 pub fn unnamed_file_in(folder: &Path) -> Option<fs::File> {
+    unnamed_file_in_with_proc(folder, Path::new("/proc/self/fd"))
+}
+
+#[cfg(target_os = "linux")]
+fn unnamed_file_in_with_proc(folder: &Path, proc_fd: &Path) -> Option<fs::File> {
     use rustix::fs::{openat, Mode, OFlags, CWD};
 
-    if !Path::new("/proc/self/fd").is_dir() {
+    if !proc_fd.is_dir() {
         return None;
     }
     let flags = OFlags::WRONLY | OFlags::TMPFILE | OFlags::CLOEXEC;

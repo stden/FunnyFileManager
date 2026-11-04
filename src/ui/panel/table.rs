@@ -26,7 +26,7 @@ pub(super) fn header_line(sort_mode: SortMode, layout: PanelLayout) -> Line<'sta
     // and the rules, not for text.
     let style = Style::default().fg(palette::DATA).bg(FAR_BLUE);
 
-    let mut spans = Vec::new();
+    let mut spans = Vec::with_capacity(layout.stripes * (2 + layout.columns.len() * 2));
     for stripe in 0..layout.stripes {
         let name = layout.name_width(stripe);
         let title = if stripe == 0 {

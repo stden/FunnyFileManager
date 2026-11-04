@@ -40,12 +40,11 @@ fn host_open(path: &Path) -> io::Result<()> {
 #[cfg(all(not(windows), not(test)))]
 fn host_open(path: &Path) -> io::Result<()> {
     use std::process::{Command, Stdio};
-    let program = if cfg!(target_os = "macos") {
-        "open"
-    } else {
-        "xdg-open"
-    };
-    let status = Command::new(program)
+    #[cfg(target_os = "macos")]
+    const OPENER: &str = "open";
+    #[cfg(not(target_os = "macos"))]
+    const OPENER: &str = "xdg-open";
+    let status = Command::new(OPENER)
         .arg(path)
         .stdin(Stdio::null())
         .stdout(Stdio::null())

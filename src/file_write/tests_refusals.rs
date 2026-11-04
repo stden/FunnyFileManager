@@ -13,6 +13,16 @@ fn read_only_filesystems_and_permissions_have_distinct_messages() {
         WriteRefusal::ReadOnlyFileSystem.to_string(),
         "read-only file system"
     );
+    assert_eq!(
+        super::refusal_for_errno(Some(libc::EROFS)),
+        Some(WriteRefusal::ReadOnlyFileSystem)
+    );
+    assert_eq!(
+        super::refusal_for_errno(Some(libc::EACCES)),
+        Some(WriteRefusal::PermissionDenied)
+    );
+    assert_eq!(super::refusal_for_errno(Some(libc::ENOENT)), None);
+    assert_eq!(super::refusal_for_errno(None), None);
 }
 
 #[test]

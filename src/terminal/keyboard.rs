@@ -84,12 +84,15 @@ static HOST: std::sync::OnceLock<KeyboardProtocol> = std::sync::OnceLock::new();
 /// cannot be asked at all, is treated as legacy.
 #[cfg(unix)]
 pub(super) fn host_protocol() -> KeyboardProtocol {
-    *HOST.get_or_init(
-        || match crossterm::terminal::supports_keyboard_enhancement() {
-            Ok(true) => KeyboardProtocol::Kitty,
-            Ok(false) | Err(_) => KeyboardProtocol::Legacy,
-        },
-    )
+    *HOST.get_or_init(|| protocol_from_query(&crossterm::terminal::supports_keyboard_enhancement()))
+}
+
+#[cfg(unix)]
+fn protocol_from_query(supported: &io::Result<bool>) -> KeyboardProtocol {
+    match supported {
+        Ok(true) => KeyboardProtocol::Kitty,
+        Ok(false) | Err(_) => KeyboardProtocol::Legacy,
+    }
 }
 
 /// The Windows console reads key codes through the console API, which never

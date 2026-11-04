@@ -1,4 +1,4 @@
-use super::{format, now};
+use super::{cached_at, format, now};
 use chrono::{Local, Timelike};
 
 #[test]
@@ -57,4 +57,32 @@ fn the_clock_reads_local_time_not_utc() {
         actual == expected || actual == a_minute_later,
         "clock said {actual:?}, local time is {expected:?}"
     );
+}
+
+#[test]
+fn real_clock_cache_reuses_formatted_string_within_epoch_second_and_refreshes_on_tick() {
+    super::REAL_CACHE.with(|slot| *slot.borrow_mut() = None);
+    let mut calls = 0usize;
+    let first = cached_at(10, || {
+        calls += 1;
+        9 * 3600 + 7 * 60
+    });
+    let second = cached_at(10, || {
+        calls += 1;
+        10 * 3600
+    });
+    assert_eq!(first, " 9:07 AM");
+    assert_eq!(second, " 9:07 AM");
+    assert_eq!(calls, 1);
+
+    let next_sec = cached_at(11, || {
+        calls += 1;
+        10 * 3600 + 8 * 60
+    });
+    assert_eq!(next_sec, "10:08 AM");
+    assert_eq!(calls, 2);
+    super::REAL_CACHE.with(|slot| *slot.borrow_mut() = None);
+
+    super::set_test_time(Some(12 * 3600));
+    assert_eq!(now(), "12:00 PM");
 }

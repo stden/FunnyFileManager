@@ -20,6 +20,7 @@ arguments, working directory, environment) to a log that calls() reads back.
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import sys
@@ -69,6 +70,9 @@ class Sandbox:
         for directory in (self.home, self.bin, self.tmp, self.repo):
             directory.mkdir()
         self.log = self.root / "calls.jsonl"
+        python3 = self.bin / "python3"
+        python3.write_text(f"#!/bin/sh\nexec {shlex.quote(sys.executable)} \"$@\"\n", encoding="utf-8")
+        python3.chmod(0o755)
         for name in GUARDED:
             self.fake(name, status=REFUSED, stderr=f"sandbox: {name} is not faked by this test\n")
 
@@ -80,6 +84,8 @@ class Sandbox:
         """
         target = Path(path) if path else self.bin / name
         target.parent.mkdir(parents=True, exist_ok=True)
+        if target.is_symlink():
+            target.unlink()
         script = target
         if path and target.suffix == ".py":
             # Keep command doubles out of coverage for copied production sources.

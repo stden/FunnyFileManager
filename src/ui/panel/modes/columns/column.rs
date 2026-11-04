@@ -2,10 +2,14 @@
 //! title and alignment, and its cell's text from the cached directory facts,
 //! made printable — and the columns each view asks for.
 
-use crate::models::{DirEntry, EntryKind, Modified, Panel, PanelView};
+use std::borrow::Cow;
+
+use crate::models::{DirEntry, Panel, PanelView};
 
 use super::super::super::{
-    abbreviate_bytes, group_digits, head_cells, pad_cells, right_cells, size_field, Cells,
+    abbreviate_bytes,
+    fields::{fitted_bytes, non_numeric_size_label},
+    group_digits, pad_head_cells, right_cells, size_field, Cells,
 };
 
 #[derive(Clone, Copy)]
@@ -38,6 +42,10 @@ impl Column {
         Some(Cells::new(width))
     }
 
+    pub(super) const fn is_flexible(self) -> bool {
+        self.width().is_none()
+    }
+
     pub(super) const fn title(self) -> &'static str {
         match self {
             Self::Size | Self::GroupedSize => "Size",
@@ -53,54 +61,39 @@ impl Column {
         }
     }
 
-    /// The text of one detail cell.
-    ///
-    /// Description, Owner and Links carry text from `descript.ion` files, from
-    /// the passwd database and from symlink targets, so they get the same
-    /// treatment a name does: nothing the terminal refuses to draw survives
-    /// into a width the row is budgeted by.
-    pub(super) fn cell(self, panel: &Panel, entry: &DirEntry) -> String {
-        crate::ui::printable_name(&self.raw_cell(panel, entry)).into_owned()
-    }
-
-    fn raw_cell(self, panel: &Panel, entry: &DirEntry) -> String {
+    /// The text of one detail cell, skipping `printable_name` on guaranteed-ASCII fields.
+    pub(super) fn cell<'a>(self, panel: &'a Panel, entry: &'a DirEntry) -> Cow<'a, str> {
         match self {
             Self::Size => size_field(entry),
-            Self::GroupedSize => sized(entry, grouped_bytes(entry.size.bytes())),
-            Self::Allocated => sized(entry, fitted_bytes(entry.allocated.bytes())),
-            Self::Date => entry.modified.date(),
-            Self::Modified => stamp(entry.modified),
-            Self::Created => stamp(entry.created),
-            Self::Accessed => stamp(entry.accessed),
-            Self::Attributes => entry.attributes.to_string(),
+            Self::GroupedSize => sized(entry, entry.size.bytes(), grouped_bytes),
+            Self::Allocated => sized(entry, entry.allocated.bytes(), fitted_bytes),
+            Self::Date => Cow::Owned(entry.modified.date()),
+            Self::Modified => Cow::Owned(entry.modified.stamp()),
+            Self::Created => Cow::Owned(entry.created.stamp()),
+            Self::Accessed => Cow::Owned(entry.accessed.stamp()),
+            Self::Attributes => Cow::Owned(entry.attributes.to_string()),
             Self::Description => panel
                 .details
                 .descriptions
                 .get(&entry.name)
                 .or(entry.description.as_ref())
-                .cloned()
-                .unwrap_or_default(),
+                .map_or(Cow::Borrowed(""), |s| crate::ui::printable_name(s)),
             Self::Owner => panel
                 .details
                 .owners
                 .get(&entry.name)
                 .or(entry.owner.as_ref())
-                .cloned()
-                .unwrap_or_default(),
-            Self::Links => panel
-                .details
-                .links
-                .get(&entry.name)
-                .cloned()
-                .unwrap_or_else(|| entry.links.to_string()),
+                .map_or(Cow::Borrowed(""), |s| crate::ui::printable_name(s)),
+            Self::Links => match panel.details.links.get(&entry.name) {
+                Some(link) => crate::ui::printable_name(link),
+                None => Cow::Owned(entry.links.to_string()),
+            },
         }
     }
 
     pub(super) fn align(self, text: &str, width: Cells) -> String {
         match self {
-            Self::Attributes | Self::Description | Self::Owner => {
-                pad_cells(&head_cells(text, width), width)
-            }
+            Self::Attributes | Self::Description | Self::Owner => pad_head_cells(text, width),
             _ => right_cells(text, width),
         }
     }
@@ -120,30 +113,13 @@ pub(super) const fn columns(view: PanelView) -> &'static [Column] {
     }
 }
 
-/// `bytes` where a byte count describes the row: a file, or a link to one.
-/// The rest say what they are, as the Size column does.
-fn sized(entry: &DirEntry, bytes: String) -> String {
-    match (entry.kind, entry.directory_size) {
-        (EntryKind::File | EntryKind::SymlinkToFile, _)
-        | (
-            EntryKind::Directory | EntryKind::SymlinkToDirectory,
-            crate::models::DirectorySize::Measured(_),
-        ) => bytes,
-        (
-            EntryKind::Directory | EntryKind::SymlinkToDirectory,
-            crate::models::DirectorySize::Unmeasured,
-        )
-        | (EntryKind::BrokenSymlink, _) => size_field(entry),
+/// Format `bytes` where a byte count describes the row, or return the static
+/// kind label (`"Up"`, `"Folder"`, `"Link"`, `"Broken"`) without allocating.
+fn sized(entry: &DirEntry, bytes: u64, format_bytes: fn(u64) -> String) -> Cow<'static, str> {
+    if let Some(label) = non_numeric_size_label(entry) {
+        return Cow::Borrowed(label);
     }
-}
-
-fn fitted_bytes(bytes: u64) -> String {
-    let exact = bytes.to_string();
-    if exact.len() <= 6 {
-        exact
-    } else {
-        abbreviate_bytes(bytes)
-    }
+    Cow::Owned(format_bytes(bytes))
 }
 
 fn grouped_bytes(bytes: u64) -> String {
@@ -152,15 +128,6 @@ fn grouped_bytes(bytes: u64) -> String {
         grouped
     } else {
         abbreviate_bytes(bytes)
-    }
-}
-
-fn stamp(at: Modified) -> String {
-    let date = at.date();
-    if date.is_empty() {
-        String::new()
-    } else {
-        format!("{date} {}", at.time())
     }
 }
 
