@@ -1,9 +1,7 @@
 //! Purpose: Tests for the Windows diagnostic reports: the viewer they open,
-//! the PowerShell command line, and the Windows-only notice elsewhere.
+//! the Python command line, and the Windows-only notice elsewhere.
 
-use super::report::{
-    open_report_viewer, powershell_executable, powershell_report_args, report_lines,
-};
+use super::report::{open_report_viewer, python_executable, python_report_args, report_lines};
 use super::*;
 use crate::scroll::ScrollTop;
 
@@ -71,23 +69,15 @@ fn test_open_report_with_error_propagates() {
 }
 
 #[test]
-fn test_powershell_executable_is_explicit() {
-    assert_eq!(powershell_executable(), "powershell.exe");
+fn test_python_executable_is_explicit() {
+    assert_eq!(python_executable(), "python.exe");
 }
 
 #[test]
-fn test_powershell_report_args_include_expected_flags() {
+fn test_python_report_args_include_expected_flags() {
     assert_eq!(
-        powershell_report_args("Get-Date"),
-        [
-            "-NoLogo",
-            "-NoProfile",
-            "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            "Get-Date"
-        ]
+        python_report_args("print('date')"),
+        ["-I", "-X", "utf8", "-c", "print('date')"]
     );
 }
 // ── report_lines mutation killers ────────────────────────────
@@ -144,8 +134,8 @@ fn test_open_report_viewer_sets_status_message() {
 
 #[cfg(windows)]
 #[test]
-fn test_run_powershell_report_failure_with_stderr() {
-    let result = run_powershell_report("Write-Error 'something failed'");
+fn test_run_python_report_failure_with_stderr() {
+    let result = run_python_report("raise RuntimeError('something failed')");
     assert!(result.is_err());
     let err = result.unwrap_err();
     assert!(err.to_string().contains("failed") || err.to_string().contains("Error"));
@@ -153,11 +143,11 @@ fn test_run_powershell_report_failure_with_stderr() {
 
 #[cfg(windows)]
 #[test]
-fn test_run_powershell_report_failure_status_only() {
-    let result = run_powershell_report("[System.Environment]::Exit(42)");
+fn test_run_python_report_failure_status_only() {
+    let result = run_python_report("raise SystemExit(42)");
     assert!(result.is_err());
     let err = result.unwrap_err();
     assert!(
-        err.to_string().contains("PowerShell exited with status") || err.to_string().contains("42")
+        err.to_string().contains("Python exited with status") || err.to_string().contains("42")
     );
 }

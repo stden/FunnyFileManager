@@ -19,13 +19,13 @@ pub(crate) use process_tree::{disarm_kill_on_close, private_terminal_job, proces
 #[cfg(any(test, windows))]
 use report::{open_report_with, PERFORMANCE_TITLE, SYSTEM_MESSAGES_TITLE};
 #[cfg(windows)]
-use report::{run_powershell_report, PERFORMANCE_SCRIPT, SYSTEM_MESSAGES_SCRIPT};
+use report::{run_python_report, PERFORMANCE_SCRIPT, SYSTEM_MESSAGES_SCRIPT};
 
 pub fn open_windows_system_messages(app: &mut App) -> io::Result<()> {
     #[cfg(windows)]
     {
         open_report_with(app, SYSTEM_MESSAGES_TITLE, || {
-            run_powershell_report(SYSTEM_MESSAGES_SCRIPT)
+            run_python_report(SYSTEM_MESSAGES_SCRIPT)
         })
     }
 
@@ -40,7 +40,7 @@ pub fn open_windows_performance_checker(app: &mut App) -> io::Result<()> {
     #[cfg(windows)]
     {
         open_report_with(app, PERFORMANCE_TITLE, || {
-            run_powershell_report(PERFORMANCE_SCRIPT)
+            run_python_report(PERFORMANCE_SCRIPT)
         })
     }
 

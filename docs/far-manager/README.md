@@ -8,8 +8,8 @@ This project is inspired by Far Manager. To keep the repository small (and avoid
 
 From the repo root:
 
-```powershell
-.\scripts\fetch_far_manager_docs.ps1
+```text
+python scripts/fetch_far_manager_docs.py
 ```
 
 Outputs a `SOURCE.json` file with the upstream URL and commit SHA used.

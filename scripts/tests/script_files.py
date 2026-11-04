@@ -24,4 +24,5 @@ K9S_EKS = ("scripts/k9s_eks.py", "scripts/k9s_eks_aws.py", "scripts/k9s_eks_shel
 # install_mcp.py and the module it imports.
 INSTALL_MCP = ("install_mcp.py", "scripts/install_mcp_configs.py")
 # create_desktop_shortcut.py, the module it imports, and shell_path.py.
-SHORTCUT = ("create_desktop_shortcut.py", "scripts/shell_path.py", "scripts/shortcut_files.py")
+SHORTCUT = ("create_desktop_shortcut.py", "scripts/shell_path.py", "scripts/shortcut_files.py",
+            "scripts/windows_shortcut.py")

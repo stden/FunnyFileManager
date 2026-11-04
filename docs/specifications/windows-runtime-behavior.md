@@ -21,13 +21,14 @@ Define the Windows-specific runtime behavior that `ffm` must preserve for comman
 - Shell commands must inherit the active panel path as their working directory.
 - Shell commands must run without opening an extra console window.
 
-### 🪟 PowerShell Reports
+### 🪟 Python Reports
 
-- Windows report commands must launch `powershell.exe` explicitly rather than relying on `PATH` aliases.
-- PowerShell report commands must pass `-NoLogo`.
-- PowerShell report commands must pass `-NoProfile` and `-NonInteractive`.
-- PowerShell report commands must set `-ExecutionPolicy Bypass` for the spawned process.
-- PowerShell report commands must run hidden, without opening a separate console window.
+- Windows reports require Python 3.9 or newer as `python.exe` on `PATH`.
+- Report commands pass `-I` to isolate imports from the current directory and Python environment settings.
+- Report commands pass `-X utf8` for text that the Rust viewer can decode.
+- Embedded Python collectors use native Windows APIs and perform read-only operations.
+- Report commands run hidden, without a separate console window.
+- The Chocolatey helper uses Python and the native UAC prompt. It waits and returns the installer exit code.
 
 ### 🛣️ Drive Discovery
 
@@ -46,4 +47,4 @@ Define the Windows-specific runtime behavior that `ffm` must preserve for comman
 
 - Defining Windows installer behavior
 - Defining registry changes outside the child process invocation requirements above
-- Defining PowerShell script content beyond the invocation contract
+- Defining report content beyond the invocation contract

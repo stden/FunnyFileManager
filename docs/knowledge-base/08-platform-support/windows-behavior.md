@@ -26,6 +26,9 @@ FunnyFileManager has specific handling for Windows differences.
 ## 🪟 Windows-Specific Diagnostics
 
 - `:winmsg` / `:winerrors` — shows recent Windows system messages (via `open_windows_system_messages`).
+  Windows reports require Python 3.9 or newer as `python.exe` on `PATH`.
+  The embedded collectors call native Windows APIs. They do not start PowerShell.
+  The package update helper also requires Python. It keeps the UAC prompt and installer exit code.
 - `:winperf` / `:wincheck` — basic performance and health checks.
 
 These commands populate the internal `Viewer` overlay with collected output.

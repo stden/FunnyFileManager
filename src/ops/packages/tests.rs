@@ -27,18 +27,18 @@ fn fixture() -> (TempDir, App, UpdatePlan) {
 /// agree (unattended `-y` included), and choco.exe goes in exactly once.
 #[test]
 fn elevated_chocolatey_script_runs_the_managers_unattended_upgrade() {
-    let upgrade = Manager::Chocolatey.commands()[0]
-        .iter()
-        .map(|arg| format!("'{arg}'"))
-        .collect::<Vec<_>>()
-        .join(", ");
-    assert!(
-        ELEVATED_UPGRADE_SCRIPT.contains(&format!("-ArgumentList {upgrade} ")),
-        "elevated_upgrade.ps1 must pass {upgrade}"
-    );
+    let upgrade = Manager::Chocolatey.commands()[0];
+    let command = elevated_command(std::path::Path::new("C:/some ' quoted/choco.exe"), upgrade);
+    let args: Vec<_> = command
+        .get_args()
+        .map(|value| value.to_string_lossy())
+        .collect();
+    assert_eq!(command.get_program(), "python.exe");
+    assert_eq!(&args[..4], ["-I", "-X", "utf8", "-c"]);
+    assert_eq!(&args[6..], upgrade);
     assert_eq!(
-        ELEVATED_UPGRADE_SCRIPT
-            .matches(CHOCO_EXE_PLACEHOLDER)
+        args.iter()
+            .filter(|arg| **arg == "C:/some ' quoted/choco.exe")
             .count(),
         1
     );

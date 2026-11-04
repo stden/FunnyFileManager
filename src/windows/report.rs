@@ -1,4 +1,4 @@
-//! Purpose: Diagnostic reports: run a PowerShell script and show what it
+//! Purpose: Diagnostic reports: run a Python script and show what it
 //! printed in a viewer. Compiled on Windows, and in tests on every platform.
 
 use crate::models::{App, Viewer};
@@ -14,10 +14,10 @@ pub(super) const PERFORMANCE_TITLE: &str = "Windows Performance";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 #[cfg(windows)]
-pub(super) const SYSTEM_MESSAGES_SCRIPT: &str = include_str!("system_messages.ps1");
+pub(super) const SYSTEM_MESSAGES_SCRIPT: &str = include_str!("system_messages.py");
 
 #[cfg(windows)]
-pub(super) const PERFORMANCE_SCRIPT: &str = include_str!("performance.ps1");
+pub(super) const PERFORMANCE_SCRIPT: &str = include_str!("performance.py");
 
 pub(super) fn report_lines(report: &str) -> Vec<String> {
     let mut lines: Vec<String> = report
@@ -51,29 +51,21 @@ where
     Ok(())
 }
 
-pub(super) const fn powershell_executable() -> &'static str {
-    "powershell.exe"
+pub(super) const fn python_executable() -> &'static str {
+    "python.exe"
 }
 
-pub(super) const fn powershell_report_args(script: &str) -> [&str; 7] {
-    [
-        "-NoLogo",
-        "-NoProfile",
-        "-NonInteractive",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-Command",
-        script,
-    ]
+pub(super) const fn python_report_args(script: &str) -> [&str; 5] {
+    ["-I", "-X", "utf8", "-c", script]
 }
 
 #[cfg(windows)]
-pub(super) fn run_powershell_report(script: &str) -> io::Result<String> {
+pub(super) fn run_python_report(script: &str) -> io::Result<String> {
     use std::os::windows::process::CommandExt;
 
-    let mut command = Command::new(powershell_executable());
+    let mut command = Command::new(python_executable());
     command.creation_flags(CREATE_NO_WINDOW);
-    let output = command.args(powershell_report_args(script)).output()?;
+    let output = command.args(python_report_args(script)).output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
@@ -84,7 +76,7 @@ pub(super) fn run_powershell_report(script: &str) -> io::Result<String> {
         Err(io::Error::other(stderr))
     } else {
         Err(io::Error::other(format!(
-            "PowerShell exited with status {}",
+            "Python exited with status {}",
             output.status
         )))
     }

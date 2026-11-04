@@ -9,7 +9,7 @@ funny-file-manager.desktop to the desktop directory ($HOME/Desktop, else
 into ~/.local/share/applications when that directory exists. Stops with
 status 1 when the entry cannot be written.
 Arguments other than -h/--help are ignored.
-Windows uses create-desktop-shortcut.ps1 instead.
+Windows creates a native shortcut and a batch file through scripts/windows_shortcut.py.
 """
 
 import argparse
@@ -148,6 +148,9 @@ def main(argv=None):
     )
     # Like the bash script, anything but -h/--help is ignored.
     parser.parse_known_args(argv)
+    if os.name == "nt":
+        from windows_shortcut import main as windows_main
+        return windows_main(ROOT)
     # A path that is not UTF-8 goes out as its own bytes, as echo wrote it.
     sys.stdout.reconfigure(errors="surrogateescape", line_buffering=True)
     sys.stderr.reconfigure(errors="surrogateescape")
