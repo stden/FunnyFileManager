@@ -89,3 +89,9 @@ Feature: File operation dialogs open, execute and close cleanly
     Then the overlay is closed
     And the left file "report.txt" is absent on disk
     And the rendered screen excludes "report.txt"
+
+  Scenario: Clicking a flag row in the attributes dialog toggles it
+    Given "report.txt" is selected in the left panel
+    When I dispatch the keys "Ctrl+A"
+    And I left-click at column 40 and row 12
+    Then the rendered screen contains "File attributes"

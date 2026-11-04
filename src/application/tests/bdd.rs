@@ -18,6 +18,7 @@ mod find_file;
 mod image;
 mod lsp;
 mod lsp_fixture;
+mod menu_settings;
 mod network;
 mod network_drives;
 mod network_worker;

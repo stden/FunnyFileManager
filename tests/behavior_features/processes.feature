@@ -45,3 +45,9 @@ Feature: Process monitoring and Windows priority controls use verified targets
     Given the task list contains a Windows process with Normal priority
     When I dispatch the keys "F8 Enter"
     Then only the selected fixture process received termination
+
+  Scenario: Clicking a sort-menu row in the task list selects it
+    Given the task list contains a Windows process with Normal priority
+    When I dispatch the keys "F6"
+    And I left-click at column 60 and row 12
+    Then the rendered screen contains "Name"

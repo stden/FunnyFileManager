@@ -34,3 +34,10 @@ Feature: F4 editor save, case-insensitive search and repeat search
     Then the editor shows the not-found warning
     When I dispatch the keys "x"
     Then the editor buffer equals "unchanged"
+
+  Scenario: Clicking the query row in the editor search dialog refocuses the query
+    Given an isolated acceptance workspace
+    And a file named "source.txt" containing "alpha bravo"
+    When I dispatch the keys "F4 F7"
+    And I left-click at column 60 and row 12
+    Then the rendered screen contains "Search"

@@ -72,3 +72,18 @@ Feature: The editor opens files, accepts input and closes cleanly
       | // trailing note       |
     When I dispatch the keys "F4"
     Then the editor screen paints Typst directive string and comment colors
+
+  Scenario: Ctrl+Alt+L formats a compact JSON file and reports the change
+    Given a compact JSON file named "config.json"
+    When I dispatch the keys "F4 Ctrl+Alt+L"
+    Then the rendered screen contains "Formatted JSON"
+
+  Scenario: Ctrl+Alt+L on an already-formatted file skips the change
+    Given a compact JSON file named "config.json"
+    When I dispatch the keys "F4 Ctrl+Alt+L Ctrl+Alt+L"
+    Then the rendered screen contains "Formatted JSON"
+
+  Scenario: Ctrl+Alt+L on a plain text file reports it cannot be formatted
+    Given a file named "readme.txt" containing "plain text"
+    When I dispatch the keys "F4 Ctrl+Alt+L"
+    Then the rendered screen contains "Format is available for JSON and XML"

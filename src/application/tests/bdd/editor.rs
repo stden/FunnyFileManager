@@ -60,6 +60,19 @@ fn windows_1251_file(world: &mut BehaviorWorld, name: String, text: String) {
     case.paint();
 }
 
+#[given(expr = "a compact JSON file named {string}")]
+fn compact_json_file(world: &mut BehaviorWorld, name: String) {
+    let case = world.case();
+    std::fs::write(
+        case.root.path().join("left").join(&name),
+        r#"{"key":"value","n":1}"#,
+    )
+    .unwrap();
+    case.app.left_panel.load_entries().unwrap();
+    assert!(case.app.left_panel.select_named(&name));
+    case.paint();
+}
+
 #[then("the editor screen paints Typst directive string and comment colors")]
 fn typst_colors_painted(world: &mut BehaviorWorld) {
     let screen = &world.case().screen;
