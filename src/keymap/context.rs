@@ -20,11 +20,12 @@ pub enum Context {
     LanguageServers,
     PathEditor,
     Vault,
+    DatabaseExplorer,
 }
 
 impl Context {
     /// Every context, in the order the default file writes them.
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 15] = [
         Self::Panels,
         Self::TreePanel,
         Self::NetboxPanel,
@@ -39,6 +40,7 @@ impl Context {
         Self::LanguageServers,
         Self::PathEditor,
         Self::Vault,
+        Self::DatabaseExplorer,
     ];
 
     /// The section's key in `ffm.yml`.
@@ -59,6 +61,7 @@ impl Context {
             Self::LanguageServers => "language_servers",
             Self::PathEditor => "path_editor",
             Self::Vault => "vault",
+            Self::DatabaseExplorer => "database_explorer",
         }
     }
 }

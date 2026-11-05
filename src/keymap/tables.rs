@@ -76,6 +76,7 @@ macro_rules! list_moves {
 }
 
 mod command_line;
+mod database;
 mod editor;
 mod language_servers;
 mod netbox_panel;
@@ -88,6 +89,7 @@ mod viewer;
 mod wsl_manager;
 
 pub use command_line::{COMMAND_LINE, COMMAND_LINE_COMPLETION, COMMAND_LINE_SEARCH};
+pub use database::DATABASE_EXPLORER;
 pub use editor::EDITOR;
 pub use language_servers::LANGUAGE_SERVERS;
 pub use netbox_panel::NETBOX_PANEL;

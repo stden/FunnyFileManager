@@ -57,6 +57,7 @@ fn execute<B: Backend + Write>(terminal: &mut Terminal<B>, app: &mut App, invoca
         Invocation::LanguageServers(command) => popup::lsp_editor::apply(app, command),
         Invocation::PathEditor(command) => popup::path_env::apply(app, command),
         Invocation::Vault(command) => apply_vault(app, command),
+        Invocation::DatabaseExplorer(command) => popup::database::invoke(app, command),
     }
 }
 

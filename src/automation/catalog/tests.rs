@@ -45,6 +45,7 @@ fn expected_action_count() -> usize {
         count(&tables::TASK_LIST),
         count(&tables::TASK_LIST_SEARCH),
         count(&tables::WSL_MANAGER),
+        count(&tables::DATABASE_EXPLORER),
         count(&tables::LANGUAGE_SERVERS),
         count(&tables::PATH_EDITOR),
         count(&tables::VAULT),

@@ -11,6 +11,8 @@ pub enum MenuCommand {
     CloudflareDns,
     SystemTempCleanup,
     LanguageServers,
+    /// Commands → Database explorer.
+    DatabaseExplorer,
     UpdatePackages,
     GitPullAll,
     Path(crate::path_env::Scope),

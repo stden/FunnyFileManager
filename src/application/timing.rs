@@ -139,6 +139,7 @@ fn context(overlay: &Overlay) -> &'static str {
         Overlay::Wsl(_) => "WSL",
         Overlay::PathEditor(_) => "PathEditor",
         Overlay::LspEditor(_) => "LspEditor",
+        Overlay::Database(_) => "Database",
         #[cfg(feature = "keepass")]
         Overlay::Kdbx(_) => "KeePass",
         Overlay::DriveSelection { .. } => "DriveSelection",

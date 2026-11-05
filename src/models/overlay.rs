@@ -51,6 +51,8 @@ pub enum Overlay {
     PathEditor(Box<crate::path_env::PathEditor>),
     /// F9 → Commands → Language servers, and the `lsp` command.
     LspEditor(Box<super::LspEditor>),
+    /// F9 → Commands → Database explorer: connections, their tables and rows.
+    Database(Box<super::database::DatabaseExplorer>),
 
     /// F3 file viewer (also reused for MCP status via F11 / :mcp)
     Viewer(Viewer),

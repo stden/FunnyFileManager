@@ -5,6 +5,7 @@ pub mod archive;
 pub mod associations;
 pub mod attributes;
 pub mod compare;
+pub mod database;
 pub mod describe;
 pub mod disk_cleanup;
 mod dispatch;

@@ -24,6 +24,7 @@ mod drives;
 mod editor;
 pub use crate::values::{entry, image, remote_path};
 pub(crate) use editor::{lsp, pairs, RemoteDocument};
+pub mod database;
 mod file_name;
 mod filter;
 mod findfile;
@@ -164,9 +165,8 @@ pub use panel_side::PanelSide;
 
 pub(crate) mod network_drive;
 pub(crate) mod token_usage;
-pub use token_usage::TokenUsagePanel;
+pub use {cloudflare_dns::CloudflareDnsPanel, token_usage::TokenUsagePanel};
 pub(crate) mod cloudflare_dns;
-pub use cloudflare_dns::CloudflareDnsPanel;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

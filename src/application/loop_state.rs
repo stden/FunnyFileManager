@@ -12,6 +12,9 @@ use super::input::{BufferedInput, EventSource};
 use super::{git_jobs, image_preview_jobs, lsp_jobs, task_jobs, timing, wsl_jobs, Redraw};
 use crate::diagnostics::log_action;
 use crate::models::App;
+
+mod background;
+
 pub(super) struct LoopState {
     clicks: crate::mouse::PanelClicks,
     git: git_jobs::GitDirtyJobs,
@@ -21,6 +24,7 @@ pub(super) struct LoopState {
     lsp: lsp_jobs::EditorLspController,
     remote: super::remote_jobs::RemoteJobs,
     temp_cleanup: super::system_temp_cleanup_jobs::TempCleanupJobs,
+    database: super::database_jobs::DatabaseJobs,
     usage: super::token_usage_jobs::UsageJobs,
     things: super::things_jobs::ThingsJobs,
     pub(super) redraw: Redraw,
@@ -42,6 +46,7 @@ impl LoopState {
             lsp: lsp_jobs::EditorLspController::default(),
             remote: super::remote_jobs::RemoteJobs::default(),
             temp_cleanup: super::system_temp_cleanup_jobs::TempCleanupJobs::default(),
+            database: super::database_jobs::DatabaseJobs::default(),
             usage: super::token_usage_jobs::UsageJobs::default(),
             things: super::things_jobs::ThingsJobs::default(),
             cloudflare: super::cloudflare_jobs::CloudflareJobs::default(),
@@ -126,32 +131,6 @@ impl LoopState {
         self.redraw = Redraw::Unchanged;
         result.map(|()| Redraw::Needed)
     }
-    /// Collect what background work finished, asking for a frame when it
-    /// changed what is on screen.
-    fn pump_background(&mut self, app: &mut App) {
-        let pumped = [
-            self.temp_cleanup.pump(app),
-            self.usage.pump(app),
-            self.things.pump(app),
-            self.remote.pump(app),
-            self.git.pump(app),
-            self.jobs.pump(app),
-            self.tasks.pump(app),
-            self.cloudflare.pump(app),
-        ];
-        // Every pump runs, whatever the others changed.
-        let lsp = self.lsp.pump(app);
-        if lsp || pumped.contains(&Redraw::Needed) {
-            self.redraw = Redraw::Needed;
-        }
-        app.record_folder_visits();
-        #[cfg(feature = "keepass")]
-        if crate::ops::vault::maintenance(app) {
-            self.redraw = Redraw::Needed;
-        }
-        self.redraw = self.redraw.or(self.images.refresh(app));
-    }
-
     pub(super) fn finish(&mut self, app: &mut App, rendering: Instant, finished: Instant) {
         if let Some(pending) = self.pending.take() {
             pending.finish(&mut app.performance, rendering, finished);

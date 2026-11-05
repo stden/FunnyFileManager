@@ -14,6 +14,7 @@ overlay_names! {
     Overlay::TempCleanup(_) => "temp_cleanup",
     Overlay::TokenUsage(_) => "token_usage",
     Overlay::CloudflareDns(_) => "cloudflare_dns",
+    Overlay::Database(_) => "database",
     Overlay::Help => "help",
     Overlay::Wsl(_) => "wsl",
     Overlay::PathEditor(_) => "path_editor",

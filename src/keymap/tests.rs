@@ -7,6 +7,7 @@ use super::*;
 use crate::action::KeyChord;
 
 mod app;
+mod database_explorer;
 mod defaults;
 mod exits;
 mod lists;
@@ -75,6 +76,7 @@ pub(super) fn screens() -> Vec<Screen> {
         screen(&tables::LANGUAGE_SERVERS, &keymap.language_servers),
         screen(&tables::PATH_EDITOR, &keymap.path_editor),
         screen(&tables::VAULT, &keymap.vault),
+        screen(&tables::DATABASE_EXPLORER, &keymap.database_explorer),
     ]
 }
 
@@ -144,6 +146,7 @@ fn the_contexts_are_named_as_the_file_names_its_sections() {
             "language_servers",
             "path_editor",
             "vault",
+            "database_explorer",
         ]
     );
     assert_eq!(Context::Vault.name(), "vault");
@@ -159,7 +162,7 @@ fn the_number_of_actions_of_each_context_is_pinned() {
     assert_eq!(
         counts,
         [
-            ("panels", 122),
+            ("panels", 123),
             ("tree_panel", 15),
             ("netbox_panel", 12),
             ("command_line", 29),
@@ -173,6 +176,7 @@ fn the_number_of_actions_of_each_context_is_pinned() {
             ("language_servers", 14),
             ("path_editor", 12),
             ("vault", 18),
+            ("database_explorer", 11),
         ]
     );
 }

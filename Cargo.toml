@@ -115,6 +115,12 @@ ssh2 = "0.9.6"
 suppaftp = { version = "12.2.1", default-features = false, features = ["no-log"] }
 zeroize = "1.9.0"
 base64 = "0.22.1"
+# The database explorer's SQLite driver (Commands → Database explorer). `bundled`
+# compiles SQLite into the binary, so no system library is needed.
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+# The explorer's PostgreSQL driver: the synchronous client, run on the explorer's
+# worker thread only. No TLS feature is enabled, so only plain connections work.
+postgres = "0.19"
 
 [dev-dependencies]
 regex = "1"

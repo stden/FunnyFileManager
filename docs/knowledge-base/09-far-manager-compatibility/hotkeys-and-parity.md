@@ -405,6 +405,36 @@ does not save and Alt+Enter does not edit. Ctrl+Up and Ctrl+Down still move the
 entry, but not with Shift or Alt added: Ctrl+Shift+Up and Ctrl+Alt+Down do
 nothing. The entry field and the two questions keep their own keys.
 
+## 🗄️ Database explorer
+
+F9 → Commands → Data**b**ase explorer, or the keyless `database_explorer` row. It
+lists the connections of `databases.yaml` in the FFM config directory, then each
+connection's schemas, its tables and views, and a table's columns on demand. The
+keys are the keymap's `database_explorer` context; a key nothing is bound to does
+nothing. This is not a Far Manager feature: IntelliJ IDEA's Database Explorer is
+the model.
+
+| Key | Action |
+|-----|--------|
+| Up, Down | Move the cursor; in a rows or columns view, scroll it |
+| Right | Open the row: a connection loads its schemas, a table its columns |
+| Left | Close the open row, or go to its parent |
+| Enter | Open a table's rows; a connection or a schema toggles |
+| Tab, c | Show the table's columns: name, type, primary key, nullable |
+| PgUp, PgDn | The previous or the next 200 rows |
+| F5 | Read the connection's metadata again |
+| Esc | Back to the tree from a view; from the tree, close the explorer |
+| F10 | Close the explorer |
+
+The explorer runs no statement of its own. SQLite opens read-only with
+`query_only` on; PostgreSQL sessions are `READ ONLY` with a short statement
+timeout; every query is built from quoted names the database reported. Requests
+run off the UI thread: Loading shows while one is pending, and an answer for a
+dialog already closed is dropped. A password comes from the environment variable
+an entry names (`password_env`), never from the file, and an error names that
+variable and never its value. PostgreSQL connections are plain (no TLS) in this
+version, and MySQL is not supported.
+
 ## 🔐 KeePass vault
 
 Enter or F3 on a `.kdbx` file opens the vault. While it is open every key goes

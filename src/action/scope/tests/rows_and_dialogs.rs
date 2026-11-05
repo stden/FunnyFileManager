@@ -10,9 +10,10 @@ const ENTRY_ROWS: [MenuCommand; 3] = [
 ];
 
 /// Menu rows that belong to the program.
-const PROGRAM_ROWS: [MenuCommand; 11] = [
+const PROGRAM_ROWS: [MenuCommand; 12] = [
     MenuCommand::Performance,
     MenuCommand::LanguageServers,
+    MenuCommand::DatabaseExplorer,
     MenuCommand::UpdatePackages,
     MenuCommand::McpInstall,
     MenuCommand::ThingsCatalog,

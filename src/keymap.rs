@@ -11,6 +11,7 @@
 use crate::action::command_line::completion::CompletionCommand;
 use crate::action::command_line::search::LineSearchCommand;
 use crate::action::command_line::LineCommand;
+use crate::action::database::DatabaseCommand;
 use crate::action::editor::EditorCommand;
 use crate::action::lsp_editor::LspListCommand;
 use crate::action::netbox::NetboxCommand;
@@ -64,6 +65,8 @@ pub struct Keymap {
     pub path_editor: Bindings<PathCommand>,
     /// The `KeePass` vault.
     pub vault: Bindings<VaultCommand>,
+    /// Commands → Database explorer: the tree, the rows and the columns.
+    pub database_explorer: Bindings<DatabaseCommand>,
 }
 
 impl Default for Keymap {
@@ -85,6 +88,7 @@ impl Default for Keymap {
             language_servers: tables::LANGUAGE_SERVERS.defaults(),
             path_editor: tables::PATH_EDITOR.defaults(),
             vault: tables::VAULT.defaults(),
+            database_explorer: tables::DATABASE_EXPLORER.defaults(),
         }
     }
 }

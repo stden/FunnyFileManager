@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::PanelView;
 
+pub mod databases;
 pub(crate) mod document;
 mod home;
 mod lsp;

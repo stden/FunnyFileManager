@@ -18,6 +18,7 @@ mod keymap;
 pub mod bindings;
 pub mod chord;
 pub mod command_line;
+pub mod database;
 pub mod editor;
 pub mod lsp_editor;
 pub mod netbox;

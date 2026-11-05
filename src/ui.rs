@@ -19,6 +19,7 @@ mod command_line;
 mod command_prompt;
 mod completion;
 mod console;
+mod database;
 mod describe;
 mod dialog;
 mod drives;

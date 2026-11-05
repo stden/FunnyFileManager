@@ -39,6 +39,12 @@ pub(super) const KEYLESS: Group<Action> = Group {
             .note(Ffm, "Install the MCP server for AI clients"),
         row("language_servers", Menu(MenuCommand::LanguageServers), &[])
             .note(Ffm, "Language servers of the editor"),
+        row(
+            "database_explorer",
+            Menu(MenuCommand::DatabaseExplorer),
+            &[],
+        )
+        .note(Ffm, "Browse databases: connections, tables, rows"),
         row("update_packages", Menu(MenuCommand::UpdatePackages), &[])
             .note(Ffm, "Update the system's packages"),
         row("action_statistics", Menu(MenuCommand::Performance), &[])

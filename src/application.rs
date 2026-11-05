@@ -18,6 +18,7 @@ use crate::models::App;
 )]
 pub(super) mod automation;
 mod cloudflare_jobs;
+mod database_jobs;
 mod dispatch;
 mod event;
 mod frame;

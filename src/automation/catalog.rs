@@ -5,6 +5,7 @@ use std::fmt;
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::action::database::DatabaseCommand;
 use crate::action::{
     command_line::{completion::CompletionCommand, search::LineSearchCommand, LineCommand},
     editor::EditorCommand,
@@ -97,6 +98,7 @@ catalogue! {
     LanguageServers(LspListCommand), language_servers, LANGUAGE_SERVERS;
     PathEditor(PathCommand), path_editor, PATH_EDITOR;
     Vault(VaultCommand), vault, VAULT;
+    DatabaseExplorer(DatabaseCommand), database_explorer, DATABASE_EXPLORER;
 }
 
 fn append<C>(descriptors: &mut Vec<Descriptor>, table: &Table<C>) {

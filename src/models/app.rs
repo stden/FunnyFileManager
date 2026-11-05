@@ -105,6 +105,8 @@ pub struct App {
     /// report — and the production entry point installs the platform's.
     pub task_host: TaskHostSlot,
     pub(crate) remote_requests: super::remote_work::RemoteRequests,
+    /// The database explorer's one request at a time, queued for its worker.
+    pub(crate) database_requests: super::database::Requests,
 }
 
 impl App {
@@ -173,6 +175,7 @@ impl App {
             wsl_requests: WslRequests::default(),
             task_host: TaskHostSlot::default(),
             remote_requests: super::remote_work::RemoteRequests::default(),
+            database_requests: super::database::Requests::default(),
         }
     }
 

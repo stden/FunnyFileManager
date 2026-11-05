@@ -74,6 +74,11 @@ The variant list changes as dialogs are added. Read `src/models/overlay.rs` rath
   by size, each with its verdict; Enter selects the entry in the panel, Esc
   closes, and nothing is deleted from here
 - **Kdbx** when the `keepass` feature is on
+- **Database** (F9 → Commands → Database explorer) — the connections of
+  `databases.yaml`, their schemas, tables, columns and rows. State in
+  `src/models/database/`, requests run by `src/application/database_jobs.rs` and
+  `src/ops/database/`, keys in `src/popup/database.rs`, drawing in
+  `src/ui/database/`
 
 `Ctrl+O` is `ViewMode::Console`, not an overlay.
 

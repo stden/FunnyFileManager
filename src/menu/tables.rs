@@ -79,6 +79,11 @@ pub(super) const COMMANDS: &[Entry] = &[
         Action::Menu(MenuCommand::LanguageServers),
     ),
     Entry::item(
+        "Data&base explorer",
+        "",
+        Action::Menu(MenuCommand::DatabaseExplorer),
+    ),
+    Entry::item(
         "Update pac&kages",
         "",
         Action::Menu(MenuCommand::UpdatePackages),
