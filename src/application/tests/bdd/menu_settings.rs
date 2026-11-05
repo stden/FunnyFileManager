@@ -17,9 +17,9 @@ fn open_settings_page(world: &mut BehaviorWorld, page: String) {
 
 fn all_settings_pages() -> Vec<SettingsPage> {
     use SettingsPage::{
-        AutoComplete, CodePages, Colors, CommandLine, Confirmations, Descriptions, Dialog,
-        Editor, FolderDescriptions, Highlighting, Information, Interface, Language, Masks,
-        Menu, PanelModes, Panel, Plugins, PluginManager, System, Tree, Viewer,
+        AutoComplete, CodePages, Colors, CommandLine, Confirmations, Descriptions, Dialog, Editor,
+        FolderDescriptions, Highlighting, Information, Interface, Language, Masks, Menu, Panel,
+        PanelModes, PluginManager, Plugins, System, Tree, Viewer,
     };
     vec![
         System,
