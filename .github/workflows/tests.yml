@@ -133,7 +133,7 @@ jobs:
 
       # The spell check in ./ffm.py lint; typos.toml holds the project words.
       - name: Install typos
-        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
+        uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
         with:
           tool: ${{ env.TOOL_TYPOS }}
 
@@ -205,7 +205,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install coverage + test tools (prebuilt)
-        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
+        uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
         with:
           tool: ${{ env.TOOL_LLVM_COV }},${{ env.TOOL_NEXTEST }}
 
@@ -329,7 +329,7 @@ jobs:
             colorer-sys -> target
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Install LLVM coverage
-        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
+        uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
         with:
           tool: ${{ env.TOOL_LLVM_COV }}
       - name: Install LLVM tools
@@ -530,7 +530,7 @@ jobs:
           git -C /tmp/Colorer-schemes checkout --quiet FETCH_HEAD
 
       - name: Install native coverage tools
-        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
+        uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
         with:
           tool: ${{ env.TOOL_LLVM_COV }}
       - name: Install native LLVM tools
@@ -583,7 +583,7 @@ jobs:
         run: rustup toolchain install --no-self-update
 
       - name: Install cargo-deny (prebuilt)
-        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
+        uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
         with:
           tool: ${{ env.TOOL_CARGO_DENY }}
 
@@ -664,7 +664,7 @@ jobs:
           save-if: ${{ matrix.shard == 0 }}
 
       - name: Install mutation + test tools (prebuilt)
-        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
+        uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
         with:
           tool: ${{ env.TOOL_MUTANTS }},${{ env.TOOL_NEXTEST }}
 
