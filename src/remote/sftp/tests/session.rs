@@ -158,7 +158,8 @@ fn authenticate_and_verify_host_cover_unencrypted_keys_and_bad_known_hosts() {
 
 #[test]
 fn real_ssh2_session_rejects_unconnected_password_agent_and_short_known_hosts() {
-    let real = ssh2::Session::new().expect("ssh2 session");
+    let mut real = ssh2::Session::new().expect("ssh2 session");
+    real.set_tcp_stream(loopback_stream());
     for auth in [Auth::Password, Auth::Agent] {
         let s = fixture_session(auth);
         assert!(authenticate(&SSH2_CLIENT_OPS, &real, &s, &Credentials::default(), "u").is_err());
