@@ -23,6 +23,7 @@ mod database;
 mod describe;
 mod dialog;
 mod drives;
+mod duplicates;
 mod editor_brackets;
 mod editor_lsp;
 mod editor_selection;

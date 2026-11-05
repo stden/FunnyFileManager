@@ -42,6 +42,7 @@ overlay_names! {
     Overlay::ApplyCommand(_) => "apply_command",
     Overlay::Describe(_) => "describe",
     Overlay::FindFile(_) => "find_file",
+    Overlay::Duplicates(_) => "duplicates",
     Overlay::CommandHistory(_) => "command_history",
     Overlay::FindFolder(_) => "find_folder",
     Overlay::ViewHistory(_) => "view_history",

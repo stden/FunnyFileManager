@@ -33,6 +33,8 @@ pub(super) const KEYLESS: Group<Action> = Group {
             .note(FarNoKey, "File associations"),
         row("folder_shortcuts", Menu(MenuCommand::Shortcuts), &[])
             .note(FarNoKey, "Folder shortcuts"),
+        row("find_duplicates", Menu(MenuCommand::FindDuplicates), &[])
+            .note(Ffm, "Find repeated blocks of source text"),
         row("hotplug_devices", Menu(MenuCommand::Devices), &[])
             .note(FarNoKey, "Hotplug devices list"),
         row("install_mcp_server", Menu(MenuCommand::McpInstall), &[])

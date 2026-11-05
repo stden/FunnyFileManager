@@ -21,6 +21,8 @@ pub enum MenuCommand {
     UserMenu,
     Associations,
     Shortcuts,
+    /// Find duplicate blocks of source text under a folder.
+    FindDuplicates,
     Devices,
     McpInstall,
     /// Commands: the active folder's entries by size, with a verdict on each.

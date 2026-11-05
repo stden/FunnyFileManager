@@ -165,6 +165,7 @@ fn file_dialog_context(overlay: &Overlay) -> &'static str {
         Overlay::ApplyCommand(_) => "ApplyCommand",
         Overlay::Describe(_) => "Describe",
         Overlay::FindFile(_) => "FindFile",
+        Overlay::Duplicates(_) => "Duplicates",
         Overlay::FindFolder(_) => "FindFolder",
         Overlay::NewFileInput(_) => "NewFile",
         _ => "Dialog",

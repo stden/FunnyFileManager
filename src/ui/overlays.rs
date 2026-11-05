@@ -107,6 +107,7 @@ fn render_commands_dialog(
     match overlay {
         Overlay::TempCleanup(dialog) => super::system_temp_cleanup::render(f, tracker, dialog),
         Overlay::FindFile(dialog) => super::findfile::render(f, tracker, dialog),
+        Overlay::Duplicates(dialog) => super::duplicates::render(f, tracker, dialog),
         Overlay::CommandHistory(dialog) => super::history_list::render(f, tracker, dialog),
         Overlay::FindFolder(dialog) => super::findfolder::render(f, tracker, dialog),
         Overlay::ViewHistory(dialog) => super::view_history::render(f, tracker, dialog),

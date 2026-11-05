@@ -74,6 +74,7 @@ pub const fn menu_scope(command: MenuCommand) -> ActionScope {
         | MenuCommand::Path(_)
         | MenuCommand::Associations
         | MenuCommand::Shortcuts
+        | MenuCommand::FindDuplicates
         | MenuCommand::Devices
         | MenuCommand::Settings(_)
         | MenuCommand::SaveSetup => ActionScope::Program,

@@ -4,8 +4,8 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::plain;
 use crate::models::{
-    CleanupField, DiskCleanupDialog, FindFile, FindFileField, InputPrompt, Overlay, SessionEdit,
-    SessionField,
+    CleanupField, DiskCleanupDialog, Duplicates, DuplicatesField, FindFile, FindFileField,
+    InputPrompt, Overlay, SessionEdit, SessionField,
 };
 
 pub(super) fn more_button_key(overlay: &mut Overlay, index: usize) -> Option<KeyEvent> {
@@ -13,6 +13,7 @@ pub(super) fn more_button_key(overlay: &mut Overlay, index: usize) -> Option<Key
         Overlay::TempCleanup(dialog) => super::temp_cleanup::button(dialog, index),
         Overlay::Remote(dialog) => Some(super::remote_button_key(&mut dialog.0, index)),
         Overlay::FindFile(dialog) => Some(find_file_button_key(dialog, index)),
+        Overlay::Duplicates(dialog) => Some(duplicates_button_key(dialog, index)),
         Overlay::SessionEdit(dialog) => Some(session_edit_button_key(dialog, index)),
         Overlay::DiskCleanup(dialog) => Some(disk_cleanup_button_key(dialog, index)),
         Overlay::InputPrompt(prompt) => Some(input_prompt_button_key(prompt, index)),
@@ -42,6 +43,16 @@ fn find_file_button_key(dialog: &mut FindFile, index: usize) -> KeyEvent {
     while dialog.field() != target {
         dialog.tab(true);
     }
+    plain(KeyCode::Enter)
+}
+
+fn duplicates_button_key(dialog: &mut Duplicates, index: usize) -> KeyEvent {
+    let field = if index == 0 {
+        DuplicatesField::Start
+    } else {
+        DuplicatesField::Cancel
+    };
+    dialog.focus(field);
     plain(KeyCode::Enter)
 }
 

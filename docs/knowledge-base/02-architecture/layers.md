@@ -23,7 +23,7 @@ marked `#[cfg(test)]` inside `impl` blocks are still read.
 
 1. **foundation**: values and pure helpers, with no files, processes, terminals,
    clock or application state. Modules: `casefold`, `console`, `cycle`,
-   `encoding`, `lineedit`, `mask`, `path_display`, `scroll`, `space_verdict`.
+   `duplicates`, `encoding`, `lineedit`, `mask`, `path_display`, `scroll`, `space_verdict`.
 2. **adapters**: everything that touches the outside world: files, processes,
    terminals, the network, the operating system, the clock and configuration on
    disk. Modules: `associations`, `clipboard`, `clock`, `cloudflare_dns`, `config`, `description`,

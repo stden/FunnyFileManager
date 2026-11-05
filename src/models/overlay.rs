@@ -23,9 +23,9 @@ use std::path::PathBuf;
 
 use super::{
     ApplyPrompt, ArchiveMenu, ArchivePrompt, AssociationList, AttributesDialog, CommandLine,
-    DescribePrompt, DeviceList, DriveRow, Editor, ExtractPrompt, FilterPrompt, FindFile,
-    FolderTree, HistoryList, InputPrompt, PanelSide, PluginCommands, Question, ScreenList,
-    SessionEdit, SettingsDialog, ShortcutList, SortMenu, TaskList, UserMenu, Viewer,
+    DescribePrompt, DeviceList, DriveRow, Duplicates, Editor, ExtractPrompt, FilterPrompt,
+    FindFile, FolderTree, HistoryList, InputPrompt, PanelSide, PluginCommands, Question,
+    ScreenList, SessionEdit, SettingsDialog, ShortcutList, SortMenu, TaskList, UserMenu, Viewer,
 };
 
 /// Represents the currently active overlay / modal dialog.
@@ -123,6 +123,8 @@ pub enum Overlay {
     Describe(DescribePrompt),
     /// Alt+F7: Find file.
     FindFile(Box<FindFile>),
+    /// Commands menu: Find duplicate blocks, asked before it runs.
+    Duplicates(Box<Duplicates>),
     /// Alt+F8: the command history as a list.
     CommandHistory(HistoryList),
     /// Alt+F10: Find folder — the tree as a dialog.

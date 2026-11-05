@@ -46,6 +46,22 @@ pub fn handle_edit_builtin(app: &mut App) -> io::Result<()> {
     Ok(())
 }
 
+/// Open `path` in the built-in editor with the cursor on the 1-based `line`,
+/// loaded as F4 loads it: a file the editor cannot take sets the status line.
+/// A `line` past the end of the file puts the cursor on its last line.
+pub fn open_at_line(app: &mut App, path: &std::path::Path, line: usize) {
+    match load_editor(app, path) {
+        Ok(mut editor) => {
+            let last = editor.lines.len().saturating_sub(1);
+            editor.cursor_line = line.saturating_sub(1).min(last);
+            editor.cursor_col = 0;
+            app.set_status(Status::Editing(path.display().to_string()));
+            app.set_overlay(Overlay::Editor(editor));
+        }
+        Err(status) => app.set_status(status),
+    }
+}
+
 /// The editor for `selected`, whose file held `bytes`: titled by its name,
 /// carrying the encoding it was read with — or, for an empty file where
 /// nothing can be sniffed, the one the settings name — and remembering what

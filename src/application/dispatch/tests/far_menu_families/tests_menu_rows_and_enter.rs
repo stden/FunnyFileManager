@@ -6,7 +6,7 @@ use super::*;
 fn each_keyless_row_takes_the_same_road() {
     // The rows Far gives no key each reach a working command now: the two that
     // are plain text files open the editor, the rest open their dialog.
-    let cases: [(MenuCommand, Opens); 6] = [
+    let cases: [(MenuCommand, Opens); 7] = [
         (MenuCommand::Associations, |o| {
             matches!(o, Overlay::Editor(_))
         }),
@@ -22,6 +22,9 @@ fn each_keyless_row_takes_the_same_road() {
         }),
         (MenuCommand::ThingsCatalog, |o| {
             matches!(o, Overlay::Things(_))
+        }),
+        (MenuCommand::FindDuplicates, |o| {
+            matches!(o, Overlay::Duplicates(_))
         }),
     ];
     let config = tempfile::TempDir::new().expect("config dir");

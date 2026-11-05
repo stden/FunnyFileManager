@@ -4,8 +4,8 @@ use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::models::{
     ArchiveCommand, ArchiveField, ArchivePrompt, AttributesDialog, AttributesField, CleanupField,
-    DiskCleanupDialog, ExtractField, FindFile, FindFileField, Flag, McpInstallDialog,
-    McpInstallField, McpInstallProgress, Overlay, SessionEdit, SessionField,
+    DiskCleanupDialog, Duplicates, DuplicatesField, ExtractField, FindFile, FindFileField, Flag,
+    McpInstallDialog, McpInstallField, McpInstallProgress, Overlay, SessionEdit, SessionField,
 };
 use crate::search::{SearchField, SearchPrompt};
 
@@ -28,6 +28,7 @@ pub(super) fn click_more_row(overlay: &mut Overlay, index: usize) -> Option<KeyE
         Overlay::Attributes(dialog) => click_attributes_row(dialog, index),
         Overlay::McpInstall(dialog) => click_mcp_install_row(dialog, index),
         Overlay::FindFile(dialog) => click_find_file_row(dialog, index),
+        Overlay::Duplicates(dialog) => click_duplicates_row(dialog, index),
         Overlay::SessionEdit(dialog) => click_session_edit_row(dialog, index),
         Overlay::DiskCleanup(dialog) => click_disk_cleanup_row(dialog, index),
         Overlay::MaskPrompt(prompt) if index == 1 => prompt.focus_cancel(false),
@@ -125,6 +126,18 @@ fn click_find_file_row(dialog: &mut FindFile, index: usize) {
     while dialog.field() != target {
         dialog.tab(true);
     }
+}
+
+/// The form's rows: a label above each text field, so the fields sit at 1, 3, 5 and 7.
+fn click_duplicates_row(dialog: &mut Duplicates, index: usize) {
+    let field = match index {
+        1 => DuplicatesField::Folder,
+        3 => DuplicatesField::Mask,
+        5 => DuplicatesField::MinBlock,
+        7 => DuplicatesField::Groups,
+        _ => return,
+    };
+    dialog.focus(field);
 }
 
 fn click_session_edit_row(dialog: &mut SessionEdit, index: usize) {

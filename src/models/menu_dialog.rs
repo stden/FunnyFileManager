@@ -51,6 +51,11 @@ pub enum ChoiceTarget {
     UpdatePackages(crate::packages::UpdatePlan),
     Directory(PathBuf),
     File(PathBuf),
+    /// A file, opened in the editor with the cursor on its 1-based `line`.
+    FileLine {
+        path: PathBuf,
+        line: usize,
+    },
     Command(String),
     Screen(super::ViewMode),
     Menu(MenuCommand),

@@ -18,6 +18,7 @@ pub fn choose(app: &mut App, target: ChoiceTarget) -> io::Result<()> {
         ChoiceTarget::File(path) => {
             crate::ops::view_path(app, path)?;
         }
+        ChoiceTarget::FileLine { path, line } => crate::editor::open_at_line(app, &path, line),
         ChoiceTarget::Command(text) => {
             let line = crate::models::CommandLine {
                 line: LineEditor::new(&text),
@@ -69,7 +70,7 @@ pub(super) fn shortcuts(app: &mut App) {
     choices(app, "Folder shortcuts — use :bookmark set N to add", rows);
 }
 
-pub(super) fn choices(app: &mut App, title: &str, rows: Vec<MenuChoice>) {
+pub fn choices(app: &mut App, title: &str, rows: Vec<MenuChoice>) {
     app.set_overlay(Overlay::MenuDialog(Box::new(MenuDialog::Choices {
         title: title.to_owned(),
         rows,

@@ -137,6 +137,11 @@ pub(super) const COMMANDS: &[Entry] = &[
         Action::Menu(MenuCommand::Shortcuts),
     ),
     Entry::item(
+        "Find duplicate blocks",
+        "",
+        Action::Menu(MenuCommand::FindDuplicates),
+    ),
+    Entry::item(
         "F&ile panel filter",
         "Ctrl+I",
         Action::Tool(ToolCommand::Filter),

@@ -15,10 +15,10 @@ fn clicking_a_menu_command_row_runs_its_key_and_closes_the_menu() {
     let menu = Menu::open(Heading::Commands);
     app.set_menu(menu);
     // Tall enough for the drop-down to show "Go to root", the row the click
-    // lands on. The Commands menu has 35 entries on Linux, separators
+    // lands on. The Commands menu has 36 entries on Linux, separators
     // included, and the drop-down is clamped to the screen, so the rows that
     // do not fit are never drawn and cannot be clicked.
-    let screen = ratatui::layout::Rect::new(0, 0, 80, 32);
+    let screen = ratatui::layout::Rect::new(0, 0, 80, 40);
     app.dialog_mouse.screen = screen;
 
     let (column, row) = menu_command_position(&menu, screen, "Go to root");

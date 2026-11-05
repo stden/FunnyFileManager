@@ -25,6 +25,7 @@ mod editor;
 pub use crate::values::{entry, image, remote_path};
 pub(crate) use editor::{lsp, pairs, RemoteDocument};
 pub mod database;
+mod duplicates;
 mod file_name;
 mod filter;
 mod findfile;
@@ -87,6 +88,7 @@ pub use disk_cleanup::{
 use drive_entry::windows_drive_paths_from_mask;
 pub use drive_entry::DriveEntry;
 pub use drives::{find_by_key as drive_by_key, rows as drive_rows, DriveRow, RowKind};
+pub use duplicates::{Duplicates, DuplicatesField};
 pub use editor::{
     AfterSave, CharColumn, CompletionTrigger, EditState, Editor, EditorLspState, EditorModal,
     EditorMotion, EditorSelection, ExitChoice, FileFormat, Fingerprint, Indent, LineEnding,
@@ -100,9 +102,6 @@ pub use filter::{FilterPrompt, PanelFilter};
 pub use findfile::{FindFile, FindFileField};
 pub use histlist::HistoryList;
 pub use histories::{FolderHistory, HistoryFile, PathHistory, ViewHistory, Viewed, Visited};
-pub use hotplug::DeviceList;
-pub use lifecycle::Lifecycle;
-pub use lsp_editor::LspEditor;
 pub use overlay::{
     Clash, ClashAnswer, ClashFocus, Confirm, Denial, ElevatedRetry, EntryFacts, ExistingFile,
     LinkType, MaskPrompt, MaskPurpose, NameField, NamePrompt, NamePurpose, OperationFailed,
@@ -146,6 +145,7 @@ pub use tasks::{
 };
 pub use tree::{Branch, Expansion, FolderTree, Guide, TreeRow};
 pub use usermenu::UserMenu;
+pub use {hotplug::DeviceList, lifecycle::Lifecycle, lsp_editor::LspEditor};
 mod menu_dialog;
 pub use menu_dialog::{ChoiceTarget, MenuChoice, MenuDialog, MenuPrompt};
 pub mod settings;

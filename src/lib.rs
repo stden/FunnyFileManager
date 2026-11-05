@@ -92,6 +92,7 @@ pub mod copy;
 pub mod cycle;
 pub mod description;
 pub mod diskfree;
+pub(crate) mod duplicates;
 pub mod editor;
 pub mod encoding;
 mod file_write;

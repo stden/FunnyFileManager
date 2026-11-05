@@ -16,6 +16,7 @@ impl App {
             Overlay::MaskPrompt(prompt) => Some(prompt.line_mut()),
             Overlay::CopyPrompt(prompt) => copy_destination(prompt),
             Overlay::FindFile(dialog) => dialog.active_line_mut(),
+            Overlay::Duplicates(dialog) => dialog.active_line_mut(),
             Overlay::ArchivePrompt(prompt) => archive_name(prompt),
             Overlay::ExtractPrompt(prompt) => extract_destination(prompt),
             Overlay::InputPrompt(prompt) => Some(prompt.input_mut()),

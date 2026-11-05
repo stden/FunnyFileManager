@@ -12,8 +12,8 @@ mod headless;
 #[cfg(any(test, coverage, feature = "test-helpers"))]
 mod scripted;
 
-pub(crate) use builtin::editor_for;
 pub use builtin::handle_edit_builtin;
+pub(crate) use builtin::{editor_for, open_at_line};
 #[cfg(any(test, coverage, feature = "test-helpers"))]
 pub use scripted::{handle_edit_test_mode, TestEditorBehavior};
 
@@ -186,6 +186,8 @@ mod tests_guards;
 mod tests_launch_guards;
 #[cfg(test)]
 mod tests_open;
+#[cfg(test)]
+mod tests_open_at_line;
 // FIFOs and device nodes are the inputs these tests need; neither exists on
 // Windows, so the whole module is Unix-only.
 #[cfg(all(test, unix))]

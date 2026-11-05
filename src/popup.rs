@@ -84,6 +84,7 @@ fn process_menu_dialog(app: &mut App, code: KeyCode, modifiers: KeyModifiers) ->
 fn process_commands_dialog(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> bool {
     match &app.overlay {
         Overlay::FindFile(_) => findfile::process(app, code, modifiers),
+        Overlay::Duplicates(_) => duplicates::process(app, code, modifiers),
         Overlay::CommandHistory(_) => history_list::process(app, code, modifiers),
         Overlay::FindFolder(_) => findfolder::process(app, code, modifiers),
         Overlay::ViewHistory(_) => view_history::process(app, code, modifiers),
@@ -123,6 +124,7 @@ mod confirmation;
 mod copy_prompt;
 mod describe;
 mod drives;
+mod duplicates;
 pub(crate) mod editor;
 mod extract_prompt;
 mod filter;

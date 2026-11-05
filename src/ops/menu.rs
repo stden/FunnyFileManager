@@ -19,9 +19,10 @@ pub mod settings;
 pub mod user;
 mod workflows;
 
+pub use dialogs::choices;
 pub use dialogs::choose;
 // The children open their lists and prompts as `super::choices` / `super::prompt`.
-use dialogs::{choices, history, prompt, shortcuts};
+use dialogs::{history, prompt, shortcuts};
 
 /// Run the row under the cursor of `menu`, as Enter, its letter or a click
 /// does.
@@ -68,6 +69,7 @@ fn execute_result(app: &mut App, command: MenuCommand) -> io::Result<()> {
     match command {
         MenuCommand::Compare => compare::compare(app),
         MenuCommand::Shortcuts => shortcuts(app),
+        MenuCommand::FindDuplicates => crate::ops::duplicates::open(app),
         MenuCommand::Settings(page) => settings::open(app, page),
         MenuCommand::SaveSetup => settings::save(app)?,
         MenuCommand::Devices => workflows::devices(app),

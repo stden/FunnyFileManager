@@ -12,6 +12,7 @@ pub const LAYERS: [(&str, &[&str]); 7] = [
             "casefold",
             "console",
             "cycle",
+            "duplicates",
             "encoding",
             "lineedit",
             "mask",
