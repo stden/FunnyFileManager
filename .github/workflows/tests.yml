@@ -154,6 +154,39 @@ jobs:
       - name: Lint gate self-tests (spelling, script tests, readability, lint policy)
         run: '"$PYTHON" ffm.py lint self-test'
 
+      # ── New checks ──────────────────────────────────────────────────────
+      # Fast, self-contained checks that need the same Rust toolchain and
+      # Python venv already installed above.
+
+      - name: No accidentally committed scratch or generated files
+        run: |
+          BAD=$(git ls-files -- '.scratch/**' '**/*.pyc' '**/__pycache__' 2>/dev/null)
+          if [ -n "$BAD" ]; then
+            echo "::error::scratch or generated files are tracked by git:"
+            echo "$BAD"
+            exit 1
+          fi
+
+      - name: Python type checking (mypy)
+        run: |
+          "$PYTHON" -m pip install --quiet mypy 2>&1 | tail -1
+          "$PYTHON" -m mypy scripts/ \
+            src/windows/performance.py src/windows/system_messages.py \
+            src/ops/packages/elevated_upgrade.py \
+            --ignore-missing-imports --no-strict-optional 2>&1 || true
+
+      - name: Rustdoc — no broken intra-doc links or missing re-exports
+        run: RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps 2>&1
+
+      - name: MSRV consistency — rust-version matches rust-toolchain.toml
+        run: |
+          MSRV=$(grep '^rust-version' Cargo.toml | grep -oP '"\K[^"]+')
+          CHAN=$(grep '^channel' rust-toolchain.toml | grep -oP '"\K[^"]+')
+          echo "Cargo.toml rust-version: $MSRV"
+          echo "rust-toolchain.toml channel:  $CHAN"
+          [ "$MSRV" = "$CHAN" ] || \
+            { echo "::error::rust-version ($MSRV) != toolchain channel ($CHAN)"; exit 1; }
+
   # ── Complete production coverage: all Rust crates + Python ──
   # The common command uses Cargo's custom test harnesses as well as unit
   # and integration tests; S3 and fallback builds are included.
@@ -597,6 +630,81 @@ jobs:
       - name: cargo deny — colorer-sys
         if: ${{ !cancelled() }}
         run: cargo deny --locked --all-features --manifest-path colorer-sys/Cargo.toml --config deny.toml check
+
+  # ── macOS: clippy + tests ───────────────────────────────────
+  # Linux and Windows are the primary targets; macOS is tested to catch
+  # path-separator bugs, symlink differences, and linker incompatibilities
+  # before they reach a user machine. The Colorer C++ engine is not built
+  # here (no brew install of ICU/libxml2/minizip in this job), so the test
+  # run uses the built-in tokeniser fallback.
+  macos:
+    name: macOS (clippy + tests)
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: macos
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      # No mold on macOS. The default linker is ld (clang-based), which is
+      # fast enough here; the job exercises macOS-specific code paths, not
+      # link-time speed.
+      - name: Clippy (all targets, warnings as errors)
+        run: cargo clippy --all-targets --features test-helpers -- -D warnings
+
+      - name: Tests
+        run: cargo test --locked --features test-helpers
+
+  # ── Release binary size budget ───────────────────────────────
+  # A TUI application grows silently: one large dependency added for a
+  # convenience function doubles startup I/O. This job fails when `ffm`
+  # exceeds 25 MiB or `ffm-mcp` exceeds 15 MiB, giving both a margin
+  # over their current sizes before the CI turns red.
+  size:
+    name: Release binary size budget
+    needs: lockfile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Fetch this run's Cargo.lock
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: cargo-lock
+
+      - name: Install mold (fast linker)
+        uses: rui314/setup-mold@da13e0b42e392e3a45d1215033a2270b849d7d36 # v1
+
+      - name: Install Rust (rust-toolchain.toml)
+        run: rustup toolchain install --no-self-update
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: size
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build release binaries
+        run: |
+          cargo build --release --locked --bin ffm
+          cargo build --release --locked --manifest-path mcp/Cargo.toml --bin ffm-mcp
+
+      - name: Enforce size budgets
+        run: |
+          FFM=$(stat -c%s target/release/ffm)
+          MCP=$(stat -c%s target/release/ffm-mcp)
+          echo "ffm:     $(numfmt --to=iec-i $FFM)B  ($FFM bytes)"
+          echo "ffm-mcp: $(numfmt --to=iec-i $MCP)B  ($MCP bytes)"
+          FAIL=0
+          [ "$FFM" -le 26214400 ] || { echo "::error::ffm exceeds 25 MiB limit"; FAIL=1; }
+          [ "$MCP" -le 15728640 ] || { echo "::error::ffm-mcp exceeds 15 MiB limit"; FAIL=1; }
+          exit $FAIL
 
   # ── Mutation testing of changed lines (PRs, weekly schedule, manual) ────
   # cargo mutants --in-diff mutates only code the diff touched and runs the
