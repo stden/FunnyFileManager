@@ -105,7 +105,7 @@ fn read_at_most(file: File, size_hint: u64, limit: u64) -> io::Result<Loaded> {
 /// `_offset` is accepted for backward-compatibility with test call-sites
 /// but ignored: the file is already positioned at the intended offset by
 /// the caller (`File::open`).
-#[cfg(test)]
+#[cfg(all(test, unix))]
 pub(crate) fn read_bounded(file: File, _offset: u64, limit: u64) -> io::Result<Vec<u8>> {
     let mut bytes = Vec::new();
     file.take(limit.saturating_add(1)).read_to_end(&mut bytes)?;
