@@ -1,6 +1,6 @@
-//! Unit tests: TagSpan boundary conditions and cursor-match rules.
+//! Unit tests: `TagSpan` boundary conditions and cursor-match rules.
 
-use super::{TagSpan};
+use super::TagSpan;
 
 fn lines(src: &[&str]) -> Vec<String> {
     src.iter().map(|&s| s.to_owned()).collect()
