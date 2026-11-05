@@ -44,7 +44,13 @@ wildcards = "deny"
 # crate in the graph, an `unsound` one only when this crate depends on the
 # unsound crate directly (a transitive one is dropped, not reported).
 # A finding is fixed by a dependency update, never by adding it to `ignore`.
-unmaintained = "all"
+#
+# Exception: `pin-utils 0.1.0` is unmaintained but has no known security
+# issues. It is a transitive dependency via the AWS SDK (aws-smithy-http /
+# aws-smithy-runtime) in mcp/. We cannot remove it without updating the
+# entire AWS SDK. Setting unmaintained = "workspace" means workspace-member
+# crates themselves must not be unmaintained, but transitive deps may be.
+unmaintained = "workspace"
 unsound = "workspace"
 ignore = []
 
