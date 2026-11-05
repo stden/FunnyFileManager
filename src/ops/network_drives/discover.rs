@@ -102,6 +102,7 @@ fn unescape(text: &str) -> String {
         .replace("\\012", "\n")
         .replace("\\134", "\\")
 }
+#[allow(dead_code, reason = "called on Linux mount-file parsing; macOS uses the NFS path")]
 fn mount(path: String, remote: String, protocol: NetworkProtocol) -> io::Result<NetworkDrive> {
     Ok(NetworkDrive {
         path: MountPoint::try_from(path).map_err(io::Error::other)?,
