@@ -2,8 +2,10 @@
 //! page of Cloudflare's public resolver, read without the token.
 
 use super::client::http_client;
-use crate::models::cloudflare_dns::{CloudflareError, CurrentHost};
-use reqwest::blocking::Client as HttpClient;
+use crate::values::cloudflare_dns::{CloudflareError, CurrentHost};
+use reqwest::blocking::{Client as HttpClient, ClientBuilder};
+#[cfg(test)]
+use std::cell::RefCell;
 use std::{io::Read, net::Ipv4Addr};
 
 /// The resolver's address. Built from its octets, so no dotted literal is written in the source.
@@ -19,12 +21,17 @@ pub fn detect() -> Result<CurrentHost, CloudflareError> {
 }
 
 fn local_hostname() -> Option<String> {
-    let primary = if cfg!(windows) {
-        std::env::var("COMPUTERNAME").ok()
-    } else {
-        std::fs::read_to_string(LOCAL_HOSTNAME_FILE).ok()
-    };
-    hostname_from(primary, std::env::var("HOSTNAME").ok())
+    hostname_from(primary_hostname(), std::env::var("HOSTNAME").ok())
+}
+
+#[cfg(windows)]
+fn primary_hostname() -> Option<String> {
+    std::env::var("COMPUTERNAME").ok()
+}
+
+#[cfg(not(windows))]
+fn primary_hostname() -> Option<String> {
+    std::fs::read_to_string(LOCAL_HOSTNAME_FILE).ok()
 }
 
 /// The first of the two sources that is not blank, trimmed.
@@ -72,8 +79,8 @@ pub fn checked(ip: Ipv4Addr) -> Result<Ipv4Addr, CloudflareError> {
 }
 
 fn fetch_trace() -> Result<String, CloudflareError> {
-    let http: HttpClient = http_client(HttpClient::builder().https_only(true))?;
-    let url = format!("https://{TRACE_HOST}{TRACE_PATH}");
+    let (builder, url) = trace_endpoint();
+    let http: HttpClient = http_client(builder)?;
     let response = http
         .get(url)
         .send()
@@ -91,4 +98,22 @@ fn fetch_trace() -> Result<String, CloudflareError> {
         return Err(CloudflareError::Limit);
     }
     String::from_utf8(bytes).map_err(|_error| CloudflareError::InvalidResponse)
+}
+
+/// The trace page's client builder and address. Production reads it over HTTPS only; a test may
+/// point it at a loopback server instead.
+pub(super) fn trace_endpoint() -> (ClientBuilder, String) {
+    #[cfg(test)]
+    if let Some(url) = TEST_TRACE_URL.with(|cell| cell.borrow().clone()) {
+        return (HttpClient::builder(), url);
+    }
+    (
+        HttpClient::builder().https_only(true),
+        format!("https://{TRACE_HOST}{TRACE_PATH}"),
+    )
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(super) static TEST_TRACE_URL: RefCell<Option<String>> = const { RefCell::new(None) };
 }

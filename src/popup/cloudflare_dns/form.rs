@@ -3,15 +3,11 @@
 //! back to the list.
 
 use super::typed;
-use crate::models::cloudflare_dns::{FormField, RecordForm, View};
-use crate::models::{App, Overlay};
+use crate::models::cloudflare_dns::{CloudflareDnsPanel, FormField, RecordForm, View};
 use crate::ops::cloudflare_dns as ops;
 use crossterm::event::{KeyCode, KeyModifiers};
 
-pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
-    let Overlay::CloudflareDns(panel) = &mut app.overlay else {
-        return;
-    };
+pub(super) fn process(panel: &mut CloudflareDnsPanel, code: KeyCode, modifiers: KeyModifiers) {
     match code {
         KeyCode::Esc => ops::back(panel),
         KeyCode::Enter => ops::review(panel),

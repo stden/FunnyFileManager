@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::cloudflare_dns::client::Client;
+use crate::cloudflare_dns::token::Token;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc;
@@ -11,11 +12,11 @@ use std::time::Duration;
 const BASE_PATH: &str = "/client/v4";
 const DUMMY_TOKEN: &str = "test-token-000";
 
-fn secret() -> token::Token {
-    token::Token::from_value(Some(DUMMY_TOKEN.to_owned())).expect("a token")
+pub(super) fn secret() -> Token {
+    Token::from_value(Some(DUMMY_TOKEN.to_owned())).expect("a token")
 }
 
-fn json_response(status: &str, body: &str) -> String {
+pub(super) fn json_response(status: &str, body: &str) -> String {
     format!(
         "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\
          Connection: close\r\n\r\n{body}",
@@ -38,7 +39,7 @@ fn read_head(stream: &mut TcpStream) -> String {
 
 /// Answers exactly one connection with `response`, then closes the listener. The head
 /// it read comes back on the channel, so a test can check the request it received.
-fn serve_once(response: String) -> (String, mpsc::Receiver<String>) {
+pub(super) fn serve_once(response: String) -> (String, mpsc::Receiver<String>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
     let address = listener.local_addr().expect("address");
     let (sender, receiver) = mpsc::channel();
@@ -122,4 +123,32 @@ fn a_refusal_without_an_envelope_is_an_access_denial() {
     let (base, _head) = serve_once(json_response("401 Unauthorized", "not json"));
     let mut client = Client::with_base(secret(), &base).expect("client");
     assert_eq!(list::zones(&mut client), Err(CloudflareError::AccessDenied));
+}
+
+#[test]
+fn a_token_with_a_line_break_is_refused_before_any_request() {
+    let token = Token::from_value(Some("secret\nvalue".to_owned())).expect("a token");
+    let mut client = Client::with_base(token, "http://127.0.0.1:9/client/v4").expect("client");
+    assert!(matches!(
+        list::zones(&mut client),
+        Err(CloudflareError::Invalid(_))
+    ));
+}
+
+#[test]
+fn a_success_that_is_not_json_is_an_invalid_response() {
+    let (base, _head) = serve_once(json_response("200 OK", "not json"));
+    let mut client = Client::with_base(secret(), &base).expect("client");
+    assert_eq!(
+        list::zones(&mut client),
+        Err(CloudflareError::InvalidResponse)
+    );
+}
+
+#[test]
+fn an_answer_larger_than_the_client_reads_is_refused() {
+    let body = "x".repeat(2 * 1024 * 1024 + 1);
+    let (base, _head) = serve_once(json_response("200 OK", &body));
+    let mut client = Client::with_base(secret(), &base).expect("client");
+    assert_eq!(list::zones(&mut client), Err(CloudflareError::Limit));
 }

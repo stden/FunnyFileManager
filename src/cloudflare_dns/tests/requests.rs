@@ -1,7 +1,7 @@
 //! Purpose: Each request becomes the one call it names, and its answer is the reply for it.
 
 use super::*;
-use crate::models::cloudflare_dns::{Proxy, Record, RecordId, RecordUpdate, Ttl, Zone, ZoneId};
+use crate::values::cloudflare_dns::{Proxy, Record, RecordId, RecordUpdate, Ttl, Zone, ZoneId};
 use serde_json::json;
 
 #[test]
@@ -37,7 +37,7 @@ fn a_write_request_sends_the_patch_of_its_change() {
                    "content": "203.0.113.9", "ttl": 300, "proxied": false}
     });
     let mut fake = Fake::answering([Ok(saved)]);
-    let change = crate::models::cloudflare_dns::Change::Update(RecordUpdate {
+    let change = crate::values::cloudflare_dns::Change::Update(RecordUpdate {
         zone: Zone {
             id: ZoneId::new(ZONE_ID),
             name: "example.com".to_owned(),

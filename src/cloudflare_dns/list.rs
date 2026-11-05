@@ -2,7 +2,7 @@
 
 use super::call::{self, Call, Transport};
 use super::codec;
-use crate::models::cloudflare_dns::{CloudflareError, Record, Zone, ZoneId};
+use crate::values::cloudflare_dns::{CloudflareError, Record, Zone, ZoneId};
 use serde_json::Value;
 
 /// The most pages one listing reads: at a hundred records a page, ten thousand records.

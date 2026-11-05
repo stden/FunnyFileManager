@@ -1,7 +1,7 @@
 //! Purpose: Requests address only the zone and record the caller named, with their ids encoded.
 
 use super::*;
-use crate::models::cloudflare_dns::{RecordId, ZoneId};
+use crate::values::cloudflare_dns::{RecordId, ZoneId};
 use serde_json::json;
 
 #[test]

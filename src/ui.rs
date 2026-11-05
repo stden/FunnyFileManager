@@ -1,15 +1,11 @@
 //! Purpose: Renders the dual-panel terminal UI, status bars, and core layout.
-use ratatui::{
-    layout::Rect,
-    style::{Color, Style},
-    text::Line,
-    widgets::{Block, BorderType, Borders, Clear, Padding},
-    Frame,
-};
+use ratatui::{layout::Rect, widgets::Clear, Frame};
 
 #[cfg(test)]
 use crate::models::Viewer;
 use crate::models::{App, Overlay, ViewMode};
+#[cfg(test)]
+use ratatui::style::{Color, Style};
 
 mod apply;
 mod archive_commands;
@@ -35,6 +31,7 @@ mod findfile;
 mod findfolder;
 mod fkey_bar;
 mod folder_history;
+mod frame;
 mod history_list;
 mod hotplug;
 pub(crate) mod image;
@@ -106,6 +103,8 @@ use command_line::render_command_line;
 use command_prompt::prompt_spans;
 use completion::render_completion_menu;
 pub use fkey_bar::FKEY_COUNT;
+use frame::FAR_BLUE;
+use frame::{active_title_style, dialog_frame, far_block};
 pub use layout::{centered_rect, panel_page_size, FALLBACK_TERMINAL_HEIGHT};
 use layout::{
     MENU_BAR_HEIGHT, PANEL_BORDERS, PANEL_COLUMN_HEADER, PANEL_COLUMN_RULE, PANEL_INFO_ROW,
@@ -113,43 +112,11 @@ use layout::{
 };
 pub use progress::progress_dialog;
 
-/// The panel ground. Kept as a name because it is referenced all over the
-/// interface; the value itself lives in [`palette`] with the rest of the scheme.
-pub(crate) const FAR_BLUE: Color = palette::BACKGROUND;
-
-/// Base frame used throughout the interface. Far Manager's panels and dialogs
-/// use double-line box drawing, so every framed widget starts here instead of
-/// selecting its border independently.
-pub(super) fn far_block() -> Block<'static> {
-    Block::default()
-        .borders(Borders::ALL)
-        .border_type(BorderType::Double)
-}
-
-pub(super) fn dialog_frame<'a>(title: &'a str, footer: &'a str, ground: Style) -> Block<'a> {
-    far_block()
-        .title(Line::from(title).centered())
-        .title_bottom(Line::from(footer).centered())
-        .border_style(Style::default().fg(palette::DRIVE_FG))
-        .padding(Padding::horizontal(1))
-        .style(ground)
-}
-
 pub(super) fn entry_label(path: &std::path::Path) -> String {
     path.file_name().map_or_else(
         || printable_name(&path.display().to_string()).into_owned(),
         |name| printable_name(&name.to_string_lossy()).into_owned(),
     )
-}
-
-pub(super) fn active_title_style(is_active: bool) -> Style {
-    if is_active {
-        Style::default()
-            .fg(palette::HIGHLIGHT_FG)
-            .bg(palette::HIGHLIGHT_BG)
-    } else {
-        Style::default().fg(palette::FRAME).bg(FAR_BLUE)
-    }
 }
 
 pub(super) const fn scroll_percent(top: usize, rows: usize, total: usize) -> usize {

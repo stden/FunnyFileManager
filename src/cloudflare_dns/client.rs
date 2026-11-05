@@ -4,7 +4,7 @@
 use super::call::{Call, Method, Transport};
 use super::codec;
 use super::token::Token;
-use crate::models::cloudflare_dns::CloudflareError;
+use crate::values::cloudflare_dns::CloudflareError;
 use reqwest::{
     blocking::{Client as HttpClient, ClientBuilder, Response},
     header::{self, HeaderMap, HeaderValue},
@@ -29,12 +29,9 @@ pub struct Client {
 impl Client {
     pub(crate) fn from_environment() -> Result<Self, CloudflareError> {
         let token = Token::from_environment()?;
-        let http = http_client(HttpClient::builder().https_only(true))?;
-        Ok(Self {
-            http,
-            token,
-            base: API_BASE.to_owned(),
-        })
+        let (builder, base) = api_endpoint();
+        let http = http_client(builder)?;
+        Ok(Self { http, token, base })
     }
 
     /// A client for `base` over plain HTTP. Loopback tests only: production never has another base.
@@ -118,4 +115,19 @@ fn read_response(response: Response) -> Result<Value, CloudflareError> {
         (401 | 403, _) => Err(CloudflareError::AccessDenied),
         (code, _) => Err(CloudflareError::Status(code)),
     }
+}
+
+/// The API's client builder and base address. Production talks to the API over HTTPS only; a test
+/// may point it at a loopback server instead.
+fn api_endpoint() -> (ClientBuilder, String) {
+    #[cfg(test)]
+    if let Some(base) = TEST_API_BASE.with(|cell| cell.borrow().clone()) {
+        return (HttpClient::builder(), base);
+    }
+    (HttpClient::builder().https_only(true), API_BASE.to_owned())
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(super) static TEST_API_BASE: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
 }

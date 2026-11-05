@@ -1,7 +1,7 @@
 //! Purpose: Record names, addresses, TTLs and the proxy rule are checked before any request.
 
 use super::*;
-use crate::models::cloudflare_dns::{Proxy, Ttl};
+use crate::values::cloudflare_dns::{Proxy, Ttl};
 
 fn label() -> String {
     "a".repeat(63)

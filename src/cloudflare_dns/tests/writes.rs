@@ -2,7 +2,7 @@
 //! applied change is one write request.
 
 use super::*;
-use crate::models::cloudflare_dns::{
+use crate::values::cloudflare_dns::{
     Change, NewRecord, Proxy, Record, RecordId, RecordUpdate, Ttl, Zone, ZoneId,
 };
 use serde_json::json;

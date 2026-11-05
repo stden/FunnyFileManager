@@ -188,3 +188,6 @@ fn enter_on_the_confirmation_queues_the_write_and_escape_does_not_during_a_save(
         "a save is not abandoned"
     );
 }
+
+#[cfg(test)]
+mod keys;

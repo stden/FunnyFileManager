@@ -1,7 +1,7 @@
 //! Purpose: A hostname belongs to the zone with the longest name that ends it, on a label boundary.
 
 use super::*;
-use crate::models::cloudflare_dns::{Zone, ZoneId};
+use crate::values::cloudflare_dns::{Zone, ZoneId};
 
 fn zone(name: &str) -> Zone {
     Zone {
@@ -53,4 +53,14 @@ fn a_record_name_is_relative_to_its_zone() {
         "example.com",
         "the apex keeps the zone name"
     );
+}
+
+#[test]
+fn a_host_outside_the_zone_keeps_its_whole_name() {
+    use crate::values::cloudflare_dns::{Zone, ZoneId};
+    let zone = Zone {
+        id: ZoneId::new("0000000000000000000000000000000a"),
+        name: "example.com".to_owned(),
+    };
+    assert_eq!(relative_name("host.example.net", &zone), "host.example.net");
 }

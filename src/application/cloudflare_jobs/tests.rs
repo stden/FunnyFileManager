@@ -8,6 +8,7 @@ use std::sync::mpsc as channel;
 use std::time::{Duration, Instant};
 
 mod guard;
+mod in_flight;
 
 fn app(temp: &tempfile::TempDir) -> App {
     let panel = Panel::from_entries(temp.path().to_path_buf(), Vec::new());
@@ -149,4 +150,28 @@ fn a_worker_that_dies_is_reported_as_a_worker_failure() {
     finish(&mut jobs, &mut app);
     assert_eq!(panel(&app).status, CloudflareError::Worker.message());
     assert_eq!(panel(&app).busy, None);
+}
+
+#[test]
+fn pumping_without_the_dialog_starts_nothing() {
+    let temp = tempfile::TempDir::new().expect("temp");
+    let mut app = app(&temp);
+    let mut jobs = CloudflareJobs::default();
+    jobs.pump_with(&mut app, |_| panic!("no request is queued"));
+    assert!(jobs.pending.is_none());
+}
+
+#[test]
+fn a_worker_the_system_refuses_is_reported_on_the_dialog() {
+    let temp = tempfile::TempDir::new().expect("temp");
+    let mut app = app(&temp);
+    let mut dialog = CloudflareDnsPanel::new();
+    dialog.enqueue(Request::Zones);
+    app.set_overlay(Overlay::CloudflareDns(Box::new(dialog)));
+    REFUSE_SPAWN.with(|cell| cell.set(true));
+    let mut jobs = CloudflareJobs::default();
+    jobs.pump_with(&mut app, |_| zones_reply());
+    assert!(jobs.pending.is_none());
+    assert_eq!(panel(&app).status, CloudflareError::Worker.message());
+    assert!(panel(&app).busy.is_none());
 }

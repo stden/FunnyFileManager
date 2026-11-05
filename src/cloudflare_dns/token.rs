@@ -1,6 +1,6 @@
 //! Purpose: The API token, read from its variable, sent only as a bearer value, and never printed.
 
-use crate::models::cloudflare_dns::{CloudflareError, TOKEN_VARIABLE};
+use crate::values::cloudflare_dns::{CloudflareError, TOKEN_VARIABLE};
 use std::fmt;
 use zeroize::Zeroizing;
 

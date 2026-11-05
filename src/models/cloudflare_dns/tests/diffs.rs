@@ -2,6 +2,7 @@
 //! change; a create names the full record name.
 
 use super::*;
+use crate::values::cloudflare_dns::full_name;
 
 #[test]
 fn update_confirmation_names_the_zone_record_and_only_the_changed_values() {
@@ -68,13 +69,7 @@ fn create_confirmation_names_the_full_record_name() {
 
 #[test]
 fn a_name_that_already_ends_with_the_zone_is_not_repeated() {
-    assert_eq!(
-        change::full_name("example.com", "example.com"),
-        "example.com"
-    );
-    assert_eq!(
-        change::full_name("a.example.com", "example.com"),
-        "a.example.com"
-    );
-    assert_eq!(change::full_name("host", "example.com"), "host.example.com");
+    assert_eq!(full_name("example.com", "example.com"), "example.com");
+    assert_eq!(full_name("a.example.com", "example.com"), "a.example.com");
+    assert_eq!(full_name("host", "example.com"), "host.example.com");
 }

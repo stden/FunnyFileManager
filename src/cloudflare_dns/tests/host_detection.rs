@@ -2,7 +2,7 @@
 //! that is private, loopback or unspecified.
 
 use super::*;
-use crate::models::cloudflare_dns::CurrentHost;
+use crate::values::cloudflare_dns::CurrentHost;
 use std::net::Ipv4Addr;
 
 const TRACE: &str = "fl=1\nh=example\nip=203.0.113.9\nts=1\n";
@@ -79,4 +79,51 @@ fn a_missing_hostname_is_an_error_of_its_own() {
         host::current(None, || Ok(TRACE.to_owned())),
         Err(CloudflareError::HostName)
     );
+}
+
+/// Points the trace page at a loopback server that answers `response` once.
+fn trace_served(response: String) {
+    let (base, _head) = http::serve_once(response);
+    host::TEST_TRACE_URL.with(|cell| *cell.borrow_mut() = Some(base));
+}
+
+#[test]
+fn the_address_is_read_from_the_trace_page() {
+    trace_served(http::json_response("200 OK", "ip=203.0.113.9\n"));
+    let host = host::detect().expect("the hostname is known");
+    assert_eq!(host.ipv4, Ok("203.0.113.9".to_owned()));
+}
+
+#[test]
+fn a_failed_trace_page_is_the_reason_the_address_is_missing() {
+    trace_served(http::json_response("500 Internal Server Error", ""));
+    let host = host::detect().expect("the hostname is known");
+    assert_eq!(host.ipv4, Err(CloudflareError::Status(500)));
+}
+
+#[test]
+fn the_trace_page_is_read_over_https_unless_a_test_redirects_it() {
+    let (_builder, url) = host::trace_endpoint();
+    assert_eq!(
+        url,
+        format!("https://{}/cdn-cgi/trace", Ipv4Addr::new(1, 1, 1, 1))
+    );
+}
+
+#[test]
+fn the_host_request_is_answered_through_fetch_and_through_a_transport() {
+    trace_served(http::json_response("200 OK", "ip=203.0.113.9\n"));
+    assert!(matches!(fetch(Request::Host), Reply::Host(Ok(_))));
+    let mut transport = Fake::default();
+    assert!(matches!(
+        execute(&mut transport, Request::Host),
+        Reply::Host(Ok(_))
+    ));
+}
+
+#[test]
+fn a_trace_page_over_its_limit_is_refused() {
+    trace_served(http::json_response("200 OK", &"x".repeat(64 * 1024 + 1)));
+    let host = host::detect().expect("the hostname is known");
+    assert_eq!(host.ipv4, Err(CloudflareError::Limit));
 }

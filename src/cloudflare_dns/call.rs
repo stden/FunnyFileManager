@@ -1,7 +1,7 @@
 //! Purpose: The requests the client sends: method, path with every id percent-encoded, query and
 //! body. The methods are the three the editor uses; there is no DELETE.
 
-use crate::models::cloudflare_dns::{CloudflareError, RecordId, ZoneId};
+use crate::values::cloudflare_dns::{CloudflareError, RecordId, ZoneId};
 use serde_json::Value;
 
 /// Zones read per page: the most the zone listing accepts.

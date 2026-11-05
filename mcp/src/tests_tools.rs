@@ -14,6 +14,7 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
+mod tests_permissions;
 
 /// A server sandboxed to a fresh temp directory, plus that canonical root.
 fn server_at(dir: &TempDir) -> (FfmServer, PathBuf) {

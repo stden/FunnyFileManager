@@ -12,15 +12,24 @@ use crate::models::{App, Overlay};
 use crossterm::event::{KeyCode, KeyModifiers};
 
 pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> bool {
-    let Overlay::CloudflareDns(panel) = &app.overlay else {
+    let Overlay::CloudflareDns(panel) = &mut app.overlay else {
         return false;
     };
     let kind = panel.view.kind();
     let busy = panel.busy.is_some();
-    match kind {
-        ViewKind::Browse => browse::process(app, code, modifiers),
-        ViewKind::Edit => form::process(app, code, modifiers),
-        ViewKind::Confirm => confirm::process(app, code, busy),
+    let close = match kind {
+        ViewKind::Browse => browse::process(panel, code, modifiers),
+        ViewKind::Edit => {
+            form::process(panel, code, modifiers);
+            false
+        }
+        ViewKind::Confirm => {
+            confirm::process(panel, code, busy);
+            false
+        }
+    };
+    if close {
+        app.close_overlay();
     }
     true
 }

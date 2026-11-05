@@ -69,3 +69,14 @@ fn only_the_proxy_field_toggles_and_only_when_the_record_can_be_proxied() {
         "text goes to the content field"
     );
 }
+
+#[test]
+fn a_field_the_form_does_not_show_is_left_where_it_is() {
+    let mut form = RecordForm::edit(
+        zone("0000000000000000000000000000000a", "example.com"),
+        record("0000000000000000000000000000000b", "A", Proxy::Off),
+    );
+    form.field = FormField::Name;
+    form.step(true);
+    assert_eq!(form.field, FormField::Name);
+}

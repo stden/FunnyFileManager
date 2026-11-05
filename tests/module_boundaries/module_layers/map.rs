@@ -27,6 +27,7 @@ pub const LAYERS: [(&str, &[&str]); 7] = [
             "associations",
             "clipboard",
             "clock",
+            "cloudflare_dns",
             "config",
             "description",
             "diagnostics",

@@ -34,6 +34,12 @@ fn ensure_writable_and_refuse_unwritable_reject_readonly_file() {
     perms.set_readonly(true);
     std::fs::set_permissions(&locked, perms).unwrap();
 
+    if crate::platform::is_root() {
+        // Root may write a read-only file, so the guard must let it through.
+        assert!(super::refuse_unwritable(&locked).is_ok());
+        assert!(super::ensure_writable(&locked).is_ok());
+        return;
+    }
     let refusal = super::refuse_unwritable(&locked).unwrap_err();
     assert_eq!(refusal.kind(), std::io::ErrorKind::PermissionDenied);
     assert_ne!(refusal.to_string(), "");

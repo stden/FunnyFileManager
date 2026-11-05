@@ -6,6 +6,7 @@ use super::*;
 mod diffs;
 mod form_fields;
 mod panel_state;
+mod selection;
 
 pub(super) fn zone(id: &str, name: &str) -> Zone {
     Zone {

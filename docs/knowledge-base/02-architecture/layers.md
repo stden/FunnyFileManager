@@ -26,7 +26,7 @@ marked `#[cfg(test)]` inside `impl` blocks are still read.
    `encoding`, `lineedit`, `mask`, `path_display`, `scroll`, `space_verdict`.
 2. **adapters**: everything that touches the outside world: files, processes,
    terminals, the network, the operating system, the clock and configuration on
-   disk. Modules: `associations`, `clipboard`, `clock`, `config`, `description`,
+   disk. Modules: `associations`, `clipboard`, `clock`, `cloudflare_dns`, `config`, `description`,
    `diagnostics`, `directory`, `diskfree`, `fileload`, `file_write`, `git`,
    `highlight`, `history`, `i18n`, `images`, `keepass`, `lsp`, `mcp_clients`,
    `packages`, `panel_session`, `performance`, `platform`, `process_table`,

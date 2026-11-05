@@ -1,7 +1,7 @@
 //! Purpose: The checks run before any request: record names, the addresses an `A` or `AAAA` record
 //! holds, TTLs, and the proxy rule. Each refusal says what is wrong with the value.
 
-use crate::models::cloudflare_dns::{CloudflareError, Proxy, Ttl};
+use crate::values::cloudflare_dns::{CloudflareError, Proxy, Ttl};
 use std::net::{Ipv4Addr, Ipv6Addr};
 
 /// The longest name, and the longest label, the DNS allows.

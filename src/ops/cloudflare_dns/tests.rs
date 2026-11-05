@@ -9,6 +9,9 @@ use crate::models::Panel;
 
 mod answers;
 mod confirm;
+mod form_paths;
+mod host;
+mod menu_row;
 
 pub(super) const ZONE_A: &str = "0000000000000000000000000000000a";
 pub(super) const ZONE_B: &str = "0000000000000000000000000000000c";

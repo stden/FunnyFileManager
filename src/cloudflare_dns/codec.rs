@@ -1,7 +1,7 @@
 //! Purpose: Cloudflare answers decoded into zones, records and page counts, and error envelopes
 //! reduced to their first error, with the text made safe to show on one line.
 
-use crate::models::cloudflare_dns::{CloudflareError, Proxy, Record, RecordId, Ttl, Zone, ZoneId};
+use crate::values::cloudflare_dns::{CloudflareError, Proxy, Record, RecordId, Ttl, Zone, ZoneId};
 use serde_json::Value;
 
 /// The longest error message shown.

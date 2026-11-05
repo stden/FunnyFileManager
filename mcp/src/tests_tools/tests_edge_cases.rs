@@ -1,33 +1,21 @@
 //! Edge-case tests for replace, bookmarks, batch/transfer root guards, cleanup, permissions, text format, stats, kbdx, and automation errors.
 
+use super::tests_permissions::{set_locked_state, writes_through_read_only};
 use super::{server_at, tool_json, write_file_at, Parameters, TempDir};
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use std::fs;
-use std::path::Path;
 
 fn p<T: DeserializeOwned>(val: Value) -> Parameters<T> {
     Parameters(serde_json::from_value(val).expect("params"))
 }
 
-fn set_locked_state(dir: &Path, file: &Path, lock: bool) {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = file;
-        let mode = if lock { 0o555 } else { 0o755 };
-        fs::set_permissions(dir, fs::Permissions::from_mode(mode)).unwrap();
-    }
-    #[cfg(not(unix))]
-    {
-        let _ = dir;
-        drop(crate::fsops::apply_readonly(file, lock));
-    }
-}
-
 #[test]
 fn replace_recurses_and_records_size_and_readonly_errors() {
     let dir = TempDir::new().expect("temp");
+    if writes_through_read_only(dir.path()) {
+        return;
+    }
     let (server, root) = server_at(&dir);
     write_file_at(&root.join("sub/nested.txt"), "swap_me");
     write_file_at(&root.join("huge.txt"), &"x".repeat(10_240));

@@ -1,6 +1,6 @@
 //! Purpose: Which zone a hostname belongs to, and the name a record takes under that zone.
 
-use crate::models::cloudflare_dns::Zone;
+use crate::values::cloudflare_dns::Zone;
 
 /// The zone with the longest name that ends `hostname`, on a label boundary: `example.com` ends
 /// `host.example.com`, but not `hostexample.com`.

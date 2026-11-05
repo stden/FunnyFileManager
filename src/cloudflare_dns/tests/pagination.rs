@@ -1,7 +1,7 @@
 //! Purpose: Lists read every page the result info names, and refuse an endless listing.
 
 use super::*;
-use crate::models::cloudflare_dns::ZoneId;
+use crate::values::cloudflare_dns::ZoneId;
 use serde_json::json;
 
 fn zone_page(name: &str, page: u32, total: u32) -> Result<Value, CloudflareError> {

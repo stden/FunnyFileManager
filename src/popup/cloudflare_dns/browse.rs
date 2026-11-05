@@ -2,21 +2,21 @@
 //! `a` and `r` ask for the host and the zones. Esc and F10 close the dialog.
 
 use super::typed;
-use crate::models::cloudflare_dns::Focus;
-use crate::models::{App, Overlay};
+use crate::models::cloudflare_dns::{CloudflareDnsPanel, Focus};
 use crate::ops::cloudflare_dns as ops;
 use crossterm::event::{KeyCode, KeyModifiers};
 
-pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
+/// Returns whether the dialog closes.
+pub(super) fn process(
+    panel: &mut CloudflareDnsPanel,
+    code: KeyCode,
+    modifiers: KeyModifiers,
+) -> bool {
     if matches!(code, KeyCode::Esc | KeyCode::F(10)) {
-        app.close_overlay();
-        return;
+        return true;
     }
-    let Overlay::CloudflareDns(panel) = &mut app.overlay else {
-        return;
-    };
     if panel.busy.is_some() {
-        return;
+        return false;
     }
     match code {
         KeyCode::Up => ops::step(panel, false),
@@ -33,4 +33,5 @@ pub(super) fn process(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
         },
         _ => {}
     }
+    false
 }

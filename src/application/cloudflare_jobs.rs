@@ -99,11 +99,20 @@ fn spawn(
     request: Request,
     fetch: impl FnOnce(Request) -> Reply + Send + 'static,
 ) -> std::io::Result<std::thread::JoinHandle<()>> {
+    #[cfg(test)]
+    if REFUSE_SPAWN.with(std::cell::Cell::take) {
+        return Err(std::io::Error::other("the thread was refused"));
+    }
     std::thread::Builder::new()
         .name("ffm-cloudflare-dns".to_owned())
         .spawn(move || {
             drop(sender.send(fetch(request))); // Closing the dialog may discard its answer.
         })
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(super) static REFUSE_SPAWN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 #[cfg(test)]

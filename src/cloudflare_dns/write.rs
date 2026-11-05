@@ -3,7 +3,7 @@
 
 use super::call::{self, Transport};
 use super::codec;
-use crate::models::cloudflare_dns::{
+use crate::values::cloudflare_dns::{
     Change, CloudflareError, NewRecord, Proxy, Record, RecordUpdate, Ttl,
 };
 use serde_json::{json, Map, Value};

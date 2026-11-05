@@ -2,7 +2,7 @@
 //! error, sanitised.
 
 use super::*;
-use crate::models::cloudflare_dns::{Proxy, Ttl};
+use crate::values::cloudflare_dns::{Proxy, Ttl};
 use serde_json::json;
 
 #[test]
@@ -111,4 +111,17 @@ fn an_error_message_is_stripped_of_control_characters_and_capped() {
         "no escape sequence reaches the screen"
     );
     assert!(message.chars().count() <= 200);
+}
+
+#[test]
+fn a_proxy_flag_that_is_not_a_boolean_is_refused() {
+    let value = json!({"result": {
+        "id": "0000000000000000000000000000000b",
+        "type": "A",
+        "name": "www.example.com",
+        "content": "203.0.113.5",
+        "ttl": 300,
+        "proxied": "yes"
+    }});
+    assert_eq!(codec::record(&value), Err(CloudflareError::InvalidResponse));
 }

@@ -14,7 +14,7 @@ mod zone;
 #[cfg(test)]
 mod tests;
 
-use crate::models::cloudflare_dns::{CloudflareError, Reply, Request};
+use crate::values::cloudflare_dns::{CloudflareError, Reply, Request};
 
 pub use call::Transport;
 #[cfg(test)]

@@ -113,3 +113,47 @@ fn the_list_window_keeps_the_cursor_on_screen() {
     assert!(shown.contains(&15));
     assert!(window(20, 19, 5).contains(&19));
 }
+
+#[test]
+fn an_empty_dialog_says_there_are_no_zones() {
+    let temp = tempfile::TempDir::new().expect("temp");
+    let mut app = app_showing(CloudflareDnsPanel::new(), &temp);
+    let text = render_text(&mut app);
+    assert!(text.contains("No zones"));
+    assert!(text.contains("Records"));
+}
+
+#[test]
+fn a_zone_without_records_says_so() {
+    let temp = tempfile::TempDir::new().expect("temp");
+    let mut panel = CloudflareDnsPanel::new();
+    panel.set_zones(vec![zone()]);
+    let mut app = app_showing(panel, &temp);
+    assert!(render_text(&mut app).contains("No records in this zone"));
+}
+
+#[test]
+fn an_existing_record_is_named_and_a_type_without_a_proxy_says_so() {
+    let temp = tempfile::TempDir::new().expect("temp");
+    let mut panel = loaded();
+    let mut txt_record = record();
+    txt_record.kind = "TXT".to_owned();
+    txt_record.proxy = Proxy::Unsupported;
+    panel.view = View::Edit(Box::new(RecordForm::edit(zone(), txt_record)));
+    let mut app = app_showing(panel, &temp);
+    let text = render_text(&mut app);
+    assert!(text.contains("Record: www.example.com (TXT)"));
+    assert!(text.contains("Proxied: not available for this record type"));
+}
+
+#[test]
+fn the_status_line_names_the_request_in_flight() {
+    use crate::values::cloudflare_dns::Busy;
+    let mut panel = CloudflareDnsPanel::new();
+    panel.busy = Some(Busy::Records);
+    assert_eq!(super::lines::status(&panel), "Loading records...");
+    panel.busy = Some(Busy::Host);
+    assert_eq!(super::lines::status(&panel), "Reading this host...");
+    panel.busy = Some(Busy::Saving);
+    assert_eq!(super::lines::status(&panel), "Saving...");
+}
