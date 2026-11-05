@@ -29,6 +29,8 @@ pub enum MenuCommand {
     SpaceAnalysis,
     /// The machines of the Things catalog, imported as sessions.
     ThingsCatalog,
+    /// The `:cleanup` checklist: temporary files and tool caches.
+    DiskCleanup,
     Settings(SettingsPage),
     /// `Shift+F9`.
     SaveSetup,

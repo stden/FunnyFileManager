@@ -1,10 +1,11 @@
 //! Purpose: Scoped cleanup filesystem access and accounting for successful deletions.
 
-use std::fs;
-use std::io;
 use std::path::{Path, PathBuf};
+use std::{fs, io};
 
 use crate::models::{CleanupCandidate, CleanupKind, FileSize};
+
+mod scoped;
 
 #[derive(Default)]
 pub(super) struct CleanupOutcome {
@@ -94,6 +95,7 @@ pub(super) fn cleanup(candidates: &[CleanupCandidate]) -> CleanupOutcome {
             CleanupKind::Path => _ = outcome.record(remove_path(&candidate.path)),
             CleanupKind::Contents => _ = outcome.clear_contents(&candidate.path),
             CleanupKind::HeapDumps => outcome.remove_heap_dumps(&candidate.path),
+            CleanupKind::Temp(scope) => outcome.remove_scope(&candidate.path, scope),
         }
     }
     outcome
@@ -123,6 +125,7 @@ pub(super) fn measure(candidate: &CleanupCandidate) -> io::Result<Option<FileSiz
             let bytes = dumps.iter().map(|dump| dump.size.bytes()).sum();
             (!dumps.is_empty()).then_some(bytes)
         }),
+        CleanupKind::Temp(scope) => scoped::measure(&candidate.path, scope),
     };
     match measured {
         Ok(bytes) => Ok(bytes.map(FileSize::from_bytes)),

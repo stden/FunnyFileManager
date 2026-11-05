@@ -26,6 +26,30 @@ servers dialog (`models/lsp_editor`, `ops/lsp_editor`), which inspects and
 edits the editor's servers; see
 [the editor's language servers](../../editor-lsp.md#configuration).
 
+**Disk cleanup** (Commands, or `:cleanup`) opens a checklist of temporary files
+and tool caches (`models/disk_cleanup`, `ops/disk_cleanup`). Each row names its
+folder and what it removes. Sizes are measured when the dialog opens, and only
+ticked rows are removed. A row starts ticked when what it removes is temporary:
+the temporary folder's contents, JVM heap dumps, rustup's `tmp` folder, Maven's
+partial-download markers and Gradle's daemon logs. A cache that a tool fetches
+or rebuilds starts unticked: rustup downloads, Cargo's package-cache lock, the
+sccache cache, and Gradle transforms. Every folder follows its tool's variable
+when that is an absolute path: `RUSTUP_HOME`, `CARGO_HOME`, `SCCACHE_DIR` (else
+the platform cache folder) and `GRADLE_USER_HOME`. Maven has no variable for its
+repository, which is `~/.m2/repository`.
+
+The Maven and Gradle rows match by name and remove only these: `*.lastUpdated`
+and `resolver-status.properties` under the Maven repository (artifacts and
+`_remote.repositories` stay); `*.log` files directly in each version folder
+under `daemon/` (the registry and the running daemon's state stay); and
+`transforms-*` folders directly under `caches/`. A scoped row never follows or
+removes a symbolic link, and it enters a folder only where its pattern says so.
+The **Temp files** row still empties the whole temporary folder, which also
+holds other tools' scratch folders; it never removes the folder itself or
+another user's files. The row that measures `target` resolves it against the
+active panel's folder, so the menu row is refused over a NetBox panel like the
+other rows that act on entries.
+
 ## Panels
 
 Left and Right configure their respective panel. Walking the bar across

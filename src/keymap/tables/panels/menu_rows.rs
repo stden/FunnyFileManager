@@ -63,6 +63,8 @@ pub(super) const KEYLESS: Group<Action> = Group {
             .note(Ffm, "Git pull for all repositories"),
         row("space_analysis", Menu(MenuCommand::SpaceAnalysis), &[])
             .note(Ffm, "Space analysis of the active folder"),
+        row("disk_cleanup", Menu(MenuCommand::DiskCleanup), &[])
+            .note(Ffm, "Temporary files and tool caches, as a checklist"),
     ],
 };
 

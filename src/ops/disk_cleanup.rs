@@ -1,12 +1,12 @@
 //! Purpose: Disk Cleanup operation — scan candidate sizes, open the dialog,
 //! and remove the selected entries when the user confirms.
 //!
-//! Entry point: `:cleanup`
+//! Entry points: `:cleanup` and the F9 Commands row "Disk cleanup".
 
 use std::io;
 use std::path::Path;
 
-use crate::models::{App, CandidateState, CleanupField, CleanupKind, DiskCleanupDialog, Overlay};
+use crate::models::{App, CandidateState, CleanupField, DiskCleanupDialog, Overlay};
 use crate::status::Status;
 use crate::utils::refresh_panels;
 
@@ -84,15 +84,12 @@ pub fn measure(dialog: &mut DiskCleanupDialog, base: &Path) {
             crate::diagnostics::log_error(&format!("Cleanup scan failed: {error}"));
             None
         });
-        // What the row removes decides the default, never its label: emptying
-        // the temporary folder and deleting heap dumps are safe to offer.
+        // What the row removes decides the default, never its label (see
+        // `CleanupKind::starts_checked`).
         candidate.state = match size {
             Some(size) => CandidateState::Present {
                 size: Some(size),
-                checked: matches!(
-                    candidate.kind,
-                    CleanupKind::Contents | CleanupKind::HeapDumps
-                ),
+                checked: candidate.kind.starts_checked(),
             },
             None => CandidateState::Absent,
         };

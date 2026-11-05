@@ -77,6 +77,7 @@ fn execute_result(app: &mut App, command: MenuCommand) -> io::Result<()> {
         MenuCommand::Performance => super::performance::open(app),
         MenuCommand::TokenUsage => super::token_usage::open(app),
         MenuCommand::SystemTempCleanup => super::system_temp_cleanup::open(app),
+        MenuCommand::DiskCleanup => super::disk_cleanup::open(app)?,
         MenuCommand::UpdatePackages => super::packages::open(app),
         MenuCommand::LanguageServers => super::lsp_editor::open(app),
         MenuCommand::DatabaseExplorer => super::database::open(app),

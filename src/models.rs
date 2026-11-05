@@ -82,7 +82,7 @@ pub use clipboard::ClipboardSlot;
 pub use command_line::{Candidate, CandidateKind, CommandLine, Menu, Recall};
 pub use describe::DescribePrompt;
 pub use disk_cleanup::{
-    CandidateState, CleanupCandidate, CleanupField, CleanupKind, DiskCleanupDialog,
+    CandidateState, CleanupCandidate, CleanupField, CleanupKind, DiskCleanupDialog, TempScope,
 };
 #[cfg(all(windows, test))]
 use drive_entry::windows_drive_paths_from_mask;

@@ -112,6 +112,43 @@ impl Drop for EnvVarGuard {
     }
 }
 
+/// [`EnvVarGuard`] for several variables at once. It takes the lock once, so a
+/// test can hold it alongside nothing else; an empty value is an unset variable
+/// to every folder rule the program applies.
+pub struct EnvVarsGuard {
+    _lock: MutexGuard<'static, ()>,
+    previous: Vec<(&'static str, Option<OsString>)>,
+}
+
+impl EnvVarsGuard {
+    pub fn set(vars: &[(&'static str, &Path)]) -> Self {
+        let lock = env_lock();
+        let previous = vars
+            .iter()
+            .map(|&(name, value)| {
+                let previous = std::env::var_os(name);
+                std::env::set_var(name, value);
+                (name, previous)
+            })
+            .collect();
+        Self {
+            _lock: lock,
+            previous,
+        }
+    }
+}
+
+impl Drop for EnvVarsGuard {
+    fn drop(&mut self) {
+        for (name, previous) in self.previous.drain(..).rev() {
+            match previous {
+                Some(value) => std::env::set_var(name, value),
+                None => std::env::remove_var(name),
+            }
+        }
+    }
+}
+
 pub fn restore_editor_env(value: Option<OsString>) {
     match value {
         Some(value) => std::env::set_var("EDITOR", value),

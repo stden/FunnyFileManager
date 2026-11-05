@@ -3,9 +3,7 @@
 use ratatui::{buffer::Buffer, Terminal};
 use tempfile::TempDir;
 
-use crate::models::{
-    App, CandidateState, CleanupField, CleanupKind, DiskCleanupDialog, FileSize, Overlay,
-};
+use crate::models::{App, CandidateState, CleanupField, DiskCleanupDialog, FileSize, Overlay};
 use crate::test_support::disk_cleanup::{app, candidate};
 use crate::test_support::{buffer_text, WritableTestBackend};
 use crate::ui::{palette, Cells};
@@ -92,17 +90,17 @@ fn every_default_row_shows_the_path_it_scans() {
     let temp = TempDir::new().unwrap();
     let rows = DiskCleanupDialog::new().candidates;
     let mut app = app(temp.path(), rows.clone());
-    let text = buffer_text(&draw(&mut app));
+    // Tall enough for every default row: a shorter screen leaves the last rows undrawn.
+    let mut terminal = Terminal::new(WritableTestBackend::new(100, 60)).unwrap();
+    terminal
+        .draw(|frame| crate::ui::ui(frame, &mut app))
+        .unwrap();
+    let text = buffer_text(&terminal);
     for row in &rows {
-        let scanned = if row.kind == CleanupKind::HeapDumps {
-            row.path.join("*.hprof")
-        } else {
-            row.path.clone()
-        };
-        let scanned = scanned.display().to_string();
+        let folder = row.path.display().to_string();
         assert!(
-            text.contains(&scanned),
-            "{} does not show {scanned}: {text}",
+            text.contains(&folder),
+            "{} does not show {folder}: {text}",
             row.label
         );
     }

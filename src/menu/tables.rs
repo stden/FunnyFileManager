@@ -190,4 +190,5 @@ pub(super) const COMMANDS: &[Entry] = &[
         "",
         Action::Menu(MenuCommand::SystemTempCleanup),
     ),
+    Entry::item("Disk cleanup", "", Action::Menu(MenuCommand::DiskCleanup)),
 ];

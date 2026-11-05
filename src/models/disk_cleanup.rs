@@ -1,16 +1,13 @@
 //! Purpose: State for the Disk Cleanup dialog (`:cleanup`).
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use super::FileSize;
 
-/// The deletion scope chosen when a cleanup candidate is constructed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CleanupKind {
-    Path,
-    Contents,
-    HeapDumps,
-}
+mod kind;
+mod rows;
+
+pub use kind::{CleanupKind, TempScope};
 
 /// Availability and measurement state of a cleanup candidate on disk.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -77,7 +74,7 @@ impl DiskCleanupDialog {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            candidates: build_candidates(),
+            candidates: rows::build_candidates(),
             field: CleanupField::Item(0),
         }
     }
@@ -108,90 +105,7 @@ impl Default for DiskCleanupDialog {
     }
 }
 
-fn build_candidates() -> Vec<CleanupCandidate> {
-    let home = crate::config::user_home();
-    let mut rows = vec![CleanupCandidate {
-        kind: CleanupKind::Contents,
-        ..candidate("Temp files", std::env::temp_dir())
-    }];
-    if let Some(home) = &home {
-        rows.extend([
-            candidate("Gradle caches", home.join(".gradle").join("caches")),
-            candidate("npm cache", home.join(".npm").join("_cacache")),
-            candidate(
-                "Cargo registry cache",
-                home.join(".cargo").join("registry").join("cache"),
-            ),
-        ]);
-    }
-    rows.extend(platform_caches(home.as_deref()));
-    rows.push(candidate("Cargo build artifacts", PathBuf::from("target")));
-    if let Some(home) = home {
-        rows.extend([
-            candidate("Gradle wrapper cache", home.join(".gradle").join("wrapper")),
-            CleanupCandidate {
-                kind: CleanupKind::HeapDumps,
-                ..candidate("JVM heap dumps", home)
-            },
-        ]);
-    }
-    rows
-}
-
-#[cfg(windows)]
-fn platform_caches(home: Option<&Path>) -> Vec<CleanupCandidate> {
-    platform_caches_from(std::env::var_os("LOCALAPPDATA").map(PathBuf::from), home)
-}
-
-#[cfg(windows)]
-fn platform_caches_from(local: Option<PathBuf>, home: Option<&Path>) -> Vec<CleanupCandidate> {
-    let Some(local) = local.or_else(|| Some(home?.join("AppData").join("Local"))) else {
-        return Vec::new();
-    };
-    vec![
-        candidate("JetBrains caches", local.join("JetBrains")),
-        candidate("Docker WSL disk", local.join("Docker").join("wsl")),
-        candidate("Playwright browsers", local.join("ms-playwright")),
-        candidate("pip cache", local.join("pip").join("Cache")),
-    ]
-}
-
-#[cfg(not(windows))]
-fn platform_caches(home: Option<&Path>) -> Vec<CleanupCandidate> {
-    let Some(caches) = cache_dir(home) else {
-        return Vec::new();
-    };
-    vec![
-        candidate("JetBrains caches", caches.join("JetBrains")),
-        candidate("Playwright browsers", caches.join("ms-playwright")),
-        candidate("pip cache", caches.join("pip")),
-        candidate("uv cache", caches.join("uv")),
-        candidate("Hugging Face cache", caches.join("huggingface")),
-        candidate("Puppeteer browsers", caches.join("puppeteer")),
-    ]
-}
-
-#[cfg(target_os = "macos")]
-fn cache_dir(home: Option<&Path>) -> Option<PathBuf> {
-    Some(home?.join("Library").join("Caches"))
-}
-
-#[cfg(not(any(windows, target_os = "macos")))]
-fn cache_dir(home: Option<&Path>) -> Option<PathBuf> {
-    std::env::var_os("XDG_CACHE_HOME")
-        .map(PathBuf::from)
-        .filter(|path| path.is_absolute())
-        .or_else(|| Some(home?.join(".cache")))
-}
-
-fn candidate(label: &'static str, path: PathBuf) -> CleanupCandidate {
-    CleanupCandidate {
-        label,
-        path,
-        kind: CleanupKind::Path,
-        state: CandidateState::Absent,
-    }
-}
-
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_cache_rows;

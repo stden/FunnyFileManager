@@ -2,11 +2,14 @@
 
 use super::*;
 
-/// Menu rows that act on entries.
-const ENTRY_ROWS: [MenuCommand; 3] = [
+/// Menu rows that act on entries. Disk cleanup measures its `target` row
+/// against the active panel's folder, which a `NetBox` panel hides, so it is
+/// refused there with the rest of the entry rows.
+const ENTRY_ROWS: [MenuCommand; 4] = [
     MenuCommand::Compare,
     MenuCommand::UserMenu,
     MenuCommand::SpaceAnalysis,
+    MenuCommand::DiskCleanup,
 ];
 
 /// Menu rows that belong to the program.

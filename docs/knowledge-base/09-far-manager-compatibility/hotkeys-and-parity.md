@@ -506,6 +506,7 @@ do nothing now. Each is a `fallback` row of the screen's table in
 - F9 → Commands → `Install MCP server` (hotkey `e`) is an FFM extra with no Far counterpart: it registers `ffm-mcp` with AI clients. See [session tools](../../session-tools.md#mcp-server-setup).
 - F9 → Commands → `Space analysis` is an FFM extra with no Far counterpart and no hotkey, since every letter of its label is another Commands row's hotkey. It only suggests what to delete; see [main menu](../07-core-features/main-menu.md).
 - F9 → Commands → `Things catalog` (no hotkey) is an FFM extra with no Far counterpart: it imports the machines of the Things catalog as SFTP sessions. See [Things catalog](../07-core-features/things-catalog.md).
+- F9 → Commands → `Disk cleanup` (no key, also `:cleanup`) is an FFM extra with no Far counterpart: a checklist of temporary files and tool caches. See [the F9 main menu](../07-core-features/main-menu.md).
 - Drive letters on Unix are simulated as `/`.
 - With the `s3` feature, credential-file profiles appear as extra drive-menu rows. Selecting one does not open a bucket. See [S3](../../tutorials/s3.md).
 

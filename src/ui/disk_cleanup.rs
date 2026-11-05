@@ -3,6 +3,8 @@
 //! Each candidate is a checkbox row. Rows that do not exist on disk are dimmed
 //! and non-interactive, matching Far's own pattern for disabled controls.
 
+use std::path::PathBuf;
+
 use ratatui::Frame;
 
 use super::dialog::{self, Button, Ground, Row};
@@ -52,12 +54,18 @@ fn row_text(candidate: &CleanupCandidate) -> String {
         CandidateState::Present { size: None, .. } => "measuring\u{2026}".to_owned(),
         CandidateState::Absent => "not found".to_owned(),
     };
-    let location = match candidate.kind {
-        CleanupKind::HeapDumps => candidate.path.join("*.hprof"),
-        CleanupKind::Path | CleanupKind::Contents => candidate.path.clone(),
-    };
-    let location = crate::path_display::label(&location);
+    let scanned = scanned_location(candidate);
+    let location = crate::path_display::label(&scanned);
     format!("{} ({location})  [{size}]", candidate.label)
+}
+
+/// The folder, or the pattern under it, that a row scans.
+pub(super) fn scanned_location(candidate: &CleanupCandidate) -> PathBuf {
+    match candidate.kind {
+        CleanupKind::HeapDumps => candidate.path.join("*.hprof"),
+        CleanupKind::Temp(scope) => candidate.path.join(scope.pattern()),
+        CleanupKind::Path | CleanupKind::Contents => candidate.path.clone(),
+    }
 }
 
 #[cfg(test)]

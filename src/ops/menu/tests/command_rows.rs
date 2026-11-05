@@ -35,6 +35,17 @@ fn the_task_list_row_opens_the_live_viewer() {
     assert!(matches!(app.overlay, Overlay::Tasks(_)));
 }
 
+/// The F9 row runs the same dialog as `:cleanup`, which measures the rows
+/// under the home first, so the home is a temporary one.
+#[test]
+fn the_disk_cleanup_row_opens_the_dialog() {
+    let home = TempDir::new().unwrap();
+    let _home = crate::test_support::EnvVarsGuard::set(&[("HOME", home.path())]);
+    let (_temp, mut app) = fixture();
+    execute_result(&mut app, MenuCommand::DiskCleanup).unwrap();
+    assert!(matches!(app.overlay, Overlay::DiskCleanup(_)));
+}
+
 #[test]
 fn the_devices_row_lists_the_mounted_devices() {
     let (_temp, mut app) = fixture();
