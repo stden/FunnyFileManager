@@ -77,7 +77,9 @@ fn cancelled(world: &mut SessionWorld) {
     assert_eq!(case.last["job"]["id"].as_u64(), Some(case.job.unwrap().0));
     assert_eq!(case.last["job"]["status"], "finished");
     assert_eq!(case.last["busy"], false);
-    let state = case.last["external_process"]["state"].as_str().unwrap_or("");
+    let state = case.last["external_process"]["state"]
+        .as_str()
+        .unwrap_or("");
     assert!(
         state == "cancelled" || state == "exited",
         "expected 'cancelled' or 'exited' (cancel raced with natural exit), got {state:?}"
