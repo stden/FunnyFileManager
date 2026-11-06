@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use super::{load, parse, LoadError};
+use super::{load, parse, LoadError, MAX_BYTES};
 use crate::models::database::Driver;
 
 const VALID: &str = "\
@@ -109,4 +109,79 @@ fn password_env_must_name_a_variable() {
     let text =
         "- name: pg\n  kind: postgres\n  database: a\n  user: b\n  password_env: not a name\n";
     assert!(matches!(parse(text), Err(LoadError::Invalid(_))));
+}
+
+#[test]
+fn a_file_on_disk_is_read_and_checked_like_its_text() {
+    let dir = tempfile::TempDir::new().expect("temp dir");
+    let file = dir.path().join("databases.yaml");
+    std::fs::write(&file, VALID).expect("write the file");
+    let specs = load(&file).expect("a valid file");
+    assert_eq!(specs, parse(VALID).expect("valid entries"));
+}
+
+#[test]
+fn a_file_may_be_as_big_as_the_limit_and_no_bigger() {
+    let dir = tempfile::TempDir::new().expect("temp dir");
+    let file = dir.path().join("databases.yaml");
+    let entry = "- name: a\n  kind: sqlite\n  path: /x.db\n";
+    let padding = usize::try_from(MAX_BYTES).expect("a size") - entry.len() - 1;
+    let at_the_limit = format!("{entry}#{}\n", "x".repeat(padding - 1));
+    assert_eq!(u64::try_from(at_the_limit.len()), Ok(MAX_BYTES));
+    std::fs::write(&file, &at_the_limit).expect("write the file");
+    assert_eq!(load(&file).expect("at the limit").len(), 1);
+
+    std::fs::write(&file, format!("{at_the_limit}#\n")).expect("write the file");
+    assert_eq!(load(&file), Err(LoadError::Unreadable));
+}
+
+#[test]
+fn text_that_is_not_utf8_is_unreadable() {
+    let dir = tempfile::TempDir::new().expect("temp dir");
+    let file = dir.path().join("databases.yaml");
+    std::fs::write(&file, [0xff, 0xfe, 0xfd]).expect("write the file");
+    assert_eq!(load(&file), Err(LoadError::Unreadable));
+}
+
+#[test]
+fn a_path_the_system_refuses_to_open_is_unreadable_not_missing() {
+    assert_eq!(
+        load(Path::new("databases\0.yaml")),
+        Err(LoadError::Unreadable)
+    );
+}
+
+#[test]
+fn every_refusal_names_its_rule() {
+    let cases = [
+        (LoadError::Missing, "no databases.yaml"),
+        (LoadError::Unreadable, "databases.yaml cannot be read"),
+        (
+            LoadError::Malformed { line: Some(3) },
+            "databases.yaml line 3 is not a valid connection (a password goes in password_env, never in this file)",
+        ),
+        (
+            LoadError::Malformed { line: None },
+            "databases.yaml is not a list of connections",
+        ),
+        (
+            LoadError::Invalid("two connections share a name"),
+            "databases.yaml: two connections share a name",
+        ),
+    ];
+    for (error, text) in cases {
+        assert_eq!(error.to_string(), text);
+    }
+}
+
+#[test]
+fn a_file_that_is_not_a_list_is_refused() {
+    let error = parse("name: pg\nkind: sqlite\n").expect_err("a mapping is not a list");
+    assert!(matches!(error, LoadError::Malformed { .. }));
+}
+
+#[test]
+fn a_connection_needs_a_name() {
+    let error = parse("- name: \"  \"\n  kind: sqlite\n  path: /x.db\n").expect_err("no name");
+    assert_eq!(error, LoadError::Invalid("a connection needs a name"));
 }

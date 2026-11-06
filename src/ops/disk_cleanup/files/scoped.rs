@@ -130,3 +130,6 @@ fn named_entries(
 fn is_regular_file(kind: fs::FileType) -> bool {
     kind.is_file()
 }
+
+#[cfg(test)]
+mod tests;

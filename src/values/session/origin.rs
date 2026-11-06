@@ -75,7 +75,7 @@ pub(super) fn read<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Origin,
 
 /// Rewrites legacy `!NetBoxFile` and `!Things` origin tags.
 ///
-/// Each session that holds one becomes the mapping [`read`] takes:
+/// Each session that holds one becomes the mapping `read` takes:
 /// `!NetBoxFile path` becomes `{NetBoxFile: path}`. Any other tag is left in
 /// place, so the settings reader refuses it by name.
 pub fn untag_legacy_origins(document: &mut Mapping) {

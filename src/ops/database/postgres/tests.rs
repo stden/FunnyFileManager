@@ -4,6 +4,10 @@
 
 use super::{read_only, schemas, tables};
 
+mod connect;
+mod metadata;
+mod rows;
+
 #[test]
 fn a_test_server_answers_the_metadata_queries_when_its_url_is_set() {
     let Ok(url) = std::env::var("FFM_TEST_POSTGRES_URL") else {

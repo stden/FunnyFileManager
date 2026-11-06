@@ -70,9 +70,6 @@ impl Requests {
 
     /// Hand the queued request to a worker, which makes it the running one.
     pub(crate) fn take(&mut self) -> Option<Request> {
-        if !matches!(self.work, Work::Queued(_)) {
-            return None;
-        }
         match std::mem::replace(&mut self.work, Work::Idle) {
             Work::Queued(request) => {
                 self.work = Work::Running(request.id);
@@ -94,3 +91,6 @@ impl Requests {
         false
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -12,6 +12,8 @@ use crate::models::database::{
 use crate::models::{App, Overlay, Panel};
 use crate::popup::process_popup_input;
 
+mod commands;
+
 fn app(temp: &tempfile::TempDir) -> App {
     let mut app = App::with_panels(
         Panel::from_entries(temp.path().to_path_buf(), Vec::new()),
@@ -44,14 +46,15 @@ fn explorer(app: &App) -> &DatabaseExplorer {
     explorer
 }
 
-/// Answer the queued request with one schema, `main`, holding `items`.
-fn answer_queued(app: &mut App, reply: Reply) {
+/// Answer the queued request with `reply`; the task it asked for comes back.
+fn answer_queued(app: &mut App, reply: Reply) -> Task {
     let request = app.database_requests.take().expect("a queued request");
     assert!(app.database_requests.finish(request.id));
     let Overlay::Database(explorer) = &mut app.overlay else {
         panic!("the explorer is open")
     };
     explorer.receive(request.id, Ok(reply));
+    request.task
 }
 
 fn with_schemas(app: &mut App) {

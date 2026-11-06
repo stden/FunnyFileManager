@@ -20,7 +20,7 @@ use crate::status::{Landed, Status};
 ///
 /// The destination is whatever was typed, which may be neither panel — that is
 /// the reason the dialog exists — and may be a folder or a new name; see
-/// [`Destination`]. A relative path is taken against the active panel,
+/// `Destination`. A relative path is taken against the active panel,
 /// because that is where the user is looking when they type one.
 pub fn copy_with(app: &mut App, settings: &crate::copy::CopyPrompt) {
     let sources = get_source_paths(app);

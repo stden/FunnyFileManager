@@ -6,6 +6,7 @@ use crate::{
     models::{ChoiceTarget, MenuChoice, MenuDialog, MenuPrompt},
     packages::{Elevation, Manager, UpdatePlan},
 };
+mod dialogs;
 mod submitted;
 
 fn app(temp: &tempfile::TempDir) -> App {

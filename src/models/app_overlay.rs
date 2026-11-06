@@ -154,7 +154,7 @@ impl App {
     /// Showing a heading never changes the active panel: walking the bar past
     /// Left or Right, or leaving it with Esc, must leave Files and Commands
     /// acting on the panel the user was in. Choosing a row of a panel's menu
-    /// is what makes that panel active ([`crate::ops::menu::activate_row`]).
+    /// is what makes that panel active (`crate::ops::menu::activate_row`).
     pub fn set_menu(&mut self, menu: crate::menu::Menu) {
         self.overlay = Overlay::Menu(menu);
     }

@@ -35,7 +35,7 @@ pub const HISTORY_CAP: usize = 500;
 /// wins — then the persisted lines.
 ///
 /// `persistence` is the write target, resolved once by [`History::load`] and
-/// never re-read: [`Persistence::SessionOnly`] makes [`History::save`]
+/// never re-read: `Persistence::SessionOnly` makes `History::save`
 /// permanently a no-op for this instance — the target lives in the type, so no
 /// call site can accidentally write to disk. `default()` is always
 /// session-only; it is what `App::new()` starts with (see `models.rs`), so

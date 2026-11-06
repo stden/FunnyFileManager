@@ -5,7 +5,7 @@
 use super::tree::{self, Expansion, Load, Row, TablePath};
 use super::view::{ColumnsView, RowsView, Want};
 use super::{DatabaseExplorer, View};
-use crate::models::database::{Requests, Task};
+use crate::models::database::Requests;
 
 impl DatabaseExplorer {
     pub(crate) fn move_up(&mut self) {
@@ -88,11 +88,11 @@ impl DatabaseExplorer {
         }
     }
 
-    fn open_rows(&mut self, queue: &mut Requests, path: TablePath) {
-        let Some(table) = self.table_ref(path) else {
-            return;
-        };
-        let Some(task) = self.rows_task(path, &table, 0) else {
+    pub(super) fn open_rows(&mut self, queue: &mut Requests, path: TablePath) {
+        let Some((table, task)) = self.table_ref(path).and_then(|table| {
+            let task = self.rows_task(path, &table, 0)?;
+            Some((table, task))
+        }) else {
             return;
         };
         if self.request(queue, task, Want::Rows) {
@@ -127,14 +127,6 @@ impl DatabaseExplorer {
         let Some(row) = self.current() else {
             return;
         };
-        let connection = tree::connection_of(row);
-        let Some(spec) = self
-            .connections
-            .get(connection)
-            .map(|node| node.spec.clone())
-        else {
-            return;
-        };
-        self.request(queue, Task::Schemas(spec), Want::Schemas(connection));
+        self.request_schemas(queue, tree::connection_of(row));
     }
 }

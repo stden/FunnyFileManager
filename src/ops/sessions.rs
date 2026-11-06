@@ -2,7 +2,7 @@
 //! changing the stored sessions from it: the dialog, a copy, a delete, the
 //! details view. Importing is the child module [`import`].
 //!
-//! Every change goes through `change` in [`changes`]: it edits a copy of the
+//! Every change goes through `change` in `changes`: it edits a copy of the
 //! store, writes the copy, and only then puts it in place, so a session the
 //! file did not take never shows in the panel as if it had been saved.
 

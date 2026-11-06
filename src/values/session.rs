@@ -3,7 +3,7 @@
 //!
 //! State only: the file the sessions live in is [`crate::sessions`]' business,
 //! and so is the `.netbox` importer. Every value is one of the checked types
-//! in [`fields`], so a session is valid however it was made.
+//! in `fields`, so a session is valid however it was made.
 //!
 //! A session holds no password, ever. A password is asked for when the
 //! connection needs it and is never written: not to `sessions.json`, not to

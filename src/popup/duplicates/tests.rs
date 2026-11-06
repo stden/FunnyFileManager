@@ -1,8 +1,8 @@
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyModifiers};
 use std::fs;
 use tempfile::TempDir;
 
-use crate::models::{App, DuplicatesField, MenuDialog, Overlay, Panel};
+use crate::models::{App, Duplicates, DuplicatesField, MenuDialog, Overlay, Panel};
 use crate::popup::process_popup_input;
 use crate::popup::tests::key;
 
@@ -110,4 +110,60 @@ fn enter_on_a_row_opens_the_file_with_the_cursor_on_the_block() {
     };
     assert_eq!(editor.cursor_line, 2, "the block starts on line 3");
     assert!(editor.lines.get(2).is_some_and(|line| line == "shared 1"));
+}
+
+fn dialog(app: &App) -> &Duplicates {
+    let Overlay::Duplicates(dialog) = &app.overlay else {
+        panic!("the dialog");
+    };
+    dialog
+}
+
+#[test]
+fn typing_edits_only_the_focused_field() {
+    let dir = two_copies();
+    let mut app = open_on(dir.path());
+    let folder = dialog(&app).folder.text().to_owned();
+    press(&mut app, KeyCode::Tab, 2);
+    assert_eq!(field(&app), DuplicatesField::MinBlock);
+    press(&mut app, KeyCode::Char('0'), 1);
+    assert_eq!(dialog(&app).min_block.text(), "60");
+    press(&mut app, KeyCode::Backspace, 2);
+    press(&mut app, KeyCode::Char('3'), 1);
+    assert_eq!(dialog(&app).min_block.text(), "3");
+    assert_eq!(dialog(&app).folder.text(), folder);
+    assert_eq!(dialog(&app).mask.text(), "*");
+    assert_eq!(dialog(&app).groups.text(), "50");
+}
+
+#[test]
+fn left_and_right_move_the_caret_in_a_field_and_switch_between_the_buttons() {
+    let dir = two_copies();
+    let mut app = open_on(dir.path());
+    press(&mut app, KeyCode::Tab, 2);
+    press(&mut app, KeyCode::Left, 1);
+    press(&mut app, KeyCode::Char('9'), 1);
+    assert_eq!(field(&app), DuplicatesField::MinBlock);
+    assert_eq!(dialog(&app).min_block.text(), "96", "Left moved the caret");
+    press(&mut app, KeyCode::Tab, 2);
+    assert_eq!(field(&app), DuplicatesField::Start);
+    press(&mut app, KeyCode::Right, 1);
+    assert_eq!(field(&app), DuplicatesField::Cancel);
+    press(&mut app, KeyCode::Left, 1);
+    assert_eq!(field(&app), DuplicatesField::Start);
+    assert_eq!(dialog(&app).min_block.text(), "96");
+}
+
+#[test]
+fn the_dialog_takes_no_keys_while_it_is_not_open() {
+    let dir = two_copies();
+    let mut app = open_on(dir.path());
+    app.close_overlay();
+    assert!(!super::process(&mut app, KeyCode::Esc, KeyModifiers::NONE));
+    assert!(!super::process(
+        &mut app,
+        KeyCode::Char('x'),
+        KeyModifiers::NONE
+    ));
+    assert!(matches!(app.overlay, Overlay::None));
 }

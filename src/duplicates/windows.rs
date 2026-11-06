@@ -120,3 +120,6 @@ fn extends_back(files: &[Vec<Line>], first: Place, second: Place) -> bool {
         _ => false,
     }
 }
+
+#[cfg(test)]
+mod tests;

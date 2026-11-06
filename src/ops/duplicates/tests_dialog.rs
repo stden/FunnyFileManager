@@ -163,3 +163,14 @@ fn start_refuses_a_group_count_that_is_not_a_number() {
     assert!(matches!(app.overlay, Overlay::Duplicates(_)));
     assert_eq!(status_text(&app), "Groups must be a number, 1 or more.");
 }
+
+#[test]
+fn start_without_the_dialog_open_searches_nothing() {
+    let block = six_shared_lines();
+    let folder = tree(&[("a.rs", &block), ("b.rs", &block)]);
+    let mut app = app_on(folder.path());
+    let before = app.status.clone();
+    accept(&mut app);
+    assert!(matches!(app.overlay, Overlay::None));
+    assert_eq!(app.status, before);
+}

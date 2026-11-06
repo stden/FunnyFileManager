@@ -12,14 +12,14 @@ use crate::keepass::{build_key, open_db, save_atomic, EntryDetails, EntryId, Kee
 /// Update the entry titled `original_title` in the group at `group_path`,
 /// overwriting its five standard fields with `entry`.
 ///
-/// Resolution is [`super::read_entry`]'s: `&[]` = root, matching case-insensitive. A
-/// changed `entry.title` renames the entry in place — unlike [`upsert_entry`],
+/// Resolution is `super::read_entry`'s: `&[]` = root, matching case-insensitive. A
+/// changed `entry.title` renames the entry in place — unlike `upsert_entry`,
 /// which is root-only by name and would add a duplicate sibling instead.
 /// Renaming onto a title already present in the group is refused
 /// ([`KeepassError::AlreadyExists`]): the by-name read path takes the first
 /// match, so a silent duplicate would permanently shadow one of the two
 /// entries. The write path is experimental, so a `<db>.bak` backup is made and
-/// the save is atomic ([`save_atomic`]).
+/// the save is atomic (`save_atomic`).
 pub fn update_entry(
     db_path: &Path,
     password: &str,

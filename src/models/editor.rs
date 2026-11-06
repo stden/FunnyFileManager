@@ -69,7 +69,7 @@ pub struct Editor {
 ///
 /// The third unit in a triangle the rest of the program already names: bytes
 /// are [`Caret`](crate::lineedit::Caret) and screen columns are
-/// [`Cells`](crate::ui::Cells). Only the *boundary* is typed — inside the
+/// `Cells`. Only the *boundary* is typed — inside the
 /// editor the column is plain arithmetic on a `usize`, and wrapping every
 /// `+= 1` would make that code harder to read for no gain, since nothing else
 /// in there measures anything else. What needed a name is the value that

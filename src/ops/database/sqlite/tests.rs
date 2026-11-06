@@ -153,3 +153,23 @@ fn an_odd_table_name_reads_its_columns_and_its_rows() {
     assert_eq!(page.rows, Vec::<Vec<String>>::new());
     assert_eq!(page.end, PageEnd::Last);
 }
+
+#[test]
+fn every_kind_of_value_is_shown_as_one_line_of_text() {
+    let dir = tempfile::TempDir::new().expect("temp dir");
+    let path = shop(&dir);
+    rusqlite::Connection::open(&path)
+        .expect("writer")
+        .execute_batch(
+            "CREATE TABLE kinds (i INTEGER, r REAL, t TEXT, b BLOB, n TEXT);
+             INSERT INTO kinds VALUES (7, 1.5, 'tab' || char(9) || 'end', x'00ff', NULL);",
+        )
+        .expect("values");
+    let conn = connect(&path).expect("open");
+    let page = rows(&conn, &table_ref("main", "kinds"), 0).expect("rows");
+    assert_eq!(page.columns, ["i", "r", "t", "b", "n"].map(str::to_owned));
+    assert_eq!(
+        page.rows,
+        vec![["7", "1.5", "tab·end", "<2 bytes>", "NULL"].map(str::to_owned)]
+    );
+}

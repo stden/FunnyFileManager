@@ -39,7 +39,7 @@ pub const VERBS: &[&str] = &[
 /// easier testing, and prevents typos in command dispatch.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
-    /// cd <path>
+    /// cd `<path>`
     Cd(PathBuf),
     /// pwd
     Pwd,

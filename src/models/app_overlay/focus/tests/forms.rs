@@ -5,7 +5,7 @@ use crate::config::LspSettings;
 use crate::lineedit::LineEditor;
 use crate::models::lsp_editor::{Access, FormField, FormTarget, Mode as LspMode};
 use crate::models::menu_dialog::MenuPrompt;
-use crate::models::{LspEditor, MenuDialog, Overlay};
+use crate::models::{Duplicates, DuplicatesField, LspEditor, MenuDialog, Overlay};
 use crate::path_env::{Mode as PathMode, PathEditor, Scope, Snapshot};
 use tempfile::TempDir;
 
@@ -122,4 +122,25 @@ fn path_paste_edits_only_the_open_entry_without_changing_its_snapshot() {
     assert_eq!(input.text(), "new/path");
     assert_eq!(editor.snapshot.value.len(), 0);
     assert_eq!(editor.entries.len(), 0);
+}
+
+#[test]
+fn duplicates_paste_follows_the_active_field_and_skips_the_buttons() {
+    let root = TempDir::new().unwrap();
+    let dialog = Duplicates::new("/work");
+    let mut app = app(&root, Overlay::Duplicates(Box::new(dialog)));
+    paste(&mut app, "/project");
+    let Overlay::Duplicates(dialog) = &mut app.overlay else {
+        panic!("the duplicates dialog stays open");
+    };
+    dialog.focus(DuplicatesField::Groups);
+    paste(&mut app, "0");
+    let Overlay::Duplicates(dialog) = &mut app.overlay else {
+        panic!("the duplicates dialog stays open");
+    };
+    assert_eq!(dialog.folder.text(), "/work/project");
+    assert_eq!(dialog.groups.text(), "500");
+    assert_eq!(dialog.mask.text(), "*");
+    dialog.focus(DuplicatesField::Start);
+    assert!(app.focused_text_field().is_none());
 }

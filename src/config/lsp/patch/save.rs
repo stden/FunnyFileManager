@@ -33,7 +33,7 @@ impl Edit {
     ///
     /// Refused, with the file untouched, when its `lsp` no longer holds the
     /// servers the dialog opened on, and for every reason
-    /// [`document::edit`] refuses a save. Edits outside `lsp` never block it.
+    /// `document::edit` refuses a save. Edits outside `lsp` never block it.
     pub fn save(&self, path: &Path) -> io::Result<LspSettings> {
         document::edit(path, |document, on_disk: &Settings| {
             if on_disk.lsp != self.baseline {

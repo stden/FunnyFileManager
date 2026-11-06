@@ -15,7 +15,7 @@
 //! [`MasterKey`] and [`Revealed`] have no `Debug` and no `Display`, which makes
 //! [`Vault`] and [`KdbxSession`] underivable in turn — a `{:?}` in
 //! `log_action` / `log_error` cannot print a password even by accident. Errors
-//! surfaced from here are fixed English strings (see [`unlock_error_message`]),
+//! surfaced from here are fixed English strings (see `unlock_error_message`),
 //! never the typed password. Secrets must not travel through the `Viewer` or
 //! `Editor` overlays either: both keep scroll buffers alive for the rest of the
 //! session.

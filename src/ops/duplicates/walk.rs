@@ -112,16 +112,22 @@ impl Walker<'_> {
         if name.starts_with('.') {
             return;
         }
-        let Ok(file_type) = entry.file_type() else {
+        self.by_kind(&entry.path(), &name, entry.file_type().ok());
+    }
+
+    /// Read a file or enter a folder. A link is never followed, and an entry
+    /// whose kind could not be read is left alone.
+    fn by_kind(&mut self, path: &Path, name: &str, kind: Option<fs::FileType>) {
+        let Some(kind) = kind else {
             return;
         };
-        if file_type.is_symlink() {
+        if kind.is_symlink() {
             return;
         }
-        if !file_type.is_dir() {
-            self.file(&entry.path(), &name);
-        } else if !SKIPPED_FOLDERS.contains(&name.as_str()) {
-            self.visit(&entry.path());
+        if !kind.is_dir() {
+            self.file(path, name);
+        } else if !SKIPPED_FOLDERS.contains(&name) {
+            self.visit(path);
         }
     }
 
@@ -157,3 +163,6 @@ fn read_text(path: &Path) -> Option<String> {
     let text = String::from_utf8(bytes).ok()?;
     (!text.contains('\0')).then_some(text)
 }
+
+#[cfg(test)]
+mod tests;

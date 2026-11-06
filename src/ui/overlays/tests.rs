@@ -129,3 +129,22 @@ fn deleting_a_single_symlink_asks_about_the_link() {
         "{screen}"
     );
 }
+
+#[test]
+fn the_database_explorer_overlay_is_drawn_over_the_whole_screen() {
+    use crate::models::database::{ConnectionSpec, DatabaseExplorer, Driver, Name};
+    let spec = ConnectionSpec {
+        name: Name::new("shop").expect("a name"),
+        driver: Driver::Sqlite {
+            path: "/data/shop.db".into(),
+        },
+    };
+    let mut app = App::new().expect("app");
+    app.set_overlay(Overlay::Database(Box::new(DatabaseExplorer::new(
+        vec![spec],
+        None,
+    ))));
+    let screen = drawn(&mut app);
+    assert!(screen.contains("shop (sqlite)"), "{screen}");
+    assert!(screen.contains("PgUp/PgDn pages"), "{screen}");
+}

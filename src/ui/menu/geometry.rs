@@ -80,7 +80,7 @@ pub(super) fn headings_width() -> u16 {
 
 /// The heading at `column` on the bar, if any.
 ///
-/// The same arithmetic [`render_bar`] draws with, so a click lands on the
+/// The same arithmetic `render_bar` draws with, so a click lands on the
 /// heading the user is pointing at.
 #[must_use]
 pub fn heading_at(bar: Rect, column: u16) -> Option<Heading> {

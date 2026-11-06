@@ -74,14 +74,12 @@ pub(super) fn tables(client: &mut Client, schema: &Name) -> Result<Vec<Table>, D
     {
         let name: String = row.try_get(0).map_err(|error| driver(&error))?;
         let kind: String = row.try_get(1).map_err(|error| driver(&error))?;
-        if let Some(name) = Name::new(name) {
-            let kind = if kind == "VIEW" {
-                TableKind::View
-            } else {
-                TableKind::Table
-            };
-            tables.push(Table { name, kind });
-        }
+        let kind = if kind == "VIEW" {
+            TableKind::View
+        } else {
+            TableKind::Table
+        };
+        tables.extend(Name::new(name).map(|name| Table { name, kind }));
     }
     Ok(tables)
 }

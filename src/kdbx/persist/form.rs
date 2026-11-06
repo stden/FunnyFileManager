@@ -12,7 +12,7 @@ impl KdbxSession {
     ///
     /// Reads the entry in full — password included — and moves it straight
     /// into an [`EntryForm`]; the intermediate [`EntryDetails`] never leaves
-    /// this module (same rule as [`Self::read_selected_entry`]). The origin
+    /// this module (same rule as `Self::read_selected_entry`). The origin
     /// identity is taken from the summary so a later rename still addresses
     /// this entry.
     pub fn begin_edit(&mut self, now: Instant) -> Result<(), KdbxError> {
@@ -52,7 +52,7 @@ impl KdbxSession {
     ///
     /// On success the form closes and the summaries are re-read from the
     /// file; on failure the form stays open with a safe error line
-    /// ([`save_error_message`]), so nothing the user typed is lost. The write
+    /// (`save_error_message`), so nothing the user typed is lost. The write
     /// itself is `keepass::update_entry`: addressed by the origin identity,
     /// through edit tracking, saved atomically with a `.bak` behind it.
     pub fn save_edit(&mut self, now: Instant) -> bool {

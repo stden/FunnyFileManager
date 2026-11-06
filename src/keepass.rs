@@ -3,7 +3,7 @@
 //! Reading (kdbx3/kdbx4, master password + optional key file) is stable. The
 //! underlying `keepass` crate's **writing is upstream-experimental**: it
 //! re-serializes the inner XML, so any field it does not model is dropped on
-//! save. To bound that risk this module never truncates in place — [`save_atomic`]
+//! save. To bound that risk this module never truncates in place — `save_atomic`
 //! backs the target up to `<db>.bak` (created 0600 on unix, never inheriting the
 //! vault's mode), writes a co-located temp file, fsyncs, then atomically renames
 //! over the original. Callers should still keep their own backup.

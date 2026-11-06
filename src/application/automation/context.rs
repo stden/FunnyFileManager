@@ -40,6 +40,7 @@ fn management_context(overlay: &Overlay) -> Option<Context> {
         }
         #[cfg(feature = "keepass")]
         Overlay::Kdbx(_) => Some(Context::Vault),
+        Overlay::Database(_) => Some(Context::DatabaseExplorer),
         _ => None,
     }
 }

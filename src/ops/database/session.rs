@@ -7,6 +7,9 @@ use crate::models::database::{
     Column, ConnectionSpec, Driver, Name, Page, PageEnd, Schema, Table, TableRef, PAGE_ROWS,
 };
 
+#[cfg(test)]
+mod tests;
+
 pub(super) enum Session {
     Sqlite(rusqlite::Connection),
     Postgres(postgres::Client),

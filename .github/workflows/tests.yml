@@ -249,6 +249,14 @@ jobs:
           echo "PYTHON=${{ runner.temp }}/ffm-coverage-python/bin/python" >> "$GITHUB_ENV"
           echo "${{ runner.temp }}/ffm-coverage-python/bin" >> "$GITHUB_PATH"
 
+      - name: Start PostgreSQL for the driver tests
+        run: |
+          password="$(openssl rand -hex 16)"
+          echo "::add-mask::$password"
+          sudo systemctl start postgresql.service
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -c "ALTER USER postgres PASSWORD '$password';"
+          echo "FFM_TEST_POSTGRES_URL=postgres://postgres:$password@127.0.0.1:5432/postgres" >> "$GITHUB_ENV"
+
       - name: All production Rust and Python lines must be covered
         env:
           FFM_UI_ARTIFACT_DIR: ${{ runner.temp }}/ffm-ui-quality
@@ -367,6 +375,25 @@ jobs:
           tool: ${{ env.TOOL_LLVM_COV }}
       - name: Install LLVM tools
         run: rustup component add llvm-tools
+      - name: Start PostgreSQL for the driver tests
+        shell: pwsh
+        run: |
+          # The windows-2025 image ships PostgreSQL 17 as a stopped service with a known superuser password.
+          $password = [guid]::NewGuid().ToString('N')
+          Write-Output "::add-mask::$password"
+          $bin = 'C:\Program Files\PostgreSQL\17\bin'
+          Set-Service -Name postgresql-x64-17 -StartupType Manual
+          Start-Service -Name postgresql-x64-17
+          for ($attempt = 0; $attempt -lt 30; $attempt++) {
+            & "$bin\pg_isready.exe" -h 127.0.0.1 -q
+            if ($LASTEXITCODE -eq 0) { break }
+            Start-Sleep -Seconds 1
+          }
+          $env:PGPASSWORD = 'root'
+          & "$bin\psql.exe" -h 127.0.0.1 -U postgres -v ON_ERROR_STOP=1 -c "ALTER USER postgres PASSWORD '$password';"
+          if ($LASTEXITCODE -ne 0) { throw 'could not set the test password' }
+          [System.IO.File]::AppendAllText($env:GITHUB_ENV, "FFM_TEST_POSTGRES_URL=postgres://postgres:$password@127.0.0.1:5432/postgres`n")
+
       - name: Require 100% coverage of compiled Windows Rust code
         env:
           FFM_UI_ARTIFACT_DIR: ${{ runner.temp }}/ffm-ui-quality
@@ -574,6 +601,14 @@ jobs:
           "${{ runner.temp }}/ffm-coverage-python/bin/python" -m pip install -r requirements-coverage.txt
           echo "PYTHON=${{ runner.temp }}/ffm-coverage-python/bin/python" >> "$GITHUB_ENV"
           echo "${{ runner.temp }}/ffm-coverage-python/bin" >> "$GITHUB_PATH"
+      - name: Start PostgreSQL for the driver tests
+        run: |
+          password="$(openssl rand -hex 16)"
+          echo "::add-mask::$password"
+          sudo systemctl start postgresql.service
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -c "ALTER USER postgres PASSWORD '$password';"
+          echo "FFM_TEST_POSTGRES_URL=postgres://postgres:$password@127.0.0.1:5432/postgres" >> "$GITHUB_ENV"
+
       - name: Require 100% Rust coverage with native Colorer
         env:
           COLORER_INCLUDE_DIR: /tmp/Colorer-library/src

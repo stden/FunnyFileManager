@@ -7,7 +7,7 @@
 //! reads is not added. Loading never fails — a corrupt file is the defaults
 //! plus a line in the error log — and saving is atomic, so a crash mid-write
 //! leaves the previous file intact. How the file is shared with the Options
-//! pages, migrated from JSON and protected from a save is in [`document`].
+//! pages, migrated from JSON and protected from a save is in `document`.
 
 use std::{
     io,

@@ -13,6 +13,13 @@ pub mod session;
 pub mod sql;
 pub mod sqlite;
 
+#[cfg(test)]
+mod fixtures;
+#[cfg(test)]
+mod test_server;
+#[cfg(test)]
+mod tests;
+
 use std::path::Path;
 
 pub(crate) use completion::apply;

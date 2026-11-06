@@ -71,7 +71,7 @@ impl MasterKey {
     }
 
     /// An empty key with room to grow, for a password being typed character by
-    /// character (see [`TYPED_CAPACITY`]).
+    /// character (see `TYPED_CAPACITY`).
     pub fn typing() -> Self {
         Self(String::with_capacity(TYPED_CAPACITY))
     }

@@ -30,19 +30,18 @@ impl DatabaseJobs {
         let Some(request) = app.database_requests.take() else {
             return redraw;
         };
-        self.start(app, request);
+        let worker = std::thread::Builder::new().name("ffm-database".to_owned());
+        self.start(app, request, worker);
         Redraw::Needed
     }
 
-    fn start(&mut self, app: &mut App, request: Request) {
+    fn start(&mut self, app: &mut App, request: Request, worker: std::thread::Builder) {
         let id = request.id;
         let (sender, receiver) = mpsc::channel();
-        let spawned = std::thread::Builder::new()
-            .name("ffm-database".to_owned())
-            .spawn(move || {
-                let answer = crate::ops::database::execute(&request.task);
-                drop(sender.send((request.id, answer))); // The dialog may close before the answer.
-            });
+        let spawned = worker.spawn(move || {
+            let answer = crate::ops::database::execute(&request.task);
+            drop(sender.send((request.id, answer))); // The dialog may close before the answer.
+        });
         if spawned.is_err() {
             app.database_requests.finish(id);
             app.set_status(Status::Error("Cannot start database worker".to_owned()));

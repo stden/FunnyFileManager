@@ -58,3 +58,41 @@ fn start_and_cancel_toggle_with_the_arrows() {
     dialog.toggle_button();
     assert_eq!(dialog.field(), DuplicatesField::Start);
 }
+
+#[test]
+fn the_arrows_leave_a_text_field_where_it_is() {
+    let mut dialog = Duplicates::new("/");
+    for field in [
+        DuplicatesField::Folder,
+        DuplicatesField::Mask,
+        DuplicatesField::MinBlock,
+        DuplicatesField::Groups,
+    ] {
+        dialog.focus(field);
+        dialog.toggle_button();
+        assert_eq!(dialog.field(), field);
+        assert!(!dialog.on_button());
+        assert!(!dialog.on_cancel());
+    }
+}
+
+#[test]
+fn each_text_field_edits_its_own_answer() {
+    let mut dialog = Duplicates::new("/");
+    for (field, mark) in [
+        (DuplicatesField::Folder, 'f'),
+        (DuplicatesField::Mask, 'm'),
+        (DuplicatesField::MinBlock, 'b'),
+        (DuplicatesField::Groups, 'g'),
+    ] {
+        dialog.focus(field);
+        dialog
+            .active_line_mut()
+            .expect("a text field")
+            .insert_char(mark);
+    }
+    assert_eq!(dialog.folder.text(), "/f");
+    assert_eq!(dialog.mask.text(), "*m");
+    assert_eq!(dialog.min_block.text(), "6b");
+    assert_eq!(dialog.groups.text(), "50g");
+}

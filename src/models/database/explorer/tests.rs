@@ -8,6 +8,11 @@ use crate::models::database::{
     TableKind, Task,
 };
 
+mod answers;
+mod guards;
+mod keys;
+mod names;
+mod support;
 mod tree_paths;
 mod views;
 

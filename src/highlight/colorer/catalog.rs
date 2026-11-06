@@ -34,7 +34,7 @@ thread_local! {
 
 impl Colorer {
     /// Load the catalog named by `COLORER_CATALOG`, or the first of
-    /// [`CATALOG_CANDIDATES`] that exists.
+    /// `CATALOG_CANDIDATES` that exists.
     ///
     /// `None` rather than an error: no scheme database is an ordinary state,
     /// not a failure, and the caller's answer to it is the same either way.

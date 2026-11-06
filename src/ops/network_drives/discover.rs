@@ -102,7 +102,10 @@ fn unescape(text: &str) -> String {
         .replace("\\012", "\n")
         .replace("\\134", "\\")
 }
-#[cfg_attr(target_os = "macos", allow(dead_code))]
+#[cfg_attr(
+    target_os = "macos",
+    allow(dead_code, reason = "mounts are listed on Linux only")
+)]
 fn mount(path: String, remote: String, protocol: NetworkProtocol) -> io::Result<NetworkDrive> {
     Ok(NetworkDrive {
         path: MountPoint::try_from(path).map_err(io::Error::other)?,

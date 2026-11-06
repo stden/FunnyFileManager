@@ -18,3 +18,6 @@ pub(crate) fn apply(app: &mut App, id: RequestId, answer: Result<Reply, DbError>
         app.set_status(Status::Error(text));
     }
 }
+
+#[cfg(test)]
+mod tests;

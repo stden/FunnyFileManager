@@ -12,7 +12,10 @@ const NO_HOME: &str = "No home folder: HOME is not set to an absolute path";
 #[derive(Clone, Copy)]
 enum Format {
     Profile,
-    #[cfg_attr(target_os = "macos", allow(dead_code))]
+    #[cfg_attr(
+        target_os = "macos",
+        allow(dead_code, reason = "Linux /etc/environment format")
+    )]
     Environment,
     #[cfg_attr(
         not(any(target_os = "macos", test)),

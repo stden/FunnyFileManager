@@ -19,3 +19,6 @@ pub(crate) use meta::{
 pub(crate) use name::Name;
 pub(crate) use request::{Reply, Request, RequestId, Requests, Task};
 pub(crate) use spec::{ConnectionSpec, Driver, PostgresEndpoint};
+
+#[cfg(test)]
+mod tests;

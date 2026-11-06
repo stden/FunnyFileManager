@@ -21,3 +21,6 @@ impl fmt::Display for DbError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

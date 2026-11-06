@@ -23,7 +23,7 @@
 //! | [`utils`]    | File utilities (`format_size`, `copy_dir_all`, `unique_destination`, `refresh_panels`) |
 //! | [`editor`]   | Built-in F4 editor and external Alt+F4 integration |
 //! | `terminal`   | RAII lifecycle for the application terminal session and external-editor suspension |
-//! | [`s3`]       | Optional AWS S3 backend (enabled with `--features s3`) |
+//! | `s3`       | Optional AWS S3 backend (enabled with `--features s3`) |
 //! | [`windows`]  | Windows-specific drive and diagnostic helpers |
 //!
 //! # Data flow

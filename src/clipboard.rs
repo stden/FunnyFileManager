@@ -63,7 +63,7 @@ pub trait ClipboardBackend {
 /// Copy `text`, preferring the native clipboard and falling back to OSC 52.
 ///
 /// Returns the route that succeeded so the caller can be honest in the status
-/// line. On failure the error never contains `text` (see [`redact`]).
+/// line. On failure the error never contains `text` (see `redact`).
 pub fn copy_secret(backend: &mut dyn ClipboardBackend, text: &str) -> Result<CopyRoute, String> {
     let native_error = match backend.set_native(text) {
         Ok(()) => return Ok(CopyRoute::Native),

@@ -92,3 +92,6 @@ fn column_detail(explorer: &DatabaseExplorer, path: TablePath, index: usize) -> 
     };
     format!(" {}{key}{nullable}", column.data_type)
 }
+
+#[cfg(test)]
+mod tests;

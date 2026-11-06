@@ -94,3 +94,53 @@ fn vault_close_uses_its_own_context_without_opening_a_database() {
     fixture.run("vault", "close").unwrap();
     assert!(matches!(fixture.app.overlay, Overlay::None));
 }
+
+fn open_database_explorer(fixture: &mut Fixture) {
+    use crate::models::database::{ConnectionSpec, DatabaseExplorer, Driver, Name};
+    let spec = ConnectionSpec {
+        name: Name::new("local").unwrap(),
+        driver: Driver::Sqlite {
+            path: fixture.root.path().join("local.db"),
+        },
+    };
+    fixture.app.overlay = Overlay::Database(Box::new(DatabaseExplorer::new(vec![spec], None)));
+}
+
+#[test]
+fn database_explorer_commands_reach_the_open_explorer() {
+    use crate::action::database::DatabaseCommand;
+    use crate::models::database::Task;
+    let mut fixture = Fixture::new();
+    open_database_explorer(&mut fixture);
+    execute(
+        &mut fixture.terminal,
+        &mut fixture.app,
+        Invocation::DatabaseExplorer(DatabaseCommand::Expand),
+    );
+    let request = fixture.app.database_requests.take().unwrap();
+    assert!(matches!(request.task, Task::Schemas(spec) if spec.name.as_str() == "local"));
+    assert!(matches!(fixture.app.overlay, Overlay::Database(_)));
+    execute(
+        &mut fixture.terminal,
+        &mut fixture.app,
+        Invocation::DatabaseExplorer(DatabaseCommand::Close),
+    );
+    assert!(matches!(fixture.app.overlay, Overlay::None));
+}
+
+#[test]
+fn database_explorer_invocations_are_accepted_while_it_is_open() {
+    use crate::action::database::DatabaseCommand;
+    let mut fixture = Fixture::new();
+    open_database_explorer(&mut fixture);
+    let result = invoke(
+        &mut fixture.terminal,
+        &mut fixture.app,
+        Invocation::DatabaseExplorer(DatabaseCommand::Close),
+    );
+    assert!(
+        result.is_ok(),
+        "the open explorer must accept its own commands: {result:?}"
+    );
+    assert!(matches!(fixture.app.overlay, Overlay::None));
+}

@@ -1,8 +1,11 @@
 """Check the native Windows report text without Windows API calls."""
 
+import contextlib
+import ctypes
 import importlib.util
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -12,6 +15,14 @@ def load(name, relative):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@contextlib.contextmanager
+def windows_errors(code):
+    """Make the last Windows error `code` and ctypes.WinError an OSError that names it."""
+    with patch.object(ctypes, "get_last_error", return_value=code, create=True), \
+         patch.object(ctypes, "WinError", side_effect=lambda error: OSError(f"WinError {error}"), create=True):
+        yield
 
 
 class WindowsReportTests(unittest.TestCase):

@@ -3,7 +3,7 @@
 //!
 //! One rule finds the file for every reader and the writer: the listing (and
 //! so the Descriptions sort), the Descriptions views and `Ctrl+Z` all go
-//! through [`choose`], which ignores letter case as Far does.
+//! through `choose`, which ignores letter case as Far does.
 //!
 //! The format is one entry per line — the file name, quoted when it holds a
 //! space, then whitespace, then the description. Lines that name files which
@@ -159,7 +159,7 @@ fn format_line(name: &str, text: &str) -> String {
 ///
 /// The description file is rewritten with every other line untouched. An
 /// empty `text` removes the line. The file written is the one the directory
-/// already has, found as [`existing_file`] finds it, else the first name.
+/// already has, found as `existing_file` finds it, else the first name.
 pub fn set_description(dir: &Path, names: &[String], name: &str, text: &str) -> io::Result<()> {
     let Some(first) = names.first() else {
         return Err(io::Error::new(

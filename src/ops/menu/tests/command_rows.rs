@@ -124,3 +124,48 @@ fn performance_update_packages_and_path_menu_rows_open_their_dialogs() {
         MenuCommand::Path(crate::path_env::Scope::User),
     ));
 }
+
+/// The F9 row lists the connections `databases.yaml` names in the config
+/// directory, which is a temporary one.
+#[test]
+fn the_database_explorer_row_opens_the_connections_of_databases_yaml() {
+    let config = TempDir::new().unwrap();
+    let _env = crate::test_support::EnvVarsGuard::set(&[(
+        crate::test_support::CONFIG_HOME,
+        config.path(),
+    )]);
+    let folder = crate::config::dir().unwrap();
+    fs::create_dir_all(&folder).unwrap();
+    fs::write(
+        folder.join("databases.yaml"),
+        "- name: shop\n  kind: sqlite\n  path: shop.db\n",
+    )
+    .unwrap();
+    let (_temp, mut app) = fixture();
+    execute_result(&mut app, MenuCommand::DatabaseExplorer).unwrap();
+    let Overlay::Database(explorer) = &app.overlay else {
+        panic!("database explorer")
+    };
+    assert_eq!(explorer.connections().len(), 1);
+    assert_eq!(explorer.notice(), None);
+}
+
+/// With no `databases.yaml` the explorer still opens, and says where to create it.
+#[test]
+fn the_database_explorer_row_without_a_config_file_opens_with_a_hint() {
+    let config = TempDir::new().unwrap();
+    let _env = crate::test_support::EnvVarsGuard::set(&[(
+        crate::test_support::CONFIG_HOME,
+        config.path(),
+    )]);
+    let (_temp, mut app) = fixture();
+    execute(&mut app, MenuCommand::DatabaseExplorer);
+    let Overlay::Database(explorer) = &app.overlay else {
+        panic!("database explorer")
+    };
+    assert!(explorer.connections().is_empty());
+    assert!(explorer
+        .notice()
+        .is_some_and(|text| text.contains("databases.yaml")));
+    assert!(matches!(&app.status, Status::Error(text) if text.contains("databases.yaml")));
+}

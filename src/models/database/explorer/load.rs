@@ -26,12 +26,20 @@ impl DatabaseExplorer {
     }
 
     pub(super) fn load_schemas(&mut self, queue: &mut Requests, connection: usize) {
+        let loaded = self
+            .connections
+            .get(connection)
+            .is_some_and(|node| node.schemas.ready().is_some());
+        if !loaded {
+            self.request_schemas(queue, connection);
+        }
+    }
+
+    /// Ask for a connection's schemas, whether or not it holds them already.
+    pub(super) fn request_schemas(&mut self, queue: &mut Requests, connection: usize) {
         let Some(node) = self.connections.get(connection) else {
             return;
         };
-        if node.schemas.ready().is_some() {
-            return;
-        }
         let task = Task::Schemas(node.spec.clone());
         self.request(queue, task, Want::Schemas(connection));
     }
@@ -44,14 +52,14 @@ impl DatabaseExplorer {
         {
             return true;
         }
-        let Some(table) = self.table_ref(path) else {
-            return false;
-        };
         let Some(spec) = self
             .connections
             .get(path.connection)
             .map(|node| node.spec.clone())
         else {
+            return false;
+        };
+        let Some(table) = self.table_ref(path) else {
             return false;
         };
         self.request(queue, Task::Columns { spec, table }, Want::Columns(path))
@@ -105,7 +113,7 @@ impl DatabaseExplorer {
         self.turn_page(queue, offset);
     }
 
-    fn turn_page(&mut self, queue: &mut Requests, offset: usize) {
+    pub(super) fn turn_page(&mut self, queue: &mut Requests, offset: usize) {
         let View::Rows(rows) = &self.view else {
             return;
         };

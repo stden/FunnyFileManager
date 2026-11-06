@@ -6,6 +6,8 @@ use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
+mod failures;
+
 use super::DatabaseJobs;
 use crate::models::database::{ConnectionSpec, DatabaseExplorer, Driver, Load, Name};
 use crate::models::{App, Overlay, Panel};
@@ -30,6 +32,13 @@ fn app_with_database(temp: &tempfile::TempDir) -> App {
         None,
     ))));
     app
+}
+
+fn press_right(app: &mut App) {
+    assert!(process_popup_input(
+        app,
+        KeyEvent::new(KeyCode::Right, KeyModifiers::NONE)
+    ));
 }
 
 fn loading(app: &App) -> bool {
