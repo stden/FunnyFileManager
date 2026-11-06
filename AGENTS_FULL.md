@@ -45,12 +45,12 @@ See `docs/knowledge-base/03-rust-best-practices/type-system.md` for details and 
 - `src/action/chord.rs`, `src/action/bindings.rs`: `KeyChord`, the normalized key every table is keyed by, and `Bindings`, one screen's chords with the command each runs (exact lookup).
 - `src/keymap.rs`: `Keymap`, one `Bindings` per context of `ffm.yml`, held in `App.keymap`; `src/keymap/tables/` names every action with its command and default keys, `src/keymap/layering.rs` builds a context's bindings from its table and a file's keys. Pure, like `action`.
 - `src/action/editor.rs`: Typed `EditorCommand` language and its pure `resolve(bindings, key)`; the editor's keys are the rows of `src/keymap/tables/editor.rs`.
-- `src/action/wsl.rs`: Typed `WslCommand` language; its keys are the `wsl_manager` table of `src/keymap/tables/`, read from `App.keymap`.
+- `src/action/wsl.rs`: Pure `WslCommand` resolution; its keys are the `wsl_manager` table of `src/keymap/tables/`, read from `App.keymap`.
 - `src/action/viewer.rs`, `command_line.rs`, `tree.rs`, `netbox.rs`, `lsp_editor.rs`, `path_env.rs`, `vault.rs`, `tasks/search.rs`: The same pattern for every other screen with keys of its own — a typed command enum and a pure `resolve`, interpreted by the matching `popup` owner.
 - `src/application/wsl_jobs.rs`: Serial WSL background worker with an injected backend.
 - `src/command.rs`, `src/lineedit.rs`, `src/complete.rs`: Command parsing, editing, history recall, and completion.
 - `src/console.rs`, `src/status.rs`: Typed command transcript and user-facing outcomes.
-- `src/models.rs`: Application/domain state (`App`, `Panel`, `DirEntry`, `Viewer`, `SortMode`); panel loading and editor saves are implemented under `ops/`.
+- `src/models.rs`: Application state (`App`, `Panel`, `Viewer`); shared file/image/session values are defined in `values`; panel loading and editor saves are implemented under `ops/`.
 - `src/ui.rs`: TUI rendering with ratatui.
 - `src/popup.rs`: Modal input handling; depends directly on canonical operations.
 - `src/ops/`: Canonical command, file, directory navigation, editor save, shell, viewer, and MCP-status operations.

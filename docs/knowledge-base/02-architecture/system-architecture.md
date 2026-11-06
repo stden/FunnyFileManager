@@ -57,7 +57,7 @@ flowchart TB
         Bootstrap --> Diagnostics[diagnostics.rs: optional logging]
     end
     subgraph Application[Application coordination]
-        Loop[application/mod.rs: event loop] --> Dispatch[application/dispatch.rs]
+        Loop[application.rs: event loop] --> Dispatch[application/dispatch.rs]
         Dispatch --> Keys[action: pure key-to-command mapping]
         Dispatch --> Popup[popup: modal input]
         Popup --> Keys
@@ -68,7 +68,7 @@ flowchart TB
         UI[ui: ratatui rendering]
     end
     subgraph State[State and domain rules]
-        Models[models: App, Panel, Overlay, values]
+        Models[models: App, Panel, Overlay]
         Commands[command, lineedit, search, selection rules]
     end
     subgraph Adapters[External effects]

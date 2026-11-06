@@ -29,6 +29,20 @@ fn empty_batches_create_the_destination_and_missing_destination_is_refused() {
 }
 
 #[test]
+fn destinations_outside_the_server_root_are_refused_before_creation() {
+    let root = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let destination = outside.path().join("must-not-exist");
+    let server = FfmServer::with_config(root.path().canonicalize().unwrap(), false, false);
+    let error = server
+        .batch_copy(params(&[], Some(&destination.to_string_lossy())))
+        .unwrap_err();
+    assert_eq!(error.code, rmcp::model::ErrorCode::INVALID_PARAMS);
+    assert!(!destination.exists());
+    drop(server);
+}
+
+#[test]
 fn batch_mutations_refuse_the_server_root_and_keep_it_intact() {
     let root = tempfile::tempdir().unwrap();
     let server = FfmServer::with_config(root.path().canonicalize().unwrap(), false, false);
