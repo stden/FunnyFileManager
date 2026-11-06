@@ -9,11 +9,27 @@ use super::{CleanupCandidate, CleanupKind, DiskCleanupDialog, TempScope};
 use crate::test_support::{EnvVarGuard, EnvVarsGuard};
 use tempfile::TempDir;
 
-#[cfg(unix)]
+/// The rows whose folder lies under the home or under a tool's own variable.
+const HOME_ROWS: [&str; 11] = [
+    "Gradle caches",
+    "npm cache",
+    "Gradle wrapper cache",
+    "JVM heap dumps",
+    "Rustup temp files",
+    "Rustup downloads",
+    "Cargo package-cache lock",
+    "sccache cache",
+    "Gradle daemon logs",
+    "Gradle transforms",
+    "Maven partial downloads",
+];
+
 #[test]
 fn without_an_absolute_home_no_row_names_a_folder_under_it() {
     let _env = EnvVarsGuard::set(&[
         ("HOME", Path::new("")),
+        ("USERPROFILE", Path::new("")),
+        ("LOCALAPPDATA", Path::new("")),
         ("XDG_CACHE_HOME", Path::new("")),
         ("GRADLE_USER_HOME", Path::new("")),
         ("RUSTUP_HOME", Path::new("")),
@@ -22,19 +38,7 @@ fn without_an_absolute_home_no_row_names_a_folder_under_it() {
     ]);
     let dialog = DiskCleanupDialog::new();
     let labels: Vec<&str> = dialog.candidates.iter().map(|row| row.label).collect();
-    for label in [
-        "Gradle caches",
-        "npm cache",
-        "Gradle wrapper cache",
-        "JVM heap dumps",
-        "Rustup temp files",
-        "Rustup downloads",
-        "Cargo package-cache lock",
-        "sccache cache",
-        "Gradle daemon logs",
-        "Gradle transforms",
-        "Maven partial downloads",
-    ] {
+    for label in HOME_ROWS {
         assert!(!labels.contains(&label), "{label} in {labels:?}");
     }
     assert!(dialog
@@ -56,6 +60,7 @@ fn with_a_home_every_row_is_offered() {
         .iter()
         .find(|row| row.label == "JVM heap dumps")
         .expect("the heap dumps row");
+    assert_eq!(heap_dumps.kind, CleanupKind::HeapDumps);
     assert_eq!(heap_dumps.path, home.path());
     assert_eq!(
         dialog.candidates.first().map(|row| row.label),
@@ -170,4 +175,11 @@ fn a_row_starts_ticked_only_when_what_it_removes_is_temporary() {
     assert!(CleanupKind::Temp(TempScope::MavenPartialDownloads).starts_checked());
     assert!(CleanupKind::Temp(TempScope::GradleDaemonLogs).starts_checked());
     assert!(!CleanupKind::Temp(TempScope::GradleTransforms).starts_checked());
+}
+
+#[test]
+fn only_the_gradle_transforms_scope_names_whole_folders() {
+    assert!(TempScope::GradleTransforms.names_folders());
+    assert!(!TempScope::GradleDaemonLogs.names_folders());
+    assert!(!TempScope::MavenPartialDownloads.names_folders());
 }

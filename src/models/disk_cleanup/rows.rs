@@ -69,14 +69,12 @@ fn platform_caches(home: Option<&Path>) -> Vec<CleanupCandidate> {
 
 #[cfg(windows)]
 fn cache_dir(home: Option<&Path>) -> Option<PathBuf> {
-    std::env::var_os("LOCALAPPDATA")
-        .map(PathBuf::from)
-        .or_else(|| home.map(|home| home.join("AppData").join("Local")))
+    env_dir("LOCALAPPDATA").or_else(|| home.map(|home| home.join("AppData").join("Local")))
 }
 
 #[cfg(target_os = "macos")]
 fn cache_dir(home: Option<&Path>) -> Option<PathBuf> {
-    home.map(|home| home.join("Library").join("Caches"))
+    Some(home?.join("Library").join("Caches"))
 }
 
 #[cfg(not(any(windows, target_os = "macos")))]

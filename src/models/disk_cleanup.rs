@@ -107,5 +107,7 @@ impl Default for DiskCleanupDialog {
 
 #[cfg(test)]
 mod tests;
-#[cfg(test)]
+#[cfg(all(test, not(windows)))]
 mod tests_cache_rows;
+#[cfg(all(test, windows))]
+mod tests_cache_rows_windows;
