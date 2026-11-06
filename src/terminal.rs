@@ -51,19 +51,17 @@ mod keyboard;
     reason = "memory terminal backend added during active automation development"
 )]
 pub(crate) mod memory;
-#[cfg(any(test, coverage))]
-mod noop_ops;
 mod progress_screen;
 mod typeahead;
 mod video_mode;
 
+#[cfg(any(test, coverage))]
+pub use crate::test_support::NoopTerminalOps;
 pub use crossterm_ops::CrosstermOps;
 pub use guards::{TerminalSession, TerminalSuspension};
 #[cfg(unix)]
 pub use hang_up::{hung_up, watch_for_hang_up};
 pub use keyboard::{decode_input, KeyboardProtocol};
-#[cfg(any(test, coverage))]
-pub use noop_ops::NoopTerminalOps;
 pub use progress_screen::ProgressScreen;
 pub use typeahead::{cancel_requested, discard_queued};
 #[cfg(test)]

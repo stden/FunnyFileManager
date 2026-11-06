@@ -1,11 +1,9 @@
 //! Purpose: the real-keyboard side of type-ahead — empty crossterm's queue of
 //! keys typed while the file manager could not answer, noticing a cancel.
 //!
-//! Kept in its own file so the coverage policy can exclude it by file name,
-//! like `bootstrap.rs`: draining crossterm's event queue requires a live
-//! terminal with keys actually pending, which no test environment has. The
-//! decision of *what counts as cancel* is [`super::is_cancel_event`], which is
-//! pure and fully measured.
+//! The drain takes the queue's `poll` and `read` as parameters, so a test can
+//! feed it events without a live terminal; the decision of *what counts as
+//! cancel* is [`super::is_cancel_event`].
 
 use std::time::Duration;
 
@@ -21,9 +19,20 @@ pub fn discard_queued() -> bool {
     if let Some(cancelled) = super::headless::cancelled() {
         return cancelled;
     }
+    discard_from(
+        || crossterm::event::poll(Duration::ZERO),
+        crossterm::event::read,
+    )
+}
+
+/// The drain [`discard_queued`] runs on crossterm's own queue.
+fn discard_from(
+    mut poll: impl FnMut() -> std::io::Result<bool>,
+    mut read: impl FnMut() -> std::io::Result<crossterm::event::Event>,
+) -> bool {
     let mut cancel = false;
-    while crossterm::event::poll(Duration::ZERO).unwrap_or(false)
-        && crossterm::event::read().is_ok_and(|event| {
+    while poll().unwrap_or(false)
+        && read().is_ok_and(|event| {
             cancel |= super::is_cancel_event(&event);
             true
         })
@@ -46,3 +55,6 @@ pub fn cancel_requested() -> bool {
     }
     crate::recording::wait_for_terminal(Duration::ZERO).is_err() || discard_queued()
 }
+
+#[cfg(test)]
+mod tests;

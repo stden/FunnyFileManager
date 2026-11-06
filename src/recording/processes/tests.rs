@@ -10,6 +10,8 @@ use super::super::{Header, Input, Replay};
 use crate::models::{ControlError, Niceness, Pid, PriorityChange, Signal};
 use crate::test_support::processes::{one_core, process, Control, FixtureHost};
 
+mod net_prober;
+
 fn firefox() -> crate::models::ProcessSample {
     process(Pid::new(4242).expect("a PID"), "firefox")
 }

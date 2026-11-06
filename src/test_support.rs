@@ -1,6 +1,10 @@
 //! Test adapters and fixtures, excluded from ordinary production builds.
 
 mod backend;
+#[cfg(any(test, coverage))]
+mod terminal_ops;
+#[cfg(any(test, coverage))]
+pub use terminal_ops::NoopTerminalOps;
 mod executable;
 pub use executable::write_executable;
 #[cfg(any(test, feature = "test-helpers"))]

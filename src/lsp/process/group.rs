@@ -54,7 +54,15 @@ fn reap(child: &mut Child) {
 }
 
 pub(super) fn log_reap_result(result: &std::io::Result<std::process::ExitStatus>) {
+    report_reap(result, &mut crate::diagnostics::log_error);
+}
+
+/// The line is fixed: the OS error may carry details of the server's process.
+fn report_reap(result: &std::io::Result<std::process::ExitStatus>, report: &mut dyn FnMut(&str)) {
     if result.is_err() {
-        crate::diagnostics::log_error("LSP process reap failed");
+        report("LSP process reap failed");
     }
 }
+
+#[cfg(test)]
+mod tests;

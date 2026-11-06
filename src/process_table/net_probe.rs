@@ -105,10 +105,22 @@ pub(super) fn udp_dns_probe_from(
     let Ok(sock) = UdpSocket::bind(bind_addr) else {
         return ProbeOutcome::Unreachable;
     };
+    exchange_dns_query(&sock, server, &query, txid, timeout)
+}
+
+/// Sends `query` from `sock` and classifies the reply. Separate from the bind
+/// so a test can supply a socket that is already connected to a closed port.
+fn exchange_dns_query(
+    sock: &UdpSocket,
+    server: SocketAddrV4,
+    query: &[u8],
+    txid: u16,
+    timeout: Duration,
+) -> ProbeOutcome {
     drop(sock.set_read_timeout(Some(timeout)));
     drop(sock.set_write_timeout(Some(timeout)));
     let start = Instant::now();
-    if sock.send_to(&query, server).is_err() {
+    if sock.send_to(query, server).is_err() {
         return ProbeOutcome::Unreachable;
     }
     let mut reply = [0_u8; 512];

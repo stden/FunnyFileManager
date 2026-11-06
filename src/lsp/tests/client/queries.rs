@@ -108,3 +108,18 @@ fn an_unsupported_query_cancels_the_previous_supported_request() {
         .unwrap();
     assert_eq!(client.events.len(), events);
 }
+
+#[test]
+fn a_reply_for_a_closed_document_cannot_publish_an_editor_event() {
+    let mut client = Client::new("rust".into(), "file:///workspace".into());
+    let query = Query {
+        stamp: Stamp {
+            id: DocumentId::default(),
+            revision: Revision::default(),
+        },
+        position: Position::default(),
+        feature: Feature::Hover,
+    };
+    client.answer(query, Ok(json!({"contents":"late hover"})));
+    assert!(client.events.is_empty());
+}

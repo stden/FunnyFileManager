@@ -158,3 +158,20 @@ fn wait_for_port(path: &std::path::Path) -> u16 {
         std::thread::sleep(Duration::from_millis(5));
     }
 }
+
+#[test]
+fn a_command_failure_keeps_its_diagnostic_output_available() {
+    use std::io::Write;
+    let mut errors = tempfile::tempfile().unwrap();
+    errors
+        .write_all(b"package manager failed\nmore detail")
+        .unwrap();
+    assert_eq!(
+        noted(InstallError::Command, &mut errors),
+        InstallError::Command
+    );
+    assert_eq!(
+        failure_line(&mut errors).as_deref(),
+        Some("package manager failed")
+    );
+}

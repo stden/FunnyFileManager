@@ -5,6 +5,7 @@ use super::*;
 use crate::lsp::install::environment::System;
 use std::process::Command;
 use tempfile::TempDir;
+mod failures;
 
 #[test]
 fn launch_receipts_are_relocated_and_keep_literal_server_arguments() {

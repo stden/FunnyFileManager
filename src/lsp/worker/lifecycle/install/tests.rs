@@ -131,3 +131,21 @@ fn park_evicts_oldest_idle_server_restart_prunes_matches_and_reopen_reports_init
     host.restart();
     assert_eq!(host.idle.len(), 3);
 }
+
+#[test]
+fn parking_a_fifth_server_evicts_the_oldest_idle_connection() {
+    let root = TempDir::new().unwrap();
+    let snapshot = super::super::tests::snapshot(root.path());
+    let settings = idle_python_settings();
+    let mut host = Host::default();
+    for index in 0..5 {
+        let language = format!("lang{index}");
+        let connection =
+            Connection::start(language, &settings, snapshot.clone(), root.path()).unwrap();
+        host.session = Session::Running(Box::new(connection));
+        host.park();
+    }
+    let parked: Vec<_> = host.idle.iter().map(|item| &item.language).collect();
+    assert_eq!(parked, ["lang1", "lang2", "lang3", "lang4"]);
+    assert!(matches!(host.session, Session::Closed));
+}

@@ -40,6 +40,8 @@ mod program;
 mod pty;
 #[path = "pty_session_test/recording.rs"]
 mod recording;
+#[path = "pty_session_test/startup.rs"]
+mod startup;
 #[path = "pty_session_test/typeahead.rs"]
 mod typeahead;
 #[path = "pty_session_test/video_mode.rs"]

@@ -140,3 +140,21 @@ fn classify_tcp_connect_maps_outcomes_across_error_kinds() {
         ProbeOutcome::Unreachable
     );
 }
+
+#[cfg(target_os = "linux")]
+#[test]
+fn a_connected_dns_socket_reports_a_refused_server_as_unreachable() {
+    use super::*;
+    let server = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("temporary resolver");
+    let std::net::SocketAddr::V4(address) = server.local_addr().expect("resolver address") else {
+        panic!("IPv4");
+    };
+    drop(server);
+    let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client");
+    socket.connect(address).expect("connected UDP client");
+    let query = build_dns_a_query("fixture.test", 1).expect("query");
+    assert_eq!(
+        exchange_dns_query(&socket, address, &query, 1, Duration::from_millis(100)),
+        ProbeOutcome::Unreachable
+    );
+}

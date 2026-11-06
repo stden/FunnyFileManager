@@ -69,3 +69,29 @@ fn replay_session_runs_to_clean_completion_without_live_hangup_watcher() {
     let mut ffm = Ffm::start_in(sandbox, &path, &["--replay", &replay_arg]);
     assert!(ffm.wait_for_exit().expect("replay exits").success());
 }
+
+/// A replay that runs out of events before the application quits ends ffm
+/// with a failure it reports, rather than waiting for input that never comes.
+#[test]
+fn a_replay_finishes_from_its_own_input_and_reports_a_truncated_session() {
+    use crossterm::event::Event;
+
+    let sandbox = TempDir::new().expect("sandbox");
+    let replay_path = sandbox.path().join("session.jsonl");
+    let header = r#"{"version":1,"executable":"ffm","directory":".","size":[80,24]}"#;
+    let warmup = serde_json::json!({"delay_ms": 0, "event": Event::Resize(80, 24)});
+    let last = serde_json::json!({"delay_ms": 500, "event": Event::FocusGained});
+    fs::write(&replay_path, format!("{header}\n{warmup}\n{last}\n")).expect("write replay");
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    let replay_arg = replay_path.to_str().expect("utf8 path").to_owned();
+
+    let mut ffm = Ffm::start_in(sandbox, &path, &["--replay", &replay_arg]);
+    assert!(!ffm.wait_for_exit().expect("replay exits").success());
+    let reported = ffm.wait_for(PATIENCE, |ffm| {
+        contains(&ffm.screen, b"Recording ended before the application quit")
+    });
+    assert!(
+        reported.is_some(),
+        "the truncated replay was never reported"
+    );
+}

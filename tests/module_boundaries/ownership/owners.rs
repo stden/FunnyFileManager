@@ -91,3 +91,14 @@ fn the_in_memory_remote_adapter_is_owned_by_test_support() {
         Vec::<String>::new()
     );
 }
+
+#[test]
+fn the_inert_terminal_adapter_is_owned_by_test_support() {
+    assert!(repository()
+        .join("src/test_support/terminal_ops.rs")
+        .is_file());
+    assert_eq!(
+        present_files(repository(), &["src/terminal/noop_ops.rs"]),
+        Vec::<String>::new()
+    );
+}

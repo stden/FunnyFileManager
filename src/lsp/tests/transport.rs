@@ -98,3 +98,13 @@ fn a_malformed_frame_names_the_part_that_is_invalid() {
     let err = write_frame(&mut Vec::new(), &oversized).unwrap_err();
     assert_eq!(err.to_string(), "LSP message too large");
 }
+
+#[test]
+fn an_oversized_outgoing_message_writes_no_partial_frame() {
+    let mut output = Vec::new();
+    let value = json!("x".repeat(32 * 1024 * 1024));
+    let error = write_frame(&mut output, &value).unwrap_err();
+    assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    assert_eq!(error.to_string(), "LSP message too large");
+    assert_eq!(output.len(), 0);
+}

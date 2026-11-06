@@ -3,7 +3,7 @@
 use ratatui::{backend::Backend, Terminal};
 use std::io::{self, Write};
 
-use super::TerminalOps;
+use crate::terminal::TerminalOps;
 
 pub struct NoopTerminalOps;
 

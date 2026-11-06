@@ -159,3 +159,10 @@ fn document_path_rejects_uncanonicalizable_paths() {
     let uncanonical = root.path().join("bad*name.rs");
     assert!(document_path(&uncanonical).is_err());
 }
+
+#[test]
+fn an_invalid_document_filename_preserves_the_filesystem_error_kind() {
+    let root = project_root();
+    let error = document_path(&root.path().join("invalid\0name")).unwrap_err();
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+}

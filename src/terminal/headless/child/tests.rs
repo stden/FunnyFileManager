@@ -87,3 +87,26 @@ fn stop_group_ignores_esrch_for_non_leader_child() {
     assert!(stop_group(&child).is_ok());
     drop(child.wait());
 }
+
+#[cfg(unix)]
+fn refused(_child: &mut OwnedChild) -> io::Result<()> {
+    Err(io::ErrorKind::PermissionDenied.into())
+}
+
+#[cfg(unix)]
+#[test]
+fn failed_drop_cleanup_reports_the_error_and_retains_the_child_for_retry() {
+    let child = std::process::Command::new("sh")
+        .args(["-c", "exit 0"])
+        .spawn()
+        .expect("spawn");
+    let mut owned =
+        OwnedChild::new(Box::new(child), open_master(), Descendants::Owned).expect("owned");
+    let mut errors = Vec::new();
+    owned.cleanup(refused, &mut |message| errors.push(message.to_owned()));
+    assert_eq!(errors.len(), 1);
+    assert!(errors[0].starts_with("Cannot stop private terminal child:"));
+    assert!(matches!(owned.lifetime, Lifetime::Running));
+    owned.stop().expect("retry the stop");
+    assert!(matches!(owned.lifetime, Lifetime::Reaped));
+}

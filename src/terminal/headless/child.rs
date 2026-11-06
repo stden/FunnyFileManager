@@ -125,17 +125,21 @@ impl OwnedChild {
             .downcast_ref::<std::process::Child>()
             .ok_or_else(|| io::Error::other("Unsupported private terminal process"))
     }
+
+    /// Stop a child still running, reporting a failure: a destructor cannot
+    /// return one. A failed stop leaves the child running for a retry.
+    fn cleanup(&mut self, stop: fn(&mut Self) -> io::Result<()>, report: &mut dyn FnMut(&str)) {
+        if matches!(self.lifetime, Lifetime::Running) {
+            if let Err(error) = stop(self) {
+                report(&format!("Cannot stop private terminal child: {error}"));
+            }
+        }
+    }
 }
 
 impl Drop for OwnedChild {
     fn drop(&mut self) {
-        if matches!(self.lifetime, Lifetime::Running) {
-            if let Err(error) = self.stop() {
-                crate::diagnostics::log_error(&format!(
-                    "Cannot stop private terminal child: {error}"
-                ));
-            }
-        }
+        self.cleanup(Self::stop, &mut crate::diagnostics::log_error);
     }
 }
 
