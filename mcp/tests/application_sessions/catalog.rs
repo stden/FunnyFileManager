@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 
 #[tokio::test]
 #[ignore = "requires FFM_APPLICATION_TEST_BINARY pointing to a separately built ffm executable"]
-async fn all_tools_and_fourteen_application_contexts_are_discoverable() {
+async fn all_tools_and_fifteen_application_contexts_are_discoverable() {
     let root = tempfile::tempdir().unwrap();
     let mut client = Client::spawn(root.path(), Access::Application).await;
     let tools = client.rpc("tools/list", json!({})).await;
@@ -80,6 +80,7 @@ fn assert_contexts(actions: &[Value]) {
         "language_servers",
         "path_editor",
         "vault",
+        "database_explorer",
     ]
     .into_iter()
     .collect();

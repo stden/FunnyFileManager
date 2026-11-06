@@ -1,4 +1,4 @@
-//! Purpose: `Context`, the fourteen screens whose keys `ffm.yml` holds, each
+//! Purpose: `Context`, the fifteen screens whose keys `ffm.yml` holds, each
 //! with the name of its section in the file.
 
 use std::fmt;

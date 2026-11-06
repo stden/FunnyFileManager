@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use super::*;
 
 #[test]
-fn public_catalogue_contains_all_actions_and_fourteen_unique_contexts() {
+fn public_catalogue_contains_all_actions_and_fifteen_unique_contexts() {
     let root = workspace();
     let mut session = Session::start(root.path());
     let mut identities = BTreeSet::new();
@@ -52,6 +52,7 @@ fn expected_action_count() -> usize {
         count(&tables::LANGUAGE_SERVERS),
         count(&tables::PATH_EDITOR),
         count(&tables::VAULT),
+        count(&tables::DATABASE_EXPLORER),
     ]
     .into_iter()
     .sum()

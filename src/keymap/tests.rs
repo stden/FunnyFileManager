@@ -1,5 +1,5 @@
 //! Purpose: the key tables read as facts — what each row says apart from
-//! the type of its command — and the fourteen contexts they cover.
+//! the type of its command — and the fifteen contexts they cover.
 
 use std::fmt::Debug;
 
