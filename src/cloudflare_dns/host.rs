@@ -11,6 +11,7 @@ use std::{io::Read, net::Ipv4Addr};
 /// The resolver's address. Built from its octets, so no dotted literal is written in the source.
 const TRACE_HOST: Ipv4Addr = Ipv4Addr::new(1, 1, 1, 1);
 const TRACE_PATH: &str = "/cdn-cgi/trace";
+#[cfg(not(windows))]
 const LOCAL_HOSTNAME_FILE: &str = "/proc/sys/kernel/hostname";
 /// A trace page is a few hundred bytes.
 const MAX_TRACE: u64 = 64 * 1024;
