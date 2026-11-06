@@ -7,6 +7,7 @@ use crate::remote::fake::FakeRemoteFs;
 use crate::remote::{RemoteError, RemoteFs, RemoteLink, UnixMode};
 
 mod commit;
+mod update;
 
 #[test]
 fn save_rejects_local_or_directory_sources_and_preserves_remote_mode() {

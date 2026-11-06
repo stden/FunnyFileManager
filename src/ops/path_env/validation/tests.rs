@@ -59,3 +59,17 @@ fn windows_and_unix_variable_parsers_handle_braces_bare_names_and_literals() {
     assert_eq!(unix_variable("$ROOT_1/bin"), Some(("ROOT_1", "/bin")));
     assert_eq!(unix_variable("$(literal)"), None);
 }
+
+#[cfg(windows)]
+#[test]
+fn windows_variables_preserve_unpaired_percent_and_literal_dollar_names() {
+    let resolve = |name: &str| (name == "ROOT").then(|| "C:/tools".to_owned());
+    assert_eq!(
+        expand("%ROOT%/bin", resolve),
+        Some("C:/tools/bin".to_owned())
+    );
+    for literal in ["C:/100%", "$ROOT/bin", "C:/a%b"] {
+        assert_eq!(expand(literal, resolve).as_deref(), Some(literal));
+    }
+    assert_eq!(expand("%ABSENT%/bin", resolve), None);
+}

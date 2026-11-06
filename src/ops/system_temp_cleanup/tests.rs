@@ -7,6 +7,8 @@ use crate::models::{
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::time::{Duration, SystemTime};
 
+mod confirmation;
+
 #[test]
 fn opening_and_cancel_do_not_delete_fixture_files() {
     let temp = tempfile::TempDir::new().unwrap();

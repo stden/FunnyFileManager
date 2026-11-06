@@ -69,3 +69,20 @@ fn connect_with_reports_error_on_closed_ftp_endpoint() {
     };
     assert!(connect_with(&ftp, &creds).is_err());
 }
+
+#[test]
+fn a_closed_loopback_port_returns_a_sanitized_connection_failure() {
+    let listener = TcpListener::bind(("127.0.0.1", 0)).expect("private port");
+    let port = listener.local_addr().expect("private address").port();
+    drop(listener);
+    let session = Session::new(
+        Protocol::Sftp,
+        HostName::new("127.0.0.1").expect("loopback"),
+        Port::new(port).expect("port"),
+        None,
+    );
+    assert!(matches!(
+        socket(&session),
+        Err(RemoteError::Failed("cannot connect to the remote host"))
+    ));
+}
