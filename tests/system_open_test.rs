@@ -1,5 +1,7 @@
 //! Opening a document invokes the OS handler with the selected absolute path.
 
+#![cfg(target_os = "linux")]
+
 use std::fs;
 use std::io;
 

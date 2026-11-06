@@ -81,8 +81,6 @@ fn a_url_password_reaches_the_driver_through_its_variable() {
 
 #[test]
 #[should_panic(expected = "names a TCP host")]
-fn a_socket_url_is_refused_by_the_test_server() {
-    super::super::test_server::from_url(
-        "postgres://postgres@/ffm?host=/var/run/postgresql".to_owned(),
-    );
+fn a_url_without_a_host_is_refused_by_the_test_server() {
+    super::super::test_server::from_url("postgres://postgres@/ffm".to_owned());
 }
