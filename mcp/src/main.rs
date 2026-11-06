@@ -8,7 +8,7 @@
 //! The tools themselves are declared per area under `tools/`.
 
 use rmcp::{
-    model::{ServerCapabilities, ServerInfo},
+    model::{ServerCapabilities, ServerConfig},
     tool_handler,
     transport::stdio,
     ErrorData as McpError, ServerHandler, ServiceExt,
@@ -131,8 +131,8 @@ impl FfmServer {
     reason = "rmcp's tool_handler macro generates the async dispatch methods"
 )]
 impl ServerHandler for FfmServer {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_instructions(
                 "FunnyFileManager MCP server — comprehensive file management tools for AI assistants. \
                  Supports local filesystem operations (list, view, create, copy, move, delete, search, grep, tree), \
