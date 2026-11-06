@@ -5,7 +5,7 @@ use crate::command::language::SettingsPage;
 use std::io;
 use std::time::{Duration, Instant};
 
-use super::entry::remove_path;
+use super::removal::remove_path;
 use super::{get_source_paths, refresh_after_operation};
 use crate::models::{App, Overlay};
 use crate::status::{FailedEntry, Status};

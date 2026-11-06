@@ -90,7 +90,7 @@ fn transferred(outcome: &super::super::dialog::DialogOutcome) -> Outcome {
 fn delete(sources: &[std::path::PathBuf]) -> Outcome {
     let _run = crate::progress::begin(Operation::Delete, sources);
     for (index, source) in sources.iter().enumerate() {
-        if let Err(error) = super::super::entry::remove_path(source) {
+        if let Err(error) = super::super::removal::remove_path(source) {
             return Outcome {
                 done: index,
                 left: sources.len() - index - 1,

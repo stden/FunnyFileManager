@@ -23,6 +23,7 @@ mod elevated;
 mod entry;
 mod merge;
 mod placement;
+mod removal;
 mod remove_moved;
 mod rename;
 mod replace;
@@ -123,6 +124,8 @@ pub fn get_source_paths(app: &App) -> Vec<PathBuf> {
 mod tests_delete_timing;
 #[cfg(test)]
 mod tests_destinations;
+#[cfg(test)]
+mod tests_entry_removal;
 #[cfg(test)]
 mod tests_exhaustion;
 #[cfg(test)]

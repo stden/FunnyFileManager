@@ -98,7 +98,7 @@ fn remove_dir(source: &Path) -> io::Result<()> {
 fn remove_file(source: &Path, kind: fs::FileType) -> io::Result<()> {
     #[cfg(any(test, tarpaulin))]
     forced_refusal(source)?;
-    super::entry::remove_link_or_file(source, kind)
+    super::removal::remove_link_or_file(source, kind)
 }
 
 pub(super) fn remove_contents(folder: &Path, copy: &Path, first: &mut Kept) {
