@@ -1,4 +1,5 @@
-//! Purpose: help, quit and exit, invalid input, shell commands and `:mcp`.
+//! Purpose: help, quit and exit, invalid input, shell commands, `:mcp`,
+//! `:sessions` and `:wsl`.
 
 use super::*;
 
@@ -114,4 +115,16 @@ fn test_mcp_opens_viewer() {
     execute_command(&mut app, "mcp").expect("mcp");
     assert!(app.get_viewer().is_some());
     assert!(app.status_text().contains("MCP"));
+}
+
+// ─── sessions / wsl ──────────────────────────────────────────────────
+
+#[test]
+fn the_sessions_and_wsl_builtins_open_their_own_panels() {
+    let temp = TempDir::new().expect("tempdir");
+    let mut app = make_app(&temp);
+    execute_command(&mut app, "sessions").expect("sessions");
+    assert!(app.left_panel.kind.is_netbox());
+    execute_command(&mut app, "wsl").expect("wsl");
+    assert!(matches!(app.overlay, Overlay::Wsl(_)));
 }

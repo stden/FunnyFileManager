@@ -71,6 +71,22 @@ fn child_read_dir_and_entry_errors_are_counted_without_aborting_scan() {
     assert_eq!(errors, 1);
 }
 
+#[test]
+fn a_directory_entry_error_does_not_hide_later_children() {
+    let temp = tempfile::TempDir::new().expect("temporary directory");
+    fs::create_dir(temp.path().join("kept")).expect("child");
+    let bad: io::Result<fs::DirEntry> = Err(io::Error::other("bad dir entry"));
+    let listed = fs::read_dir(temp.path()).expect("entries");
+    let entries = std::iter::once(bad).chain(listed);
+    let mut pending = Vec::new();
+    let mut errors = 0;
+
+    descend(Ok(entries), &mut pending, &mut errors).expect("descend tolerates entry error");
+
+    assert_eq!(pending, [temp.path().join("kept")]);
+    assert_eq!(errors, 1);
+}
+
 #[cfg(unix)]
 #[test]
 fn directory_links_cannot_escape_the_current_folder_or_create_a_cycle() {

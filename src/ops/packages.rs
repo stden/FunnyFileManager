@@ -118,6 +118,9 @@ mod tests;
 #[cfg(all(test, unix))]
 mod tests_interrupt;
 
+#[cfg(all(test, unix))]
+mod tests_sudo;
+
 #[cfg(unix)]
 fn command(plan: &UpdatePlan, path: &std::path::Path, args: &[&str]) -> Command {
     let mut command = match plan.elevation {

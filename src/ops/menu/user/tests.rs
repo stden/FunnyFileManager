@@ -68,6 +68,30 @@ fn without_a_configuration_directory_there_is_no_command_file() -> io::Result<()
     Ok(())
 }
 
+/// A settings file named by an empty path has no folder, so the command files
+/// have none either: nothing lands in the launch directory. The child process
+/// keeps the changed working directory away from the other tests.
+#[cfg(unix)]
+#[test]
+fn a_configuration_file_without_a_parent_has_no_command_location() {
+    crate::test_support::filesystem_faults::run(|| {
+        let root = tempfile::TempDir::new().unwrap();
+        let previous = std::env::current_dir().unwrap();
+        let mut app = app_with_config(root.path());
+        app.settings = crate::models::settings::Settings::with_file(PathBuf::new());
+        std::env::set_current_dir(root.path()).unwrap();
+
+        let result = edit(&mut app, MenuCommand::UserMenu);
+
+        std::env::set_current_dir(previous).unwrap();
+        assert_eq!(
+            result.map_err(|error| error.to_string()),
+            Err(NO_CONFIG_DIR.to_owned())
+        );
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 0);
+    });
+}
+
 /// A FIFO named `user-menu.txt` or `associations.txt`: opening it waited for
 /// a writer, and F2, Enter on any file or editing the file froze FFM. Each is
 /// refused, promptly, with the file's name.

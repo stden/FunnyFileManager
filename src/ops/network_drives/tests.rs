@@ -86,6 +86,24 @@ fn damaged_legacy_sessions_and_worker_errors_are_handled() {
     drop(refresh());
 }
 
+/// A refused migration writes no `ffm.yml` and leaves the damaged legacy
+/// file exactly as it was.
+#[test]
+fn damaged_legacy_sessions_prevent_mount_migration() {
+    let temp = tempfile::TempDir::new().expect("temp");
+    let legacy = temp.path().join(crate::sessions::FILE_NAME);
+    let path = temp.path().join("ffm.yml");
+    std::fs::write(&legacy, b"{ broken").expect("broken");
+
+    let error = save_to(&path, &[drive()]).expect_err("damaged legacy");
+
+    assert!(error
+        .to_string()
+        .contains("legacy server profiles could not be migrated"));
+    assert!(!path.exists());
+    assert_eq!(std::fs::read(legacy).expect("legacy"), b"{ broken");
+}
+
 #[test]
 fn parse_windows_output_validates_exit_status_and_mounts() {
     use std::process::Command;

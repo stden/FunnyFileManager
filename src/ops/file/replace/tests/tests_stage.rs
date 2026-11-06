@@ -89,3 +89,27 @@ fn stage_with_replaces_or_keeps_destination_on_unnamed_temp_result() {
     .unwrap();
     assert_eq!(fs::read(&dst).unwrap(), b"payload");
 }
+
+/// Where no unnamed file can be made, the named staging still gives the
+/// replacement the mode of the file it replaces, and leaves no entry behind.
+#[cfg(unix)]
+#[test]
+fn named_staging_without_a_descriptor_view_keeps_the_replaced_mode() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = TempDir::new().unwrap();
+    let src = dir.path().join("src.txt");
+    let dst = dir.path().join("dst.txt");
+    fs::write(&src, b"new").unwrap();
+    fs::write(&dst, b"old").unwrap();
+    fs::set_permissions(&src, fs::Permissions::from_mode(0o750)).unwrap();
+    fs::set_permissions(&dst, fs::Permissions::from_mode(0o640)).unwrap();
+    let settings = CopyPrompt::for_purpose(Purpose::Copy, "src.txt", dir.path());
+
+    stage::stage_with(&src, &dst, &settings, |_| None, |_, _| panic!("not called")).unwrap();
+
+    assert_eq!(fs::read(&dst).unwrap(), b"new");
+    let mode = fs::metadata(&dst).unwrap().permissions().mode() & 0o777;
+    assert_eq!(mode, 0o640);
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 2);
+}

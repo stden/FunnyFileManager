@@ -76,3 +76,21 @@ fn kill_shell_tree_handles_child_without_its_own_process_group() {
     drop(child.wait());
     kill_shell_tree(&mut child);
 }
+
+/// A running child outside a group of its own: the group signals find no
+/// group, and the child itself is still killed and reaped.
+#[cfg(unix)]
+#[test]
+fn a_child_that_does_not_lead_a_process_group_is_still_reaped() {
+    let mut child = std::process::Command::new("sleep")
+        .arg("30")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .expect("spawn sleep");
+
+    kill_shell_tree(&mut child);
+
+    assert!(child.try_wait().expect("child status").is_some());
+}

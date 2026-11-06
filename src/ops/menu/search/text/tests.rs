@@ -145,3 +145,13 @@ fn tail_cut_stops_at_zero_and_backs_up_over_utf8_continuation_bytes() {
         Some(1)
     );
 }
+
+/// A two-byte character at the cut moves it back one byte; a tail whose cut
+/// backs up all the way to the start needs no cut at all.
+#[test]
+fn an_anchor_tail_backs_up_over_utf8_continuation_bytes() {
+    let mut bytes = vec![b'x', 0xD0, 0xB6];
+    bytes.resize(22, b'a');
+    assert_eq!(super::anchor::tail_cut(&bytes, 1), Some(1));
+    assert_eq!(super::anchor::tail_cut(&bytes[1..], 1), None);
+}

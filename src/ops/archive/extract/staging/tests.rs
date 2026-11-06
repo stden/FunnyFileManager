@@ -51,3 +51,29 @@ fn settle_merges_staged_directory_and_refuses_destination_link_clash() {
     #[cfg(unix)]
     super::ensure_owner_rwx(&dest.path().join("missing"));
 }
+
+/// Owner rights are given back to staged folders only: a file standing where
+/// a folder was keeps its mode, and nothing can be looked up below it.
+#[cfg(unix)]
+#[test]
+fn a_staging_path_replaced_by_a_file_is_not_given_directory_permissions() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = TempDir::new().expect("directory");
+    let file = temp.path().join("replaced");
+    fs::write(&file, b"kept").expect("file");
+    fs::set_permissions(&file, fs::Permissions::from_mode(0o400)).expect("permissions");
+
+    super::ensure_owner_rwx(&file);
+
+    assert_eq!(
+        fs::metadata(&file).expect("file").permissions().mode() & 0o777,
+        0o400
+    );
+    assert_eq!(
+        existing(&file.join("child"))
+            .expect_err("not a directory")
+            .kind(),
+        std::io::ErrorKind::NotADirectory
+    );
+}

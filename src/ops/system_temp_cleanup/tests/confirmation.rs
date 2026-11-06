@@ -16,6 +16,26 @@ fn preview() -> (tempfile::TempDir, App) {
     (temp, app)
 }
 
+/// The focused choice of the preview on screen; `None` without one.
+fn preview_focus(app: &App) -> Option<TempChoice> {
+    let Overlay::TempCleanup(dialog) = &app.overlay else {
+        return None;
+    };
+    match &dialog.state {
+        TempCleanupState::Preview { focus, .. } => Some(*focus),
+        _ => None,
+    }
+}
+
+#[test]
+fn toggling_the_preview_twice_returns_to_cancel() {
+    let (_temp, mut app) = preview();
+    toggle(&mut app);
+    assert_eq!(preview_focus(&app), Some(TempChoice::Clean));
+    toggle(&mut app);
+    assert_eq!(preview_focus(&app), Some(TempChoice::Cancel));
+}
+
 #[test]
 fn selecting_cleanup_still_requires_default_no_confirmation_before_queueing() {
     let (temp, mut app) = preview();

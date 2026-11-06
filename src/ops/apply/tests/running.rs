@@ -99,3 +99,35 @@ fn empty_commands_succeed_preserve_name_noop_passes_and_cancellation_stops_remai
     .expect("batch");
     assert_eq!(failed, 2);
 }
+
+/// A cancel stops the batch at the entry it was pressed on: the shell is not
+/// asked again, every entry counts as failed, and all of them stay marked.
+#[test]
+fn cancelling_the_shell_keeps_the_remaining_batch_unstarted() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut app = app_at(&dir);
+    fs::write(dir.path().join("b.txt"), "beta").expect("b");
+    let names = ["a.txt", "b.txt"].map(str::to_owned);
+    let panel = app.get_active_panel();
+    panel.load_entries().expect("reload");
+    for name in &names {
+        panel
+            .marked
+            .insert(crate::models::FileName::new(name.as_str()));
+    }
+    let mut started = 0;
+    let failed = super::super::run_batch_with(
+        &mut app,
+        "echo !.",
+        &names,
+        dir.path(),
+        dir.path(),
+        |_, _| {
+            started += 1;
+            Err(super::super::ShellError::Cancelled)
+        },
+    )
+    .expect("batch");
+    assert_eq!((failed, started), (2, 1));
+    assert_eq!(app.get_active_panel().marked.len(), 2);
+}

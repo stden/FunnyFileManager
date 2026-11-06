@@ -169,3 +169,24 @@ fn the_database_explorer_row_without_a_config_file_opens_with_a_hint() {
         .is_some_and(|text| text.contains("databases.yaml")));
     assert!(matches!(&app.status, Status::Error(text) if text.contains("databases.yaml")));
 }
+
+#[test]
+fn the_language_server_menu_command_opens_its_editor() {
+    let (_temp, mut app) = fixture();
+    execute(&mut app, MenuCommand::LanguageServers);
+    assert!(matches!(app.overlay, Overlay::LspEditor(_)));
+}
+
+/// The user PATH row edits the profile under the home it is given, never the
+/// real one.
+#[cfg(unix)]
+#[test]
+fn the_user_path_menu_reads_the_temporary_home_profile() {
+    let (temp, mut app) = fixture();
+    let _home = crate::test_support::EnvVarGuard::set("HOME", temp.path());
+    execute(&mut app, MenuCommand::Path(crate::path_env::Scope::User));
+    let Overlay::PathEditor(editor) = &app.overlay else {
+        panic!("PATH editor");
+    };
+    assert!(std::path::Path::new(&editor.snapshot.location).starts_with(temp.path()));
+}

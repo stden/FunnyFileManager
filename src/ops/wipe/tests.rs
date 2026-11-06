@@ -76,6 +76,8 @@ fn status_text(app: &App) -> String {
     app.status.to_string()
 }
 
+#[cfg(unix)]
+mod aliases;
 mod confirmation;
 mod special_entries;
 mod zero_passes;

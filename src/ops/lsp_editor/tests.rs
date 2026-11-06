@@ -20,6 +20,7 @@ fn yaml(text: &str) -> serde_norway::Value {
 #[path = "tests_edit.rs"]
 mod edit;
 
+mod boundaries;
 mod opening;
 mod saving;
 

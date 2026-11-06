@@ -83,3 +83,25 @@ fn run_command_reports_missing_archive_and_opens_add_prompt() {
     assert!(matches!(app.overlay, Overlay::ArchivePrompt(_)));
     assert_eq!(commands::name_of(Path::new("/")), "/");
 }
+
+/// Several marks are named after their folder; the filesystem root has no
+/// name, so the suggestion falls back to `archive`.
+#[test]
+fn multiple_marks_at_the_filesystem_root_use_the_archive_fallback_name() {
+    let mut panel = Panel::from_entries(Path::new("/").into(), Vec::new());
+    panel.marked.insert(FileName::new("first"));
+    panel.marked.insert(FileName::new("second"));
+    let mut app = App::with_panels(panel.clone(), panel);
+
+    open_add(&mut app);
+
+    let Overlay::ArchivePrompt(prompt) = &app.overlay else {
+        panic!("archive prompt");
+    };
+    assert_eq!(
+        Path::new(prompt.name.text())
+            .file_name()
+            .expect("archive name"),
+        "archive.tar.gz"
+    );
+}

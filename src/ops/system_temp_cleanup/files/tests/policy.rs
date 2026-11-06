@@ -76,6 +76,27 @@ fn relative_and_non_directory_sources_are_refused_without_changing_the_file() {
     assert_eq!(fs::read(file).unwrap(), b"unchanged");
 }
 
+/// Only root can give a folder to another user, so elsewhere this is skipped.
+#[cfg(unix)]
+#[test]
+fn a_subfolder_owned_by_another_user_is_not_a_safe_parent() {
+    use std::os::unix::fs::chown;
+
+    if !crate::platform::is_root() {
+        return;
+    }
+    let root = tempfile::TempDir::new().unwrap();
+    fs::create_dir(root.path().join("other")).unwrap();
+    let plan = scan(&source(root.path()), SystemTime::now()).unwrap();
+    let other = plan.root.path().join("other");
+    let file = other.join("file");
+    assert!(super::super::policy::safe_parent(&plan.root, &file));
+
+    chown(&other, Some(65534), None).unwrap();
+
+    assert!(!super::super::policy::safe_parent(&plan.root, &file));
+}
+
 fn fixed_now() -> SystemTime {
     SystemTime::UNIX_EPOCH + Duration::from_secs(1_700_000_000)
 }

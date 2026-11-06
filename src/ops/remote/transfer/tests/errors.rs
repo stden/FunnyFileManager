@@ -116,6 +116,21 @@ fn failed_local_stage_flush_removes_created_destination_and_non_utf8_names_error
     }
 }
 
+/// A download claims its name exclusively: an existing local file is refused
+/// before a byte is written, and the refusal does not remove it.
+#[test]
+fn a_download_never_removes_an_existing_destination() {
+    let temp = tempfile::TempDir::new().expect("temporary directory");
+    let path = temp.path().join("existing.txt");
+    fs::write(&path, b"original").expect("existing destination");
+    let written = file::write_created_local(&path, |_| panic!("must not write"));
+    assert!(written.is_err());
+    assert_eq!(
+        fs::read(path).expect("existing destination survives"),
+        b"original"
+    );
+}
+
 #[test]
 fn remote_chmod_and_missing_local_mode_errors_propagate() {
     let temp = tempfile::TempDir::new().expect("tempdir");

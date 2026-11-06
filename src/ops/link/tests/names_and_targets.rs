@@ -45,6 +45,22 @@ fn a_full_name_in_the_active_panel_puts_the_cursor_there() {
     );
 }
 
+/// The filesystem root has no name of its own, so the cursor has nothing to
+/// settle on: it stays where it was, and the listed files are untouched.
+#[test]
+fn a_root_link_path_has_no_name_to_select() {
+    let (mut app, root) = two_dirs(&["file"]);
+    let before = selected_name(&app, PanelSide::Left);
+
+    super::super::settle_on(&mut app, Path::new(std::path::MAIN_SEPARATOR_STR));
+
+    assert_eq!(selected_name(&app, PanelSide::Left), before);
+    assert_eq!(
+        fs::read(source_dir(&root).join("file")).unwrap(),
+        b"payload"
+    );
+}
+
 /// A blank name is not a name to create: the dialog closes quietly, as F7's
 /// does.
 #[test]

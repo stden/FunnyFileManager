@@ -121,6 +121,8 @@ pub fn get_source_paths(app: &App) -> Vec<PathBuf> {
 }
 
 #[cfg(test)]
+mod tests_clash_guards;
+#[cfg(test)]
 mod tests_delete_timing;
 #[cfg(test)]
 mod tests_destinations;
