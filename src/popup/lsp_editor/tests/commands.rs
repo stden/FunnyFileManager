@@ -49,3 +49,23 @@ fn typed_list_commands_leave_forms_and_exit_questions_untouched() {
     super::super::edit_selected(&mut app);
     assert!(matches!(app.overlay, Overlay::None));
 }
+
+#[test]
+fn editing_an_empty_language_server_list_keeps_browse_mode() {
+    use crate::config::LspSettings;
+    use crate::models::lsp_editor::Access;
+    use crate::models::LspEditor;
+
+    let machine = LspMachine::new();
+    let mut app = machine.opened();
+    app.set_overlay(Overlay::LspEditor(Box::new(LspEditor::new(
+        Access::Writable {
+            path: machine.settings(),
+        },
+        LspSettings(std::collections::BTreeMap::new()),
+    ))));
+    apply(&mut app, LspListCommand::Edit);
+    assert_eq!(mode(&app), &Mode::Browse);
+    assert!(editor(&app).selected().is_none());
+    assert!(!machine.settings().exists());
+}

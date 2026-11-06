@@ -143,3 +143,18 @@ fn enter_on_cancel_closes_without_extracting() {
     assert!(!app.overlay.is_active());
     assert!(!right.join("payload").exists(), "Cancel extracts nothing");
 }
+
+#[test]
+fn button_arrows_navigate_and_an_unbound_key_does_not_edit_the_destination() {
+    let mut app = App::new().expect("app");
+    let mut dialog = ExtractPrompt::new(
+        vec![std::path::PathBuf::from("test.zip")],
+        Path::new("target"),
+    );
+    dialog.field = ExtractField::Cancel;
+    app.set_overlay(Overlay::ExtractPrompt(Box::new(dialog)));
+    assert!(process_popup_input(&mut app, key(KeyCode::F(12))));
+    assert!(process_popup_input(&mut app, key(KeyCode::Left)));
+    assert_eq!(prompt(&app).field, ExtractField::Extract);
+    assert_eq!(prompt(&app).destination.text(), "target");
+}

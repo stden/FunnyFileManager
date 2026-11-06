@@ -89,3 +89,11 @@ fn arrow_keys_while_loading_do_not_accumulate_hidden_pan() {
     apply(&mut closed, ViewerCommand::Close);
     assert!(closed.get_viewer().is_none());
 }
+
+#[test]
+fn viewer_commands_do_not_close_an_unrelated_overlay() {
+    let mut app = App::new().expect("app");
+    app.set_overlay(Overlay::Help);
+    apply(&mut app, ViewerCommand::Close);
+    assert!(matches!(app.overlay, Overlay::Help));
+}

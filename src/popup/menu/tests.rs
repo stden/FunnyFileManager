@@ -34,3 +34,24 @@ fn alt_letters_select_every_heading_from_every_drop_down() {
     assert!(process(&mut app, KeyCode::Enter, KeyModifiers::ALT));
     assert!(matches!(&app.overlay, Overlay::Menu(menu) if menu.heading == Heading::Left));
 }
+
+#[test]
+fn alt_with_an_unbound_heading_keeps_the_existing_menu_open() {
+    let panel = Panel::from_entries(std::env::temp_dir(), Vec::new());
+    let mut app = App::with_panels(panel.clone(), panel);
+    app.set_menu(Menu::open(Heading::Files));
+    assert!(process(&mut app, KeyCode::Char('z'), KeyModifiers::ALT));
+    assert!(matches!(&app.overlay, Overlay::Menu(menu) if menu.heading == Heading::Files));
+    assert!(app.pending_row.is_none());
+}
+
+#[test]
+fn an_alt_navigation_key_keeps_the_drop_down_and_its_selection() {
+    let panel = Panel::from_entries(std::env::temp_dir(), Vec::new());
+    let mut app = App::with_panels(panel.clone(), panel);
+    let menu = Menu::open(Heading::Files);
+    app.set_menu(menu);
+    assert!(process(&mut app, KeyCode::Right, KeyModifiers::ALT));
+    assert!(matches!(app.overlay, Overlay::Menu(current) if current == menu));
+    assert!(app.pending_row.is_none());
+}

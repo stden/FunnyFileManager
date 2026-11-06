@@ -143,3 +143,43 @@ fn diagnostics_skips_empty_viewports_reversed_ranges_and_offscreen_lines() {
         .draw(|frame| diagnostics(frame, &editor, Rect::new(0, 0, 10, 0), 2, Cells::new(0)))
         .unwrap();
 }
+
+/// How many cells a one-line buffer underlines for an error over `range`,
+/// drawn from line `top` on a three-row screen.
+fn painted(range: Range, top: usize) -> usize {
+    let root = TempDir::new().expect("temporary directory");
+    let mut editor = Editor::from_content("buffer".into(), root.path().join("buffer"), "text");
+    editor.lsp.diagnostics.push(Diagnostic {
+        range,
+        message: "diagnostic".to_owned(),
+        severity: Some(1),
+    });
+    let mut terminal = Terminal::new(TestBackend::new(10, 3)).expect("terminal");
+    terminal
+        .draw(|frame| diagnostics(frame, &editor, frame.area(), top, Cells::new(0)))
+        .expect("draw");
+    terminal
+        .backend()
+        .buffer()
+        .content()
+        .iter()
+        .filter(|cell| cell.modifier.contains(Modifier::UNDERLINED))
+        .count()
+}
+
+#[test]
+fn invalid_or_offscreen_server_ranges_never_underline_another_line() {
+    for (start, end, top) in [(2, 1, 0), (3, 4, 0), (0, 0, 1), (u32::MAX, u32::MAX, 0)] {
+        let range = Range {
+            start: Position {
+                line: start,
+                character: 0,
+            },
+            end: Position {
+                line: end,
+                character: 1,
+            },
+        };
+        assert_eq!(painted(range, top), 0, "{range:?} at {top}");
+    }
+}

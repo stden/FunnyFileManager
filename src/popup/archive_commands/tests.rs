@@ -166,3 +166,12 @@ fn a_row_run_on_the_parent_entry_closes_the_menu_and_asks_for_an_archive() {
         Status::Error("Archive commands: put the cursor on an archive".to_owned())
     );
 }
+
+#[test]
+fn unbound_archive_menu_keys_leave_the_selection_unchanged() {
+    let mut app = App::new().expect("app");
+    app.set_overlay(Overlay::ArchiveCommands(ArchiveMenu::default()));
+    let before = menu(&app).clone();
+    assert!(process_popup_input(&mut app, key(KeyCode::F(12))));
+    assert_eq!(menu(&app), &before);
+}

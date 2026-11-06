@@ -11,6 +11,7 @@ use crate::popup::{process_popup_input, tests::app_with_editor};
 use super::*;
 
 mod tests_changed_on_disk;
+mod tests_remote_overwrite;
 
 fn press(app: &mut App, code: KeyCode) {
     assert!(process_popup_input(

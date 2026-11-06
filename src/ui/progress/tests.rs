@@ -101,6 +101,15 @@ fn a_search_shows_its_folder_and_counts_without_a_bar() {
     assert!(!text.contains('░') && !text.contains('%'), "{text}");
 }
 
+/// A search keeps its full rows on a screen too short for a transfer's.
+#[test]
+fn a_short_screen_preserves_the_search_progress_heading() {
+    let state = snapshot(Operation::Find, Phase::Working, "workspace");
+    let text = rows(&progress_dialog(Rect::new(0, 0, 60, 10), &state)).join("\n");
+    assert!(text.contains("Searching in"), "{text}");
+    assert!(text.contains("Found: 1"), "{text}");
+}
+
 fn path_row(path: &str, width: usize) -> String {
     let state = snapshot(Operation::Copy, Phase::Working, path);
     lines(&state, width)[1]

@@ -56,3 +56,23 @@ fn completion_helpers_ignore_empty_lists_and_closed_editors() {
     dismiss_completion(&mut app, false);
     apply_completion(&mut app, query, &items, 0, false);
 }
+
+#[test]
+fn completion_navigation_handles_an_empty_result_without_selecting_a_missing_item() {
+    let root = TempDir::new().unwrap();
+    let mut app = fixture(&root);
+    completion(&mut app);
+    let mut dialog = app.get_editor_mut().unwrap().lsp.popup.take().unwrap();
+    navigate(&mut dialog, true);
+    assert!(matches!(dialog, Dialog::Completion { selected: 1, .. }));
+    let Dialog::Completion {
+        items, selected, ..
+    } = &mut dialog
+    else {
+        panic!("completion");
+    };
+    items.clear();
+    *selected = 0;
+    navigate(&mut dialog, true);
+    assert!(matches!(dialog, Dialog::Completion { selected: 0, .. }));
+}

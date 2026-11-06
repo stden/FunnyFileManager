@@ -138,3 +138,16 @@ fn enter_on_cancel_creates_nothing() {
     assert!(!app.overlay.is_active());
     assert!(!right.path().join("notes.tar.gz").exists());
 }
+
+#[test]
+fn an_unbound_key_on_the_format_control_preserves_the_archive_options() {
+    let (_left, _right, mut app) = app_with_notes();
+    crate::ops::archive::open_add(&mut app);
+    let Overlay::ArchivePrompt(dialog) = &mut app.overlay else {
+        panic!("archive prompt");
+    };
+    dialog.field = ArchiveField::Format;
+    let before = prompt(&app).clone();
+    assert!(process_popup_input(&mut app, key(KeyCode::F(12))));
+    assert_eq!(prompt(&app), &before);
+}

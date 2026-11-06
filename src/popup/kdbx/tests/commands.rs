@@ -113,3 +113,14 @@ fn named_vault_reveal_closes_the_password_dialog_and_hides_the_password() {
     assert!(matches!(vault.page, Page::Browse(_)));
     assert!(!vault.is_revealed());
 }
+
+#[test]
+fn browse_save_keeps_the_vault_open_and_browse_lock_zeroes_and_closes_it() {
+    let (_dir, mut app) = app_with_unlocked_vault();
+    let now = std::time::Instant::now();
+    super::super::browse::browse_command(&mut app, VaultCommand::Save, now);
+    assert!(app.kdbx_session().is_some());
+    super::super::browse::browse_command(&mut app, VaultCommand::Lock, now);
+    assert!(matches!(app.overlay, Overlay::None));
+    assert!(matches!(app.status, crate::status::Status::VaultLocked));
+}

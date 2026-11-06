@@ -136,3 +136,17 @@ fn keyfile_login_shows_passphrase_and_input_or_delete_guards_ignore_other_varian
         })
         .expect("draw");
 }
+
+#[test]
+fn key_file_login_asks_for_a_passphrase_without_showing_the_key_contents() {
+    let mut login = RemoteLogin::new(crate::test_support::netbox::session(
+        "fixture.invalid",
+        None,
+    ));
+    login.session.auth = crate::models::Auth::KeyFile(
+        crate::models::KeyFile::new("identity.key").expect("key path"),
+    );
+    let text = display(RemoteDialog::Login(login));
+    assert!(text.contains("Key passphrase:"));
+    assert!(!text.contains("identity.key"));
+}

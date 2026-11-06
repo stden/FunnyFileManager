@@ -73,3 +73,28 @@ fn ctrl_enter_moves_to_the_next_match() {
         root.path().join("alpha").display().to_string()
     );
 }
+
+#[test]
+fn a_first_unmatched_character_does_not_move_the_tree_cursor() {
+    let (_root, mut app) = tree_app();
+    let before = selected(&mut app);
+    assert!(process(&mut app, key(KeyCode::Char('z'))));
+    assert_eq!(selected(&mut app), before);
+}
+
+#[test]
+fn shortening_a_multicharacter_search_finds_the_shortened_query() {
+    let (root, mut app) = tree_app();
+    for ch in "beta".chars() {
+        process(&mut app, key(KeyCode::Char(ch)));
+    }
+    assert!(process(&mut app, key(KeyCode::Backspace)));
+    assert_eq!(
+        tree_mut(&mut app).expect("tree").search.query(),
+        Some("bet")
+    );
+    assert_eq!(
+        selected(&mut app),
+        root.path().join("beta").display().to_string()
+    );
+}
