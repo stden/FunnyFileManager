@@ -70,6 +70,27 @@ fn an_unchanged_order_reuses_the_view_and_a_cpu_change_sorts_again() {
     assert!(builds() > before, "a new CPU order sorts again");
 }
 
+/// The same rows in a different sample order keep the view and point each
+/// row at its process's new position.
+#[test]
+fn changed_sample_order_retargets_rows_without_rebuilding_the_view() {
+    let mut list = listing(vec![process(1, "one"), process(2, "two")]);
+    let before = builds();
+    apply(
+        &mut list,
+        sample(
+            system(counters(1, 1, 1), &[counters(1, 1, 1)]),
+            vec![process(2, "two"), process(1, "one")],
+        ),
+    );
+    assert_eq!(shown(&list), [1, 2]);
+    assert_eq!(
+        list.view.iter().map(|row| row.row()).collect::<Vec<_>>(),
+        [1, 0]
+    );
+    assert_eq!(builds(), before);
+}
+
 #[test]
 fn a_tree_with_the_same_parents_is_kept_and_a_new_parent_is_rebuilt() {
     let mut list = listing(vec![process(1, "parent"), child_of(1, process(2, "child"))]);

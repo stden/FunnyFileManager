@@ -83,3 +83,25 @@ fn closed_quickview_discards_in_flight_decoder_reply() {
         std::thread::yield_now();
     }
 }
+
+#[test]
+fn a_failed_start_leaves_the_viewer_retryable_after_reopening() {
+    let mut app = App::new().expect("app");
+    app.set_overlay(Overlay::Viewer(crate::models::Viewer::image(
+        "broken.png".into(),
+    )));
+    let mut jobs = ImagePreviewJobs::with_decoder(|_| Err("unused".into()));
+    FORCE_SPAWN_FAILURE.set(true);
+    let redraw = jobs.pump(&mut app);
+    FORCE_SPAWN_FAILURE.set(false);
+    assert_eq!(redraw, Redraw::Needed);
+    assert!(jobs.running.is_none());
+    assert!(next_request(&mut app).is_none());
+    app.set_overlay(Overlay::Viewer(crate::models::Viewer::image(
+        "broken.png".into(),
+    )));
+    assert!(matches!(
+        next_request(&mut app),
+        Some((Target::Viewer, _, _))
+    ));
+}

@@ -55,3 +55,23 @@ fn failed_manager_spawn_marks_editor_lsp_failed() {
         ServerState::Failed
     );
 }
+
+#[test]
+fn a_failed_start_keeps_the_document_editable_and_can_be_retried() {
+    let root = TempDir::new().expect("temp");
+    let mut app = fixture(&root);
+    let editor = app.get_editor_mut().expect("editor");
+    let mut controller = EditorLspController::default();
+    controller.pending.push_back(Command::Close);
+    FORCE_SPAWN_FAILURE.set(true);
+    controller.open_editor(editor);
+    FORCE_SPAWN_FAILURE.set(false);
+    assert_eq!(editor.lsp.state, ServerState::Failed);
+    assert!(matches!(editor.lsp.intent, Intent::None));
+    assert!(controller.pending.is_empty());
+    editor.insert_char('x');
+    assert!(editor.lines[0].starts_with('x'));
+    controller.open_editor(editor);
+    assert_eq!(editor.lsp.state, ServerState::Starting);
+    assert!(controller.manager.is_some());
+}

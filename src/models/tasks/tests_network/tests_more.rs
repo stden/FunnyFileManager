@@ -74,3 +74,20 @@ fn interface_status_labels_cover_waiting_and_unknown_states() {
     assert_eq!(InterfaceState::Unknown.label(), "-");
     assert!(!InterfaceState::Dormant.is_up());
 }
+
+/// A priority recorded for a process no longer listed, or in another
+/// platform's terms, leaves the row's priority as it was sampled.
+#[test]
+fn missing_processes_and_foreign_priority_changes_leave_the_snapshot_unchanged() {
+    let source = process(pid(42), "unix");
+    let key = source.key;
+    let original = source.priority;
+    let (mut snapshot, _) = Snapshot::derive(
+        &Baselines::default(),
+        sample(system(counters(1, 1, 1), &[]), vec![source]),
+    );
+    let change = PriorityChange::Class(SettableClass::High);
+    snapshot.record_priority(process(pid(43), "gone").key, change);
+    snapshot.record_priority(key, change);
+    assert_eq!(snapshot.rows()[0].sample().priority, original);
+}

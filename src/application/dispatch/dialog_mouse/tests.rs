@@ -30,6 +30,7 @@ mod pointer_clicks;
 mod remote;
 mod remote_inputs;
 mod rows;
+mod stale_controls;
 mod tasks;
 mod temp_cleanup;
 mod things;

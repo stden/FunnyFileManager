@@ -136,3 +136,15 @@ fn idle_refresh_reports_failure_when_runtime_pump_errors() {
         Err(io::Error::other("pump failed"))
     }));
 }
+
+#[test]
+fn a_failed_frame_does_not_publish_a_partial_snapshot() {
+    let directory = tempfile::TempDir::new().unwrap();
+    let mut runtime = Runtime::new(directory.path(), Size::new(80, 24), Profile::Isolated).unwrap();
+    let shared = Shared::default();
+    shared.update(serde_json::json!({"kept": true})).unwrap();
+    assert!(!refresh_idle_with(&mut runtime, &shared, true, |_| {
+        Err(io::Error::other("frame failed"))
+    }));
+    assert_eq!(shared.snapshot().unwrap()["kept"], true);
+}

@@ -164,4 +164,7 @@ fn indented(depth: usize, text: &str) -> String {
 }
 
 #[cfg(test)]
+mod tests;
+
+#[cfg(test)]
 mod tests_tags;

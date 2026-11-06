@@ -5,6 +5,7 @@ use crate::models::Panel;
 
 mod more;
 mod network;
+mod startup;
 
 fn app(temp: &tempfile::TempDir) -> App {
     let panel = Panel::from_entries(temp.path().to_path_buf(), Vec::new());

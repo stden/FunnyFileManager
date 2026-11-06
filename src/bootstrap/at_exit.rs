@@ -45,14 +45,30 @@ pub(super) fn end_session_after_wait(
 )]
 fn report_at_exit(app: &App, run_result: &io::Result<()>) {
     persist_at_exit(app);
-    if let Err(error) = app.performance.save_session() {
-        eprintln!("ffm: could not save action statistics: {error}");
+    report_problems(
+        app.performance.save_session(),
+        crate::recording::stopped_reason(),
+        run_result,
+        |line| eprintln!("{line}"),
+    );
+}
+
+/// The lines [`report_at_exit`] leaves on stderr, in order: the statistics
+/// that could not be saved, the recording that stopped, the session's failure.
+fn report_problems(
+    statistics: io::Result<()>,
+    recording: Option<String>,
+    run_result: &io::Result<()>,
+    mut stderr: impl FnMut(&str),
+) {
+    if let Err(error) = statistics {
+        stderr(&format!("ffm: could not save action statistics: {error}"));
     }
-    if let Some(reason) = crate::recording::stopped_reason() {
-        eprintln!("ffm: recording stopped: {reason}");
+    if let Some(reason) = recording {
+        stderr(&format!("ffm: recording stopped: {reason}"));
     }
     if let Err(error) = run_result {
-        eprintln!("{}", AtExitErrorLine(error));
+        stderr(&AtExitErrorLine(error).to_string());
     }
 }
 
@@ -88,3 +104,6 @@ pub(super) fn persist_at_exit(app: &App) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

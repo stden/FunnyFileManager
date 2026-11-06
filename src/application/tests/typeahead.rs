@@ -120,3 +120,14 @@ fn discard_typeahead_logs_queued_cancel_and_navigation_batch_honors_budget() -> 
     assert!(nav_input.next_navigation(&app).is_some());
     Ok(())
 }
+
+#[test]
+fn escape_in_typeahead_is_consumed_after_the_operation_finishes() {
+    let folder = TempDir::new().expect("test setup");
+    let mut app = app_on_keep_file(folder.path(), "");
+    let typed = Typed(VecDeque::from([Event::Key(key_event(KeyCode::Esc))]));
+    let mut input = BufferedInput::new(typed);
+    event::discard_typeahead(&mut input, &mut app).expect("discard");
+    assert!(event::next_event(&mut input, &mut app).is_err());
+    assert!(matches!(app.lifecycle, Lifecycle::Running));
+}

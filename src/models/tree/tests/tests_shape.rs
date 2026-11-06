@@ -12,6 +12,22 @@ fn a_fresh_tree_shows_only_its_root() {
     assert_eq!(tree.rows()[0].expansion, Expansion::Collapsed);
 }
 
+/// A path outside the root is refused before the lister is asked anything,
+/// and the tree is left exactly as it was.
+#[test]
+fn reveal_outside_the_tree_root_does_not_query_or_change_the_tree() {
+    let mut tree = FolderTree::rooted_at(PathBuf::from("workspace"));
+    let mut calls = 0;
+    let mut unexpected = |_: &Path| -> Vec<PathBuf> {
+        calls += 1;
+        Vec::new()
+    };
+    assert!(!tree.reveal(Path::new("elsewhere/file"), &mut unexpected));
+    assert_eq!(calls, 0);
+    assert_eq!(tree.selected(), Some(Path::new("workspace")));
+    assert_eq!(tree.rows().len(), 1);
+}
+
 #[test]
 fn expanding_the_root_lists_one_level_and_marks_the_last_child() {
     let mut tree = root();

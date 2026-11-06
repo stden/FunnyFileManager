@@ -174,3 +174,5 @@ fn byte_at(line: &str, column: usize) -> usize {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_bounds;

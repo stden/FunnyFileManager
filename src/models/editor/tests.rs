@@ -23,6 +23,27 @@ fn mouse_position_uses_display_cells_clamps_and_clears_selection() {
     assert_eq!((editor.cursor_line, editor.cursor_col), (1, 4));
 }
 
+/// A combining mark takes no cell, and a cursor past the last line scrolls
+/// vertically while its missing line puts it at the left edge.
+#[test]
+fn viewport_counts_tabs_wide_characters_and_combining_marks_in_cells() {
+    let mut editor = open("\t界\u{301}x");
+    editor.cursor_col = 4;
+    assert_eq!(editor.viewport(25, 4), (0, editor.tab_size.columns()));
+    editor.cursor_line = 9;
+    assert_eq!(editor.viewport(3, 4), (8, 0));
+}
+
+#[test]
+fn backspace_with_a_stale_public_cursor_does_not_modify_the_document() {
+    let mut editor = open("kept");
+    editor.cursor_line = 9;
+    editor.cursor_col = 1;
+    editor.backspace();
+    assert_eq!(editor.content(), "kept");
+    assert_eq!(editor.state, super::EditState::Clean);
+}
+
 /// Each line keeps its own terminator. The buffer used to pick one ending for
 /// the whole file by majority and write it after every line, so `one\r\n`
 /// lost its CR in an LF-majority file and `c\n` gained one in a CRLF-majority

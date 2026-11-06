@@ -116,3 +116,17 @@ fn spawn_failure_and_empty_mailbox_keep_dialog_state_consistent() {
         TempCleanupState::Failed(TempError::Worker)
     ));
 }
+#[test]
+fn a_rejected_worker_fails_the_scan_without_leaving_a_pending_job() {
+    let (_temp, mut app, _plan) = fixture();
+    crate::ops::system_temp_cleanup::open(&mut app);
+    let mut jobs = TempCleanupJobs::default();
+    FORCE_SPAWN_FAILURE.set(true);
+    let redraw = jobs.pump(&mut app);
+    FORCE_SPAWN_FAILURE.set(false);
+    assert_eq!(redraw, Redraw::Needed);
+    assert!(jobs.pending.is_none());
+    assert!(matches!(&app.overlay, Overlay::TempCleanup(dialog)
+        if matches!(dialog.state, TempCleanupState::Failed(TempError::Worker))));
+    assert_eq!(jobs.pump(&mut app), Redraw::Unchanged);
+}

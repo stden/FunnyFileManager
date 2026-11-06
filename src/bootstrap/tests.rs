@@ -15,6 +15,10 @@ use super::load_persisted;
 use crate::sessions::{SessionStore, FILE_NAME};
 use crate::test_support::netbox::{app_in, file_store, name, session};
 
+#[cfg(unix)]
+mod abort_hook;
+mod startup;
+
 /// Every variable the stores read their directories from.
 const HOMES: [&str; 4] = ["HOME", "APPDATA", "XDG_CONFIG_HOME", "XDG_DATA_HOME"];
 
@@ -146,4 +150,20 @@ fn end_session_logs_persistence_failures_and_suppresses_lost_terminal_errors() {
     )
     .expect("lost terminal suppresses error");
     assert!(super::at_exit::end_session(&app, Err(io::Error::other("boom")), Ok(())).is_err());
+}
+
+#[test]
+fn exit_preserves_an_invalid_settings_file_when_auto_save_is_enabled() {
+    let root = TempDir::new().expect("root");
+    let _homes = SandboxedHomes::new(root.path());
+    let settings = crate::config::Settings::path().expect("settings path");
+    fs::create_dir_all(settings.parent().expect("settings directory")).expect("directory");
+    fs::write(&settings, "[broken yaml").expect("settings");
+    let mut app = app_in(root.path());
+    app.config.system.auto_save_setup = true;
+    super::at_exit::persist_at_exit(&app);
+    assert_eq!(
+        fs::read_to_string(settings).expect("settings"),
+        "[broken yaml"
+    );
 }

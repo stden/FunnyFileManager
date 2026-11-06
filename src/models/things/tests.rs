@@ -64,6 +64,18 @@ fn space_marks_the_row_under_the_cursor_and_a_second_press_unmarks_it() {
     assert_eq!(marked_names(&empty), Vec::<&str>::new());
 }
 
+/// With the filter hiding every row, Space has no row to mark: the machine
+/// the cursor's position would name in the unfiltered list stays unmarked.
+#[test]
+fn marking_an_empty_filtered_catalog_does_not_mark_a_hidden_machine() {
+    let mut catalog = catalog(&["server"]);
+    catalog.type_filter('界');
+    catalog.toggle_mark();
+    catalog.erase_filter();
+    assert_eq!(marked_names(&catalog), Vec::<&str>::new());
+    assert_eq!(chosen_names(&catalog), ["server"]);
+}
+
 #[test]
 fn with_no_marks_an_import_takes_every_shown_row() {
     let mut catalog = catalog(&["db-01", "web-01", "web-02"]);

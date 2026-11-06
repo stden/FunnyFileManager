@@ -1,6 +1,7 @@
 //! Purpose: mouse clicks on the F4 editor body move the cursor to the clicked
 //! line and column.
 
+use super::super::editor::click_editor_body;
 use super::*;
 
 #[test]
@@ -23,4 +24,19 @@ fn clicking_editor_body_moves_cursor_to_that_line() {
         4,
         "row 5 = body row 4 = document line 4 when scroll_y=0"
     );
+}
+
+#[test]
+fn clicking_editor_chrome_or_a_tiny_terminal_preserves_the_cursor() {
+    let dir = TempDir::new().expect("temp");
+    let mut app = app_at(&dir);
+    let mut editor = Editor::from_content("text".into(), dir.path().join("text"), "ab\ncd");
+    editor.move_down(1);
+    app.set_overlay(Overlay::Editor(editor));
+    let term = terminal();
+    assert!(click_editor_body(&term, &mut app, 0, 0));
+    assert_eq!(app.get_editor().expect("editor").cursor_line, 1);
+    let tiny = Terminal::new(WritableTestBackend::new(1, 1)).expect("terminal");
+    assert!(click_editor_body(&tiny, &mut app, 0, 1));
+    assert_eq!(app.get_editor().expect("editor").cursor_line, 1);
 }

@@ -110,3 +110,16 @@ fn over_a_host_view_on_parent_is_safe_and_a_programs_row_runs() {
     dispatch_action(&mut terminal, &mut app, Action::Tool(ToolCommand::History));
     assert!(matches!(app.overlay, Overlay::MenuDialog(_)));
 }
+
+#[test]
+fn remote_panel_keys_move_its_cursor_while_the_local_selection_stays() {
+    let dir = TempDir::new().expect("temp dir");
+    let mut app = app_on_host(dir.path(), &[("/one", 1), ("/two", 2)], None);
+    let before = app.left_panel.selected();
+    dispatch_key(&mut terminal(), &mut app, KeyCode::Down.into());
+    let PanelKind::Remote(remote) = &app.left_panel.kind else {
+        panic!("remote panel");
+    };
+    assert_eq!(remote.cursor(), 1);
+    assert_eq!(app.left_panel.selected(), before);
+}

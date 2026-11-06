@@ -122,3 +122,6 @@ impl MaskPrompt {
         self.mask.after_cursor()
     }
 }
+
+#[cfg(test)]
+mod tests;

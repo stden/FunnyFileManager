@@ -2,6 +2,8 @@
 use super::{arguments, options::Options, protocol::Request};
 use std::ffi::OsString;
 
+mod closed_stream;
+
 #[test]
 fn ordinary_startup_is_not_intercepted_and_automation_keeps_its_arguments() {
     assert!(arguments(&[]).is_none());
