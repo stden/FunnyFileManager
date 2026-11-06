@@ -51,8 +51,13 @@ pub fn warm() {
 }
 
 fn report_spawn_result<T>(spawned: std::io::Result<T>) {
+    report_spawn_result_to(spawned, crate::diagnostics::log_error);
+}
+
+/// [`report_spawn_result`] with the log sink injected, so a test can read the line.
+fn report_spawn_result_to<T>(spawned: std::io::Result<T>, log_error: impl FnOnce(&str)) {
     if let Err(error) = spawned {
-        crate::diagnostics::log_error(&format!("PATH scan: {error}"));
+        log_error(&format!("PATH scan: {error}"));
     }
 }
 
@@ -174,3 +179,5 @@ pub fn join_paths<'a>(dirs: impl IntoIterator<Item = &'a Path>) -> Option<OsStri
 mod tests;
 #[cfg(test)]
 mod tests_ranges;
+#[cfg(test)]
+mod tests_start;

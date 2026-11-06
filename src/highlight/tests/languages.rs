@@ -108,6 +108,14 @@ fn shell_variables_are_their_own_token() {
     assert_eq!(token_of(&out, "$user_name"), Token::Type);
 }
 
+/// A `$` with no name after it is not a variable, only punctuation.
+#[test]
+fn a_bare_variable_prefix_stays_punctuation() {
+    let out = runs("a.sh", "echo $ $");
+    assert_eq!(token_of(&out, "$"), Token::Punctuation);
+    assert!(out.iter().all(|(_, token)| *token != Token::Meta));
+}
+
 /// A PowerShell variable can carry a scope qualifier, like `$env:PATH` — the
 /// colon is part of the variable's name, not punctuation after it.
 #[test]

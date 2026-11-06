@@ -133,3 +133,5 @@ pub(super) fn wait_for_exit(child: &mut Child, timeout: Duration) -> Option<()> 
 
 #[cfg(test)]
 mod tests;
+#[cfg(all(test, unix))]
+mod tests_deadline;

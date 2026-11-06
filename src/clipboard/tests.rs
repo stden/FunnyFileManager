@@ -3,11 +3,14 @@
 //! Everything runs against a recording fake, so no test needs a display server,
 //! a terminal, or the developer's real clipboard. Base64 and redaction are in
 //! `tests/tests_encoding.rs`, the system clipboard's terminal route in
-//! `tests/tests_system.rs`.
+//! `tests/tests_system.rs`. The one opt-in exception, `tests/tests_native.rs`,
+//! starts a private X server only when `FFM_TEST_CLIPBOARD_SERVER=1`.
 
 use super::*;
 
 mod tests_encoding;
+#[cfg(target_os = "linux")]
+mod tests_native;
 mod tests_system;
 
 /// A secret long enough that an accidental substring match cannot be luck.

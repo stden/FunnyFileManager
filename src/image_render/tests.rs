@@ -5,6 +5,7 @@ use ratatui::{backend::TestBackend, layout::Rect, style::Color, Terminal};
 use ratatui_image::Image;
 use std::time::{Duration, Instant};
 
+mod tests_worker;
 mod tests_zoom;
 
 fn key(mode: Mode, pixels: &[u8]) -> Key {

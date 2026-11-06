@@ -105,6 +105,18 @@ fn a_write_that_fails_is_reported_with_its_cause() {
 }
 
 #[test]
+fn a_parent_replaced_after_load_is_reported_without_overwriting_it() {
+    let root = TempDir::new().expect("temp dir");
+    let parent = root.path().join("parent");
+    let mut store = SessionStore::load_from(parent.join(FILE_NAME));
+    store.upsert(session("host.test"));
+    fs::write(&parent, b"keep").expect("write");
+
+    assert!(store.save().is_err());
+    assert_eq!(fs::read(&parent).expect("read"), b"keep");
+}
+
+#[test]
 fn the_production_path_is_under_the_config_directory() {
     let home = TempDir::new().expect("temp dir");
     let _guard = EnvVarGuard::set(CONFIG_HOME, home.path());

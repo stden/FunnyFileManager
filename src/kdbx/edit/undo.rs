@@ -58,3 +58,6 @@ impl EntryForm {
         });
     }
 }
+
+#[cfg(test)]
+mod tests;

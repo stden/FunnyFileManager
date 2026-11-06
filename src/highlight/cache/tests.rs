@@ -177,3 +177,12 @@ fn documents_without_continuation_rebuild_cleanly_on_edits() {
     cache.prepare_revision(path, &edited, 1, 2);
     assert!(cache.runs(0, &edited[0]).contains(&("fn", Token::Keyword)));
 }
+
+#[test]
+fn a_viewport_beyond_the_last_line_stops_at_the_document_end() {
+    let lines = vec!["let value = 7;".to_owned()];
+    let mut cache = HighlightCache::default();
+    cache.prepare_revision(Path::new("short.rs"), &lines, usize::MAX, 1);
+    assert!(cache.runs(0, &lines[0]).contains(&("let", Token::Keyword)));
+    assert_eq!(cache.runs(1, "outside"), [("outside", Token::Normal)]);
+}

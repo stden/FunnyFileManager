@@ -4,6 +4,15 @@ use super::*;
 use tempfile::TempDir;
 
 #[test]
+fn invalidating_a_folder_without_a_repository_keeps_the_cache_empty() {
+    let root = TempDir::new().unwrap();
+
+    invalidate_repo_cache_for(root.path());
+
+    assert!(!repo_cache().lock().unwrap().contains_key(root.path()));
+}
+
+#[test]
 fn invalidation_rejects_a_probe_started_before_it() {
     let repo = TempDir::new().expect("repository");
     let git_dir = repo.path().join(".git");

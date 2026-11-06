@@ -63,3 +63,21 @@ fn save_handles_parentless_paths_and_hard_lock_errors() {
     .unwrap_err();
     assert!(err.to_string().contains("settings.yaml.lock: lock fault"));
 }
+
+/// The lock of a path with no parent folder sits in the current directory.
+/// The working directory is process-wide, so the check runs in a child.
+#[cfg(unix)]
+#[test]
+fn a_path_without_a_parent_takes_its_lock_in_the_current_directory() {
+    crate::test_support::filesystem_faults::run(|| {
+        let root = TempDir::new().unwrap();
+        let previous = std::env::current_dir().unwrap();
+        std::env::set_current_dir(root.path()).unwrap();
+
+        let saved = save(Path::new(""), 1);
+
+        std::env::set_current_dir(previous).unwrap();
+        assert!(saved.is_err());
+        assert!(root.path().join(LOCK_SUFFIX).is_file());
+    });
+}

@@ -3,6 +3,7 @@
 use ratatui::backend::Backend;
 use ratatui::Terminal;
 use std::io::{self, Write};
+use std::path::Path;
 
 use crate::models::App;
 use crate::status::Status;
@@ -49,18 +50,19 @@ pub fn handle_edit<B: Backend + Write>(
         return headless::edit(app);
     }
     let mut terminal_ops = crate::terminal::CrosstermOps;
-    handle_edit_with(terminal, app, &mut terminal_ops, |editor, args, path| {
-        let safe_path = if path.is_relative() && path.as_os_str().to_string_lossy().starts_with('-')
-        {
-            std::borrow::Cow::Owned(std::path::Path::new(".").join(path))
-        } else {
-            std::borrow::Cow::Borrowed(path)
-        };
-        std::process::Command::new(editor)
-            .args(args)
-            .arg(safe_path.as_os_str())
-            .status()
-    })
+    handle_edit_with(terminal, app, &mut terminal_ops, run_editor)
+}
+
+fn run_editor(editor: &str, args: &[String], path: &Path) -> io::Result<std::process::ExitStatus> {
+    let safe_path = if path.is_relative() && path.as_os_str().to_string_lossy().starts_with('-') {
+        std::borrow::Cow::Owned(Path::new(".").join(path))
+    } else {
+        std::borrow::Cow::Borrowed(path)
+    };
+    std::process::Command::new(editor)
+        .args(args)
+        .arg(safe_path.as_os_str())
+        .status()
 }
 
 /// Split `$EDITOR` into program plus arguments, the way `EDITOR="code -w"` is

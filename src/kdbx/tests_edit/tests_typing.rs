@@ -68,6 +68,42 @@ fn password_keystrokes_stay_in_the_focused_secret_field() {
 }
 
 #[test]
+fn password_undo_restores_the_previous_secret_and_empty_backspace_is_inert() {
+    let (_dir, mut session, now) = unlocked_sample();
+    focus(&mut session, "GitHub", now);
+    session.begin_edit(now).expect("begin edit");
+    let form = open_form_mut(&mut session);
+    form.focus_prev();
+    assert_eq!(form.focus(), EditField::Password);
+    let before = form.password_masked();
+    form.push_char('x');
+    assert!(form.undo());
+    assert_eq!(form.password_masked(), before);
+    while !form.password_masked().is_empty() {
+        form.backspace();
+    }
+    form.backspace();
+    assert!(!form.undo());
+}
+
+#[test]
+fn url_typing_and_undo_are_independent_of_the_entry_title() {
+    let (_dir, mut session, now) = unlocked_sample();
+    focus(&mut session, "GitHub", now);
+    session.begin_edit(now).expect("begin edit");
+    let form = open_form_mut(&mut session);
+    form.focus_next();
+    form.focus_next();
+    assert_eq!(form.focus(), EditField::Url);
+    let before = form.url().to_owned();
+    form.push_char('x');
+    assert_eq!(form.url(), format!("{before}x"));
+    assert!(form.undo());
+    assert_eq!(form.url(), before);
+    assert_eq!(form.title(), "GitHub");
+}
+
+#[test]
 fn zz_probe_undo_without_record_returns_false() {
     let (_dir, mut session, now) = unlocked_sample();
     focus(&mut session, "GitHub", now);

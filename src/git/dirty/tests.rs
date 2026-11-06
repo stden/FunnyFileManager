@@ -8,6 +8,9 @@ use super::probe::{status_command, wait_for_status};
 use super::*;
 use crate::models::EntryKind;
 
+#[cfg(unix)]
+mod failures;
+
 #[test]
 fn status_command_disables_fsmonitor_and_strips_git_env_overrides() {
     let temp = TempDir::new().expect("temp dir");

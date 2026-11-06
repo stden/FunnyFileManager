@@ -1,6 +1,7 @@
 //! Cursor-movement tests: clamped at both ends, never wrapping.
 
 use super::tests_support::{password_for, selected_title, unlocked_sample, visible_titles};
+use super::vault::{BrowsePage, Page};
 use super::Motion;
 
 #[test]
@@ -118,4 +119,17 @@ fn vault_structure_transitions_between_tree_and_password_generator() {
     vault.open_password();
     vault.close_dialog();
     assert!(vault.is_tree());
+}
+
+#[test]
+fn structure_toggle_closes_a_modal_back_to_its_original_browse_page() {
+    let (_dir, mut session, _now) = unlocked_sample();
+    let vault = session.vault_mut().expect("unlocked");
+    for page in [BrowsePage::Entries, BrowsePage::Tree] {
+        for modal in [Page::Password(page), Page::DeleteConfirm(page)] {
+            vault.page = modal;
+            vault.toggle_structure();
+            assert_eq!(vault.page, Page::Browse(page));
+        }
+    }
 }

@@ -158,3 +158,17 @@ fn the_painted_runs_reproduce_the_line() {
         .collect();
     assert_eq!(rejoined, lines[0], "runs must cover the line exactly");
 }
+
+/// A well-formed catalog that lists no schemes opens, and knows no language.
+#[test]
+fn a_catalog_without_schemes_has_no_file_types() -> std::io::Result<()> {
+    if catalog().is_none() {
+        return Ok(());
+    }
+    let directory = tempfile::TempDir::new()?;
+    let path = directory.path().join("catalog.xml");
+    std::fs::write(&path, "<catalog/>")?;
+    let colorer = Colorer::open(&path).expect("well-formed empty catalog");
+    assert!(colorer.file_type(Path::new("main.rs")).is_none());
+    Ok(())
+}

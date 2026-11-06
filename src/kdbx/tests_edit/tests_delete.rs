@@ -33,6 +33,18 @@ fn zzz_tmp_probe_confirm_delete_keepass_error() {
 }
 
 #[test]
+fn confirming_a_delete_in_a_read_only_session_never_writes_the_vault() {
+    let (_directory, mut session, now) = unlocked_sample();
+    let before = fs::read(&session.path).expect("fixture vault");
+    session.access = crate::kdbx::Access::View;
+    assert!(matches!(
+        session.confirm_delete(now),
+        Err(KdbxError::ReadOnly)
+    ));
+    assert_eq!(fs::read(&session.path).expect("unchanged vault"), before);
+}
+
+#[test]
 fn undo_last_change_restores_deleted_entry_and_clears_undo_slot() {
     let (_dir, mut session, now) = unlocked_sample();
     assert!(matches!(

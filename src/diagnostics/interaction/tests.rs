@@ -52,3 +52,31 @@ fn interaction_logs_io_errors_and_process_status_kinds() {
     let ix2 = Interaction::start("Run".into(), &app);
     ix2.finish(&app, &Ok(()));
 }
+
+#[test]
+fn a_failed_interaction_logs_the_error_kind_without_its_payload() {
+    use crate::models::Panel;
+    use std::{cell::RefCell, io, path::PathBuf};
+
+    let panel = || Panel::from_entries(PathBuf::from("."), Vec::new());
+    let app = App::with_panels(panel(), panel());
+    let actions = RefCell::new(Vec::new());
+    let errors = RefCell::new(Vec::new());
+    let interaction = Interaction::start("Editor/Save".into(), &app);
+    let result: io::Result<()> = Err(io::Error::new(
+        io::ErrorKind::PermissionDenied,
+        "private password",
+    ));
+    interaction.finish_with(
+        &app,
+        &result,
+        |line| actions.borrow_mut().push(line.to_owned()),
+        |line| errors.borrow_mut().push(line.to_owned()),
+    );
+    let actions = actions.into_inner().join("\n");
+    let errors = errors.into_inner().join("\n");
+    assert!(actions.contains("outcome=error"));
+    assert!(errors.contains("PermissionDenied"));
+    assert!(!actions.contains("private password"));
+    assert!(!errors.contains("private password"));
+}

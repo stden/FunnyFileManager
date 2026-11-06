@@ -25,6 +25,13 @@ fn a_markdown_bullet_is_marked_without_swallowing_the_text() {
     assert_eq!(star[0], ("  *".to_owned(), Token::Meta));
 }
 
+#[test]
+fn a_markdown_bullet_keeps_unicode_indentation_and_text_intact() {
+    let out = runs("a.md", "\u{2003}* пункт");
+    assert_eq!(out[0], ("\u{2003}*".to_owned(), Token::Meta));
+    assert_eq!(out[1], (" пункт".to_owned(), Token::Normal));
+}
+
 /// Prose that is not a heading, quote, fence, or bullet is the common case for
 /// a Markdown file and must fall through every shape check unchanged.
 #[test]

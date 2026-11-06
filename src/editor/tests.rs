@@ -18,6 +18,8 @@ use tempfile::TempDir;
 #[cfg(test)]
 mod tests_builtin;
 #[cfg(test)]
+mod tests_entrypoints;
+#[cfg(test)]
 mod tests_external_impl;
 #[cfg(test)]
 mod tests_resume_errors;

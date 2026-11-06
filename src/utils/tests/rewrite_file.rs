@@ -5,6 +5,23 @@ use super::*;
 use tempfile::TempDir;
 
 #[test]
+fn rewriting_with_source_permissions_keeps_the_destination_writable() -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let root = TempDir::new()?;
+    let (source, dest) = (root.path().join("source"), root.path().join("dest"));
+    fs::write(&source, b"new")?;
+    fs::write(&dest, b"old")?;
+    fs::set_permissions(&source, fs::Permissions::from_mode(0o640))?;
+
+    rewrite_file(&open_regular_file(&source)?, &dest, CopyRules::PLAIN)?;
+
+    assert_eq!(fs::read(&dest)?, b"new");
+    assert_eq!(fs::metadata(&dest)?.permissions().mode() & 0o777, 0o640);
+    Ok(())
+}
+
+#[test]
 fn rewrite_file_keeps_the_inode_and_leaves_a_folder_alone() -> io::Result<()> {
     use std::os::unix::fs::MetadataExt;
 

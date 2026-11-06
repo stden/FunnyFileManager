@@ -75,3 +75,42 @@ fn saving_more_yaml_sessions_than_max_file_bytes_returns_too_large() {
         Err(super::super::StoreError::TooLarge { .. })
     ));
 }
+
+#[test]
+fn an_unreadable_yaml_file_keeps_its_damage_reason() {
+    let root = TempDir::new().expect("temp dir");
+    let path = root.path().join("ffm.yml");
+    fs::create_dir(&path).expect("mkdir");
+
+    let mut store = SessionStore::load_from(path.clone());
+
+    let reason = store.damage().expect("damaged").to_string();
+    assert!(reason.contains("not a regular file"), "{reason}");
+    assert!(store.save().is_err());
+    assert!(path.is_dir());
+}
+
+#[test]
+fn an_oversized_yaml_save_preserves_the_previous_document() {
+    use crate::models::{Auth, KeyFile};
+    use crate::sessions::{StoreError, MAX_FILE_BYTES};
+
+    let root = TempDir::new().expect("temp dir");
+    let path = root.path().join("ffm.yml");
+    let previous = "sessions: []\nkeymap: {custom: true}\n";
+    fs::write(&path, previous).expect("previous document");
+    let mut store = SessionStore::load_from(path.clone());
+    for index in 0..300 {
+        let mut entry = session(&format!("host{index}.example.test"));
+        entry.auth = Auth::KeyFile(KeyFile::new(&"k".repeat(4096)).expect("key file"));
+        store.upsert(entry);
+    }
+
+    assert!(matches!(
+        store.save(),
+        Err(StoreError::TooLarge {
+            limit: MAX_FILE_BYTES
+        })
+    ));
+    assert_eq!(fs::read_to_string(&path).expect("read"), previous);
+}

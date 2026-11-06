@@ -33,22 +33,34 @@ impl Interaction {
     }
 
     pub fn finish<T>(self, app: &App, result: &std::io::Result<T>) {
+        self.finish_with(app, result, super::log_action, super::log_error);
+    }
+
+    /// [`Self::finish`] with the action and error logs injected, so a test can
+    /// read what would be written.
+    fn finish_with<T>(
+        self,
+        app: &App,
+        result: &std::io::Result<T>,
+        action: impl Fn(&str),
+        error: impl Fn(&str),
+    ) {
         let outcome = if result.is_err() { "error" } else { "handled" };
-        super::log_action(&completion(
+        action(&completion(
             self.id,
             &self.action,
             self.started.elapsed(),
             outcome,
         ));
-        if let Err(error) = result {
-            super::log_error(&format!(
+        if let Err(failure) = result {
+            error(&format!(
                 "INPUT id={} error_kind={:?}",
                 self.id,
-                error.kind()
+                failure.kind()
             ));
         }
         // Variant names identify operation outcomes without logging command output or secrets.
-        super::log_action(&format!(
+        action(&format!(
             "OUTCOME id={} status={}",
             self.id,
             status_kind(&app.status)

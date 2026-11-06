@@ -30,6 +30,34 @@ fn missing_dir_directory_sidecar_and_oversized_sidecar_are_handled() -> io::Resu
     Ok(())
 }
 
+#[test]
+fn an_oversized_description_is_reported_without_reading_it() -> io::Result<()> {
+    let temp = TempDir::new()?;
+    fs::File::create(temp.path().join("Descript.ion"))?.set_len(MAX_SMALL_FILE_BYTES + 1)?;
+
+    let error = try_read(temp.path(), &default_names()).unwrap_err();
+
+    assert!(error.to_string().contains("description file is too large"));
+    assert!(read(temp.path(), &default_names()).is_empty());
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn an_unreadable_description_is_reported_and_listing_stays_usable() {
+    crate::test_support::filesystem_faults::run(|| {
+        let root = TempDir::new().unwrap();
+        let path = root.path().join("Descript.ion");
+        fs::write(&path, "file.txt note\n").unwrap();
+        let _locked = crate::test_support::ModeGuard::set(&path, 0o000).unwrap();
+
+        let error = try_read(root.path(), &default_names()).unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+        assert!(read(root.path(), &default_names()).is_empty());
+    });
+}
+
 #[cfg(windows)]
 #[test]
 fn exclusively_locked_sidecar_propagates_read_error() -> io::Result<()> {

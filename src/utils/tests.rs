@@ -8,6 +8,8 @@ mod copy_dir_all;
 mod copy_dir_all_trees;
 mod copy_failures;
 mod format_size;
+#[cfg(unix)]
+mod io_failures;
 mod refresh_panels;
 mod refresh_panels_deleted_folders;
 mod rewrite_cross;

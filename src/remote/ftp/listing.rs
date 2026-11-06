@@ -85,3 +85,6 @@ fn mode(file: &File, kind: EntryKind) -> u32 {
     }
     mode
 }
+
+#[cfg(test)]
+mod tests;
