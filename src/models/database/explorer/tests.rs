@@ -8,6 +8,7 @@ use crate::models::database::{
     TableKind, Task,
 };
 
+mod tree_paths;
 mod views;
 
 fn spec(name: &str) -> ConnectionSpec {

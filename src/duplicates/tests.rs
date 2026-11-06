@@ -40,6 +40,13 @@ fn group(block_lines: usize, occurrences: Vec<Occurrence>) -> Group {
 }
 
 #[test]
+fn excess_lines_count_every_copy_after_the_first() {
+    let three = group(6, vec![at(0, 1, 6), at(1, 1, 6), at(2, 10, 15)]);
+    assert_eq!(three.excess_lines(), 12);
+    assert_eq!(group(6, Vec::new()).excess_lines(), 0);
+}
+
+#[test]
 fn identical_blocks_in_two_texts_form_one_group() {
     let block = text(&lines("alpha", 6));
     let groups = find_in(&[block.clone(), block], 6, 10);

@@ -41,6 +41,25 @@ fn page_down_moves_only_while_the_last_page_said_more() {
 }
 
 #[test]
+fn page_up_goes_back_one_page_but_never_before_the_first() {
+    let mut queue = Requests::default();
+    let mut explorer = loaded(&mut queue);
+    explorer.move_down();
+    explorer.expand(&mut queue);
+    move_to(&mut explorer, items_row());
+    explorer.open(&mut queue);
+    answer(&mut explorer, &mut queue, page(PageEnd::More));
+    explorer.page_previous(&mut queue);
+    assert!(queue.take().is_none(), "the first page has none before it");
+
+    explorer.page_next(&mut queue);
+    answer(&mut explorer, &mut queue, page(PageEnd::Last));
+    explorer.page_previous(&mut queue);
+    let request = queue.take().expect("the page before");
+    assert!(matches!(request.task, Task::Rows { offset: 0, .. }));
+}
+
+#[test]
 fn tab_and_c_show_the_columns_of_the_table_under_the_cursor() {
     let mut queue = Requests::default();
     let mut explorer = loaded(&mut queue);
