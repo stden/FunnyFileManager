@@ -72,7 +72,7 @@ fn run_editor(editor: &str, args: &[String], path: &Path) -> io::Result<std::pro
 /// under `C:\Program Files\...` or any path with a space is one program, not a
 /// program plus arguments.
 fn split_editor_command(env_editor: &str) -> (String, Vec<String>) {
-    if std::path::Path::new(env_editor).is_file() {
+    if Path::new(env_editor).is_file() {
         return (env_editor.to_owned(), Vec::new());
     }
     let mut parts = env_editor.split_whitespace();
@@ -112,7 +112,7 @@ fn handle_edit_with<B, F, O>(
 where
     B: Backend + Write,
     O: crate::terminal::TerminalOps<B>,
-    F: FnOnce(&str, &[String], &std::path::Path) -> io::Result<std::process::ExitStatus>,
+    F: FnOnce(&str, &[String], &Path) -> io::Result<std::process::ExitStatus>,
 {
     let Some(selected_entry) = app.get_active_panel().get_selected_entry() else {
         return Ok(());
@@ -142,10 +142,7 @@ where
     crate::terminal::merge_run_and_cleanup(refresh_result, resume_result)
 }
 
-fn editor_outcome(
-    status: io::Result<std::process::ExitStatus>,
-    selected: &std::path::Path,
-) -> Status {
+fn editor_outcome(status: io::Result<std::process::ExitStatus>, selected: &Path) -> Status {
     match status {
         Ok(code) if code.success() => Status::Edited(selected.display().to_string()),
         Ok(code) => Status::EditorExited {
@@ -172,7 +169,7 @@ pub(crate) fn handle_edit_impl<B, F>(
 ) -> io::Result<()>
 where
     B: Backend + Write,
-    F: FnOnce(&str, &[String], &std::path::Path) -> io::Result<std::process::ExitStatus>,
+    F: FnOnce(&str, &[String], &Path) -> io::Result<std::process::ExitStatus>,
 {
     let mut terminal_ops = crate::terminal::NoopTerminalOps;
     handle_edit_with(terminal, app, &mut terminal_ops, run_editor)
