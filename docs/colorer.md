@@ -129,6 +129,11 @@ the parallel runner while every individual test passed.
   per language rather than an approximation.
 - ICU is a substantial runtime dependency — `libicudata` alone is ~30 MB. It is
   a shared library on Linux; shipping it on Windows is a real cost to weigh.
+- Regions a scheme defines as a **block** get no colour from Colorer. The shim
+  forwards keyword and pattern regions (`addRegion`), but its `enterScheme` and
+  `leaveScheme` are empty, so a comment or string written as a `<block>` in its
+  HRC file never reaches Rust; comments defined by a regexp do. Forwarding them
+  must put each block's span before its inner regions, since the later span wins.
 
 ## ⚖️ Licences
 
