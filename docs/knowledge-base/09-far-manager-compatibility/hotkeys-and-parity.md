@@ -414,17 +414,17 @@ keys are the keymap's `database_explorer` context; a key nothing is bound to doe
 nothing. This is not a Far Manager feature: IntelliJ IDEA's Database Explorer is
 the model.
 
-| Key | Action |
-|-----|--------|
-| Up, Down | Move the cursor; in a rows or columns view, scroll it |
-| Right | Open the row: a connection loads its schemas, a table its columns |
-| Left | Close the open row, or go to its parent |
-| Enter | Open a table's rows; a connection or a schema toggles |
-| Tab, c | Show the table's columns: name, type, primary key, nullable |
-| PgUp, PgDn | The previous or the next 200 rows |
-| F5 | Read the connection's metadata again |
-| Esc | Back to the tree from a view; from the tree, close the explorer |
-| F10 | Close the explorer |
+| Key        | Action                                                            |
+| ---------- | ----------------------------------------------------------------- |
+| Up, Down   | Move the cursor; in a rows or columns view, scroll it             |
+| Right      | Open the row: a connection loads its schemas, a table its columns |
+| Left       | Close the open row, or go to its parent                           |
+| Enter      | Open a table's rows; a connection or a schema toggles             |
+| Tab, c     | Show the table's columns: name, type, primary key, nullable       |
+| PgUp, PgDn | The previous or the next 200 rows                                 |
+| F5         | Read the connection's metadata again                              |
+| Esc        | Back to the tree from a view; from the tree, close the explorer   |
+| F10        | Close the explorer                                                |
 
 The explorer runs no statement of its own. SQLite opens read-only with
 `query_only` on; PostgreSQL sessions are `READ ONLY` with a short statement
