@@ -109,3 +109,6 @@ pub(super) fn paint(
         frame.buffer_mut()[(x.saturating_add(screen_u16(column)), y)].set_style(style);
     }
 }
+
+#[cfg(test)]
+mod tests_rows;
