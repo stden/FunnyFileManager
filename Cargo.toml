@@ -38,8 +38,8 @@ ratatui-image = { version = "11.1.0", default-features = false, features = ["cro
 tempfile = "3.27.0"
 # Terminal *cell* widths. ratatui budgets each buffer row in cells, so the UI
 # must measure the same way: a CJK glyph is one char but two columns.
-unicode-width = "0.2.2"
-encoding_rs = "0.8.41"
+unicode-width = "0.2.3"
+encoding_rs = "0.8.44"
 
 # Local date/time for the panel's Date and Time columns. `SystemTime` counts
 # seconds since the epoch and std has no calendar, let alone a timezone: the
@@ -52,23 +52,23 @@ chrono = { version = "0.4.45", default-features = false, features = ["clock", "s
 colorer-sys = { path = "colorer-sys", version = "0.1", optional = true }
 
 # AWS S3 integration (optional — enable with --features s3)
-aws-config = { version = "1.12.0", optional = true }
+aws-config = { version = "1.13.0", optional = true }
 # default-features = false drops the SDK's legacy `rustls` feature, which pins
 # rustls 0.21 / rustls-webpki 0.101 (RUSTSEC-2026-0098/0099/0104). The modern
 # TLS path (`default-https-client` -> rustls 0.23 + aws-lc, webpki 0.103) is
 # what actually serves requests; the remaining features mirror the defaults.
-aws-sdk-s3 = { version = "1.148.0", default-features = false, features = [
+aws-sdk-s3 = { version = "1.157.0", default-features = false, features = [
     # sigv4a omitted (pulls in unpatched crypto-bigint 0.5.5)
     # sigv4a omitted (pulls in unpatched crypto-bigint 0.5.5)
     "http-1x", "default-https-client",
     "rt-tokio",
 ], optional = true }
-tokio = { version = "1.53.3", features = ["full"], optional = true }
+tokio = { version = "1.54.1", features = ["full"], optional = true }
 
 # NetBox stored sessions: the `.netbox` import is WinSCP's XML. A DOM over a
 # small, size-bounded file is simpler than a streaming parser; its default
 # options refuse a DTD, so no entity is ever expanded or fetched.
-roxmltree = "0.21.1"
+roxmltree = "0.21.2"
 
 # KeePass .kdbx read/edit (optional — enable with --features keepass).
 # default-features = false drops CLI extras; save_kdbx4 unlocks Database::save.
@@ -88,7 +88,7 @@ serde = { version = "1.0.229", features = ["derive"] }
 # `raw_value` lets that rewrite carry every value but the ffm-mcp entry as
 # the exact text it was read in: a `Value` round trip turns `1e3` into
 # `1000.0` and rounds a 24-digit integer.
-serde_json = { version = "1.0.151", features = ["preserve_order", "raw_value"] }
+serde_json = { version = "1.0.154", features = ["preserve_order", "raw_value"] }
 # The ordered map those raw values are read into (already in the tree through
 # serde_json and toml_edit; `serde` reads a JSON object straight into it).
 indexmap = { version = "2.14.2", features = ["serde"] }
@@ -105,19 +105,19 @@ toml_edit = { version = "0.25", default-features = false, features = ["parse", "
 url = "2.5.8"
 # Text clipboard for editor selection and optional vault password copying.
 # Image support is unused; disabling it avoids image codec build dependencies.
-arboard = { version = "3.6.1", default-features = false }
+arboard = { version = "3.7.0", default-features = false }
 sha2 = "0.11"
 flate2 = "1.1"
 tar = "0.4"
 memchr = "2.8"
 # Native SSH/SFTP and streaming FTP transports for NetBox panels.
-ssh2 = "0.9.6"
+ssh2 = "0.9.7"
 suppaftp = { version = "12.2.1", default-features = false, features = ["no-log"] }
-zeroize = "1.9.0"
-base64 = "0.22.1"
+zeroize = "1.9.1"
+base64 = "0.23.1"
 # The database explorer's SQLite driver (Commands → Database explorer). `bundled`
 # compiles SQLite into the binary, so no system library is needed.
-rusqlite = { version = "0.40.2", features = ["bundled"] }
+rusqlite = { version = "0.41.1", features = ["bundled"] }
 # The explorer's PostgreSQL driver: the synchronous client, run on the explorer's
 # worker thread only. No TLS feature is enabled, so only plain connections work.
 postgres = "0.19"
@@ -129,8 +129,8 @@ cucumber = "0.23.0"
 futures = "0.3.34"
 # S3 test mocks (used only by `#[cfg(feature = "s3")]` tests in src/s3/tests*.rs).
 # Versions track the aws-sdk-s3 1.x smithy stack already in the lockfile.
-aws-smithy-http-client = { version = "1.4.2", features = ["test-util"] }
-aws-smithy-types = "1.8.0"
+aws-smithy-http-client = { version = "1.5.2", features = ["test-util"] }
+aws-smithy-types = "1.9.1"
 http_1x = { package = "http", version = "1.5.0" }
 # Architecture tests parse sources instead of matching text: tests/architecture/
 # (module boundaries) and tests/unsafe_boundary_test.rs (the unsafe allowlist).
@@ -138,7 +138,7 @@ http_1x = { package = "http", version = "1.5.0" }
 # is a second copy beside their syn 2, used by these tests only.
 # `span-locations` gives the violations their line numbers.
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
-syn = { version = "3.0.6", features = ["full", "visit"] }
+syn = { version = "3.0.9", features = ["full", "visit"] }
 
 [features]
 # Colorer is how the editor prefers to highlight, so it is on. The build script
@@ -487,21 +487,21 @@ option_if_let_else = "allow"
 # Both are already in the tree through crossterm, so neither costs a crate;
 # `param` is a feature without dependencies, so Cargo.lock does not change.
 [target.'cfg(unix)'.dependencies]
-libc = "0.2.189"
+libc = "0.2.191"
 mio = { version = "1", features = ["os-poll", "os-ext"] }
 # portable-pty already uses this version; its safe raw-fd API configures the
 # retained master without manufacturing a borrowed fd through unsafe code.
 nix = { version = "0.28", features = ["fs"] }
-rustix = { version = "1.1.5", features = ["fs", "param", "process"] }
+rustix = { version = "1.1.6", features = ["fs", "param", "process"] }
 # Catches Ctrl+C / Ctrl+\ while a program owns the terminal, so the signal
 # stops that program and not FFM. crossterm still pulls signal-hook 0.3; both
 # versions install their handlers through the one signal-hook-registry 1.x.
-signal-hook = "0.4.4"
+signal-hook = "0.4.6"
 
 # The same crate, for `tests/pty_session_test.rs`: a real pseudo-terminal to
 # run the binary on, without an `unsafe` block in the test.
 [target.'cfg(unix)'.dev-dependencies]
-rustix = { version = "1.1.5", features = ["process", "pty", "termios"] }
+rustix = { version = "1.1.6", features = ["process", "pty", "termios"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = [

@@ -99,7 +99,6 @@ pub(super) fn rows(
         .map_err(|error| driver(&error))?;
     let names: Vec<String> = statement
         .column_names()
-        .iter()
         .map(|name| (*name).to_owned())
         .collect();
     let mut cursor = statement.query([]).map_err(|error| driver(&error))?;
