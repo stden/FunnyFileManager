@@ -189,6 +189,27 @@ See the [architecture diagrams](docs/knowledge-base/02-architecture/system-archi
 
 ## 🛠️ Development
 
+Use [mise](https://mise.jdx.dev/) to select the Rust toolchain and run project tasks.
+The configuration reads the Rust version and components from `rust-toolchain.toml`.
+It also installs the configured Python and pinned RTK versions.
+Install the coverage tools for the selected Python as described below.
+
+Run these commands from the repository root:
+
+```sh
+rtk proxy mise trust
+rtk proxy mise install --locked
+rtk proxy mise tasks ls
+rtk proxy mise run fmt:check
+rtk proxy mise run test
+rtk proxy mise run build
+rtk proxy mise run ci
+```
+
+The `ci` task runs the existing full lint gate, then the feature and BDD test suites.
+Use `mise.local.toml` for personal settings. Git ignores this file and its lockfile.
+Review changes to `mise.lock` after you change a tool version.
+
 Plain `cargo build` and `cargo run` use an incremental development profile with
 unoptimized project code and optimized dependencies for faster rebuilds. Use
 `cargo build --release` for the optimized production binary. The standalone

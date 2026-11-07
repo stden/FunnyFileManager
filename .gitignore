@@ -13,6 +13,12 @@
 # Bytecode that unittest discovery writes next to the developer scripts' tests.
 __pycache__/
 
+# Personal mise configuration and tool locks.
+mise.local.toml
+mise.local.lock
+mise.*.local.toml
+mise.*.local.lock
+
 # IDE files
 .vscode/
 .idea/
