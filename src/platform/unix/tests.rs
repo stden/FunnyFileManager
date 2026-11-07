@@ -43,4 +43,12 @@ fn reaped_child_has_exited_errors_and_missing_foreground_group_is_ignored() {
     assert!(super::has_exited(&child).is_err());
     super::group::kill_foreground_group(None).expect("no leader");
     super::group::kill_foreground_group(Some(i32::MAX)).expect("missing group");
+    super::ignore_finished_group(Ok(())).expect("live group");
+    super::ignore_finished_group(Err(std::io::Error::from_raw_os_error(libc::ESRCH)))
+        .expect("missing group errno");
+    super::ignore_finished_group(Err(std::io::Error::from_raw_os_error(libc::EPERM)))
+        .expect("zombie group errno");
+    assert!(
+        super::ignore_finished_group(Err(std::io::Error::from_raw_os_error(libc::EINVAL))).is_err()
+    );
 }

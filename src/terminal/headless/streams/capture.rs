@@ -37,8 +37,7 @@ impl Capture {
         }
     }
 
-    #[cfg(unix)]
-    pub fn active(&self) -> bool {
+    fn active(&self) -> bool {
         self.host.active(self.generation) && !self.host.is_cancelled()
     }
 
@@ -46,6 +45,9 @@ impl Capture {
         let bytes = buffer
             .get(..count)
             .ok_or_else(|| io::Error::other("Invalid terminal read count"))?;
+        if !self.active() {
+            return Ok(());
+        }
         respond(&self.replies, self.queries.feed(bytes));
         self.captured
             .lock()

@@ -48,3 +48,30 @@ fn disconnected_reply_queue_still_captures_and_invalid_read_is_atomic() {
     assert_eq!(captured.lock().unwrap().bytes(), bytes);
     assert_eq!(host.snapshot().output.as_bytes(), bytes);
 }
+
+#[test]
+fn cancelled_or_finished_session_discards_drained_bytes_and_queries() {
+    use crate::terminal::headless::ExternalState;
+
+    assert_inactive_discard(|host, _| host.cancel());
+    assert_inactive_discard(|host, generation| {
+        host.finish(generation, ExternalState::Exited { code: 0 });
+    });
+}
+
+fn assert_inactive_discard(deactivate: impl FnOnce(&HeadlessHost, Generation)) {
+    let host = HeadlessHost::new();
+    let (sender, _input) = mpsc::sync_channel(1);
+    let generation = host.begin(sender).unwrap();
+    let (replies, responses) = mpsc::sync_channel(1);
+    let captured = Arc::new(Mutex::new(Captured::default()));
+    let mut capture = Capture::new(host.clone(), generation, Arc::clone(&captured), replies);
+    deactivate(&host, generation);
+    capture.record(b"\x1b[6nafter-stop", 14).unwrap();
+    assert!(matches!(
+        responses.try_recv(),
+        Err(mpsc::TryRecvError::Empty)
+    ));
+    assert_eq!(captured.lock().unwrap().bytes(), b"");
+    assert_eq!(host.snapshot().output, "");
+}

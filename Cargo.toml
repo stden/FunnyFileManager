@@ -3,7 +3,7 @@
 name = "funny-file-manager"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.95"
+rust-version = "1.99.1"
 description = "Terminal dual-panel file manager inspired by Far Manager, with AWS S3 integration"
 license = "MIT"
 keywords = ["file-manager", "tui", "terminal", "far-manager", "s3"]

@@ -25,7 +25,7 @@ pub use unix::{check_write_access, effective_uid, is_root, kill_process_group, r
 #[cfg(all(unix, any(target_os = "linux", test)))]
 pub use unix::{clock_ticks_per_second, page_size};
 #[cfg(unix)]
-pub use unix::{hang_up_process_group, has_exited};
+pub use unix::{hang_up_process_group, has_exited, ignore_finished_group};
 #[cfg(unix)]
 pub use unix::{kill_terminal_foreground, nonblocking_terminal_fd};
 #[cfg(all(unix, any(target_os = "linux", test)))]

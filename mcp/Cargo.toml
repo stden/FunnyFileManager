@@ -3,7 +3,7 @@
 name = "ffm-mcp"
 version = "0.2.0"
 edition = "2021"
-rust-version = "1.95"
+rust-version = "1.99.1"
 description = "MCP server for FunnyFileManager — expose file operations as AI tools"
 license = "MIT"
 keywords = ["mcp", "file-manager", "ai-tools"]

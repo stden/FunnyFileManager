@@ -11,7 +11,7 @@ use std::{io::Read, net::Ipv4Addr};
 /// The resolver's address. Built from its octets, so no dotted literal is written in the source.
 const TRACE_HOST: Ipv4Addr = Ipv4Addr::new(1, 1, 1, 1);
 const TRACE_PATH: &str = "/cdn-cgi/trace";
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
 const LOCAL_HOSTNAME_FILE: &str = "/proc/sys/kernel/hostname";
 /// A trace page is a few hundred bytes.
 const MAX_TRACE: u64 = 64 * 1024;
@@ -30,9 +30,18 @@ fn primary_hostname() -> Option<String> {
     std::env::var("COMPUTERNAME").ok()
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
 fn primary_hostname() -> Option<String> {
     std::fs::read_to_string(LOCAL_HOSTNAME_FILE).ok()
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
+fn primary_hostname() -> Option<String> {
+    std::process::Command::new("hostname")
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| String::from_utf8(output.stdout).ok())
 }
 
 /// The first of the two sources that is not blank, trimmed.

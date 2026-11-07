@@ -68,7 +68,7 @@ fn read_all(
     let mut buffer = [0; 8192];
     loop {
         #[cfg(unix)]
-        if stop.load(std::sync::atomic::Ordering::Acquire) || !capture.active() {
+        if stop.load(std::sync::atomic::Ordering::Acquire) {
             return Ok(());
         }
         #[cfg(unix)]

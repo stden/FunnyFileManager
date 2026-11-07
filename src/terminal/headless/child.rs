@@ -150,10 +150,7 @@ fn attach(child: &dyn Child) -> io::Result<std::os::windows::io::OwnedHandle> {
 
 #[cfg(unix)]
 fn stop_group(child: &std::process::Child) -> io::Result<()> {
-    match crate::platform::kill_process_group(child) {
-        Err(error) if error.raw_os_error() == Some(3) => Ok(()), // No remaining group.
-        result => result,
-    }
+    crate::platform::ignore_finished_group(crate::platform::kill_process_group(child))
 }
 
 #[cfg(test)]

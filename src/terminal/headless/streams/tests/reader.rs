@@ -89,3 +89,17 @@ fn non_pty_read_failure_is_reported_and_pty_eio_is_normal_eof() {
         assert_eq!(fixture.host.snapshot().output, "");
     }
 }
+
+#[cfg(unix)]
+#[test]
+fn stop_flag_exits_read_loop_without_reading() {
+    let mut fixture = fixture().unwrap();
+    let mut reader = ScriptedRead(VecDeque::from([Err(io::Error::other("unreachable"))]));
+    read_all(
+        &mut reader,
+        &mut fixture.capture,
+        fixture.ready,
+        &AtomicBool::new(true),
+    )
+    .unwrap();
+}

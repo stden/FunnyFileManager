@@ -67,7 +67,7 @@ impl Percent {
     fn fraction(below: u128, whole: u128) -> u32 {
         let full = Self::FULL.0;
         let mut product = (0, 0);
-        for bit in (0..u32::BITS - full.leading_zeros()).rev() {
+        for bit in (0..full.bit_width()).rev() {
             let (wholes, remainder) = product;
             product = add_below((wholes * 2, remainder), remainder, whole);
             if full & (1 << bit) != 0 {

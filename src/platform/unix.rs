@@ -19,7 +19,7 @@ use crate::models::{Niceness, Pid, Signal};
 mod group;
 mod terminal;
 pub use group::kill_terminal_foreground;
-pub use group::{hang_up_process_group, has_exited, kill_process_group};
+pub use group::{hang_up_process_group, has_exited, ignore_finished_group, kill_process_group};
 pub use terminal::nonblocking_terminal_fd;
 
 /// The effective user id: the one the kernel checks file access against, and

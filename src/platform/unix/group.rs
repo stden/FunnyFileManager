@@ -57,12 +57,19 @@ pub fn kill_terminal_foreground(master: &dyn portable_pty::MasterPty) -> io::Res
     kill_foreground_group(master.process_group_leader())
 }
 
+/// Ignore missing process groups (`ESRCH`) and zombie-only groups (`EPERM` on macOS).
+pub fn ignore_finished_group(result: io::Result<()>) -> io::Result<()> {
+    match result {
+        Err(error) if matches!(error.raw_os_error(), Some(libc::ESRCH | libc::EPERM)) => Ok(()),
+        other => other,
+    }
+}
+
 pub(super) fn kill_foreground_group(leader: Option<libc::pid_t>) -> io::Result<()> {
     let Some(pid) = leader.and_then(SystemPid::from_raw) else {
         return Ok(());
     };
-    match rustix::process::kill_process_group(pid, SystemSignal::KILL) {
-        Err(rustix::io::Errno::SRCH) => Ok(()),
-        result => result.map_err(io::Error::from),
-    }
+    ignore_finished_group(
+        rustix::process::kill_process_group(pid, SystemSignal::KILL).map_err(io::Error::from),
+    )
 }

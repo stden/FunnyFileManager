@@ -54,7 +54,7 @@ fn malformed_remote_children_are_rejected_before_a_destination_is_created() {
     );
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 #[test]
 fn non_utf8_local_children_are_rejected_without_copying_or_deleting_them() {
     use std::os::unix::ffi::OsStringExt;
@@ -103,6 +103,17 @@ fn failed_local_stage_flush_removes_created_destination_and_non_utf8_names_error
         !dest.exists(),
         "exclusively created file must be cleaned up"
     );
+
+    #[cfg(all(unix, not(target_os = "linux")))]
+    {
+        use std::os::unix::ffi::OsStringExt;
+        assert_eq!(
+            location::utf8_name(std::ffi::OsString::from_vec(vec![0xff])),
+            Err(RemoteError::InvalidInput(
+                "cannot transfer a non-UTF-8 name"
+            ))
+        );
+    }
 
     #[cfg(windows)]
     {

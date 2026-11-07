@@ -1,6 +1,6 @@
 # Purpose: Shared Clippy settings for the TUI, MCP and Colorer crates.
 # Lint levels belong to each Cargo manifest; thresholds and test allowances live here.
-msrv = "1.95.0"
+msrv = "1.99.1"
 
 # Counted by Clippy rather than physical file length. Keep coherent functions small.
 too-many-lines-threshold = 30

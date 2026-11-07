@@ -3,7 +3,7 @@
 name = "colorer-sys"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.95"
+rust-version = "1.99.1"
 description = "Minimal C surface over Colorer-library (HRC schemes, HRD styles)"
 license = "MIT"
 links = "colorer"
