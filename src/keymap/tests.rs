@@ -169,7 +169,7 @@ fn the_number_of_actions_of_each_context_is_pinned() {
             ("command_line_search", 4),
             ("command_line_completion", 4),
             ("viewer", 11),
-            ("editor", 39),
+            ("editor", 40),
             ("task_list", 43),
             ("task_list_search", 1),
             ("wsl_manager", 9),

@@ -6,7 +6,9 @@ use crate::file_write::DanglingLink;
 use crate::models::{EditState, Editor, Fingerprint};
 
 mod clipboard;
-pub use clipboard::{copy_editor_selection, insert_editor_file_name, paste_into_editor};
+pub use clipboard::{
+    copy_editor_selection, cut_editor_selection, insert_editor_file_name, paste_into_editor,
+};
 
 impl Editor {
     /// Write the buffer back to the file behind `self.path`, clearing the

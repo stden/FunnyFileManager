@@ -1,6 +1,29 @@
-//! Purpose: Copying and pasting a Unicode selection: Ctrl+C, Ctrl+V and terminal paste.
+//! Purpose: Copying, cutting and pasting a Unicode selection: Ctrl+C, Ctrl+X, Ctrl+V and terminal paste.
 
 use super::*;
+
+#[test]
+fn ctrl_x_cuts_the_visible_unicode_selection_to_clipboard_and_saves_the_rest() -> io::Result<()> {
+    let directory = TempDir::new()?;
+    let file = directory.path().join(".env");
+    fs::write(&file, ORIGINAL)?;
+    let clipboard = Clipboard::default();
+    let mut steps = open_and_select();
+    steps.extend([
+        Step::Key(KeyCode::Char('x'), KeyModifiers::CONTROL),
+        Step::Inspect(|buffer| {
+            assert!(row(buffer, 0).contains("Selection cut"));
+            assert!(row(buffer, 1).contains("PORT=3000"));
+        }),
+    ]);
+    steps.extend(finish());
+
+    run(&directory, &clipboard, steps)?;
+
+    assert_eq!(clipboard.0.borrow().copied, [COPIED]);
+    assert_eq!(fs::read_to_string(file)?, "PORT=3000\r\n");
+    Ok(())
+}
 
 #[test]
 fn ctrl_c_copies_the_visible_unicode_selection_without_editing_or_quitting() -> io::Result<()> {

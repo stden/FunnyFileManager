@@ -28,6 +28,12 @@ const FILE: Group<EditorCommand> = Group {
         )
         .note(Far("Ctrl+Ins"), "Copy the selection"),
         row(
+            "cut",
+            EditorCommand::Cut,
+            &[ctrl(ch('x')), shift(named(Del))],
+        )
+        .note(Far("Shift+Del"), "Cut the selection"),
+        row(
             "paste",
             EditorCommand::Paste,
             &[ctrl(ch('v')), shift(named(Ins))],

@@ -112,6 +112,26 @@ Feature: Far Manager editor selection, clipboard and file keys
     Then the clipboard contains "insert me"
     And the screen contains "Selection copied"
 
+  Scenario: Ctrl+X cuts the selection
+    Given a TUI workspace
+    And the left file "notes.txt" contains "cut me"
+    When I open the TUI at 100 by 30
+    And I press "Down F4 Shift+Right Shift+Right Shift+Right Shift+Right Ctrl+X"
+    Then the clipboard contains "cut "
+    And the screen contains "Selection cut"
+    When I press "F2"
+    Then the left file "notes.txt" contains "me"
+
+  Scenario: Shift+Del cuts the selection
+    Given a TUI workspace
+    And the left file "notes.txt" contains "trim me"
+    When I open the TUI at 100 by 30
+    And I press "Down F4 Shift+Right Shift+Right Shift+Right Shift+Right Shift+Right Shift+Del"
+    Then the clipboard contains "trim "
+    And the screen contains "Selection cut"
+    When I press "F2"
+    Then the left file "notes.txt" contains "me"
+
   Scenario: Ctrl+V pastes the clipboard at the caret
     Given a TUI workspace
     And the left file "notes.txt" contains "ab"

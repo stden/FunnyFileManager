@@ -314,7 +314,7 @@ cover both keys: F8 toggles the code page, and Shift+F8 opens FFM's dialog.
 | Keys                                                                                                                                                                                                                                   | Was                                                | Now                                        |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------ |
 | Left, Right, Up, Down, Home, End, PgUp, PgDn with Alt or Ctrl, with or without Shift, except Ctrl+Home, Ctrl+End, Ctrl+PgUp and Ctrl+PgDn (all four are bound) and Ctrl+Shift+Home and Ctrl+Shift+End (select to the ends of the file) | the caret move; with Shift, the selection          | nothing                                    |
-| Enter, Backspace, Del, Esc, F2, F10 with Shift, Alt or Ctrl, and F8 with Alt or Ctrl: Alt+Enter, Shift+Enter, Ctrl+Del, Ctrl+Backspace, Shift+F2, Alt+F8                                                                               | new line, delete, close, save, choose the encoding | nothing                                    |
+| Enter, Backspace, Esc, F2, F10 with Shift, Alt or Ctrl, and Del, F8 with Alt or Ctrl: Alt+Enter, Shift+Enter, Ctrl+Del, Ctrl+Backspace, Shift+F2, Alt+F8                                                                               | new line, delete, close, save, choose the encoding | nothing; Shift+Del cuts the selection      |
 | F7 with Alt or Ctrl, with or without Shift: Alt+F7, Ctrl+F7                                                                                                                                                                            | search; with Shift, repeat the search              | nothing; Shift+F7 still repeats the search |
 | Tab with Alt or Ctrl: Alt+Tab, Ctrl+Tab                                                                                                                                                                                                | indent                                             | nothing                                    |
 
@@ -330,7 +330,7 @@ Ctrl+Alt+L as they were. The lowercase keys work on every platform.
 These are the keys of Far's editor help (`docs/upstream/far-manager/FarEng.hlf.m4`,
 lines 3159 to 3241) that FFM has no command for. Status: not implemented. The
 pinned list is `UNIMPLEMENTED` in `src/action/editor/tests/far_gaps.rs`, with one
-row for each key event (94 rows). A key bound later fails that test, which is the
+row for each key event. A key bound later fails that test, which is the
 point at which this table changes. The test reads "cursor keys" as the eight
 caret keys, the arrows and Home, End, PgUp and PgDn, which is how Shift+cursor
 selection reads them. `LeftCtrl+0…9` and `RightCtrl+0…9` arrive as Ctrl+digit,
@@ -357,7 +357,6 @@ it, while Far's delete to the end of the line stays missing.
 | 3193       | Alt+Shift with each of the eight cursor keys                                                        | Select vertical block ("Alt+Shift+Cursor keys")                                       | not implemented |
 | 3194       | Ctrl+Alt with each of the eight cursor keys                                                         | Select vertical block ("Ctrl+Alt+gray keys")                                          | not implemented |
 | 3196       | Ctrl+U                                                                                              | Deselect block                                                                        | not implemented |
-| 3198       | Shift+Del, Ctrl+X                                                                                   | Cut block                                                                             | not implemented |
 | 3200       | Ctrl+Gray +                                                                                         | Append block to clipboard                                                             | not implemented |
 | 3201       | Ctrl+D                                                                                              | Delete block                                                                          | not implemented |
 | 3202       | Ctrl+P                                                                                              | Copy block to the cursor (persistent blocks only)                                     | not implemented |

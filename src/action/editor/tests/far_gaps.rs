@@ -21,7 +21,7 @@ const CTRL_ALT_SHIFT: KeyModifiers = CTRL.union(ALT).union(SHIFT);
 /// FFM's Ctrl+K is the language server's hover, which the row pins. Ctrl+5 is
 /// FFM's Ctrl+] (go to definition), so the Ctrl+digit bookmark rows skip 5;
 /// Ctrl+Shift+5 is unbound.
-const UNIMPLEMENTED: [(KeyCode, KeyModifiers, EditorCommand); 94] = [
+const UNIMPLEMENTED: [(KeyCode, KeyModifiers, EditorCommand); 92] = [
     // Cursor movement (3162 to 3177)
     (KeyCode::Char('s'), CTRL, EditorCommand::Ignore),
     (KeyCode::Left, CTRL, EditorCommand::Ignore),
@@ -72,8 +72,6 @@ const UNIMPLEMENTED: [(KeyCode, KeyModifiers, EditorCommand); 94] = [
     (KeyCode::PageUp, CTRL_ALT, EditorCommand::Ignore),
     (KeyCode::PageDown, CTRL_ALT, EditorCommand::Ignore),
     (KeyCode::Char('u'), CTRL, EditorCommand::Ignore),
-    (KeyCode::Delete, SHIFT, EditorCommand::Ignore),
-    (KeyCode::Char('x'), CTRL, EditorCommand::Ignore),
     (KeyCode::Char('+'), CTRL, EditorCommand::Ignore),
     (KeyCode::Char('d'), CTRL, EditorCommand::Ignore),
     (KeyCode::Char('p'), CTRL, EditorCommand::Ignore),

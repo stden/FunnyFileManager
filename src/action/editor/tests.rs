@@ -47,9 +47,9 @@ const PLAIN_KEYS: [(KeyCode, KeyModifiers, EditorCommand); 13] = [
 
 /// Keys the editor obeyed while it ignored the modifiers nothing was bound
 /// with. Exact matching makes each one fall to the fallback, which runs
-/// nothing: a sample of the 106 rows `tests/keymap_golden/editor.tsv` lists
-/// as `fallback`.
-const ONCE_LENIENT: [(KeyCode, KeyModifiers); 13] = [
+/// nothing: a sample of the rows `tests/keymap_golden/editor.tsv` lists as
+/// `fallback`.
+const ONCE_LENIENT: [(KeyCode, KeyModifiers); 12] = [
     (KeyCode::F(2), SHIFT),
     (KeyCode::F(2), CTRL),
     (KeyCode::F(7), ALT),
@@ -59,7 +59,6 @@ const ONCE_LENIENT: [(KeyCode, KeyModifiers); 13] = [
     (KeyCode::Enter, SHIFT),
     (KeyCode::Enter, CTRL),
     (KeyCode::Backspace, ALT),
-    (KeyCode::Delete, SHIFT),
     (KeyCode::Tab, CTRL),
     (KeyCode::Tab, SHIFT),
     (KeyCode::BackTab, SHIFT),

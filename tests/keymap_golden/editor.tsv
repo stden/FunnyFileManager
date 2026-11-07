@@ -416,7 +416,7 @@ Ctrl+Alt+Shift+W	fallback	Ignore
 x	fallback	Insert('x')
 Alt+X	fallback	Ignore
 Alt+Shift+X	fallback	Ignore
-Ctrl+X	fallback	Ignore
+Ctrl+X	bound	Cut
 Ctrl+Shift+X	fallback	Ignore
 Ctrl+Alt+X	fallback	Ignore
 Ctrl+Alt+Shift+X	fallback	Ignore
@@ -725,7 +725,7 @@ Ctrl+Shift+Ins	fallback	Ignore
 Ctrl+Alt+Ins	fallback	Ignore
 Ctrl+Alt+Shift+Ins	fallback	Ignore
 Del	bound	Delete
-Shift+Del	fallback	Ignore
+Shift+Del	bound	Cut
 Alt+Del	fallback	Ignore
 Alt+Shift+Del	fallback	Ignore
 Ctrl+Del	fallback	Ignore

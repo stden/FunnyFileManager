@@ -11,6 +11,7 @@ use crate::popup::{process_popup_input, tests::app_with_editor};
 
 use super::*;
 
+mod cut;
 mod dialog_precedence;
 mod encoding;
 mod file_name;
@@ -94,7 +95,6 @@ fn shift_arrows_copy_and_paste_round_trip_unicode_without_panel_side_effects() {
     assert_eq!(clipboard.0.borrow().text, "界\nβ🙂\nz");
     assert_eq!(clipboard.0.borrow().writes, 1);
     assert_eq!(app.get_editor().expect("editor").state, EditState::Clean);
-
     clipboard.0.borrow_mut().text = "Ж\r\nX".to_owned();
     key(&mut app, KeyCode::Insert, KeyModifiers::SHIFT);
     let editor = app.get_editor().expect("editor");

@@ -120,6 +120,7 @@ pub fn apply_editor_command(app: &mut App, command: EditorCommand) {
             editor.move_cursor(editor_motion(motion), selection);
         }
         EditorCommand::Copy => crate::ops::copy_editor_selection(app),
+        EditorCommand::Cut => crate::ops::cut_editor_selection(app),
         EditorCommand::InsertFileName => crate::ops::insert_editor_file_name(app),
         EditorCommand::SelectAll => editor.select_all(),
         EditorCommand::ChooseEncoding => editor.encoding_choice = Some(editor.format.encoding),
@@ -129,9 +130,7 @@ pub fn apply_editor_command(app: &mut App, command: EditorCommand) {
         EditorCommand::FormatDocument => editor.format_document(),
         EditorCommand::Lsp(feature) => editor.lsp.intent = Intent::Query(feature),
         EditorCommand::RestartLsp => editor.lsp.intent = Intent::Restart,
-        EditorCommand::Search => {
-            editor.search.prompt = Some(SearchPrompt::from_last(editor.search.last.as_ref()));
-        }
+        EditorCommand::Search => open_search(editor),
         EditorCommand::Close => close_editor(app),
         EditorCommand::Save => save::save_editor(app),
         EditorCommand::Newline => editor.insert_newline(),
@@ -141,6 +140,10 @@ pub fn apply_editor_command(app: &mut App, command: EditorCommand) {
         EditorCommand::Insert(ch) => insert_char_and_complete(editor, ch),
         EditorCommand::Ignore => {}
     }
+}
+
+fn open_search(editor: &mut crate::models::Editor) {
+    editor.search.prompt = Some(SearchPrompt::from_last(editor.search.last.as_ref()));
 }
 
 fn insert_char_and_complete(editor: &mut crate::models::Editor, ch: char) {

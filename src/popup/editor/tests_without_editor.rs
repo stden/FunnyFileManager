@@ -39,6 +39,7 @@ fn a_command_with_no_editor_open_does_nothing() {
     let mut app = closed_app();
 
     apply_editor_command(&mut app, EditorCommand::Copy);
+    apply_editor_command(&mut app, EditorCommand::Cut);
 
     assert!(app.get_editor().is_none());
 }

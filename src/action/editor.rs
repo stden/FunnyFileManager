@@ -37,6 +37,7 @@ pub enum EditorCommand {
         selection: SelectionMode,
     },
     Copy,
+    Cut,
     /// Ctrl+F, as in Far: type the edited file's full name at the cursor,
     /// and put it on the clipboard too.
     InsertFileName,

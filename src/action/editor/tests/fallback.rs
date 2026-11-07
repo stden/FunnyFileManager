@@ -42,7 +42,7 @@ fn caps_lock_types_the_letter_the_terminal_sent() {
 fn a_character_under_ctrl_or_alt_that_nothing_is_bound_to_is_consumed() {
     for modifiers in [CTRL, ALT, CTRL.union(ALT), ALT.union(SHIFT)] {
         assert_eq!(
-            command(KeyCode::Char('x'), modifiers),
+            command(KeyCode::Char('q'), modifiers),
             EditorCommand::Ignore,
             "{modifiers:?}"
         );

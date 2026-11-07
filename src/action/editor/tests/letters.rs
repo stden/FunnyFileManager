@@ -13,6 +13,7 @@ fn a_letter_under_ctrl_runs_its_command_and_rejects_shift_and_alt() {
     for (letter, expected) in [
         ('a', EditorCommand::SelectAll),
         ('c', EditorCommand::Copy),
+        ('x', EditorCommand::Cut),
         ('v', EditorCommand::Paste),
         ('k', EditorCommand::Lsp(LspFeature::Hover)),
     ] {
@@ -42,6 +43,10 @@ fn a_capital_under_ctrl_is_shift_on_unix_and_caps_lock_on_windows() {
     assert_eq!(
         command(KeyCode::Char('C'), CTRL),
         caps_lock_or_shift(EditorCommand::Copy)
+    );
+    assert_eq!(
+        command(KeyCode::Char('X'), CTRL),
+        caps_lock_or_shift(EditorCommand::Cut)
     );
     assert_eq!(
         command(KeyCode::Char('F'), CTRL),
