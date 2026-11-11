@@ -1,0 +1,146 @@
+//! Purpose: Temporary-file cleanup is confined to one injected root and a stable preview.
+use super::*;
+use crate::models::temp_cleanup::{TempError, TempRoot, TempSource};
+use std::{
+    fs,
+    path::Path,
+    time::{Duration, SystemTime},
+};
+fn source(root: &Path) -> TempSource {
+    TempSource::Directory {
+        path: root.to_owned(),
+        home: None,
+    }
+}
+fn old_file(path: &Path, bytes: &[u8], now: SystemTime) {
+    fs::write(path, bytes).unwrap();
+    fs::File::options()
+        .write(true)
+        .open(path)
+        .unwrap()
+        .set_modified(now - Duration::from_hours(192))
+        .unwrap();
+}
+#[test]
+fn confirmed_plan_removes_old_files_and_keeps_root_and_fresh_files() {
+    let temp = tempfile::TempDir::new().unwrap();
+    let root = temp.path().join("temp");
+    fs::create_dir(&root).unwrap();
+    let now = SystemTime::now();
+    old_file(&root.join("old.bin"), b"old", now);
+    fs::write(root.join("fresh.bin"), b"fresh").unwrap();
+    let plan = scan(&source(&root), now).unwrap();
+    assert_eq!(plan.files.len(), 1);
+    assert_eq!(plan.bytes.bytes(), 3);
+    let outcome = remove(&plan);
+    assert_eq!(outcome.removed, 1);
+    assert_eq!(outcome.freed.bytes(), 3);
+    assert!(root.is_dir());
+    assert_eq!(fs::read(root.join("fresh.bin")).unwrap(), b"fresh");
+    assert!(!root.join("old.bin").exists());
+}
+#[test]
+fn changed_and_new_files_after_preview_are_preserved() {
+    let temp = tempfile::TempDir::new().unwrap();
+    let now = SystemTime::now();
+    old_file(&temp.path().join("changed"), b"old", now);
+    let plan = scan(&source(temp.path()), now).unwrap();
+    fs::write(temp.path().join("changed"), b"new content").unwrap();
+    old_file(&temp.path().join("new-old-looking-file"), b"new", now);
+    let outcome = remove(&plan);
+    assert_eq!(outcome.removed, 0);
+    assert_eq!(
+        fs::read(temp.path().join("changed")).unwrap(),
+        b"new content"
+    );
+    assert!(temp.path().join("new-old-looking-file").exists());
+}
+
+mod safety;
+
+#[cfg(unix)]
+mod permissions;
+mod policy;
+
+#[test]
+fn safe_parent_verifies_nested_directories_and_rejects_escaped_or_non_dir_parents() {
+    let temp = tempfile::TempDir::new().unwrap();
+    let nested = temp.path().join("sub");
+    fs::create_dir(&nested).unwrap();
+    let now = SystemTime::now();
+    old_file(&nested.join("old.bin"), b"old", now);
+    let plan = scan(&source(temp.path()), now).unwrap();
+    let plain_root = TempRoot {
+        path: temp.path().to_path_buf(),
+        identity: plan.root.identity,
+    };
+    assert!(super::policy::safe_parent(
+        &plain_root,
+        &nested.join("old.bin")
+    ));
+    assert!(!super::policy::safe_parent(&plain_root, Path::new("")));
+    assert!(!super::policy::safe_parent(
+        &plain_root,
+        &temp.path().with_file_name("outside")
+    ));
+    assert!(!super::policy::safe_parent(
+        &plain_root,
+        &temp.path().join("sub").join("..").join("old.bin")
+    ));
+    fs::remove_dir_all(&nested).unwrap();
+    fs::write(&nested, b"not-a-dir").unwrap();
+    assert_eq!(remove(&plan).removed, 0);
+}
+
+#[test]
+fn remove_skips_unopenable_or_retargeted_handles() {
+    let temp = tempfile::TempDir::new().unwrap();
+    let now = SystemTime::now();
+    let victim = temp.path().join("old.bin");
+    let other = temp.path().join("other.bin");
+    old_file(&victim, b"old", now);
+    old_file(&other, b"different-len", now);
+    let mut plan = scan(&source(temp.path()), now).unwrap();
+    plan.files.retain(|f| f.path.ends_with("old.bin"));
+    assert_eq!(plan.files.len(), 1);
+
+    assert_eq!(
+        remove::remove_with(
+            &plan,
+            |_| Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied)),
+            |p| fs::remove_file(p),
+        )
+        .skipped,
+        1
+    );
+    assert_eq!(
+        remove::remove_with(
+            &plan,
+            |_| fs::File::options().read(true).write(true).open(&other),
+            |p| fs::remove_file(p),
+        )
+        .skipped,
+        1
+    );
+}
+
+#[test]
+fn remove_counts_unlink_failures_and_vanished_files() {
+    let temp = tempfile::TempDir::new().unwrap();
+    let now = SystemTime::now();
+    let victim = temp.path().join("old.bin");
+    old_file(&victim, b"old", now);
+    let plan = scan(&source(temp.path()), now).unwrap();
+
+    assert_eq!(
+        remove::remove_with(
+            &plan,
+            |p| fs::File::options().read(true).write(true).open(p),
+            |_| Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied)),
+        )
+        .failures,
+        1
+    );
+    fs::remove_file(&victim).unwrap();
+    assert_eq!(remove(&plan).skipped, 1);
+}

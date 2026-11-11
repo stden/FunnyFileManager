@@ -1,0 +1,100 @@
+//! Purpose: Verify the scope of recursive repository discovery.
+
+use super::*;
+
+#[test]
+fn current_and_nested_repositories_include_git_files_but_not_git_internals() {
+    let temp = tempfile::TempDir::new().expect("temporary directory");
+    for path in [
+        ".git",
+        "nested/one/.git",
+        "nested/one/child/.git",
+        ".git/hidden/.git",
+        "target/build/.git",
+    ] {
+        fs::create_dir_all(temp.path().join(path)).expect("directory");
+    }
+    let worktree = temp.path().join("linked");
+    fs::create_dir(&worktree).expect("worktree");
+    fs::write(worktree.join(".git"), "gitdir: ../metadata").expect("Git file");
+    let result = scan(temp.path(), &|| false).expect("scan");
+    assert_eq!(
+        result.repositories,
+        [
+            temp.path().to_owned(),
+            worktree,
+            temp.path().join("nested/one"),
+            temp.path().join("nested/one/child")
+        ]
+    );
+    assert_eq!(result.errors, 0);
+}
+
+#[test]
+fn missing_root_and_cancellation_are_distinct_errors() {
+    let temp = tempfile::TempDir::new().expect("temporary directory");
+    assert_eq!(
+        scan(&temp.path().join("missing"), &|| false)
+            .err()
+            .expect("missing")
+            .kind(),
+        io::ErrorKind::NotFound
+    );
+    assert_eq!(
+        scan(temp.path(), &|| true).err().expect("cancelled").kind(),
+        io::ErrorKind::Interrupted
+    );
+}
+
+#[test]
+fn child_read_dir_and_entry_errors_are_counted_without_aborting_scan() {
+    let temp = tempfile::TempDir::new().expect("temporary directory");
+    let sub = temp.path().join("unreadable_sub");
+    fs::create_dir(&sub).expect("sub");
+    let scanned = scan_with(temp.path(), &|| false, |p| {
+        if p == sub {
+            Err(io::Error::from(io::ErrorKind::PermissionDenied))
+        } else {
+            fs::read_dir(p)
+        }
+    })
+    .expect("scan with child error");
+    assert_eq!(scanned.errors, 1);
+
+    let mut errors = 0;
+    descend(
+        Ok(vec![Err(io::Error::other("bad dir entry"))]),
+        &mut Vec::new(),
+        &mut errors,
+    )
+    .expect("descend tolerates entry error");
+    assert_eq!(errors, 1);
+}
+
+#[test]
+fn a_directory_entry_error_does_not_hide_later_children() {
+    let temp = tempfile::TempDir::new().expect("temporary directory");
+    fs::create_dir(temp.path().join("kept")).expect("child");
+    let bad: io::Result<fs::DirEntry> = Err(io::Error::other("bad dir entry"));
+    let listed = fs::read_dir(temp.path()).expect("entries");
+    let entries = std::iter::once(bad).chain(listed);
+    let mut pending = Vec::new();
+    let mut errors = 0;
+
+    descend(Ok(entries), &mut pending, &mut errors).expect("descend tolerates entry error");
+
+    assert_eq!(pending, [temp.path().join("kept")]);
+    assert_eq!(errors, 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn directory_links_cannot_escape_the_current_folder_or_create_a_cycle() {
+    let temp = tempfile::TempDir::new().expect("temporary directory");
+    let root = temp.path().join("workspace");
+    fs::create_dir_all(temp.path().join("outside/.git")).expect("outside");
+    fs::create_dir(&root).expect("workspace");
+    std::os::unix::fs::symlink(temp.path().join("outside"), root.join("external")).expect("link");
+    std::os::unix::fs::symlink(&root, root.join("cycle")).expect("cycle");
+    assert_eq!(scan(&root, &|| false).expect("scan").repositories.len(), 0);
+}
