@@ -69,10 +69,16 @@ impl ConPtyFfm {
         let mut next_send = Instant::now();
         while start.elapsed() < limit {
             if Instant::now() >= next_send {
-                self.send(b"\x03");
+                // Go through the application's quit dialog. ConPTY can turn
+                // Ctrl+C into process termination before LLVM flushes profiles.
+                self.send(b"\x1b[21~\r");
                 next_send = Instant::now() + Duration::from_millis(400);
             }
-            if self.child.try_wait().expect("try_wait").is_some() {
+            if let Some(status) = self.child.try_wait().expect("try_wait") {
+                assert!(
+                    status.success(),
+                    "ConPTY session did not exit cleanly: {status:?}"
+                );
                 return true;
             }
             std::thread::sleep(Duration::from_millis(15));
