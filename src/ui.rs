@@ -1,0 +1,170 @@
+//! Purpose: Renders the dual-panel terminal UI, status bars, and core layout.
+use ratatui::{layout::Rect, Frame};
+
+#[cfg(test)]
+use crate::models::Viewer;
+use crate::models::{App, Overlay, ViewMode};
+#[cfg(test)]
+use ratatui::style::{Color, Style};
+
+mod apply;
+mod archive_commands;
+mod archive_prompt;
+mod associations;
+mod attributes;
+mod cells;
+mod cloudflare_dns;
+mod code;
+mod command_line;
+mod command_prompt;
+mod completion;
+mod console;
+mod database;
+mod describe;
+mod dialog;
+mod drives;
+mod duplicates;
+mod editor_brackets;
+mod editor_lsp;
+mod editor_selection;
+mod extract_prompt;
+mod filter;
+mod findfile;
+mod findfolder;
+mod fkey_bar;
+mod folder_history;
+mod frame;
+mod history_list;
+mod hotplug;
+pub(crate) mod image;
+#[cfg(feature = "keepass")]
+mod kdbx;
+mod layout;
+mod lsp_editor;
+mod mcp_install;
+mod overlays;
+mod palette;
+mod panel;
+mod panel_view;
+mod path_env;
+mod plugin_commands;
+mod progress;
+mod prompts;
+mod quickview;
+mod remote;
+mod remote_dialog;
+mod screens;
+mod session_edit;
+mod sessions;
+mod settings;
+mod shortcuts;
+mod sortmenu;
+mod space_analysis;
+mod stub;
+mod tasks;
+mod theme;
+mod things;
+pub(crate) use tasks::{task_click_at, TaskClick};
+mod tree;
+mod usermenu;
+mod view_history;
+mod viewer;
+mod wipe;
+mod wsl;
+pub(crate) use wsl::wsl_button_at;
+mod disk_cleanup;
+mod system_temp_cleanup;
+
+use overlays::render_overlays;
+pub(crate) use panel_view::panel_areas;
+use panel_view::render_panel_view;
+use theme::apply_theme;
+
+mod menu;
+#[cfg(test)]
+pub(crate) use menu::checked_entry;
+pub use menu::{heading_at, menu_row_at};
+mod menu_dialog;
+pub(crate) use menu_dialog::row_at as choice_row_at;
+pub use panel::reading_banner;
+pub(crate) use panel::stripe_at;
+#[cfg(test)]
+use panel::{
+    abbreviate_bytes, clip_name, name_field, pad_cells, panel_layout, size_field, split_extension,
+};
+pub(crate) use sortmenu::row_at as sort_row_at;
+
+#[cfg(test)]
+pub(crate) use cells::UNPRINTABLE;
+use cells::{
+    expand_tabs_to, fit_path, fit_quoting_path, head_cells, is_printable_ascii, screen_u16,
+    skip_cells, tail_cells, take_cells, EditorLine,
+};
+pub(crate) use cells::{fit_name, printable_name, Cells};
+use command_line::render_command_line;
+#[cfg(test)]
+use command_prompt::prompt_spans;
+use completion::render_completion_menu;
+pub use fkey_bar::FKEY_COUNT;
+use frame::FAR_BLUE;
+use frame::{active_title_style, dialog_frame, far_block};
+pub use layout::{centered_rect, panel_page_size, FALLBACK_TERMINAL_HEIGHT};
+use layout::{
+    MENU_BAR_HEIGHT, PANEL_BORDERS, PANEL_COLUMN_HEADER, PANEL_COLUMN_RULE, PANEL_INFO_ROW,
+    PANEL_NON_ENTRY_ROWS,
+};
+pub use progress::progress_dialog;
+
+pub(super) fn entry_label(path: &std::path::Path) -> String {
+    path.file_name().map_or_else(
+        || printable_name(&path.display().to_string()).into_owned(),
+        |name| printable_name(&name.to_string_lossy()).into_owned(),
+    )
+}
+
+pub(super) const fn scroll_percent(top: usize, rows: usize, total: usize) -> usize {
+    if top.saturating_add(rows) >= total {
+        100
+    } else {
+        top * 100 / total
+    }
+}
+
+/// Draw the entire user interface: two file panels, status bar, and overlays.
+pub fn ui(f: &mut Frame<'_>, app: &mut App) {
+    let area = f.area();
+    app.dialog_mouse.screen = area;
+    if !matches!(app.overlay, Overlay::Viewer(_) | Overlay::Editor(_)) {
+        console::render_backdrop(f, area);
+        if app.view == ViewMode::Console {
+            console::render_view(f, app, area);
+        } else {
+            render_panel_view(f, app, area);
+        }
+        apply_theme(f, app);
+        if app.view == ViewMode::Panels {
+            menu::render_drop_down(
+                f,
+                app,
+                Rect {
+                    height: area.height.min(MENU_BAR_HEIGHT),
+                    ..area
+                },
+            );
+        }
+    }
+    render_overlays(f, app);
+}
+
+#[cfg(test)]
+mod tests;
+#[cfg(test)]
+mod tests_delete_confirm_kinds;
+#[cfg(test)]
+mod tests_delete_confirm_paths;
+#[cfg(test)]
+mod tests_editor_tabs;
+#[cfg(test)]
+mod tests_overlay_edges;
+#[cfg(test)]
+mod tests_stub_dialogs;

@@ -1,0 +1,11 @@
+# Purpose: Provides the default commit message template for repository contributors.
+# Commit Message Format
+# Format: [MARKER] Brief summary (50 chars or less)
+#
+# Markers:
+#   [+] Added feature/file/test
+#   [-] Removed code/file/dependency
+#   [!] Refactored/fixed/changed behavior
+#
+# Body (optional): List changes, one per line with marker
+

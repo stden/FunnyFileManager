@@ -1,0 +1,187 @@
+//! Incremental-filter tests: what narrows the list, and what happens to the
+//! cursor when the list shrinks under it.
+
+use super::tests_support::{
+    index_of, selected_title, sorted_visible_titles, unlocked_sample, visible_titles, SAMPLE,
+};
+use super::{KdbxError, Motion};
+
+#[test]
+fn typing_narrows_the_list_to_the_matching_entry() {
+    let (_dir, mut session, now) = unlocked_sample();
+
+    for ch in "git".chars() {
+        session.type_char(ch, now);
+    }
+
+    assert_eq!(session.vault().expect("unlocked").filter(), "git");
+    assert_eq!(visible_titles(&session), vec!["GitHub"]);
+    assert_eq!(
+        session.vault().expect("unlocked").matches(),
+        [index_of(&session, "GitHub")]
+    );
+}
+
+#[test]
+fn filtering_is_case_insensitive_on_both_the_needle_and_the_field() {
+    let (_dir, mut session, now) = unlocked_sample();
+
+    // "Router" occurs only in a mixed-case *title* — its user name and URL are
+    // "admin" and "192.168.1.1" — so a lower-case needle can only match it if
+    // the field is lower-cased too. A needle like "github" would be rescued by
+    // the already-lower-case URL and would prove nothing.
+    session
+        .vault_mut()
+        .expect("unlocked")
+        .set_filter("router", now);
+    assert_eq!(visible_titles(&session), vec!["Router"]);
+
+    // The other direction: an upper-case needle must be folded as well.
+    session
+        .vault_mut()
+        .expect("unlocked")
+        .set_filter("ROUTER", now);
+    assert_eq!(visible_titles(&session), vec!["Router"]);
+
+    // Upper-case needle against an all-lower-case title.
+    session
+        .vault_mut()
+        .expect("unlocked")
+        .set_filter("BANK", now);
+    assert_eq!(visible_titles(&session), vec!["bank"]);
+}
+
+#[test]
+fn filtering_looks_at_the_user_name_and_the_url_not_only_the_title() {
+    let (_dir, mut session, now) = unlocked_sample();
+
+    // "carol" appears only as a user name...
+    session
+        .vault_mut()
+        .expect("unlocked")
+        .set_filter("carol", now);
+    assert_eq!(visible_titles(&session), vec!["bank"]);
+
+    // ...and "192.168" only inside a URL.
+    session
+        .vault_mut()
+        .expect("unlocked")
+        .set_filter("192.168", now);
+    assert_eq!(visible_titles(&session), vec!["Router"]);
+}
+
+#[test]
+fn filtering_by_group_substring_keeps_entries_in_that_group() {
+    let (_dir, mut session, now) = unlocked_sample();
+
+    session
+        .vault_mut()
+        .expect("unlocked")
+        .set_filter("work", now);
+
+    assert_eq!(visible_titles(&session), vec!["Jenkins"]);
+}
+
+#[test]
+fn a_shrinking_filter_clamps_the_cursor_onto_the_new_last_row() {
+    let (_dir, mut session, now) = unlocked_sample();
+    session.move_selection(Motion::PageDown(10), now);
+    assert_eq!(session.vault().expect("unlocked").selected(), 4);
+
+    // "example" matches exactly two entries — Gmail's user name and bank's URL
+    // — so a cursor sitting on row 4 must land on row 1, the new last row, and
+    // never dangle past the end of `matches`.
+    session
+        .vault_mut()
+        .expect("unlocked")
+        .set_filter("example", now);
+
+    assert_eq!(session.vault().expect("unlocked").matches().len(), 2);
+    assert_eq!(sorted_visible_titles(&session), vec!["Gmail", "bank"]);
+    // Row 1 is the exact clamped index: the last row of the two that survived.
+    assert_eq!(session.vault().expect("unlocked").selected(), 1);
+    assert_eq!(
+        selected_title(&session),
+        visible_titles(&session).last().cloned()
+    );
+}
+
+#[test]
+fn a_filter_matching_nothing_leaves_nothing_selected() {
+    let (_dir, mut session, now) = unlocked_sample();
+
+    session
+        .vault_mut()
+        .expect("unlocked")
+        .set_filter("zzz-no-such-entry", now);
+
+    assert_eq!(session.vault().expect("unlocked").matches().len(), 0);
+    assert_eq!(session.vault().expect("unlocked").selected(), 0);
+    assert!(selected_title(&session).is_none());
+    assert!(matches!(
+        session.copy_password(now),
+        Err(KdbxError::NoSelection)
+    ));
+    assert!(matches!(
+        session.copy_username(),
+        Err(KdbxError::NoSelection)
+    ));
+}
+
+#[test]
+fn backspacing_the_filter_restores_the_full_list() {
+    let (_dir, mut session, now) = unlocked_sample();
+    session.type_char('g', now);
+    session.type_char('i', now);
+    assert_eq!(visible_titles(&session), vec!["GitHub"]);
+
+    session.backspace(now);
+    session.backspace(now);
+    assert_eq!(session.vault().expect("unlocked").filter(), "");
+    assert_eq!(visible_titles(&session).len(), SAMPLE.len());
+
+    // Backspacing past the start is harmless.
+    session.backspace(now);
+    assert_eq!(session.vault().expect("unlocked").filter(), "");
+    assert_eq!(visible_titles(&session).len(), SAMPLE.len());
+}
+
+#[test]
+fn vault_push_and_pop_filter_char_narrow_and_restore_matches() {
+    let (_dir, mut session, now) = unlocked_sample();
+    let vault = session.vault_mut().expect("unlocked");
+    vault.push_filter_char('g', now);
+    vault.push_filter_char('z', now);
+    assert_eq!(vault.matches().len(), 0);
+    vault.pop_filter_char(now);
+    assert_eq!(vault.filter(), "g");
+    assert_ne!(vault.matches().len(), 0);
+}
+
+#[test]
+fn push_filter_char_rebuilds_when_contextual_sigma_folding_changes_prefix() {
+    use super::tests_support::{type_password, vault_file, Fixture, VAULT_PASSWORD};
+    use super::KdbxSession;
+    use std::time::Instant;
+
+    let fixtures = [Fixture {
+        group: &[],
+        title: "ασα",
+        username: "u",
+        url: "",
+        password: "pw",
+    }];
+    let (_dir, path) = vault_file(&fixtures, VAULT_PASSWORD, None);
+    let now = Instant::now();
+    let mut session = KdbxSession::new(path);
+    type_password(&mut session, VAULT_PASSWORD, now);
+    assert!(session.unlock(now));
+
+    let vault = session.vault_mut().expect("unlocked");
+    vault.push_filter_char('Α', now);
+    vault.push_filter_char('Σ', now);
+    // "ΑΣ".to_lowercase() == "ας", whereas appending 'Α' shifts final sigma to
+    // medial "ασα" so `needle.starts_with(&prev)` is false and triggers `refilter`.
+    vault.push_filter_char('Α', now);
+    assert_eq!(vault.matches().len(), 1);
+}
