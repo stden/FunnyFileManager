@@ -10,10 +10,6 @@ const PNG: &[u8] = &[
     1, 0, 201, 254, 146, 239, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
 ];
 
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: a PNG must exist before FFM starts"
-)]
 fn ffm_with_image(env: &[(&str, &str)]) -> Ffm {
     let sandbox = TempDir::new().expect("sandbox");
     let work = sandbox.path().join("work");

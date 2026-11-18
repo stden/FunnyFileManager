@@ -20,12 +20,6 @@ fn resume(world: &mut TuiWorld, width: u16, height: u16) {
 
 #[then(expr = "the saved panel directories are {string} and {string}")]
 #[expect(
-    clippy::expect_used,
-    clippy::unwrap_used,
-    clippy::indexing_slicing,
-    reason = "a Cucumber step fails by panicking, as a #[test] does"
-)]
-#[expect(
     clippy::needless_pass_by_value,
     clippy::needless_pass_by_ref_mut,
     reason = "Cucumber dictates step signatures: captured args arrive owned and the world as `&mut`"
@@ -46,10 +40,6 @@ fn saved(world: &mut TuiWorld, left: String, right: String) {
 }
 
 #[when(expr = "the {word} workspace directory is removed")]
-#[expect(
-    clippy::expect_used,
-    reason = "a Cucumber step fails by panicking, as a #[test] does"
-)]
 #[expect(
     clippy::needless_pass_by_value,
     clippy::needless_pass_by_ref_mut,

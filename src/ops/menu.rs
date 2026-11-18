@@ -13,6 +13,7 @@ use crate::{
 mod compare;
 mod dialogs;
 mod files;
+mod maintenance;
 pub mod process;
 mod search;
 pub mod settings;
@@ -78,6 +79,8 @@ fn execute_result(app: &mut App, command: MenuCommand) -> io::Result<()> {
         MenuCommand::TokenUsage => super::token_usage::open(app),
         MenuCommand::SystemTempCleanup => super::system_temp_cleanup::open(app),
         MenuCommand::DiskCleanup => super::disk_cleanup::open(app)?,
+        MenuCommand::VolumeMaintenance => maintenance::volume(app)?,
+        MenuCommand::SyncGitBranch => maintenance::git_sync(app)?,
         MenuCommand::UpdatePackages => super::packages::open(app),
         MenuCommand::LanguageServers => super::lsp_editor::open(app),
         MenuCommand::DatabaseExplorer => super::database::open(app),

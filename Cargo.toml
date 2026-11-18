@@ -45,18 +45,18 @@ encoding_rs = "0.8.44"
 # seconds since the epoch and std has no calendar, let alone a timezone: the
 # columns show *local* wall-clock time, which needs the system zone. Default
 # features read that zone and embed a copy where the platform has none.
-jiff = "1.0.0"
+jiff = "1.0.1"
 
 # See the `colorer` feature.
 colorer-sys = { path = "colorer-sys", version = "0.1", optional = true }
 
 # AWS S3 integration (optional — enable with --features s3)
-aws-config = { version = "1.13.2", optional = true }
+aws-config = { version = "1.13.3", optional = true }
 # default-features = false drops the SDK's legacy `rustls` feature, which pins
 # rustls 0.21 / rustls-webpki 0.101 (RUSTSEC-2026-0098/0099/0104). The modern
 # TLS path (`default-https-client` -> rustls 0.23 + aws-lc, webpki 0.103) is
 # what actually serves requests; the remaining features mirror the defaults.
-aws-sdk-s3 = { version = "1.159.0", default-features = false, features = [
+aws-sdk-s3 = { version = "1.160.0", default-features = false, features = [
     # sigv4a omitted (pulls in unpatched crypto-bigint 0.5.5)
     # sigv4a omitted (pulls in unpatched crypto-bigint 0.5.5)
     "http-1x", "default-https-client",
@@ -71,7 +71,6 @@ roxmltree = "0.21.2"
 
 # KeePass .kdbx read/edit (optional — enable with --features keepass).
 # default-features = false drops CLI extras; save_kdbx4 unlocks Database::save.
-# NOTE: keepass >= 0.13 declares rust-version 1.85, below the crate's 1.95 floor.
 # The write path is upstream-experimental, so the module backs up + writes
 # atomically (see src/keepass.rs).
 keepass = { version = "0.17.0", default-features = false, features = ["save_kdbx4"], optional = true }
@@ -111,8 +110,8 @@ tar = "0.4.46"
 memchr = "2.8.3"
 # Native SSH/SFTP and streaming FTP transports for NetBox panels.
 ssh2 = "0.9.7"
-suppaftp = { version = "12.2.1", default-features = false, features = ["no-log"] }
-zeroize = "1.9.1"
+suppaftp = { version = "13.0.0", default-features = false, features = ["no-log"] }
+zeroize = "1.9.2"
 base64 = "0.23.1"
 # The database explorer's SQLite driver (Commands → Database explorer). `bundled`
 # compiles SQLite into the binary, so no system library is needed.
@@ -122,13 +121,13 @@ rusqlite = { version = "0.43.0", features = ["bundled"] }
 postgres = "0.19.14"
 
 [dev-dependencies]
-regex = "1.13.1"
+regex = "1.13.2"
 criterion = "0.8.2"
 cucumber = "0.23.0"
 futures = "0.3.34"
 # S3 test mocks (used only by `#[cfg(feature = "s3")]` tests in src/s3/tests*.rs).
 # Versions track the aws-sdk-s3 1.x smithy stack already in the lockfile.
-aws-smithy-http-client = { version = "1.5.2", features = ["test-util"] }
+aws-smithy-http-client = { version = "1.5.3", features = ["test-util"] }
 aws-smithy-types = "1.9.4"
 http_1x = { package = "http", version = "1.5.0" }
 # Architecture tests parse sources instead of matching text: tests/architecture/
@@ -264,6 +263,11 @@ harness = false
 [[bench]]
 name = "ops_bench"
 harness = false
+
+[[bench]]
+name = "maintenance_bench"
+harness = false
+required-features = ["test-helpers"]
 
 [[bench]]
 name = "autocomplete_bench"

@@ -35,7 +35,7 @@ fn bench_mark_and_frame(c: &mut Criterion) {
     for size in [1_000_usize, 10_000, 50_000] {
         let root = TempDir::new().expect("temp dir");
         let entries: Vec<_> = (0..size).map(entry).collect();
-        let left = Panel::from_entries(root.path().to_path_buf(), entries.clone());
+        let left = Panel::from_entries(root.path().to_path_buf(), entries);
         let right = Panel::from_entries(root.path().to_path_buf(), Vec::new());
         let mut app = App::with_panels(left, right);
         let mut term = Terminal::new(TestBackend::new(120, 40)).expect("terminal");

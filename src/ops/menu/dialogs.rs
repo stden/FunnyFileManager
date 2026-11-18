@@ -30,6 +30,7 @@ pub fn choose(app: &mut App, target: ChoiceTarget) -> io::Result<()> {
         ChoiceTarget::Screen(view) => app.view = view,
         ChoiceTarget::Close => {}
         ChoiceTarget::UpdatePackages(plan) => app.package_update = Some(plan),
+        ChoiceTarget::RunMaintenance(command) => app.maintenance_request = Some(command),
     }
     Ok(())
 }

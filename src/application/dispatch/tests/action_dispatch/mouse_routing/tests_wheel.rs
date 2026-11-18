@@ -126,8 +126,7 @@ fn the_wheel_scrolls_the_console_transcript_when_it_is_showing() {
         app.console
             .visible(10)
             .last()
-            .map(|line| line.text().to_owned())
-            .unwrap_or_default()
+            .map_or_default(|line| line.text().to_owned())
     };
     let before = newest(&app);
 

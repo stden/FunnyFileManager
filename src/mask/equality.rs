@@ -11,11 +11,7 @@ impl Mask {
     /// Whether every possible filename satisfies this mask (e.g. `*`).
     #[must_use]
     pub fn matches_all(&self) -> bool {
-        self.exclude.is_empty()
-            && self
-                .include
-                .iter()
-                .any(|p| p.raw.bytes().all(|b| b == b'*'))
+        self.exclude.is_empty() && self.include.iter().any(|p| p.ascii_suffix_len == Some(0))
     }
 }
 

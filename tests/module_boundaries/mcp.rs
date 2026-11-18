@@ -41,10 +41,6 @@ const SERVER: &str = "mcp/src/main.rs";
 
 const SHARED_SOURCE: &str = "mcp/src/tool_names.rs";
 
-#[expect(
-    clippy::panic,
-    reason = "test support: a file the checker cannot read fails the test that asked for it"
-)]
 fn read(relative: &str) -> String {
     fs::read_to_string(super::repository().join(relative))
         .unwrap_or_else(|error| panic!("read {relative}: {error}"))

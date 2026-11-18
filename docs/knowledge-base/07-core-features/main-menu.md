@@ -16,6 +16,18 @@ The command skips submodules and leaves their current revisions unchanged.
 The progress dialog shows the current repository. Esc or Ctrl+C cancels the operation and stops the active Git process tree.
 Each Git command has a two-minute limit. Ctrl+O shows the complete report and the final counts.
 
+**Update and rebase Git branch** works on the repository containing the active
+file panel. Review the repository and branch in the confirmation dialog. For
+a topic branch, the command pulls its configured upstream, fast-forwards local
+`main`, and rebases the topic onto the fetched `origin/main`. On `main` it
+fast-forwards that branch. Ctrl+O shows the result, including Git's instructions
+if a rebase stops at a conflict.
+
+On Windows, **Optimize volume** shows the local volume containing the active
+folder. Choose **TRIM** to retrim free space or **Defragment** to consolidate
+fragmented files. Windows requires administrator privileges. The command runs
+in the background, and Ctrl+O shows the utility's report.
+
 The Commands menu also provides action timing statistics, installed-package
 updates, separate user/system PATH editors, and Install MCP server. Their
 owners are `performance` / `ops/performance`, `packages` / `ops/packages`,

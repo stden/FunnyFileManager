@@ -56,6 +56,7 @@ pub struct App {
     pub performance: crate::performance::Performance,
     pub(crate) package_update: Option<crate::packages::UpdatePlan>,
     pub(crate) git_pull_root: Option<std::path::PathBuf>,
+    pub(crate) maintenance_request: Option<super::MaintenanceCommand>,
     /// Where the dialog on screen was drawn, and how far it has been dragged.
     /// Written by the renderer, read by the next click.
     pub dialog_mouse: crate::mouse::DialogMouse,
@@ -155,6 +156,7 @@ impl App {
             performance: crate::performance::Performance::default(),
             package_update: None,
             git_pull_root: None,
+            maintenance_request: None,
             dialog_mouse: crate::mouse::DialogMouse::default(),
             pending_row: None,
             panels_shown: PanelsShown::default(),

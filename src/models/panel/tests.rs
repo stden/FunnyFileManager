@@ -162,3 +162,34 @@ fn remember_marks_snapshots_current_selection_for_restore() {
     panel.restore_marks();
     assert!(panel.marked.contains("a.txt"));
 }
+
+#[test]
+fn bulk_masks_count_distinct_names_and_restore_the_previous_set() {
+    let entries = ["..", "a.rs", "a.rs", "b.txt"].map(file_entry).to_vec();
+    let mut panel = Panel::from_entries(PathBuf::from("/dir"), entries);
+    let rust = crate::mask::Mask::parse("*.rs");
+    assert_eq!(panel.mark_matching(&rust, true), 1);
+    panel.mark_all();
+    assert_eq!(panel.action_entry_names(), ["a.rs", "b.txt"]);
+    panel.restore_marks();
+    assert_eq!(panel.action_entry_names(), ["a.rs"]);
+    assert_eq!(panel.mark_matching(&rust, false), 1);
+    assert!(panel.marked.is_empty());
+    panel.restore_marks();
+    assert_eq!(panel.action_entry_names(), ["a.rs"]);
+}
+
+#[test]
+fn unmarking_an_empty_selection_keeps_its_revision_and_snapshots_it() {
+    let mut panel = Panel::from_entries(PathBuf::from("/dir"), vec![file_entry("a.rs")]);
+    panel.mark_all();
+    panel.clear_marks();
+    let revision = panel.marked.rev();
+    assert_eq!(
+        panel.mark_matching(&crate::mask::Mask::parse("*"), false),
+        0
+    );
+    assert_eq!(panel.marked.rev(), revision);
+    panel.restore_marks();
+    assert!(panel.marked.is_empty());
+}

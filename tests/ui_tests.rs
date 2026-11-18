@@ -65,10 +65,6 @@ fn cell_bg(terminal: &Terminal<TestBackend>, x: u16, y: u16) -> Color {
 }
 
 /// Create an App with predictable test entries (no filesystem dependency).
-#[expect(
-    clippy::unwrap_used,
-    reason = "test fixture: an app that cannot start fails the test that asked for it"
-)]
 fn test_app() -> App {
     let mut app = App::new().unwrap();
     // Replace entries with known data so tests are deterministic

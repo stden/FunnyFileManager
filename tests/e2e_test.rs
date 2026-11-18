@@ -96,12 +96,6 @@ enum Ends {
 }
 
 /// Run the real event loop over `events` and return the screen it left behind.
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: a failed setup, or a session that does not end when told to, fails the \
-              calling test; clippy.toml allows that in #[test] fns and #[cfg(test)] items, not in \
-              integration-test helpers"
-)]
 fn drive(left: &Path, right: &Path, events: Vec<Event>, ends: Ends) -> String {
     let mut app = App::new().expect("app");
     app.left_panel = Panel::new(left.to_path_buf()).expect("left panel");
@@ -143,11 +137,6 @@ fn run_until(left: &Path, right: &Path, events: Vec<Event>) -> String {
 }
 
 /// A pair of directories, the left one seeded with `files`.
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: a failed setup fails the calling test; clippy.toml allows that in \
-              #[test] fns and #[cfg(test)] items, not in integration-test helpers"
-)]
 fn fixture(files: &[(&str, &str)]) -> (TempDir, TempDir) {
     let left = TempDir::new().expect("left dir");
     let right = TempDir::new().expect("right dir");

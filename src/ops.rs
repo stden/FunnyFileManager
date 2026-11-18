@@ -18,6 +18,7 @@ pub mod findfile;
 pub mod findfolder;
 pub mod folder_history;
 pub(crate) mod git_pull;
+pub(crate) mod git_sync;
 pub mod history_list;
 pub mod hotplug;
 pub mod link;
@@ -56,6 +57,7 @@ pub(crate) mod vault;
 pub mod videomode;
 pub mod view_history;
 mod viewer;
+pub(crate) mod volume_maintenance;
 pub mod wipe;
 pub mod wsl;
 

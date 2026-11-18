@@ -13,7 +13,7 @@ fn freeze(
     own: Option<Pid>,
     operation: Operation,
 ) -> FrozenTargets {
-    let above = own.map(|own| ancestors(rows, own)).unwrap_or_default();
+    let above = own.map_or_default(|own| ancestors(rows, own));
     let mut frozen = FrozenTargets::default();
     for (row, process) in chosen
         .iter()

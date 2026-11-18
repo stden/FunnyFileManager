@@ -72,10 +72,6 @@ impl Collector {
                     .take_while(|segment| *segment == "super")
                     .count();
                 let kept = self.module.len().saturating_sub(depth);
-                #[expect(
-                    clippy::indexing_slicing,
-                    reason = "`depth` counts a prefix of `segments` and `kept` never exceeds the module depth"
-                )]
                 let (parent, below) = (&self.module[..kept], &segments[depth..]);
                 crate_path(parent, below)
             }

@@ -25,8 +25,7 @@ pub(super) fn read_linux_network(
     let dev_text = buffer.read(&dev_path, NET_CAP).ok().map(Cow::into_owned);
     let adapters = dev_text
         .as_deref()
-        .map(|text| parse_net_dev(text, sys_net, buffer))
-        .unwrap_or_default();
+        .map_or_default(|text| parse_net_dev(text, sys_net, buffer));
     let route_path = proc_root.join("net/route");
     let gateway = buffer
         .read(&route_path, NET_CAP)
@@ -34,8 +33,7 @@ pub(super) fn read_linux_network(
         .and_then(|text| parse_default_gateway(&text));
     let dns_servers = buffer
         .read(resolv_path, NET_CAP)
-        .map(|text| parse_resolv_conf(&text))
-        .unwrap_or_default();
+        .map_or_default(|text| parse_resolv_conf(&text));
     if adapters.is_empty() && gateway.is_none() && dns_servers.is_empty() {
         return NetworkSample::empty();
     }

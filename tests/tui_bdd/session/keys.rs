@@ -26,11 +26,6 @@ pub fn parse_key(key: &str) -> KeyEvent {
     KeyEvent::new(key_code(name, modifiers), modifiers)
 }
 
-#[expect(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "the BDD harness: a scenario naming a key it does not know is a test bug and fails here"
-)]
 fn key_code(key: &str, modifiers: KeyModifiers) -> KeyCode {
     match key {
         "Enter" => KeyCode::Enter,

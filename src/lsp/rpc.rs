@@ -73,10 +73,7 @@ impl Session {
         if let Some(method) = message.get("method") {
             let method = method.as_str().ok_or("Invalid JSON-RPC method")?.to_owned();
             // Absent `params` are `Null`, as JSON-RPC treats them.
-            let params = message
-                .get_mut("params")
-                .map(Value::take)
-                .unwrap_or_default();
+            let params = message.get_mut("params").map_or_default(Value::take);
             return Ok(match message.get("id") {
                 Some(id) => Incoming::Request(id.clone(), method, params),
                 None => Incoming::Notification(method, params),

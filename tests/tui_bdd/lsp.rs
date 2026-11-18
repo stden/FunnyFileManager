@@ -16,10 +16,6 @@ const SETTINGS: &str = "settings.yaml";
 
 #[given(expr = "the fake machine has the program {string}")]
 #[expect(
-    clippy::expect_used,
-    reason = "a Cucumber step fails by panicking, as a #[test] does"
-)]
-#[expect(
     clippy::needless_pass_by_value,
     clippy::needless_pass_by_ref_mut,
     reason = "Cucumber dictates step signatures: captured args arrive owned and the world as `&mut`"
@@ -31,10 +27,6 @@ fn program(world: &mut TuiWorld, name: String) {
 }
 
 #[when("I open the language servers workspace")]
-#[expect(
-    clippy::expect_used,
-    reason = "a Cucumber step fails by panicking, as a #[test] does"
-)]
 fn open_workspace(world: &mut TuiWorld) {
     let bin = world.root().join("bin");
     fs::create_dir_all(&bin).expect("bin");
@@ -57,10 +49,6 @@ fn shows_path(world: &mut TuiWorld) {
 /// other value as parsed YAML, so `false` and `1` mean themselves.
 #[then(expr = "the workspace settings file {string} value {string} is {string}")]
 #[expect(
-    clippy::expect_used,
-    reason = "a Cucumber step fails by panicking, as a #[test] does"
-)]
-#[expect(
     clippy::needless_pass_by_value,
     clippy::needless_pass_by_ref_mut,
     reason = "Cucumber dictates step signatures: captured args arrive owned and the world as `&mut`"
@@ -80,10 +68,6 @@ fn value(world: &mut TuiWorld, name: String, path: String, expected: String) {
 
 /// One dot-separated lookup. A missing key panics with the file text, which is
 /// what the step shows when the settings document does not have that path.
-#[expect(
-    clippy::panic,
-    reason = "a missing settings path fails the step the way a wrong assertion does"
-)]
 fn setting<'a>(document: &'a Value, path: &str, text: &str) -> &'a Value {
     path.split('.')
         .try_fold(document, |value, key| value.get(key))

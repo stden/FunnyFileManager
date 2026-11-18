@@ -6,11 +6,6 @@ use cucumber::then;
 use std::path::Path;
 
 #[then(expr = "the result field {string} should be {int}")]
-#[expect(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_result_field_is(w: &mut McpWorld, field: String, expected: u64) {
     let result = w.last_result.as_ref().expect("no result");
     let actual = result[&field]
@@ -49,10 +44,6 @@ fn preview(text: &str) -> &str {
 }
 
 #[then(expr = "the operation should fail with {string}")]
-#[expect(
-    clippy::panic,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_error_contains(w: &mut McpWorld, expected: String) {
     let err = w.last_error.as_ref().unwrap_or_else(|| {
         panic!("expected error containing '{expected}', but operation succeeded")
@@ -73,10 +64,6 @@ async fn then_error(w: &mut McpWorld) {
 }
 
 #[then(expr = "the size should be {int}")]
-#[expect(
-    clippy::expect_used,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_size_is(w: &mut McpWorld, expected: u64) {
     let result = w.last_result.as_ref().expect("no result");
     let actual = result["size"].as_u64().expect("no size field");
@@ -84,11 +71,6 @@ async fn then_size_is(w: &mut McpWorld, expected: u64) {
 }
 
 #[then(expr = "the result field {string} should equal {string}")]
-#[expect(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_result_field_equals(w: &mut McpWorld, field: String, expected: String) {
     let result = w.last_result.as_ref().expect("no result");
     let actual = result[&field]
@@ -100,11 +82,6 @@ async fn then_result_field_equals(w: &mut McpWorld, field: String, expected: Str
 /// Compares a reported path against the scenario's temp directory. The server
 /// canonicalizes some paths and echoes others verbatim, so both forms pass.
 #[then(expr = "the result field {string} should be the temporary directory")]
-#[expect(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_field_is_temp_dir(w: &mut McpWorld, field: String) {
     let temp = w.temp_path();
     let canonical = temp.canonicalize().unwrap_or_else(|_| temp.clone());
@@ -132,11 +109,6 @@ async fn then_flag_false(w: &mut McpWorld, field: String) {
     assert_flag(w, &field, false);
 }
 
-#[expect(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 fn assert_flag(w: &McpWorld, field: &str, expected: bool) {
     let text = w.result_text();
     let result = w.last_result.as_ref().expect("no result");
@@ -147,10 +119,6 @@ fn assert_flag(w: &McpWorld, field: &str, expected: bool) {
 }
 
 #[then("the server should exit cleanly after its input closes")]
-#[expect(
-    clippy::expect_used,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_server_exits_cleanly(w: &mut McpWorld) {
     // A server that has to be killed reports a signal here instead of code 0.
     // That distinction is the difference between coverage being recorded and

@@ -12,7 +12,6 @@ use funny_file_manager::test_support::EnvVarGuard;
 use funny_file_manager::{run_app_with_event_reader, WritableTestBackend};
 use ratatui::Terminal;
 
-#[expect(clippy::expect_used, reason = "test fixture terminal")]
 fn open_first_entry(panel: Panel) -> Terminal<WritableTestBackend> {
     let mut app = App::with_panels(panel.clone(), panel);
     app.config.lsp.0.clear();

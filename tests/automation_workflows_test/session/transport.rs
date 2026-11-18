@@ -1,8 +1,4 @@
 //! Purpose: Read complete protocol frames and prove graceful shutdown without a forced kill.
-#![expect(
-    clippy::unwrap_used,
-    reason = "integration-test helper: panics on fixture failure are correct behavior"
-)]
 
 use std::{
     io::{BufRead, BufReader},

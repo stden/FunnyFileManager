@@ -72,10 +72,6 @@ fn a_hang_up_or_terminate_signal_ends_an_idle_ffm_cleanly() {
 
 /// Type `command`, which writes the process group of its shell to
 /// `shell.pid`, and wait until it has.
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: a command that never starts fails the test driving it"
-)]
 fn start_command(ffm: &mut Ffm, command: &[u8]) -> Pid {
     let pid_file = ffm.work().join("shell.pid");
     ffm.type_keys(command);
@@ -101,10 +97,6 @@ fn assert_command_and_ffm_ended(ffm: &mut Ffm, group: Pid) {
     assert!(group_gone.is_some(), "the shell command outlived ffm");
 }
 
-#[expect(
-    clippy::expect_used,
-    reason = "an assertion helper: failing the test with this message is its job"
-)]
 fn assert_ended_cleanly(status: Option<ExitStatus>) {
     let status = status.expect("ffm kept running after its terminal hung up");
     assert!(

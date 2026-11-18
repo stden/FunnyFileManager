@@ -34,11 +34,6 @@ const CODE_STRING: Color = Color::Rgb(255, 255, 0);
 const CODE_COMMENT: Color = Color::Rgb(80, 170, 170);
 const CODE_TYPE: Color = Color::Rgb(0, 255, 0);
 
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: a failed setup fails the calling test; clippy.toml allows that in \
-              #[test] fns and #[cfg(test)] items, not in integration-test helpers"
-)]
 fn painted_with_key(name: &str, content: &str, row: u16, open: KeyCode) -> Vec<(char, Color)> {
     let dir = TempDir::new().expect("dir");
     let other = TempDir::new().expect("dir");
@@ -81,11 +76,6 @@ fn painted_with_key(name: &str, content: &str, row: u16, open: KeyCode) -> Vec<(
 }
 
 /// The colour the run starting at `needle` is painted in.
-#[expect(
-    clippy::panic,
-    reason = "test assertion: a needle missing from the row fails the calling test; clippy.toml \
-              allows that in #[test] fns and #[cfg(test)] items, not in integration-test helpers"
-)]
 fn colour_of(row: &[(char, Color)], needle: &str) -> Color {
     let text: String = row.iter().map(|(ch, _)| *ch).collect();
     // `find` answers in bytes and the row holds one cell per character, so

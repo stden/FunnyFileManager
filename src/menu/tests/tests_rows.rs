@@ -91,11 +91,11 @@ fn every_far_menu_is_present_in_full() {
     );
     assert_eq!(
         rows(Heading::Commands),
-        33 + usize::from(cfg!(windows)),
+        34 + 2 * usize::from(cfg!(windows)),
         "Far commands, root navigation, statistics, LSP, the database explorer, package \
          updates, two PATH scopes, bulk Git pulls, temporary-file cleanup, the space analysis, \
          token usage, the Things catalog, the Cloudflare DNS editor, duplicate blocks, disk \
-         cleanup, the MCP server installer and Windows WSL",
+         cleanup, branch synchronization, the MCP server installer, and Windows volume and WSL tools",
     );
     assert_eq!(rows(Heading::Options), 23, "Far's Options menu");
 }

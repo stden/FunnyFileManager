@@ -17,10 +17,6 @@ async fn then_file_not_exists(w: &mut McpWorld, name: String) {
 }
 
 #[then(expr = "the file {string} should contain {string}")]
-#[expect(
-    clippy::panic,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_file_contains(w: &mut McpWorld, name: String, expected: String) {
     let path = w.temp_path().join(&name);
     let content =
@@ -32,10 +28,6 @@ async fn then_file_contains(w: &mut McpWorld, name: String, expected: String) {
 }
 
 #[then(expr = "the file {string} should not contain {string}")]
-#[expect(
-    clippy::panic,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_file_not_contains(w: &mut McpWorld, name: String, unexpected: String) {
     let path = w.temp_path().join(&name);
     let content =
@@ -59,10 +51,6 @@ async fn then_symlink_not_exists(w: &mut McpWorld, name: String) {
 }
 
 #[then(expr = "{string} should still be a symlink")]
-#[expect(
-    clippy::panic,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_still_a_symlink(w: &mut McpWorld, name: String) {
     // `exists()` follows the link and would pass even after the link had been
     // renamed away and replaced by a regular file — ask for its own metadata.

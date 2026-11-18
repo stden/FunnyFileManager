@@ -1,4 +1,9 @@
 //! Purpose: Versioned input messages keep session operations explicit and size-bounded.
+#![expect(
+    clippy::empty_enums,
+    reason = "Serde generates empty field enums for operations that reject every payload field"
+)]
+
 use serde::Deserialize;
 pub(super) mod input;
 

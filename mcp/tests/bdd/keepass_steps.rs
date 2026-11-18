@@ -10,10 +10,6 @@ use serde_json::json;
 use std::fs;
 
 #[given(expr = "a KeePass database {string} protected by {string}")]
-#[expect(
-    clippy::expect_used,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn given_keepass_database(w: &mut McpWorld, name: String, password: String) {
     let mut database = Database::new();
     if let KdfConfig::Argon2 {

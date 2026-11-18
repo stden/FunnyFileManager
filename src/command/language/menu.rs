@@ -15,6 +15,7 @@ pub enum MenuCommand {
     DatabaseExplorer,
     UpdatePackages,
     GitPullAll,
+    SyncGitBranch,
     Path(crate::path_env::Scope),
     Compare,
     /// Edit the user menu's file; F2 opens the menu itself.
@@ -31,6 +32,7 @@ pub enum MenuCommand {
     ThingsCatalog,
     /// The `:cleanup` checklist: temporary files and tool caches.
     DiskCleanup,
+    VolumeMaintenance,
     Settings(SettingsPage),
     /// `Shift+F9`.
     SaveSetup,

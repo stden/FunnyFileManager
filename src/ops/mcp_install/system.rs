@@ -23,9 +23,7 @@ pub fn system_host() -> Host {
             .into_iter()
             .filter_map(|var| non_empty(var).map(|value| (var, value)))
             .collect(),
-        search_path: env::var_os("PATH")
-            .map(|path| env::split_paths(&path).collect())
-            .unwrap_or_default(),
+        search_path: env::var_os("PATH").map_or_default(|path| env::split_paths(&path).collect()),
         program_suffixes: program_suffixes(),
         exe_dir: env::current_exe()
             .ok()

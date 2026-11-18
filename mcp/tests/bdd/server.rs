@@ -33,10 +33,6 @@ fn forward_responses(reader: impl BufRead, sender: std::sync::mpsc::Sender<Strin
 }
 
 impl McpWorld {
-    #[expect(
-        clippy::expect_used,
-        reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-    )]
     pub fn call_tool(&mut self, name: &str, args: Value) {
         self.last_result = None;
         self.last_error = None;
@@ -87,10 +83,6 @@ impl McpWorld {
         }
     }
 
-    #[expect(
-        clippy::panic,
-        reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-    )]
     fn spawn_server(&self) -> Child {
         let binary = binary_path();
         // The server confines every path argument to this root; each scenario
@@ -121,11 +113,6 @@ impl McpWorld {
 /// Polling rather than a blocking `wait()` keeps one wedged server from
 /// hanging the whole suite; the kill is the fallback, not the norm. Either
 /// branch reaps the child, so no zombies accumulate across the suite.
-#[expect(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 fn wait_for_exit(child: &mut Child) -> ExitStatus {
     let deadline = Instant::now() + EXIT_DEADLINE;
     while Instant::now() < deadline {
@@ -148,10 +135,6 @@ fn binary_path() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_ffm-mcp"))
 }
 
-#[expect(
-    clippy::expect_used,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 fn send_tool_request(stdin: &mut impl Write, name: &str, args: Value) {
     let msgs = [
         json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{

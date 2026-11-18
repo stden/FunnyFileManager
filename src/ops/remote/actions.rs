@@ -103,8 +103,7 @@ fn permissions(app: &mut App) -> Result<(), RemoteError> {
     };
     let initial = panel
         .selected()
-        .map(|entry| format!("{:04o}", entry.attributes.bits() & 0o7777))
-        .unwrap_or_default();
+        .map_or_default(|entry| format!("{:04o}", entry.attributes.bits() & 0o7777));
     input(app, RemoteInput::Chmod(sources), &initial)
 }
 

@@ -54,8 +54,7 @@ pub(super) fn query_catalog(
 fn param_str(params: &[Vec<u8>], index: usize) -> String {
     params
         .get(index)
-        .map(|b| String::from_utf8_lossy(b).into_owned())
-        .unwrap_or_default()
+        .map_or_default(|b| String::from_utf8_lossy(b).into_owned())
 }
 
 fn relation_rows(rel: &Relation, query: &str) -> Vec<Vec<Option<String>>> {

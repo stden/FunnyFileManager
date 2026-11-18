@@ -33,13 +33,6 @@ pub fn scroll_down(column: u16, row: u16) -> Event {
 ///
 /// Dialogs are centred and sized to their content, so their buttons have no
 /// fixed address. Finding the text is how a test clicks what a user would.
-#[expect(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "test assertion: text missing from the screen fails the calling test; clippy.toml \
-              allows that in #[test] fns and #[cfg(test)] items, not in integration-test helpers. \
-              The u16 conversions cannot fail: the 100x24 test screen is far smaller than u16::MAX"
-)]
 pub fn find(screen: &str, needle: &str) -> (u16, u16) {
     // Columns, not byte offsets. The frames are box-drawing characters at
     // three bytes each, so `str::find` answers a different question than the

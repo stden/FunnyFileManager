@@ -117,8 +117,7 @@ pub(crate) fn read_listed(
 ) -> HashMap<String, String> {
     choose(names, listed)
         .and_then(|file| text_of(&dir.join(file)).ok())
-        .map(|text| parse(&text))
-        .unwrap_or_default()
+        .map_or_default(|text| parse(&text))
 }
 
 /// The `(name, description)` pairs in `text`, in file order; malformed lines

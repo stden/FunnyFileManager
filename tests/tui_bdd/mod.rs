@@ -38,26 +38,14 @@ impl TuiWorld {
         self.root().join(side).join(file)
     }
 
-    #[expect(
-        clippy::expect_used,
-        reason = "the workspace step runs first; a scenario that skips it must fail here"
-    )]
     fn root(&self) -> &Path {
         self.workspace.as_ref().expect("workspace").path()
     }
 
-    #[expect(
-        clippy::expect_used,
-        reason = "the open step runs first; a scenario that skips it must fail here"
-    )]
     fn ui(&mut self) -> &mut Session {
         self.session.as_mut().expect("TUI is open")
     }
 
-    #[expect(
-        clippy::expect_used,
-        reason = "a scenario whose transcript cannot be saved must fail, not lose its evidence"
-    )]
     pub fn finish(&mut self) {
         if let Some(mut session) = self.session.take() {
             session.stop();

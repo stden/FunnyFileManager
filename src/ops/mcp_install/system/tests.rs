@@ -9,9 +9,8 @@ use super::*;
 #[test]
 fn the_system_host_reads_path_and_the_running_executable() {
     let host = system_host();
-    let expected: Vec<PathBuf> = env::var_os("PATH")
-        .map(|path| env::split_paths(&path).collect())
-        .unwrap_or_default();
+    let expected: Vec<PathBuf> =
+        env::var_os("PATH").map_or_default(|path| env::split_paths(&path).collect());
     assert_eq!(host.search_path, expected);
     assert!(host.exe_dir.is_some());
     assert_ne!(host.program_suffixes.len(), 0);

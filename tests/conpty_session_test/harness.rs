@@ -21,7 +21,6 @@ pub struct ConPtyFfm {
 }
 
 impl ConPtyFfm {
-    #[expect(clippy::expect_used, reason = "test fixture setup")]
     pub fn start(rows: u16, args: &[&str]) -> Self {
         let sandbox = TempDir::new().expect("sandbox");
         for sub in ["work", "home", "appdata", "tmp"] {
@@ -39,19 +38,16 @@ impl ConPtyFfm {
         self.sandbox.path().join("work")
     }
 
-    #[expect(clippy::expect_used, reason = "test fixture screen mutex")]
     pub fn clear_screen(&self) {
         self.screen.lock().expect("screen lock").clear();
     }
 
-    #[expect(clippy::expect_used, reason = "test fixture writer")]
     pub fn send(&self, bytes: &[u8]) {
         let mut writer = self.writer.lock().expect("writer lock");
         writer.write_all(bytes).expect("write keys");
         writer.flush().expect("flush keys");
     }
 
-    #[expect(clippy::expect_used, reason = "test fixture screen mutex")]
     pub fn wait_for(&self, limit: Duration, mut pred: impl FnMut(&[u8]) -> bool) -> bool {
         let start = Instant::now();
         while start.elapsed() < limit {
@@ -63,7 +59,6 @@ impl ConPtyFfm {
         false
     }
 
-    #[expect(clippy::expect_used, reason = "test fixture child status")]
     pub fn quit(&mut self, limit: Duration) -> bool {
         let start = Instant::now();
         let mut next_send = Instant::now();
@@ -133,7 +128,6 @@ fn spawn_reader(
     });
 }
 
-#[expect(clippy::expect_used, reason = "test fixture ConPTY open and spawn")]
 fn open_conpty_session(sandbox: TempDir, rows: u16, args: &[&str]) -> ConPtyFfm {
     let size = PtySize {
         rows,

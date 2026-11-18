@@ -20,10 +20,6 @@ mod selection_and_marks;
 #[path = "models_mutation_tests/sorting.rs"]
 mod sorting;
 
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: a panel without the named entry fails the test that chose it"
-)]
 fn select_entry(panel: &mut Panel, name: &str) {
     let index = panel
         .entries

@@ -36,9 +36,7 @@ fn file_info(path: &Path) -> Option<BY_HANDLE_FILE_INFORMATION> {
 }
 
 pub(super) fn link_count(path: &Path) -> String {
-    file_info(path)
-        .map(|info| info.nNumberOfLinks.to_string())
-        .unwrap_or_default()
+    file_info(path).map_or_default(|info| info.nNumberOfLinks.to_string())
 }
 
 pub fn has_multiple_links(path: &Path) -> bool {

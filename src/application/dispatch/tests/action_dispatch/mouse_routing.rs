@@ -18,8 +18,7 @@ fn newest(app: &App) -> String {
     app.console
         .visible(10)
         .last()
-        .map(|line| line.text().to_owned())
-        .unwrap_or_default()
+        .map_or_default(|line| line.text().to_owned())
 }
 
 fn panel_row_at(area: ratatui::layout::Rect, column: u16, accept: impl Fn(usize) -> bool) -> u16 {

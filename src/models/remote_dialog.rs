@@ -36,11 +36,7 @@ pub struct RemoteLogin {
 
 impl RemoteLogin {
     pub(crate) fn new(session: Session) -> Self {
-        let user = session
-            .user
-            .as_ref()
-            .map(ToString::to_string)
-            .unwrap_or_default();
+        let user = session.user.as_ref().map_or_default(ToString::to_string);
         Self {
             session,
             user: LineEditor::new(&user),

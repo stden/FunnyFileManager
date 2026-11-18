@@ -139,10 +139,9 @@ fn render_info(
     } else if let Some(message) = footer {
         super::fit_quoting_path(&message.before, &message.path, &message.after, width)
     } else {
-        let text = tree
-            .selected()
-            .map(|path| crate::ui::printable_name(&crate::path_display::label(path)).into_owned())
-            .unwrap_or_default();
+        let text = tree.selected().map_or_default(|path| {
+            crate::ui::printable_name(&crate::path_display::label(path)).into_owned()
+        });
         super::head_cells(&text, width)
     };
     f.render_widget(

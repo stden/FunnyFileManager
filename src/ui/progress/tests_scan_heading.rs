@@ -17,15 +17,12 @@ fn heading(operation: Operation, phase: Phase) -> String {
         total: Tally::default(),
         elapsed: Duration::ZERO,
     };
-    lines(&snapshot, 60)
-        .first()
-        .map(|line| {
-            line.spans
-                .iter()
-                .map(|span| span.content.as_ref())
-                .collect()
-        })
-        .unwrap_or_default()
+    lines(&snapshot, 60).first().map_or_default(|line| {
+        line.spans
+            .iter()
+            .map(|span| span.content.as_ref())
+            .collect()
+    })
 }
 
 #[test]

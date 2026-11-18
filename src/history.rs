@@ -64,7 +64,7 @@ impl History {
     #[must_use]
     pub fn load() -> Self {
         let persistence = history_file_path().map_or(Persistence::SessionOnly, Persistence::File);
-        let durable = persistence.file().map(read_durable).unwrap_or_default();
+        let durable = persistence.file().map_or_default(read_durable);
         Self {
             session: VecDeque::new(),
             durable,

@@ -9,17 +9,13 @@ use crate::{dirs_home, json_response};
 
 /// List credential profiles without contacting AWS or exposing credentials.
 pub fn list() -> CallToolResult {
-    let profiles = dirs_home()
-        .map(|home| read_profiles(&home.join(".aws")))
-        .unwrap_or_default();
+    let profiles = dirs_home().map_or_default(|home| read_profiles(&home.join(".aws")));
     json_response(&json!({ "count": profiles.len(), "profiles": profiles }))
 }
 
 /// Read profile names in credential-file order for the drive listing.
 pub fn names() -> Vec<String> {
-    dirs_home()
-        .map(|home| read_names(&home.join(".aws")))
-        .unwrap_or_default()
+    dirs_home().map_or_default(|home| read_names(&home.join(".aws")))
 }
 
 fn read_profiles(directory: &Path) -> Vec<Value> {

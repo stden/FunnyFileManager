@@ -148,10 +148,6 @@ fn then_right_has_entries(world: &mut FfmWorld) -> StepResult {
 }
 
 #[then("the left panel should have a valid selection")]
-#[expect(
-    clippy::unwrap_used,
-    reason = "the assert on the previous line proves sel is Some"
-)]
 fn then_left_valid_sel(world: &mut FfmWorld) -> StepResult {
     let app = world.app()?;
     let sel = app.left_panel.selected();

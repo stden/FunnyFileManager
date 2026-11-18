@@ -118,6 +118,10 @@ def run(directory: Path) -> list[Path]:
             "--ignore-filename-regex", TEST_SOURCES,
             "--json", "--skip-functions", "--output-path", str(report),
         ]
+        if os.name == "nt":
+            # Cargo moves long rustc invocations into @response files on Windows.
+            # Pass instrumentation through RUSTFLAGS so it reaches those commands.
+            command.append("--no-rustc-wrapper")
         execute(command, environment)
         if name == "mcp-all":
             # Cucumber has its own CLI; libtest flags belong to this target alone.

@@ -146,7 +146,10 @@ pub use tree::{Branch, Expansion, FolderTree, Guide, TreeRow};
 pub use usermenu::UserMenu;
 pub use {hotplug::DeviceList, lifecycle::Lifecycle, lsp_editor::LspEditor};
 mod menu_dialog;
-pub use menu_dialog::{ChoiceTarget, MenuChoice, MenuDialog, MenuPrompt};
+pub use menu_dialog::{
+    ChoiceTarget, GitSyncTarget, MaintenanceCommand, MenuChoice, MenuDialog, MenuPrompt,
+    VolumeOperation, VolumeTarget,
+};
 pub mod settings;
 pub use image::{DecodedImage, ImageState};
 #[cfg(feature = "keepass")]

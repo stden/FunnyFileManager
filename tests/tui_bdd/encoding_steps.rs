@@ -7,10 +7,6 @@ use funny_file_manager::encoding::TextEncoding;
 use super::*;
 
 /// The encoding the editor shows under `label`, as its dialog lists it.
-#[expect(
-    clippy::expect_used,
-    reason = "a scenario naming an encoding the editor does not offer is a test bug"
-)]
 fn encoding(label: &str) -> TextEncoding {
     TextEncoding::ALL
         .into_iter()
@@ -19,10 +15,6 @@ fn encoding(label: &str) -> TextEncoding {
 }
 
 /// The file's bytes: `text` as `label` writes it.
-#[expect(
-    clippy::expect_used,
-    reason = "a step whose text the encoding cannot hold is a test bug"
-)]
 fn bytes(text: &str, label: &str) -> Vec<u8> {
     encoding(label)
         .encode(text)
@@ -30,10 +22,6 @@ fn bytes(text: &str, label: &str) -> Vec<u8> {
 }
 
 /// Bytes written as hex pairs separated by spaces, as a hex dump shows them.
-#[expect(
-    clippy::expect_used,
-    reason = "a scenario with a byte that is not two hex digits is a test bug"
-)]
 fn hex_bytes(hex: &str) -> Vec<u8> {
     hex.split_whitespace()
         .map(|pair| u8::from_str_radix(pair, 16).expect("a hex byte"))
@@ -44,7 +32,6 @@ fn hex_bytes(hex: &str) -> Vec<u8> {
 /// bytes, so the encoder only has to make the fixture the editor can read.
 #[given(expr = "the {word} file {string} is {string} in {string}")]
 #[expect(
-    clippy::expect_used,
     clippy::needless_pass_by_value,
     clippy::needless_pass_by_ref_mut,
     reason = "a Cucumber step fails by panicking; Cucumber dictates the world as `&mut`"
@@ -55,7 +42,6 @@ fn encoded_fixture(world: &mut TuiWorld, side: String, file: String, text: Strin
 
 #[then(expr = "the {word} file {string} holds the bytes {string}")]
 #[expect(
-    clippy::expect_used,
     clippy::needless_pass_by_value,
     clippy::needless_pass_by_ref_mut,
     reason = "a Cucumber step fails by panicking; Cucumber dictates the world as `&mut`"

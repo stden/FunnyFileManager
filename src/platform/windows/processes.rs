@@ -40,8 +40,7 @@ fn collect_snapshot_processes(
     let mut out = Vec::with_capacity(256);
     loop {
         let details = open_limited(entry.th32ProcessID)
-            .map(|h| inspect_handle(h.as_raw_handle(), now_ticks, &mut owners.by_sid))
-            .unwrap_or_default();
+            .map_or_default(|h| inspect_handle(h.as_raw_handle(), now_ticks, &mut owners.by_sid));
         if let Some(sample) = build_sample(
             entry.th32ProcessID,
             entry.th32ParentProcessID,

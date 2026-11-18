@@ -28,11 +28,7 @@ pub fn connect_with(
         Protocol::Scp | Protocol::Ftps => return Err(RemoteError::NoTransport(session.protocol)),
     };
     let user = if credentials.user.is_empty() {
-        session
-            .user
-            .as_ref()
-            .map(ToString::to_string)
-            .unwrap_or_default()
+        session.user.as_ref().map_or_default(ToString::to_string)
     } else {
         credentials.user.clone()
     };

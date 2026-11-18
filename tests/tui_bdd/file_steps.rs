@@ -6,10 +6,6 @@ use super::*;
 
 #[then(expr = "the {word} file {string} contains {string}")]
 #[expect(
-    clippy::expect_used,
-    reason = "a Cucumber step fails by panicking, as a #[test] does"
-)]
-#[expect(
     clippy::needless_pass_by_value,
     clippy::needless_pass_by_ref_mut,
     reason = "Cucumber dictates step signatures: captured args arrive owned and the world as `&mut`"
@@ -45,7 +41,6 @@ fn directory(world: &mut TuiWorld, side: String, name: String) {
 /// doc string keeps around its delimiters.
 #[given(expr = "the {word} file {string} holds:")]
 #[expect(
-    clippy::expect_used,
     clippy::needless_pass_by_value,
     clippy::needless_pass_by_ref_mut,
     reason = "a step written without its doc string must fail here; Cucumber dictates the world as `&mut`"
@@ -59,7 +54,6 @@ fn holds(world: &mut TuiWorld, side: String, file: String, step: &Step) {
 /// more than one screen when `count` is large.
 #[given(expr = "the {word} file {string} has {int} numbered lines")]
 #[expect(
-    clippy::expect_used,
     clippy::needless_pass_by_value,
     clippy::needless_pass_by_ref_mut,
     reason = "a Cucumber step fails by panicking; Cucumber dictates the world as `&mut`"
@@ -73,7 +67,6 @@ fn numbered(world: &mut TuiWorld, side: String, file: String, count: usize) {
 /// path, which must name the same file.
 #[then(expr = "the {word} file {string} is {string} followed by its full path")]
 #[expect(
-    clippy::expect_used,
     clippy::needless_pass_by_value,
     clippy::needless_pass_by_ref_mut,
     reason = "a Cucumber step fails by panicking; Cucumber dictates the world as `&mut`"

@@ -21,10 +21,6 @@ pub fn collect_rs_files(dir: &Path, out: &mut Vec<PathBuf>) {
     collect_sources(dir, &["rs"], out);
 }
 
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: an unreadable source tree fails the calling test"
-)]
 fn collect_sources(dir: &Path, extensions: &[&str], out: &mut Vec<PathBuf>) {
     for entry in fs::read_dir(dir).expect("read source directory") {
         let path = entry.expect("directory entry").path();
@@ -47,10 +43,6 @@ fn collect_sources(dir: &Path, extensions: &[&str], out: &mut Vec<PathBuf>) {
 }
 
 /// Every Rust and Python source in the repository, with its path from the root.
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: an unreadable repository root fails the calling test"
-)]
 pub fn repository_sources() -> Vec<(String, usize)> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut files = Vec::new();
@@ -75,11 +67,6 @@ pub fn repository_sources() -> Vec<(String, usize)> {
         .collect()
 }
 
-#[expect(
-    clippy::panic,
-    reason = "test assertion: an unreadable source must fail the guard, and the should_panic \
-              tests below pin exactly that panic"
-)]
 pub fn read_sources(files: Vec<PathBuf>) -> Vec<(PathBuf, String)> {
     files
         .into_iter()

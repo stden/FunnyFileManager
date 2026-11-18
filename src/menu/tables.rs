@@ -1,5 +1,6 @@
 //! Purpose: the five drop-downs of the menu bar, row for row as Far draws them.
 
+use crate::action::Action::Menu;
 use crate::action::{Action, FileCommand, ToolCommand};
 
 use super::{Entry, MenuCommand};
@@ -71,32 +72,28 @@ pub(super) const COMMANDS: &[Entry] = &[
     Entry::item(
         "Action statistics (stats)",
         "",
-        Action::Menu(MenuCommand::Performance),
+        Menu(MenuCommand::Performance),
     ),
     Entry::item(
         "Language servers (LSP)",
         "",
-        Action::Menu(MenuCommand::LanguageServers),
+        Menu(MenuCommand::LanguageServers),
     ),
     Entry::item(
         "Data&base explorer",
         "",
-        Action::Menu(MenuCommand::DatabaseExplorer),
+        Menu(MenuCommand::DatabaseExplorer),
     ),
-    Entry::item(
-        "Update pac&kages",
-        "",
-        Action::Menu(MenuCommand::UpdatePackages),
-    ),
+    Entry::item("Update pac&kages", "", Menu(MenuCommand::UpdatePackages)),
     Entry::item(
         "Edit PATH (current user)",
         "",
-        Action::Menu(MenuCommand::Path(crate::path_env::Scope::User)),
+        Menu(MenuCommand::Path(crate::path_env::Scope::User)),
     ),
     Entry::item(
         "Edit PATH (all users)",
         "",
-        Action::Menu(MenuCommand::Path(crate::path_env::Scope::System)),
+        Menu(MenuCommand::Path(crate::path_env::Scope::System)),
     ),
     Entry::item("&Find file", "Alt+F7", Action::Tool(ToolCommand::FindFile)),
     Entry::item("&History", "Alt+F8", Action::Tool(ToolCommand::History)),
@@ -123,23 +120,15 @@ pub(super) const COMMANDS: &[Entry] = &[
     Entry::Separator,
     Entry::item("&Swap panels", "Ctrl+U", Action::SwapPanels),
     Entry::item("&Panels On/Off", "Ctrl+O", Action::ToggleConsole),
-    Entry::item("&Compare folders", "", Action::Menu(MenuCommand::Compare)),
+    Entry::item("&Compare folders", "", Menu(MenuCommand::Compare)),
     Entry::Separator,
-    Entry::item("Edit user &menu", "", Action::Menu(MenuCommand::UserMenu)),
-    Entry::item(
-        "File &associations",
-        "",
-        Action::Menu(MenuCommand::Associations),
-    ),
-    Entry::item(
-        "Fol&der shortcuts",
-        "",
-        Action::Menu(MenuCommand::Shortcuts),
-    ),
+    Entry::item("Edit user &menu", "", Menu(MenuCommand::UserMenu)),
+    Entry::item("File &associations", "", Menu(MenuCommand::Associations)),
+    Entry::item("Fol&der shortcuts", "", Menu(MenuCommand::Shortcuts)),
     Entry::item(
         "Find duplicate blocks",
         "",
-        Action::Menu(MenuCommand::FindDuplicates),
+        Menu(MenuCommand::FindDuplicates),
     ),
     Entry::item(
         "F&ile panel filter",
@@ -148,18 +137,10 @@ pub(super) const COMMANDS: &[Entry] = &[
     ),
     Entry::Separator,
     Entry::item("Pl&ugin commands", "F11", Action::PluginCommands),
-    Entry::item(
-        "Install MCP s&erver",
-        "",
-        Action::Menu(MenuCommand::McpInstall),
-    ),
+    Entry::item("Install MCP s&erver", "", Menu(MenuCommand::McpInstall)),
     Entry::item("Sc&reens list", "F12", Action::Tool(ToolCommand::Screens)),
     Entry::item("Task &list", "Ctrl+W", Action::Tool(ToolCommand::Tasks)),
-    Entry::item(
-        "Ho&tplug devices list",
-        "",
-        Action::Menu(MenuCommand::Devices),
-    ),
+    Entry::item("Ho&tplug devices list", "", Menu(MenuCommand::Devices)),
     Entry::Separator,
     Entry::item("&Go to root", "Ctrl+\\", Action::GoRoot),
     #[cfg(windows)]
@@ -167,28 +148,23 @@ pub(super) const COMMANDS: &[Entry] = &[
     Entry::item(
         "Git pull for all repositories",
         "",
-        Action::Menu(MenuCommand::GitPullAll),
+        Menu(MenuCommand::GitPullAll),
     ),
-    Entry::item(
-        "Space analysis",
-        "",
-        Action::Menu(MenuCommand::SpaceAnalysis),
-    ),
-    Entry::item("Token usage", "", Action::Menu(MenuCommand::TokenUsage)),
-    Entry::item(
-        "Cloudflare DNS",
-        "",
-        Action::Menu(MenuCommand::CloudflareDns),
-    ),
-    Entry::item(
-        "Things catalog",
-        "",
-        Action::Menu(MenuCommand::ThingsCatalog),
-    ),
+    Entry::item("Space analysis", "", Menu(MenuCommand::SpaceAnalysis)),
+    Entry::item("Token usage", "", Menu(MenuCommand::TokenUsage)),
+    Entry::item("Cloudflare DNS", "", Menu(MenuCommand::CloudflareDns)),
+    Entry::item("Things catalog", "", Menu(MenuCommand::ThingsCatalog)),
     Entry::item(
         "Clean temporary files",
         "",
-        Action::Menu(MenuCommand::SystemTempCleanup),
+        Menu(MenuCommand::SystemTempCleanup),
     ),
-    Entry::item("Disk cleanup", "", Action::Menu(MenuCommand::DiskCleanup)),
+    Entry::item("Disk cleanup", "", Menu(MenuCommand::DiskCleanup)),
+    Entry::item(
+        "Update and rebase Git branch",
+        "",
+        Menu(MenuCommand::SyncGitBranch),
+    ),
+    #[cfg(windows)]
+    Entry::item("Optimize volume", "", Menu(MenuCommand::VolumeMaintenance)),
 ];

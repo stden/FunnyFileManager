@@ -18,9 +18,7 @@ pub const EXTENSION: &str = "netbox";
 /// The F11 row: ask which file to read, offering the `.netbox` file under a
 /// file panel's cursor when there is one.
 pub fn prompt(app: &mut App) {
-    let suggested = file_under_cursor(app)
-        .map(|path| path.display().to_string())
-        .unwrap_or_default();
+    let suggested = file_under_cursor(app).map_or_default(|path| path.display().to_string());
     app.set_overlay(Overlay::InputPrompt(Box::new(InputPrompt::new(
         InputPurpose::ImportNetBox,
         &suggested,

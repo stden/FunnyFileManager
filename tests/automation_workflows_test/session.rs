@@ -1,8 +1,5 @@
 //! Purpose: Bound protocol waits and always reap the owned automation subprocess.
 #![expect(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::indexing_slicing,
     clippy::redundant_pub_crate,
     clippy::needless_pass_by_value,
     reason = "integration-test helper: panics on fixture failure are correct behavior for test infrastructure"

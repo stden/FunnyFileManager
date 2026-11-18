@@ -48,11 +48,6 @@ fn build_entry_points_run_the_wrapper_preflight_first() {
 #[path = "cargo_config_test/preflight.rs"]
 mod preflight;
 
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: unreadable Cargo metadata fails the calling test; clippy.toml allows \
-              that in #[test] fns and #[cfg(test)] items, not in integration-test helpers"
-)]
 fn target_directory(package: &Path) -> String {
     let output = Command::new(env!("CARGO"))
         .args(["metadata", "--no-deps", "--format-version=1", "--offline"])

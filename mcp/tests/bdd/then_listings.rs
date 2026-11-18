@@ -6,10 +6,6 @@ use cucumber::then;
 use serde_json::Value;
 
 #[then(expr = "the search should return {int} results")]
-#[expect(
-    clippy::expect_used,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_search_count(w: &mut McpWorld, count: usize) {
     let result = w.last_result.as_ref().expect("no result");
     let actual = usize::try_from(result["count"].as_u64().expect("no count field"))
@@ -21,10 +17,6 @@ async fn then_search_count(w: &mut McpWorld, count: usize) {
 }
 
 /// The `name` of every object in the array under `field`.
-#[expect(
-    clippy::panic,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 fn entry_names<'a>(result: &'a Value, field: &str) -> Vec<&'a str> {
     result[field]
         .as_array()
@@ -40,10 +32,6 @@ fn expected_names(expected: &str) -> Vec<&str> {
 
 /// Ordered comparison — for listings where the order *is* the behavior.
 #[then(expr = "the {string} entries should be named {string}")]
-#[expect(
-    clippy::expect_used,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_named_in_order(w: &mut McpWorld, field: String, expected: String) {
     let result = w.last_result.as_ref().expect("no result");
     assert_eq!(
@@ -55,11 +43,6 @@ async fn then_named_in_order(w: &mut McpWorld, field: String, expected: String) 
 
 /// Ordered comparison of `path` properties across an object array under `field`.
 #[then(expr = "the {string} paths should be {string}")]
-#[expect(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_paths_in_order(w: &mut McpWorld, field: String, expected: String) {
     let result = w.last_result.as_ref().expect("no result");
     let paths: Vec<&str> = result[&field]
@@ -78,10 +61,6 @@ async fn then_paths_in_order(w: &mut McpWorld, field: String, expected: String) 
 /// Unordered comparison — directory iteration order is not defined, so for a
 /// recursive walk only the set of entries is meaningful.
 #[then(expr = "the {string} entries should be named {string} in any order")]
-#[expect(
-    clippy::expect_used,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_named_any_order(w: &mut McpWorld, field: String, expected: String) {
     let result = w.last_result.as_ref().expect("no result");
     let mut names = entry_names(result, &field);
@@ -92,11 +71,6 @@ async fn then_named_any_order(w: &mut McpWorld, field: String, expected: String)
 }
 
 #[then(expr = "profile {int} should be {string} in region {string}")]
-#[expect(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_profile_region(w: &mut McpWorld, index: usize, name: String, region: String) {
     let text = w.result_text();
     let result = w.last_result.as_ref().expect("no result");
@@ -114,11 +88,6 @@ async fn then_profile_region(w: &mut McpWorld, index: usize, name: String, regio
 
 /// A list of plain strings under `field`, in the order the server reported it.
 #[then(expr = "the result list {string} should be {string}")]
-#[expect(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_result_list_is(w: &mut McpWorld, field: String, expected: String) {
     let result = w.last_result.as_ref().expect("no result");
     let items = result[&field]
@@ -130,11 +99,6 @@ async fn then_result_list_is(w: &mut McpWorld, field: String, expected: String) 
 }
 
 #[then(expr = "match {int} should be {string} at line {int}")]
-#[expect(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_grep_match(w: &mut McpWorld, index: usize, content: String, line: u64) {
     let result = w.last_result.as_ref().expect("no result");
     let matches = result["matches"].as_array().expect("no matches array");
@@ -146,10 +110,6 @@ async fn then_grep_match(w: &mut McpWorld, index: usize, content: String, line: 
 }
 
 #[then(expr = "{string} should appear before {string} in entries")]
-#[expect(
-    clippy::expect_used,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_order(w: &mut McpWorld, first: String, second: String) {
     let result = w.last_result.as_ref().expect("no result");
     let entries = result["entries"].as_array().expect("no entries array");
@@ -163,11 +123,6 @@ async fn then_order(w: &mut McpWorld, first: String, second: String) {
 }
 
 #[then(expr = "the sliced lines should be {string}")]
-#[expect(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-)]
 async fn then_sliced_lines(w: &mut McpWorld, expected: String) {
     let result = w.last_result.as_ref().expect("no result");
     let content = result["content"]

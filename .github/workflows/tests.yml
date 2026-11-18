@@ -3,7 +3,7 @@
 # Every action is pinned by commit SHA, with its release in a comment, since a
 # tag can be moved; .github/dependabot.yml proposes the updates.
 #
-# Runner images are named by version (ubuntu-24.04, windows-2025), never
+# Runner images are named by version (ubuntu-26.04, windows-2025), never
 # -latest: a new image arrives as an edit here that CI tests, not as a silent
 # migration. Every job has a timeout, so a hung step fails in minutes instead
 # of holding a runner for the 6-hour default.
@@ -54,10 +54,10 @@ env:
   CARGO_BUILD_RUSTC_WRAPPER: /usr/bin/env
   # The tools CI installs, at exact versions: a new typos dictionary or
   # cargo-deny release can fail a run with no code change.
-  TOOL_TYPOS: typos@1.50.2
-  TOOL_CARGO_DENY: cargo-deny@0.20.2
+  TOOL_TYPOS: typos@1.52.2
+  TOOL_CARGO_DENY: cargo-deny@0.21.0
   TOOL_LLVM_COV: cargo-llvm-cov@0.9.1
-  TOOL_NEXTEST: cargo-nextest@0.9.146
+  TOOL_NEXTEST: cargo-nextest@0.9.152
   TOOL_MUTANTS: cargo-mutants@27.1.0
 
 jobs:
@@ -70,7 +70,7 @@ jobs:
   # is tracked and needs none of this.
   lockfile:
     name: Resolve Cargo.lock
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -95,7 +95,7 @@ jobs:
   lint:
     name: Lint (format, readability, clippy, architecture)
     needs: lockfile
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -133,7 +133,7 @@ jobs:
 
       # The spell check in ./ffm.py lint; typos.toml holds the project words.
       - name: Install typos
-        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: ${{ env.TOOL_TYPOS }}
 
@@ -193,7 +193,7 @@ jobs:
   coverage:
     name: Tests & Coverage
     needs: lockfile
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     env:
       # Cache instrumented third-party dependencies in a dedicated llvm-cov target.
@@ -238,7 +238,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install coverage + test tools (prebuilt)
-        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: ${{ env.TOOL_LLVM_COV }},${{ env.TOOL_NEXTEST }}
 
@@ -304,7 +304,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2025]
+        os: [ubuntu-26.04, windows-2025]
     env:
       CARGO_BUILD_RUSTC_WRAPPER: ""
       CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: link.exe
@@ -370,7 +370,7 @@ jobs:
             colorer-sys -> target
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Install LLVM coverage
-        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: ${{ env.TOOL_LLVM_COV }}
       - name: Install LLVM tools
@@ -465,7 +465,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-24.04
+          - os: ubuntu-26.04
             binary: ffm
           - os: windows-2025
             binary: ffm.exe
@@ -504,7 +504,7 @@ jobs:
   # not wait for the lockfile job.
   mcp:
     name: MCP Server
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     defaults:
       run:
@@ -535,7 +535,7 @@ jobs:
   colorer:
     name: Colorer feature (FFI + real schemes)
     needs: lockfile
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     env:
       CARGO_LLVM_COV_TARGET_DIR: ${{ github.workspace }}/target/llvm-cov
@@ -590,7 +590,7 @@ jobs:
           git -C /tmp/Colorer-schemes checkout --quiet FETCH_HEAD
 
       - name: Install native coverage tools
-        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: ${{ env.TOOL_LLVM_COV }}
       - name: Install native LLVM tools
@@ -637,7 +637,7 @@ jobs:
   deny:
     name: Dependencies (cargo-deny)
     needs: lockfile
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -651,7 +651,7 @@ jobs:
         run: rustup toolchain install --no-self-update
 
       - name: Install cargo-deny (prebuilt)
-        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: ${{ env.TOOL_CARGO_DENY }}
 
@@ -674,7 +674,7 @@ jobs:
   # run uses the built-in tokeniser fallback.
   macos:
     name: macOS (clippy + tests)
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -704,7 +704,7 @@ jobs:
   size:
     name: Release binary size budget
     needs: lockfile
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -768,7 +768,7 @@ jobs:
     name: Mutation testing (diff, shard ${{ matrix.shard }})
     if: github.event_name != 'push'
     needs: lockfile
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Longer than the others: the mutation steps below have their own bounds
     # after a few minutes of setup.
     timeout-minutes: 95
@@ -807,7 +807,7 @@ jobs:
           save-if: ${{ matrix.shard == 0 }}
 
       - name: Install mutation + test tools (prebuilt)
-        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: ${{ env.TOOL_MUTANTS }},${{ env.TOOL_NEXTEST }}
 

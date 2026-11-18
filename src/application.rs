@@ -32,6 +32,7 @@ mod image_preview_jobs;
 mod input;
 mod loop_state;
 mod lsp_jobs;
+mod maintenance_jobs;
 mod navigation_batch;
 mod remote_jobs;
 mod system_temp_cleanup_jobs;

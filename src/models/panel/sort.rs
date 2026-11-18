@@ -145,7 +145,7 @@ fn place(entries: &mut [DirEntry], order: &[usize]) {
 /// Permute one cycle in place by saving `entries[start]`, pulling each predecessor
 /// `entries[order[cur]]` into `entries[cur]`, and closing the cycle with `saved`.
 fn place_cycle(entries: &mut [DirEntry], order: &[usize], visited: &mut [bool], start: usize) {
-    let saved = entries.get_mut(start).map(mem::take).unwrap_or_default();
+    let saved = entries.get_mut(start).map_or_default(mem::take);
     let mut cur = start;
     loop {
         if let Some(flag) = visited.get_mut(cur) {
@@ -161,10 +161,7 @@ fn place_cycle(entries: &mut [DirEntry], order: &[usize], visited: &mut [bool], 
         let Some(source_idx) = next.filter(|&idx| visited.get(idx) == Some(&false)) else {
             return;
         };
-        let moved = entries
-            .get_mut(source_idx)
-            .map(mem::take)
-            .unwrap_or_default();
+        let moved = entries.get_mut(source_idx).map_or_default(mem::take);
         if let Some(slot) = entries.get_mut(cur) {
             *slot = moved;
         }

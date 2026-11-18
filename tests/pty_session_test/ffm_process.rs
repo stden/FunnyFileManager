@@ -17,10 +17,6 @@ pub struct Ffm {
 }
 
 impl Ffm {
-    #[expect(
-        clippy::expect_used,
-        reason = "test fixture: an error from the pty or the ffm process fails the test driving it"
-    )]
     pub fn start() -> Self {
         let path = std::env::var_os("PATH").unwrap_or_default();
         Self::start_in(TempDir::new().expect("sandbox"), &path, &[])
@@ -34,10 +30,6 @@ impl Ffm {
         Self::start_with_env(sandbox, path, args, &[])
     }
 
-    #[expect(
-        clippy::expect_used,
-        reason = "test fixture: an error from the pty or the ffm process fails the test driving it"
-    )]
     pub fn start_with_env(
         sandbox: TempDir,
         path: &OsStr,
@@ -76,10 +68,6 @@ impl Ffm {
 
     /// Wait for the first frame; an ffm that ends at once fails here, not
     /// when [`STARTUP`] runs out.
-    #[expect(
-        clippy::expect_used,
-        reason = "test fixture: an error from the pty or the ffm process fails the test driving it"
-    )]
     fn wait_for_first_frame(&mut self) {
         let drawn = self.wait_for(STARTUP, |ffm| {
             contains(&ffm.screen, b"Quit") || ffm.process.try_wait().expect("ffm status").is_some()
@@ -97,10 +85,6 @@ impl Ffm {
     }
 
     /// Send `keys` in one write, the way a paste or a fast typist's burst lands.
-    #[expect(
-        clippy::expect_used,
-        reason = "test fixture: an error from the pty or the ffm process fails the test driving it"
-    )]
     pub fn type_keys(&mut self, keys: &[u8]) {
         let terminal = self.terminal.as_mut().expect("the terminal is up");
         terminal.write_all(keys).expect("type");
@@ -115,10 +99,6 @@ impl Ffm {
         self.wait_for_exit()
     }
 
-    #[expect(
-        clippy::expect_used,
-        reason = "test fixture: the PTY must remain available"
-    )]
     pub fn resize(&self, columns: u16, rows: u16) {
         let terminal = self.terminal.as_ref().expect("the terminal is up");
         tcsetwinsize(
@@ -134,19 +114,11 @@ impl Ffm {
     }
 
     /// Send ffm `signal`, the way `tmux kill-session` sends the pane SIGHUP.
-    #[expect(
-        clippy::expect_used,
-        reason = "test fixture: an error from the pty or the ffm process fails the test driving it"
-    )]
     pub fn signal(&self, signal: Signal) {
         kill_process(Pid::from_child(&self.process), signal).expect("signal ffm");
     }
 
     /// How ffm ended, or `None` if it is still running after [`HANG_UP`].
-    #[expect(
-        clippy::expect_used,
-        reason = "test fixture: an error from the pty or the ffm process fails the test driving it"
-    )]
     pub fn wait_for_exit(&mut self) -> Option<ExitStatus> {
         self.wait_for(HANG_UP, |ffm| {
             ffm.process.try_wait().expect("ffm status").is_some()

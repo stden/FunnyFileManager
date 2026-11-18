@@ -80,13 +80,12 @@ impl<K: HistoryFile> PathHistory<K> {
         let entries = persistence
             .file()
             .and_then(|path| crate::fileload::read_small_file(path, K::FILE).ok())
-            .map(|text| {
+            .map_or_default(|text| {
                 text.lines()
                     .filter(|line| !line.is_empty())
                     .map(PathBuf::from)
                     .collect::<VecDeque<_>>()
-            })
-            .unwrap_or_default();
+            });
         let mut history = Self {
             entries,
             persistence,

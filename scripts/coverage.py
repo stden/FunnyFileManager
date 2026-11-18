@@ -8,7 +8,7 @@ FFM_COVERAGE_DIR to retain them elsewhere. --rust and --python select one
 collector for platform-specific CI jobs.
 
 Rust needs cargo-llvm-cov and rustup's llvm-tools component. Python needs
-coverage>=7.10 (python -m pip install coverage==7.17.0).
+the dependency in requirements-coverage.txt (python -m pip install -r requirements-coverage.txt).
 """
 
 import argparse

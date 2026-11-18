@@ -33,7 +33,7 @@ def require_coverage():
     )
     version = re.search(r"version (\d+)\.(\d+)", result.stdout)
     if result.returncode or not version or tuple(map(int, version.groups())) < (7, 10):
-        sys.exit("coverage: Python coverage needs coverage>=7.10; run: python -m pip install coverage==7.17.0")
+        sys.exit("coverage: Python coverage needs coverage>=7.10; run: python -m pip install -r requirements-coverage.txt")
 
 
 def production_files():
@@ -79,8 +79,9 @@ def run(directory: Path) -> Path:
         subprocess.run([*command, "run", "--rcfile", str(config_path), *suite], cwd=ROOT, check=True)
     subprocess.run([*command, "combine", "--rcfile", str(config_path)], cwd=ROOT, check=True)
     report = directory / "python.json"
+    # Match the native separators used in the coverage database for nested files.
     subprocess.run(
-        [*command, "json", "--rcfile", str(config_path), "-o", str(report), *sources],
+        [*command, "json", "--rcfile", str(config_path), "-o", str(report), *map(Path, sources)],
         cwd=ROOT, check=True,
     )
     return report

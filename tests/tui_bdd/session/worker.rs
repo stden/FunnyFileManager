@@ -32,26 +32,14 @@ pub fn run(
 pub struct MemoryClipboard(pub Arc<Mutex<String>>);
 
 impl funny_file_manager::clipboard::ClipboardBackend for MemoryClipboard {
-    #[expect(
-        clippy::expect_used,
-        reason = "a poisoned lock means a panic already failed the scenario; Err would show as a failed paste"
-    )]
     fn get_native(&mut self) -> Result<String, String> {
         Ok(self.0.lock().expect("clipboard").clone())
     }
 
-    #[expect(
-        clippy::expect_used,
-        reason = "a poisoned lock means a panic already failed the scenario; Err would hit the OSC 52 tripwire"
-    )]
     fn set_native(&mut self, text: &str) -> Result<(), String> {
         text.clone_into(&mut self.0.lock().expect("clipboard"));
         Ok(())
     }
-    #[expect(
-        clippy::panic,
-        reason = "a tripwire: BDD reaching the terminal clipboard is a test bug and fails the scenario"
-    )]
     fn emit_osc52(&mut self, _: &str) -> Result<(), String> {
         panic!("BDD must use its own clipboard")
     }

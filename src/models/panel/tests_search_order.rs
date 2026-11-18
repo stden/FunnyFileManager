@@ -35,8 +35,7 @@ fn listing() -> Panel {
 fn selected(panel: &Panel) -> String {
     panel
         .get_selected_entry()
-        .map(|entry| entry.name.clone())
-        .unwrap_or_default()
+        .map_or_default(|entry| entry.name.clone())
 }
 
 #[test]

@@ -45,8 +45,7 @@ fn type_name(app: &mut App, text: &str) {
 fn cursor_on(app: &mut App) -> String {
     app.get_active_panel()
         .get_selected_entry()
-        .map(|entry| entry.name.clone())
-        .unwrap_or_default()
+        .map_or_default(|entry| entry.name.clone())
 }
 
 /// The point of the dialog: the folder that was just made is the one the user

@@ -67,4 +67,4 @@ fn record_outcome(app: &mut App, result: io::Result<run::Summary>) {
 mod tests;
 
 #[cfg(test)]
-mod tests_fixtures;
+pub(super) mod tests_fixtures;

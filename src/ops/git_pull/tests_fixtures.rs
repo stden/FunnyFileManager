@@ -6,15 +6,15 @@ use std::{
     process::Command,
 };
 
-pub(super) struct Fixture {
+pub(in crate::ops) struct Fixture {
     _temp: tempfile::TempDir,
-    pub(super) root: PathBuf,
-    pub(super) seed: PathBuf,
-    pub(super) remote: PathBuf,
+    pub(in crate::ops) root: PathBuf,
+    pub(in crate::ops) seed: PathBuf,
+    pub(in crate::ops) remote: PathBuf,
 }
 
 impl Fixture {
-    pub(super) fn new() -> Self {
+    pub(in crate::ops) fn new() -> Self {
         let temp = tempfile::TempDir::new().expect("temporary directory");
         let root = temp.path().join("workspace");
         let seed = temp.path().join("seed");
@@ -38,14 +38,14 @@ impl Fixture {
         }
     }
 
-    pub(super) fn clone_repo(&self, name: &str) -> PathBuf {
+    pub(in crate::ops) fn clone_repo(&self, name: &str) -> PathBuf {
         let path = self.root.join(name);
         git(&self.root, &["clone", text(&self.remote), text(&path)]);
         git(&path, &["config", "core.autocrlf", "false"]);
         path
     }
 
-    pub(super) fn advance(&self) {
+    pub(in crate::ops) fn advance(&self) {
         fs::write(self.seed.join("data.txt"), "remote update\n").expect("file");
         commit(&self.seed, "remote change");
         git(
@@ -59,11 +59,11 @@ fn remote_path(path: &Path) -> PathBuf {
     path.to_path_buf()
 }
 
-pub(super) fn text(path: &Path) -> &str {
+pub(in crate::ops) fn text(path: &Path) -> &str {
     path.to_str().expect("fixture path")
 }
 
-pub(super) fn git(repo: &Path, args: &[&str]) -> String {
+pub(in crate::ops) fn git(repo: &Path, args: &[&str]) -> String {
     let output = Command::new("git")
         .args([
             "-c",
@@ -88,7 +88,7 @@ pub(super) fn git(repo: &Path, args: &[&str]) -> String {
     String::from_utf8_lossy(&output.stdout).trim().to_owned()
 }
 
-pub(super) fn commit(repo: &Path, message: &str) {
+pub(in crate::ops) fn commit(repo: &Path, message: &str) {
     git(repo, &["add", "."]);
     git(repo, &["commit", "-m", message]);
 }

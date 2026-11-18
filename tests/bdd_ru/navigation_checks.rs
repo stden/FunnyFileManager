@@ -117,10 +117,6 @@ fn then_action_names_count_b(world: &mut FfmWorld, n: usize) -> StepResult {
 }
 
 #[then("панель должна иметь допустимое выделение")]
-#[expect(
-    clippy::unwrap_used,
-    reason = "the assert on the previous line proves sel is Some"
-)]
 fn then_valid_selection(world: &mut FfmWorld) -> StepResult {
     let panel = world.panel()?;
     if !panel.entries.is_empty() {

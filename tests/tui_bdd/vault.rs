@@ -26,10 +26,6 @@ fn nested_vault(world: &mut TuiWorld) {
     write_vault(&nested);
 }
 
-#[expect(
-    clippy::expect_used,
-    reason = "a Cucumber step fails by panicking, as a #[test] does"
-)]
 fn write_vault(path: &Path) {
     let mut db = Database::new();
     if let KdfConfig::Argon2 {

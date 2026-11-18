@@ -97,18 +97,13 @@ impl SessionEdit {
             protocol: session.protocol,
             host: session.host.to_string(),
             port: session.port.to_string(),
-            user: session
-                .user
-                .as_ref()
-                .map(ToString::to_string)
-                .unwrap_or_default(),
+            user: session.user.as_ref().map_or_default(ToString::to_string),
             auth: session.auth.kind(),
             key_file,
             remote_dir: session
                 .remote_dir
                 .as_ref()
-                .map(ToString::to_string)
-                .unwrap_or_default(),
+                .map_or_default(ToString::to_string),
             field: SessionField::default(),
             purpose: EditPurpose::Edit(session.name.clone()),
         }

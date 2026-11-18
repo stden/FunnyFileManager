@@ -59,10 +59,17 @@ pub(super) const KEYLESS: Group<Action> = Group {
             &[],
         )
         .note(Ffm, "Edit PATH of all users"),
+        row("sync_git_branch", Menu(MenuCommand::SyncGitBranch), &[]).note(
+            Ffm,
+            "Pull the current branch, update main and rebase on origin/main",
+        ),
         row("git_pull_all", Menu(MenuCommand::GitPullAll), &[])
             .note(Ffm, "Git pull for all repositories"),
         row("space_analysis", Menu(MenuCommand::SpaceAnalysis), &[])
             .note(Ffm, "Space analysis of the active folder"),
+        #[cfg(windows)]
+        row("optimize_volume", Menu(MenuCommand::VolumeMaintenance), &[])
+            .note(Ffm, "TRIM or defragment the local volume"),
         row("disk_cleanup", Menu(MenuCommand::DiskCleanup), &[])
             .note(Ffm, "Temporary files and tool caches, as a checklist"),
     ],

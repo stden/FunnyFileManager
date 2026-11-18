@@ -79,16 +79,10 @@ impl AttributesDialog {
             group: shared_name(entries.iter().map(|entry| entry.group.as_deref())),
             flags,
             modified: TimeField::offering(
-                single
-                    .and_then(|e| e.modified)
-                    .map(format_time)
-                    .unwrap_or_default(),
+                single.and_then(|e| e.modified).map_or_default(format_time),
             ),
             accessed: TimeField::offering(
-                single
-                    .and_then(|e| e.accessed)
-                    .map(format_time)
-                    .unwrap_or_default(),
+                single.and_then(|e| e.accessed).map_or_default(format_time),
             ),
             process_subfolders: false,
             has_directories,

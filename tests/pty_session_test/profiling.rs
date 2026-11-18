@@ -20,10 +20,6 @@ fn inherited_profile_reaches_pty_child() {
     assert!(status.success());
 }
 
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: missing process metadata or an exit status must fail the profile regression"
-)]
 fn check_child_environment() {
     let mut ffm = Ffm::start();
     let variables =

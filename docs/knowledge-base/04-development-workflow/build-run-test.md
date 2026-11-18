@@ -100,12 +100,12 @@ with exactly its codes, and must accept test code that uses the allowances.
 
 ## ⚙️ Important Environment Details
 
-- `rust-toolchain.toml` pins the exact Rust release (1.99.1) with rustfmt and
+- `rust-toolchain.toml` pins the exact Rust release (1.100.0) with rustfmt and
   Clippy for all packages; rustup installs it on first use, and every CI job
   installs the same file's release with `rustup toolchain install`. Bump it on
   purpose, in its own commit: a new stable brings new Clippy lints, and the
-  gate denies every warning. The manifests retain Rust 1.95 as the minimum
-  version. A toolchain outside rustup (such as a plain copy on `PATH`) ignores
+  gate denies every warning. All three Cargo manifests require the pinned
+  release as their minimum version. A standalone toolchain on `PATH` ignores
   the file.
 - The developer scripts (`ffm.py`, `install_mcp.py`,
   `create_desktop_shortcut.py`, `scripts/*.py`) use only the Python standard
@@ -247,15 +247,15 @@ stays red on the commit that broke it.
 
 | Job                       | Runner                                        | What it runs                                                                                                                                      |
 | ------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Resolve Cargo.lock        | ubuntu-24.04                                  | `cargo generate-lockfile` for the application and `colorer-sys`; uploads the `cargo-lock` artifact every job below except MCP downloads           |
-| Lint                      | ubuntu-24.04                                  | Full shared lint, including strict Rust/Python coverage, then lint self-tests; uploads JSON and LCOV reports                                      |
-| Tests & Coverage          | ubuntu-24.04                                  | Common production Rust/Python coverage gate, including all Rust features, fallback and custom BDD; uploads JSON/LCOV, TUI transcripts and UI SVGs |
-| BDD (s3 feature)          | ubuntu-24.04, windows-2025                    | the `s3` unit tests, then the `bdd` and `bdd_ru` suites                                                                                           |
+| Resolve Cargo.lock        | ubuntu-26.04                                  | `cargo generate-lockfile` for the application and `colorer-sys`; uploads the `cargo-lock` artifact every job below except MCP downloads           |
+| Lint                      | ubuntu-26.04                                  | Full shared lint, including strict Rust/Python coverage, then lint self-tests; uploads JSON and LCOV reports                                      |
+| Tests & Coverage          | ubuntu-26.04                                  | Common production Rust/Python coverage gate, including all Rust features, fallback and custom BDD; uploads JSON/LCOV, TUI transcripts and UI SVGs |
+| BDD (s3 feature)          | ubuntu-26.04, windows-2025                    | the `s3` unit tests, then the `bdd` and `bdd_ru` suites                                                                                           |
 | Windows                   | windows-2025                                  | Common Rust coverage gate for compiled Windows code, then root/MCP Clippy; uploads JSON and LCOV reports, TUI transcripts and UI SVGs             |
-| MCP Server                | ubuntu-24.04                                  | MCP all-feature unit, integration and custom BDD tests; the common gate measures MCP coverage and Lint checks its format/Clippy                   |
-| Colorer feature           | ubuntu-24.04                                  | Builds the pinned native engine and schemes, then Clippy and the common Rust coverage gate; uploads JSON and LCOV reports                         |
-| Dependencies (cargo-deny) | ubuntu-24.04                                  | `cargo deny --locked` for the application, MCP and `colorer-sys`                                                                                  |
-| Mutation testing          | ubuntu-24.04, four shards, pull requests only | `cargo mutants --in-diff` for the application and MCP, judged by `scripts/mutants_verdict.py`                                                     |
+| MCP Server                | ubuntu-26.04                                  | MCP all-feature unit, integration and custom BDD tests; the common gate measures MCP coverage and Lint checks its format/Clippy                   |
+| Colorer feature           | ubuntu-26.04                                  | Builds the pinned native engine and schemes, then Clippy and the common Rust coverage gate; uploads JSON and LCOV reports                         |
+| Dependencies (cargo-deny) | ubuntu-26.04                                  | `cargo deny --locked` for the application, MCP and `colorer-sys`                                                                                  |
+| Mutation testing          | ubuntu-26.04, four shards, pull requests only | `cargo mutants --in-diff` for the application and MCP, judged by `scripts/mutants_verdict.py`                                                     |
 
 Nothing an unchanged commit depends on floats. Each input is pinned in one
 place and bumped on purpose, in its own commit:
@@ -268,7 +268,7 @@ place and bumped on purpose, in its own commit:
 - Colorer: `COLORER_LIBRARY_SHA` and `COLORER_SCHEMES_SHA` in the Colorer job.
 - Actions: each `uses:` names a commit SHA, with its release in a comment;
   `.github/dependabot.yml` proposes updates weekly.
-- Runner images: `ubuntu-24.04` and `windows-2025`, never `-latest`.
+- Runner images: `ubuntu-26.04`, `windows-2025` and `macos-26`, never `-latest`.
 - Crates: the application's lockfile is resolved once per run, not tracked;
   the weekly run shows a crate release that breaks the build.
 

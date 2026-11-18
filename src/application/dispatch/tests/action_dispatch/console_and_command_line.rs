@@ -44,8 +44,7 @@ fn the_navigation_keys_scroll_the_console_when_it_is_showing() {
         app.console
             .visible(10)
             .last()
-            .map(|line| line.text().to_owned())
-            .unwrap_or_default()
+            .map_or_default(|line| line.text().to_owned())
     };
 
     press(&mut app, &mut terminal, KeyCode::End);

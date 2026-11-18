@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
-use crate::models::FileName;
+use crate::models::{DirEntry, FileName};
 
 use super::Panel;
 
@@ -42,8 +42,8 @@ impl Panel {
 
     /// Every entry this panel can act on — the listing without its `..` row,
     /// which is not a file and must never end up marked.
-    fn markable(&self) -> impl Iterator<Item = &str> {
-        self.entries
+    fn markable(entries: &[DirEntry]) -> impl Iterator<Item = &str> {
+        entries
             .iter()
             .map(|entry| entry.name.as_str())
             .filter(|name| *name != "..")
@@ -54,19 +54,16 @@ impl Panel {
     /// is what the status line reports.
     pub fn mark_matching(&mut self, mask: &crate::mask::Mask, select: bool) -> usize {
         self.remember_marks();
-        // Collected before anything is marked: the scan borrows the listing,
-        // and the marking mutates the set sitting beside it.
-        let hits: Vec<FileName> = self
-            .markable()
-            .filter(|name| mask.matches(name))
-            .map(|name| FileName::new(name.to_owned()))
-            .collect();
+        if !select && self.marked.is_empty() {
+            return 0;
+        }
+        let hits = Self::markable(&self.entries).filter(|name| mask.matches(name));
         let mut changed = 0;
         for name in hits {
             let moved = if select {
-                self.marked.insert(name)
+                self.marked.insert(FileName::from(name))
             } else {
-                self.marked.remove(name.as_str())
+                self.marked.remove(name)
             };
             changed += usize::from(moved);
         }
@@ -77,15 +74,14 @@ impl Panel {
     /// other bulk change, so Ctrl+M can take it back.
     pub fn mark_all(&mut self) {
         self.remember_marks();
-        let all: Vec<FileName> = self.markable().map(FileName::from).collect();
-        self.marked.extend(all);
+        self.marked
+            .extend(Self::markable(&self.entries).map(FileName::from));
     }
 
     /// Gray ∗: everything selected becomes unselected and the other way round.
     pub fn invert_marks(&mut self) {
         self.remember_marks();
-        let inverted: BTreeSet<FileName> = self
-            .markable()
+        let inverted: BTreeSet<FileName> = Self::markable(&self.entries)
             .filter(|name| !self.marked.contains(*name))
             .map(|name| FileName::new(name.to_owned()))
             .collect();

@@ -1,6 +1,29 @@
 //! Purpose: Tests for the Windows drive mask and file attribute wrappers,
 //! asked of the real system.
 
+#[test]
+fn a_system_directory_and_its_mount_have_the_same_volume_id() {
+    let directory = super::system_directory().unwrap();
+    let mount = super::volume_mount_point(&directory).unwrap();
+    assert!(mount.is_absolute());
+    let id = super::volume_id(&mount).unwrap();
+    assert!(id.to_string_lossy().starts_with(r"\\?\Volume{"));
+    assert_eq!(super::volume_mount_point(&mount).unwrap(), mount);
+    let invalid = std::path::Path::new("bad\0name");
+    for result in [
+        super::volume_id(invalid),
+        super::volume_mount_point(invalid).map(std::path::PathBuf::into_os_string),
+    ] {
+        assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::InvalidInput);
+    }
+}
+
+#[test]
+fn oem_output_preserves_ascii_and_empty_output() {
+    assert_eq!(super::decode_oem(b"Drive C: 100%\r\n"), "Drive C: 100%\r\n");
+    assert_eq!(super::decode_oem(b""), "");
+}
+
 /// The system drive is mounted by definition, so its bit must be set.
 #[cfg(windows)]
 #[test]

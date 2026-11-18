@@ -39,6 +39,59 @@ pub struct MenuChoice {
     pub target: ChoiceTarget,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VolumeOperation {
+    Trim,
+    Defragment,
+}
+
+impl VolumeOperation {
+    pub(crate) const fn label(self) -> &'static str {
+        match self {
+            Self::Trim => "TRIM",
+            Self::Defragment => "Defragment",
+        }
+    }
+}
+
+/// The confirmed mount point and the Windows volume identity behind it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VolumeTarget {
+    pub(crate) mount: PathBuf,
+    pub(crate) id: std::ffi::OsString,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitSyncTarget {
+    pub(crate) root: PathBuf,
+    pub(crate) branch: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MaintenanceCommand {
+    Volume(VolumeOperation, VolumeTarget),
+    SyncBranch(GitSyncTarget),
+}
+
+impl MaintenanceCommand {
+    pub(crate) fn label(&self) -> String {
+        match self {
+            Self::Volume(operation, target) => {
+                format!(
+                    "{} {}",
+                    operation.label(),
+                    crate::path_display::label(&target.mount)
+                )
+            }
+            Self::SyncBranch(target) => format!(
+                "Update Git branch {} in {}",
+                target.branch,
+                crate::path_display::label(&target.root)
+            ),
+        }
+    }
+}
+
 /// A choice reads as its label, which is all a menu draws of it.
 impl AsRef<str> for MenuChoice {
     fn as_ref(&self) -> &str {
@@ -48,6 +101,7 @@ impl AsRef<str> for MenuChoice {
 
 #[derive(Debug, Clone)]
 pub enum ChoiceTarget {
+    RunMaintenance(MaintenanceCommand),
     UpdatePackages(crate::packages::UpdatePlan),
     Directory(PathBuf),
     File(PathBuf),

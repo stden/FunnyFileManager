@@ -22,6 +22,7 @@ mod process_control;
 mod processes;
 mod registry;
 mod system_info;
+mod volumes;
 
 #[cfg(not(test))]
 pub use elevation::open_associated;
@@ -36,6 +37,7 @@ pub use registry::{read_registry_string, update_registry_string, RegistryHive};
 #[cfg(test)]
 pub use system_info::now_filetime_ticks;
 pub use system_info::read_system_sample;
+pub use volumes::{decode_oem, system_directory, volume_id, volume_mount_point};
 
 /// The drive letters Windows has mounted, as `GetLogicalDrives`' bitmask:
 /// bit 0 is `A:`, bit 25 is `Z:`. Zero means the call failed.

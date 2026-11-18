@@ -188,7 +188,7 @@ defaults. `install: null` disables automatic installation for one server.
 | ----------------------------------- | ----------------------------------------- | ----------------------------------------------------------- |
 | Rust                                | rust-analyzer                             | Install on PATH, e.g. `rustup component add rust-analyzer`  |
 | Python                              | python-lsp-server (pylsp)                 | Python 3 with venv and pip                                  |
-| Java                                | Eclipse JDT LS 1.61.0                     | Java 21+ and curl 8.4+; JAVA_HOME takes precedence for Java |
+| Java                                | Eclipse JDT LS 1.63.0                     | Java 21+ and curl 8.4+; JAVA_HOME takes precedence for Java |
 | JavaScript / JSX / TypeScript / TSX | typescript-language-server + TypeScript 6 | Node.js and npm                                             |
 | HTML / CSS / JSON                   | vscode-langservers-extracted              | Node.js and npm                                             |
 | YAML                                | yaml-language-server                      | Node.js and npm                                             |

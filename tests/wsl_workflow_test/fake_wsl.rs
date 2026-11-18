@@ -17,10 +17,6 @@ impl FakeWsl {
         }
     }
 
-    #[expect(
-        clippy::expect_used,
-        reason = "test fixture: the lock is poisoned only by a panic, which has already failed the test"
-    )]
     pub fn operations(&self) -> Vec<WslOperation> {
         self.operations.lock().expect("recorded operations").clone()
     }
@@ -55,10 +51,6 @@ impl WslBackend for FakeWsl {
     }
 }
 
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: every name passed here is a valid literal distribution name"
-)]
 pub fn distribution(name: &str) -> DistributionName {
     DistributionName::new(name).expect("valid fixture distribution")
 }

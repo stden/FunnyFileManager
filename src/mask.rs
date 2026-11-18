@@ -20,6 +20,9 @@
 //! they meant.
 
 mod equality;
+mod glob;
+
+use glob::glob_slice;
 
 /// A parsed mask: what it takes, and what it takes back.
 #[derive(Debug, Clone)]
@@ -33,15 +36,32 @@ pub struct Mask {
 struct Pattern {
     raw: String,
     chars: Vec<char>,
+    ascii_suffix_len: Option<usize>,
 }
 
 impl Pattern {
     fn new(raw: String) -> Self {
+        let suffix = raw.trim_start_matches('*');
+        let ascii_suffix_len =
+            (suffix.len() < raw.len() && suffix.is_ascii() && !suffix.contains(['*', '?']))
+                .then_some(suffix.len());
         let chars = fold_chars(&raw);
-        Self { raw, chars }
+        Self {
+            raw,
+            chars,
+            ascii_suffix_len,
+        }
     }
 
     fn matches(&self, name: &str, lower_chars: &mut Option<Vec<char>>) -> bool {
+        if let Some(len) = self.ascii_suffix_len {
+            let (_, tail) = name.as_bytes().split_at(name.len().saturating_sub(len));
+            // A non-ASCII tail can fold to ASCII (e.g. K to k), so it needs the full matcher.
+            if tail.is_ascii() {
+                let (_, suffix) = self.raw.as_bytes().split_at(self.raw.len() - len);
+                return tail.eq_ignore_ascii_case(suffix);
+            }
+        }
         if name.is_ascii() && self.raw.is_ascii() {
             return glob_slice(
                 self.raw.as_bytes(),
@@ -145,43 +165,6 @@ fn unquoted(text: &str) -> impl Iterator<Item = (usize, char)> + '_ {
         }
         !in_quotes
     })
-}
-
-/// Match one pattern slice against one candidate slice with iterative
-/// single-star backtracking.
-fn glob_slice<T: Copy>(
-    pattern: &[T],
-    name: &[T],
-    is_star: impl Fn(T) -> bool,
-    matches_one: impl Fn(T, T) -> bool,
-) -> bool {
-    let (mut pat_idx, mut name_idx) = (0, 0);
-    let mut last_star_idx: Option<usize> = None;
-    let mut star_match_end = 0;
-
-    while let Some(&current) = name.get(name_idx) {
-        match pattern.get(pat_idx).copied() {
-            Some(ch) if is_star(ch) => {
-                last_star_idx = Some(pat_idx);
-                star_match_end = name_idx;
-                pat_idx += 1;
-            }
-            Some(ch) if matches_one(ch, current) => {
-                pat_idx += 1;
-                name_idx += 1;
-            }
-            _ => {
-                let Some(star_idx) = last_star_idx else {
-                    return false;
-                };
-                pat_idx = star_idx + 1;
-                star_match_end += 1;
-                name_idx = star_match_end;
-            }
-        }
-    }
-    let rest = pattern.get(pat_idx..).unwrap_or_default();
-    rest.iter().copied().all(is_star)
 }
 
 #[cfg(test)]

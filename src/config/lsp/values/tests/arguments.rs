@@ -58,7 +58,7 @@ fn arguments_round_trip_through_their_line() {
     for case in cases {
         let owned: Vec<String> = case.iter().map(|s| (*s).to_owned()).collect();
         let line = Arguments::to_line(&owned);
-        assert_eq!(arguments(&line), Ok(owned.clone()), "{line:?}");
+        assert_eq!(arguments(&line), Ok(owned), "{line:?}");
     }
     assert_eq!(Arguments::to_line(&["--x=a b".to_owned()]), r#""--x=a b""#);
     assert_eq!(quote("a\"b"), r#""a""b""#);

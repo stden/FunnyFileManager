@@ -53,10 +53,6 @@ impl std::fmt::Debug for Session {
 }
 
 impl Session {
-    #[expect(
-        clippy::expect_used,
-        reason = "the BDD harness: a TUI that stops answering or panics fails the scenario driving it"
-    )]
     fn receive(&mut self, label: &str) {
         self.current = self
             .output
@@ -69,10 +65,6 @@ impl Session {
         self.trace.push(format!("{label}\n{text}\n"));
     }
 
-    #[expect(
-        clippy::expect_used,
-        reason = "the BDD harness: a TUI that stops answering or panics fails the scenario driving it"
-    )]
     fn event(&mut self, event: Event) {
         assert!(
             matches!(self.current, Output::Frame(_)),
@@ -104,10 +96,6 @@ impl Session {
         self.event(Event::Paste(text.to_owned()));
     }
 
-    #[expect(
-        clippy::expect_used,
-        reason = "the BDD harness: a TUI worker that panicked fails the scenario that stops it"
-    )]
     pub(super) fn stop(&mut self) {
         if matches!(self.current, Output::Frame(_)) && self.input.send(Input::Stop).is_ok() {
             if let Ok(output) = self.output.recv_timeout(DEADLINE) {

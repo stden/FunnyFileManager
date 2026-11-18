@@ -10,8 +10,8 @@
     "root_markers": ["pom.xml", "build.gradle", "build.gradle.kts", ".git"],
     "install": {
       "kind": "jdtls",
-      "url": "https://download.eclipse.org/jdtls/milestones/1.61.0/jdt-language-server-1.61.0-202609031315.tar.gz",
-      "sha256": "338e7e73d61836651ba2453919a0d34fa763eb4e7c03342092309bffb8934c64"
+      "url": "https://download.eclipse.org/jdtls/milestones/1.63.0/jdt-language-server-1.63.0-202610191322.tar.gz",
+      "sha256": "b1f2abe0b3cccb462cf64fb4a5587c7d09df60cf8be7748b152cbd89d018bdc4"
     }
   },
   "javascript": {

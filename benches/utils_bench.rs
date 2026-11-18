@@ -3,6 +3,8 @@
 
 use criterion::{criterion_group, criterion_main};
 
+#[path = "utils_bench/masks.rs"]
+mod masks;
 #[path = "utils_bench/models.rs"]
 mod models;
 #[path = "utils_bench/utils.rs"]
@@ -15,6 +17,7 @@ use utils::{bench_copy_dir_all, bench_format_size, bench_unique_destination};
 #[cfg(feature = "s3")]
 criterion_group!(
     benches,
+    masks::bench_file_masks,
     bench_format_size,
     bench_unique_destination,
     bench_copy_dir_all,
@@ -28,6 +31,7 @@ criterion_group!(
 #[cfg(not(feature = "s3"))]
 criterion_group!(
     benches,
+    masks::bench_file_masks,
     bench_format_size,
     bench_unique_destination,
     bench_copy_dir_all,

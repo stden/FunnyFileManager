@@ -19,10 +19,6 @@ use owners::{owner_violations, present_files};
 use test_code::{embedded_test_violations, feature_selection_violations};
 
 /// The single source file at `relative` in `sources`.
-#[expect(
-    clippy::panic,
-    reason = "test support: a file missing from the source set fails the test that named it"
-)]
 fn source<'s>(sources: &'s [SourceFile], relative: &str) -> &'s SourceFile {
     sources
         .iter()

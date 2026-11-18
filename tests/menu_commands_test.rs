@@ -42,10 +42,6 @@ fn choosing_the_right_panel_menu_changes_only_the_right_panel() -> io::Result<()
     Ok(())
 }
 
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: a menu without the named entry fails the test that chose it"
-)]
 fn select_menu(app: &mut App, heading: Heading, label: &str) {
     let mut menu = Menu::open(heading);
     menu.row = menu

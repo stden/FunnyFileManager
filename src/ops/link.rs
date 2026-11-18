@@ -33,8 +33,7 @@ pub fn open(app: &mut App) {
     };
     let suggested = target
         .file_name()
-        .map(|name| app.get_inactive_panel_ref().path.join(name))
-        .unwrap_or_default();
+        .map_or_default(|name| app.get_inactive_panel_ref().path.join(name));
     let prompt = NamePrompt::link_to(&target, suggested.display().to_string());
     app.set_overlay(Overlay::NamePrompt(prompt));
 }

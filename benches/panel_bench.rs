@@ -23,6 +23,8 @@ use funny_file_manager::models::{DirEntry, EntryKind, FileSize, Modified, Panel}
 
 #[path = "panel_bench/algorithms.rs"]
 mod algorithms;
+#[path = "panel_bench/bulk_marks.rs"]
+mod bulk_marks;
 #[path = "panel_bench/hotpaths.rs"]
 mod hotpaths;
 
@@ -154,6 +156,7 @@ criterion_group!(
     bench_quick_search,
     bench_search_next,
     bench_mark,
+    bulk_marks::bench_bulk_marks,
     bench_from_entries,
     hotpaths::bench_hotpaths,
     algorithms::bench_algorithms

@@ -3,10 +3,6 @@
 use super::*;
 
 /// The nonblocking far end the test holds, and the terminal FFM runs on.
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: an error from the pty fails the test driving it"
-)]
 pub fn open_pty() -> (File, File) {
     let far_end =
         openpt(OpenptFlags::RDWR | OpenptFlags::NOCTTY | OpenptFlags::CLOEXEC).expect("open a pty");
@@ -30,10 +26,6 @@ pub fn open_pty() -> (File, File) {
     (File::from(far_end), device)
 }
 
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: sandbox directories must exist"
-)]
 pub fn sandbox_directories(sandbox: &TempDir) -> (PathBuf, PathBuf) {
     let home = sandbox.path().join("home");
     let tmp = sandbox.path().join("tmp");

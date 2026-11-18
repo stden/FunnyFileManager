@@ -1,9 +1,4 @@
 //! Purpose: Exercise the public automation CLI through private pipes and isolated workspaces.
-#![expect(
-    clippy::unwrap_used,
-    clippy::indexing_slicing,
-    reason = "integration-test helpers: panics on fixture failure are correct behavior"
-)]
 
 use std::{fs, path::Path};
 
@@ -20,6 +15,8 @@ mod files;
 mod input;
 #[path = "automation_workflows_test/lifecycle.rs"]
 mod lifecycle;
+#[path = "automation_workflows_test/maintenance.rs"]
+mod maintenance;
 #[path = "automation_workflows_test/session.rs"]
 mod session;
 

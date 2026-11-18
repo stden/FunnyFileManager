@@ -15,19 +15,11 @@ pub(super) fn settings_file(world: &TuiWorld, name: &str) -> PathBuf {
 }
 
 /// The step's doc string, one file's text.
-#[expect(
-    clippy::expect_used,
-    reason = "a step written without its doc string must fail here, as a #[test] does"
-)]
 fn text(step: &Step) -> &str {
     step.docstring.as_deref().expect("a doc string").trim()
 }
 
 #[given(expr = "the workspace settings file {string} holds:")]
-#[expect(
-    clippy::expect_used,
-    reason = "a Cucumber step fails by panicking, as a #[test] does"
-)]
 #[expect(
     clippy::needless_pass_by_value,
     clippy::needless_pass_by_ref_mut,
@@ -57,10 +49,6 @@ fn open_with_settings(world: &mut TuiWorld, width: u16, height: u16) {
 
 #[then(expr = "the workspace settings file {string} contains:")]
 #[expect(
-    clippy::expect_used,
-    reason = "a Cucumber step fails by panicking, as a #[test] does"
-)]
-#[expect(
     clippy::needless_pass_by_value,
     clippy::needless_pass_by_ref_mut,
     reason = "Cucumber dictates step signatures: captured args arrive owned and the world as `&mut`"
@@ -72,10 +60,6 @@ fn settings_contain(world: &mut TuiWorld, name: String, step: &Step) {
 }
 
 #[then(expr = "the workspace settings file {string} still holds:")]
-#[expect(
-    clippy::expect_used,
-    reason = "a Cucumber step fails by panicking, as a #[test] does"
-)]
 #[expect(
     clippy::needless_pass_by_value,
     clippy::needless_pass_by_ref_mut,

@@ -1,5 +1,5 @@
 // Purpose: Present the TUI and MCP architecture with editable vector diagrams.
-#import "@preview/fletcher:0.5.8" as fletcher: diagram, node, edge
+#import "@preview/fletcher:0.6.0": diagram, node, edge
 
 #set document(
   title: "FunnyFileManager Architecture",
@@ -46,10 +46,10 @@
 // module name.
 #let step(pos, body, kind: none, ..args) = {
   let (ink, wash) = if kind == none { (border, white) } else { (layers.at(kind).ink, layers.at(kind).wash) }
-  node(pos, body, shape: fletcher.shapes.rect, fill: wash, stroke: 0.9pt + ink, corner-radius: 3pt, inset: 6pt, ..args)
+  node(pos, body, shape: "rect", fill: wash, stroke: 0.9pt + ink, corner-radius: 3pt, inset: 6pt, ..args)
 }
-#let question(pos, body, ..args) = node(pos, body, shape: fletcher.shapes.diamond, fill: rgb("#fff7ed"), stroke: 0.9pt + amber, inset: 3pt, ..args)
-#let outcome(pos, body, ..args) = node(pos, body, shape: fletcher.shapes.rect, fill: layers.state.wash, stroke: 1.2pt + layers.state.ink, corner-radius: 3pt, inset: 6pt, ..args)
+#let question(pos, body, ..args) = node(pos, body, shape: "diamond", fill: rgb("#fff7ed"), stroke: 0.9pt + amber, inset: 3pt, ..args)
+#let outcome(pos, body, ..args) = node(pos, body, shape: "rect", fill: layers.state.wash, stroke: 1.2pt + layers.state.ink, corner-radius: 3pt, inset: 6pt, ..args)
 #let note(body) = text(size: 7.5pt, fill: muted, body)
 #let chart(..args) = align(center, block(
   width: 100%,
@@ -174,15 +174,15 @@ that shared build-time metadata leaves both runtime lifecycles independent.
     step((1, 4), [⌨️ read the next event \ #note[injected `read_event`]], kind: "input"),
     edge("-|>"),
     question((1, 5), [`Overlay` \ active?], name: <overlay>),
-    edge(<overlay>, <popup>, "-|>", text(fill: layers.state.ink)[✅ yes], label-side: right),
-    edge(<overlay>, <panel>, "-|>", text(fill: rose)[❌ no], label-side: left),
     step((0, 6), [🪟 Modal keys \ #note[`popup::process_popup_input` \ every key stays in the dialog]], kind: "input", name: <popup>),
+    edge(<overlay>, <popup>, "-|>", text(fill: layers.state.ink)[✅ yes], label-side: right),
     edge(<popup>, <overlay>, "-|>", bend: 55deg, [#note[menu row: \ re-dispatch its key]], label-side: left),
     question((2, 6), [tree or \ quick-view \ panel?], name: <panel>),
-    edge(<panel>, <resolve>, "-|>", [not taken], label-side: left),
+    edge(<overlay>, <panel>, "-|>", text(fill: rose)[❌ no], label-side: left),
     step((2, 7), [🧭 `action::resolve` \ #note[pure key #sym.arrow typed `Action`]], kind: "input", name: <resolve>),
     edge("-|>"),
     step((2, 8), [⚡ `apply_action` \ #note[`application::dispatch` \ effects in `ops`]], kind: "effects", name: <apply>),
+    edge(<panel>, <resolve>, "-|>", [not taken], label-side: left),
     outcome((1, 9), [🧠 `App` · `Status` · `ConsoleLog` · `History`], name: <state>),
     edge(<popup>, <state>, "-|>"),
     edge(<panel>, <state>, "-|>", bend: -30deg, [taken], label-side: left),

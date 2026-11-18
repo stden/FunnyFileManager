@@ -11,6 +11,7 @@ impl LoopState {
     pub(super) fn pump_background(&mut self, app: &mut App) {
         let pumped = [
             self.temp_cleanup.pump(app),
+            self.maintenance.pump(app),
             self.database.pump(app),
             self.usage.pump(app),
             self.things.pump(app),

@@ -142,9 +142,7 @@ fn refresh_after_edit(app: &mut App) {
 
 /// Close the prompt and run what was typed.
 fn submit(app: &mut App) {
-    let command = state(app)
-        .map(|s| s.line.text().trim().to_owned())
-        .unwrap_or_default();
+    let command = state(app).map_or_default(|s| s.line.text().trim().to_owned());
     app.close_overlay();
     if command.is_empty() {
         return;

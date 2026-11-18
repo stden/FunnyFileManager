@@ -60,10 +60,6 @@ impl SourceFile {
     }
 
     /// Parse the file; a source the checker cannot read fails the test.
-    #[expect(
-        clippy::panic,
-        reason = "test support: a source the checker cannot parse fails the test that asked for it"
-    )]
     pub fn syntax(&self) -> syn::File {
         syn::parse_file(&self.text)
             .unwrap_or_else(|error| panic!("parse {}: {error}", self.relative))
@@ -89,11 +85,6 @@ impl SourceFile {
 }
 
 /// Every Rust file below `<root>/<package>/src`, sorted by path.
-#[expect(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "test support: a source tree the checker cannot read fails the test that asked for it"
-)]
 pub fn package_sources(root: &Path, package: &str) -> Vec<SourceFile> {
     let mut paths = Vec::new();
     rust_files(&root.join(package).join("src"), &mut paths);
@@ -113,10 +104,6 @@ pub fn package_sources(root: &Path, package: &str) -> Vec<SourceFile> {
         .collect()
 }
 
-#[expect(
-    clippy::expect_used,
-    reason = "test support: a source tree the checker cannot read fails the test that asked for it"
-)]
 fn rust_files(directory: &Path, files: &mut Vec<PathBuf>) {
     for entry in fs::read_dir(directory).expect("read source directory") {
         let path = entry.expect("read source entry").path();

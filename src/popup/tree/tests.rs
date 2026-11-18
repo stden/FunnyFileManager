@@ -45,8 +45,7 @@ fn tree_app() -> (TempDir, App) {
 fn selected(app: &mut App) -> String {
     tree_mut(app)
         .and_then(|tree| tree.selected())
-        .map(|path| path.display().to_string())
-        .unwrap_or_default()
+        .map_or_default(|path| path.display().to_string())
 }
 
 #[test]

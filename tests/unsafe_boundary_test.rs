@@ -96,6 +96,10 @@ const BOUNDARIES: &[(&str, &str)] = &[
         "src/platform/windows/system_info.rs",
         "Win32 system CPU times, memory/pagefile status and uptime",
     ),
+    (
+        "src/platform/windows/volumes.rs",
+        "Win32 mount identity, system directory and OEM report decoding",
+    ),
     ("src/recording/tty.rs", "poll(2) on the terminal descriptor"),
     (
         "src/windows/process_tree.rs",

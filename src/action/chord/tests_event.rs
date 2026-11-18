@@ -27,8 +27,7 @@ pub(super) type Row = (
 fn text(platform: Platform, event: KeyEvent) -> String {
     platform
         .chord(event)
-        .map(|chord| chord.to_string())
-        .unwrap_or_default()
+        .map_or_default(|chord| chord.to_string())
 }
 
 pub(super) fn check(rows: &[Row]) {

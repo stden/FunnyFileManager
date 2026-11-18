@@ -41,6 +41,8 @@ pub use windows::{
     broadcast_environment_change, read_registry_string, update_registry_string, RegistryHive,
 };
 #[cfg(windows)]
+pub use windows::{decode_oem, system_directory, volume_id, volume_mount_point};
+#[cfg(windows)]
 pub use windows::{
     icmp_ping, list_processes, read_net_endpoints, read_network_adapters, read_system_sample,
     set_process_priority, terminate_process, WinOwnerCache,

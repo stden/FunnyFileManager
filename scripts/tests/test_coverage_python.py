@@ -78,7 +78,7 @@ class PythonCoverageTests(unittest.TestCase):
     def test_missing_coverage_fails_with_the_install_command(self):
         failed = subprocess.CompletedProcess([], 1, stdout="", stderr="No module named coverage")
         with patch.object(self.backend.subprocess, "run", return_value=failed):
-            with self.assertRaisesRegex(SystemExit, "pip install coverage"):
+            with self.assertRaisesRegex(SystemExit, r"pip install -r requirements-coverage\.txt"):
                 self.backend.require_coverage()
 
     def test_old_coverage_fails_before_running_tests(self):
@@ -120,21 +120,24 @@ class PythonCoverageTests(unittest.TestCase):
             (root / "tests").mkdir()
             (root / "scripts").mkdir()
             (root / "ffm.py").write_text(CHILD_SOURCE, encoding="utf-8")
+            (root / "scripts/run.py").write_text("EXECUTED = 1\n", encoding="utf-8")
             (root / "scripts/never.py").write_text("NEVER_EXECUTED = 42\n", encoding="utf-8")
             (root / "tests/test_child.py").write_text(textwrap.dedent(CHILD_TEST), encoding="utf-8")
             with (
                 patch.object(self.backend, "ROOT", root),
-                patch.object(self.backend, "production_files", return_value=["ffm.py", "scripts/never.py"]),
-                patch.object(self.backend, "SUITES", [("-m", "unittest", "discover", "-s", "tests")]),
+                patch.object(self.backend, "production_files", return_value=["ffm.py", "scripts/never.py", "scripts/run.py"]),
+                patch.object(self.backend, "SUITES", [("-m", "unittest", "discover", "-s", "tests"), ("scripts/run.py",)]),
             ):
                 report = self.backend.run(root / "measurement")
             measured = json.loads(report.read_text(encoding="utf-8"))
-        self.assertEqual(set(measured["files"]), {"ffm.py", "scripts/never.py"})
-        self.assertEqual(measured["files"]["ffm.py"]["executed_lines"], [1, 2, 3])
-        self.assertEqual(measured["files"]["ffm.py"]["missing_lines"], [4])
-        self.assertEqual(measured["files"]["scripts/never.py"]["missing_lines"], [1])
-        self.assertEqual(measured["totals"]["num_statements"], 5)
-        self.assertEqual(measured["totals"]["covered_lines"], 3)
+        files = {Path(name).as_posix(): entry for name, entry in measured["files"].items()}
+        self.assertEqual(set(files), {"ffm.py", "scripts/never.py", "scripts/run.py"})
+        self.assertEqual(files["ffm.py"]["executed_lines"], [1, 2, 3])
+        self.assertEqual(files["ffm.py"]["missing_lines"], [4])
+        self.assertEqual(files["scripts/never.py"]["missing_lines"], [1])
+        self.assertEqual(files["scripts/run.py"]["executed_lines"], [1])
+        self.assertEqual(measured["totals"]["num_statements"], 6)
+        self.assertEqual(measured["totals"]["covered_lines"], 4)
 
 
 if __name__ == "__main__":

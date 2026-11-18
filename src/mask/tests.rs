@@ -2,6 +2,8 @@
 
 use super::Mask;
 
+mod suffixes;
+
 #[test]
 fn exact_source_is_available_without_changing_mask_equality() {
     let mask = Mask::parse("\"File,One.RS\",*.RS");

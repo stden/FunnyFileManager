@@ -16,11 +16,6 @@ const ANSWER_SECS: u64 = 60;
 
 /// A private `CARGO_HOME`: no other Cargo's package-cache lock, and no
 /// developer config (which may select sccache) leaking into the probe.
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: a failed setup fails the calling test; clippy.toml allows that in \
-              #[test] fns and #[cfg(test)] items, not in integration-test helpers"
-)]
 fn sandbox() -> tempfile::TempDir {
     let dir = tempfile::tempdir().expect("temp dir");
     std::fs::create_dir(dir.path().join("cargo-home")).expect("CARGO_HOME");
@@ -29,11 +24,6 @@ fn sandbox() -> tempfile::TempDir {
 
 /// A stuck sccache in miniature: the wrapper exits, but a process it
 /// started keeps Cargo's output pipe open, so Cargo waits for an EOF.
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: a failed setup fails the calling test; clippy.toml allows that in \
-              #[test] fns and #[cfg(test)] items, not in integration-test helpers"
-)]
 fn stalling_wrapper(sandbox: &Path) -> String {
     let wrapper = sandbox.join("stalling-wrapper");
     std::fs::write(&wrapper, "#!/bin/sh\nsleep 20 &\nexec \"$@\"\n").expect("write wrapper");
@@ -43,11 +33,6 @@ fn stalling_wrapper(sandbox: &Path) -> String {
 }
 
 /// `wrapper: None` leaves the choice to Cargo's config files.
-#[expect(
-    clippy::expect_used,
-    reason = "test fixture: a failed setup fails the calling test; clippy.toml allows that in \
-              #[test] fns and #[cfg(test)] items, not in integration-test helpers"
-)]
 fn preflight(sandbox: &Path, wrapper: Option<&str>, limit_secs: u64) -> (Output, Duration) {
     let mut command = Command::new("python3");
     command

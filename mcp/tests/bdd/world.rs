@@ -21,10 +21,6 @@ pub struct McpWorld {
 }
 
 impl McpWorld {
-    #[expect(
-        clippy::expect_used,
-        reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-    )]
     pub fn temp_path(&self) -> PathBuf {
         self.temp_dir
             .as_ref()
@@ -38,10 +34,6 @@ impl McpWorld {
     }
 
     /// The out-of-root tree, created on first use.
-    #[expect(
-        clippy::expect_used,
-        reason = "BDD steps fail by panicking; harness = false puts them outside the test allowances"
-    )]
     pub fn outside_path(&mut self) -> PathBuf {
         self.outside_dir
             .get_or_insert_with(|| TempDir::new().expect("create outside dir"))
