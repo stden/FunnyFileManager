@@ -1,0 +1,34 @@
+//! Consolidated default-feature integration tests.
+
+mod additional_tests;
+mod attributes_dialog_test;
+mod automation_workflows_test;
+mod bdd_runner_test;
+mod cargo_config_test;
+mod conpty_session_test;
+mod cross_filesystem_move_test;
+mod degenerate_size_test;
+mod disk_cleanup_test;
+mod edge_case_unit_tests;
+mod encoding_conversion_test;
+mod generated_format_size_1000_test;
+mod generated_utils_variety_test;
+mod handlers_mutation_tests;
+mod increased_coverage_test;
+mod integration_test;
+mod keymap_golden_test;
+mod matching_test;
+mod models_mutation_tests;
+mod mutation_tests;
+mod nav_debug_test;
+mod panel_menu_modes_test;
+mod private_data_lint_test;
+mod pty_session_test;
+mod public_api_coverage_test;
+mod sortmenu_test;
+mod startup_failure_test;
+mod ui_tests;
+mod virtual_path_matrix_test;
+mod windows_behavior_test;
+mod wipe_filesystem_test;
+mod zz_probe_delete_twice;
